@@ -15,3 +15,6 @@ pnpm -r test
 
 echo "==> pnpm lint"
 pnpm lint
+
+echo "==> policy sandbox negative smoke"
+bash "$REPO_ROOT/harness/lint/ts-eslint/policy-sandbox-smoke.sh"

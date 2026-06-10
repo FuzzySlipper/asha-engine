@@ -32,7 +32,8 @@ for pkg_dir in sorted(ts_packages.iterdir()):
     imports_found: set[str] = set()
     for src_file in pkg_dir.rglob("*.ts"):
         text = src_file.read_text()
-        for match in re.finditer(r'from\s+["\'](@asha/[a-z-]+)["\']', text):
+        # Matches both `... from "@asha/x"` and side-effect `import "@asha/x"`.
+        for match in re.finditer(r'(?:from|import)\s+["\'](@asha/[a-z-]+)["\']', text):
             imports_found.add(match.group(1))
 
     # Also check package.json dependencies
@@ -44,9 +45,17 @@ for pkg_dir in sorted(ts_packages.iterdir()):
                 if dep.startswith("@asha/"):
                     imports_found.add(dep)
 
+    pkg_lane = pkg_meta.get("lane", "?")
     for fi in forbidden:
         if fi in imports_found:
-            failures.append(f"FAIL: {ownership_key} imports forbidden package '{fi}'")
+            target_short = fi.split("/", 1)[-1]
+            target_lane = packages.get(f"ts/packages/{target_short}", {}).get("lane", "?")
+            failures.append(
+                f"FAIL: {ownership_key} (lane {pkg_lane}) imports forbidden package "
+                f"'{fi}' (lane {target_lane}).\n"
+                f"      Route this through the contract border or move the dependency "
+                f"into a {target_lane} package — do not relax the boundary."
+            )
 
 if failures:
     for msg in failures:

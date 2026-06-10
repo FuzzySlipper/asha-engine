@@ -11,3 +11,11 @@ core-ids      = { path = "../../foundation/core-ids" }
 core-state    = { path = "../../state/core-state" }
 core-commands = { path = "../../state/core-commands" }
 core-events   = { path = "../../state/core-events" }
+
+[dev-dependencies]
+# Integration tests link the library and need the border types directly to
+# decode the shared TypeScript command fixtures and inspect validation results.
+core-ids      = { path = "../../foundation/core-ids" }
+core-state    = { path = "../../state/core-state" }
+core-commands = { path = "../../state/core-commands" }
+core-events   = { path = "../../state/core-events" }

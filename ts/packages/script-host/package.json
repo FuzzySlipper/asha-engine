@@ -13,11 +13,14 @@
   },
   "scripts": {
     "build":     "tsc --build",
-    "typecheck": "tsc --noEmit",
-    "test":      "echo no tests yet"
+    "typecheck": "tsc --build",
+    "test":      "tsc --build && node --test 'dist/**/*.test.js'"
   },
   "dependencies": {
     "@asha/contracts": "workspace:*",
     "@asha/script-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@asha/policy-core": "workspace:*"
   }
 }
