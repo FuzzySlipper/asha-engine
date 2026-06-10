@@ -30,33 +30,71 @@ the simulation path. Policy code receives deterministic inputs only.
 
 ## Replay file format
 
-Defined in `protocol-replay`. A replay file contains:
-- Header: engine version, seed, initial snapshot reference
-- Steps: sequence of `ReplayStep` (accepted events + optional hash assertion)
-- Tail: final state hash
+The in-memory shape is `protocol-replay::ReplayRecord`; the on-disk `.replay`
+text encoding is `sim-replay::{encode, decode}` — small, deterministic, and
+diff-reviewable:
+
+```text
+replay <format_version>
+init <hash>
+step <index>
+cmd <origin> <domain>.<kind> <args...>
+event <noun>.<verb> <args...>      # zero or more, accepted steps only
+post <hash>
+...
+snapshot <step> <hash> <snapshot_version>
+```
+
+Each step records a proposed command and its `StepOutcome`: accepted (`event`
+lines) **or** rejected (a `reject <summary>` line). Hashes are 16-digit hex. A
+rejected step's `post` hash equals the prior hash (state unchanged).
+
+Committed real recordings live under `harness/goldens/replays/*.replay`.
+Synthetic *format* fixtures (illustrative hashes, not played back) live under
+`harness/fixtures/replays/`.
+
+## Recording
+
+`sim-runner::Recorder` drives a `StateStore` forward, recording each command's
+outcome and post-step hash. `CheckpointInterval` (`FinalOnly`, `EveryStep`,
+`EverySteps(n)`) controls checkpoint frequency; a final checkpoint is always
+added. Recording is explicit and opt-in — the normal `run_tick` path keeps no
+hidden recording state.
 
 ## Running replays
 
 ```sh
-# Run a named golden replay headlessly
-cargo run -p replay-tool -- run harness/goldens/replays/<name>.replay
+# Play a golden replay back against current authority logic (0 = ok, 1 = diverged)
+cargo run -p replay-tool -- check harness/goldens/replays/<name>.replay
 
-# Diff two replays
-cargo run -p snapshot-diff -- <a>.replay <b>.replay
+# Re-encode an artifact to stdout for inspection
+cargo run -p replay-tool -- show harness/goldens/replays/<name>.replay
 ```
+
+`harness/ci/check-replays.sh` builds `replay-tool` and checks every golden under
+`harness/goldens/replays/` with it.
 
 ## Divergence reports
 
-When a replay diverges, `sim-replay` produces a `DivergenceReport` that names:
-- The step index where divergence began
-- The expected vs. actual state hash
-- The accepted event that triggered the divergence
+`sim-runner::playback` re-runs a golden and `sim-replay::diff`s it against the
+record, returning the first `sim-replay::Divergence`. The report names the
+replay, the diverging step, expected vs. actual, and a likely owner:
 
-This report is machine-readable so an orchestrator can route the failure to the responsible lane.
+| class | likely owner |
+|---|---|
+| `command-mismatch` | core-commands / sim-replay encoding |
+| `accepted-event-mismatch` | sim-validator + sim-applier + core-events |
+| `rejection-mismatch` | sim-validator |
+| `hash-checkpoint-mismatch` | core-snapshot, or an upstream state change |
+| `structural-mismatch` | sim-runner recording / sim-replay assembly |
+| `malformed-artifact` | sim-replay encoder/decoder, or a corrupt file |
+
+The report is deterministic and CI-friendly so an orchestrator can route the
+failure to the responsible lane — never a bare "replay failed".
 
 ## Adding a new golden replay
 
-1. Run the scenario headlessly with recording enabled.
-2. Save the output to `harness/goldens/replays/<descriptive-name>.replay`.
-3. Add the file to the `check-replays.sh` manifest.
-4. Verify the replay passes on both native and WASM targets.
+1. Record the scenario with `sim-runner::Recorder` (see the
+   `golden_replay_*` tests in `sim-runner` for the pattern).
+2. Save the encoded output to `harness/goldens/replays/<descriptive-name>.replay`.
+3. `check-replays.sh` picks it up automatically (it globs the directory).

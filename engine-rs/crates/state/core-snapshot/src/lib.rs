@@ -234,6 +234,47 @@ mod tests {
         );
     }
 
+    /// The hash must depend only on *what* is in the store, not the order it
+    /// was inserted — i.e. it is independent of any nondeterministic iteration.
+    #[test]
+    fn state_hash_independent_of_insertion_order() {
+        let mut a = StateStore::new();
+        let mut b = StateStore::new();
+
+        // Insert the same entities and tags in opposite orders.
+        for raw in [3u64, 1, 2] {
+            a.insert_tag(TagId::new(raw));
+            a.insert_entity(EntityId::new(raw));
+        }
+        for raw in [2u64, 3, 1] {
+            b.insert_tag(TagId::new(raw));
+            b.insert_entity(EntityId::new(raw));
+        }
+        // Tag the entities in different orders too.
+        a.entity_mut(EntityId::new(1))
+            .unwrap()
+            .tags
+            .insert(TagId::new(3));
+        a.entity_mut(EntityId::new(1))
+            .unwrap()
+            .tags
+            .insert(TagId::new(1));
+        b.entity_mut(EntityId::new(1))
+            .unwrap()
+            .tags
+            .insert(TagId::new(1));
+        b.entity_mut(EntityId::new(1))
+            .unwrap()
+            .tags
+            .insert(TagId::new(3));
+
+        assert_eq!(
+            hash_store(&a),
+            hash_store(&b),
+            "hash must be insertion-order independent"
+        );
+    }
+
     #[test]
     fn state_hash_fixture_meaningful_change_produces_different_hash() {
         let s_before = make_store_with_entity(1);

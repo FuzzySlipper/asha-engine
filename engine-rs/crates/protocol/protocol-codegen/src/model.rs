@@ -397,13 +397,25 @@ pub fn replay_module() -> Module {
                 v("tagUndefined", vec![f("id", r("TagId"))]),
             ],
         ),
+        union(
+            "What the authority core decided about a proposed command.",
+            "StepOutcome",
+            "status",
+            vec![
+                v(
+                    "accepted",
+                    vec![f("events", TsType::array(r("DomainEvent")))],
+                ),
+                v("rejected", vec![f("summary", string())]),
+            ],
+        ),
         iface(
-            "One recorded step: input command, produced events, and post-step hash.",
+            "One recorded step: input command, the authority outcome, and post-step hash.",
             "ReplayStep",
             vec![
                 f("index", r("StepIndex")),
                 f("command", r("CommandEnvelope")),
-                f("events", TsType::array(r("DomainEvent"))),
+                f("outcome", r("StepOutcome")),
                 f("postHash", r("ReplayHash")),
             ],
         ),

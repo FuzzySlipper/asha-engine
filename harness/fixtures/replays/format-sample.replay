@@ -1,0 +1,11 @@
+replay 1
+init 0000000000000abc
+step 0
+cmd input entity.create 5
+event entity.created 5
+post 0000000000000011
+step 1
+cmd policy signal.define 1
+event signal.defined 1
+post 0000000000000022
+snapshot 1 0000000000000022 1

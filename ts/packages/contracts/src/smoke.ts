@@ -63,7 +63,7 @@ const record: ReplayRecord = {
     {
       index: stepIndex(0),
       command: envelope,
-      events: [{ event: 'entityCreated', id: entity }],
+      outcome: { status: 'accepted', events: [{ event: 'entityCreated', id: entity }] },
       postHash: replayHash(1),
     },
   ],

@@ -9,3 +9,7 @@ path = "src/main.rs"
 
 [lints]
 workspace = true
+
+[dependencies]
+sim-replay = { path = "../../sim/sim-replay" }
+sim-runner = { path = "../../sim/sim-runner" }

@@ -38,11 +38,16 @@ export type DomainEvent =
   | { readonly event: 'tagDefined'; readonly id: TagId }
   | { readonly event: 'tagUndefined'; readonly id: TagId };
 
-// One recorded step: input command, produced events, and post-step hash.
+// What the authority core decided about a proposed command.
+export type StepOutcome =
+  | { readonly status: 'accepted'; readonly events: readonly DomainEvent[] }
+  | { readonly status: 'rejected'; readonly summary: string };
+
+// One recorded step: input command, the authority outcome, and post-step hash.
 export interface ReplayStep {
   readonly index: StepIndex;
   readonly command: CommandEnvelope;
-  readonly events: readonly DomainEvent[];
+  readonly outcome: StepOutcome;
   readonly postHash: ReplayHash;
 }
 

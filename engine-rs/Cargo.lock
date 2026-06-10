@@ -113,6 +113,10 @@ version = "0.1.0"
 [[package]]
 name = "replay-tool"
 version = "0.1.0"
+dependencies = [
+ "sim-replay",
+ "sim-runner",
+]
 
 [[package]]
 name = "rule-lifecycle"
@@ -156,6 +160,12 @@ dependencies = [
 [[package]]
 name = "sim-replay"
 version = "0.1.0"
+dependencies = [
+ "core-commands",
+ "core-events",
+ "core-ids",
+ "protocol-replay",
+]
 
 [[package]]
 name = "sim-runner"
@@ -168,6 +178,7 @@ dependencies = [
  "core-state",
  "sim-applier",
  "sim-kernel",
+ "sim-replay",
  "sim-validator",
 ]
 

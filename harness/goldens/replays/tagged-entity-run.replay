@@ -1,0 +1,25 @@
+replay 1
+init 9746a713f3a6584a
+step 0
+cmd system tag.define 1
+event tag.defined 1
+post 9245ad62d9fc0fab
+step 1
+cmd system entity.create 10
+event entity.created 10
+post f2378409885f38f5
+step 2
+cmd system entity.addTag 10 1
+event entity.tagAdded 10 1
+post 095efd4ebc4f1d95
+step 3
+cmd system entity.delete 99
+reject EntityNotFound { id: EntityId(99) }
+post 095efd4ebc4f1d95
+step 4
+cmd system entity.create 11
+event entity.created 11
+post e2f763bcf2f73ab0
+snapshot 1 f2378409885f38f5 1
+snapshot 3 095efd4ebc4f1d95 1
+snapshot 4 e2f763bcf2f73ab0 1

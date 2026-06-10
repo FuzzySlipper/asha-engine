@@ -14,8 +14,8 @@
 //! generated into TypeScript for tooling — it is the schema, not the engine.
 //!
 //! - [`StepIndex`] / [`ReplayHash`] are border-owned scalar wrappers.
-//! - [`ReplayStep`] pairs an input [`CommandEnvelope`] with the
-//!   [`DomainEvent`]s it produced and the post-step state hash.
+//! - [`ReplayStep`] pairs an input [`CommandEnvelope`] with its [`StepOutcome`]
+//!   (accepted [`DomainEvent`]s or a rejection summary) and the post-step hash.
 //! - [`SnapshotMeta`] marks a point where a full state snapshot was taken.
 //! - [`ReplayRecord`] is the whole run: an initial hash plus ordered steps and
 //!   snapshot markers.
@@ -82,16 +82,46 @@ impl ReplayHash {
 
 // ── Record shapes ─────────────────────────────────────────────────────────────
 
-/// One recorded step: an input command, the events it produced, and the state
-/// hash immediately after those events were applied.
+/// What the authority core decided about a proposed command.
+///
+/// A sum type rather than an "events + maybe-rejection" struct: a rejected
+/// proposal *structurally* carries no accepted events, so the record can never
+/// claim a rejected command also produced events.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StepOutcome {
+    /// The command was accepted; these domain events were applied, in order.
+    Accepted { events: Vec<DomainEvent> },
+    /// The command was rejected; no events were applied. `summary` is a
+    /// human-readable reason — the authority validator owns the precise reason,
+    /// the record keeps an inspectable summary.
+    Rejected { summary: String },
+}
+
+impl StepOutcome {
+    /// The accepted events, or an empty slice for a rejected step.
+    pub fn events(&self) -> &[DomainEvent] {
+        match self {
+            StepOutcome::Accepted { events } => events,
+            StepOutcome::Rejected { .. } => &[],
+        }
+    }
+
+    pub fn is_accepted(&self) -> bool {
+        matches!(self, StepOutcome::Accepted { .. })
+    }
+}
+
+/// One recorded step: an input command, the authority core's [`StepOutcome`],
+/// and the state hash immediately after the step.
 ///
 /// Replaying re-applies `command` to the prior state and checks that the result
-/// reproduces `events` and `post_hash`. A mismatch is a divergence (Phase 4).
+/// reproduces `outcome` and `post_hash`. A mismatch is a divergence (Phase 4).
+/// For a rejected step `post_hash` equals the pre-step hash (state is unchanged).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReplayStep {
     pub index: StepIndex,
     pub command: CommandEnvelope,
-    pub events: Vec<DomainEvent>,
+    pub outcome: StepOutcome,
     pub post_hash: ReplayHash,
 }
 
@@ -164,9 +194,11 @@ mod tests {
                     id: EntityId::new(eid),
                 }),
             ),
-            events: vec![DomainEvent::EntityCreated {
-                id: EntityId::new(eid),
-            }],
+            outcome: StepOutcome::Accepted {
+                events: vec![DomainEvent::EntityCreated {
+                    id: EntityId::new(eid),
+                }],
+            },
             post_hash: ReplayHash::new(hash),
         }
     }
@@ -189,10 +221,20 @@ mod tests {
         assert_eq!(rec.steps[0].index, StepIndex::new(0));
         assert_eq!(rec.steps[1].index, StepIndex::new(1));
         assert_eq!(rec.latest_hash(), ReplayHash::new(200));
+        assert!(rec.steps[0].outcome.is_accepted());
         assert!(matches!(
-            rec.steps[0].events[0],
+            rec.steps[0].outcome.events()[0],
             DomainEvent::EntityCreated { .. }
         ));
+    }
+
+    #[test]
+    fn rejected_outcome_has_no_events() {
+        let rejected = StepOutcome::Rejected {
+            summary: "EntityNotFound".to_string(),
+        };
+        assert!(!rejected.is_accepted());
+        assert!(rejected.events().is_empty());
     }
 
     #[test]

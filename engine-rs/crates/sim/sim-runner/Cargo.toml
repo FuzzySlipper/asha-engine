@@ -11,9 +11,8 @@ core-ids      = { path = "../../foundation/core-ids" }
 core-state    = { path = "../../state/core-state" }
 core-commands = { path = "../../state/core-commands" }
 core-events   = { path = "../../state/core-events" }
+core-snapshot = { path = "../../state/core-snapshot" }
 sim-kernel    = { path = "../sim-kernel" }
 sim-validator = { path = "../sim-validator" }
 sim-applier   = { path = "../sim-applier" }
-
-[dev-dependencies]
-core-snapshot = { path = "../../state/core-snapshot" }
+sim-replay    = { path = "../sim-replay" }

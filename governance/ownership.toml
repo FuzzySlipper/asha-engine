@@ -96,7 +96,7 @@ may_not_depend_on = ["render-bridge", "wasm-api"]
 
 [crate."engine-rs/crates/sim/sim-runner"]
 lane = "rust-state"
-may_depend_on = ["core-ids", "core-error", "core-state", "core-events", "core-commands", "sim-kernel", "sim-validator", "sim-applier", "sim-replay"]
+may_depend_on = ["core-ids", "core-error", "core-state", "core-events", "core-commands", "core-snapshot", "sim-kernel", "sim-validator", "sim-applier", "sim-replay"]
 may_not_depend_on = ["render-bridge", "wasm-api"]
 
 # ─── Rust: Services ──────────────────────────────────────────────────────────

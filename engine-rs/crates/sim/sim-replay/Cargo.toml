@@ -5,3 +5,9 @@ edition.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+core-ids        = { path = "../../foundation/core-ids" }
+core-commands   = { path = "../../state/core-commands" }
+core-events     = { path = "../../state/core-events" }
+protocol-replay = { path = "../../protocol/protocol-replay" }
