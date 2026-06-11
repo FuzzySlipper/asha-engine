@@ -107,3 +107,23 @@ pnpm test --filter @agent-engine/policy-core
 - **Infrastructure first**: Prove the machinery before adding domain content
 - **Replay is audit bureaucracy**: Every state change must be replayable
 - **The desired failure mode**: The agent cannot compile the wrong thing
+
+## TypeScript House Style
+
+TypeScript in this repo is written for agent governance, not clever human terseness.
+
+Prefer longer, clearer code over compact clever code. Use named intermediate
+values for meaningful decisions. Split work into small functions with explicit
+verbs. Avoid generic abstractions until duplication has stabilized. Keep mutation
+local and visible. Do not create ambient state, manager classes, global registries,
+or hidden runtime coupling.
+
+A good TypeScript diff should be easy for a reviewer agent to inspect mechanically:
+imports reveal lane boundaries, functions reveal intent, tests reveal behavior,
+and public API changes are explicit.
+
+When in doubt, write the boring version.
+
+## Rust House Style
+
+Rust in this repo should be boring authority code. Prefer explicit state, explicit errors, explicit events, and narrow crate APIs. Do not introduce clever abstractions, runtime escape hatches, or framework-shaped machinery unless a lane owner explicitly approves them.

@@ -150,6 +150,14 @@ name = "rule-state-machine"
 version = "0.1.0"
 
 [[package]]
+name = "runtime-bridge-api"
+version = "0.1.0"
+dependencies = [
+ "core-error",
+ "core-ids",
+]
+
+[[package]]
 name = "sim-applier"
 version = "0.1.0"
 dependencies = [

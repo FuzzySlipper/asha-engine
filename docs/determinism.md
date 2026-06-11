@@ -12,6 +12,12 @@ WASM semantics are the replay authority. If native and WASM produce different ha
 for the same event sequence, the WASM result is correct and the native path must be fixed
 or the divergence must be explicitly classified and tested.
 
+This separation is concrete in `@asha/wasm-replay-bridge` (ADR 0006): the WASM replay
+path stays in that package (replay/golden/devtools only), while the runtime transport
+lives behind `@asha/runtime-bridge`. `classifyDivergence(native, wasm)` is the typed
+native-vs-WASM check — `match` / `hash_divergence` (with the first diverging step) /
+`length_divergence` — with WASM treated as authoritative.
+
 ## Sources of non-determinism to eliminate
 
 | Source | Rule |

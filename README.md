@@ -115,11 +115,11 @@ Architecture and protocol docs live in `docs/`.
 | Phase | Description | Status |
 |---|---|---|
 | **0** | Governance skeleton — repo structure, workspaces, lane docs, CI, dep-graph checker | **Complete** |
-| 1 | Minimal Rust authority core — typed IDs, StateStore, commands, events, tick | Pending |
-| 2 | Protocol generation — Rust protocol crates, TS contract codegen | Pending |
-| 3 | Constrained TypeScript policy — script SDK, host, sandbox lint | Pending |
-| 4 | Replay audit path — recording, playback, divergence reports | Pending |
-| 5 | Render projection — retained render diffs, WASM bridge, Three.js scene | Pending |
+| 1 | Minimal Rust authority core — typed IDs, StateStore, commands, events, tick | **Complete** |
+| 2 | Protocol generation — Rust protocol crates, TS contract codegen | **Complete** |
+| 3 | Constrained TypeScript policy — script SDK, host, sandbox lint | **Complete** |
+| 4 | Replay audit path — recording, playback, divergence reports | **Complete** |
+| 5 | Render projection — retained render diffs, WASM bridge, Three.js scene | **Complete** |
 | 6 | Parallel agent fan-out trial | Pending |
 
 ---

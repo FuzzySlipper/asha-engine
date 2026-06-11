@@ -1,0 +1,97 @@
+# ASHA runtime bridge manifest (curated)
+#
+# This is the SINGLE source of truth for the runtime bridge surface. It is small,
+# hand-reviewed, and deliberately NOT a generic RPC registry. Adding an operation
+# is a boundary change and requires contract-steward review (ADR 0006).
+#
+# Format spec + generated-glue plan + conformance shape: ./MANIFEST-FORMAT.md
+# Validate:        python3 harness/bridge/validate-manifest.py
+# Guardrail scan:  bash harness/bridge/check-bridge-guardrails.sh
+
+[manifest]
+version = 1
+owning_crate = "runtime-bridge-api"
+facade_package = "@asha/runtime-bridge"
+native_package = "@asha/native-bridge"
+wasm_replay_package = "@asha/wasm-replay-bridge"
+# Every operation's error channel is this typed enum. No string/JSON error blobs.
+error_type = "RuntimeBridgeError"
+# Opaque, bridge-owned handle types. Never raw pointers in structured payloads;
+# never a StateStore handle.
+handle_types = ["EngineHandle", "RuntimeBufferHandle", "FrameCursor", "ReplaySessionHandle"]
+
+# ── Stable runtime surface ───────────────────────────────────────────────────
+# Bounded verbs only. One operation in, one wrapper out.
+
+[[operation]]
+name = "initialize_engine"
+surface = "stable"
+input = "protocol_runtime::EngineConfig"
+output = "EngineHandle"
+errors = "RuntimeBridgeError"
+summary = "Construct an engine/session. Returns an opaque handle, never a StateStore."
+
+[[operation]]
+name = "step_simulation"
+surface = "stable"
+input = "protocol_runtime::StepInputEnvelope"
+output = "protocol_runtime::StepResult"
+errors = "RuntimeBridgeError"
+summary = "Advance the simulation one tick from a deterministic input envelope."
+
+[[operation]]
+name = "submit_commands"
+surface = "stable"
+input = "protocol_script::CommandBatch"
+output = "protocol_script::CommandResult"
+errors = "RuntimeBridgeError"
+summary = "Submit a batch of proposed commands for Rust-side validation + apply."
+
+[[operation]]
+name = "read_render_diffs"
+surface = "stable"
+input = "FrameCursor"
+output = "protocol_render::RenderFrameDiffDescriptor"
+errors = "RuntimeBridgeError"
+buffers = "read-only descriptor; large geometry referenced by RuntimeBufferHandle"
+summary = "Pull retained-mode render diffs since the cursor. Small metadata inline; large payloads by handle."
+
+[[operation]]
+name = "get_buffer"
+surface = "stable"
+input = "RuntimeBufferHandle"
+output = "RuntimeBufferView"
+errors = "RuntimeBridgeError"
+buffers = "borrows bridge-owned bytes; view valid until release_buffer or next frame supersedes it"
+summary = "Borrow a typed view over bridge-owned bytes for a buffer handle (no copy through JSON)."
+
+[[operation]]
+name = "release_buffer"
+surface = "stable"
+input = "RuntimeBufferHandle"
+output = "Unit"
+errors = "RuntimeBridgeError"
+buffers = "invalidates any outstanding RuntimeBufferView for the handle"
+summary = "Release a borrowed buffer; outstanding views must be copied out first."
+
+# ── Replay surface (quarantined: tests/devtools/CI only) ─────────────────────
+# These are exercised through the wasm-replay-bridge / native replay path, not
+# the production renderer path. Quarantined surfaces still get typed I/O.
+
+[[operation]]
+name = "load_replay_fixture"
+surface = "quarantined"
+quarantine_reason = "replay/golden harness; not in the production runtime path"
+input = "protocol_replay::ReplayFixture"
+output = "ReplaySessionHandle"
+errors = "RuntimeBridgeError"
+summary = "Load a replay fixture into a deterministic replay session."
+
+[[operation]]
+name = "run_replay_step"
+surface = "quarantined"
+quarantine_reason = "replay/golden harness; not in the production runtime path"
+input = "ReplaySessionHandle"
+output = "protocol_replay::ReplayStepReport"
+errors = "RuntimeBridgeError"
+summary = "Advance a replay session one step and report hash/divergence for golden checks."

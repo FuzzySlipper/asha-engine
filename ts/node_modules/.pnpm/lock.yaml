@@ -79,6 +79,12 @@ importers:
 
   packages/electron-main: {}
 
+  packages/native-bridge:
+    dependencies:
+      '@asha/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
   packages/policy-core:
     dependencies:
       '@asha/contracts':
@@ -120,6 +126,15 @@ importers:
         specifier: ^0.184.1
         version: 0.184.1
 
+  packages/runtime-bridge:
+    dependencies:
+      '@asha/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@asha/native-bridge':
+        specifier: workspace:*
+        version: link:../native-bridge
+
   packages/script-host:
     dependencies:
       '@asha/contracts':
@@ -149,6 +164,12 @@ importers:
         version: link:../wasm-bridge
 
   packages/wasm-bridge:
+    dependencies:
+      '@asha/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
+  packages/wasm-replay-bridge:
     dependencies:
       '@asha/contracts':
         specifier: workspace:*

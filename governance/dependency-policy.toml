@@ -12,6 +12,7 @@ layers = [
     "rules",
     "render",
     "wasm",
+    "bridge",
     "tools",
 ]
 
@@ -39,6 +40,15 @@ pairs = [
     ["services",   "wasm"],
     ["rules",      "wasm"],
     ["render",     "wasm"],
+    # Authority/transport crates must not depend on the bridge layer.
+    ["foundation", "bridge"],
+    ["state",      "bridge"],
+    ["protocol",   "bridge"],
+    ["sim",        "bridge"],
+    ["services",   "bridge"],
+    ["rules",      "bridge"],
+    ["render",     "bridge"],
+    ["wasm",       "bridge"],
 ]
 
 [ts.lane_order]
@@ -49,14 +59,20 @@ layers = [
     "policy",
     "catalog",
     "script-host",
-    "wasm-bridge",
+    "native-bridge",
+    "runtime-bridge",
+    "wasm-replay-bridge",
     "shell",
     "tools",
 ]
 
 [ts.forbidden_imports]
-# Policy/catalog may never import shell packages.
-"policy"   = ["@asha/renderer-three", "@asha/ui-dom", "@asha/wasm-bridge", "@asha/electron-main"]
-"catalog"  = ["@asha/renderer-three", "@asha/ui-dom", "@asha/wasm-bridge", "@asha/electron-main"]
+# Policy/catalog may never import shell or transport packages.
+"policy"   = ["@asha/renderer-three", "@asha/ui-dom", "@asha/runtime-bridge", "@asha/native-bridge", "@asha/wasm-replay-bridge", "@asha/wasm-bridge", "@asha/electron-main"]
+"catalog"  = ["@asha/renderer-three", "@asha/ui-dom", "@asha/runtime-bridge", "@asha/native-bridge", "@asha/wasm-replay-bridge", "@asha/wasm-bridge", "@asha/electron-main"]
 # Renderer must not import policy.
 "renderer-three" = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-host"]
+# Only the runtime-bridge facade may import the raw native addon.
+# Only tests/devtools may import the WASM replay path.
+"native-bridge-import-allowed" = ["@asha/runtime-bridge"]
+"wasm-replay-bridge-import-allowed" = ["@asha/devtools"]

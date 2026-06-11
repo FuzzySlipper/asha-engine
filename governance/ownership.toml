@@ -236,21 +236,22 @@ may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-ho
 [package."ts/packages/renderer-three"]
 lane = "ts-shell"
 may_import = ["@asha/contracts", "@asha/wasm-bridge"]
-may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-host"]
+may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-host", "@asha/native-bridge", "@asha/wasm-replay-bridge"]
 
 [package."ts/packages/ui-dom"]
 lane = "ts-shell"
 may_import = ["@asha/contracts", "@asha/wasm-bridge"]
-may_not_import = ["@asha/policy-core", "@asha/policy-examples"]
+may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/native-bridge", "@asha/wasm-replay-bridge"]
 
 [package."ts/packages/cosmetic"]
 lane = "ts-shell"
 may_import = ["@asha/contracts", "@asha/renderer-three"]
-may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-host"]
+may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-host", "@asha/native-bridge", "@asha/wasm-replay-bridge"]
 
 [package."ts/packages/devtools"]
 lane = "ts-tools"
-may_import = ["@asha/contracts", "@asha/wasm-bridge"]
+may_import = ["@asha/contracts", "@asha/wasm-bridge", "@asha/wasm-replay-bridge"]
+may_not_import = ["@asha/native-bridge"]
 
 [package."ts/packages/electron-main"]
 lane = "ts-shell"
@@ -260,4 +261,38 @@ may_not_import = ["@asha/policy-core", "@asha/policy-examples"]
 [package."ts/packages/app"]
 lane = "ts-shell"
 may_import = ["@asha/contracts", "@asha/wasm-bridge", "@asha/renderer-three", "@asha/ui-dom", "@asha/script-host"]
-may_not_import = ["@asha/electron-main"]
+may_not_import = ["@asha/electron-main", "@asha/native-bridge", "@asha/wasm-replay-bridge"]
+
+# ─── Runtime bridge boundary (ADR 0006) ──────────────────────────────────────
+# Forward-declared by task #2248. The TS deny-lists below take effect as soon as
+# the named packages/crates exist (created in #2250/#2251); entries for not-yet-
+# created dirs are inert in the verifier until then. See docs/runtime-bridge-boundary.md.
+
+# Public transport-agnostic facade. The ONLY package that may import the native addon.
+[package."ts/packages/runtime-bridge"]
+lane = "ts-shell"
+may_import = ["@asha/contracts", "@asha/native-bridge"]
+may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-host", "@asha/renderer-three", "@asha/ui-dom", "@asha/wasm-replay-bridge"]
+
+# Raw napi-rs addon wrapper. Imported only by runtime-bridge.
+[package."ts/packages/native-bridge"]
+lane = "ts-shell"
+may_import = ["@asha/contracts"]
+may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-host", "@asha/renderer-three", "@asha/ui-dom", "@asha/runtime-bridge", "@asha/wasm-replay-bridge"]
+
+# Replay/golden WASM path (repurposed from wasm-bridge). Imported by tests/devtools only.
+[package."ts/packages/wasm-replay-bridge"]
+lane = "ts-shell"
+may_import = ["@asha/contracts"]
+may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-host", "@asha/native-bridge", "@asha/runtime-bridge"]
+
+# Rust: bridge layer (between wasm and tools).
+[crate."engine-rs/crates/bridge/runtime-bridge-api"]
+lane = "rust-bridge"
+may_depend_on = ["core-ids", "core-error", "protocol-render", "protocol-script", "protocol-replay"]
+may_not_depend_on = ["napi", "wasm-bindgen"]
+
+[crate."engine-rs/crates/bridge/native-bridge"]
+lane = "rust-bridge"
+may_depend_on = ["runtime-bridge-api", "protocol-render", "protocol-script", "protocol-replay", "sim-runner", "render-bridge", "napi", "napi-derive"]
+may_not_depend_on = ["wasm-bindgen", "core-state"]

@@ -54,12 +54,24 @@ members = [
     # WASM
     "crates/wasm/wasm-api",
 
+    # Bridge (ADR 0006). `native-bridge` is intentionally NOT a member: it depends
+    # on `napi` and needs a native build toolchain, so it is excluded to keep the
+    # default workspace build offline/CI-clean. See engine-rs/crates/bridge/native-bridge.
+    "crates/bridge/runtime-bridge-api",
+
     # Tools
     "crates/tools/replay-tool",
     "crates/tools/snapshot-diff",
     "crates/tools/protocol-dump",
     "crates/tools/state-inspector",
     "crates/tools/fixture-maker",
+]
+
+# native-bridge needs `napi` + a native build toolchain + network to fetch crates.
+# Excluded so the default workspace build/CI is offline-clean; build it explicitly
+# with `cargo build -p native-bridge` when the toolchain is available (ADR 0006).
+exclude = [
+    "crates/bridge/native-bridge",
 ]
 
 [workspace.package]

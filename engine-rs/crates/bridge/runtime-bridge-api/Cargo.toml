@@ -1,0 +1,14 @@
+[package]
+name    = "runtime-bridge-api"
+version.workspace = true
+edition.workspace = true
+
+[lints]
+workspace = true
+
+# Bridge layer (ADR 0006). Owns the manifest + N-API-visible boundary types and
+# conformance helpers. Must NOT depend on `napi` or `wasm-bindgen` — those are
+# transport details that live in `native-bridge` / `wasm-api`.
+[dependencies]
+core-ids   = { path = "../../foundation/core-ids" }
+core-error = { path = "../../foundation/core-error" }
