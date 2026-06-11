@@ -15,7 +15,7 @@
 ## Must never import
 - `@asha/renderer-three`
 - `@asha/ui-dom`
-- `@asha/wasm-bridge`
+- `@asha/runtime-bridge`, `@asha/native-bridge`, `@asha/wasm-replay-bridge`
 - `@asha/electron-main`
 - Any browser globals: `Date`, `Math.random`, `document`, `window`, `localStorage`, `fetch`
 
@@ -30,7 +30,7 @@
 - `harness/fixtures/policy-outputs/` — expected `PolicyCommand[]` arrays for golden tests.
 
 ## Drift smells reviewers should flag
-- Import of `renderer-three`, `ui-dom`, `wasm-bridge`, or `electron-main` in any policy package.
+- Import of `renderer-three`, `ui-dom`, `runtime-bridge`/`native-bridge`/`wasm-replay-bridge`, or `electron-main` in any policy package.
 - Use of `Date`, `Math.random`, or any browser global inside policy functions.
 - Policy function that mutates an object received in its view parameter.
 - Script host performing command validation (belongs in Rust).

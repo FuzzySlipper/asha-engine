@@ -18,6 +18,6 @@
   },
   "dependencies": {
     "@asha/contracts": "workspace:*",
-    "@asha/wasm-bridge": "workspace:*"
+    "@asha/runtime-bridge": "workspace:*"
   }
 }

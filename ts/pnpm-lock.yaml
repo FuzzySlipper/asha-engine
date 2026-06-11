@@ -32,15 +32,15 @@ importers:
       '@asha/renderer-three':
         specifier: workspace:*
         version: link:../renderer-three
+      '@asha/runtime-bridge':
+        specifier: workspace:*
+        version: link:../runtime-bridge
       '@asha/script-host':
         specifier: workspace:*
         version: link:../script-host
       '@asha/ui-dom':
         specifier: workspace:*
         version: link:../ui-dom
-      '@asha/wasm-bridge':
-        specifier: workspace:*
-        version: link:../wasm-bridge
 
   packages/catalog-core:
     dependencies:
@@ -73,9 +73,9 @@ importers:
       '@asha/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@asha/wasm-bridge':
+      '@asha/runtime-bridge':
         specifier: workspace:*
-        version: link:../wasm-bridge
+        version: link:../runtime-bridge
 
   packages/electron-main: {}
 
@@ -115,9 +115,9 @@ importers:
       '@asha/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@asha/wasm-bridge':
+      '@asha/runtime-bridge':
         specifier: workspace:*
-        version: link:../wasm-bridge
+        version: link:../runtime-bridge
       three:
         specifier: ^0.184.0
         version: 0.184.0
@@ -159,15 +159,9 @@ importers:
       '@asha/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@asha/wasm-bridge':
+      '@asha/runtime-bridge':
         specifier: workspace:*
-        version: link:../wasm-bridge
-
-  packages/wasm-bridge:
-    dependencies:
-      '@asha/contracts':
-        specifier: workspace:*
-        version: link:../contracts
+        version: link:../runtime-bridge
 
   packages/wasm-replay-bridge:
     dependencies:

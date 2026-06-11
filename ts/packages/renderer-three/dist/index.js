@@ -7,7 +7,7 @@
 // context (only pixel rendering does), so this is testable headlessly; a real
 // WebGL/offscreen renderer for screenshots is layered on in a later task.
 import * as THREE from 'three';
-import { decodeRenderFrameDiff } from '@asha/wasm-bridge';
+import { decodeRenderFrameDiff } from '@asha/runtime-bridge';
 /** Raised when a diff cannot be applied (duplicate, unknown, or stale handle). */
 export class RenderApplyError extends Error {
     constructor(message) {
@@ -41,7 +41,7 @@ export class ThreeRenderer {
             this.applyDiff(op);
         }
     }
-    /** Decode a raw payload through `@asha/wasm-bridge` and apply it. */
+    /** Decode a raw payload through `@asha/runtime-bridge` and apply it. */
     applyEncodedFrame(payload) {
         this.applyFrame(decodeRenderFrameDiff(payload));
     }

@@ -11,10 +11,20 @@
 
 import type { RenderFrameDiff } from '@asha/contracts';
 import { loadNativeAddon, NativeAddonUnavailable, type NativeAddon } from '@asha/native-bridge';
-import { MANIFEST_OPERATIONS } from './operations.js';
+import { MANIFEST_OPERATIONS } from './generated/operations.js';
 
-export { MANIFEST_OPERATIONS } from './operations.js';
-export type { BridgeOperation, BridgeSurface } from './operations.js';
+export { MANIFEST_OPERATIONS } from './generated/operations.js';
+export type { BridgeOperation, BridgeSurface } from './generated/operations.js';
+
+// Render-diff decode (moved from the former @asha/wasm-bridge). Transport-neutral
+// payload → contract types; backs `readRenderDiffs`. See render-decode.ts.
+export {
+  decodeRenderDiff,
+  decodeRenderFrameDiff,
+  RenderDecodeError,
+  RenderDiffStream,
+  FrameMemory,
+} from './render-decode.js';
 
 // ── Opaque handle types ───────────────────────────────────────────────────────
 // Branded numbers so a buffer handle can't be passed where an engine handle is

@@ -70,11 +70,14 @@ Rules: generated code is transparent and diffable; **no broad reflection, no dyn
 `methodName + json` dispatcher**. Codegen never decides policy, state access, ownership, or
 buffer lifetime — those are hand-written bodies.
 
-> Status (#2249): the **plan, manifest, and validators are committed**; the codegen emitter
-> itself is implemented in #2250 alongside the first real operations (it needs the
-> `protocol_runtime` types — `EngineConfig`/`StepInputEnvelope`/`StepResult`/
-> `RenderFrameDiffDescriptor` — which #2250 introduces). This file + the validator are the
-> diffable contract the emitter must satisfy.
+> Status: the emitter is implemented at `harness/codegen/bridge-emit.py` and generates the
+> operation registry (`generated/operations.ts`), the conformance snapshot
+> (`generated/conformance.json`), and the napi export reference
+> (`native-bridge/src/generated/EXPORTS.md`). `bridge-emit.py --check` runs in
+> `check-bridge.sh` and fails on any hand-edit drift. Still hand-written (pending the
+> `protocol_runtime` types `EngineConfig`/`StepInputEnvelope`/`StepResult`/
+> `RenderFrameDiffDescriptor`): the facade method *bodies* and the napi *bodies* — only
+> their signatures/registry are generated today.
 
 ## 4. Hand-written (NOT generated)
 

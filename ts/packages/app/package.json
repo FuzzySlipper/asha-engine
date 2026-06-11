@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@asha/contracts": "workspace:*",
-    "@asha/wasm-bridge": "workspace:*",
+    "@asha/runtime-bridge": "workspace:*",
     "@asha/renderer-three": "workspace:*",
     "@asha/ui-dom": "workspace:*",
     "@asha/script-host": "workspace:*"

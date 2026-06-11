@@ -8,7 +8,7 @@
 // WebGL/offscreen renderer for screenshots is layered on in a later task.
 
 import * as THREE from 'three';
-import { decodeRenderFrameDiff } from '@asha/wasm-bridge';
+import { decodeRenderFrameDiff } from '@asha/runtime-bridge';
 import type {
   Geometry,
   Material,
@@ -64,7 +64,7 @@ export class ThreeRenderer {
     }
   }
 
-  /** Decode a raw payload through `@asha/wasm-bridge` and apply it. */
+  /** Decode a raw payload through `@asha/runtime-bridge` and apply it. */
   applyEncodedFrame(payload: unknown): void {
     this.applyFrame(decodeRenderFrameDiff(payload));
   }

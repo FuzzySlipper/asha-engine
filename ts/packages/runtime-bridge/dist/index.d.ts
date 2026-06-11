@@ -1,6 +1,7 @@
 import type { RenderFrameDiff } from '@asha/contracts';
-export { MANIFEST_OPERATIONS } from './operations.js';
-export type { BridgeOperation, BridgeSurface } from './operations.js';
+export { MANIFEST_OPERATIONS } from './generated/operations.js';
+export type { BridgeOperation, BridgeSurface } from './generated/operations.js';
+export { decodeRenderDiff, decodeRenderFrameDiff, RenderDecodeError, RenderDiffStream, FrameMemory, } from './render-decode.js';
 export type EngineHandle = number & {
     readonly __brand: 'EngineHandle';
 };

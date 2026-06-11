@@ -32,11 +32,14 @@ exclude_quarantine() {
 }
 
 scan() {
-  local label="$1" pattern="$2" dir="$3"
+  local label="$1" pattern="$2" dir="$3" extra_exclude="${4:-}"
   [ -d "$dir" ] || return 0
   local hits
   hits="$(grep -rnE "$pattern" "$dir" --include='*.rs' --include='*.ts' 2>/dev/null \
             | exclude_quarantine || true)"
+  if [ -n "$extra_exclude" ]; then
+    hits="$(printf '%s\n' "$hits" | grep -vE "$extra_exclude" || true)"
+  fi
   if [ -n "$hits" ]; then
     echo "FAIL ($label) in $dir:"
     echo "$hits" | sed 's/^/    /'
@@ -52,7 +55,10 @@ done
 
 for d in "${TS_DIRS[@]}"; do
   scan "TS any" ':\s*any\b|as\s+any\b' "$d"
-  scan "TS unknown payload" ':\s*unknown\b' "$d"
+  # `unknown` is forbidden as an escape hatch, EXCEPT in render-decode.ts — that is the
+  # payload-validation gate where `unknown`→typed `@asha/contracts` values is the
+  # sanctioned pattern (a decoder, the opposite of an untyped escape hatch).
+  scan "TS unknown payload" ':\s*unknown\b' "$d" 'render-decode\.ts'
   scan "callRust dispatcher" 'callRust\s*\(' "$d"
 done
 

@@ -16,10 +16,8 @@ import {
 } from '@asha/contracts';
 import {
   ReferenceReplayRunner,
-  WasmReplayUnavailable,
   classifyDivergence,
   compareReplay,
-  loadWasmReplayModule,
 } from './index.js';
 
 // A tiny replay fixture: 3 accepted steps with deterministic post hashes.
@@ -67,11 +65,4 @@ test('compareReplay: reference-vs-reference baseline matches', () => {
   const record = fixture([5, 6, 7]);
   const ref = new ReferenceReplayRunner();
   assert.equal(compareReplay(record, ref, ref).kind, 'match');
-});
-
-test('loadWasmReplayModule throws classified blocker when module is not built', () => {
-  assert.throws(
-    () => loadWasmReplayModule(),
-    (e: unknown) => e instanceof WasmReplayUnavailable,
-  );
 });

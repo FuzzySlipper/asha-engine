@@ -1,0 +1,2 @@
+# Platform-specific napi addon — built by harness/ci/check-native.sh, not committed.
+dist/*.node

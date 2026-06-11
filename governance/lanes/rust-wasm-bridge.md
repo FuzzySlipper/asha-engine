@@ -27,6 +27,6 @@ All Rust workspace crates below it (foundation, state, protocol, sim, services, 
 - WASM API surface growing beyond: init, tick, command submit, replay hooks, diff retrieval, telemetry retrieval.
 
 ## Public API changes that require escalation
-All public export changes require escalation — the TypeScript `wasm-bridge` package
+All public export changes require escalation — the TypeScript `wasm-replay-bridge` package
 is generated/typed against this surface. Any change requires a `contract-steward` review
 and downstream TS typecheck.

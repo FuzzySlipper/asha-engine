@@ -17,7 +17,7 @@ export declare class ThreeRenderer {
     constructor();
     /** Apply a whole frame of diffs in order. */
     applyFrame(frame: RenderFrameDiff): void;
-    /** Decode a raw payload through `@asha/wasm-bridge` and apply it. */
+    /** Decode a raw payload through `@asha/runtime-bridge` and apply it. */
     applyEncodedFrame(payload: unknown): void;
     /** Apply a single diff. Throws `RenderApplyError` on a bad handle. */
     applyDiff(diff: RenderDiff): void;

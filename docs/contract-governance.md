@@ -48,7 +48,7 @@ differs from committed files. A PR with a manual edit to generated files will fa
 | Protocol | Primary TS consumer |
 |---|---|
 | `protocol-script` | `script-sdk`, `script-host`, policy packages |
-| `protocol-render` | `wasm-bridge`, `renderer-three` |
+| `protocol-render` | `runtime-bridge` (decode), `renderer-three` |
 | `protocol-replay` | `devtools` replay viewer, CI replay check |
 | `protocol-telemetry` | `devtools` debug dashboard |
 | `protocol-ids` | all packages via `contracts` |

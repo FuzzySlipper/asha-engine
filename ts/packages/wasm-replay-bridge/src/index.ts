@@ -17,8 +17,6 @@ import {
   stepIndex,
 } from '@asha/contracts';
 
-// ── WASM replay module loader ─────────────────────────────────────────────────
-
 /** Raised when the WASM replay module is not built (toolchain/target missing). */
 export class WasmReplayUnavailable extends Error {
   constructor(message: string) {
@@ -27,51 +25,26 @@ export class WasmReplayUnavailable extends Error {
   }
 }
 
+// ── Per-step hash extraction (pure) ───────────────────────────────────────────
+
 /**
- * The narrow surface the compiled `wasm-api` module exposes for replay: given a
- * recorded run, return the post-step state hash for each step (the deterministic
- * fingerprint compared against the golden record). Mirrors design §8.8 ("render
- * diff retrieval / replay hooks") narrowed to replay duties.
+ * Extracts the per-step post hashes from a recorded run — the deterministic
+ * fingerprints compared between native and WASM. Used by {@link classifyDivergence}
+ * and as a toolchain-free baseline alongside the real WASM authority below.
  */
-export interface WasmReplayModule {
+export interface ReplayHasher {
   replayHashes(record: ReplayRecord): readonly number[];
 }
 
 /**
- * Attempt to load the compiled WASM replay module. Throws a classified
- * {@link WasmReplayUnavailable} rather than a raw resolution error so callers can
- * fall back to {@link ReferenceReplayRunner} for CI evidence when the wasm32 build
- * is missing. Build: `cargo build --target wasm32-unknown-unknown -p wasm-api`.
- */
-export function loadWasmReplayModule(modulePath = './wasm-api-replay.cjs'): WasmReplayModule {
-  const require = createRequire(import.meta.url);
-  try {
-    const mod = require(modulePath) as Partial<WasmReplayModule>;
-    if (typeof mod.replayHashes !== 'function') {
-      throw new WasmReplayUnavailable(
-        `module at ${modulePath} is missing the expected export 'replayHashes'`,
-      );
-    }
-    return mod as WasmReplayModule;
-  } catch (cause) {
-    if (cause instanceof WasmReplayUnavailable) throw cause;
-    const reason = cause instanceof Error ? cause.message : String(cause);
-    throw new WasmReplayUnavailable(`failed to load WASM replay module at ${modulePath}: ${reason}`);
-  }
-}
-
-// ── Reference replay runner (CI fallback) ─────────────────────────────────────
-
-/**
- * A deterministic, dependency-free replay runner used as the native reference and
- * as the CI fallback when the WASM module is unavailable. It re-derives each step's
- * post hash from the recorded outcome so a replay fixture can be exercised through
- * *a* replay path even without a wasm32 toolchain.
+ * A deterministic, dependency-free hasher used as the native reference and as the
+ * CI baseline. It re-derives each step's post hash from the recorded outcome so a
+ * replay fixture can be exercised even without a wasm32 toolchain.
  *
- * This is NOT the authority: when the real WASM module is present, its hashes are
- * canonical and any disagreement is reported by {@link classifyDivergence}.
+ * This is NOT the authority: the compiled `wasm-api` module ({@link
+ * loadWasmReplayAuthority}) runs the real `sim-replay` logic under WASM.
  */
-export class ReferenceReplayRunner implements WasmReplayModule {
+export class ReferenceReplayRunner implements ReplayHasher {
   replayHashes(record: ReplayRecord): readonly number[] {
     // Use the recorded post-step hashes directly. A real runner re-executes the
     // commands and recomputes hashes; the reference trusts the record so the
@@ -80,7 +53,71 @@ export class ReferenceReplayRunner implements WasmReplayModule {
   }
 }
 
-// ── Native-vs-WASM divergence classification ──────────────────────────────────
+// ── WASM-backed divergence authority (the real sim-replay logic under WASM) ───
+
+/**
+ * The narrow surface the wasm-bindgen `wasm-api` module exposes: the authoritative
+ * `sim-replay` divergence classifier, compiled to wasm32. Operates on replay
+ * artifacts in `sim-replay`'s text format (the `harness/goldens/replays/*.replay`
+ * format), returning a terse `"<class>\t<step>"` pair.
+ */
+export interface WasmApiModule {
+  classify_divergence(expected: string, actual: string): string;
+  divergence_class_labels(): string;
+}
+
+/** Typed result of the WASM replay authority over two replay artifacts. */
+export interface ReplayDivergence {
+  /** `sim-replay` DivergenceClass label, or `'match'` when the records reproduce. */
+  readonly class: string;
+  readonly matched: boolean;
+  /** Diverging step index, or null for whole-record / no divergence. */
+  readonly step: number | null;
+}
+
+/** A loaded WASM replay authority. */
+export interface WasmReplayAuthority {
+  /** Classify two replay artifacts (text format) via the real Rust logic under WASM. */
+  classifyRecords(expected: string, actual: string): ReplayDivergence;
+  /** The class labels the module can emit (for label↔kind sync assertions). */
+  classLabels(): readonly string[];
+}
+
+function parseDivergence(raw: string): ReplayDivergence {
+  const tab = raw.indexOf('\t');
+  const cls = tab >= 0 ? raw.slice(0, tab) : raw;
+  const stepRaw = tab >= 0 ? raw.slice(tab + 1) : '-';
+  const step = stepRaw === '-' ? null : Number.parseInt(stepRaw, 10);
+  return { class: cls, matched: cls === 'match', step: Number.isNaN(step as number) ? null : step };
+}
+
+/**
+ * Load the compiled wasm-api replay authority (wasm-bindgen `--target nodejs`
+ * output, `.cjs`). Throws a classified {@link WasmReplayUnavailable} when unbuilt.
+ * Build with `harness/ci/check-wasm-replay.sh`.
+ */
+export function loadWasmReplayAuthority(
+  modulePath = './wasm/wasm_api.cjs',
+): WasmReplayAuthority {
+  const require = createRequire(import.meta.url);
+  let mod: WasmApiModule;
+  try {
+    mod = require(modulePath) as WasmApiModule;
+    if (typeof mod.classify_divergence !== 'function') {
+      throw new WasmReplayUnavailable(`module at ${modulePath} is missing 'classify_divergence'`);
+    }
+  } catch (cause) {
+    if (cause instanceof WasmReplayUnavailable) throw cause;
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    throw new WasmReplayUnavailable(`failed to load wasm-api module at ${modulePath}: ${reason}`);
+  }
+  return {
+    classifyRecords: (expected, actual) => parseDivergence(mod.classify_divergence(expected, actual)),
+    classLabels: () => mod.divergence_class_labels().split('\n'),
+  };
+}
+
+// ── Native-vs-WASM divergence classification (pure, hash-array level) ──────────
 
 /** Stable classification of a native-vs-WASM replay comparison. */
 export type DivergenceKind = 'match' | 'length_divergence' | 'hash_divergence';
@@ -145,8 +182,8 @@ export function classifyDivergence(
  */
 export function compareReplay(
   record: ReplayRecord,
-  nativePath: WasmReplayModule,
-  wasmAuthority: WasmReplayModule,
+  nativePath: ReplayHasher,
+  wasmAuthority: ReplayHasher,
 ): DivergenceReport {
   return classifyDivergence(nativePath.replayHashes(record), wasmAuthority.replayHashes(record));
 }

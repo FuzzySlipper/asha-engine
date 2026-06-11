@@ -187,7 +187,7 @@ lane = "rust-wasm-bridge"
 may_depend_on = [
   "core-ids", "core-error", "core-state", "core-events", "core-commands",
   "core-snapshot", "protocol-script", "protocol-render", "protocol-replay",
-  "protocol-telemetry", "sim-runner", "render-bridge",
+  "protocol-telemetry", "sim-runner", "sim-replay", "render-bridge",
 ]
 
 # ─── TypeScript ──────────────────────────────────────────────────────────────
@@ -199,7 +199,7 @@ may_import = []
 [package."ts/packages/script-sdk"]
 lane = "ts-policy"
 may_import = ["@asha/contracts"]
-may_not_import = ["@asha/renderer-three", "@asha/ui-dom", "@asha/wasm-bridge", "@asha/electron-main"]
+may_not_import = ["@asha/renderer-three", "@asha/ui-dom", "@asha/runtime-bridge", "@asha/native-bridge", "@asha/wasm-replay-bridge", "@asha/electron-main"]
 
 [package."ts/packages/script-host"]
 lane = "ts-policy"
@@ -209,38 +209,33 @@ may_not_import = ["@asha/renderer-three", "@asha/ui-dom", "@asha/electron-main"]
 [package."ts/packages/policy-core"]
 lane = "ts-policy"
 may_import = ["@asha/contracts", "@asha/script-sdk", "@asha/catalog-core"]
-may_not_import = ["@asha/renderer-three", "@asha/ui-dom", "@asha/wasm-bridge", "@asha/electron-main"]
+may_not_import = ["@asha/renderer-three", "@asha/ui-dom", "@asha/runtime-bridge", "@asha/native-bridge", "@asha/wasm-replay-bridge", "@asha/electron-main"]
 forbid_globals = ["Date", "Math.random", "document", "window", "localStorage", "fetch"]
 
 [package."ts/packages/policy-examples"]
 lane = "ts-policy"
 may_import = ["@asha/contracts", "@asha/script-sdk", "@asha/catalog-core", "@asha/policy-core"]
-may_not_import = ["@asha/renderer-three", "@asha/ui-dom", "@asha/wasm-bridge", "@asha/electron-main"]
+may_not_import = ["@asha/renderer-three", "@asha/ui-dom", "@asha/runtime-bridge", "@asha/native-bridge", "@asha/wasm-replay-bridge", "@asha/electron-main"]
 forbid_globals = ["Date", "Math.random", "document", "window", "localStorage", "fetch"]
 
 [package."ts/packages/catalog-core"]
 lane = "ts-catalog"
 may_import = ["@asha/contracts"]
-may_not_import = ["@asha/renderer-three", "@asha/ui-dom", "@asha/wasm-bridge", "@asha/electron-main"]
+may_not_import = ["@asha/renderer-three", "@asha/ui-dom", "@asha/runtime-bridge", "@asha/native-bridge", "@asha/wasm-replay-bridge", "@asha/electron-main"]
 
 [package."ts/packages/catalog-examples"]
 lane = "ts-catalog"
 may_import = ["@asha/contracts", "@asha/catalog-core"]
-may_not_import = ["@asha/renderer-three", "@asha/ui-dom", "@asha/wasm-bridge", "@asha/electron-main"]
-
-[package."ts/packages/wasm-bridge"]
-lane = "ts-shell"
-may_import = ["@asha/contracts"]
-may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-host"]
+may_not_import = ["@asha/renderer-three", "@asha/ui-dom", "@asha/runtime-bridge", "@asha/native-bridge", "@asha/wasm-replay-bridge", "@asha/electron-main"]
 
 [package."ts/packages/renderer-three"]
 lane = "ts-shell"
-may_import = ["@asha/contracts", "@asha/wasm-bridge"]
+may_import = ["@asha/contracts", "@asha/runtime-bridge"]
 may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-host", "@asha/native-bridge", "@asha/wasm-replay-bridge"]
 
 [package."ts/packages/ui-dom"]
 lane = "ts-shell"
-may_import = ["@asha/contracts", "@asha/wasm-bridge"]
+may_import = ["@asha/contracts", "@asha/runtime-bridge"]
 may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/native-bridge", "@asha/wasm-replay-bridge"]
 
 [package."ts/packages/cosmetic"]
@@ -250,7 +245,7 @@ may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-ho
 
 [package."ts/packages/devtools"]
 lane = "ts-tools"
-may_import = ["@asha/contracts", "@asha/wasm-bridge", "@asha/wasm-replay-bridge"]
+may_import = ["@asha/contracts", "@asha/runtime-bridge", "@asha/wasm-replay-bridge"]
 may_not_import = ["@asha/native-bridge"]
 
 [package."ts/packages/electron-main"]
@@ -260,7 +255,7 @@ may_not_import = ["@asha/policy-core", "@asha/policy-examples"]
 
 [package."ts/packages/app"]
 lane = "ts-shell"
-may_import = ["@asha/contracts", "@asha/wasm-bridge", "@asha/renderer-three", "@asha/ui-dom", "@asha/script-host"]
+may_import = ["@asha/contracts", "@asha/runtime-bridge", "@asha/renderer-three", "@asha/ui-dom", "@asha/script-host"]
 may_not_import = ["@asha/electron-main", "@asha/native-bridge", "@asha/wasm-replay-bridge"]
 
 # ─── Runtime bridge boundary (ADR 0006) ──────────────────────────────────────

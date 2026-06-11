@@ -26,31 +26,29 @@ behind the facade. This package keeps **only** replay/golden/devtools duties:
 
 ## What works now (offline, verified)
 
-- `classifyDivergence` / `compareReplay`: pure native-vs-WASM hash comparison →
-  `match` | `hash_divergence` (with first diverging `StepIndex`) | `length_divergence`.
-- `ReferenceReplayRunner`: deterministic, toolchain-free baseline so a replay fixture
-  runs through *a* replay path in CI.
-- `node --test` → 6 passing (fixture replay + classifier cases + classified blocker).
+- **`loadWasmReplayAuthority()`**: loads the compiled `wasm-api` module (the real
+  `sim-replay` `decode`+`diff`+`DivergenceClass` logic, compiled to wasm32) and runs it
+  from Node. `classifyRecords(expected, actual)` classifies two replay artifacts (the
+  `harness/goldens/replays/*.replay` text format) under WASM semantics — `match` /
+  `hash-checkpoint-mismatch` / `command-mismatch` / … / `malformed-artifact`.
+- `classifyDivergence` / `compareReplay` / `ReferenceReplayRunner`: pure, toolchain-free
+  per-step hash comparison utilities (`match` / `hash_divergence` / `length_divergence`).
+- Tests → 9 passing: 5 pure + 4 running the **real WASM module** (verified against the
+  committed golden artifact; tampered post hash → `hash-checkpoint-mismatch` at the step).
 
-## Blocker: WASM module build
+## Build & verify
 
-`loadWasmReplayModule()` requires the compiled `wasm-api` replay module, which cannot
-be built here:
+```bash
+harness/ci/check-wasm-replay.sh   # cargo build --target wasm32 + wasm-bindgen (nodejs) + tests
+```
 
-1. **No `wasm32` target installed**: `rustup target list --installed` has no
-   `wasm32-unknown-unknown`; this is Arch system rust without `rustup` target
-   management. `cargo build --target wasm32-unknown-unknown -p wasm-api` fails.
-2. **`wasm-api/src/lib.rs` is currently empty**: the replay export surface
-   (`replayHashes` / init / tick / diff retrieval per design §8.8) is not implemented yet.
+Builds `wasm-api` to `wasm32-unknown-unknown`, runs `wasm-bindgen --target nodejs` into
+`dist/wasm/` (gitignored), and runs the package tests (the WASM-authority tests then run
+instead of skipping). The wasm32 target and `wasm-bindgen` CLI (0.2.123) are required;
+when the module is absent the WASM tests skip so offline `check-all` stays green.
 
-Fallback evidence: the reference runner + classifier prove the replay comparison
-machinery end-to-end; only the *authoritative WASM hashes* are pending the target.
+## Remaining follow-up (not a blocker)
 
-## Unblock path (follow-up)
-
-1. Install the `wasm32-unknown-unknown` target (or wire a wasm build container).
-2. Implement `wasm-api` replay exports that re-execute a `ReplayRecord` and return
-   per-step post hashes.
-3. Build to wasm, load via `loadWasmReplayModule`, and feed both native + WASM hashes
-   into `classifyDivergence` in `check-replays.sh` so golden replays assert WASM-authority
-   agreement, not just native goldens.
+Wire `classifyRecords` into `check-replays.sh` so golden replays also assert
+**native-vs-WASM agreement** (replay-tool native result vs the WASM authority), not just
+native reproduction. The machinery is in place; this is the CI integration step.

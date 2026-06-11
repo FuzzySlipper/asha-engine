@@ -48,7 +48,8 @@ Rust: `foundation → state → protocol → sim/services/rules → render/wasm/
 
 TypeScript:
 - `contracts → script-sdk → policy/catalog → script-host`
-- `contracts → wasm-bridge → renderer/ui/devtools → app → electron-main`
+- `contracts → runtime-bridge (facade) → renderer/ui/devtools → app → electron-main`
+  (native `napi-rs` / WASM-replay transports sit behind the facade — ADR 0006)
 
 See `governance/ownership.toml` for machine-readable per-crate/package rules.
 See `governance/dependency-policy.toml` for layer-level enforcement rules.

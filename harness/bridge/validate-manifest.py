@@ -101,7 +101,7 @@ def main():
 
     # Parity: the TS facade operation registry must list exactly the manifest ops.
     # (Stands in for generated/conformance.json until the codegen emitter lands.)
-    ops_ts = REPO / "ts/packages/runtime-bridge/src/operations.ts"
+    ops_ts = REPO / "ts/packages/runtime-bridge/src/generated/operations.ts"
     if ops_ts.exists():
         ts_names = set(re.findall(r"manifestName:\s*'([a-z_]+)'", ops_ts.read_text()))
         manifest_names = {op.get("name") for op in ops}

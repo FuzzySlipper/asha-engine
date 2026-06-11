@@ -1,27 +1,31 @@
 # native-bridge — the napi-rs runtime transport addon (ADR 0006).
 #
-# EXCLUDED from the default workspace build (see engine-rs/Cargo.toml
-# `workspace.exclude`): it depends on `napi`/`napi-derive` and a native build
-# toolchain, so building it requires network access to fetch crates plus the
-# `@napi-rs/cli`. The offline workspace build/CI stays green without it.
-#
-# Build (when toolchain available):
-#   cargo build -p native-bridge --release
-#   napi build --platform --release   # produces native-bridge.<platform>.node
+# Standalone workspace: EXCLUDED from the engine-rs workspace so the default
+# build/CI stays offline-clean (the ADR flags napi network/ABI cost as a risk).
+# Build it explicitly when the toolchain is available:
+#   cargo build -p native-bridge --release        # produces a cdylib
+#   harness/ci/check-native.sh                     # builds + copies .node + smoke test
 [package]
 name    = "native-bridge"
-version.workspace = true
-edition.workspace = true
+version = "0.1.0"
+edition = "2021"
+license = "UNLICENSED"
+
+# Own workspace root so `cargo build` here doesn't search for the engine-rs root.
+[workspace]
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
 runtime-bridge-api = { path = "../runtime-bridge-api" }
-# napi pulled only here — the only crate in the workspace allowed to depend on it
+# napi pulled only here — the only crate in the repo allowed to depend on it
 # (enforced by governance/ownership.toml `may_not_depend_on`).
 napi        = { version = "2", default-features = false, features = ["napi8"] }
 napi-derive = "2"
 
 [build-dependencies]
 napi-build = "2"
+
+[profile.release]
+lto = true

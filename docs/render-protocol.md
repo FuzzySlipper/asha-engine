@@ -46,7 +46,7 @@ Large geometry or buffer data travels through bridge-owned memory views, not str
 Rules:
 - Structured `RenderDiff` carries small metadata only.
 - Large buffers use stable bridge memory views referenced by pointer+length or handle.
-- Renderer upload behavior is isolated inside `wasm-bridge` and `renderer-three`.
+- Renderer upload behavior is isolated inside `@asha/runtime-bridge` and `renderer-three`.
 - No policy package may access raw WASM memory.
 
 ## Renderer boundary rule
@@ -71,7 +71,7 @@ The implemented dataflow, end to end:
 Rust render-bridge (RenderProjector::project)
   → RenderFrameDiff  → render-bridge::json::encode_sequence
   → harness/fixtures/render-diffs/*.json   (shared, inspectable artifact)
-  → wasm-bridge decodeRenderFrameDiff       (TS: validate into contract types)
+  → @asha/runtime-bridge decodeRenderFrameDiff (TS: validate into contract types; backs readRenderDiffs)
   → renderer-three ThreeRenderer.applyFrame (TS: apply to handle registry + Three.js scene)
 ```
 
@@ -84,5 +84,5 @@ When the cross-language fixture path breaks, the failing layer routes the repair
 |---|---|
 | `render-bridge` golden test `bridge_emits_the_committed_render_fixture` fails | `rust-render` (bridge projection) or `contract-steward` (render protocol shape) — regenerate the fixture |
 | generated `render.ts` drift (`check-contracts`) | `contract-steward` (`protocol-render` + codegen) |
-| `wasm-bridge` `RenderDecodeError` | `ts-shell` (`wasm-bridge` decoder) or a fixture/contract mismatch |
+| `@asha/runtime-bridge` `RenderDecodeError` | `ts-shell` (`runtime-bridge` render decoder) or a fixture/contract mismatch |
 | `renderer-three` `RenderApplyError` (duplicate/unknown/stale handle) | `ts-shell` (`renderer-three` handle registry) |

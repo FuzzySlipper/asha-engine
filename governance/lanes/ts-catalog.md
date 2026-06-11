@@ -8,7 +8,7 @@
 - `@asha/contracts`
 
 ## Must never import
-- `@asha/renderer-three`, `@asha/ui-dom`, `@asha/wasm-bridge`, `@asha/electron-main`
+- `@asha/renderer-three`, `@asha/ui-dom`, `@asha/runtime-bridge`, `@asha/native-bridge`, `@asha/wasm-replay-bridge`, `@asha/electron-main`
 - Runtime global registries or mutable module-level state
 
 ## Required tests

@@ -4,6 +4,15 @@
     "outDir": "./dist",
     "rootDir": "./src"
   },
-  "include": ["src"],
-  "references": [{ "path": "../contracts" }, { "path": "../wasm-bridge" }]
+  "include": [
+    "src"
+  ],
+  "references": [
+    {
+      "path": "../contracts"
+    },
+    {
+      "path": "../runtime-bridge"
+    }
+  ]
 }

@@ -1,39 +1,30 @@
-# native-bridge — packaging notes & blockers (task #2250)
+# native-bridge — packaging notes (task #2250)
 
-The napi-rs runtime transport addon. Built from this crate into a
-`native-bridge.<platform>.node` that `@asha/native-bridge` loads.
+The napi-rs runtime transport addon. Built from this crate (standalone workspace,
+excluded from the engine-rs workspace) into a cdylib loaded by `@asha/native-bridge`
+as `native-bridge.node`.
 
-## What works now (offline, verified)
+## Build & verify
 
-- `runtime-bridge-api` (workspace member): boundary types + `RuntimeBridge` trait +
-  `ReferenceBridge` reference body. `cargo test -p runtime-bridge-api` → 3 passing.
-- `@asha/runtime-bridge` facade + `MockRuntimeBridge` + native factory:
-  `node --test` → 6 passing (conformance + mock smoke + native-unavailable classification).
-- Dependency guard: only `@asha/runtime-bridge` imports `@asha/native-bridge`
-  (`check-depgraph` green).
-- The `#[napi]` smoke ops (`initialize_engine`, `step_simulation`) are written and
-  delegate to the reference body.
+```bash
+harness/ci/check-native.sh        # cargo build --release + install .node + smoke + facade tests
+```
 
-## Blocker: native addon build
+This builds the cdylib, installs it to `ts/packages/native-bridge/dist/native-bridge.node`
+(gitignored — platform-specific), calls every `#[napi]` export with a tiny fixture, and
+runs the `@asha/runtime-bridge` facade tests (the native-parity test then runs instead of
+skipping). Verified: `initializeEngine(7)=7`, `stepSimulation(7,6)=2` — exact parity with
+`ReferenceBridge` / `MockRuntimeBridge`.
 
-`cargo build -p native-bridge` / `napi build` cannot run in this environment:
+The crate is kept **excluded** from the engine-rs workspace so the default offline
+build/CI doesn't require the napi crates / native toolchain; `check-native.sh` is opt-in.
 
-1. **No `wasm32`/native napi toolchain wired**: `@napi-rs/cli` is not installed
-   (`ts/node_modules/.bin` has no `napi`).
-2. **Network-gated crates**: `napi`, `napi-derive`, `napi-build` are not vendored;
-   fetching them needs registry access. The crate is therefore **excluded** from the
-   workspace (`engine-rs/Cargo.toml` `workspace.exclude`) so offline CI stays green.
-3. **Per-platform artifacts**: a real runtime needs prebuilt `.node` binaries per
-   `{platform, arch, Electron ABI}`; CI cross-build + artifact publishing must be
-   designed before this becomes a runtime dependency (ADR 0006 risk #2).
+## Remaining follow-ups (not blockers)
 
-## Next steps to unblock (follow-up task)
-
-1. Add `@napi-rs/cli` to the `ts` toolchain; add `napi`/`napi-derive`/`napi-build`
-   (vendored or registry-available).
-2. Add `native-bridge` to the workspace (or a dedicated `--features native` build job).
-3. `napi build --platform --release`; copy the `.node` next to `@asha/native-bridge/dist`.
-4. Add the native addon smoke test (manifest checklist #5): call every `#[napi]` export
-   once with a tiny fixture; assert it matches `ReferenceBridge` / `MockRuntimeBridge`.
-5. Implement the codegen emitter so the `#[napi]` exports + facade skeleton + conformance
-   JSON are generated from `bridge-manifest.toml` (one-in/one-out) rather than hand-written.
+1. **Per-platform/Electron-ABI artifacts**: ship prebuilt `.node` per `{platform, arch,
+   Electron ABI}` via `@napi-rs/cli` (`napi build --platform`) + a CI cross-build/publish
+   job before this is a hard runtime dependency (ADR 0006 risk #2). `check-native.sh`
+   currently produces only the host artifact.
+2. **Codegen emitter**: generate the `#[napi]` export signatures + facade skeleton +
+   conformance JSON from `bridge-manifest.toml` (one-in/one-out) rather than hand-writing
+   them. See `harness/codegen/bridge-emit.*`.

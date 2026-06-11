@@ -112,9 +112,15 @@ JSON escape hatches; exposing `StateStore` handles to TS; UI/renderer importing 
 addon; duplicate hand-written schemas in the bridge; transport types leaking into
 policy/catalog; bypassing generated contract surfaces.
 
-## 6. Current `wasm-bridge` runtime assumptions to migrate
+## 6. `wasm-bridge` runtime assumptions — migration (DONE)
 
-Today `ts/packages/wasm-bridge` (lane `ts-shell`) is the single thing shell packages import,
+> **Status: completed.** `ts/packages/wasm-bridge` has been removed. Its render-diff decode +
+> `RenderDiffStream` + `FrameMemory` moved into `@asha/runtime-bridge` (`render-decode.ts`);
+> `renderer-three`/`ui-dom`/`app`/`devtools` now import the `@asha/runtime-bridge` facade; the
+> replay/WASM role lives in `@asha/wasm-replay-bridge`. The table below records the original
+> assumptions and where each piece landed.
+
+Previously `ts/packages/wasm-bridge` (lane `ts-shell`) was the single thing shell packages imported,
 and it mixes two concerns:
 
 | Piece | Concern | Disposition |

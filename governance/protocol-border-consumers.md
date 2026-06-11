@@ -12,9 +12,9 @@ strictly outward.
 | Generated family | Surface | Expected downstream consumers (later phases) |
 | --- | --- | --- |
 | `ids.ts` | Branded IDs (`EntityId`, `SubjectId`, `ProcessId`, `ModeId`, `SignalId`, `TagId`) + constructors | Every consumer below — IDs are the shared vocabulary. |
-| `script.ts` | `ScriptView`, `Command`/`CommandEnvelope`/`CommandKind`, `ScriptRejection`, `ScriptOutcome` | `script-sdk`, `script-host`, `policy-core`, `policy-examples` (author/validate commands against a read-only view); `wasm-bridge` (command ingress, view egress); `devtools` (inspect commands & rejections). |
-| `render.ts` | `RenderHandle`, `Transform`, `RenderMetadata`, `RenderDiff`, `RenderFrameDiff` | `renderer-three` (apply retained-mode diffs); `wasm-bridge` (diff transport); `devtools` (inspect frames); `ui-dom` (debug overlays). |
-| `replay.ts` | `StepIndex`, `ReplayHash`, `REPLAY_FORMAT_VERSION`, `DomainEvent`, `ReplayStep`, `SnapshotMeta`, `ReplayRecord` | replay tools (`replay-tool`, `snapshot-diff`); `devtools` (divergence views); `wasm-bridge` (event/record transport). |
+| `script.ts` | `ScriptView`, `Command`/`CommandEnvelope`/`CommandKind`, `ScriptRejection`, `ScriptOutcome` | `script-sdk`, `script-host`, `policy-core`, `policy-examples` (author/validate commands against a read-only view); `runtime-bridge` (command ingress, view egress); `devtools` (inspect commands & rejections). |
+| `render.ts` | `RenderHandle`, `Transform`, `RenderMetadata`, `RenderDiff`, `RenderFrameDiff` | `renderer-three` (apply retained-mode diffs); `runtime-bridge` (diff decode/transport); `devtools` (inspect frames); `ui-dom` (debug overlays). |
+| `replay.ts` | `StepIndex`, `ReplayHash`, `REPLAY_FORMAT_VERSION`, `DomainEvent`, `ReplayStep`, `SnapshotMeta`, `ReplayRecord` | replay tools (`replay-tool`, `snapshot-diff`); `devtools` (divergence views); `wasm-replay-bridge` (WASM replay authority). |
 
 ## Importability proof
 

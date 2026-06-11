@@ -74,9 +74,25 @@ test('mock: readRenderDiffs returns a contract-shaped frame', () => {
   assert.deepEqual(frame, { ops: [] });
 });
 
-test('native factory throws native_unavailable when addon is not built', () => {
+test('native factory classifies a missing addon path', () => {
   assert.throws(
-    () => createNativeRuntimeBridge(),
+    () => createNativeRuntimeBridge('./definitely-not-built.node'),
     (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'native_unavailable',
   );
+});
+
+test('native bridge matches the mock when the addon is built (else skip)', (t) => {
+  let bridge;
+  try {
+    bridge = createNativeRuntimeBridge();
+  } catch (e) {
+    if (e instanceof RuntimeBridgeError && e.kind === 'native_unavailable') {
+      t.skip('native addon not built (run harness/ci/check-native.sh)');
+      return;
+    }
+    throw e;
+  }
+  // Parity with MockRuntimeBridge / Rust ReferenceBridge.
+  assert.equal(bridge.initializeEngine({ seed: 7 }) as number, 7);
+  assert.deepEqual(bridge.stepSimulation({ tick: 6 }), { tick: 6, diffCount: 2 });
 });

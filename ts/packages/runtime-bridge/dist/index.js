@@ -9,8 +9,11 @@
 // The public facade is hand-written for readability but MUST satisfy the
 // manifest-derived conformance test (see conformance.test.ts).
 import { loadNativeAddon, NativeAddonUnavailable } from '@asha/native-bridge';
-import { MANIFEST_OPERATIONS } from './operations.js';
-export { MANIFEST_OPERATIONS } from './operations.js';
+import { MANIFEST_OPERATIONS } from './generated/operations.js';
+export { MANIFEST_OPERATIONS } from './generated/operations.js';
+// Render-diff decode (moved from the former @asha/wasm-bridge). Transport-neutral
+// payload → contract types; backs `readRenderDiffs`. See render-decode.ts.
+export { decodeRenderDiff, decodeRenderFrameDiff, RenderDecodeError, RenderDiffStream, FrameMemory, } from './render-decode.js';
 export const frameCursor = (frame) => frame;
 /** Typed, classified error for every facade operation. No JSON error blobs. */
 export class RuntimeBridgeError extends Error {

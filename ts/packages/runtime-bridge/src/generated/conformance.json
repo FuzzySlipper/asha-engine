@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "errorType": "RuntimeBridgeError",
+  "operations": [
+    {
+      "manifestName": "initialize_engine",
+      "facadeMethod": "initializeEngine",
+      "surface": "stable",
+      "input": "protocol_runtime::EngineConfig",
+      "output": "EngineHandle",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "step_simulation",
+      "facadeMethod": "stepSimulation",
+      "surface": "stable",
+      "input": "protocol_runtime::StepInputEnvelope",
+      "output": "protocol_runtime::StepResult",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "submit_commands",
+      "facadeMethod": "submitCommands",
+      "surface": "stable",
+      "input": "protocol_script::CommandBatch",
+      "output": "protocol_script::CommandResult",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "read_render_diffs",
+      "facadeMethod": "readRenderDiffs",
+      "surface": "stable",
+      "input": "FrameCursor",
+      "output": "protocol_render::RenderFrameDiffDescriptor",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "get_buffer",
+      "facadeMethod": "getBuffer",
+      "surface": "stable",
+      "input": "RuntimeBufferHandle",
+      "output": "RuntimeBufferView",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "release_buffer",
+      "facadeMethod": "releaseBuffer",
+      "surface": "stable",
+      "input": "RuntimeBufferHandle",
+      "output": "Unit",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "load_replay_fixture",
+      "facadeMethod": "loadReplayFixture",
+      "surface": "quarantined",
+      "input": "protocol_replay::ReplayFixture",
+      "output": "ReplaySessionHandle",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "run_replay_step",
+      "facadeMethod": "runReplayStep",
+      "surface": "quarantined",
+      "input": "ReplaySessionHandle",
+      "output": "protocol_replay::ReplayStepReport",
+      "errors": "RuntimeBridgeError"
+    }
+  ]
+}
