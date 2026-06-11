@@ -18,6 +18,9 @@
 
 #![forbid(unsafe_code)]
 
+pub mod voxel;
+pub use voxel::VoxelEditEvent;
+
 use core_ids::{EntityId, ModeId, ProcessId, SignalId, SubjectId, TagId};
 
 // ── DomainEvent ───────────────────────────────────────────────────────────────

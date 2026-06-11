@@ -8,8 +8,10 @@ members = [
     "crates/foundation/core-time",
     "crates/foundation/core-error",
     "crates/foundation/core-collections",
+    "crates/foundation/core-space",
 
     # State
+    "crates/state/core-voxel",
     "crates/state/core-state",
     "crates/state/core-events",
     "crates/state/core-commands",
@@ -46,6 +48,7 @@ members = [
     "crates/rules/rule-scheduler",
     "crates/rules/rule-relationship",
     "crates/rules/rule-state-machine",
+    "crates/rules/rule-voxel-edit",
 
     # Render
     "crates/render/render-bridge",

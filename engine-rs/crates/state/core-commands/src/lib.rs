@@ -21,6 +21,9 @@
 
 #![forbid(unsafe_code)]
 
+pub mod voxel;
+pub use voxel::VoxelCommand;
+
 use core_ids::{EntityId, ModeId, ProcessId, SignalId, SubjectId, TagId};
 
 // ── Per-noun command enums ────────────────────────────────────────────────────

@@ -23,7 +23,16 @@ may_depend_on = []
 lane = "rust-foundation"
 may_depend_on = []
 
+[crate."engine-rs/crates/foundation/core-space"]
+lane = "rust-foundation"
+may_depend_on = []
+
 # ─── Rust: State ─────────────────────────────────────────────────────────────
+
+[crate."engine-rs/crates/state/core-voxel"]
+lane = "rust-state"
+may_depend_on = []
+may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 [crate."engine-rs/crates/state/core-state"]
 lane = "rust-state"
@@ -32,12 +41,12 @@ may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 [crate."engine-rs/crates/state/core-events"]
 lane = "rust-state"
-may_depend_on = ["core-ids", "core-error", "core-state"]
+may_depend_on = ["core-ids", "core-error", "core-state", "core-space", "core-voxel"]
 may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 [crate."engine-rs/crates/state/core-commands"]
 lane = "rust-state"
-may_depend_on = ["core-ids", "core-error", "core-state"]
+may_depend_on = ["core-ids", "core-error", "core-state", "core-space", "core-voxel"]
 may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 [crate."engine-rs/crates/state/core-snapshot"]
@@ -108,7 +117,7 @@ may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 [crate."engine-rs/crates/services/svc-spatial"]
 lane = "rust-service"
-may_depend_on = ["core-ids", "core-math", "core-error"]
+may_depend_on = ["core-ids", "core-math", "core-error", "core-space", "core-voxel", "svc-volume"]
 may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 [crate."engine-rs/crates/services/svc-collision"]
@@ -133,7 +142,7 @@ may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 [crate."engine-rs/crates/services/svc-volume"]
 lane = "rust-service"
-may_depend_on = ["core-ids", "core-math", "core-error"]
+may_depend_on = ["core-ids", "core-math", "core-error", "core-space", "core-voxel"]
 may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 [crate."engine-rs/crates/services/svc-mesh"]
@@ -166,6 +175,11 @@ may_not_depend_on = ["render-bridge", "wasm-api"]
 [crate."engine-rs/crates/rules/rule-state-machine"]
 lane = "rust-rule"
 may_depend_on = ["core-ids", "core-error", "core-state", "core-events", "core-commands"]
+may_not_depend_on = ["render-bridge", "wasm-api"]
+
+[crate."engine-rs/crates/rules/rule-voxel-edit"]
+lane = "rust-rule"
+may_depend_on = ["core-space", "core-voxel", "core-commands", "core-events", "svc-volume", "svc-spatial"]
 may_not_depend_on = ["render-bridge", "wasm-api"]
 
 # ─── Rust: Render ────────────────────────────────────────────────────────────

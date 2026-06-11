@@ -23,6 +23,8 @@ name = "core-commands"
 version = "0.1.0"
 dependencies = [
  "core-ids",
+ "core-space",
+ "core-voxel",
 ]
 
 [[package]]
@@ -34,6 +36,8 @@ name = "core-events"
 version = "0.1.0"
 dependencies = [
  "core-ids",
+ "core-space",
+ "core-voxel",
 ]
 
 [[package]]
@@ -53,6 +57,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "core-space"
+version = "0.1.0"
+
+[[package]]
 name = "core-state"
 version = "0.1.0"
 dependencies = [
@@ -61,6 +69,10 @@ dependencies = [
 
 [[package]]
 name = "core-time"
+version = "0.1.0"
+
+[[package]]
+name = "core-voxel"
 version = "0.1.0"
 
 [[package]]
@@ -186,6 +198,18 @@ name = "rule-state-machine"
 version = "0.1.0"
 
 [[package]]
+name = "rule-voxel-edit"
+version = "0.1.0"
+dependencies = [
+ "core-commands",
+ "core-events",
+ "core-space",
+ "core-voxel",
+ "svc-spatial",
+ "svc-volume",
+]
+
+[[package]]
 name = "runtime-bridge-api"
 version = "0.1.0"
 dependencies = [
@@ -288,10 +312,19 @@ version = "0.1.0"
 [[package]]
 name = "svc-spatial"
 version = "0.1.0"
+dependencies = [
+ "core-space",
+ "core-voxel",
+ "svc-volume",
+]
 
 [[package]]
 name = "svc-volume"
 version = "0.1.0"
+dependencies = [
+ "core-space",
+ "core-voxel",
+]
 
 [[package]]
 name = "syn"

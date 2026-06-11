@@ -486,6 +486,124 @@ pub fn replay_module() -> Module {
     }
 }
 
+// ── voxel.ts — voxel edit/generation border shapes ────────────────────────────
+//
+// Mirrors `core_commands::VoxelCommand` / `core_events::VoxelEditEvent` and the
+// `rule_voxel_edit::VoxelEditRejection` authority surface (voxel-capability-05).
+// Coordinates and ids are plain numbers at the border (grid id, i64 coords,
+// u16 material), matching the rest of the contract surface.
+
+pub fn voxel_module() -> Module {
+    let coord =
+        |name: &str, doc: &str| iface(doc, name, vec![f("x", num()), f("y", num()), f("z", num())]);
+    let items = vec![
+        coord(
+            "VoxelCoord",
+            "An integer voxel cell coordinate within a grid.",
+        ),
+        coord("ChunkCoord", "An integer chunk coordinate."),
+        union(
+            "The value of a voxel cell: empty space or a solid of some material.",
+            "VoxelValue",
+            "kind",
+            vec![v("empty", vec![]), v("solid", vec![f("material", num())])],
+        ),
+        union(
+            "A proposed voxel edit/generation command (authority-owned).",
+            "VoxelCommand",
+            "op",
+            vec![
+                v(
+                    "setVoxel",
+                    vec![
+                        f("grid", num()),
+                        f("coord", r("VoxelCoord")),
+                        f("value", r("VoxelValue")),
+                    ],
+                ),
+                v(
+                    "fillRegion",
+                    vec![
+                        f("grid", num()),
+                        f("min", r("VoxelCoord")),
+                        f("max", r("VoxelCoord")),
+                        f("value", r("VoxelValue")),
+                    ],
+                ),
+                v(
+                    "generateChunk",
+                    vec![
+                        f("grid", num()),
+                        f("chunk", r("ChunkCoord")),
+                        f("seed", num()),
+                        f("generatorVersion", num()),
+                    ],
+                ),
+            ],
+        ),
+        union(
+            "An accepted, authoritative voxel change.",
+            "VoxelEditEvent",
+            "event",
+            vec![
+                v(
+                    "voxelSet",
+                    vec![
+                        f("grid", num()),
+                        f("coord", r("VoxelCoord")),
+                        f("value", r("VoxelValue")),
+                    ],
+                ),
+                v(
+                    "voxelRegionFilled",
+                    vec![
+                        f("grid", num()),
+                        f("min", r("VoxelCoord")),
+                        f("max", r("VoxelCoord")),
+                        f("value", r("VoxelValue")),
+                    ],
+                ),
+                v(
+                    "chunkGenerated",
+                    vec![
+                        f("grid", num()),
+                        f("chunk", r("ChunkCoord")),
+                        f("seed", num()),
+                        f("generatorVersion", num()),
+                        f("hash", num()),
+                    ],
+                ),
+            ],
+        ),
+        union(
+            "Why a proposed voxel edit was refused.",
+            "VoxelEditRejection",
+            "reason",
+            vec![
+                v("unknownMaterial", vec![f("material", num())]),
+                v(
+                    "emptyRegion",
+                    vec![f("min", r("VoxelCoord")), f("max", r("VoxelCoord"))],
+                ),
+                v("chunkNotResident", vec![f("chunk", r("ChunkCoord"))]),
+                v(
+                    "generationDivergence",
+                    vec![
+                        f("chunk", r("ChunkCoord")),
+                        f("expected", num()),
+                        f("actual", num()),
+                    ],
+                ),
+            ],
+        ),
+    ];
+    Module {
+        name: "voxel",
+        imports: vec![],
+        items,
+    }
+}
+
 // ── index.ts — barrel ─────────────────────────────────────────────────────────
 
 pub fn index_module() -> Module {
@@ -505,6 +623,9 @@ pub fn index_module() -> Module {
             Item::ReExport {
                 from: "./replay.js".to_string(),
             },
+            Item::ReExport {
+                from: "./voxel.js".to_string(),
+            },
         ],
     }
 }
@@ -516,6 +637,7 @@ pub fn all_modules() -> Vec<Module> {
         script_module(),
         render_module(),
         replay_module(),
+        voxel_module(),
         index_module(),
     ]
 }

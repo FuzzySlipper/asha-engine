@@ -8,3 +8,5 @@ workspace = true
 
 [dependencies]
 core-ids = { path = "../../foundation/core-ids" }
+core-space = { path = "../../foundation/core-space" }
+core-voxel = { path = "../core-voxel" }

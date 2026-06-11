@@ -149,6 +149,7 @@ mod tests {
                 format!("{OUTPUT_DIR}/script.ts"),
                 format!("{OUTPUT_DIR}/render.ts"),
                 format!("{OUTPUT_DIR}/replay.ts"),
+                format!("{OUTPUT_DIR}/voxel.ts"),
                 format!("{OUTPUT_DIR}/index.ts"),
             ],
         );
