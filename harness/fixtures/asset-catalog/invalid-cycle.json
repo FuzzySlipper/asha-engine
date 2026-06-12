@@ -1,0 +1,7 @@
+{
+  "entries": [
+    { "id": "mesh/a", "version": 1, "hash": null, "sourcePath": null, "label": null, "dependencies": [{ "id": "material/b", "version": { "req": "any" }, "hash": null }], "material": null },
+    { "id": "material/b", "version": 1, "hash": null, "sourcePath": null, "label": null, "dependencies": [{ "id": "texture/c", "version": { "req": "any" }, "hash": null }], "material": { "authority": { "solid": true, "collidable": true, "occludes": true, "structuralClass": "solid" }, "style": { "color": [0.5, 0.5, 0.5, 1], "texture": null, "roughness": 1, "emissive": 0, "uvStrategy": "flat" } } },
+    { "id": "texture/c", "version": 1, "hash": null, "sourcePath": null, "label": null, "dependencies": [{ "id": "mesh/a", "version": { "req": "any" }, "hash": null }], "material": null }
+  ]
+}

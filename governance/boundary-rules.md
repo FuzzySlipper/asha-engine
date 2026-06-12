@@ -43,3 +43,19 @@
     reconstruct identical chunk hashes. A terrain-generator version mismatch **fails closed**
     by default; development may opt into a regenerate-and-replay *diagnostic* that reports
     per-edit conflicts but never silently rewrites a save.
+17. Asset **catalogs are Rust-validated** (`core-catalog`): TS may author catalog data, but
+    only Rust validation decides whether references may enter authority/runtime. The asset
+    dependency graph is a Rust-validated **DAG** — cycles are rejected with the full cycle path,
+    never deferred (they corrupt load ordering and asset locks). Asset locks are validated, not
+    silently updated, on load; drift is classified (missing / wrong-kind / stale version|hash /
+    dependency drift).
+18. A **material asset** is the single source, but consumers receive **separated projections**:
+    collision/authority gets `CollisionMaterial` (solid/collidable/occludes/structural — no
+    texture or colour), the renderer gets `RenderMaterial` (colour/texture/roughness/emissive/UV
+    — no collision class). Render protocol must not carry collision class; the collision service
+    must not carry texture/UV. Fallback is registry policy by **asset kind + context of use**
+    (collision-critical fails closed; cosmetic/overlay gets a debug placeholder), never a
+    per-reference override scattered through scenes. Single-asset revalidation reports dependent
+    impact and distinguishes a live-safe visual-only change from an authority/structural change
+    that needs revalidation or a full reload — it advises only and never mutates renderer or
+    catalog state directly.

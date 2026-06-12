@@ -64,6 +64,13 @@ name = "core-assets"
 version = "0.1.0"
 
 [[package]]
+name = "core-catalog"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+]
+
+[[package]]
 name = "core-collections"
 version = "0.1.0"
 

@@ -1,0 +1,2 @@
+errors 1
+  dependency-cycle material/b -> texture/c -> mesh/a -> material/b

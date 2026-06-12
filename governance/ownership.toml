@@ -43,6 +43,11 @@ lane = "rust-state"
 may_depend_on = ["core-ids", "core-assets", "core-math", "core-error"]
 may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
+[crate."engine-rs/crates/state/core-catalog"]
+lane = "rust-state"
+may_depend_on = ["core-assets"]
+may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
+
 [crate."engine-rs/crates/state/core-state"]
 lane = "rust-state"
 may_depend_on = ["core-ids", "core-error", "core-collections"]

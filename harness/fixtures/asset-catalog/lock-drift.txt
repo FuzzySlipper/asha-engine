@@ -1,0 +1,4 @@
+findings 3
+  mesh/fixture-a stale-version locked=1 current=7
+  texture/surface-atlas-a stale-hash locked=aa01 current=ffff
+  sprite/new-a new-in-catalog 

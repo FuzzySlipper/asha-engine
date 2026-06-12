@@ -1,0 +1,31 @@
+{
+  "entries": [
+    {
+      "id": "material/surface-a",
+      "version": 2,
+      "hash": "bb02",
+      "sourcePath": null,
+      "label": null,
+      "dependencies": [{ "id": "texture/surface-atlas-a", "version": { "req": "any" }, "hash": null }],
+      "material": { "authority": { "solid": true, "collidable": true, "occludes": true, "structuralClass": "structural" }, "style": { "color": [0.5, 0.5, 0.5, 1], "texture": { "id": "texture/surface-atlas-a", "version": { "req": "any" }, "hash": null }, "roughness": 1, "emissive": 0, "uvStrategy": "flat" } }
+    },
+    {
+      "id": "mesh/fixture-a",
+      "version": 1,
+      "hash": "cc03",
+      "sourcePath": null,
+      "label": null,
+      "dependencies": [{ "id": "material/surface-a", "version": { "req": "any" }, "hash": null }],
+      "material": null
+    },
+    {
+      "id": "texture/surface-atlas-a",
+      "version": 1,
+      "hash": "aa01",
+      "sourcePath": "textures/surface-atlas-a.png",
+      "label": "Surface Atlas A",
+      "dependencies": [],
+      "material": null
+    }
+  ]
+}

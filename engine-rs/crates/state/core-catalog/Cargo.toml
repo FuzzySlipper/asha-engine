@@ -1,0 +1,10 @@
+[package]
+name    = "core-catalog"
+version.workspace = true
+edition.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+core-assets = { path = "../../foundation/core-assets" }

@@ -47,3 +47,21 @@ Layer order (lowest to highest): foundation → state → protocol → sim/servi
     that never silently rewrites a save.
 - The directory/manifest layout is canonical for development; a `.asha` archive is a future
   transport wrapper only. No `protocol`/codegen border surface is added yet.
+
+## Asset registry / catalog validation
+
+- `core-catalog` (state) — Rust-validated asset registry above the `core-assets` vocabulary:
+  - `Catalog` / `CatalogEntry` + `validate` — catalog manifest validation (duplicate ids,
+    material-payload placement, wrong-kind typed slots, missing dependencies) and a Rust-validated
+    dependency `DependencyGraph` (DAG) with cycle-path diagnostics.
+  - `AssetLock` + `generate_lock` / `validate_lock` — world-bundle asset locks and classified
+    catalog-drift findings (missing / wrong-kind / stale version|hash / dependency drift /
+    new-in-catalog); validation reports, never silently re-locks.
+  - `MaterialDef` with the authority/style split: `collision_projection()` → `CollisionMaterial`
+    (no visual fields), `render_projection()` → `RenderMaterial` (no collision class); plus
+    `fallback_for(kind, context)` policy (collision-critical fails closed, cosmetic/overlay gets a
+    debug placeholder).
+  - `revalidate_asset` — single-asset change-impact diagnostics (reverse-DAG dependents; safe
+    visual-only vs authority/structural change needing revalidation or full reload).
+- TS may author catalog data; Rust owns validation. No `protocol`/codegen surface added yet — it
+  lands when catalog/descriptor shapes cross to TS (static-mesh/sprite rendering, devtools).

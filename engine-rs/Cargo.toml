@@ -18,6 +18,7 @@ members = [
     "crates/state/core-events",
     "crates/state/core-commands",
     "crates/state/core-snapshot",
+    "crates/state/core-catalog",
 
     # Protocol
     "crates/protocol/protocol-ids",
