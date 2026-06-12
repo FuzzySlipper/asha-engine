@@ -51,6 +51,7 @@ members = [
     "crates/rules/rule-relationship",
     "crates/rules/rule-state-machine",
     "crates/rules/rule-voxel-edit",
+    "crates/rules/rule-world-bundle",
 
     # Render
     "crates/render/render-bridge",

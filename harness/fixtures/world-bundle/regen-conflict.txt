@@ -1,0 +1,7 @@
+savedVersion 1
+newVersion 2
+replayedEdits 1
+clean false
+stagingWorldHash eb79f6c4d9d97bcb
+conflicts 1
+  event 0 coord 0,1,0 old solid:1 new empty edit solid:9 action reviewConflict

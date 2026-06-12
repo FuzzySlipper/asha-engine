@@ -26,3 +26,24 @@ Layer order (lowest to highest): foundation → state → protocol → sim/servi
   `protocol-render::RenderHandle` (a derived projection handle, not authority).
 - Authored scene documents and asset references are Rust-validated; no `protocol`/codegen
   border surface exists for them yet — it lands when scene/bootstrap shapes cross to TS.
+
+## World bundle / save serialization
+
+- `svc-serialization` (services) — the inspectable world-bundle **format** and plans:
+  - `WorldBundleManifest` — directory/manifest index with a classified artifact table
+    (`durable` / `generated` / `cache`), bundle + protocol versions, world/scene identity,
+    asset lock, generator metadata, and content hashes; validation fails closed on unknown
+    newer versions. Std-only canonical JSON encode/decode.
+  - `LoadPlan` — the deterministic, ordered, typed authority-load sequence with out-of-order
+    and missing-prerequisite diagnostics.
+  - `SavePlan` / `CompactionPlan` — the declarative, voxel-agnostic save + explicit-compaction
+    description.
+- `rule-world-bundle` (rules) — the **execution** that composes voxel persistence
+  (`rule-voxel-edit`) the lower format crate cannot reach:
+  - `compose` — fold chunk snapshots / edit logs into bundle sections with explicit save-time
+    compaction; a compacted snapshot + retained edit log reconstructs identical chunk hashes.
+  - `regen` — fail-closed generator-mismatch handling plus a development regenerate-and-replay
+    conflict diagnostic (coordinate, old/new generated value, edit event id, suggested action)
+    that never silently rewrites a save.
+- The directory/manifest layout is canonical for development; a `.asha` archive is a future
+  transport wrapper only. No `protocol`/codegen border surface is added yet.

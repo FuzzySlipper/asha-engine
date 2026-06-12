@@ -26,3 +26,20 @@
     (`core-assets`) with kind-prefixed scoped-kebab-case `AssetId`s — never free strings or
     source paths. Asset catalogs may be TS-authored, but Rust validates asset identity, kind,
     and references before authority accepts them; catalogs do not bypass Rust validation.
+14. A world bundle is a **directory/manifest** of classified artifacts (`svc-serialization`):
+    every artifact is `durable`, `generated`, or `cache`. Cache artifacts are disposable —
+    deleting them must never change loaded authority. A future `.asha` archive is only a
+    transport wrapper around the same files (directory is truth; the two must round-trip).
+    Durable artifacts carry content hashes; the manifest fails closed on an unknown newer
+    bundle/protocol version rather than guessing.
+15. Bundle load order is an **authority constraint**, not an implementation detail: versions →
+    asset lock → scene document → terrain generation → voxel edits/snapshots → atomic scene
+    bootstrap → final validation. Final authority application must follow this order even if
+    decoding is internally parallel; an out-of-order or missing-prerequisite plan is rejected
+    with a classified diagnostic (`LoadPlan::verify_order`).
+16. Save-time compaction is **explicit** and never runs during ordinary simulation ticks: a
+    save may fold old edit history into chunk snapshots (`rule-world-bundle`), but replay and
+    save stay separate concepts and a compacted snapshot plus the retained edit log must
+    reconstruct identical chunk hashes. A terrain-generator version mismatch **fails closed**
+    by default; development may opt into a regenerate-and-replay *diagnostic* that reports
+    per-edit conflicts but never silently rewrites a save.

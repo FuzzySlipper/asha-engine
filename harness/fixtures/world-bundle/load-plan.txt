@@ -1,0 +1,7 @@
+0 versions schema=1 protocol=1
+1 assetLock assets/lock.json assets=1
+2 sceneDocument scene/scene.json scene=100
+3 terrainGeneration seed=42 version=1 params=default
+4 voxelEdits editLogs=[voxel/edits.log] snapshots=[voxel/chunk_0_0_0.snapshot]
+5 bootstrap scene=100 world=7
+6 finalValidation 

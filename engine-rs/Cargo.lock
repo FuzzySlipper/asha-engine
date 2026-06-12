@@ -462,6 +462,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "rule-world-bundle"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "core-events",
+ "core-ids",
+ "core-scene",
+ "core-space",
+ "core-voxel",
+ "rule-voxel-edit",
+ "svc-serialization",
+ "svc-spatial",
+ "svc-volume",
+]
+
+[[package]]
 name = "runtime-bridge-api"
 version = "0.1.0"
 dependencies = [
@@ -624,6 +640,12 @@ version = "0.1.0"
 [[package]]
 name = "svc-serialization"
 version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "core-error",
+ "core-ids",
+ "core-scene",
+]
 
 [[package]]
 name = "svc-spatial"

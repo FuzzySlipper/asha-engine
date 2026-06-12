@@ -1,0 +1,15 @@
+{
+  "bundleSchemaVersion": 1,
+  "protocolVersion": 1,
+  "world": { "id": 7, "name": "sample-world" },
+  "scene": { "id": 100, "schemaVersion": 1, "artifact": "scene/scene.json" },
+  "assetLock": { "artifact": "assets/lock.json", "assetCount": 1 },
+  "generator": { "seed": 42, "version": 1, "params": "default" },
+  "artifacts": [
+    { "path": "assets/lock.json", "class": "durable", "role": "assetLock", "contentHash": "422f72d827e3137c" },
+    { "path": "cache/mesh_0_0_0.bin", "class": "cache", "role": "cache", "contentHash": null },
+    { "path": "scene/scene.json", "class": "durable", "role": "sceneDocument", "contentHash": "1723540f7db7a459" },
+    { "path": "voxel/chunk_0_0_0.snapshot", "class": "generated", "role": "voxelChunkSnapshot", "contentHash": "16dc751beb132c3c" },
+    { "path": "voxel/edits.log", "class": "durable", "role": "voxelEditLog", "contentHash": "ce8ba8e9d74f3637" }
+  ]
+}

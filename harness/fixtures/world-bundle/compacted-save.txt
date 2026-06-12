@@ -1,0 +1,41 @@
+writes: 1 durable, 1 generated, 0 cache
+compaction: fold 2 edits into 1 chunk snapshot(s) [0,0,0], retain 1 recent edit(s)
+  voxel/chunk_0_0_0.snapshot [generated] voxelChunkSnapshot
+  voxel/recent.log [durable] voxelEditLog
+--- snapshots ---
+# voxel/chunk_0_0_0.snapshot
+voxelchunk 1
+grid 0
+dims 4 4 4
+rle 2 65537
+rle 1 0
+rle 3 65537
+rle 1 0
+rle 2 65537
+rle 2 0
+rle 1 65537
+rle 2 65538
+rle 3 0
+rle 3 65537
+rle 3 0
+rle 1 65537
+rle 8 0
+rle 4 65537
+rle 1 0
+rle 2 65537
+rle 2 0
+rle 2 65537
+rle 2 0
+rle 1 65537
+rle 2 0
+rle 3 65537
+rle 1 0
+rle 3 65537
+rle 2 0
+rle 2 65537
+rle 3 0
+rle 1 65537
+rle 1 0
+--- retained edit log ---
+voxeledits 1
+set 0 2 3 0 65539
