@@ -1,0 +1,6 @@
+voxel-scene resident=2 pending=1 unloaded=0 colliders=1
+chunk [0, 0, 0] hash=0x9bf9b468d078e8c1 dirty=false collider=true quads=10 v=40 i=60 culled=2
+chunk [1, 0, 0] hash=0x6532e803fce6fc11 dirty=false collider=false quads=0 v=0 i=0 culled=0
+dirty []
+queue mesh count=1
+queue collision-rebuild count=1

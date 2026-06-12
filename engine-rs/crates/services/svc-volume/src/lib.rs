@@ -99,6 +99,30 @@ impl VoxelChunk {
         Self::new(spec.id(), spec.chunk_dims())
     }
 
+    /// Reconstruct a chunk from its cell values in storage order (X-fastest), e.g.
+    /// when decoding a snapshot. `values.len()` must equal `dims.volume()`. The
+    /// result is version 0 and clean. A chunk rebuilt from another chunk's
+    /// [`iter`](Self::iter) values has the same [`content_hash`](Self::content_hash).
+    pub fn from_values(
+        grid_id: GridId,
+        dims: ChunkDims,
+        values: &[VoxelValue],
+    ) -> Result<Self, VolumeError> {
+        if values.len() as u64 != dims.volume() {
+            return Err(VolumeError::OutOfBounds {
+                local: LocalVoxelCoord::new(values.len() as u32, 0, 0),
+                dims,
+            });
+        }
+        Ok(Self {
+            grid_id,
+            dims,
+            cells: values.to_vec(),
+            version: ChunkVersion(0),
+            dirty: false,
+        })
+    }
+
     pub fn grid_id(&self) -> GridId {
         self.grid_id
     }

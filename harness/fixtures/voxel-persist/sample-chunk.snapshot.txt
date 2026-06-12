@@ -1,0 +1,5 @@
+voxelchunk 1
+grid 0
+dims 4 4 4
+rle 2 65537
+rle 62 0

@@ -23,6 +23,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod persist;
 pub mod picking;
 
 use core_commands::VoxelCommand;

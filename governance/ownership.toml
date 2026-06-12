@@ -167,7 +167,7 @@ may_not_depend_on = ["render-bridge", "wasm-api"]
 
 [crate."engine-rs/crates/rules/rule-scheduler"]
 lane = "rust-rule"
-may_depend_on = ["core-ids", "core-time", "core-error", "core-state", "core-events", "core-commands"]
+may_depend_on = ["core-ids", "core-time", "core-error", "core-state", "core-events", "core-commands", "core-space"]
 may_not_depend_on = ["render-bridge", "wasm-api"]
 
 [crate."engine-rs/crates/rules/rule-relationship"]
@@ -206,6 +206,13 @@ may_depend_on = [
   "core-snapshot", "protocol-script", "protocol-render", "protocol-replay",
   "protocol-telemetry", "sim-runner", "sim-replay", "render-bridge",
 ]
+
+# ─── Rust: Tools ─────────────────────────────────────────────────────────────
+
+[crate."engine-rs/crates/tools/voxel-diagnostics"]
+lane = "rust-tools"
+may_depend_on = ["core-space", "core-voxel", "core-events", "svc-volume", "svc-spatial", "svc-mesh", "svc-collision", "rule-voxel-edit", "rule-scheduler"]
+may_not_depend_on = ["render-bridge"]
 
 # ─── TypeScript ──────────────────────────────────────────────────────────────
 

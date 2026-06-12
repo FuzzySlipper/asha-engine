@@ -68,6 +68,7 @@ members = [
     "crates/tools/protocol-dump",
     "crates/tools/state-inspector",
     "crates/tools/fixture-maker",
+    "crates/tools/voxel-diagnostics",
 ]
 
 # native-bridge needs `napi` + a native build toolchain + network to fetch crates.
