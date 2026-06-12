@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { RenderDiff, RenderFrameDiff, RenderHandle } from '@asha/contracts';
+import type { RenderDiff, RenderFrameDiff, RenderHandle, SpritePickHit } from '@asha/contracts';
 /** Raised when a diff cannot be applied (duplicate, unknown, or stale handle). */
 export declare class RenderApplyError extends Error {
     constructor(message: string);
@@ -43,5 +43,13 @@ export declare class ThreeRenderer {
      * dependency, whereas this is exact, reviewable, and needs no GL context.
      */
     snapshot(): string;
+    /** How many live instances reference a defined static mesh asset (0 if undefined). */
+    instanceCountFor(asset: string): number;
+    /**
+     * Resolve a renderer-side sprite pick to an authority-facing trace: render
+     * handle + source entity/scene-node ids + asset ref + attachment point. The
+     * renderer decides no gameplay action — authority revalidates and acts.
+     */
+    pickSprite(handle: RenderHandle): SpritePickHit | undefined;
 }
 //# sourceMappingURL=index.d.ts.map

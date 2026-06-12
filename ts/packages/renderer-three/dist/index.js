@@ -27,6 +27,8 @@ export class ThreeRenderer {
     #sceneGroup = new THREE.Group();
     #debugGroup = new THREE.Group();
     #handles = new Map();
+    /** Defined static mesh assets, keyed by asset id (shared geometry lifecycle). */
+    #staticMeshes = new Map();
     /** Per-material-slot colours for the initial flat/debug material strategy. */
     #slotColors = new Map();
     constructor() {
@@ -61,6 +63,18 @@ export class ThreeRenderer {
                 break;
             case 'replaceMeshPayload':
                 this.#replaceMeshPayload(diff);
+                break;
+            case 'defineStaticMesh':
+                this.#defineStaticMesh(diff.asset);
+                break;
+            case 'createStaticMeshInstance':
+                this.#createStaticMeshInstance(diff);
+                break;
+            case 'createSprite':
+                this.#createSprite(diff);
+                break;
+            case 'updateSprite':
+                this.#updateSprite(diff);
                 break;
         }
     }
@@ -108,21 +122,7 @@ export class ThreeRenderer {
         if (entries.length === 0) {
             return '(empty scene)\n';
         }
-        return (entries
-            .map(([handle, entry]) => {
-            const o = entry.object;
-            return [
-                `handle ${handle}`,
-                `layer ${o.parent?.name ?? '?'}`,
-                `shape ${entry.shape}`,
-                `pos ${fmtVec(o.position)}`,
-                `scale ${fmtVec(o.scale)}`,
-                `visible ${o.visible}`,
-                `color ${fmtColor(o)}`,
-                `label ${JSON.stringify(o.name)}`,
-            ].join('  ');
-        })
-            .join('\n') + '\n');
+        return entries.map(([handle, entry]) => snapshotLine(handle, entry)).join('\n') + '\n';
     }
     #create(diff) {
         if (this.#handles.has(diff.handle)) {
@@ -133,7 +133,12 @@ export class ThreeRenderer {
             ? this.#layerGroup(diff.node.layer)
             : this.#require(diff.parent, 'create.parent').object;
         parent.add(object);
-        this.#handles.set(diff.handle, { object, shape: diff.node.geometry.shape });
+        this.#handles.set(diff.handle, {
+            object,
+            kind: 'primitive',
+            shape: diff.node.geometry.shape,
+            ownsGeometry: true,
+        });
     }
     #update(diff) {
         const entry = this.#require(diff.handle, 'update');
@@ -153,8 +158,194 @@ export class ThreeRenderer {
     #destroy(diff) {
         const entry = this.#require(diff.handle, 'destroy');
         entry.object.parent?.remove(entry.object);
-        disposeObject(entry.object);
+        if (entry.kind === 'staticMesh' && entry.asset !== undefined) {
+            // Shared geometry: dispose only this instance's override materials, then
+            // release the asset reference. The asset's geometry is disposed only when
+            // its last instance is gone (reference-safe — never while another shares it).
+            disposeInstanceOverrides(entry.object);
+            this.#releaseStaticMesh(entry.asset);
+        }
+        else {
+            disposeObject(entry.object);
+        }
         this.#handles.delete(diff.handle);
+    }
+    // ── Static mesh assets + instances (render-asset-04) ────────────────────────
+    /**
+     * Define (or redefine) a static mesh asset's shared geometry + slot materials.
+     * Idempotent per asset id: a redefine while instances exist is rejected (it
+     * would orphan shared geometry); a redefine of an unused asset replaces it.
+     */
+    #defineStaticMesh(asset) {
+        const existing = this.#staticMeshes.get(asset.asset);
+        if (existing) {
+            if (existing.refCount > 0) {
+                throw new RenderApplyError(`defineStaticMesh: asset ${asset.asset} is in use by ${existing.refCount} instance(s)`);
+            }
+            existing.geometry.dispose();
+            existing.materials.forEach((m) => m.dispose());
+        }
+        if (asset.payload.source.kind !== 'inline') {
+            throw new RenderApplyError(`defineStaticMesh: handle-source payloads need a runtime buffer provider (not wired yet)`);
+        }
+        const geometry = buildMeshGeometry(asset.payload);
+        const slotIndex = new Map();
+        const materials = asset.materialSlots.map((s, i) => {
+            slotIndex.set(s.slot, i);
+            return this.#materialFor(s);
+        });
+        this.#staticMeshes.set(asset.asset, {
+            geometry,
+            materials,
+            slotIndex,
+            materialSlots: asset.materialSlots,
+            collision: asset.collision,
+            refCount: 0,
+        });
+    }
+    #createStaticMeshInstance(diff) {
+        if (this.#handles.has(diff.handle)) {
+            throw new RenderApplyError(`createStaticMeshInstance: handle ${diff.handle} already exists`);
+        }
+        const def = this.#staticMeshes.get(diff.instance.asset);
+        if (!def) {
+            throw new RenderApplyError(`createStaticMeshInstance: undefined static mesh asset ${diff.instance.asset}`);
+        }
+        // Materials default to the asset's; per-instance overrides clone-replace just
+        // the named slots, so two instances of one asset can differ in material while
+        // sharing one BufferGeometry.
+        const materials = def.materials.slice();
+        const ownMaterials = [];
+        for (const ov of diff.instance.materialOverrides) {
+            const idx = def.slotIndex.get(ov.slot);
+            if (idx === undefined) {
+                throw new RenderApplyError(`createStaticMeshInstance: override for unbound slot ${ov.slot} on ${diff.instance.asset}`);
+            }
+            const m = this.#materialFor(ov);
+            materials[idx] = m;
+            ownMaterials.push(m);
+        }
+        const mesh = new THREE.Mesh(def.geometry, materials.length === 1 ? materials[0] : materials);
+        // Instance-owned override materials (disposed on destroy; shared ones aren't).
+        mesh.userData.ownMaterials = ownMaterials;
+        applyTransform(mesh, diff.instance.transform);
+        applyMetadata(mesh, diff.instance.metadata);
+        const parent = diff.parent === null ? this.#sceneGroup : this.#require(diff.parent, 'createStaticMeshInstance.parent').object;
+        parent.add(mesh);
+        def.refCount += 1;
+        this.#handles.set(diff.handle, {
+            object: mesh,
+            kind: 'staticMesh',
+            shape: 'quad',
+            asset: diff.instance.asset,
+            ownsGeometry: false,
+        });
+    }
+    #releaseStaticMesh(asset) {
+        const def = this.#staticMeshes.get(asset);
+        if (!def) {
+            return;
+        }
+        def.refCount -= 1;
+        if (def.refCount <= 0) {
+            def.geometry.dispose();
+            def.materials.forEach((m) => m.dispose());
+            this.#staticMeshes.delete(asset);
+        }
+    }
+    /** How many live instances reference a defined static mesh asset (0 if undefined). */
+    instanceCountFor(asset) {
+        return this.#staticMeshes.get(asset)?.refCount ?? 0;
+    }
+    #materialFor(slot) {
+        // The render border maps a material asset id → an appearance. Until catalog
+        // RenderMaterial wiring lands, slots map to a deterministic per-slot colour
+        // (registerSlotColor) so the mesh always shows *some* stable material.
+        return new THREE.MeshBasicMaterial({ color: this.#slotColor(slot.slot) });
+    }
+    // ── Sprites / billboards (render-asset-05/06) ───────────────────────────────
+    #createSprite(diff) {
+        if (this.#handles.has(diff.handle)) {
+            throw new RenderApplyError(`createSprite: handle ${diff.handle} already exists`);
+        }
+        const s = diff.sprite;
+        // Plane BufferGeometry (NOT THREE.Sprite) so the node fits the retained handle
+        // lifecycle and future batching. Pivot shifts the plane so the anchor sits at
+        // the node origin.
+        const geometry = new THREE.PlaneGeometry(s.size[0], s.size[1]);
+        geometry.translate((0.5 - s.pivot[0]) * s.size[0], (0.5 - s.pivot[1]) * s.size[1], 0);
+        const material = new THREE.MeshBasicMaterial({
+            color: new THREE.Color(s.tint[0], s.tint[1], s.tint[2]),
+            opacity: s.tint[3],
+            transparent: s.tint[3] < 1,
+            depthTest: s.depth !== 'depthTestOff',
+            depthWrite: s.depth === 'default',
+        });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.renderOrder = s.renderOrder;
+        applyTransform(mesh, s.transform);
+        applyMetadata(mesh, s.metadata);
+        mesh.userData.frame = s.frame;
+        mesh.userData.billboard = s.billboard;
+        const parent = diff.parent === null ? this.#sceneGroup : this.#require(diff.parent, 'createSprite.parent').object;
+        parent.add(mesh);
+        this.#handles.set(diff.handle, {
+            object: mesh,
+            kind: 'sprite',
+            shape: 'quad',
+            asset: s.asset,
+            ownsGeometry: true,
+            sprite: s,
+        });
+    }
+    /**
+     * Deterministic, projection-driven sprite update. Frame/tint/order/visibility
+     * come from an authority tick — never renderer wall-clock animation — so the
+     * same diff sequence always produces the same scene.
+     */
+    #updateSprite(diff) {
+        const entry = this.#require(diff.handle, 'updateSprite');
+        if (entry.kind !== 'sprite' || !entry.sprite) {
+            throw new RenderApplyError(`updateSprite: handle ${diff.handle} is not a sprite`);
+        }
+        const mesh = entry.object;
+        const material = mesh.material;
+        if (diff.frame !== null) {
+            entry.sprite = { ...entry.sprite, frame: diff.frame };
+            mesh.userData.frame = diff.frame;
+        }
+        if (diff.tint !== null) {
+            entry.sprite = { ...entry.sprite, tint: diff.tint };
+            material.color.setRGB(diff.tint[0], diff.tint[1], diff.tint[2]);
+            material.opacity = diff.tint[3];
+            material.transparent = diff.tint[3] < 1;
+        }
+        if (diff.renderOrder !== null) {
+            entry.sprite = { ...entry.sprite, renderOrder: diff.renderOrder };
+            mesh.renderOrder = diff.renderOrder;
+        }
+        if (diff.visible !== null) {
+            mesh.visible = diff.visible;
+        }
+    }
+    /**
+     * Resolve a renderer-side sprite pick to an authority-facing trace: render
+     * handle + source entity/scene-node ids + asset ref + attachment point. The
+     * renderer decides no gameplay action — authority revalidates and acts.
+     */
+    pickSprite(handle) {
+        const entry = this.#handles.get(handle);
+        if (!entry || entry.kind !== 'sprite' || !entry.sprite) {
+            return undefined;
+        }
+        const a = entry.sprite.attachment;
+        return {
+            handle,
+            sourceEntity: a.sourceEntity,
+            sourceSceneNode: a.sourceSceneNode,
+            asset: entry.sprite.asset,
+            attachmentPoint: a.attachmentPoint,
+        };
     }
     /**
      * Replace a node's geometry with an uploaded voxel mesh payload. Uploads the
@@ -193,6 +384,70 @@ export class ThreeRenderer {
         }
         return entry;
     }
+}
+// ── Snapshot lines (deterministic golden artifact) ────────────────────────────
+function snapshotLine(handle, entry) {
+    const o = entry.object;
+    const head = `handle ${handle}  layer ${o.parent?.name ?? '?'}`;
+    if (entry.kind === 'staticMesh') {
+        return [
+            head,
+            `kind staticMesh`,
+            `asset ${entry.asset}`,
+            `pos ${fmtVec(o.position)}`,
+            `scale ${fmtVec(o.scale)}`,
+            `visible ${o.visible}`,
+            `materials ${fmtMaterials(o)}`,
+            `label ${JSON.stringify(o.name)}`,
+        ].join('  ');
+    }
+    if (entry.kind === 'sprite' && entry.sprite) {
+        const s = entry.sprite;
+        const a = s.attachment;
+        return [
+            head,
+            `kind sprite`,
+            `asset ${s.asset}`,
+            `frame ${s.frame}`,
+            `pos ${fmtVec(o.position)}`,
+            `size ${fmtNum(s.size[0])},${fmtNum(s.size[1])}`,
+            `pivot ${fmtNum(s.pivot[0])},${fmtNum(s.pivot[1])}`,
+            `billboard ${s.billboard}`,
+            `tint ${s.tint.map(fmtNum).join(',')}`,
+            `order ${o.renderOrder}`,
+            `depth ${s.depth}`,
+            `shading ${s.shading}`,
+            `visible ${o.visible}`,
+            `attach ${a.sourceEntity ?? '-'}/${a.sourceSceneNode ?? '-'}/${a.attachmentPoint ?? '-'}`,
+            `label ${JSON.stringify(o.name)}`,
+        ].join('  ');
+    }
+    return [
+        head,
+        `shape ${entry.shape}`,
+        `pos ${fmtVec(o.position)}`,
+        `scale ${fmtVec(o.scale)}`,
+        `visible ${o.visible}`,
+        `color ${fmtColor(o)}`,
+        `label ${JSON.stringify(o.name)}`,
+    ].join('  ');
+}
+function fmtMaterials(object) {
+    const material = object.material;
+    const list = Array.isArray(material) ? material : [material];
+    return ('[' +
+        list
+            .map((m) => {
+            const c = m.color;
+            return c ? `${fmtNum(c.r)},${fmtNum(c.g)},${fmtNum(c.b)}` : 'none';
+        })
+            .join(' ') +
+        ']');
+}
+/** Dispose just an instance's *override* materials, leaving shared ones alone. */
+function disposeInstanceOverrides(object) {
+    const own = object.userData.ownMaterials;
+    own?.forEach((m) => m.dispose());
 }
 // ── Builders (contract → Three.js) ────────────────────────────────────────────
 function buildObject(node) {

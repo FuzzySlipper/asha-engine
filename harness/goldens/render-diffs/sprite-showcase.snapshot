@@ -1,0 +1,2 @@
+handle 1  layer scene  kind sprite  asset sprite/spark-sheet  frame 3  pos 0,0,0  size 1,2  pivot 0.5,0.5  billboard spherical  tint 1,1,1,1  order 0  depth default  shading unlit  visible true  attach 7/-/muzzle  label "spark"
+handle 2  layer scene  kind sprite  asset sprite/smoke-puff  frame 2  pos 4,0,0  size 2,2  pivot 0.5,0  billboard none  tint 0.5,0.5,0.5,0.8  order 5  depth depthWriteOff  shading lit  visible true  attach -/9/-  label "smoke"

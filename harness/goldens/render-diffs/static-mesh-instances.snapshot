@@ -1,0 +1,2 @@
+handle 1  layer scene  kind staticMesh  asset mesh/crate  pos 0,0,0  scale 1,1,1  visible true  materials [0.15,0.3543,0.85]  label "crate-a"
+handle 2  layer scene  kind staticMesh  asset mesh/crate  pos 3,0,0  scale 1,1,1  visible true  materials [0.15,0.3543,0.85]  label "crate-b"

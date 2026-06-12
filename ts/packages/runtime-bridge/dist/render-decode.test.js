@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { decodeRenderDiff, decodeRenderFrameDiff, decodeMeshPayloadDescriptor, RenderDecodeError, RenderDiffStream, FrameMemory, } from './render-decode.js';
+import { decodeRenderDiff, decodeRenderFrameDiff, decodeMeshPayloadDescriptor, decodeStaticMeshAsset, decodeSpriteInstance, RenderDecodeError, RenderDiffStream, FrameMemory, } from './render-decode.js';
 const fixturesRoot = resolve(import.meta.dirname, '../../../../harness/fixtures/render-diffs');
 function loadFixture(name) {
     return JSON.parse(readFileSync(resolve(fixturesRoot, `${name}.json`), 'utf8'));
@@ -138,6 +138,7 @@ function oneTriangleInline() {
             normals: [0, 0, 1, 0, 0, 1, 0, 0, 1],
             indices: [0, 1, 2],
         },
+        provenance: 'voxelChunk',
     };
 }
 test('decodes a valid inline mesh payload and the replaceMeshPayload diff', () => {
@@ -171,5 +172,81 @@ test('rejects malformed mesh payloads with path-bearing errors', () => {
     const badAttr = oneTriangleInline();
     badAttr.layout.attributes[0].name = 'tangent';
     assert.throws(() => decodeMeshPayloadDescriptor(badAttr), RenderDecodeError);
+    // unknown provenance
+    const badProv = oneTriangleInline();
+    badProv.provenance = 'mystery';
+    assert.throws(() => decodeMeshPayloadDescriptor(badProv), RenderDecodeError);
+});
+// ── static mesh + sprite decode (render-asset-04/05/06) ───────────────────────
+function crateAssetRaw() {
+    return {
+        asset: 'mesh/crate',
+        payload: { ...oneTriangleInline(), provenance: 'staticAsset' },
+        materialSlots: [{ slot: 1, material: 'material/wood' }],
+        collision: { kind: 'aabbFallback' },
+    };
+}
+test('decodes a static mesh asset + instance diff, validating slot bindings', () => {
+    const asset = decodeStaticMeshAsset(crateAssetRaw());
+    assert.equal(asset.asset, 'mesh/crate');
+    assert.equal(asset.collision.kind, 'aabbFallback');
+    const diff = decodeRenderDiff({
+        op: 'createStaticMeshInstance',
+        handle: 1,
+        parent: null,
+        instance: {
+            asset: 'mesh/crate',
+            transform: { translation: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+            materialOverrides: [{ slot: 1, material: 'material/wood-red' }],
+            metadata: { source: null, tags: [], label: 'crate' },
+        },
+    });
+    assert.equal(diff.op, 'createStaticMeshInstance');
+});
+test('rejects a static mesh whose group references an unbound material slot', () => {
+    const bad = crateAssetRaw();
+    bad.materialSlots = [{ slot: 9, material: 'material/wood' }]; // group uses slot 1
+    assert.throws(() => decodeStaticMeshAsset(bad), RenderDecodeError);
+});
+test('rejects a proxy collision policy with an empty proxy asset', () => {
+    const bad = crateAssetRaw();
+    bad.collision = { kind: 'proxy', proxyAsset: '' };
+    assert.throws(() => decodeStaticMeshAsset(bad), RenderDecodeError);
+});
+function sparkSpriteRaw() {
+    return {
+        asset: 'sprite/spark',
+        frame: 0,
+        pivot: [0.5, 0.5],
+        size: [1, 1],
+        sizeMode: 'world',
+        billboard: 'spherical',
+        tint: [1, 1, 1, 1],
+        renderOrder: 0,
+        depth: 'default',
+        shading: 'unlit',
+        transform: { translation: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+        attachment: { sourceEntity: 7, sourceSceneNode: null, attachmentPoint: 'muzzle' },
+        metadata: { source: 7, tags: [], label: 'spark' },
+    };
+}
+test('decodes a sprite instance + a deterministic updateSprite diff', () => {
+    const s = decodeSpriteInstance(sparkSpriteRaw());
+    assert.equal(s.asset, 'sprite/spark');
+    assert.equal(s.attachment.attachmentPoint, 'muzzle');
+    const diff = decodeRenderDiff({ op: 'updateSprite', handle: 1, frame: 3, tint: null, renderOrder: null, visible: false });
+    assert.equal(diff.op, 'updateSprite');
+});
+test('rejects a sprite with out-of-range pivot or non-positive size', () => {
+    const badPivot = sparkSpriteRaw();
+    badPivot.pivot = [1.5, 0];
+    assert.throws(() => decodeSpriteInstance(badPivot), RenderDecodeError);
+    const badSize = sparkSpriteRaw();
+    badSize.size = [0, 1];
+    assert.throws(() => decodeSpriteInstance(badSize), RenderDecodeError);
+    // reserved lit shading is accepted (not rejected as unlit-only).
+    const lit = sparkSpriteRaw();
+    lit.shading = 'lit';
+    assert.equal(decodeSpriteInstance(lit).shading, 'lit');
 });
 //# sourceMappingURL=render-decode.test.js.map

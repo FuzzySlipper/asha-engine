@@ -273,6 +273,7 @@ pub fn script_module() -> Module {
 pub fn render_module() -> Module {
     let imports = vec![import("./ids.js", &["EntityId", "TagId"])];
 
+    let tuple2 = || TsType::Tuple(vec![num(), num()]);
     let tuple3 = || TsType::Tuple(vec![num(), num(), num()]);
     let tuple4 = || TsType::Tuple(vec![num(), num(), num(), num()]);
 
@@ -387,6 +388,17 @@ pub fn render_module() -> Module {
             "MeshBoundsDescriptor",
             vec![f("min", tuple3()), f("max", tuple3())],
         ),
+        Item::Alias {
+            doc: "Which source produced a mesh payload (voxel chunk vs authored static asset)."
+                .to_string(),
+            name: "MeshProvenance".to_string(),
+            ty: TsType::StringEnum(vec![
+                "voxelChunk".to_string(),
+                "staticAsset".to_string(),
+                "generated".to_string(),
+                "debug".to_string(),
+            ]),
+        },
         union(
             "Where the bulk vertex/index bytes live: inline (fixtures) or by handle (runtime).",
             "MeshPayloadSource",
@@ -412,13 +424,124 @@ pub fn render_module() -> Module {
             ],
         ),
         iface(
-            "The full mesh-payload border: layout + groups + bounds + data source.",
+            "The full mesh-payload border: layout + groups + bounds + source + provenance.",
             "MeshPayloadDescriptor",
             vec![
                 f("layout", r("MeshBufferLayout")),
                 f("groups", TsType::array(r("MeshGroupDescriptor"))),
                 f("bounds", r("MeshBoundsDescriptor")),
                 f("source", r("MeshPayloadSource")),
+                f("provenance", r("MeshProvenance")),
+            ],
+        ),
+        // ── static mesh assets + instances (render-asset-04) ───────────────────
+        iface(
+            "One material slot of a static mesh, bound to a catalog material asset id.",
+            "MeshMaterialSlot",
+            vec![f("slot", num()), f("material", string())],
+        ),
+        union(
+            "Collision policy for a static mesh (visual-only, explicit proxy, or AABB fallback).",
+            "MeshCollisionPolicy",
+            "kind",
+            vec![
+                v("visualOnly", vec![]),
+                v("proxy", vec![f("proxyAsset", string())]),
+                v("aabbFallback", vec![]),
+            ],
+        ),
+        iface(
+            "An authored static mesh asset: shared geometry payload, material slots, collision.",
+            "StaticMeshAsset",
+            vec![
+                f("asset", string()),
+                f("payload", r("MeshPayloadDescriptor")),
+                f("materialSlots", TsType::array(r("MeshMaterialSlot"))),
+                f("collision", r("MeshCollisionPolicy")),
+            ],
+        ),
+        iface(
+            "One placed instance of a static mesh asset (shared geometry, own transform/overrides).",
+            "StaticMeshInstanceDescriptor",
+            vec![
+                f("asset", string()),
+                f("transform", r("Transform")),
+                f("materialOverrides", TsType::array(r("MeshMaterialSlot"))),
+                f("metadata", r("RenderMetadata")),
+            ],
+        ),
+        // ── sprites / billboards (render-asset-05/06) ──────────────────────────
+        Item::Alias {
+            doc: "How a sprite size is interpreted (world units vs screen pixels).".to_string(),
+            name: "SpriteSizeMode".to_string(),
+            ty: TsType::StringEnum(vec!["world".to_string(), "pixel".to_string()]),
+        },
+        Item::Alias {
+            doc: "Billboarding behaviour for a sprite plane.".to_string(),
+            name: "BillboardMode".to_string(),
+            ty: TsType::StringEnum(vec![
+                "none".to_string(),
+                "spherical".to_string(),
+                "cylindrical".to_string(),
+            ]),
+        },
+        Item::Alias {
+            doc: "Depth handling for a sprite (reserves overlay/no-write modes).".to_string(),
+            name: "SpriteDepthPolicy".to_string(),
+            ty: TsType::StringEnum(vec![
+                "default".to_string(),
+                "depthTestOff".to_string(),
+                "depthWriteOff".to_string(),
+            ]),
+        },
+        Item::Alias {
+            doc: "Reserved sprite shading mode (unlit implemented; lit/shadow/custom reserved)."
+                .to_string(),
+            name: "SpriteShading".to_string(),
+            ty: TsType::StringEnum(vec![
+                "unlit".to_string(),
+                "lit".to_string(),
+                "shadowed".to_string(),
+                "custom".to_string(),
+            ]),
+        },
+        iface(
+            "Where a sprite is attached in authority terms (source ids, not render handles).",
+            "SpriteAttachment",
+            vec![
+                f("sourceEntity", TsType::nullable(r("EntityId"))),
+                f("sourceSceneNode", TsType::nullable(num())),
+                f("attachmentPoint", TsType::nullable(string())),
+            ],
+        ),
+        iface(
+            "One placed plane-geometry sprite/billboard instance.",
+            "SpriteInstanceDescriptor",
+            vec![
+                f("asset", string()),
+                f("frame", num()),
+                f("pivot", tuple2()),
+                f("size", tuple2()),
+                f("sizeMode", r("SpriteSizeMode")),
+                f("billboard", r("BillboardMode")),
+                f("tint", tuple4()),
+                f("renderOrder", num()),
+                f("depth", r("SpriteDepthPolicy")),
+                f("shading", r("SpriteShading")),
+                f("transform", r("Transform")),
+                f("attachment", r("SpriteAttachment")),
+                f("metadata", r("RenderMetadata")),
+            ],
+        ),
+        iface(
+            "A renderer-side sprite pick hit traced to authority identity (renderer never acts).",
+            "SpritePickHit",
+            vec![
+                f("handle", r("RenderHandle")),
+                f("sourceEntity", TsType::nullable(r("EntityId"))),
+                f("sourceSceneNode", TsType::nullable(num())),
+                f("asset", string()),
+                f("attachmentPoint", TsType::nullable(string())),
             ],
         ),
         union(
@@ -450,6 +573,33 @@ pub fn render_module() -> Module {
                     vec![
                         f("handle", r("RenderHandle")),
                         f("payload", r("MeshPayloadDescriptor")),
+                    ],
+                ),
+                v("defineStaticMesh", vec![f("asset", r("StaticMeshAsset"))]),
+                v(
+                    "createStaticMeshInstance",
+                    vec![
+                        f("handle", r("RenderHandle")),
+                        f("parent", TsType::nullable(r("RenderHandle"))),
+                        f("instance", r("StaticMeshInstanceDescriptor")),
+                    ],
+                ),
+                v(
+                    "createSprite",
+                    vec![
+                        f("handle", r("RenderHandle")),
+                        f("parent", TsType::nullable(r("RenderHandle"))),
+                        f("sprite", r("SpriteInstanceDescriptor")),
+                    ],
+                ),
+                v(
+                    "updateSprite",
+                    vec![
+                        f("handle", r("RenderHandle")),
+                        f("frame", TsType::nullable(num())),
+                        f("tint", TsType::nullable(tuple4())),
+                        f("renderOrder", TsType::nullable(num())),
+                        f("visible", TsType::nullable(boolean())),
                     ],
                 ),
             ],

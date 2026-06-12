@@ -1,0 +1,54 @@
+{
+  "ops": [
+    {
+      "op": "defineStaticMesh",
+      "asset": {
+        "asset": "mesh/crate",
+        "payload": {
+          "layout": {
+            "vertexCount": 4,
+            "indexCount": 6,
+            "indexWidth": "u32",
+            "attributes": [
+              { "name": "position", "components": 3, "kind": "f32" },
+              { "name": "normal", "components": 3, "kind": "f32" }
+            ]
+          },
+          "groups": [{ "materialSlot": 1, "start": 0, "count": 6 }],
+          "bounds": { "min": [0, 0, 0], "max": [1, 1, 0] },
+          "source": {
+            "kind": "inline",
+            "positions": [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0],
+            "normals": [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],
+            "indices": [0, 1, 2, 0, 2, 3]
+          },
+          "provenance": "staticAsset"
+        },
+        "materialSlots": [{ "slot": 1, "material": "material/wood" }],
+        "collision": { "kind": "aabbFallback" }
+      }
+    },
+    {
+      "op": "createStaticMeshInstance",
+      "handle": 1,
+      "parent": null,
+      "instance": {
+        "asset": "mesh/crate",
+        "transform": { "translation": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
+        "materialOverrides": [],
+        "metadata": { "source": 1, "tags": [], "label": "crate-a" }
+      }
+    },
+    {
+      "op": "createStaticMeshInstance",
+      "handle": 2,
+      "parent": null,
+      "instance": {
+        "asset": "mesh/crate",
+        "transform": { "translation": [3, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
+        "materialOverrides": [{ "slot": 1, "material": "material/wood-painted" }],
+        "metadata": { "source": 2, "tags": [], "label": "crate-b" }
+      }
+    }
+  ]
+}

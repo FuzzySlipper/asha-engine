@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { renderHandle } from '@asha/contracts';
+import { renderHandle, entityId } from '@asha/contracts';
 import { ThreeRenderer, RenderApplyError } from './index.js';
 function cubeNode(label = 'cube') {
     return {
@@ -99,6 +99,8 @@ test('applies the Rust render-bridge fixture sequence end-to-end', () => {
     // The update carried the new tag onto handle 1's scene object metadata.
     assert.deepEqual(r.objectFor(renderHandle(1))?.userData.tags, [5]);
 });
+// ── mesh payload upload (ADR 0007 / #2263) ────────────────────────────────────
+import * as THREE from 'three';
 function meshNode() {
     return {
         geometry: { shape: 'cube' },
@@ -132,6 +134,7 @@ function quadPayload() {
             normals: [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],
             indices: [0, 1, 2, 0, 2, 3],
         },
+        provenance: 'voxelChunk',
     };
 }
 test('replaceMeshPayload uploads a BufferGeometry with groups and material slots', () => {
@@ -196,5 +199,131 @@ test('handle-source payloads are rejected until runtime buffer wiring exists', (
         indicesByteOffset: 96,
     };
     assert.throws(() => r.applyDiff({ op: 'replaceMeshPayload', handle: h, payload: p }), RenderApplyError);
+});
+function crateAsset() {
+    return {
+        asset: 'mesh/crate',
+        payload: { ...quadPayload(), provenance: 'staticAsset' },
+        materialSlots: [{ slot: 1, material: 'material/wood' }, { slot: 2, material: 'material/iron' }],
+        collision: { kind: 'aabbFallback' },
+    };
+}
+function crateInstance(asset = 'mesh/crate', overrides = []) {
+    return {
+        asset,
+        transform: { translation: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+        materialOverrides: overrides,
+        metadata: { source: null, tags: [], label: asset },
+    };
+}
+test('two instances share one BufferGeometry and the asset is reference-counted', () => {
+    const r = new ThreeRenderer();
+    r.applyDiff({ op: 'defineStaticMesh', asset: crateAsset() });
+    r.applyDiff({ op: 'createStaticMeshInstance', handle: renderHandle(1), parent: null, instance: crateInstance() });
+    r.applyDiff({ op: 'createStaticMeshInstance', handle: renderHandle(2), parent: null, instance: crateInstance() });
+    const a = r.objectFor(renderHandle(1));
+    const b = r.objectFor(renderHandle(2));
+    assert.equal(a.geometry, b.geometry, 'instances must share one geometry');
+    assert.equal(r.instanceCountFor('mesh/crate'), 2);
+});
+test('destroying one instance does not dispose geometry still used by another', () => {
+    const r = new ThreeRenderer();
+    r.applyDiff({ op: 'defineStaticMesh', asset: crateAsset() });
+    r.applyDiff({ op: 'createStaticMeshInstance', handle: renderHandle(1), parent: null, instance: crateInstance() });
+    r.applyDiff({ op: 'createStaticMeshInstance', handle: renderHandle(2), parent: null, instance: crateInstance() });
+    const shared = r.objectFor(renderHandle(1)).geometry;
+    let disposed = false;
+    shared.addEventListener('dispose', () => { disposed = true; });
+    r.applyDiff({ op: 'destroy', handle: renderHandle(1) });
+    assert.equal(disposed, false, 'shared geometry must survive while an instance remains');
+    assert.equal(r.instanceCountFor('mesh/crate'), 1);
+    r.applyDiff({ op: 'destroy', handle: renderHandle(2) });
+    assert.ok(disposed, 'shared geometry is disposed when the last instance is gone');
+    assert.equal(r.instanceCountFor('mesh/crate'), 0);
+});
+test('per-instance material overrides apply only to that instance', () => {
+    const r = new ThreeRenderer();
+    r.registerSlotColor(1, 0, 0, 1); // base slot 1 → blue
+    r.applyDiff({ op: 'defineStaticMesh', asset: crateAsset() });
+    r.applyDiff({ op: 'createStaticMeshInstance', handle: renderHandle(1), parent: null, instance: crateInstance() });
+    r.applyDiff({
+        op: 'createStaticMeshInstance',
+        handle: renderHandle(2),
+        parent: null,
+        instance: crateInstance('mesh/crate', [{ slot: 1, material: 'material/wood-red' }]),
+    });
+    const base = r.objectFor(renderHandle(1)).material;
+    const overridden = r.objectFor(renderHandle(2)).material;
+    // Slot-2 material is shared (identical object); slot-1 override is a distinct material instance.
+    assert.equal(base[1], overridden[1], 'non-overridden slot material is shared');
+    assert.notEqual(base[0], overridden[0], 'overridden slot gets its own material');
+});
+test('instance of an undefined asset, and redefine while in use, are classified errors', () => {
+    const r = new ThreeRenderer();
+    assert.throws(() => r.applyDiff({ op: 'createStaticMeshInstance', handle: renderHandle(1), parent: null, instance: crateInstance() }), RenderApplyError);
+    r.applyDiff({ op: 'defineStaticMesh', asset: crateAsset() });
+    r.applyDiff({ op: 'createStaticMeshInstance', handle: renderHandle(1), parent: null, instance: crateInstance() });
+    assert.throws(() => r.applyDiff({ op: 'defineStaticMesh', asset: crateAsset() }), RenderApplyError);
+});
+// ── sprites / billboards + picking (render-asset-05/06 / #2328-2329) ──────────
+function sparkSprite(over = {}) {
+    return {
+        asset: 'sprite/spark',
+        frame: 0,
+        pivot: [0.5, 0.5],
+        size: [1, 1],
+        sizeMode: 'world',
+        billboard: 'spherical',
+        tint: [1, 1, 1, 1],
+        renderOrder: 0,
+        depth: 'default',
+        shading: 'unlit',
+        transform: { translation: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+        attachment: { sourceEntity: null, sourceSceneNode: null, attachmentPoint: null },
+        metadata: { source: null, tags: [], label: 'spark' },
+        ...over,
+    };
+}
+test('createSprite builds a plane geometry (not THREE.Sprite) with render order + depth policy', () => {
+    const r = new ThreeRenderer();
+    r.applyDiff({ op: 'createSprite', handle: renderHandle(1), parent: null, sprite: sparkSprite({ renderOrder: 7, depth: 'depthTestOff' }) });
+    const mesh = r.objectFor(renderHandle(1));
+    assert.ok(mesh instanceof THREE.Mesh, 'sprite uses a Mesh + PlaneGeometry, not THREE.Sprite');
+    assert.ok(mesh.geometry instanceof THREE.PlaneGeometry);
+    assert.equal(mesh.renderOrder, 7);
+    assert.equal(mesh.material.depthTest, false);
+});
+test('sprite frame/tint updates are deterministic and projection-driven', () => {
+    const r = new ThreeRenderer();
+    r.applyDiff({ op: 'createSprite', handle: renderHandle(1), parent: null, sprite: sparkSprite() });
+    r.applyDiff({ op: 'updateSprite', handle: renderHandle(1), frame: 4, tint: [1, 0, 0, 1], renderOrder: 2, visible: false });
+    const mesh = r.objectFor(renderHandle(1));
+    assert.equal(mesh.userData.frame, 4);
+    assert.equal(mesh.renderOrder, 2);
+    assert.equal(mesh.visible, false);
+    const c = mesh.material.color;
+    assert.deepEqual([c.r, c.g, c.b], [1, 0, 0]);
+});
+test('reserved lit/shadow shading is accepted (renderer does not force unlit-only)', () => {
+    const r = new ThreeRenderer();
+    assert.doesNotThrow(() => r.applyDiff({ op: 'createSprite', handle: renderHandle(1), parent: null, sprite: sparkSprite({ shading: 'lit' }) }));
+});
+test('pickSprite traces to source entity / scene node / asset, never a render handle as authority', () => {
+    const r = new ThreeRenderer();
+    r.applyDiff({
+        op: 'createSprite',
+        handle: renderHandle(5),
+        parent: null,
+        sprite: sparkSprite({ attachment: { sourceEntity: entityId(42), sourceSceneNode: 9, attachmentPoint: 'muzzle' } }),
+    });
+    const hit = r.pickSprite(renderHandle(5));
+    assert.ok(hit);
+    assert.equal(hit.handle, renderHandle(5));
+    assert.equal(hit.sourceEntity, 42);
+    assert.equal(hit.sourceSceneNode, 9);
+    assert.equal(hit.asset, 'sprite/spark');
+    assert.equal(hit.attachmentPoint, 'muzzle');
+    // A non-sprite handle yields no pick hit.
+    assert.equal(r.pickSprite(renderHandle(99)), undefined);
 });
 //# sourceMappingURL=renderer.test.js.map

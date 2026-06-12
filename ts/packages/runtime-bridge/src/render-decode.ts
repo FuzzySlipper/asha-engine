@@ -28,6 +28,17 @@ import {
   type MeshBoundsDescriptor,
   type MeshPayloadSource,
   type MeshPayloadDescriptor,
+  type MeshProvenance,
+  type MeshMaterialSlot,
+  type MeshCollisionPolicy,
+  type StaticMeshAsset,
+  type StaticMeshInstanceDescriptor,
+  type SpriteSizeMode,
+  type BillboardMode,
+  type SpriteDepthPolicy,
+  type SpriteShading,
+  type SpriteAttachment,
+  type SpriteInstanceDescriptor,
 } from '@asha/contracts';
 
 /** Raised when a payload does not match the render-diff contract shape. */
@@ -240,6 +251,13 @@ function decodeMeshSource(v: unknown, path: string): MeshPayloadSource {
   }
 }
 
+function decodeMeshProvenance(v: unknown, path: string): MeshProvenance {
+  if (v === 'voxelChunk' || v === 'staticAsset' || v === 'generated' || v === 'debug') {
+    return v;
+  }
+  throw new RenderDecodeError(`unknown mesh provenance ${JSON.stringify(v)}`, path);
+}
+
 /** Decode and structurally validate a mesh payload descriptor. */
 export function decodeMeshPayloadDescriptor(v: unknown, path = '$'): MeshPayloadDescriptor {
   const o = asObject(v, path);
@@ -247,6 +265,7 @@ export function decodeMeshPayloadDescriptor(v: unknown, path = '$'): MeshPayload
   const groups = asArray(o.groups, `${path}.groups`).map((g, i) => decodeMeshGroup(g, `${path}.groups[${i}]`));
   const bounds = decodeMeshBounds(o.bounds, `${path}.bounds`);
   const source = decodeMeshSource(o.source, `${path}.source`);
+  const provenance = decodeMeshProvenance(o.provenance, `${path}.provenance`);
 
   // Cross-field checks mirroring protocol-render's MeshDescriptorError.
   if (source.kind === 'inline') {
@@ -270,7 +289,142 @@ export function decodeMeshPayloadDescriptor(v: unknown, path = '$'): MeshPayload
   if (covered !== layout.indexCount) {
     throw new RenderDecodeError(`groups cover ${covered} indices, expected ${layout.indexCount}`, `${path}.groups`);
   }
-  return { layout, groups, bounds, source };
+  return { layout, groups, bounds, source, provenance };
+}
+
+// ── Static mesh + sprite validators (render-asset-04/05/06) ────────────────────
+
+function decodeMaterialSlot(v: unknown, path: string): MeshMaterialSlot {
+  const o = asObject(v, path);
+  if (typeof o.material !== 'string') {
+    throw new RenderDecodeError('expected a string material id', `${path}.material`);
+  }
+  return { slot: asU32(o.slot, `${path}.slot`), material: o.material };
+}
+
+function decodeCollisionPolicy(v: unknown, path: string): MeshCollisionPolicy {
+  const o = asObject(v, path);
+  switch (o.kind) {
+    case 'visualOnly':
+      return { kind: 'visualOnly' };
+    case 'aabbFallback':
+      return { kind: 'aabbFallback' };
+    case 'proxy':
+      if (typeof o.proxyAsset !== 'string' || o.proxyAsset.length === 0) {
+        throw new RenderDecodeError('proxy policy needs a non-empty proxyAsset', `${path}.proxyAsset`);
+      }
+      return { kind: 'proxy', proxyAsset: o.proxyAsset };
+    default:
+      throw new RenderDecodeError(`unknown collision policy ${JSON.stringify(o.kind)}`, `${path}.kind`);
+  }
+}
+
+/** Decode a static mesh asset, validating slot uniqueness and group bindings. */
+export function decodeStaticMeshAsset(v: unknown, path = '$'): StaticMeshAsset {
+  const o = asObject(v, path);
+  if (typeof o.asset !== 'string' || o.asset.length === 0) {
+    throw new RenderDecodeError('expected a non-empty asset id', `${path}.asset`);
+  }
+  const payload = decodeMeshPayloadDescriptor(o.payload, `${path}.payload`);
+  const materialSlots = asArray(o.materialSlots, `${path}.materialSlots`).map((s, i) =>
+    decodeMaterialSlot(s, `${path}.materialSlots[${i}]`),
+  );
+  const seen = new Set<number>();
+  for (const s of materialSlots) {
+    if (seen.has(s.slot)) {
+      throw new RenderDecodeError(`duplicate material slot ${s.slot}`, `${path}.materialSlots`);
+    }
+    seen.add(s.slot);
+  }
+  for (const g of payload.groups) {
+    if (!seen.has(g.materialSlot)) {
+      throw new RenderDecodeError(`mesh group references unbound slot ${g.materialSlot}`, `${path}.materialSlots`);
+    }
+  }
+  return { asset: o.asset, payload, materialSlots, collision: decodeCollisionPolicy(o.collision, `${path}.collision`) };
+}
+
+function decodeStaticMeshInstance(v: unknown, path: string): StaticMeshInstanceDescriptor {
+  const o = asObject(v, path);
+  if (typeof o.asset !== 'string' || o.asset.length === 0) {
+    throw new RenderDecodeError('expected a non-empty asset id', `${path}.asset`);
+  }
+  return {
+    asset: o.asset,
+    transform: decodeTransform(o.transform, `${path}.transform`),
+    materialOverrides: asArray(o.materialOverrides, `${path}.materialOverrides`).map((s, i) =>
+      decodeMaterialSlot(s, `${path}.materialOverrides[${i}]`),
+    ),
+    metadata: decodeMetadata(o.metadata, `${path}.metadata`),
+  };
+}
+
+function decodeSizeMode(v: unknown, path: string): SpriteSizeMode {
+  if (v === 'world' || v === 'pixel') return v;
+  throw new RenderDecodeError(`unknown sprite size mode ${JSON.stringify(v)}`, path);
+}
+
+function decodeBillboard(v: unknown, path: string): BillboardMode {
+  if (v === 'none' || v === 'spherical' || v === 'cylindrical') return v;
+  throw new RenderDecodeError(`unknown billboard mode ${JSON.stringify(v)}`, path);
+}
+
+function decodeDepthPolicy(v: unknown, path: string): SpriteDepthPolicy {
+  if (v === 'default' || v === 'depthTestOff' || v === 'depthWriteOff') return v;
+  throw new RenderDecodeError(`unknown sprite depth policy ${JSON.stringify(v)}`, path);
+}
+
+function decodeShading(v: unknown, path: string): SpriteShading {
+  if (v === 'unlit' || v === 'lit' || v === 'shadowed' || v === 'custom') return v;
+  throw new RenderDecodeError(`unknown sprite shading ${JSON.stringify(v)}`, path);
+}
+
+function tuple2(v: unknown, path: string): [number, number] {
+  const [a, b] = asNumberArray(v, 2, path);
+  return [a!, b!];
+}
+
+function decodeSpriteAttachment(v: unknown, path: string): SpriteAttachment {
+  const o = asObject(v, path);
+  return {
+    sourceEntity: nullable(o.sourceEntity, (s) => entityId(asNumber(s, `${path}.sourceEntity`))),
+    sourceSceneNode: nullable(o.sourceSceneNode, (s) => asU32(s, `${path}.sourceSceneNode`)),
+    attachmentPoint: nullable(o.attachmentPoint, (s) => {
+      if (typeof s !== 'string') throw new RenderDecodeError('expected a string', `${path}.attachmentPoint`);
+      return s;
+    }),
+  };
+}
+
+/** Decode and validate a sprite instance descriptor. */
+export function decodeSpriteInstance(v: unknown, path = '$'): SpriteInstanceDescriptor {
+  const o = asObject(v, path);
+  if (typeof o.asset !== 'string' || o.asset.length === 0) {
+    throw new RenderDecodeError('expected a non-empty asset id', `${path}.asset`);
+  }
+  const pivot = tuple2(o.pivot, `${path}.pivot`);
+  if (!(pivot[0] >= 0 && pivot[0] <= 1 && pivot[1] >= 0 && pivot[1] <= 1)) {
+    throw new RenderDecodeError(`pivot ${JSON.stringify(pivot)} outside 0..=1`, `${path}.pivot`);
+  }
+  const size = tuple2(o.size, `${path}.size`);
+  if (size[0] <= 0 || size[1] <= 0) {
+    throw new RenderDecodeError(`size ${JSON.stringify(size)} must be positive`, `${path}.size`);
+  }
+  return {
+    asset: o.asset,
+    frame: asU32(o.frame, `${path}.frame`),
+    pivot,
+    size,
+    sizeMode: decodeSizeMode(o.sizeMode, `${path}.sizeMode`),
+    billboard: decodeBillboard(o.billboard, `${path}.billboard`),
+    tint: tuple4(o.tint, `${path}.tint`),
+    renderOrder: asNumber(o.renderOrder, `${path}.renderOrder`),
+    depth: decodeDepthPolicy(o.depth, `${path}.depth`),
+    shading: decodeShading(o.shading, `${path}.shading`),
+    transform: decodeTransform(o.transform, `${path}.transform`),
+    attachment: decodeSpriteAttachment(o.attachment, `${path}.attachment`),
+    metadata: decodeMetadata(o.metadata, `${path}.metadata`),
+  };
 }
 
 // ── Diff validators ───────────────────────────────────────────────────────────
@@ -305,6 +459,34 @@ export function decodeRenderDiff(v: unknown, path = '$'): RenderDiff {
         op: 'replaceMeshPayload',
         handle: decodeHandle(o.handle, `${path}.handle`),
         payload: decodeMeshPayloadDescriptor(o.payload, `${path}.payload`),
+      };
+    case 'defineStaticMesh':
+      return {
+        op: 'defineStaticMesh',
+        asset: decodeStaticMeshAsset(o.asset, `${path}.asset`),
+      };
+    case 'createStaticMeshInstance':
+      return {
+        op: 'createStaticMeshInstance',
+        handle: decodeHandle(o.handle, `${path}.handle`),
+        parent: nullable(o.parent, (p) => decodeHandle(p, `${path}.parent`)),
+        instance: decodeStaticMeshInstance(o.instance, `${path}.instance`),
+      };
+    case 'createSprite':
+      return {
+        op: 'createSprite',
+        handle: decodeHandle(o.handle, `${path}.handle`),
+        parent: nullable(o.parent, (p) => decodeHandle(p, `${path}.parent`)),
+        sprite: decodeSpriteInstance(o.sprite, `${path}.sprite`),
+      };
+    case 'updateSprite':
+      return {
+        op: 'updateSprite',
+        handle: decodeHandle(o.handle, `${path}.handle`),
+        frame: nullable(o.frame, (f) => asU32(f, `${path}.frame`)),
+        tint: nullable(o.tint, (t) => tuple4(t, `${path}.tint`)),
+        renderOrder: nullable(o.renderOrder, (n) => asNumber(n, `${path}.renderOrder`)),
+        visible: nullable(o.visible, (b) => asBoolean(b, `${path}.visible`)),
       };
     default:
       throw new RenderDecodeError(`unknown render diff op ${JSON.stringify(o.op)}`, `${path}.op`);

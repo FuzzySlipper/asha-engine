@@ -59,3 +59,22 @@
     impact and distinguishes a live-safe visual-only change from an authority/structural change
     that needs revalidation or a full reload — it advises only and never mutates renderer or
     catalog state directly.
+19. Voxel-generated meshes and authored **static mesh assets share one mesh payload descriptor**
+    and one upload path (`protocol-render::MeshPayloadDescriptor`); they differ only by a
+    `MeshProvenance` tag — never a duplicated upload protocol. A static mesh **asset** (shared
+    geometry + material slots + collision policy) and its **instances** (transform + per-slot
+    material overrides) are separate: the renderer shares one `BufferGeometry` across instances of
+    an asset and disposes it only when the last instance is gone (reference-safe). A *visual-only*
+    mesh skips collision; a *physical* mesh must carry an explicit collision proxy or opt into the
+    payload-AABB fallback — a physical mesh with neither is a classified error, never a silent
+    non-physical mesh. glTF is offline import tooling only; the renderer never loads glTF directly.
+    Render material slots carry a material **asset id** (a `RenderMaterial` mapping), never collision
+    authority (rule 18).
+20. Non-UI **sprites/billboards** use a plane `BufferGeometry` (never `THREE.Sprite`) so they fit
+    the retained-handle lifecycle and future batching. Sprite frame/tint/visibility/order updates are
+    **deterministic and projection/authority-tick driven**, never renderer wall-clock animation. The
+    descriptor reserves lit/shadow/custom-shader modes — validation accepts them and must not bake in
+    an unlit-only assumption — while full shader systems stay deferred. Sprite **attachment** references
+    source scene/entity IDs and named attachment points, never a durable `RenderHandle` (rule 12).
+    A sprite **pick** is traced to authority identity (handle + source ids + asset ref); the renderer
+    reports the trace and decides no gameplay action — authority revalidates and acts.

@@ -1,0 +1,52 @@
+{
+  "ops": [
+    {
+      "op": "createSprite",
+      "handle": 1,
+      "parent": null,
+      "sprite": {
+        "asset": "sprite/spark-sheet",
+        "frame": 0,
+        "pivot": [0.5, 0.5],
+        "size": [1, 2],
+        "sizeMode": "world",
+        "billboard": "spherical",
+        "tint": [1, 1, 1, 1],
+        "renderOrder": 0,
+        "depth": "default",
+        "shading": "unlit",
+        "transform": { "translation": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
+        "attachment": { "sourceEntity": 7, "sourceSceneNode": null, "attachmentPoint": "muzzle" },
+        "metadata": { "source": 7, "tags": [], "label": "spark" }
+      }
+    },
+    {
+      "op": "createSprite",
+      "handle": 2,
+      "parent": null,
+      "sprite": {
+        "asset": "sprite/smoke-puff",
+        "frame": 2,
+        "pivot": [0.5, 0],
+        "size": [2, 2],
+        "sizeMode": "pixel",
+        "billboard": "none",
+        "tint": [0.5, 0.5, 0.5, 0.8],
+        "renderOrder": 5,
+        "depth": "depthWriteOff",
+        "shading": "lit",
+        "transform": { "translation": [4, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
+        "attachment": { "sourceEntity": null, "sourceSceneNode": 9, "attachmentPoint": null },
+        "metadata": { "source": null, "tags": [], "label": "smoke" }
+      }
+    },
+    {
+      "op": "updateSprite",
+      "handle": 1,
+      "frame": 3,
+      "tint": null,
+      "renderOrder": null,
+      "visible": null
+    }
+  ]
+}

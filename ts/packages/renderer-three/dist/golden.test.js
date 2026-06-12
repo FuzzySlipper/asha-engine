@@ -13,17 +13,30 @@ function loadFixture(name) {
 function loadGolden(name) {
     return readFileSync(resolve(repoRoot, 'harness/goldens/render-diffs', `${name}.snapshot`), 'utf8');
 }
-test('scene-showcase fixture renders to the committed golden snapshot', () => {
+function checkGolden(name) {
     const renderer = new ThreeRenderer();
     try {
-        renderer.applyEncodedFrame(loadFixture('scene-showcase'));
+        renderer.applyEncodedFrame(loadFixture(name));
     }
     catch (e) {
-        assert.fail(`RENDERER FAILURE while applying scene-showcase: ${String(e)}`);
+        assert.fail(`RENDERER FAILURE while applying ${name}: ${String(e)}`);
     }
     const actual = renderer.snapshot();
-    const golden = loadGolden('scene-showcase');
-    assert.equal(actual, golden, 'GOLDEN MISMATCH: rendered scene drifted from ' +
-        'harness/goldens/render-diffs/scene-showcase.snapshot — regenerate if intended.');
+    const golden = loadGolden(name);
+    assert.equal(actual, golden, `GOLDEN MISMATCH: rendered scene drifted from ` +
+        `harness/goldens/render-diffs/${name}.snapshot — regenerate if intended.`);
+}
+test('scene-showcase fixture renders to the committed golden snapshot', () => {
+    checkGolden('scene-showcase');
+});
+test('static-mesh-instances fixture renders to the committed golden snapshot', () => {
+    // Two instances share one defined asset geometry; per-instance overrides and
+    // transforms differ. Drift means the static-mesh asset/instance path changed.
+    checkGolden('static-mesh-instances');
+});
+test('sprite-showcase fixture renders to the committed golden snapshot', () => {
+    // Plane-geometry sprites with billboard/pivot/size/depth + a deterministic
+    // projection-driven frame update (handle 1 advances to frame 3).
+    checkGolden('sprite-showcase');
 });
 //# sourceMappingURL=golden.test.js.map

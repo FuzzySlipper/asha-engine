@@ -227,6 +227,33 @@ pub enum RenderDiff {
         handle: RenderHandle,
         payload: MeshPayloadDescriptor,
     },
+    /// Define (or redefine) a static mesh asset's shared geometry + material
+    /// slots + collision policy under its asset id. Idempotent: many instances
+    /// reference the asset and share one uploaded geometry (render-asset-04).
+    DefineStaticMesh { asset: StaticMeshAsset },
+    /// Create one placed instance of a previously defined static mesh asset.
+    /// Instances share the asset geometry and own their transform, per-slot
+    /// material overrides, and metadata.
+    CreateStaticMeshInstance {
+        handle: RenderHandle,
+        parent: Option<RenderHandle>,
+        instance: StaticMeshInstanceDescriptor,
+    },
+    /// Create one plane-geometry sprite/billboard instance (render-asset-05).
+    CreateSprite {
+        handle: RenderHandle,
+        parent: Option<RenderHandle>,
+        sprite: SpriteInstanceDescriptor,
+    },
+    /// Deterministic, projection-driven sprite update (frame/tint/order/
+    /// visibility). Driven by an authority tick, never renderer wall-clock.
+    UpdateSprite {
+        handle: RenderHandle,
+        frame: Option<u32>,
+        tint: Option<[f32; 4]>,
+        render_order: Option<i32>,
+        visible: Option<bool>,
+    },
 }
 
 // ── Mesh payload descriptors (voxel-capability-07 / ADR 0007) ──────────────────
@@ -288,6 +315,37 @@ pub struct MeshBoundsDescriptor {
     pub max: [f32; 3],
 }
 
+/// Which authoring/generation source produced a mesh payload.
+///
+/// A voxel chunk remesh and an authored static-mesh asset share **one**
+/// [`MeshPayloadDescriptor`] and one upload path; they differ only by this
+/// provenance tag, so a renderer / source-trace can attribute an uploaded mesh
+/// without duplicating the upload protocol per source (render-asset-04).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum MeshProvenance {
+    /// A voxel-generated chunk remesh.
+    VoxelChunk,
+    /// An authored static mesh asset (offline-imported, e.g. from glTF).
+    StaticAsset,
+    /// A procedurally generated mesh that is neither a voxel chunk nor an asset.
+    #[default]
+    Generated,
+    /// A debug/overlay mesh (gizmos, visualizers).
+    Debug,
+}
+
+impl MeshProvenance {
+    /// Stable border label for diagnostics and JSON encoding.
+    pub fn label(self) -> &'static str {
+        match self {
+            MeshProvenance::VoxelChunk => "voxelChunk",
+            MeshProvenance::StaticAsset => "staticAsset",
+            MeshProvenance::Generated => "generated",
+            MeshProvenance::Debug => "debug",
+        }
+    }
+}
+
 /// Where the bulk vertex/index bytes live: `Inline` for small golden fixtures,
 /// `Handle` for runtime (bridge-owned buffer referenced by handle + byte offsets,
 /// per ADR 0006 — the renderer wraps the bytes as typed-array views).
@@ -306,13 +364,17 @@ pub enum MeshPayloadSource {
     },
 }
 
-/// The full mesh-payload border: layout + material groups + bounds + data source.
+/// The full mesh-payload border: layout, material groups, bounds, data source,
+/// and provenance. Source-agnostic: voxel chunks and authored static meshes
+/// share this one shape and differ only by [`MeshProvenance`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct MeshPayloadDescriptor {
     pub layout: MeshBufferLayout,
     pub groups: Vec<MeshGroupDescriptor>,
     pub bounds: MeshBoundsDescriptor,
     pub source: MeshPayloadSource,
+    /// Which source produced this mesh (provenance / source trace).
+    pub provenance: MeshProvenance,
 }
 
 /// A malformed mesh payload descriptor, classified for agent routing.
@@ -437,6 +499,322 @@ impl MeshPayloadDescriptor {
         }
         Ok(())
     }
+}
+
+// ── Static mesh assets + instances (render-asset-04 / scene-capability-04) ─────
+
+/// One material slot of a static mesh: the slot index that mesh groups reference,
+/// bound to a catalog material asset id.
+///
+/// Asset ids are border **strings** (the renderer maps them to a `RenderMaterial`
+/// via its registry). The render border never carries collision authority — a
+/// material's solid/collidable flags stay on the collision side (boundary 18).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MeshMaterialSlot {
+    pub slot: u16,
+    /// Catalog material asset id, e.g. `material/concrete-wet`.
+    pub material: String,
+}
+
+/// Collision policy for a static mesh. A *visual-only* mesh skips collision; a
+/// *physical* mesh must either carry an explicit collision proxy or opt into the
+/// payload-AABB fallback. A physical mesh with neither is a classified error.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum MeshCollisionPolicy {
+    /// Visual-only: no collision proxy is produced.
+    #[default]
+    VisualOnly,
+    /// Physical with an explicit collision proxy asset (a simplified shape).
+    Proxy { proxy_asset: String },
+    /// Physical, no authored proxy: derive a box collider from the payload AABB.
+    AabbFallback,
+}
+
+/// An authored static mesh asset: one shared geometry payload (one initial LOD),
+/// its material slots, and its collision policy. Uploaded once per asset id; many
+/// [`StaticMeshInstanceDescriptor`]s reference it and share its geometry.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StaticMeshAsset {
+    /// Catalog asset id, e.g. `mesh/factory-belt-straight`.
+    pub asset: String,
+    pub payload: MeshPayloadDescriptor,
+    pub material_slots: Vec<MeshMaterialSlot>,
+    pub collision: MeshCollisionPolicy,
+}
+
+/// The concrete collision a static mesh resolves to once its policy is applied.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CollisionResolution {
+    /// No collider (visual-only).
+    None,
+    /// An explicit proxy asset is responsible for collision.
+    Proxy { proxy_asset: String },
+    /// A box collider derived from the payload AABB bounds (fallback).
+    Aabb { min: [f32; 3], max: [f32; 3] },
+}
+
+/// A malformed static mesh asset, classified for agent routing.
+#[derive(Debug, Clone, PartialEq)]
+pub enum StaticMeshError {
+    /// The asset id is empty.
+    EmptyAssetId,
+    /// Two material slots share a slot index.
+    DuplicateMaterialSlot { slot: u16 },
+    /// A mesh group references a material slot with no slot binding.
+    GroupSlotUnbound { slot: u16 },
+    /// A `Proxy` collision policy carries an empty proxy asset id.
+    EmptyCollisionProxy,
+    /// The underlying mesh payload is itself malformed.
+    Payload(MeshDescriptorError),
+}
+
+impl StaticMeshAsset {
+    /// Validate the asset: payload self-consistency, unique + bound material
+    /// slots, and a well-formed collision policy. Collects the first failure.
+    pub fn validate(&self) -> Result<(), StaticMeshError> {
+        if self.asset.is_empty() {
+            return Err(StaticMeshError::EmptyAssetId);
+        }
+        self.payload.validate().map_err(StaticMeshError::Payload)?;
+
+        // Unique slot indices.
+        let mut seen: Vec<u16> = Vec::with_capacity(self.material_slots.len());
+        for s in &self.material_slots {
+            if seen.contains(&s.slot) {
+                return Err(StaticMeshError::DuplicateMaterialSlot { slot: s.slot });
+            }
+            seen.push(s.slot);
+        }
+        // Every group's material slot must be bound to a material.
+        for g in &self.payload.groups {
+            if !seen.contains(&g.material_slot) {
+                return Err(StaticMeshError::GroupSlotUnbound {
+                    slot: g.material_slot,
+                });
+            }
+        }
+        if let MeshCollisionPolicy::Proxy { proxy_asset } = &self.collision {
+            if proxy_asset.is_empty() {
+                return Err(StaticMeshError::EmptyCollisionProxy);
+            }
+        }
+        Ok(())
+    }
+
+    /// Resolve the collision policy to a concrete [`CollisionResolution`]. The
+    /// `AabbFallback` policy yields a box collider from the payload bounds, so a
+    /// physical mesh without an authored proxy still gets *some* collider rather
+    /// than silently rendering non-physical.
+    pub fn resolve_collision(&self) -> CollisionResolution {
+        match &self.collision {
+            MeshCollisionPolicy::VisualOnly => CollisionResolution::None,
+            MeshCollisionPolicy::Proxy { proxy_asset } => CollisionResolution::Proxy {
+                proxy_asset: proxy_asset.clone(),
+            },
+            MeshCollisionPolicy::AabbFallback => CollisionResolution::Aabb {
+                min: self.payload.bounds.min,
+                max: self.payload.bounds.max,
+            },
+        }
+    }
+}
+
+/// One placed instance of a static mesh asset. Instances share the asset's
+/// geometry and own their transform, optional per-slot material overrides, and
+/// metadata / source trace.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StaticMeshInstanceDescriptor {
+    /// The static mesh asset id this instance references.
+    pub asset: String,
+    pub transform: Transform,
+    /// Per-slot material rebindings for just this instance (empty = use asset's).
+    pub material_overrides: Vec<MeshMaterialSlot>,
+    pub metadata: RenderMetadata,
+}
+
+// ── Sprites / billboards (render-asset-05 / scene-capability-05) ───────────────
+
+/// How a sprite's [`SpriteInstanceDescriptor::size`] is interpreted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SpriteSizeMode {
+    /// Size is in world units.
+    #[default]
+    World,
+    /// Size is in screen pixels (constant on-screen size).
+    Pixel,
+}
+
+impl SpriteSizeMode {
+    pub fn label(self) -> &'static str {
+        match self {
+            SpriteSizeMode::World => "world",
+            SpriteSizeMode::Pixel => "pixel",
+        }
+    }
+}
+
+/// Billboarding behaviour for a sprite plane.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum BillboardMode {
+    /// No billboarding: the plane keeps its authored orientation.
+    None,
+    /// Always face the camera fully (spherical billboard).
+    #[default]
+    Spherical,
+    /// Face the camera but keep the world up-axis (cylindrical billboard).
+    Cylindrical,
+}
+
+impl BillboardMode {
+    pub fn label(self) -> &'static str {
+        match self {
+            BillboardMode::None => "none",
+            BillboardMode::Spherical => "spherical",
+            BillboardMode::Cylindrical => "cylindrical",
+        }
+    }
+}
+
+/// Depth handling for a sprite. Reserves room for overlay sprites that must not
+/// write/test depth without forcing that on the common case.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SpriteDepthPolicy {
+    /// Normal depth test + write.
+    #[default]
+    Default,
+    /// Draw without depth testing (overlay).
+    DepthTestOff,
+    /// Depth-test but do not write depth (soft particles / decals).
+    DepthWriteOff,
+}
+
+impl SpriteDepthPolicy {
+    pub fn label(self) -> &'static str {
+        match self {
+            SpriteDepthPolicy::Default => "default",
+            SpriteDepthPolicy::DepthTestOff => "depthTestOff",
+            SpriteDepthPolicy::DepthWriteOff => "depthWriteOff",
+        }
+    }
+}
+
+/// Reserved shading mode for a sprite material. The initial renderer implements
+/// `Unlit`; the other modes are validated/reserved so the descriptor does not
+/// bake in an unlit-only assumption (lighting/shadow/custom-shader headroom,
+/// render-asset-06). Full shader systems are deliberately deferred.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SpriteShading {
+    /// Flat, unlit textured quad (implemented today).
+    #[default]
+    Unlit,
+    /// Receives scene lighting (reserved).
+    Lit,
+    /// Receives lighting and casts/receives shadows (reserved).
+    Shadowed,
+    /// A named custom shader strategy (reserved).
+    Custom,
+}
+
+impl SpriteShading {
+    pub fn label(self) -> &'static str {
+        match self {
+            SpriteShading::Unlit => "unlit",
+            SpriteShading::Lit => "lit",
+            SpriteShading::Shadowed => "shadowed",
+            SpriteShading::Custom => "custom",
+        }
+    }
+
+    /// Whether the initial renderer can render this mode today. Reserved modes
+    /// are *accepted* by the protocol (validation never forces unlit), but a
+    /// renderer may report that it falls back to unlit for now.
+    pub fn is_implemented(self) -> bool {
+        matches!(self, SpriteShading::Unlit)
+    }
+}
+
+/// Where a sprite is attached in **authority** terms (render-asset-06).
+///
+/// References source scene/entity IDs and a named attachment point — never a
+/// durable [`RenderHandle`], because handles are derived projection, not save
+/// authority (boundary rule 12).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SpriteAttachment {
+    /// The sim entity this sprite is attached to, if any.
+    pub source_entity: Option<EntityId>,
+    /// The authored scene node id this sprite projects from, if any (raw id).
+    pub source_scene_node: Option<u64>,
+    /// A named attachment point on the source (e.g. `muzzle`, `hand-left`).
+    pub attachment_point: Option<String>,
+}
+
+/// One placed plane-geometry sprite/billboard instance.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpriteInstanceDescriptor {
+    /// Sprite/atlas asset id, e.g. `sprite/spark-sheet`.
+    pub asset: String,
+    /// Frame id within the atlas. Updated deterministically from authority ticks.
+    pub frame: u32,
+    /// Pivot/anchor in `0..=1` of the quad (`[0,0]` = bottom-left).
+    pub pivot: [f32; 2],
+    /// Quad size, interpreted per [`SpriteSizeMode`].
+    pub size: [f32; 2],
+    pub size_mode: SpriteSizeMode,
+    pub billboard: BillboardMode,
+    /// Linear-RGBA tint multiplied into the sprite texture.
+    pub tint: [f32; 4],
+    /// Explicit draw order among sprites (higher draws later).
+    pub render_order: i32,
+    pub depth: SpriteDepthPolicy,
+    pub shading: SpriteShading,
+    pub transform: Transform,
+    pub attachment: SpriteAttachment,
+    pub metadata: RenderMetadata,
+}
+
+/// A malformed sprite descriptor, classified for agent routing.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SpriteError {
+    /// The sprite asset id is empty.
+    EmptyAssetId,
+    /// A pivot component is outside `0..=1`.
+    PivotOutOfRange { pivot: [f32; 2] },
+    /// A size component is non-positive.
+    NonPositiveSize { size: [f32; 2] },
+}
+
+impl SpriteInstanceDescriptor {
+    /// Validate the sprite: non-empty asset, pivot in range, positive size. The
+    /// shading mode is **not** validated against "unlit only" — reserved modes
+    /// are accepted so the border keeps lighting/shadow headroom.
+    pub fn validate(&self) -> Result<(), SpriteError> {
+        if self.asset.is_empty() {
+            return Err(SpriteError::EmptyAssetId);
+        }
+        if !(0.0..=1.0).contains(&self.pivot[0]) || !(0.0..=1.0).contains(&self.pivot[1]) {
+            return Err(SpriteError::PivotOutOfRange { pivot: self.pivot });
+        }
+        if self.size[0] <= 0.0 || self.size[1] <= 0.0 {
+            return Err(SpriteError::NonPositiveSize { size: self.size });
+        }
+        Ok(())
+    }
+}
+
+/// A renderer-side sprite pick hit, traced to **authority identity** for the
+/// authority to interpret (render-asset-06).
+///
+/// Carries the render handle, source entity/scene-node ids, the asset ref, and
+/// any attachment point. The renderer never decides a gameplay action from a
+/// pick — it only reports this trace; authority revalidates and acts (rule 12).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpritePickHit {
+    pub handle: RenderHandle,
+    pub source_entity: Option<EntityId>,
+    pub source_scene_node: Option<u64>,
+    /// The sprite asset id that was hit.
+    pub asset: String,
+    pub attachment_point: Option<String>,
 }
 
 /// All retained-mode changes emitted for a single tick, in apply order.
@@ -632,6 +1010,7 @@ mod mesh_tests {
                 normals: vec![0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0],
                 indices: vec![0, 1, 2],
             },
+            provenance: MeshProvenance::VoxelChunk,
         }
     }
 
@@ -717,5 +1096,256 @@ mod mesh_tests {
             payload: one_triangle(),
         };
         assert!(matches!(diff, RenderDiff::ReplaceMeshPayload { .. }));
+    }
+
+    #[test]
+    fn provenance_labels_are_stable() {
+        assert_eq!(MeshProvenance::VoxelChunk.label(), "voxelChunk");
+        assert_eq!(MeshProvenance::StaticAsset.label(), "staticAsset");
+        assert_eq!(MeshProvenance::default(), MeshProvenance::Generated);
+    }
+}
+
+#[cfg(test)]
+mod static_mesh_tests {
+    use super::*;
+
+    fn quad_payload(provenance: MeshProvenance) -> MeshPayloadDescriptor {
+        MeshPayloadDescriptor {
+            layout: MeshBufferLayout {
+                vertex_count: 4,
+                index_count: 6,
+                index_width: MeshIndexWidth::U32,
+                attributes: vec![MeshAttribute {
+                    name: MeshAttributeName::Position,
+                    components: 3,
+                    kind: MeshAttributeKind::F32,
+                }],
+            },
+            groups: vec![
+                MeshGroupDescriptor {
+                    material_slot: 1,
+                    start: 0,
+                    count: 3,
+                },
+                MeshGroupDescriptor {
+                    material_slot: 2,
+                    start: 3,
+                    count: 3,
+                },
+            ],
+            bounds: MeshBoundsDescriptor {
+                min: [0.0, 0.0, 0.0],
+                max: [2.0, 1.0, 0.0],
+            },
+            source: MeshPayloadSource::Handle {
+                buffer: 1,
+                positions_byte_offset: 0,
+                normals_byte_offset: 48,
+                indices_byte_offset: 96,
+            },
+            provenance,
+        }
+    }
+
+    fn asset(collision: MeshCollisionPolicy) -> StaticMeshAsset {
+        StaticMeshAsset {
+            asset: "mesh/factory-belt-straight".to_string(),
+            payload: quad_payload(MeshProvenance::StaticAsset),
+            material_slots: vec![
+                MeshMaterialSlot {
+                    slot: 1,
+                    material: "material/belt-rubber".to_string(),
+                },
+                MeshMaterialSlot {
+                    slot: 2,
+                    material: "material/belt-frame".to_string(),
+                },
+            ],
+            collision,
+        }
+    }
+
+    #[test]
+    fn valid_static_mesh_passes() {
+        assert_eq!(asset(MeshCollisionPolicy::VisualOnly).validate(), Ok(()));
+    }
+
+    #[test]
+    fn duplicate_material_slot_is_classified() {
+        let mut a = asset(MeshCollisionPolicy::VisualOnly);
+        a.material_slots[1].slot = 1;
+        assert_eq!(
+            a.validate(),
+            Err(StaticMeshError::DuplicateMaterialSlot { slot: 1 })
+        );
+    }
+
+    #[test]
+    fn group_referencing_unbound_slot_is_classified() {
+        let mut a = asset(MeshCollisionPolicy::VisualOnly);
+        a.material_slots.pop(); // drop slot 2's binding; group 2 still references it
+        assert_eq!(
+            a.validate(),
+            Err(StaticMeshError::GroupSlotUnbound { slot: 2 })
+        );
+    }
+
+    #[test]
+    fn proxy_policy_requires_a_proxy_asset() {
+        let a = asset(MeshCollisionPolicy::Proxy {
+            proxy_asset: String::new(),
+        });
+        assert_eq!(a.validate(), Err(StaticMeshError::EmptyCollisionProxy));
+    }
+
+    #[test]
+    fn visual_only_resolves_to_no_collider() {
+        assert_eq!(
+            asset(MeshCollisionPolicy::VisualOnly).resolve_collision(),
+            CollisionResolution::None
+        );
+    }
+
+    #[test]
+    fn physical_without_proxy_falls_back_to_aabb() {
+        // The acceptance case: a physical mesh with no authored proxy still gets
+        // a box collider from its payload bounds rather than silently dropping.
+        assert_eq!(
+            asset(MeshCollisionPolicy::AabbFallback).resolve_collision(),
+            CollisionResolution::Aabb {
+                min: [0.0, 0.0, 0.0],
+                max: [2.0, 1.0, 0.0],
+            }
+        );
+    }
+
+    #[test]
+    fn explicit_proxy_resolves_to_proxy() {
+        let a = asset(MeshCollisionPolicy::Proxy {
+            proxy_asset: "mesh/belt-collider".to_string(),
+        });
+        assert_eq!(
+            a.resolve_collision(),
+            CollisionResolution::Proxy {
+                proxy_asset: "mesh/belt-collider".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn instance_carries_overrides_and_shares_asset_id() {
+        let inst = StaticMeshInstanceDescriptor {
+            asset: "mesh/factory-belt-straight".to_string(),
+            transform: Transform::IDENTITY,
+            material_overrides: vec![MeshMaterialSlot {
+                slot: 2,
+                material: "material/belt-frame-rusty".to_string(),
+            }],
+            metadata: RenderMetadata::default(),
+        };
+        assert_eq!(inst.material_overrides.len(), 1);
+        assert_eq!(inst.asset, "mesh/factory-belt-straight");
+    }
+}
+
+#[cfg(test)]
+mod sprite_tests {
+    use super::*;
+
+    fn sprite() -> SpriteInstanceDescriptor {
+        SpriteInstanceDescriptor {
+            asset: "sprite/spark-sheet".to_string(),
+            frame: 0,
+            pivot: [0.5, 0.5],
+            size: [1.0, 1.0],
+            size_mode: SpriteSizeMode::World,
+            billboard: BillboardMode::Spherical,
+            tint: [1.0, 1.0, 1.0, 1.0],
+            render_order: 0,
+            depth: SpriteDepthPolicy::Default,
+            shading: SpriteShading::Unlit,
+            transform: Transform::IDENTITY,
+            attachment: SpriteAttachment::default(),
+            metadata: RenderMetadata::default(),
+        }
+    }
+
+    #[test]
+    fn valid_sprite_passes() {
+        assert_eq!(sprite().validate(), Ok(()));
+    }
+
+    #[test]
+    fn pivot_out_of_range_is_classified() {
+        let mut s = sprite();
+        s.pivot = [1.5, 0.0];
+        assert!(matches!(
+            s.validate(),
+            Err(SpriteError::PivotOutOfRange { .. })
+        ));
+    }
+
+    #[test]
+    fn non_positive_size_is_classified() {
+        let mut s = sprite();
+        s.size = [0.0, 1.0];
+        assert!(matches!(
+            s.validate(),
+            Err(SpriteError::NonPositiveSize { .. })
+        ));
+    }
+
+    #[test]
+    fn reserved_shading_modes_are_accepted_not_forced_unlit() {
+        // Lighting/shadow headroom: a Lit sprite is a valid descriptor even
+        // though the initial renderer only implements Unlit.
+        let mut s = sprite();
+        s.shading = SpriteShading::Lit;
+        assert_eq!(s.validate(), Ok(()));
+        assert!(!SpriteShading::Lit.is_implemented());
+        assert!(SpriteShading::Unlit.is_implemented());
+    }
+
+    #[test]
+    fn attachment_references_authority_ids_not_handles() {
+        let s = SpriteInstanceDescriptor {
+            attachment: SpriteAttachment {
+                source_entity: Some(EntityId::new(42)),
+                source_scene_node: Some(7),
+                attachment_point: Some("muzzle".to_string()),
+            },
+            ..sprite()
+        };
+        assert_eq!(s.attachment.source_entity, Some(EntityId::new(42)));
+        assert_eq!(s.attachment.attachment_point.as_deref(), Some("muzzle"));
+    }
+
+    #[test]
+    fn pick_hit_traces_to_source_identity() {
+        let hit = SpritePickHit {
+            handle: RenderHandle::new(9),
+            source_entity: Some(EntityId::new(42)),
+            source_scene_node: None,
+            asset: "sprite/spark-sheet".to_string(),
+            attachment_point: Some("muzzle".to_string()),
+        };
+        assert_eq!(hit.source_entity, Some(EntityId::new(42)));
+        assert_eq!(hit.handle, RenderHandle::new(9));
+    }
+
+    #[test]
+    fn deterministic_sprite_update_diff_constructs() {
+        let diff = RenderDiff::UpdateSprite {
+            handle: RenderHandle::new(9),
+            frame: Some(3),
+            tint: None,
+            render_order: Some(5),
+            visible: None,
+        };
+        assert!(matches!(
+            diff,
+            RenderDiff::UpdateSprite { frame: Some(3), .. }
+        ));
     }
 }

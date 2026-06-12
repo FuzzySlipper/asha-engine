@@ -65,3 +65,26 @@ Layer order (lowest to highest): foundation → state → protocol → sim/servi
     visual-only vs authority/structural change needing revalidation or full reload).
 - TS may author catalog data; Rust owns validation. No `protocol`/codegen surface added yet — it
   lands when catalog/descriptor shapes cross to TS (static-mesh/sprite rendering, devtools).
+
+## Render assets / static meshes + sprites
+
+- `protocol-render` (protocol) — the generated-contract border for authored render assets, mirrored
+  to `@asha/contracts` by `protocol-codegen`:
+  - `MeshPayloadDescriptor` gains a `MeshProvenance` tag (`voxelChunk` / `staticAsset` / `generated`
+    / `debug`): voxel chunks and static meshes share one descriptor + one upload path.
+  - `StaticMeshAsset` (shared geometry payload + `MeshMaterialSlot`s + `MeshCollisionPolicy`) and
+    `StaticMeshInstanceDescriptor` (transform + per-slot material overrides) are separate; collision
+    resolves via `resolve_collision()` to none / explicit proxy / AABB fallback (a physical mesh
+    without a proxy is a classified error, not a silent non-physical mesh).
+  - `SpriteInstanceDescriptor` (asset, frame, pivot, size + `SpriteSizeMode`, `BillboardMode`, tint,
+    `renderOrder`, `SpriteDepthPolicy`, `SpriteShading`, `SpriteAttachment`) plus the `CreateSprite`
+    / `UpdateSprite` diffs; `SpritePickHit` traces a pick to authority identity. Shading reserves
+    lit/shadow/custom modes without forcing unlit-only.
+- `@asha/renderer-three` (ts-shell) — the retained consumer: shares one `BufferGeometry` per static
+  mesh asset with reference-counted disposal; renders sprites as pivot-shifted plane geometry (not
+  `THREE.Sprite`); applies deterministic projection-driven sprite frame/tint updates; and exposes
+  `pickSprite` returning an authority-facing trace. It validates nothing and imports no catalog or
+  authority package.
+- The renderer maps material asset ids → appearance via its slot/colour registry; full catalog
+  `RenderMaterial` wiring, lit/shadow shaders, runtime buffer-handle mesh sources, and the offline
+  glTF importer remain deferred.

@@ -9,8 +9,10 @@
 //! which keeps the committed fixture small and reviewable.
 
 use protocol_render::{
-    Geometry, Material, MeshAttributeName, MeshPayloadDescriptor, MeshPayloadSource, RenderDiff,
-    RenderFrameDiff, RenderMetadata, RenderNode, Transform,
+    BillboardMode, Geometry, Material, MeshAttributeName, MeshCollisionPolicy, MeshMaterialSlot,
+    MeshPayloadDescriptor, MeshPayloadSource, RenderDiff, RenderFrameDiff, RenderMetadata,
+    RenderNode, SpriteAttachment, SpriteDepthPolicy, SpriteInstanceDescriptor, SpriteShading,
+    SpriteSizeMode, StaticMeshAsset, StaticMeshInstanceDescriptor, Transform,
 };
 
 /// Encode a sequence of frames as a pretty JSON array of frame objects.
@@ -92,7 +94,194 @@ fn encode_diff(out: &mut String, diff: &RenderDiff) {
             encode_mesh_payload(out, payload);
             out.push_str(" }");
         }
+        RenderDiff::DefineStaticMesh { asset } => {
+            out.push_str("{ \"op\": \"defineStaticMesh\", \"asset\": ");
+            encode_static_mesh_asset(out, asset);
+            out.push_str(" }");
+        }
+        RenderDiff::CreateStaticMeshInstance {
+            handle,
+            parent,
+            instance,
+        } => {
+            out.push_str(&format!(
+                "{{ \"op\": \"createStaticMeshInstance\", \"handle\": {}, \"parent\": ",
+                handle.raw()
+            ));
+            match parent {
+                Some(p) => out.push_str(&p.raw().to_string()),
+                None => out.push_str("null"),
+            }
+            out.push_str(", \"instance\": ");
+            encode_static_mesh_instance(out, instance);
+            out.push_str(" }");
+        }
+        RenderDiff::CreateSprite {
+            handle,
+            parent,
+            sprite,
+        } => {
+            out.push_str(&format!(
+                "{{ \"op\": \"createSprite\", \"handle\": {}, \"parent\": ",
+                handle.raw()
+            ));
+            match parent {
+                Some(p) => out.push_str(&p.raw().to_string()),
+                None => out.push_str("null"),
+            }
+            out.push_str(", \"sprite\": ");
+            encode_sprite(out, sprite);
+            out.push_str(" }");
+        }
+        RenderDiff::UpdateSprite {
+            handle,
+            frame,
+            tint,
+            render_order,
+            visible,
+        } => {
+            out.push_str(&format!(
+                "{{ \"op\": \"updateSprite\", \"handle\": {}, \"frame\": ",
+                handle.raw()
+            ));
+            match frame {
+                Some(f) => out.push_str(&f.to_string()),
+                None => out.push_str("null"),
+            }
+            out.push_str(", \"tint\": ");
+            match tint {
+                Some(t) => encode_f32_array(out, t),
+                None => out.push_str("null"),
+            }
+            out.push_str(", \"renderOrder\": ");
+            match render_order {
+                Some(o) => out.push_str(&o.to_string()),
+                None => out.push_str("null"),
+            }
+            out.push_str(", \"visible\": ");
+            match visible {
+                Some(v) => out.push_str(if *v { "true" } else { "false" }),
+                None => out.push_str("null"),
+            }
+            out.push_str(" }");
+        }
     }
+}
+
+fn encode_material_slots(out: &mut String, slots: &[MeshMaterialSlot]) {
+    out.push('[');
+    for (i, s) in slots.iter().enumerate() {
+        if i > 0 {
+            out.push_str(", ");
+        }
+        out.push_str(&format!(
+            "{{ \"slot\": {}, \"material\": {} }}",
+            s.slot,
+            encode_json_string(&s.material)
+        ));
+    }
+    out.push(']');
+}
+
+fn encode_collision_policy(out: &mut String, policy: &MeshCollisionPolicy) {
+    match policy {
+        MeshCollisionPolicy::VisualOnly => out.push_str("{ \"kind\": \"visualOnly\" }"),
+        MeshCollisionPolicy::Proxy { proxy_asset } => out.push_str(&format!(
+            "{{ \"kind\": \"proxy\", \"proxyAsset\": {} }}",
+            encode_json_string(proxy_asset)
+        )),
+        MeshCollisionPolicy::AabbFallback => out.push_str("{ \"kind\": \"aabbFallback\" }"),
+    }
+}
+
+fn encode_static_mesh_asset(out: &mut String, asset: &StaticMeshAsset) {
+    out.push_str(&format!(
+        "{{ \"asset\": {}, \"payload\": ",
+        encode_json_string(&asset.asset)
+    ));
+    encode_mesh_payload(out, &asset.payload);
+    out.push_str(", \"materialSlots\": ");
+    encode_material_slots(out, &asset.material_slots);
+    out.push_str(", \"collision\": ");
+    encode_collision_policy(out, &asset.collision);
+    out.push_str(" }");
+}
+
+fn encode_static_mesh_instance(out: &mut String, instance: &StaticMeshInstanceDescriptor) {
+    out.push_str(&format!(
+        "{{ \"asset\": {}, \"transform\": ",
+        encode_json_string(&instance.asset)
+    ));
+    encode_transform(out, &instance.transform);
+    out.push_str(", \"materialOverrides\": ");
+    encode_material_slots(out, &instance.material_overrides);
+    out.push_str(", \"metadata\": ");
+    encode_metadata(out, &instance.metadata);
+    out.push_str(" }");
+}
+
+fn encode_sprite_attachment(out: &mut String, attachment: &SpriteAttachment) {
+    out.push_str("{ \"sourceEntity\": ");
+    match attachment.source_entity {
+        Some(id) => out.push_str(&id.raw().to_string()),
+        None => out.push_str("null"),
+    }
+    out.push_str(", \"sourceSceneNode\": ");
+    match attachment.source_scene_node {
+        Some(n) => out.push_str(&n.to_string()),
+        None => out.push_str("null"),
+    }
+    out.push_str(", \"attachmentPoint\": ");
+    match &attachment.attachment_point {
+        Some(p) => out.push_str(&encode_json_string(p)),
+        None => out.push_str("null"),
+    }
+    out.push_str(" }");
+}
+
+fn encode_sprite(out: &mut String, sprite: &SpriteInstanceDescriptor) {
+    out.push_str(&format!(
+        "{{ \"asset\": {}, \"frame\": {}, \"pivot\": ",
+        encode_json_string(&sprite.asset),
+        sprite.frame
+    ));
+    encode_f32_array(out, &sprite.pivot);
+    out.push_str(", \"size\": ");
+    encode_f32_array(out, &sprite.size);
+    out.push_str(&format!(
+        ", \"sizeMode\": \"{}\", \"billboard\": \"{}\", \"tint\": ",
+        match sprite.size_mode {
+            SpriteSizeMode::World => "world",
+            SpriteSizeMode::Pixel => "pixel",
+        },
+        match sprite.billboard {
+            BillboardMode::None => "none",
+            BillboardMode::Spherical => "spherical",
+            BillboardMode::Cylindrical => "cylindrical",
+        }
+    ));
+    encode_f32_array(out, &sprite.tint);
+    out.push_str(&format!(
+        ", \"renderOrder\": {}, \"depth\": \"{}\", \"shading\": \"{}\", \"transform\": ",
+        sprite.render_order,
+        match sprite.depth {
+            SpriteDepthPolicy::Default => "default",
+            SpriteDepthPolicy::DepthTestOff => "depthTestOff",
+            SpriteDepthPolicy::DepthWriteOff => "depthWriteOff",
+        },
+        match sprite.shading {
+            SpriteShading::Unlit => "unlit",
+            SpriteShading::Lit => "lit",
+            SpriteShading::Shadowed => "shadowed",
+            SpriteShading::Custom => "custom",
+        }
+    ));
+    encode_transform(out, &sprite.transform);
+    out.push_str(", \"attachment\": ");
+    encode_sprite_attachment(out, &sprite.attachment);
+    out.push_str(", \"metadata\": ");
+    encode_metadata(out, &sprite.metadata);
+    out.push_str(" }");
 }
 
 fn attr_name(name: MeshAttributeName) -> &'static str {
@@ -160,7 +349,10 @@ fn encode_mesh_payload(out: &mut String, payload: &MeshPayloadDescriptor) {
             ));
         }
     }
-    out.push_str(" }");
+    out.push_str(&format!(
+        ", \"provenance\": \"{}\" }}",
+        payload.provenance.label()
+    ));
 }
 
 fn encode_u32_array(out: &mut String, values: &[u32]) {

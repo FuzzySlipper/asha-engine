@@ -90,17 +90,94 @@ export interface MeshBoundsDescriptor {
   readonly max: readonly [number, number, number];
 }
 
+// Which source produced a mesh payload (voxel chunk vs authored static asset).
+export type MeshProvenance = 'voxelChunk' | 'staticAsset' | 'generated' | 'debug';
+
 // Where the bulk vertex/index bytes live: inline (fixtures) or by handle (runtime).
 export type MeshPayloadSource =
   | { readonly kind: 'inline'; readonly positions: readonly number[]; readonly normals: readonly number[]; readonly indices: readonly number[] }
   | { readonly kind: 'handle'; readonly buffer: number; readonly positionsByteOffset: number; readonly normalsByteOffset: number; readonly indicesByteOffset: number };
 
-// The full mesh-payload border: layout + groups + bounds + data source.
+// The full mesh-payload border: layout + groups + bounds + source + provenance.
 export interface MeshPayloadDescriptor {
   readonly layout: MeshBufferLayout;
   readonly groups: readonly MeshGroupDescriptor[];
   readonly bounds: MeshBoundsDescriptor;
   readonly source: MeshPayloadSource;
+  readonly provenance: MeshProvenance;
+}
+
+// One material slot of a static mesh, bound to a catalog material asset id.
+export interface MeshMaterialSlot {
+  readonly slot: number;
+  readonly material: string;
+}
+
+// Collision policy for a static mesh (visual-only, explicit proxy, or AABB fallback).
+export type MeshCollisionPolicy =
+  | { readonly kind: 'visualOnly' }
+  | { readonly kind: 'proxy'; readonly proxyAsset: string }
+  | { readonly kind: 'aabbFallback' };
+
+// An authored static mesh asset: shared geometry payload, material slots, collision.
+export interface StaticMeshAsset {
+  readonly asset: string;
+  readonly payload: MeshPayloadDescriptor;
+  readonly materialSlots: readonly MeshMaterialSlot[];
+  readonly collision: MeshCollisionPolicy;
+}
+
+// One placed instance of a static mesh asset (shared geometry, own transform/overrides).
+export interface StaticMeshInstanceDescriptor {
+  readonly asset: string;
+  readonly transform: Transform;
+  readonly materialOverrides: readonly MeshMaterialSlot[];
+  readonly metadata: RenderMetadata;
+}
+
+// How a sprite size is interpreted (world units vs screen pixels).
+export type SpriteSizeMode = 'world' | 'pixel';
+
+// Billboarding behaviour for a sprite plane.
+export type BillboardMode = 'none' | 'spherical' | 'cylindrical';
+
+// Depth handling for a sprite (reserves overlay/no-write modes).
+export type SpriteDepthPolicy = 'default' | 'depthTestOff' | 'depthWriteOff';
+
+// Reserved sprite shading mode (unlit implemented; lit/shadow/custom reserved).
+export type SpriteShading = 'unlit' | 'lit' | 'shadowed' | 'custom';
+
+// Where a sprite is attached in authority terms (source ids, not render handles).
+export interface SpriteAttachment {
+  readonly sourceEntity: EntityId | null;
+  readonly sourceSceneNode: number | null;
+  readonly attachmentPoint: string | null;
+}
+
+// One placed plane-geometry sprite/billboard instance.
+export interface SpriteInstanceDescriptor {
+  readonly asset: string;
+  readonly frame: number;
+  readonly pivot: readonly [number, number];
+  readonly size: readonly [number, number];
+  readonly sizeMode: SpriteSizeMode;
+  readonly billboard: BillboardMode;
+  readonly tint: readonly [number, number, number, number];
+  readonly renderOrder: number;
+  readonly depth: SpriteDepthPolicy;
+  readonly shading: SpriteShading;
+  readonly transform: Transform;
+  readonly attachment: SpriteAttachment;
+  readonly metadata: RenderMetadata;
+}
+
+// A renderer-side sprite pick hit traced to authority identity (renderer never acts).
+export interface SpritePickHit {
+  readonly handle: RenderHandle;
+  readonly sourceEntity: EntityId | null;
+  readonly sourceSceneNode: number | null;
+  readonly asset: string;
+  readonly attachmentPoint: string | null;
 }
 
 // A single retained-mode change against the render scene.
@@ -108,7 +185,11 @@ export type RenderDiff =
   | { readonly op: 'create'; readonly handle: RenderHandle; readonly parent: RenderHandle | null; readonly node: RenderNode }
   | { readonly op: 'update'; readonly handle: RenderHandle; readonly transform: Transform | null; readonly material: Material | null; readonly visible: boolean | null; readonly metadata: RenderMetadata | null }
   | { readonly op: 'destroy'; readonly handle: RenderHandle }
-  | { readonly op: 'replaceMeshPayload'; readonly handle: RenderHandle; readonly payload: MeshPayloadDescriptor };
+  | { readonly op: 'replaceMeshPayload'; readonly handle: RenderHandle; readonly payload: MeshPayloadDescriptor }
+  | { readonly op: 'defineStaticMesh'; readonly asset: StaticMeshAsset }
+  | { readonly op: 'createStaticMeshInstance'; readonly handle: RenderHandle; readonly parent: RenderHandle | null; readonly instance: StaticMeshInstanceDescriptor }
+  | { readonly op: 'createSprite'; readonly handle: RenderHandle; readonly parent: RenderHandle | null; readonly sprite: SpriteInstanceDescriptor }
+  | { readonly op: 'updateSprite'; readonly handle: RenderHandle; readonly frame: number | null; readonly tint: readonly [number, number, number, number] | null; readonly renderOrder: number | null; readonly visible: boolean | null };
 
 // All retained-mode changes emitted for a single tick, in apply order.
 export interface RenderFrameDiff {
