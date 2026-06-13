@@ -150,6 +150,54 @@ pub struct RuntimeBufferView<'a> {
     pub bytes: &'a [u8],
 }
 
+// PROTOTYPE NOTE: these stand in for the generated
+// `protocol_world_bundle::{WorldBundleManifest, SaveSummary}` /
+// `protocol_diagnostics::DiagnosticReportSet` contract types named in the
+// manifest. The *shape* of the load/save verbs is the stable part.
+
+/// A bounded request to load a world bundle. Identifies the bundle and its
+/// versions; the runtime resolves artifacts itself (never a raw path or JSON).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorldLoadRequest {
+    pub bundle_schema_version: u32,
+    pub protocol_version: u32,
+    /// The scene identity the bundle bootstraps (stand-in for the full manifest).
+    pub scene_id: u64,
+}
+
+/// A bounded composition status / diagnostics summary (load + save).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompositionStatus {
+    /// The currently-loaded world's scene identity, or `None` if empty.
+    pub loaded_world: Option<u64>,
+    /// Number of `Fatal` composition diagnostics.
+    pub fatal_count: u32,
+    /// Total composition diagnostics.
+    pub total_count: u32,
+    /// Whether the diagnostics block a load.
+    pub blocks_load: bool,
+}
+
+impl CompositionStatus {
+    /// An empty, clean status (no world loaded, no diagnostics).
+    pub fn empty() -> Self {
+        Self {
+            loaded_world: None,
+            fatal_count: 0,
+            total_count: 0,
+            blocks_load: false,
+        }
+    }
+}
+
+/// A bounded summary of a save through the real save/compaction path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WorldSaveSummary {
+    pub artifacts_written: u32,
+    pub compacted_edits: u32,
+    pub retained_edits: u32,
+}
+
 // ── The bridge surface ────────────────────────────────────────────────────────
 
 /// The bounded set of verbs every transport implements. There is no generic
@@ -159,6 +207,17 @@ pub trait RuntimeBridge {
     fn step_simulation(&mut self, input: StepInputEnvelope) -> BridgeResult<StepResult>;
     fn get_buffer(&self, handle: RuntimeBufferHandle) -> BridgeResult<RuntimeBufferView<'_>>;
     fn release_buffer(&mut self, handle: RuntimeBufferHandle) -> BridgeResult<()>;
+
+    // ── World load/save composition (#2363) ──
+    /// Load a world bundle into authority. Fails closed (and leaves any prior
+    /// world untouched) on an unsupported version.
+    fn load_world_bundle(&mut self, request: WorldLoadRequest) -> BridgeResult<CompositionStatus>;
+    /// Save the current world. Fails closed with `NotInitialized` if none loaded.
+    fn save_current_world(&mut self) -> BridgeResult<WorldSaveSummary>;
+    /// Read composition status/diagnostics without mutating authority.
+    fn get_composition_status(&self) -> BridgeResult<CompositionStatus>;
+    /// Unload the staged/live world, returning to an empty runtime.
+    fn unload_world(&mut self) -> BridgeResult<()>;
 }
 
 // ── Tiny in-crate implementation for smoke tests ──────────────────────────────
@@ -172,7 +231,12 @@ pub trait RuntimeBridge {
 pub struct ReferenceBridge {
     engine: Option<EngineHandle>,
     buffer: Vec<u8>,
+    /// The currently-loaded world's scene identity (the staged/live world).
+    loaded_world: Option<u64>,
 }
+
+/// The bundle schema / protocol versions this reference bridge understands.
+const REFERENCE_SUPPORTED_VERSION: u32 = 1;
 
 impl ReferenceBridge {
     pub fn new() -> Self {
@@ -225,6 +289,54 @@ impl RuntimeBridge for ReferenceBridge {
         self.buffer.clear();
         Ok(())
     }
+
+    fn load_world_bundle(&mut self, request: WorldLoadRequest) -> BridgeResult<CompositionStatus> {
+        // Fail closed on a newer bundle; the prior loaded world is left untouched
+        // (we only mutate `loaded_world` on success — the staged commit/swap).
+        if request.bundle_schema_version > REFERENCE_SUPPORTED_VERSION
+            || request.protocol_version > REFERENCE_SUPPORTED_VERSION
+        {
+            return Err(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                format!(
+                    "unsupported bundle schema {} / protocol {}",
+                    request.bundle_schema_version, request.protocol_version
+                ),
+            ));
+        }
+        self.loaded_world = Some(request.scene_id);
+        Ok(CompositionStatus {
+            loaded_world: Some(request.scene_id),
+            ..CompositionStatus::empty()
+        })
+    }
+
+    fn save_current_world(&mut self) -> BridgeResult<WorldSaveSummary> {
+        if self.loaded_world.is_none() {
+            return Err(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::NotInitialized,
+                "save_current_world called with no world loaded",
+            ));
+        }
+        // Deterministic stand-in for the real save/compaction summary.
+        Ok(WorldSaveSummary {
+            artifacts_written: 3,
+            compacted_edits: 0,
+            retained_edits: 0,
+        })
+    }
+
+    fn get_composition_status(&self) -> BridgeResult<CompositionStatus> {
+        Ok(CompositionStatus {
+            loaded_world: self.loaded_world,
+            ..CompositionStatus::empty()
+        })
+    }
+
+    fn unload_world(&mut self) -> BridgeResult<()> {
+        self.loaded_world = None;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -239,6 +351,72 @@ mod tests {
             .unwrap_err();
         assert_eq!(err.kind, RuntimeBridgeErrorKind::NotInitialized);
         assert_eq!(err.category(), ErrorCategory::Unsupported);
+    }
+
+    #[test]
+    fn save_before_load_fails_closed() {
+        let mut bridge = ReferenceBridge::new();
+        let err = bridge.save_current_world().unwrap_err();
+        assert_eq!(err.kind, RuntimeBridgeErrorKind::NotInitialized);
+        // And status reflects no loaded world.
+        assert_eq!(bridge.get_composition_status().unwrap().loaded_world, None);
+    }
+
+    #[test]
+    fn load_save_status_unload_round_trip() {
+        let mut bridge = ReferenceBridge::new();
+        let status = bridge
+            .load_world_bundle(WorldLoadRequest {
+                bundle_schema_version: 1,
+                protocol_version: 1,
+                scene_id: 100,
+            })
+            .unwrap();
+        assert_eq!(status.loaded_world, Some(100));
+        assert!(!status.blocks_load);
+
+        let save = bridge.save_current_world().unwrap();
+        assert_eq!(save.artifacts_written, 3);
+
+        assert_eq!(
+            bridge.get_composition_status().unwrap().loaded_world,
+            Some(100)
+        );
+
+        bridge.unload_world().unwrap();
+        assert_eq!(bridge.get_composition_status().unwrap().loaded_world, None);
+        // Save after unload fails closed again.
+        assert_eq!(
+            bridge.save_current_world().unwrap_err().kind,
+            RuntimeBridgeErrorKind::NotInitialized
+        );
+    }
+
+    #[test]
+    fn load_unsupported_version_fails_closed_without_mutating() {
+        let mut bridge = ReferenceBridge::new();
+        // Load a valid world first.
+        bridge
+            .load_world_bundle(WorldLoadRequest {
+                bundle_schema_version: 1,
+                protocol_version: 1,
+                scene_id: 7,
+            })
+            .unwrap();
+        // A too-new bundle is rejected and must NOT replace the loaded world.
+        let err = bridge
+            .load_world_bundle(WorldLoadRequest {
+                bundle_schema_version: 99,
+                protocol_version: 1,
+                scene_id: 8,
+            })
+            .unwrap_err();
+        assert_eq!(err.kind, RuntimeBridgeErrorKind::InvalidInput);
+        assert_eq!(
+            bridge.get_composition_status().unwrap().loaded_world,
+            Some(7),
+            "a failed load must not swap out the prior world"
+        );
     }
 
     #[test]

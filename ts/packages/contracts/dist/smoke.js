@@ -11,7 +11,7 @@
 //
 // It is value-level on purpose: constructing real union values exercises the
 // discriminants and field shapes, not just the type names.
-import { entityId, modeId, tagId, renderHandle, stepIndex, replayHash, REPLAY_FORMAT_VERSION, } from './index.js';
+import { entityId, modeId, tagId, renderHandle, stepIndex, replayHash, REPLAY_FORMAT_VERSION, sceneId, worldId, sceneNodeId, } from './index.js';
 // Branded IDs are nominally typed and built through their constructors.
 const entity = entityId(1);
 // A command authored the way a policy would author it.
@@ -99,7 +99,47 @@ const corruptArtifact = {
     message: 'durable artifact failed its content hash',
     remedy: { action: 'restoreArtifact', detail: 'restore from a known-good bundle copy' },
 };
-const reportSet = { reports: [missingAsset, corruptArtifact] };
+// A world-composition round-trip mismatch (#2368): consolidated so load/save
+// execution and save→reload equivalence have stable generated codes too.
+const roundTripMismatch = {
+    scope: 'worldComposition',
+    severity: 'error',
+    code: 'roundTripMismatch',
+    reference: 'round-trip',
+    source: {
+        sceneNodeId: null,
+        runtimeEntityId: null,
+        assetId: null,
+        chunkCoord: null,
+        renderHandle: null,
+        bundlePath: null,
+    },
+    message: 'save/load round-trip lost state: pre-save hash != reloaded hash',
+    remedy: { action: 'inspect', detail: 'the save/compaction path is not equivalence-preserving' },
+};
+// A load-stage failure (#2368): a stage of an executed load plan failed.
+const loadStageFailed = {
+    scope: 'worldComposition',
+    severity: 'fatal',
+    code: 'loadStageFailed',
+    reference: 'load:bootstrap',
+    source: {
+        sceneNodeId: null,
+        runtimeEntityId: null,
+        assetId: null,
+        chunkCoord: null,
+        renderHandle: null,
+        bundlePath: 'scene/scene.json',
+    },
+    message: 'load stage `bootstrap` failed during composition',
+    remedy: { action: 'inspect', detail: 'inspect the failing load stage input' },
+};
+// A consolidated report set spanning every diagnostic scope — what a single
+// devtools diagnostics panel would render across scene/asset/bundle/render/
+// resources/composition without any `any` or raw-JSON fallback.
+const reportSet = {
+    reports: [missingAsset, corruptArtifact, roundTripMismatch, loadStageFailed],
+};
 const trace = {
     renderHandle: 43,
     sceneNodeId: 3,
@@ -117,6 +157,192 @@ const resources = {
     resourcesDisposed: 4,
     fallbackMaterials: 0,
 };
+// A typed scene authored the way a TS authoring tool would — the same logical
+// document as harness/fixtures/scenes/sample-flat.json, expressed against the
+// generated contract. This is the "TS can author/load a typed scene fixture"
+// proof for #2365: TS *expresses* the scene; Rust *validates* it. Note the
+// discriminated SceneNodeKind — an empty group carries no asset key, an
+// asset-backed node does, exactly matching the wire.
+const sampleScene = {
+    schemaVersion: 1,
+    id: sceneId(100),
+    metadata: { name: 'sample', authoringFormatVersion: 1 },
+    dependencies: [
+        { id: 'mesh/static-mesh-fixture-a', version: { req: 'any' }, hash: null },
+    ],
+    nodes: [
+        {
+            id: sceneNodeId(1),
+            parent: null,
+            childOrder: 0,
+            label: null,
+            tags: [],
+            transform: { translation: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+            kind: { kind: 'emptyGroup' },
+        },
+        {
+            id: sceneNodeId(2),
+            parent: sceneNodeId(1),
+            childOrder: 0,
+            label: 'mesh-a',
+            tags: ['a-tag', 'b-tag'],
+            transform: { translation: [1, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+            kind: {
+                kind: 'staticMesh',
+                asset: { id: 'mesh/static-mesh-fixture-a', version: { req: 'any' }, hash: null },
+            },
+        },
+    ],
+};
+// TS can *express* a semantically invalid scene (a cycle) — it has no authority
+// to reject it. Only Rust validation produces this classified report; here we
+// merely prove the report shape is importable/typed for a devtools panel.
+const cycleReport = {
+    errors: [
+        {
+            code: 'cycle',
+            node: null,
+            parent: null,
+            expectedKind: null,
+            actualKind: null,
+            transformReason: null,
+            cyclePath: [sceneNodeId(1), sceneNodeId(2), sceneNodeId(1)],
+        },
+    ],
+};
+// The atomic bootstrap record a scene→authority init produces, read-side typed.
+const bootstrap = {
+    sceneId: sceneId(100),
+    worldId: worldId(7),
+    schemaVersion: 1,
+    nodeCount: 2,
+    entityCount: 2,
+    worldHash: 0,
+    sourceTrace: [
+        { sceneNodeId: sceneNodeId(1), runtimeEntityId: entity },
+        { sceneNodeId: sceneNodeId(2), runtimeEntityId: entityId(2) },
+    ],
+};
+// A world-bundle manifest a devtools panel would *display* from a Rust-produced
+// fixture — the same shape as harness/fixtures/world-bundle/sample-manifest.json.
+// This is the "TS can display a manifest from a Rust-produced fixture" proof for
+// #2366: read-only, no authority to load or mutate the bundle.
+const manifest = {
+    bundleSchemaVersion: 1,
+    protocolVersion: 1,
+    world: { id: worldId(7), name: 'sample-world' },
+    scene: { id: sceneId(100), schemaVersion: 1, artifact: 'scene/scene.json' },
+    assetLock: { artifact: 'assets/lock.json', assetCount: 1 },
+    generator: { seed: 42, version: 1, params: 'default' },
+    artifacts: [
+        { path: 'assets/lock.json', class: 'durable', role: 'assetLock', contentHash: '422f72d827e3137c' },
+        { path: 'cache/mesh_0_0_0.bin', class: 'cache', role: 'cache', contentHash: null },
+        { path: 'scene/scene.json', class: 'durable', role: 'sceneDocument', contentHash: '1723540f7db7a459' },
+    ],
+};
+// An ordered load plan, displayed the way a devtools timeline would render it.
+const loadPlan = {
+    steps: [
+        { step: 'validateVersions', bundleSchemaVersion: 1, protocolVersion: 1 },
+        { step: 'loadAssetLock', artifact: 'assets/lock.json', assetCount: 1 },
+        { step: 'loadSceneDocument', artifact: 'scene/scene.json', scene: sceneId(100) },
+        { step: 'applyVoxelEdits', editLogs: ['voxel/edits.log'], snapshots: ['voxel/chunk_0_0_0.snapshot'] },
+        { step: 'bootstrapScene', scene: sceneId(100), world: worldId(7) },
+        { step: 'validateFinalState' },
+    ],
+};
+// A regenerate-and-replay generator diagnostic, with the stable conflict fields
+// (coord, event id, old/new generated material, edit value, suggested action).
+const regenReport = {
+    savedVersion: 1,
+    newVersion: 2,
+    conflicts: [
+        {
+            eventId: 3,
+            coord: { x: 4, y: 0, z: 2 },
+            oldGenerated: { kind: 'empty' },
+            newGenerated: { kind: 'solid', material: 7 },
+            editValue: { kind: 'solid', material: 9 },
+            suggested: 'reviewConflict',
+        },
+    ],
+    replayedEdits: 5,
+    stagingWorldHash: 0,
+};
+// Catalog validation + asset-lock drift, displayed read-only by a devtools
+// inspector — the #2367 proof that TS can render diagnostics without `any`/raw
+// JSON, and that no TS package becomes the catalog validator (these are produced
+// by Rust). Covers missing, wrong-kind, stale, dependency drift, and cycle path.
+const catalogReport = {
+    errors: [
+        {
+            code: 'wrong-kind-reference',
+            id: null,
+            kind: null,
+            from: 'material:env/brick',
+            slot: 'texture',
+            expected: 'texture',
+            actual: 'mesh',
+            reference: 'mesh/oops',
+            dependency: null,
+            cyclePath: [],
+        },
+        {
+            code: 'dependency-cycle',
+            id: null,
+            kind: null,
+            from: null,
+            slot: null,
+            expected: null,
+            actual: null,
+            reference: null,
+            dependency: null,
+            cyclePath: ['material:a', 'material:b', 'material:a'],
+        },
+    ],
+};
+const lockReport = {
+    findings: [
+        {
+            id: 'mesh/static-mesh-fixture-a',
+            code: 'stale-version',
+            lockedKind: null,
+            currentKind: null,
+            lockedVersion: 1,
+            currentVersion: 2,
+            lockedHash: null,
+            currentHash: null,
+            addedDependencies: [],
+            removedDependencies: [],
+        },
+        {
+            id: 'texture/old',
+            code: 'missing',
+            lockedKind: 'texture',
+            currentKind: null,
+            lockedVersion: null,
+            currentVersion: null,
+            lockedHash: null,
+            currentHash: null,
+            addedDependencies: [],
+            removedDependencies: [],
+        },
+    ],
+};
+// The renderer-facing material projection a renderer would consume: it cannot
+// even *name* a collision field (that's a separate CollisionMaterial type).
+const renderMaterial = {
+    color: { r: 0.5, g: 0.5, b: 0.5, a: 1 },
+    texture: { id: 'texture/brick', version: { req: 'atLeast', value: 2 }, hash: null },
+    roughness: 1,
+    emissive: 0,
+    uvStrategy: 'planar',
+};
+// A fallback decision for a missing collision-critical asset: fail closed.
+const fallback = {
+    outcome: 'failClosed',
+    reason: 'collision-critical asset missing; refusing to load incomplete authority',
+};
 // Exported so the values are "used" (lint-clean) and tree-shakeable. Consumers
 // of @asha/contracts never see this — it is not re-exported by index.ts.
 export const __contractSmoke = {
@@ -131,5 +357,15 @@ export const __contractSmoke = {
     reportSet,
     trace,
     resources,
+    sampleScene,
+    cycleReport,
+    bootstrap,
+    manifest,
+    loadPlan,
+    regenReport,
+    catalogReport,
+    lockReport,
+    renderMaterial,
+    fallback,
 };
 //# sourceMappingURL=smoke.js.map

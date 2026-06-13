@@ -1,0 +1,14 @@
+[package]
+name = "protocol-world-bundle"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Border-only crate: the cross-boundary schema for world-bundle manifests,
+# artifact tables, ordered load plans, save/compaction summaries, and the
+# regenerate-and-replay generator diagnostic. Execution/validation stays in
+# `svc-serialization` and `rule-world-bundle`; this crate carries only the wire
+# shape and the stable string vocabularies that `protocol-codegen` mirrors to
+# TypeScript. Depends on `core-ids` only, like `protocol-render`/`protocol-scene`.
+[dependencies]
+core-ids = { path = "../../foundation/core-ids" }

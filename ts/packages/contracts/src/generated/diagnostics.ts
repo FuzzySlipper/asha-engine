@@ -10,10 +10,10 @@
 export type DiagnosticSeverity = 'info' | 'warning' | 'error' | 'fatal';
 
 // Which subsystem / lane a diagnostic belongs to.
-export type DiagnosticScope = 'scene' | 'assetCatalog' | 'worldBundle' | 'renderProjection' | 'rendererResources';
+export type DiagnosticScope = 'scene' | 'assetCatalog' | 'worldBundle' | 'renderProjection' | 'rendererResources' | 'worldComposition';
 
 // A stable, machine-routable diagnostic code. The string form is a contract.
-export type DiagnosticCode = 'duplicateSceneId' | 'invalidSceneParent' | 'sceneParentCycle' | 'invalidSceneTransform' | 'sceneAssetMissing' | 'sceneAssetWrongKind' | 'duplicateAssetId' | 'catalogStructuralError' | 'missingAsset' | 'staleAsset' | 'wrongKindAssetRef' | 'assetCycle' | 'manifestProtocolMismatch' | 'corruptBundleArtifact' | 'missingCacheWarning' | 'generatorMismatch' | 'fallbackUsed' | 'missingSourceTrace' | 'rendererResourceSummary' | 'suspectedResourceLeak';
+export type DiagnosticCode = 'duplicateSceneId' | 'invalidSceneParent' | 'sceneParentCycle' | 'invalidSceneTransform' | 'sceneAssetMissing' | 'sceneAssetWrongKind' | 'duplicateAssetId' | 'catalogStructuralError' | 'missingAsset' | 'staleAsset' | 'wrongKindAssetRef' | 'assetCycle' | 'manifestProtocolMismatch' | 'corruptBundleArtifact' | 'missingCacheWarning' | 'generatorMismatch' | 'fallbackUsed' | 'missingSourceTrace' | 'rendererResourceSummary' | 'suspectedResourceLeak' | 'loadStageFailed' | 'finalConsistencyMismatch' | 'roundTripMismatch';
 
 // A suggested next action (advisory only — diagnostics never authorize mutation).
 export type RemedyAction = 'inspect' | 'provideAsset' | 'fixReference' | 'breakCycle' | 'regenerate' | 'restoreArtifact' | 'refreshCache' | 'acceptFallback';

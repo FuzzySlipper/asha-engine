@@ -986,6 +986,540 @@ pub fn diagnostics_module() -> Module {
     }
 }
 
+pub fn scene_module() -> Module {
+    let imports = vec![import("./ids.js", &["EntityId"])];
+
+    let tuple3 = || TsType::Tuple(vec![num(), num(), num()]);
+    let tuple4 = || TsType::Tuple(vec![num(), num(), num(), num()]);
+
+    let items = vec![
+        Item::BrandedId {
+            doc: "Stable identifier for an authored, loadable scene document.".to_string(),
+            name: "SceneId".to_string(),
+        },
+        Item::BrandedId {
+            doc: "Stable identifier for a live runtime world bootstrapped from a scene.".to_string(),
+            name: "WorldId".to_string(),
+        },
+        Item::BrandedId {
+            doc: "Stable identifier for one node within a scene document (never a render handle)."
+                .to_string(),
+            name: "SceneNodeId".to_string(),
+        },
+        string_enum(
+            "Stable tag for a scene-node kind. Asset-backed kinds carry an AssetReference.",
+            "SceneNodeKindTag",
+            protocol_scene::SCENE_NODE_KIND_TAGS,
+        ),
+        string_enum(
+            "Stable classified scene-validation code. The string form is a contract.",
+            "SceneValidationCode",
+            protocol_scene::SCENE_VALIDATION_CODES,
+        ),
+        union(
+            "An asset version requirement.",
+            "AssetVersionReq",
+            "req",
+            vec![
+                v("any", vec![]),
+                v("exact", vec![f("value", num())]),
+                v("atLeast", vec![f("value", num())]),
+            ],
+        ),
+        iface(
+            "A kind-erased reference to an authored asset.",
+            "AssetReference",
+            vec![
+                f("id", string()),
+                f("version", r("AssetVersionReq")),
+                f("hash", TsType::nullable(string())),
+            ],
+        ),
+        iface(
+            "A scene node's initial transform (authority owns runtime transforms after bootstrap).",
+            "SceneTransform",
+            vec![
+                f("translation", tuple3()),
+                f("rotation", tuple4()),
+                f("scale", tuple3()),
+            ],
+        ),
+        union(
+            "A scene node's kind. Only asset-backed kinds carry an AssetReference; \
+             the discriminant values are the SceneNodeKindTag vocabulary.",
+            "SceneNodeKind",
+            "kind",
+            vec![
+                v("emptyGroup", vec![]),
+                v("staticMesh", vec![f("asset", r("AssetReference"))]),
+                v("sprite", vec![f("asset", r("AssetReference"))]),
+                v("voxelVolume", vec![f("asset", r("AssetReference"))]),
+            ],
+        ),
+        iface(
+            "One node in the canonical flat scene document.",
+            "SceneNodeRecord",
+            vec![
+                f("id", r("SceneNodeId")),
+                f("parent", TsType::nullable(r("SceneNodeId"))),
+                f("childOrder", num()),
+                f("label", TsType::nullable(string())),
+                f("tags", TsType::array(string())),
+                f("transform", r("SceneTransform")),
+                f("kind", r("SceneNodeKind")),
+            ],
+        ),
+        iface(
+            "Document-level scene metadata (never affects authority semantics).",
+            "SceneMetadata",
+            vec![
+                f("name", TsType::nullable(string())),
+                f("authoringFormatVersion", num()),
+            ],
+        ),
+        iface(
+            "The canonical flat scene document: the form TS authors and Rust validates.",
+            "FlatSceneDocument",
+            vec![
+                f("schemaVersion", num()),
+                f("id", r("SceneId")),
+                f("metadata", r("SceneMetadata")),
+                f("dependencies", TsType::array(r("AssetReference"))),
+                f("nodes", TsType::array(r("SceneNodeRecord"))),
+            ],
+        ),
+        iface(
+            "One classified scene-validation failure; absent loci are null.",
+            "SceneValidationError",
+            vec![
+                f("code", r("SceneValidationCode")),
+                f("node", TsType::nullable(r("SceneNodeId"))),
+                f("parent", TsType::nullable(r("SceneNodeId"))),
+                f("expectedKind", TsType::nullable(string())),
+                f("actualKind", TsType::nullable(string())),
+                f("transformReason", TsType::nullable(string())),
+                f("cyclePath", TsType::array(r("SceneNodeId"))),
+            ],
+        ),
+        iface(
+            "A full scene-validation report: every classified error.",
+            "SceneValidationReport",
+            vec![f("errors", TsType::array(r("SceneValidationError")))],
+        ),
+        iface(
+            "One hop in the scene-node to runtime-entity source trace.",
+            "SceneSourceTrace",
+            vec![
+                f("sceneNodeId", r("SceneNodeId")),
+                f("runtimeEntityId", r("EntityId")),
+            ],
+        ),
+        iface(
+            "The atomic bootstrap record: the single replay/audit unit of a scene to authority init.",
+            "BootstrapRecord",
+            vec![
+                f("sceneId", r("SceneId")),
+                f("worldId", r("WorldId")),
+                f("schemaVersion", num()),
+                f("nodeCount", num()),
+                f("entityCount", num()),
+                f("worldHash", num()),
+                f("sourceTrace", TsType::array(r("SceneSourceTrace"))),
+            ],
+        ),
+    ];
+
+    Module {
+        name: "scene",
+        imports,
+        items,
+    }
+}
+
+pub fn world_bundle_module() -> Module {
+    let imports = vec![
+        import("./scene.js", &["SceneId", "WorldId"]),
+        import("./voxel.js", &["VoxelCoord", "VoxelValue"]),
+    ];
+
+    let items = vec![
+        string_enum(
+            "An artifact's persistence guarantee.",
+            "ArtifactClass",
+            protocol_world_bundle::ARTIFACT_CLASSES,
+        ),
+        string_enum(
+            "The artifact roles this build names. The wire role is an open string; \
+             unknown roles are carried verbatim. This is the known vocabulary for display.",
+            "KnownArtifactRole",
+            protocol_world_bundle::KNOWN_ARTIFACT_ROLES,
+        ),
+        string_enum(
+            "A stage in the canonical, ordered authority load sequence.",
+            "LoadStage",
+            protocol_world_bundle::LOAD_STAGES,
+        ),
+        string_enum(
+            "What to do about an edit whose generated context changed under a new generator.",
+            "SuggestedAction",
+            protocol_world_bundle::SUGGESTED_ACTIONS,
+        ),
+        iface(
+            "One row of the manifest artifact table. `role` is an open string (see KnownArtifactRole).",
+            "ArtifactEntry",
+            vec![
+                f("path", string()),
+                f("class", r("ArtifactClass")),
+                f("role", string()),
+                f("contentHash", TsType::nullable(string())),
+            ],
+        ),
+        iface(
+            "Terrain generator provenance.",
+            "GeneratorMetadata",
+            vec![
+                f("seed", num()),
+                f("version", num()),
+                f("params", string()),
+            ],
+        ),
+        iface(
+            "The world section of a bundle manifest.",
+            "WorldSection",
+            vec![f("id", r("WorldId")), f("name", TsType::nullable(string()))],
+        ),
+        iface(
+            "The scene section of a bundle manifest.",
+            "SceneSection",
+            vec![
+                f("id", r("SceneId")),
+                f("schemaVersion", num()),
+                f("artifact", string()),
+            ],
+        ),
+        iface(
+            "The asset-lock section of a bundle manifest.",
+            "AssetLockSection",
+            vec![f("artifact", string()), f("assetCount", num())],
+        ),
+        iface(
+            "The inspectable world-bundle manifest: identity, versions, and the artifact table.",
+            "WorldBundleManifest",
+            vec![
+                f("bundleSchemaVersion", num()),
+                f("protocolVersion", num()),
+                f("world", r("WorldSection")),
+                f("scene", r("SceneSection")),
+                f("assetLock", r("AssetLockSection")),
+                f("generator", r("GeneratorMetadata")),
+                f("artifacts", TsType::array(r("ArtifactEntry"))),
+            ],
+        ),
+        union(
+            "One classified manifest-validation / version-compatibility failure.",
+            "ManifestError",
+            "code",
+            vec![
+                v(
+                    "unsupportedSchema",
+                    vec![f("found", num()), f("supported", num())],
+                ),
+                v(
+                    "unsupportedProtocol",
+                    vec![f("found", num()), f("supported", num())],
+                ),
+                v("duplicateArtifact", vec![f("path", string())]),
+                v("missingArtifact", vec![f("role", string()), f("path", string())]),
+                v("durableMissingHash", vec![f("path", string())]),
+            ],
+        ),
+        iface(
+            "A manifest validation / version-compatibility report: every classified error.",
+            "ManifestValidationReport",
+            vec![f("errors", TsType::array(r("ManifestError")))],
+        ),
+        union(
+            "One ordered step of a load plan, carrying the typed inputs it consumes.",
+            "LoadStep",
+            "step",
+            vec![
+                v(
+                    "validateVersions",
+                    vec![f("bundleSchemaVersion", num()), f("protocolVersion", num())],
+                ),
+                v(
+                    "loadAssetLock",
+                    vec![f("artifact", string()), f("assetCount", num())],
+                ),
+                v(
+                    "loadSceneDocument",
+                    vec![f("artifact", string()), f("scene", r("SceneId"))],
+                ),
+                v(
+                    "generateTerrain",
+                    vec![f("seed", num()), f("version", num()), f("params", string())],
+                ),
+                v(
+                    "applyVoxelEdits",
+                    vec![
+                        f("editLogs", TsType::array(string())),
+                        f("snapshots", TsType::array(string())),
+                    ],
+                ),
+                v(
+                    "bootstrapScene",
+                    vec![f("scene", r("SceneId")), f("world", r("WorldId"))],
+                ),
+                v("validateFinalState", vec![]),
+            ],
+        ),
+        iface(
+            "A deterministic, ordered authority load plan.",
+            "LoadPlan",
+            vec![f("steps", TsType::array(r("LoadStep")))],
+        ),
+        union(
+            "Why a load plan could not be built or verified.",
+            "LoadPlanError",
+            "code",
+            vec![
+                v("manifest", vec![f("error", r("ManifestError"))]),
+                v("missingPrerequisiteArtifact", vec![f("role", string())]),
+                v(
+                    "outOfOrder",
+                    vec![f("step", r("LoadStage")), f("after", r("LoadStage"))],
+                ),
+                v("missingStage", vec![f("stage", r("LoadStage"))]),
+            ],
+        ),
+        iface(
+            "Save-time compaction summary: how many edits were folded vs retained.",
+            "CompactionSummary",
+            vec![
+                f("compactedEdits", num()),
+                f("retainedEdits", num()),
+                f("snapshotChunks", TsType::array(string())),
+            ],
+        ),
+        iface(
+            "A save summary: the artifacts written plus the compaction outcome.",
+            "SaveSummary",
+            vec![
+                f("writes", TsType::array(r("ArtifactEntry"))),
+                f("compaction", r("CompactionSummary")),
+            ],
+        ),
+        iface(
+            "A fail-closed generator version mismatch between a save and the current build.",
+            "GeneratorMismatch",
+            vec![f("savedVersion", num()), f("currentVersion", num())],
+        ),
+        iface(
+            "One edit whose authored generated context changed under a new generator.",
+            "EditConflict",
+            vec![
+                f("eventId", num()),
+                f("coord", r("VoxelCoord")),
+                f("oldGenerated", r("VoxelValue")),
+                f("newGenerated", r("VoxelValue")),
+                f("editValue", r("VoxelValue")),
+                f("suggested", r("SuggestedAction")),
+            ],
+        ),
+        iface(
+            "The outcome of a regenerate-and-replay diagnostic (never rewrites a save).",
+            "RegenConflictReport",
+            vec![
+                f("savedVersion", num()),
+                f("newVersion", num()),
+                f("conflicts", TsType::array(r("EditConflict"))),
+                f("replayedEdits", num()),
+                f("stagingWorldHash", num()),
+            ],
+        ),
+    ];
+
+    Module {
+        name: "worldBundle",
+        imports,
+        items,
+    }
+}
+
+pub fn assets_module() -> Module {
+    let imports = vec![import("./scene.js", &["AssetReference"])];
+
+    let items = vec![
+        string_enum(
+            "Stable kind-prefix tag for an asset kind.",
+            "AssetKind",
+            protocol_assets::ASSET_KINDS,
+        ),
+        string_enum(
+            "Structural role for authority/collision (no visual meaning).",
+            "StructuralClass",
+            protocol_assets::STRUCTURAL_CLASSES,
+        ),
+        string_enum(
+            "How a material samples colour across geometry (visual only).",
+            "UvStrategy",
+            protocol_assets::UV_STRATEGIES,
+        ),
+        string_enum(
+            "Stable classified catalog-validation code.",
+            "CatalogValidationCode",
+            protocol_assets::CATALOG_VALIDATION_CODES,
+        ),
+        string_enum(
+            "Stable classified asset-lock issue code.",
+            "LockIssueCode",
+            protocol_assets::LOCK_ISSUE_CODES,
+        ),
+        string_enum(
+            "The context a missing asset is used in (dominates fallback policy).",
+            "FallbackContext",
+            protocol_assets::FALLBACK_CONTEXTS,
+        ),
+        string_enum(
+            "A concrete debug placeholder a fallback resolves to.",
+            "FallbackVisual",
+            protocol_assets::FALLBACK_VISUALS,
+        ),
+        iface(
+            "A linear RGBA colour (0..=1 per channel).",
+            "Rgba",
+            vec![f("r", num()), f("g", num()), f("b", num()), f("a", num())],
+        ),
+        iface(
+            "The renderer-facing projection of a material. NO collision class.",
+            "RenderMaterial",
+            vec![
+                f("color", r("Rgba")),
+                f("texture", TsType::nullable(r("AssetReference"))),
+                f("roughness", num()),
+                f("emissive", num()),
+                f("uvStrategy", r("UvStrategy")),
+            ],
+        ),
+        iface(
+            "The collision/authority-facing projection of a material. NO texture or colour.",
+            "CollisionMaterial",
+            vec![
+                f("solid", boolean()),
+                f("collidable", boolean()),
+                f("occludes", boolean()),
+                f("structuralClass", r("StructuralClass")),
+            ],
+        ),
+        iface(
+            "A read-only devtools bundle of both disjoint material projections. The pure \
+             render path consumes only `render`; authority consumes only `collision`.",
+            "MaterialProjection",
+            vec![
+                f("render", r("RenderMaterial")),
+                f("collision", r("CollisionMaterial")),
+            ],
+        ),
+        iface(
+            "One catalog entry. `material` is present only for material-kind assets.",
+            "CatalogEntry",
+            vec![
+                f("id", string()),
+                f("kind", r("AssetKind")),
+                f("version", num()),
+                f("hash", TsType::nullable(string())),
+                f("sourcePath", TsType::nullable(string())),
+                f("label", TsType::nullable(string())),
+                f("dependencies", TsType::array(r("AssetReference"))),
+                f("material", TsType::nullable(r("MaterialProjection"))),
+            ],
+        ),
+        iface(
+            "The asset registry above the asset-reference vocabulary.",
+            "Catalog",
+            vec![f("entries", TsType::array(r("CatalogEntry")))],
+        ),
+        iface(
+            "One classified catalog-validation failure; absent loci are null. \
+             `cyclePath` is non-empty only for dependency-cycle.",
+            "CatalogValidationError",
+            vec![
+                f("code", r("CatalogValidationCode")),
+                f("id", TsType::nullable(string())),
+                f("kind", TsType::nullable(r("AssetKind"))),
+                f("from", TsType::nullable(string())),
+                f("slot", TsType::nullable(string())),
+                f("expected", TsType::nullable(r("AssetKind"))),
+                f("actual", TsType::nullable(r("AssetKind"))),
+                f("reference", TsType::nullable(string())),
+                f("dependency", TsType::nullable(string())),
+                f("cyclePath", TsType::array(string())),
+            ],
+        ),
+        iface(
+            "A full catalog-validation report: every classified error.",
+            "CatalogValidationReport",
+            vec![f("errors", TsType::array(r("CatalogValidationError")))],
+        ),
+        iface(
+            "One asset-lock entry: the resolved identity a save pinned.",
+            "AssetLockEntry",
+            vec![
+                f("id", string()),
+                f("kind", r("AssetKind")),
+                f("version", num()),
+                f("hash", TsType::nullable(string())),
+                f("dependencies", TsType::array(string())),
+            ],
+        ),
+        iface(
+            "A world-bundle asset lock.",
+            "AssetLock",
+            vec![f("entries", TsType::array(r("AssetLockEntry")))],
+        ),
+        iface(
+            "One asset's classified lock-drift finding; absent detail fields are null.",
+            "LockFinding",
+            vec![
+                f("id", string()),
+                f("code", r("LockIssueCode")),
+                f("lockedKind", TsType::nullable(r("AssetKind"))),
+                f("currentKind", TsType::nullable(r("AssetKind"))),
+                f("lockedVersion", TsType::nullable(num())),
+                f("currentVersion", TsType::nullable(num())),
+                f("lockedHash", TsType::nullable(string())),
+                f("currentHash", TsType::nullable(string())),
+                f("addedDependencies", TsType::array(string())),
+                f("removedDependencies", TsType::array(string())),
+            ],
+        ),
+        iface(
+            "A full asset-lock validation report: classified drift, never a silent re-lock.",
+            "LockValidationReport",
+            vec![f("findings", TsType::array(r("LockFinding")))],
+        ),
+        union(
+            "What to do when a referenced asset is missing in a given context.",
+            "FallbackDecision",
+            "outcome",
+            vec![
+                v(
+                    "useFallback",
+                    vec![f("reason", string()), f("visual", r("FallbackVisual"))],
+                ),
+                v("failClosed", vec![f("reason", string())]),
+                v("skip", vec![f("reason", string())]),
+            ],
+        ),
+    ];
+
+    Module {
+        name: "assets",
+        imports,
+        items,
+    }
+}
+
 // ── index.ts — barrel ─────────────────────────────────────────────────────────
 
 pub fn index_module() -> Module {
@@ -1009,6 +1543,15 @@ pub fn index_module() -> Module {
                 from: "./voxel.js".to_string(),
             },
             Item::ReExport {
+                from: "./scene.js".to_string(),
+            },
+            Item::ReExport {
+                from: "./worldBundle.js".to_string(),
+            },
+            Item::ReExport {
+                from: "./assets.js".to_string(),
+            },
+            Item::ReExport {
                 from: "./diagnostics.js".to_string(),
             },
         ],
@@ -1023,6 +1566,9 @@ pub fn all_modules() -> Vec<Module> {
         render_module(),
         replay_module(),
         voxel_module(),
+        scene_module(),
+        world_bundle_module(),
+        assets_module(),
         diagnostics_module(),
         index_module(),
     ]

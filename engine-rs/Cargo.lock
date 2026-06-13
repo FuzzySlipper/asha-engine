@@ -333,12 +333,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "protocol-assets"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "core-ids",
+]
+
+[[package]]
 name = "protocol-codegen"
 version = "0.1.0"
 dependencies = [
+ "protocol-assets",
  "protocol-diagnostics",
  "protocol-ids",
  "protocol-replay",
+ "protocol-scene",
+ "protocol-world-bundle",
 ]
 
 [[package]]
@@ -373,6 +384,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "protocol-scene"
+version = "0.1.0"
+dependencies = [
+ "core-ids",
+]
+
+[[package]]
 name = "protocol-script"
 version = "0.1.0"
 dependencies = [
@@ -383,6 +401,13 @@ dependencies = [
 [[package]]
 name = "protocol-telemetry"
 version = "0.1.0"
+
+[[package]]
+name = "protocol-world-bundle"
+version = "0.1.0"
+dependencies = [
+ "core-ids",
+]
 
 [[package]]
 name = "quote"

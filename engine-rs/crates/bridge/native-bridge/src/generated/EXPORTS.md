@@ -13,5 +13,9 @@ operations are replay/devtools-only.
 | `read_render_diffs` | stable | `FrameCursor` | `protocol_render::RenderFrameDiffDescriptor` | `RuntimeBridgeError` |
 | `get_buffer` | stable | `RuntimeBufferHandle` | `RuntimeBufferView` | `RuntimeBridgeError` |
 | `release_buffer` | stable | `RuntimeBufferHandle` | `Unit` | `RuntimeBridgeError` |
+| `load_world_bundle` | stable | `protocol_world_bundle::WorldBundleManifest` | `protocol_diagnostics::DiagnosticReportSet` | `RuntimeBridgeError` |
+| `save_current_world` | stable | `Unit` | `protocol_world_bundle::SaveSummary` | `RuntimeBridgeError` |
+| `get_composition_status` | stable | `Unit` | `protocol_diagnostics::DiagnosticReportSet` | `RuntimeBridgeError` |
+| `unload_world` | stable | `Unit` | `Unit` | `RuntimeBridgeError` |
 | `load_replay_fixture` | quarantined | `protocol_replay::ReplayFixture` | `ReplaySessionHandle` | `RuntimeBridgeError` |
 | `run_replay_step` | quarantined | `ReplaySessionHandle` | `protocol_replay::ReplayStepReport` | `RuntimeBridgeError` |

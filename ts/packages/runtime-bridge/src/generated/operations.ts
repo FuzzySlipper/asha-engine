@@ -20,6 +20,10 @@ export const MANIFEST_OPERATIONS: readonly BridgeOperation[] = [
   { manifestName: 'read_render_diffs', facadeMethod: 'readRenderDiffs', surface: 'stable' },
   { manifestName: 'get_buffer', facadeMethod: 'getBuffer', surface: 'stable' },
   { manifestName: 'release_buffer', facadeMethod: 'releaseBuffer', surface: 'stable' },
+  { manifestName: 'load_world_bundle', facadeMethod: 'loadWorldBundle', surface: 'stable' },
+  { manifestName: 'save_current_world', facadeMethod: 'saveCurrentWorld', surface: 'stable' },
+  { manifestName: 'get_composition_status', facadeMethod: 'getCompositionStatus', surface: 'stable' },
+  { manifestName: 'unload_world', facadeMethod: 'unloadWorld', surface: 'stable' },
   { manifestName: 'load_replay_fixture', facadeMethod: 'loadReplayFixture', surface: 'quarantined' },
   { manifestName: 'run_replay_step', facadeMethod: 'runReplayStep', surface: 'quarantined' },
 ];

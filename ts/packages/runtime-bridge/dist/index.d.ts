@@ -55,6 +55,22 @@ export interface ReplayStepReport {
     readonly hash: string;
     readonly diverged: boolean;
 }
+export interface WorldLoadRequest {
+    readonly bundleSchemaVersion: number;
+    readonly protocolVersion: number;
+    readonly sceneId: number;
+}
+export interface CompositionStatus {
+    readonly loadedWorld: number | null;
+    readonly fatalCount: number;
+    readonly totalCount: number;
+    readonly blocksLoad: boolean;
+}
+export interface WorldSaveSummary {
+    readonly artifactsWritten: number;
+    readonly compactedEdits: number;
+    readonly retainedEdits: number;
+}
 export interface RuntimeBridge {
     initializeEngine(config: EngineConfig): EngineHandle;
     stepSimulation(input: StepInputEnvelope): StepResult;
@@ -62,6 +78,10 @@ export interface RuntimeBridge {
     readRenderDiffs(cursor: FrameCursor): RenderFrameDiff;
     getBuffer(handle: RuntimeBufferHandle): RuntimeBufferView;
     releaseBuffer(handle: RuntimeBufferHandle): void;
+    loadWorldBundle(request: WorldLoadRequest): CompositionStatus;
+    saveCurrentWorld(): WorldSaveSummary;
+    getCompositionStatus(): CompositionStatus;
+    unloadWorld(): void;
     loadReplayFixture(fixture: ReplayFixture): ReplaySessionHandle;
     runReplayStep(session: ReplaySessionHandle): ReplayStepReport;
 }
@@ -73,6 +93,10 @@ export declare class MockRuntimeBridge implements RuntimeBridge {
     readRenderDiffs(cursor: FrameCursor): RenderFrameDiff;
     getBuffer(handle: RuntimeBufferHandle): RuntimeBufferView;
     releaseBuffer(handle: RuntimeBufferHandle): void;
+    loadWorldBundle(request: WorldLoadRequest): CompositionStatus;
+    saveCurrentWorld(): WorldSaveSummary;
+    getCompositionStatus(): CompositionStatus;
+    unloadWorld(): void;
     loadReplayFixture(fixture: ReplayFixture): ReplaySessionHandle;
     runReplayStep(session: ReplaySessionHandle): ReplayStepReport;
 }

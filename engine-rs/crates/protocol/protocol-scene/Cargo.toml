@@ -1,0 +1,13 @@
+[package]
+name = "protocol-scene"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Border-only crate: the cross-boundary schema for authored scene documents,
+# source traces, bootstrap records, and classified scene-validation reports.
+# Authority logic stays in `core-scene`; this crate carries only the wire shape
+# and the stable string vocabularies that `protocol-codegen` mirrors to TypeScript.
+# Like `protocol-render`, it depends on `core-ids` only.
+[dependencies]
+core-ids = { path = "../../foundation/core-ids" }

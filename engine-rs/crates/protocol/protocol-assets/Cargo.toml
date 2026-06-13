@@ -1,0 +1,15 @@
+[package]
+name = "protocol-assets"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Border-only crate: the cross-boundary schema for the asset catalog, asset-lock
+# drift, fallback decisions, and the authority/style material split. Validation
+# stays in `core-catalog`; this crate carries only the wire shape and the stable
+# vocabularies that `protocol-codegen` mirrors to TypeScript. Depends on the
+# foundation asset vocabulary (`core-assets`) so the AssetKind tags are sourced,
+# not hand-copied.
+[dependencies]
+core-ids = { path = "../../foundation/core-ids" }
+core-assets = { path = "../../foundation/core-assets" }

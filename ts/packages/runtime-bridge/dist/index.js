@@ -31,6 +31,7 @@ export class MockRuntimeBridge {
     #engine = null;
     #buffer = new Uint8Array();
     #replaySteps = 0;
+    #loadedWorld = null;
     initializeEngine(config) {
         if (!Number.isInteger(config.seed) || config.seed < 0) {
             throw new RuntimeBridgeError('invalid_input', `seed must be a non-negative integer`);
@@ -75,6 +76,27 @@ export class MockRuntimeBridge {
             throw new RuntimeBridgeError('unknown_handle', `no buffer for handle ${handle}`);
         }
         this.#buffer = new Uint8Array();
+    }
+    loadWorldBundle(request) {
+        // Fail closed on a newer bundle; the prior loaded world is left untouched
+        // (we only set #loadedWorld on success — the staged commit/swap).
+        if (request.bundleSchemaVersion > 1 || request.protocolVersion > 1) {
+            throw new RuntimeBridgeError('invalid_input', `unsupported bundle schema ${request.bundleSchemaVersion} / protocol ${request.protocolVersion}`);
+        }
+        this.#loadedWorld = request.sceneId;
+        return { loadedWorld: request.sceneId, fatalCount: 0, totalCount: 0, blocksLoad: false };
+    }
+    saveCurrentWorld() {
+        if (this.#loadedWorld === null) {
+            throw new RuntimeBridgeError('not_initialized', 'saveCurrentWorld with no world loaded');
+        }
+        return { artifactsWritten: 3, compactedEdits: 0, retainedEdits: 0 };
+    }
+    getCompositionStatus() {
+        return { loadedWorld: this.#loadedWorld, fatalCount: 0, totalCount: 0, blocksLoad: false };
+    }
+    unloadWorld() {
+        this.#loadedWorld = null;
     }
     loadReplayFixture(fixture) {
         this.#replaySteps = fixture.steps;

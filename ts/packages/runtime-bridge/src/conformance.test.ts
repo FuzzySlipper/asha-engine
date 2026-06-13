@@ -74,6 +74,41 @@ test('mock: readRenderDiffs returns a contract-shaped frame', () => {
   assert.deepEqual(frame, { ops: [] });
 });
 
+test('mock: world load → save → status → unload, with fail-closed save', () => {
+  const bridge = createMockRuntimeBridge();
+  // Save before load fails closed.
+  assert.throws(
+    () => bridge.saveCurrentWorld(),
+    (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'not_initialized',
+  );
+  const status = bridge.loadWorldBundle({
+    bundleSchemaVersion: 1,
+    protocolVersion: 1,
+    sceneId: 100,
+  });
+  assert.equal(status.loadedWorld, 100);
+  assert.equal(status.blocksLoad, false);
+  assert.deepEqual(bridge.saveCurrentWorld(), {
+    artifactsWritten: 3,
+    compactedEdits: 0,
+    retainedEdits: 0,
+  });
+  assert.equal(bridge.getCompositionStatus().loadedWorld, 100);
+  bridge.unloadWorld();
+  assert.equal(bridge.getCompositionStatus().loadedWorld, null);
+});
+
+test('mock: an unsupported bundle version fails closed without swapping the world', () => {
+  const bridge = createMockRuntimeBridge();
+  bridge.loadWorldBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 7 });
+  assert.throws(
+    () => bridge.loadWorldBundle({ bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 8 }),
+    (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input',
+  );
+  // The prior world stays loaded (no partial swap).
+  assert.equal(bridge.getCompositionStatus().loadedWorld, 7);
+});
+
 test('native factory classifies a missing addon path', () => {
   assert.throws(
     () => createNativeRuntimeBridge('./definitely-not-built.node'),

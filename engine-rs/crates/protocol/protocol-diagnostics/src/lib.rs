@@ -96,6 +96,10 @@ pub enum DiagnosticScope {
     RenderProjection,
     /// Renderer resource lifecycle / leak / count reports.
     RendererResources,
+    /// World load/save execution and save→reload round-trip equivalence
+    /// (runtime composition). Distinct from `WorldBundle`, which is the bundle
+    /// *format*; this scope is the *executed* composition of a world.
+    WorldComposition,
 }
 
 impl DiagnosticScope {
@@ -107,6 +111,7 @@ impl DiagnosticScope {
             DiagnosticScope::WorldBundle => "worldBundle",
             DiagnosticScope::RenderProjection => "renderProjection",
             DiagnosticScope::RendererResources => "rendererResources",
+            DiagnosticScope::WorldComposition => "worldComposition",
         }
     }
 }
@@ -118,6 +123,7 @@ pub const DIAGNOSTIC_SCOPES: &[&str] = &[
     "worldBundle",
     "renderProjection",
     "rendererResources",
+    "worldComposition",
 ];
 
 // ── Codes ─────────────────────────────────────────────────────────────────────
@@ -175,6 +181,15 @@ pub enum DiagnosticCode {
     RendererResourceSummary,
     /// Created-vs-disposed accounting suggests a geometry/material leak.
     SuspectedResourceLeak,
+    // ── World composition (load/save execution + round-trip) ──
+    /// A stage of an executed load plan failed (the `reference` names the stage).
+    LoadStageFailed,
+    /// Final load consistency (hashes / required assets / source traces) did not
+    /// hold after composition.
+    FinalConsistencyMismatch,
+    /// A save→reload round-trip lost authority-equivalent state (entity, runtime
+    /// transform, voxel content hash, asset ref, source trace, or world hash).
+    RoundTripMismatch,
 }
 
 impl DiagnosticCode {
@@ -201,6 +216,9 @@ impl DiagnosticCode {
             DiagnosticCode::MissingSourceTrace => "missingSourceTrace",
             DiagnosticCode::RendererResourceSummary => "rendererResourceSummary",
             DiagnosticCode::SuspectedResourceLeak => "suspectedResourceLeak",
+            DiagnosticCode::LoadStageFailed => "loadStageFailed",
+            DiagnosticCode::FinalConsistencyMismatch => "finalConsistencyMismatch",
+            DiagnosticCode::RoundTripMismatch => "roundTripMismatch",
         }
     }
 
@@ -229,6 +247,9 @@ impl DiagnosticCode {
             DiagnosticCode::RendererResourceSummary | DiagnosticCode::SuspectedResourceLeak => {
                 DiagnosticScope::RendererResources
             }
+            DiagnosticCode::LoadStageFailed
+            | DiagnosticCode::FinalConsistencyMismatch
+            | DiagnosticCode::RoundTripMismatch => DiagnosticScope::WorldComposition,
         }
     }
 
@@ -246,7 +267,8 @@ impl DiagnosticCode {
             | DiagnosticCode::CatalogStructuralError
             | DiagnosticCode::MissingAsset
             | DiagnosticCode::WrongKindAssetRef
-            | DiagnosticCode::AssetCycle => DiagnosticSeverity::Error,
+            | DiagnosticCode::AssetCycle
+            | DiagnosticCode::RoundTripMismatch => DiagnosticSeverity::Error,
             DiagnosticCode::StaleAsset
             | DiagnosticCode::MissingCacheWarning
             | DiagnosticCode::FallbackUsed
@@ -254,7 +276,9 @@ impl DiagnosticCode {
             | DiagnosticCode::SuspectedResourceLeak => DiagnosticSeverity::Warning,
             DiagnosticCode::ManifestProtocolMismatch
             | DiagnosticCode::CorruptBundleArtifact
-            | DiagnosticCode::GeneratorMismatch => DiagnosticSeverity::Fatal,
+            | DiagnosticCode::GeneratorMismatch
+            | DiagnosticCode::LoadStageFailed
+            | DiagnosticCode::FinalConsistencyMismatch => DiagnosticSeverity::Fatal,
             DiagnosticCode::RendererResourceSummary => DiagnosticSeverity::Info,
         }
     }
@@ -284,6 +308,9 @@ pub const DIAGNOSTIC_CODES: &[&str] = &[
     "missingSourceTrace",
     "rendererResourceSummary",
     "suspectedResourceLeak",
+    "loadStageFailed",
+    "finalConsistencyMismatch",
+    "roundTripMismatch",
 ];
 
 /// Every [`DiagnosticCode`] variant, in declaration order. Lets emitters and
@@ -309,6 +336,9 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::MissingSourceTrace,
     DiagnosticCode::RendererResourceSummary,
     DiagnosticCode::SuspectedResourceLeak,
+    DiagnosticCode::LoadStageFailed,
+    DiagnosticCode::FinalConsistencyMismatch,
+    DiagnosticCode::RoundTripMismatch,
 ];
 
 // ── Remedy ────────────────────────────────────────────────────────────────────
@@ -650,9 +680,52 @@ mod tests {
             DiagnosticScope::WorldBundle,
             DiagnosticScope::RenderProjection,
             DiagnosticScope::RendererResources,
+            DiagnosticScope::WorldComposition,
         ];
         let from_variants: Vec<&str> = variants.iter().map(|s| s.as_str()).collect();
         assert_eq!(from_variants, DIAGNOSTIC_SCOPES);
+    }
+
+    /// Consolidation guarantee (#2368): every diagnostic scope — scene, asset
+    /// catalog, world bundle, render projection, renderer resources, and world
+    /// composition — is reachable by at least one stable code. A diagnostic
+    /// source that has no code to map into would be a hole in the taxonomy.
+    #[test]
+    fn every_scope_has_at_least_one_code() {
+        for scope_str in DIAGNOSTIC_SCOPES {
+            assert!(
+                ALL_DIAGNOSTIC_CODES
+                    .iter()
+                    .any(|c| c.scope().as_str() == *scope_str),
+                "scope `{scope_str}` has no diagnostic code mapping into it"
+            );
+        }
+    }
+
+    /// The world-composition codes added in #2368 carry the expected recovery
+    /// policy: load/final-consistency failures block a load (Fatal); a round-trip
+    /// equivalence loss is a correctness Error but not itself a load blocker.
+    #[test]
+    fn world_composition_codes_have_expected_policy() {
+        assert_eq!(
+            DiagnosticCode::LoadStageFailed.scope(),
+            DiagnosticScope::WorldComposition
+        );
+        assert_eq!(
+            DiagnosticCode::LoadStageFailed.default_severity(),
+            DiagnosticSeverity::Fatal
+        );
+        assert_eq!(
+            DiagnosticCode::FinalConsistencyMismatch.default_severity(),
+            DiagnosticSeverity::Fatal
+        );
+        assert_eq!(
+            DiagnosticCode::RoundTripMismatch.default_severity(),
+            DiagnosticSeverity::Error
+        );
+        assert!(!DiagnosticCode::RoundTripMismatch
+            .default_severity()
+            .blocks_load());
     }
 
     /// The codegen source-of-truth tables must mirror the enum exactly: every

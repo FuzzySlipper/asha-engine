@@ -1,4 +1,4 @@
-import { type EntityId, type CommandEnvelope, type ScriptView, type ReplayRecord, type DiagnosticReportSet, type SourceTrace, type RendererResourceReport } from './index.js';
+import { type EntityId, type CommandEnvelope, type ScriptView, type ReplayRecord, type DiagnosticReportSet, type SourceTrace, type RendererResourceReport, type FlatSceneDocument, type SceneValidationReport, type BootstrapRecord, type WorldBundleManifest, type LoadPlan, type RegenConflictReport, type CatalogValidationReport, type LockValidationReport, type RenderMaterial } from './index.js';
 export declare const __contractSmoke: {
     readonly entity: EntityId;
     readonly addTag: {
@@ -24,5 +24,18 @@ export declare const __contractSmoke: {
     readonly reportSet: DiagnosticReportSet;
     readonly trace: SourceTrace;
     readonly resources: RendererResourceReport;
+    readonly sampleScene: FlatSceneDocument;
+    readonly cycleReport: SceneValidationReport;
+    readonly bootstrap: BootstrapRecord;
+    readonly manifest: WorldBundleManifest;
+    readonly loadPlan: LoadPlan;
+    readonly regenReport: RegenConflictReport;
+    readonly catalogReport: CatalogValidationReport;
+    readonly lockReport: LockValidationReport;
+    readonly renderMaterial: RenderMaterial;
+    readonly fallback: {
+        readonly outcome: "failClosed";
+        readonly reason: string;
+    };
 };
 //# sourceMappingURL=smoke.d.ts.map

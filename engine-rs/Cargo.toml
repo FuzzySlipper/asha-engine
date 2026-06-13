@@ -27,6 +27,9 @@ members = [
     "crates/protocol/protocol-replay",
     "crates/protocol/protocol-telemetry",
     "crates/protocol/protocol-diagnostics",
+    "crates/protocol/protocol-scene",
+    "crates/protocol/protocol-world-bundle",
+    "crates/protocol/protocol-assets",
     "crates/protocol/protocol-codegen",
 
     # Sim

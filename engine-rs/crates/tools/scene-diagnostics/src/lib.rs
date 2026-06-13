@@ -35,6 +35,8 @@
 
 pub mod bundle;
 pub mod catalog;
+pub mod composition;
+pub mod equivalence;
 pub mod resources;
 pub mod roundtrip;
 pub mod scene;
@@ -46,6 +48,8 @@ pub use bundle::{
     missing_cache_diagnostics, regen_conflict_diagnostics,
 };
 pub use catalog::{catalog_diagnostics, lock_diagnostics};
+pub use composition::{composition_failure_diagnostic, composition_failure_set};
+pub use equivalence::{world_bundle_round_trip, BundleEquivalenceReport};
 pub use resources::resource_diagnostics;
 pub use roundtrip::{
     check_saved_bundle, scene_round_trip, voxel_round_trip, world_fingerprint, RoundTripReport,

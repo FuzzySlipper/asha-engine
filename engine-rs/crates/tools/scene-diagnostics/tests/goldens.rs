@@ -344,6 +344,106 @@ fn renderer_resource_snapshot() {
     check_golden("renderer-resources.txt", &combined);
 }
 
+// ── full bundle load→edit→save→reload equivalence (subtask #2362) ──────────────
+
+#[test]
+fn bundle_round_trip_equivalence_golden() {
+    use core_scene::{SceneMetadata as TreeMeta, SceneNode, SceneTree};
+    use scene_diagnostics::world_bundle_round_trip;
+
+    // An abstract fixture bundle: a two-node scene + a voxel section.
+    let tree = SceneTree {
+        id: SceneId::new(100),
+        schema_version: 1,
+        metadata: TreeMeta {
+            name: Some("equiv-fixture".into()),
+            authoring_format_version: 1,
+        },
+        dependencies: vec![],
+        roots: vec![
+            SceneNode::leaf(SceneNodeId::new(1), core_scene::SceneNodeKind::EmptyGroup)
+                .with_children(vec![SceneNode::leaf(
+                    SceneNodeId::new(2),
+                    core_scene::SceneNodeKind::EmptyGroup,
+                )]),
+        ],
+    };
+    let scene_json = core_scene::encode(&tree.to_flat());
+
+    let spec = VoxelGridSpec::new(GridId::new(0), 1.0, ChunkDims::cubic(4).unwrap()).unwrap();
+    let g = GridId::new(0);
+    let chunk = ChunkCoord::new(0, 0, 0);
+    let gen = generate_chunk(&spec, chunk, 7, 1);
+    let initial = vec![VoxelEditEvent::ChunkGenerated {
+        grid: g,
+        chunk,
+        seed: 7,
+        generator_version: 1,
+        hash: gen.content_hash().0,
+    }];
+    // The "tick/edit": two deterministic authored voxel edits applied after load.
+    let ticks = vec![
+        VoxelEditEvent::VoxelSet {
+            grid: g,
+            coord: VoxelCoord::new(0, 3, 0),
+            value: VoxelValue::solid_raw(2),
+        },
+        VoxelEditEvent::VoxelSet {
+            grid: g,
+            coord: VoxelCoord::new(1, 3, 0),
+            value: VoxelValue::solid_raw(3),
+        },
+    ];
+
+    let report = world_bundle_round_trip(
+        &scene_json,
+        SceneId::new(100),
+        WorldId::new(7),
+        spec,
+        &initial,
+        &ticks,
+        1,
+    )
+    .expect("round trip executes");
+    assert!(report.is_equivalent(), "{}", report.to_report_text());
+    check_golden("bundle-equivalence.txt", &report.to_report_text());
+}
+
+// ── world load/save composition failures (subtask #2364) ───────────────────────
+
+#[test]
+fn composition_failures_golden() {
+    use rule_world_bundle::LoadExecutionError;
+    use scene_diagnostics::composition_failure_diagnostic;
+    use scene_diagnostics::DiagnosticReportSet;
+    use svc_serialization::LoadStage;
+
+    // A representative spread across the composition failure categories: a missing
+    // durable artifact, a too-new version, a voxel replay conflict, and a final
+    // consistency mismatch. Each renders a stage + source ref + severity + remedy.
+    let errors = [
+        LoadExecutionError::MissingArtifact {
+            stage: LoadStage::SceneDocument,
+            path: "scene/scene.json".into(),
+        },
+        LoadExecutionError::VersionUnsupported {
+            bundle_schema: 99,
+            protocol: 1,
+        },
+        LoadExecutionError::VoxelReplay {
+            detail: "generated context changed under the new generator".into(),
+        },
+        LoadExecutionError::FinalConsistency {
+            detail: "source trace count 1 != entity count 2".into(),
+        },
+    ];
+    let mut set = DiagnosticReportSet::new();
+    for e in &errors {
+        set.push(composition_failure_diagnostic(e));
+    }
+    check_golden("composition-failures.txt", &report_set_to_text(&set));
+}
+
 // ── save/load round-trip (subtask #2333) ───────────────────────────────────────
 
 #[test]

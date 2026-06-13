@@ -150,6 +150,9 @@ mod tests {
                 format!("{OUTPUT_DIR}/render.ts"),
                 format!("{OUTPUT_DIR}/replay.ts"),
                 format!("{OUTPUT_DIR}/voxel.ts"),
+                format!("{OUTPUT_DIR}/scene.ts"),
+                format!("{OUTPUT_DIR}/worldBundle.ts"),
+                format!("{OUTPUT_DIR}/assets.ts"),
                 format!("{OUTPUT_DIR}/diagnostics.ts"),
                 format!("{OUTPUT_DIR}/index.ts"),
             ],
@@ -237,6 +240,114 @@ mod tests {
         assert!(d.contains("export interface SourceTrace {"));
         assert!(d.contains("export interface RendererResourceReport {"));
         assert!(d.contains("readonly chunkCoord: readonly [number, number, number] | null;"));
+    }
+
+    /// Focused behavior test for the `scene` family: the node-kind tags and
+    /// validation codes are sourced from `protocol-scene`, the branded scene ids
+    /// are emitted, and the document/validation/trace/bootstrap shapes exist.
+    /// This is the "Rust and generated TS scene contracts agree" guard for #2365.
+    #[test]
+    fn scene_family_emits_tags_codes_and_shapes() {
+        let s = file("scene.ts");
+        for tag in protocol_scene::SCENE_NODE_KIND_TAGS {
+            assert!(
+                s.contains(&format!("'{tag}'")),
+                "missing node-kind tag {tag}"
+            );
+        }
+        for code in protocol_scene::SCENE_VALIDATION_CODES {
+            assert!(
+                s.contains(&format!("'{code}'")),
+                "missing validation code {code}"
+            );
+        }
+        assert!(s.contains("export type SceneId ="));
+        assert!(s.contains("export type WorldId ="));
+        assert!(s.contains("export type SceneNodeId ="));
+        assert!(s.contains("export interface FlatSceneDocument {"));
+        assert!(s.contains("export interface SceneNodeRecord {"));
+        assert!(s.contains("export interface SceneValidationReport {"));
+        assert!(s.contains("export interface SceneSourceTrace {"));
+        assert!(s.contains("export interface BootstrapRecord {"));
+        // Scene reuses the runtime EntityId brand from ids.ts for source traces.
+        assert!(s.contains("import type { EntityId } from './ids.js';"));
+    }
+
+    /// Focused behavior test for the `worldBundle` family: artifact classes,
+    /// load stages, and suggested actions are sourced from `protocol-world-bundle`,
+    /// and the manifest/load-plan/save/regen shapes exist with the right imports.
+    /// This is the "Rust and generated TS world-bundle contracts agree" guard (#2366).
+    #[test]
+    fn world_bundle_family_emits_vocab_and_shapes() {
+        let w = file("worldBundle.ts");
+        for class in protocol_world_bundle::ARTIFACT_CLASSES {
+            assert!(
+                w.contains(&format!("'{class}'")),
+                "missing artifact class {class}"
+            );
+        }
+        for stage in protocol_world_bundle::LOAD_STAGES {
+            assert!(
+                w.contains(&format!("'{stage}'")),
+                "missing load stage {stage}"
+            );
+        }
+        for action in protocol_world_bundle::SUGGESTED_ACTIONS {
+            assert!(
+                w.contains(&format!("'{action}'")),
+                "missing suggested action {action}"
+            );
+        }
+        assert!(w.contains("export interface WorldBundleManifest {"));
+        assert!(w.contains("export interface LoadPlan {"));
+        assert!(w.contains("export type LoadStep ="));
+        assert!(w.contains("export type LoadPlanError ="));
+        assert!(w.contains("export interface SaveSummary {"));
+        assert!(w.contains("export interface RegenConflictReport {"));
+        assert!(w.contains("import type { SceneId, WorldId } from './scene.js';"));
+        assert!(w.contains("import type { VoxelCoord, VoxelValue } from './voxel.js';"));
+    }
+
+    /// Focused behavior test for the `assets` family: kind/validation/lock/uv/
+    /// structural vocabularies are emitted, the disjoint material projections keep
+    /// their split (RenderMaterial has no collision class; CollisionMaterial has no
+    /// texture/colour), and the catalog/lock/fallback shapes exist. Guard for #2367.
+    #[test]
+    fn assets_family_keeps_material_split_and_emits_vocab() {
+        let a = file("assets.ts");
+        for kind in protocol_assets::ASSET_KINDS {
+            assert!(
+                a.contains(&format!("'{kind}'")),
+                "missing asset kind {kind}"
+            );
+        }
+        for code in protocol_assets::CATALOG_VALIDATION_CODES {
+            assert!(
+                a.contains(&format!("'{code}'")),
+                "missing catalog code {code}"
+            );
+        }
+        for code in protocol_assets::LOCK_ISSUE_CODES {
+            assert!(a.contains(&format!("'{code}'")), "missing lock code {code}");
+        }
+        // The authority/style split must survive to the border: the render
+        // projection names no collision field, the collision projection no texture.
+        let render = a
+            .split("export interface RenderMaterial {")
+            .nth(1)
+            .and_then(|s| s.split('}').next())
+            .unwrap_or("");
+        assert!(!render.contains("collidable") && !render.contains("structuralClass"));
+        let collision = a
+            .split("export interface CollisionMaterial {")
+            .nth(1)
+            .and_then(|s| s.split('}').next())
+            .unwrap_or("");
+        assert!(!collision.contains("texture") && !collision.contains("color"));
+        assert!(a.contains("export interface CatalogValidationReport {"));
+        assert!(a.contains("export interface LockValidationReport {"));
+        assert!(a.contains("export type FallbackDecision ="));
+        assert!(a.contains("import type { AssetReference } from './scene.js';"));
     }
 
     #[test]

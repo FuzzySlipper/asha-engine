@@ -74,6 +74,45 @@ errors = "RuntimeBridgeError"
 buffers = "invalidates any outstanding RuntimeBufferView for the handle"
 summary = "Release a borrowed buffer; outstanding views must be copied out first."
 
+# ── World load/save composition surface (world-runtime-composition, #2363) ───
+# Curated, bounded verbs for loading a world bundle into authority, saving the
+# current world, and reading composition status/diagnostics. Operational (native)
+# path — NOT a replacement for replay verification (the quarantined replay surface
+# below remains the authority check). Inputs/outputs are generated protocol types;
+# the runtime never accepts a raw path or JSON blob here.
+
+[[operation]]
+name = "load_world_bundle"
+surface = "stable"
+input = "protocol_world_bundle::WorldBundleManifest"
+output = "protocol_diagnostics::DiagnosticReportSet"
+errors = "RuntimeBridgeError"
+summary = "Load a world bundle into authority via the staged executor. Returns the composition diagnostics (empty == loaded; a fatal report == failed, prior world untouched)."
+
+[[operation]]
+name = "save_current_world"
+surface = "stable"
+input = "Unit"
+output = "protocol_world_bundle::SaveSummary"
+errors = "RuntimeBridgeError"
+summary = "Save the current authority world through the real save/compaction path. Fails closed with NotInitialized if no world is loaded."
+
+[[operation]]
+name = "get_composition_status"
+surface = "stable"
+input = "Unit"
+output = "protocol_diagnostics::DiagnosticReportSet"
+errors = "RuntimeBridgeError"
+summary = "Read the current load/save composition status and diagnostics without mutating authority."
+
+[[operation]]
+name = "unload_world"
+surface = "stable"
+input = "Unit"
+output = "Unit"
+errors = "RuntimeBridgeError"
+summary = "Unload the staged/live world, returning the runtime to an empty state."
+
 # ── Replay surface (quarantined: tests/devtools/CI only) ─────────────────────
 # These are exercised through the wasm-replay-bridge / native replay path, not
 # the production renderer path. Quarantined surfaces still get typed I/O.

@@ -1,0 +1,5 @@
+diagnostics count=4 maxSeverity=fatal blocksLoad=true
+[fatal] worldComposition/loadStageFailed ref=sceneDocument bundlePath=scene/scene.json :: stage `sceneDocument` requires artifact `scene/scene.json` which is absent | remedy=restoreArtifact: restore the missing artifact from a known-good bundle copy
+[fatal] worldBundle/manifestProtocolMismatch ref=versions :: bundle schema 99 / protocol 1 is newer than this build supports | remedy=inspect: reject the newer bundle; upgrade the engine or re-export at a supported version
+[fatal] worldComposition/loadStageFailed ref=voxelEdits :: voxel replay/reconstruction was rejected: generated context changed under the new generator | remedy=regenerate: pin the old generator or run dev regenerate-and-replay to resolve the conflict
+[fatal] worldComposition/finalConsistencyMismatch ref=finalValidation :: final consistency check failed: source trace count 1 != entity count 2 | remedy=inspect: the composed world is internally inconsistent; do not commit it

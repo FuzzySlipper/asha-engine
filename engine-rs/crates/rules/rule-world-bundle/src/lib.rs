@@ -19,10 +19,15 @@
 #![forbid(unsafe_code)]
 
 pub mod compose;
+pub mod load;
 pub mod regen;
 
 pub use compose::{
     compact_voxel_save, reconstruct, voxel_save_plan, ChunkSnapshotArtifact, CompactedVoxelSave,
+};
+pub use load::{
+    execute_load_plan, execute_load_plan_with, ArtifactSource, BundleArtifacts, LoadExecutionError,
+    StageOutcome, WorldLoadResult, WorldStage,
 };
 pub use regen::{
     check_generator, regenerate_and_replay, replay_against, EditConflict, GeneratorMismatch,

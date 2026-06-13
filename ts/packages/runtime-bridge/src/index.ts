@@ -94,6 +94,24 @@ export interface ReplayStepReport {
   readonly hash: string;
   readonly diverged: boolean;
 }
+// World load/save composition payloads (#2363). PROTOTYPE: replaced by generated
+// protocol_world_bundle / protocol_diagnostics contracts once the emitter wires them.
+export interface WorldLoadRequest {
+  readonly bundleSchemaVersion: number;
+  readonly protocolVersion: number;
+  readonly sceneId: number;
+}
+export interface CompositionStatus {
+  readonly loadedWorld: number | null;
+  readonly fatalCount: number;
+  readonly totalCount: number;
+  readonly blocksLoad: boolean;
+}
+export interface WorldSaveSummary {
+  readonly artifactsWritten: number;
+  readonly compactedEdits: number;
+  readonly retainedEdits: number;
+}
 
 // ── The facade surface ────────────────────────────────────────────────────────
 // Bounded verbs only — mirrors bridge-manifest.toml. No generic call(method, json).
@@ -105,6 +123,11 @@ export interface RuntimeBridge {
   readRenderDiffs(cursor: FrameCursor): RenderFrameDiff;
   getBuffer(handle: RuntimeBufferHandle): RuntimeBufferView;
   releaseBuffer(handle: RuntimeBufferHandle): void;
+  // World load/save composition (operational; not a replay-verification replacement).
+  loadWorldBundle(request: WorldLoadRequest): CompositionStatus;
+  saveCurrentWorld(): WorldSaveSummary;
+  getCompositionStatus(): CompositionStatus;
+  unloadWorld(): void;
   // Quarantined: replay/golden harness, not the production renderer path.
   loadReplayFixture(fixture: ReplayFixture): ReplaySessionHandle;
   runReplayStep(session: ReplaySessionHandle): ReplayStepReport;
@@ -118,6 +141,7 @@ export class MockRuntimeBridge implements RuntimeBridge {
   #engine: EngineHandle | null = null;
   #buffer: Uint8Array = new Uint8Array();
   #replaySteps = 0;
+  #loadedWorld: number | null = null;
 
   initializeEngine(config: EngineConfig): EngineHandle {
     if (!Number.isInteger(config.seed) || config.seed < 0) {
@@ -168,6 +192,34 @@ export class MockRuntimeBridge implements RuntimeBridge {
       throw new RuntimeBridgeError('unknown_handle', `no buffer for handle ${handle}`);
     }
     this.#buffer = new Uint8Array();
+  }
+
+  loadWorldBundle(request: WorldLoadRequest): CompositionStatus {
+    // Fail closed on a newer bundle; the prior loaded world is left untouched
+    // (we only set #loadedWorld on success — the staged commit/swap).
+    if (request.bundleSchemaVersion > 1 || request.protocolVersion > 1) {
+      throw new RuntimeBridgeError(
+        'invalid_input',
+        `unsupported bundle schema ${request.bundleSchemaVersion} / protocol ${request.protocolVersion}`,
+      );
+    }
+    this.#loadedWorld = request.sceneId;
+    return { loadedWorld: request.sceneId, fatalCount: 0, totalCount: 0, blocksLoad: false };
+  }
+
+  saveCurrentWorld(): WorldSaveSummary {
+    if (this.#loadedWorld === null) {
+      throw new RuntimeBridgeError('not_initialized', 'saveCurrentWorld with no world loaded');
+    }
+    return { artifactsWritten: 3, compactedEdits: 0, retainedEdits: 0 };
+  }
+
+  getCompositionStatus(): CompositionStatus {
+    return { loadedWorld: this.#loadedWorld, fatalCount: 0, totalCount: 0, blocksLoad: false };
+  }
+
+  unloadWorld(): void {
+    this.#loadedWorld = null;
   }
 
   loadReplayFixture(fixture: ReplayFixture): ReplaySessionHandle {

@@ -1,6 +1,6 @@
 export type DiagnosticSeverity = 'info' | 'warning' | 'error' | 'fatal';
-export type DiagnosticScope = 'scene' | 'assetCatalog' | 'worldBundle' | 'renderProjection' | 'rendererResources';
-export type DiagnosticCode = 'duplicateSceneId' | 'invalidSceneParent' | 'sceneParentCycle' | 'invalidSceneTransform' | 'sceneAssetMissing' | 'sceneAssetWrongKind' | 'duplicateAssetId' | 'catalogStructuralError' | 'missingAsset' | 'staleAsset' | 'wrongKindAssetRef' | 'assetCycle' | 'manifestProtocolMismatch' | 'corruptBundleArtifact' | 'missingCacheWarning' | 'generatorMismatch' | 'fallbackUsed' | 'missingSourceTrace' | 'rendererResourceSummary' | 'suspectedResourceLeak';
+export type DiagnosticScope = 'scene' | 'assetCatalog' | 'worldBundle' | 'renderProjection' | 'rendererResources' | 'worldComposition';
+export type DiagnosticCode = 'duplicateSceneId' | 'invalidSceneParent' | 'sceneParentCycle' | 'invalidSceneTransform' | 'sceneAssetMissing' | 'sceneAssetWrongKind' | 'duplicateAssetId' | 'catalogStructuralError' | 'missingAsset' | 'staleAsset' | 'wrongKindAssetRef' | 'assetCycle' | 'manifestProtocolMismatch' | 'corruptBundleArtifact' | 'missingCacheWarning' | 'generatorMismatch' | 'fallbackUsed' | 'missingSourceTrace' | 'rendererResourceSummary' | 'suspectedResourceLeak' | 'loadStageFailed' | 'finalConsistencyMismatch' | 'roundTripMismatch';
 export type RemedyAction = 'inspect' | 'provideAsset' | 'fixReference' | 'breakCycle' | 'regenerate' | 'restoreArtifact' | 'refreshCache' | 'acceptFallback';
 export interface SuggestedRemedy {
     readonly action: RemedyAction;

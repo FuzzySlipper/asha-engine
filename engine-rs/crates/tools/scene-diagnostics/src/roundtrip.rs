@@ -89,8 +89,9 @@ impl RoundTripReport {
 /// deterministic operations applied to reach state B; `retain_recent` controls
 /// how much of the tail the save keeps as an edit log (the rest is compacted into
 /// snapshots). Returns the equivalence report. A hash mismatch — which only
-/// happens if serialization loses or corrupts state — is reported as a `Fatal`
-/// [`DiagnosticCode::CorruptBundleArtifact`].
+/// happens if the save/compaction path loses state — is reported as an `Error`
+/// [`DiagnosticCode::RoundTripMismatch`] (a genuinely tampered on-disk artifact
+/// is `CorruptBundleArtifact`; see [`check_saved_bundle`]).
 pub fn voxel_round_trip(
     spec: VoxelGridSpec,
     initial_log: &[VoxelEditEvent],
@@ -111,7 +112,9 @@ pub fn voxel_round_trip(
 
     let mut diagnostics = DiagnosticReportSet::new();
     if state_b_hash != state_c_hash {
-        diagnostics.push(mismatch_report(state_b_hash, state_c_hash));
+        // A clean replay→save→reconstruct that loses state is a round-trip
+        // equivalence failure, not a corrupt artifact (#2368 taxonomy).
+        diagnostics.push(round_trip_mismatch_report(state_b_hash, state_c_hash));
     }
 
     Ok(RoundTripReport {
@@ -149,6 +152,8 @@ pub fn check_saved_bundle(
     })
 }
 
+/// A genuinely tampered/corrupt saved bundle: it no longer reproduces the
+/// authority state it claimed. `Fatal`.
 fn mismatch_report(b: BundleHash, c: BundleHash) -> DiagnosticReport {
     DiagnosticReport::new(
         DiagnosticCode::CorruptBundleArtifact,
@@ -166,9 +171,30 @@ fn mismatch_report(b: BundleHash, c: BundleHash) -> DiagnosticReport {
     ))
 }
 
+/// A clean round-trip that lost equivalence: the save path itself does not
+/// preserve authority state. `Error` (a correctness bug to fix, not a corrupt
+/// on-disk artifact). See `protocol_diagnostics::DiagnosticCode::RoundTripMismatch`.
+fn round_trip_mismatch_report(b: BundleHash, c: BundleHash) -> DiagnosticReport {
+    DiagnosticReport::new(
+        DiagnosticCode::RoundTripMismatch,
+        "round-trip",
+        DiagnosticSourceRef::empty(),
+        format!(
+            "save/load round-trip lost state: pre-save hash {} != reloaded hash {}",
+            b.to_hex(),
+            c.to_hex()
+        ),
+    )
+    .with_remedy(SuggestedRemedy::new(
+        RemedyAction::Inspect,
+        "the save/compaction path is not equivalence-preserving; inspect the lost state",
+    ))
+}
+
 /// A scene-document round-trip: encode to canonical JSON, decode, and confirm the
-/// canonical forms match (transforms, asset refs, node ids preserved). Any
-/// mismatch is a `Fatal` [`DiagnosticCode::CorruptBundleArtifact`]. Read-only.
+/// canonical forms match (transforms, asset refs, node ids preserved). A
+/// non-equivalent decode is an `Error` [`DiagnosticCode::RoundTripMismatch`]; a
+/// decode *failure* is a `Fatal` [`DiagnosticCode::CorruptBundleArtifact`]. Read-only.
 pub fn scene_round_trip(doc: &FlatSceneDocument) -> DiagnosticReportSet {
     let mut set = DiagnosticReportSet::new();
     let encoded = core_scene::encode(doc);
@@ -176,7 +202,7 @@ pub fn scene_round_trip(doc: &FlatSceneDocument) -> DiagnosticReportSet {
         Ok(decoded) if decoded.canonical() == doc.canonical() => {}
         Ok(_) => set.push(
             DiagnosticReport::new(
-                DiagnosticCode::CorruptBundleArtifact,
+                DiagnosticCode::RoundTripMismatch,
                 "scene-document",
                 DiagnosticSourceRef::empty(),
                 "scene document did not survive an encode/decode round-trip".to_string(),

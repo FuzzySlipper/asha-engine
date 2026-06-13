@@ -99,9 +99,36 @@ lane = "contract-steward"
 may_depend_on = []
 may_not_depend_on = ["protocol-render", "core-state", "wasm-api", "render-bridge"]
 
+# Authored-scene cross-boundary schema (scene-capability-super, #2365): the wire
+# shape for flat scene docs, source traces, bootstrap records, and classified
+# validation. Border types + stable string vocabularies only — authority logic
+# stays in core-scene. Depends on core-ids only, like protocol-render.
+[crate."engine-rs/crates/protocol/protocol-scene"]
+lane = "contract-steward"
+may_depend_on = ["core-ids"]
+may_not_depend_on = ["core-state", "core-scene", "sim-kernel", "protocol-render", "wasm-api", "render-bridge"]
+
+# World-bundle cross-boundary schema (scene-capability-super, #2366): manifests,
+# artifact tables, ordered load plans, save/compaction summaries, and the
+# regenerate-and-replay generator diagnostic. Border vocabularies + shapes only —
+# execution stays in svc-serialization / rule-world-bundle. core-ids only.
+[crate."engine-rs/crates/protocol/protocol-world-bundle"]
+lane = "contract-steward"
+may_depend_on = ["core-ids"]
+may_not_depend_on = ["core-state", "svc-serialization", "rule-world-bundle", "sim-kernel", "protocol-render", "wasm-api", "render-bridge"]
+
+# Asset catalog cross-boundary schema (scene-capability-super, #2367): catalog
+# entries, asset-lock drift, fallback decisions, and the disjoint material
+# projections (RenderMaterial has no collision class; CollisionMaterial no visual).
+# Validation stays in core-catalog. Foundation asset vocabulary only.
+[crate."engine-rs/crates/protocol/protocol-assets"]
+lane = "contract-steward"
+may_depend_on = ["core-ids", "core-assets"]
+may_not_depend_on = ["core-state", "core-catalog", "sim-kernel", "protocol-render", "wasm-api", "render-bridge"]
+
 [crate."engine-rs/crates/protocol/protocol-codegen"]
 lane = "contract-steward"
-may_depend_on = ["protocol-ids", "protocol-script", "protocol-render", "protocol-replay", "protocol-telemetry", "protocol-diagnostics"]
+may_depend_on = ["protocol-ids", "protocol-script", "protocol-render", "protocol-replay", "protocol-telemetry", "protocol-diagnostics", "protocol-scene", "protocol-world-bundle", "protocol-assets"]
 
 # ─── Rust: Sim ───────────────────────────────────────────────────────────────
 

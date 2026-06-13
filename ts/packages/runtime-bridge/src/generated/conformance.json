@@ -51,6 +51,38 @@
       "errors": "RuntimeBridgeError"
     },
     {
+      "manifestName": "load_world_bundle",
+      "facadeMethod": "loadWorldBundle",
+      "surface": "stable",
+      "input": "protocol_world_bundle::WorldBundleManifest",
+      "output": "protocol_diagnostics::DiagnosticReportSet",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "save_current_world",
+      "facadeMethod": "saveCurrentWorld",
+      "surface": "stable",
+      "input": "Unit",
+      "output": "protocol_world_bundle::SaveSummary",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "get_composition_status",
+      "facadeMethod": "getCompositionStatus",
+      "surface": "stable",
+      "input": "Unit",
+      "output": "protocol_diagnostics::DiagnosticReportSet",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "unload_world",
+      "facadeMethod": "unloadWorld",
+      "surface": "stable",
+      "input": "Unit",
+      "output": "Unit",
+      "errors": "RuntimeBridgeError"
+    },
+    {
       "manifestName": "load_replay_fixture",
       "facadeMethod": "loadReplayFixture",
       "surface": "quarantined",
