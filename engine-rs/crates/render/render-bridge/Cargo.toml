@@ -8,5 +8,10 @@ workspace = true
 
 [dependencies]
 core-ids       = { path = "../../foundation/core-ids" }
+core-assets    = { path = "../../foundation/core-assets" }
+core-math      = { path = "../../foundation/core-math" }
 core-state     = { path = "../../state/core-state" }
+core-scene     = { path = "../../state/core-scene" }
+core-catalog   = { path = "../../state/core-catalog" }
+core-voxel     = { path = "../../state/core-voxel" }
 protocol-render = { path = "../../protocol/protocol-render" }

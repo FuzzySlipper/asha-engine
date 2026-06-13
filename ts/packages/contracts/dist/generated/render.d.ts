@@ -137,6 +137,36 @@ export interface SpritePickHit {
     readonly asset: string;
     readonly attachmentPoint: string | null;
 }
+export type TextureFilter = 'nearest' | 'linear';
+export type TextureWrap = 'clamp' | 'repeat';
+export interface TextureDescriptor {
+    readonly id: string;
+    readonly width: number;
+    readonly height: number;
+    readonly filter: TextureFilter;
+    readonly wrap: TextureWrap;
+    readonly contentHash: string | null;
+    readonly version: number;
+}
+export interface SpriteFrameRect {
+    readonly frame: number;
+    readonly uvMin: readonly [number, number];
+    readonly uvMax: readonly [number, number];
+}
+export interface SpriteAtlasDescriptor {
+    readonly id: string;
+    readonly texture: string;
+    readonly frames: readonly SpriteFrameRect[];
+}
+export type MaterialUvStrategy = 'flat' | 'planar' | 'atlas';
+export interface RenderMaterialDescriptor {
+    readonly id: string;
+    readonly color: readonly [number, number, number, number];
+    readonly texture: string | null;
+    readonly roughness: number;
+    readonly emissive: number;
+    readonly uvStrategy: MaterialUvStrategy;
+}
 export type RenderDiff = {
     readonly op: 'create';
     readonly handle: RenderHandle;
@@ -156,6 +186,15 @@ export type RenderDiff = {
     readonly op: 'replaceMeshPayload';
     readonly handle: RenderHandle;
     readonly payload: MeshPayloadDescriptor;
+} | {
+    readonly op: 'defineMaterial';
+    readonly material: RenderMaterialDescriptor;
+} | {
+    readonly op: 'defineTexture';
+    readonly texture: TextureDescriptor;
+} | {
+    readonly op: 'defineSpriteAtlas';
+    readonly atlas: SpriteAtlasDescriptor;
 } | {
     readonly op: 'defineStaticMesh';
     readonly asset: StaticMeshAsset;

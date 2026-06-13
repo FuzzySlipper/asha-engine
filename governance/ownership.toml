@@ -45,7 +45,9 @@ may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 [crate."engine-rs/crates/state/core-catalog"]
 lane = "rust-state"
-may_depend_on = ["core-assets"]
+# core-voxel: the voxel-material bridge maps compact VoxelMaterialIds to catalog
+# material assets (#2375); voxel storage stays compact, the table is separate.
+may_depend_on = ["core-assets", "core-voxel"]
 may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 [crate."engine-rs/crates/state/core-state"]
@@ -243,7 +245,20 @@ may_not_depend_on = ["protocol-render", "render-bridge", "wasm-api"]
 
 [crate."engine-rs/crates/render/render-bridge"]
 lane = "rust-render"
-may_depend_on = ["core-ids", "core-error", "core-state", "protocol-render"]
+# Reads authority scene/world/catalog state read-only and projects it into render
+# diffs (render-projection super, epic #2352). It never feeds render concepts back
+# into authority (boundary 12) and imports no renderer/UI package.
+may_depend_on = [
+    "core-ids",
+    "core-assets",
+    "core-math",
+    "core-error",
+    "core-state",
+    "core-scene",
+    "core-catalog",
+    "core-voxel",
+    "protocol-render",
+]
 may_not_depend_on = ["wasm-api"]
 
 [crate."engine-rs/crates/render/render-debug"]

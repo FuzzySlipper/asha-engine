@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { RenderDiff, RenderFrameDiff, RenderHandle, SpritePickHit } from '@asha/contracts';
+import type { RenderDiff, RenderFrameDiff, RenderHandle, SpritePickHit, RenderMaterialDescriptor, TextureDescriptor, SpriteAtlasDescriptor } from '@asha/contracts';
 /** Raised when a diff cannot be applied (duplicate, unknown, or stale handle). */
 export declare class RenderApplyError extends Error {
     constructor(message: string);
@@ -45,6 +45,18 @@ export declare class ThreeRenderer {
     snapshot(): string;
     /** How many live instances reference a defined static mesh asset (0 if undefined). */
     instanceCountFor(asset: string): number;
+    /** A registered catalog material descriptor by id, for inspection/tests. */
+    materialDescriptor(id: string): RenderMaterialDescriptor | undefined;
+    /** Total placeholder-fallback material resolutions so far (fallback diagnostic). */
+    get fallbackMaterialCount(): number;
+    /** Catalog material ids that resolved to a placeholder fallback (no descriptor). */
+    fallbackMaterials(): string[];
+    /** A registered texture descriptor by id, for inspection/tests. */
+    textureDescriptor(id: string): TextureDescriptor | undefined;
+    /** A registered sprite atlas by id, for inspection/tests. */
+    spriteAtlas(id: string): SpriteAtlasDescriptor | undefined;
+    /** Total sprite-frame fallbacks (no atlas / unknown frame) so far. */
+    get spriteFallbackCount(): number;
     /**
      * Resolve a renderer-side sprite pick to an authority-facing trace: render
      * handle + source entity/scene-node ids + asset ref + attachment point. The

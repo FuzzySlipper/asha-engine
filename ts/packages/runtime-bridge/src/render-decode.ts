@@ -39,6 +39,13 @@ import {
   type SpriteShading,
   type SpriteAttachment,
   type SpriteInstanceDescriptor,
+  type RenderMaterialDescriptor,
+  type MaterialUvStrategy,
+  type TextureDescriptor,
+  type TextureFilter,
+  type TextureWrap,
+  type SpriteAtlasDescriptor,
+  type SpriteFrameRect,
 } from '@asha/contracts';
 
 /** Raised when a payload does not match the render-diff contract shape. */
@@ -302,6 +309,118 @@ function decodeMaterialSlot(v: unknown, path: string): MeshMaterialSlot {
   return { slot: asU32(o.slot, `${path}.slot`), material: o.material };
 }
 
+function decodeUvStrategy(v: unknown, path: string): MaterialUvStrategy {
+  switch (v) {
+    case 'flat':
+    case 'planar':
+    case 'atlas':
+      return v;
+    default:
+      throw new RenderDecodeError(`unknown uv strategy ${JSON.stringify(v)}`, path);
+  }
+}
+
+/** Decode a catalog material descriptor (visual projection; never collision). */
+export function decodeMaterialDescriptor(v: unknown, path = '$'): RenderMaterialDescriptor {
+  const o = asObject(v, path);
+  if (typeof o.id !== 'string' || o.id.length === 0) {
+    throw new RenderDecodeError('expected a non-empty material id', `${path}.id`);
+  }
+  return {
+    id: o.id,
+    color: tuple4(o.color, `${path}.color`),
+    texture: nullable(o.texture, (t) => {
+      if (typeof t !== 'string' || t.length === 0) {
+        throw new RenderDecodeError('expected a non-empty texture id', `${path}.texture`);
+      }
+      return t;
+    }),
+    roughness: asNumber(o.roughness, `${path}.roughness`),
+    emissive: asNumber(o.emissive, `${path}.emissive`),
+    uvStrategy: decodeUvStrategy(o.uvStrategy, `${path}.uvStrategy`),
+  };
+}
+
+function decodeTextureFilter(v: unknown, path: string): TextureFilter {
+  if (v === 'nearest' || v === 'linear') return v;
+  throw new RenderDecodeError(`unknown texture filter ${JSON.stringify(v)}`, path);
+}
+
+function decodeTextureWrap(v: unknown, path: string): TextureWrap {
+  if (v === 'clamp' || v === 'repeat') return v;
+  throw new RenderDecodeError(`unknown texture wrap ${JSON.stringify(v)}`, path);
+}
+
+/** Decode a texture descriptor (metadata only; never pixel bytes). */
+export function decodeTextureDescriptor(v: unknown, path = '$'): TextureDescriptor {
+  const o = asObject(v, path);
+  if (typeof o.id !== 'string' || o.id.length === 0) {
+    throw new RenderDecodeError('expected a non-empty texture id', `${path}.id`);
+  }
+  const width = asU32(o.width, `${path}.width`);
+  const height = asU32(o.height, `${path}.height`);
+  if (width === 0 || height === 0) {
+    throw new RenderDecodeError('texture dimensions must be non-zero', path);
+  }
+  return {
+    id: o.id,
+    width,
+    height,
+    filter: decodeTextureFilter(o.filter, `${path}.filter`),
+    wrap: decodeTextureWrap(o.wrap, `${path}.wrap`),
+    contentHash: nullable(o.contentHash, (h) => {
+      if (typeof h !== 'string' || h.length === 0) {
+        throw new RenderDecodeError('expected a non-empty content hash', `${path}.contentHash`);
+      }
+      return h;
+    }),
+    version: asU32(o.version, `${path}.version`),
+  };
+}
+
+function decodeFrameRect(v: unknown, path: string): SpriteFrameRect {
+  const o = asObject(v, path);
+  const rect = {
+    frame: asU32(o.frame, `${path}.frame`),
+    uvMin: tuple2(o.uvMin, `${path}.uvMin`),
+    uvMax: tuple2(o.uvMax, `${path}.uvMax`),
+  };
+  for (const c of [...rect.uvMin, ...rect.uvMax]) {
+    if (c < 0 || c > 1) {
+      throw new RenderDecodeError(`uv out of [0,1] for frame ${rect.frame}`, `${path}`);
+    }
+  }
+  if (rect.uvMax[0] <= rect.uvMin[0] || rect.uvMax[1] <= rect.uvMin[1]) {
+    throw new RenderDecodeError(`degenerate rect for frame ${rect.frame}`, `${path}`);
+  }
+  return rect;
+}
+
+/** Decode a sprite atlas descriptor, validating unique, non-degenerate frames. */
+export function decodeSpriteAtlas(v: unknown, path = '$'): SpriteAtlasDescriptor {
+  const o = asObject(v, path);
+  if (typeof o.id !== 'string' || o.id.length === 0) {
+    throw new RenderDecodeError('expected a non-empty atlas id', `${path}.id`);
+  }
+  if (typeof o.texture !== 'string' || o.texture.length === 0) {
+    throw new RenderDecodeError('expected a non-empty texture ref', `${path}.texture`);
+  }
+  const frames = asArray(o.frames, `${path}.frames`).map((fr, i) =>
+    decodeFrameRect(fr, `${path}.frames[${i}]`),
+  );
+  if (frames.length === 0) {
+    throw new RenderDecodeError('atlas needs at least one frame', `${path}.frames`);
+  }
+  const seen = new Set<number>();
+  for (const fr of frames) {
+    if (seen.has(fr.frame)) {
+      throw new RenderDecodeError(`duplicate frame ${fr.frame}`, `${path}.frames`);
+    }
+    seen.add(fr.frame);
+  }
+  return { id: o.id, texture: o.texture, frames };
+}
+
 function decodeCollisionPolicy(v: unknown, path: string): MeshCollisionPolicy {
   const o = asObject(v, path);
   switch (o.kind) {
@@ -459,6 +578,21 @@ export function decodeRenderDiff(v: unknown, path = '$'): RenderDiff {
         op: 'replaceMeshPayload',
         handle: decodeHandle(o.handle, `${path}.handle`),
         payload: decodeMeshPayloadDescriptor(o.payload, `${path}.payload`),
+      };
+    case 'defineMaterial':
+      return {
+        op: 'defineMaterial',
+        material: decodeMaterialDescriptor(o.material, `${path}.material`),
+      };
+    case 'defineTexture':
+      return {
+        op: 'defineTexture',
+        texture: decodeTextureDescriptor(o.texture, `${path}.texture`),
+      };
+    case 'defineSpriteAtlas':
+      return {
+        op: 'defineSpriteAtlas',
+        atlas: decodeSpriteAtlas(o.atlas, `${path}.atlas`),
       };
     case 'defineStaticMesh':
       return {

@@ -1,0 +1,7 @@
+{
+  "ops": [
+    { "op": "defineTexture", "texture": { "id": "texture/spark", "width": 64, "height": 32, "filter": "nearest", "wrap": "clamp", "contentHash": "blake3:abc", "version": 1 } },
+    { "op": "defineSpriteAtlas", "atlas": { "id": "sprite/spark-sheet", "texture": "texture/spark", "frames": [{ "frame": 0, "uvMin": [0, 0], "uvMax": [0.5, 1] }, { "frame": 3, "uvMin": [0.5, 0], "uvMax": [1, 1] }] } },
+    { "op": "createSprite", "handle": 1, "parent": null, "sprite": { "asset": "sprite/spark-sheet", "frame": 0, "pivot": [0.5, 0.5], "size": [1, 1], "sizeMode": "world", "billboard": "spherical", "tint": [1, 1, 1, 1], "renderOrder": 0, "depth": "default", "shading": "unlit", "transform": { "translation": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] }, "attachment": { "sourceEntity": 1, "sourceSceneNode": 10, "attachmentPoint": null }, "metadata": { "source": 1, "tags": [], "label": "spark" } } }
+  ]
+}

@@ -8,3 +8,4 @@ workspace = true
 
 [dependencies]
 core-assets = { path = "../../foundation/core-assets" }
+core-voxel  = { path = "../core-voxel" }

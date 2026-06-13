@@ -544,6 +544,74 @@ pub fn render_module() -> Module {
                 f("attachmentPoint", TsType::nullable(string())),
             ],
         ),
+        // ── textures + sprite atlases (material-wiring super, epic #2353; #2374) ─
+        Item::Alias {
+            doc: "Texture sampling filter policy.".to_string(),
+            name: "TextureFilter".to_string(),
+            ty: TsType::StringEnum(vec!["nearest".to_string(), "linear".to_string()]),
+        },
+        Item::Alias {
+            doc: "Texture wrap/addressing policy outside [0,1].".to_string(),
+            name: "TextureWrap".to_string(),
+            ty: TsType::StringEnum(vec!["clamp".to_string(), "repeat".to_string()]),
+        },
+        iface(
+            "A texture asset descriptor (identity, dimensions, sampling policy, content \
+             metadata). Carries no pixel bytes — those load through a renderer texture provider.",
+            "TextureDescriptor",
+            vec![
+                f("id", string()),
+                f("width", num()),
+                f("height", num()),
+                f("filter", r("TextureFilter")),
+                f("wrap", r("TextureWrap")),
+                f("contentHash", TsType::nullable(string())),
+                f("version", num()),
+            ],
+        ),
+        iface(
+            "One atlas frame: its sprite frame id and normalized UV sub-rectangle in [0,1].",
+            "SpriteFrameRect",
+            vec![
+                f("frame", num()),
+                f("uvMin", tuple2()),
+                f("uvMax", tuple2()),
+            ],
+        ),
+        iface(
+            "A sprite atlas descriptor: the texture it samples and its frame rects. The \
+             renderer resolves a sprite frame to one of these rects deterministically.",
+            "SpriteAtlasDescriptor",
+            vec![
+                f("id", string()),
+                f("texture", string()),
+                f("frames", TsType::array(r("SpriteFrameRect"))),
+            ],
+        ),
+        // ── catalog material descriptor (material-wiring super, epic #2353) ─────
+        Item::Alias {
+            doc: "How a material samples colour across geometry (visual projection only)."
+                .to_string(),
+            name: "MaterialUvStrategy".to_string(),
+            ty: TsType::StringEnum(vec![
+                "flat".to_string(),
+                "planar".to_string(),
+                "atlas".to_string(),
+            ]),
+        },
+        iface(
+            "The renderer-facing projection of a catalog material, keyed by asset id. The \
+             VISUAL projection only — no collision/authority field ever appears here.",
+            "RenderMaterialDescriptor",
+            vec![
+                f("id", string()),
+                f("color", tuple4()),
+                f("texture", TsType::nullable(string())),
+                f("roughness", num()),
+                f("emissive", num()),
+                f("uvStrategy", r("MaterialUvStrategy")),
+            ],
+        ),
         union(
             "A single retained-mode change against the render scene.",
             "RenderDiff",
@@ -574,6 +642,15 @@ pub fn render_module() -> Module {
                         f("handle", r("RenderHandle")),
                         f("payload", r("MeshPayloadDescriptor")),
                     ],
+                ),
+                v(
+                    "defineMaterial",
+                    vec![f("material", r("RenderMaterialDescriptor"))],
+                ),
+                v("defineTexture", vec![f("texture", r("TextureDescriptor"))]),
+                v(
+                    "defineSpriteAtlas",
+                    vec![f("atlas", r("SpriteAtlasDescriptor"))],
                 ),
                 v("defineStaticMesh", vec![f("asset", r("StaticMeshAsset"))]),
                 v(

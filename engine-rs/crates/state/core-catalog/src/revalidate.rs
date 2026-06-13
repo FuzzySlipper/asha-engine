@@ -13,6 +13,7 @@ use core_assets::AssetId;
 
 use crate::dag::DependencyGraph;
 use crate::entry::Catalog;
+use crate::material::MaterialDef;
 
 /// The nature of a source change to an asset, as classified by the dev tooling
 /// that detected the changed hash.
@@ -77,4 +78,100 @@ pub fn revalidate_asset(
         requires_full_reload,
         suggestion,
     })
+}
+
+/// Classify a material change by diffing its before/after [`MaterialDef`]
+/// (material-wiring super, #2376). The **authority** half (solid/collidable/
+/// occlusion/structural class) decides safety: a pure style edit is a live-safe
+/// visual reproject; any authority-flag change is authority-impacting and must
+/// revalidate dependents before it can apply. An identical def is treated as a
+/// no-op visual change (the caller decides whether to skip it).
+pub fn classify_material_change(old: &MaterialDef, new: &MaterialDef) -> ChangeKind {
+    if old.authority != new.authority {
+        ChangeKind::AuthorityImpacting
+    } else {
+        // Only style differs (or nothing) — visual-only either way.
+        ChangeKind::VisualOnly
+    }
+}
+
+/// Revalidate a changed **material** asset from its before/after definition,
+/// deriving the [`ChangeKind`] rather than trusting a hand-supplied one (#2376).
+/// Returns `None` if the asset is absent from the catalog.
+pub fn material_change_impact(
+    catalog: &Catalog,
+    asset: &AssetId,
+    old: &MaterialDef,
+    new: &MaterialDef,
+) -> Option<ChangeImpactReport> {
+    revalidate_asset(catalog, asset, classify_material_change(old, new))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::entry::CatalogEntry;
+    use crate::material::{MaterialAuthority, MaterialStyle, Rgba, StructuralClass};
+
+    fn def(color: Rgba, solid: bool) -> MaterialDef {
+        MaterialDef {
+            authority: MaterialAuthority {
+                solid,
+                collidable: solid,
+                occludes: solid,
+                structural_class: if solid {
+                    StructuralClass::Solid
+                } else {
+                    StructuralClass::Decorative
+                },
+            },
+            style: MaterialStyle::flat(color),
+        }
+    }
+
+    fn catalog_with(asset: &str, m: MaterialDef) -> (Catalog, AssetId) {
+        let id = AssetId::parse(asset).unwrap();
+        (
+            Catalog {
+                entries: vec![CatalogEntry::new(id.clone(), 1).with_material(m)],
+            },
+            id,
+        )
+    }
+
+    #[test]
+    fn a_pure_style_edit_is_a_live_safe_visual_reproject() {
+        let old = def(Rgba::WHITE, true);
+        let new = def(Rgba::DEBUG_GREY, true); // only colour changed
+        assert_eq!(classify_material_change(&old, &new), ChangeKind::VisualOnly);
+
+        let (catalog, id) = catalog_with("material/wall", old.clone());
+        let report = material_change_impact(&catalog, &id, &old, &new).unwrap();
+        assert!(report.safe);
+        assert!(!report.requires_full_reload);
+        assert_eq!(report.suggestion, ReloadSuggestion::Reproject);
+    }
+
+    #[test]
+    fn an_authority_flag_change_is_not_live_safe() {
+        let old = def(Rgba::WHITE, true); // collidable
+        let new = def(Rgba::WHITE, false); // now non-collidable — authority change
+        assert_eq!(
+            classify_material_change(&old, &new),
+            ChangeKind::AuthorityImpacting
+        );
+
+        let (catalog, id) = catalog_with("material/wall", old.clone());
+        let report = material_change_impact(&catalog, &id, &old, &new).unwrap();
+        assert!(!report.safe, "authority change is not a live visual update");
+        assert_eq!(report.suggestion, ReloadSuggestion::RevalidateDependents);
+    }
+
+    #[test]
+    fn a_structural_change_requires_full_reload() {
+        let (catalog, id) = catalog_with("material/wall", def(Rgba::WHITE, true));
+        let report = revalidate_asset(&catalog, &id, ChangeKind::Structural).unwrap();
+        assert!(report.requires_full_reload);
+        assert_eq!(report.suggestion, ReloadSuggestion::RequiresFullReload);
+    }
 }

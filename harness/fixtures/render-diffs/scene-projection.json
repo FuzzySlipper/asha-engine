@@ -1,0 +1,9 @@
+{
+  "ops": [
+    { "op": "defineMaterial", "material": { "id": "material/wood", "color": [0.6, 0.4, 0.2, 1], "texture": null, "roughness": 1, "emissive": 0, "uvStrategy": "flat" } },
+    { "op": "defineStaticMesh", "asset": { "asset": "mesh/crate", "payload": { "layout": { "vertexCount": 4, "indexCount": 6, "indexWidth": "u32", "attributes": [{ "name": "position", "components": 3, "kind": "f32" }, { "name": "normal", "components": 3, "kind": "f32" }] }, "groups": [{ "materialSlot": 0, "start": 0, "count": 6 }], "bounds": { "min": [0, 0, 0], "max": [1, 1, 0] }, "source": { "kind": "inline", "positions": [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0], "normals": [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1], "indices": [0, 1, 2, 0, 2, 3] }, "provenance": "staticAsset" }, "materialSlots": [{ "slot": 0, "material": "material/wood" }], "collision": { "kind": "visualOnly" } } },
+    { "op": "createStaticMeshInstance", "handle": 1, "parent": null, "instance": { "asset": "mesh/crate", "transform": { "translation": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] }, "materialOverrides": [], "metadata": { "source": 1, "tags": [], "label": "crate-a" } } },
+    { "op": "createStaticMeshInstance", "handle": 2, "parent": null, "instance": { "asset": "mesh/crate", "transform": { "translation": [3, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] }, "materialOverrides": [], "metadata": { "source": 2, "tags": [], "label": "crate-b" } } },
+    { "op": "createSprite", "handle": 3, "parent": null, "sprite": { "asset": "sprite/spark-sheet", "frame": 0, "pivot": [0.5, 0.5], "size": [1, 1], "sizeMode": "world", "billboard": "spherical", "tint": [1, 1, 1, 1], "renderOrder": 0, "depth": "default", "shading": "unlit", "transform": { "translation": [6, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] }, "attachment": { "sourceEntity": 3, "sourceSceneNode": 30, "attachmentPoint": null }, "metadata": { "source": 3, "tags": [], "label": "spark" } } }
+  ]
+}

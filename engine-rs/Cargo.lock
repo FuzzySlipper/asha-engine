@@ -68,6 +68,7 @@ name = "core-catalog"
 version = "0.1.0"
 dependencies = [
  "core-assets",
+ "core-voxel",
 ]
 
 [[package]]
@@ -422,8 +423,13 @@ dependencies = [
 name = "render-bridge"
 version = "0.1.0"
 dependencies = [
+ "core-assets",
+ "core-catalog",
  "core-ids",
+ "core-math",
+ "core-scene",
  "core-state",
+ "core-voxel",
  "protocol-render",
 ]
 

@@ -1,0 +1,27 @@
+visual-only-recolour
+  asset: material/brick
+  change: visual-only
+  safe: true
+  requires_full_reload: false
+  suggestion: reproject
+  affected_dependents: [mesh/wall]
+
+authority-soften
+  asset: material/brick
+  change: authority-impacting
+  safe: false
+  requires_full_reload: false
+  suggestion: revalidate-dependents
+  affected_dependents: [mesh/wall]
+
+structural-change
+  asset: material/brick
+  change: structural
+  safe: false
+  requires_full_reload: true
+  suggestion: requires-full-reload
+  affected_dependents: [mesh/wall]
+
+fallback-used
+  material: material/missing-decal
+  visual: debug-grey

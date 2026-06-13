@@ -203,6 +203,84 @@ test('decodes a static mesh asset + instance diff, validating slot bindings', ()
     });
     assert.equal(diff.op, 'createStaticMeshInstance');
 });
+test('decodes a defineMaterial diff (catalog material descriptor, visual only)', () => {
+    const diff = decodeRenderDiff({
+        op: 'defineMaterial',
+        material: {
+            id: 'material/wood',
+            color: [0.6, 0.4, 0.2, 1],
+            texture: null,
+            roughness: 1,
+            emissive: 0,
+            uvStrategy: 'flat',
+        },
+    });
+    assert.equal(diff.op, 'defineMaterial');
+    if (diff.op === 'defineMaterial') {
+        assert.equal(diff.material.id, 'material/wood');
+        assert.deepEqual(diff.material.color, [0.6, 0.4, 0.2, 1]);
+        assert.equal(diff.material.uvStrategy, 'flat');
+        // The descriptor shape carries no collision/authority field by construction.
+        assert.ok(!('solid' in diff.material) && !('structuralClass' in diff.material));
+    }
+});
+test('rejects a material descriptor with an unknown uv strategy', () => {
+    assert.throws(() => decodeRenderDiff({
+        op: 'defineMaterial',
+        material: {
+            id: 'material/x',
+            color: [1, 1, 1, 1],
+            texture: null,
+            roughness: 1,
+            emissive: 0,
+            uvStrategy: 'holographic',
+        },
+    }), RenderDecodeError);
+});
+test('decodes defineTexture and defineSpriteAtlas, validating frame rects', () => {
+    const tex = decodeRenderDiff({
+        op: 'defineTexture',
+        texture: {
+            id: 'texture/spark',
+            width: 64,
+            height: 32,
+            filter: 'nearest',
+            wrap: 'clamp',
+            contentHash: null,
+            version: 1,
+        },
+    });
+    assert.equal(tex.op, 'defineTexture');
+    const atlas = decodeRenderDiff({
+        op: 'defineSpriteAtlas',
+        atlas: {
+            id: 'sprite/spark-sheet',
+            texture: 'texture/spark',
+            frames: [
+                { frame: 0, uvMin: [0, 0], uvMax: [0.5, 1] },
+                { frame: 3, uvMin: [0.5, 0], uvMax: [1, 1] },
+            ],
+        },
+    });
+    assert.equal(atlas.op, 'defineSpriteAtlas');
+    if (atlas.op === 'defineSpriteAtlas') {
+        assert.equal(atlas.atlas.frames.length, 2);
+    }
+});
+test('rejects a zero-dimension texture and a degenerate/out-of-range atlas frame', () => {
+    assert.throws(() => decodeRenderDiff({
+        op: 'defineTexture',
+        texture: { id: 'texture/x', width: 0, height: 8, filter: 'nearest', wrap: 'clamp', contentHash: null, version: 1 },
+    }), RenderDecodeError);
+    assert.throws(() => decodeRenderDiff({
+        op: 'defineSpriteAtlas',
+        atlas: {
+            id: 'sprite/x',
+            texture: 'texture/x',
+            frames: [{ frame: 0, uvMin: [0.5, 0], uvMax: [0.5, 1] }], // zero width
+        },
+    }), RenderDecodeError);
+});
 test('rejects a static mesh whose group references an unbound material slot', () => {
     const bad = crateAssetRaw();
     bad.materialSlots = [{ slot: 9, material: 'material/wood' }]; // group uses slot 1

@@ -180,12 +180,59 @@ export interface SpritePickHit {
   readonly attachmentPoint: string | null;
 }
 
+// Texture sampling filter policy.
+export type TextureFilter = 'nearest' | 'linear';
+
+// Texture wrap/addressing policy outside [0,1].
+export type TextureWrap = 'clamp' | 'repeat';
+
+// A texture asset descriptor (identity, dimensions, sampling policy, content metadata). Carries no pixel bytes — those load through a renderer texture provider.
+export interface TextureDescriptor {
+  readonly id: string;
+  readonly width: number;
+  readonly height: number;
+  readonly filter: TextureFilter;
+  readonly wrap: TextureWrap;
+  readonly contentHash: string | null;
+  readonly version: number;
+}
+
+// One atlas frame: its sprite frame id and normalized UV sub-rectangle in [0,1].
+export interface SpriteFrameRect {
+  readonly frame: number;
+  readonly uvMin: readonly [number, number];
+  readonly uvMax: readonly [number, number];
+}
+
+// A sprite atlas descriptor: the texture it samples and its frame rects. The renderer resolves a sprite frame to one of these rects deterministically.
+export interface SpriteAtlasDescriptor {
+  readonly id: string;
+  readonly texture: string;
+  readonly frames: readonly SpriteFrameRect[];
+}
+
+// How a material samples colour across geometry (visual projection only).
+export type MaterialUvStrategy = 'flat' | 'planar' | 'atlas';
+
+// The renderer-facing projection of a catalog material, keyed by asset id. The VISUAL projection only — no collision/authority field ever appears here.
+export interface RenderMaterialDescriptor {
+  readonly id: string;
+  readonly color: readonly [number, number, number, number];
+  readonly texture: string | null;
+  readonly roughness: number;
+  readonly emissive: number;
+  readonly uvStrategy: MaterialUvStrategy;
+}
+
 // A single retained-mode change against the render scene.
 export type RenderDiff =
   | { readonly op: 'create'; readonly handle: RenderHandle; readonly parent: RenderHandle | null; readonly node: RenderNode }
   | { readonly op: 'update'; readonly handle: RenderHandle; readonly transform: Transform | null; readonly material: Material | null; readonly visible: boolean | null; readonly metadata: RenderMetadata | null }
   | { readonly op: 'destroy'; readonly handle: RenderHandle }
   | { readonly op: 'replaceMeshPayload'; readonly handle: RenderHandle; readonly payload: MeshPayloadDescriptor }
+  | { readonly op: 'defineMaterial'; readonly material: RenderMaterialDescriptor }
+  | { readonly op: 'defineTexture'; readonly texture: TextureDescriptor }
+  | { readonly op: 'defineSpriteAtlas'; readonly atlas: SpriteAtlasDescriptor }
   | { readonly op: 'defineStaticMesh'; readonly asset: StaticMeshAsset }
   | { readonly op: 'createStaticMeshInstance'; readonly handle: RenderHandle; readonly parent: RenderHandle | null; readonly instance: StaticMeshInstanceDescriptor }
   | { readonly op: 'createSprite'; readonly handle: RenderHandle; readonly parent: RenderHandle | null; readonly sprite: SpriteInstanceDescriptor }

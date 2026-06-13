@@ -31,6 +31,18 @@ export class ThreeRenderer {
     #staticMeshes = new Map();
     /** Per-material-slot colours for the initial flat/debug material strategy. */
     #slotColors = new Map();
+    /** Catalog material descriptors, keyed by material asset id (#2373). */
+    #materials = new Map();
+    /** How many times a slot fell back to a placeholder (no catalog descriptor). */
+    #fallbackMaterialCount = 0;
+    /** Catalog material ids that fell back to a placeholder (fallback diagnostic). */
+    #fallbackMaterials = new Set();
+    /** Texture descriptors, keyed by texture asset id (#2374). */
+    #textures = new Map();
+    /** Sprite atlas descriptors, keyed by sprite-sheet asset id (#2374). */
+    #atlases = new Map();
+    /** How many times a sprite frame fell back to full UVs (no atlas/frame). */
+    #spriteFallbackCount = 0;
     constructor() {
         this.#sceneGroup.name = 'scene';
         this.#debugGroup.name = 'debug';
@@ -63,6 +75,15 @@ export class ThreeRenderer {
                 break;
             case 'replaceMeshPayload':
                 this.#replaceMeshPayload(diff);
+                break;
+            case 'defineMaterial':
+                this.#defineMaterial(diff.material);
+                break;
+            case 'defineTexture':
+                this.#textures.set(diff.texture.id, diff.texture);
+                break;
+            case 'defineSpriteAtlas':
+                this.#atlases.set(diff.atlas.id, diff.atlas);
                 break;
             case 'defineStaticMesh':
                 this.#defineStaticMesh(diff.asset);
@@ -215,6 +236,8 @@ export class ThreeRenderer {
         // the named slots, so two instances of one asset can differ in material while
         // sharing one BufferGeometry.
         const materials = def.materials.slice();
+        // Catalog material id behind each material-array entry (for live redefine).
+        const materialIds = def.materialSlots.map((s) => s.material);
         const ownMaterials = [];
         for (const ov of diff.instance.materialOverrides) {
             const idx = def.slotIndex.get(ov.slot);
@@ -223,6 +246,7 @@ export class ThreeRenderer {
             }
             const m = this.#materialFor(ov);
             materials[idx] = m;
+            materialIds[idx] = ov.material;
             ownMaterials.push(m);
         }
         const mesh = new THREE.Mesh(def.geometry, materials.length === 1 ? materials[0] : materials);
@@ -239,6 +263,7 @@ export class ThreeRenderer {
             shape: 'quad',
             asset: diff.instance.asset,
             ownsGeometry: false,
+            materialIds,
         });
     }
     #releaseStaticMesh(asset) {
@@ -257,11 +282,117 @@ export class ThreeRenderer {
     instanceCountFor(asset) {
         return this.#staticMeshes.get(asset)?.refCount ?? 0;
     }
+    /**
+     * Register (or replace) a catalog material descriptor by id (#2373). The
+     * renderer resolves a static-mesh slot or sprite ref to this descriptor so a
+     * mesh renders its real catalog colour/texture instead of a placeholder hue.
+     * Authority/collision flags never reach here — the descriptor is the disjoint
+     * visual projection (boundary 18).
+     */
+    /**
+     * Register (or replace) a catalog material descriptor by id (#2373/#2376). A
+     * *redefine* of an already-registered id is a live visual-only update: every
+     * static-mesh material bound to that id is rebuilt from the new descriptor and
+     * the old material disposed (leak-safe), so a visual edit changes the rendered
+     * output deterministically without a destroy+create. Authority-impacting changes
+     * are NOT applied here — the catalog change-impact path (Rust
+     * `material_change_impact`) classifies those as requires-reload before they ever
+     * reach the renderer.
+     */
+    #defineMaterial(material) {
+        const isRedefine = this.#materials.has(material.id);
+        this.#materials.set(material.id, material);
+        if (isRedefine) {
+            this.#replaceLiveMaterial(material.id);
+        }
+    }
+    /** Rebuild every live static-mesh material bound to `id`, disposing the old. */
+    #replaceLiveMaterial(id) {
+        for (const entry of this.#handles.values()) {
+            if (entry.kind !== 'staticMesh' || !entry.materialIds) {
+                continue;
+            }
+            const mesh = entry.object;
+            const arr = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+            let changed = false;
+            for (let i = 0; i < entry.materialIds.length; i += 1) {
+                if (entry.materialIds[i] !== id) {
+                    continue;
+                }
+                const replacement = this.#materialFor({ slot: i, material: id });
+                arr[i]?.dispose();
+                arr[i] = replacement;
+                changed = true;
+            }
+            if (changed) {
+                mesh.material = arr.length === 1 ? arr[0] : arr;
+            }
+        }
+    }
+    /** A registered catalog material descriptor by id, for inspection/tests. */
+    materialDescriptor(id) {
+        return this.#materials.get(id);
+    }
+    /** Total placeholder-fallback material resolutions so far (fallback diagnostic). */
+    get fallbackMaterialCount() {
+        return this.#fallbackMaterialCount;
+    }
+    /** Catalog material ids that resolved to a placeholder fallback (no descriptor). */
+    fallbackMaterials() {
+        return [...this.#fallbackMaterials].sort();
+    }
     #materialFor(slot) {
-        // The render border maps a material asset id → an appearance. Until catalog
-        // RenderMaterial wiring lands, slots map to a deterministic per-slot colour
-        // (registerSlotColor) so the mesh always shows *some* stable material.
+        // Resolve the slot's catalog material id → registered RenderMaterialDescriptor
+        // (defineMaterial). A descriptor drives the real catalog colour; a missing one
+        // falls back deterministically to the per-slot hue and is recorded (id + count)
+        // so the gap is an observable diagnostic rather than silent (#2373/#2376).
+        const descriptor = this.#materials.get(slot.material);
+        if (descriptor) {
+            const [r, g, b] = descriptor.color;
+            return new THREE.MeshBasicMaterial({ color: new THREE.Color(r, g, b) });
+        }
+        this.#fallbackMaterialCount += 1;
+        this.#fallbackMaterials.add(slot.material);
         return new THREE.MeshBasicMaterial({ color: this.#slotColor(slot.slot) });
+    }
+    /** A registered texture descriptor by id, for inspection/tests. */
+    textureDescriptor(id) {
+        return this.#textures.get(id);
+    }
+    /** A registered sprite atlas by id, for inspection/tests. */
+    spriteAtlas(id) {
+        return this.#atlases.get(id);
+    }
+    /** Total sprite-frame fallbacks (no atlas / unknown frame) so far. */
+    get spriteFallbackCount() {
+        return this.#spriteFallbackCount;
+    }
+    /**
+     * Resolve a sprite asset + frame to its atlas UV sub-rectangle and write it into
+     * the plane geometry's `uv` attribute (#2374). A missing atlas or unknown frame
+     * falls back deterministically to full `[0,1]` UVs and is counted, so the gap is
+     * observable rather than a silent wrong-frame. Returns the resolved rect
+     * `[u0,v0,u1,v1]` (or the full-UV fallback) for the snapshot.
+     */
+    #applySpriteUv(geometry, asset, frame) {
+        const atlas = this.#atlases.get(asset);
+        const rect = atlas?.frames.find((f) => f.frame === frame);
+        if (!rect) {
+            if (atlas !== undefined || this.#textures.size > 0 || frame !== 0) {
+                this.#spriteFallbackCount += 1;
+            }
+            return [0, 0, 1, 1];
+        }
+        const [u0, v0] = rect.uvMin;
+        const [u1, v1] = rect.uvMax;
+        // PlaneGeometry vertex order: top-left, top-right, bottom-left, bottom-right.
+        const uv = geometry.getAttribute('uv');
+        uv.setXY(0, u0, v1);
+        uv.setXY(1, u1, v1);
+        uv.setXY(2, u0, v0);
+        uv.setXY(3, u1, v0);
+        uv.needsUpdate = true;
+        return [u0, v0, u1, v1];
     }
     // ── Sprites / billboards (render-asset-05/06) ───────────────────────────────
     #createSprite(diff) {
@@ -287,6 +418,7 @@ export class ThreeRenderer {
         applyMetadata(mesh, s.metadata);
         mesh.userData.frame = s.frame;
         mesh.userData.billboard = s.billboard;
+        mesh.userData.uv = this.#applySpriteUv(geometry, s.asset, s.frame);
         const parent = diff.parent === null ? this.#sceneGroup : this.#require(diff.parent, 'createSprite.parent').object;
         parent.add(mesh);
         this.#handles.set(diff.handle, {
@@ -313,6 +445,8 @@ export class ThreeRenderer {
         if (diff.frame !== null) {
             entry.sprite = { ...entry.sprite, frame: diff.frame };
             mesh.userData.frame = diff.frame;
+            // Re-resolve the atlas UV rect for the new frame (deterministic, no anim).
+            mesh.userData.uv = this.#applySpriteUv(mesh.geometry, entry.sprite.asset, diff.frame);
         }
         if (diff.tint !== null) {
             entry.sprite = { ...entry.sprite, tint: diff.tint };
@@ -409,6 +543,7 @@ function snapshotLine(handle, entry) {
             `kind sprite`,
             `asset ${s.asset}`,
             `frame ${s.frame}`,
+            `uv ${(o.userData.uv ?? [0, 0, 1, 1]).map(fmtNum).join(',')}`,
             `pos ${fmtVec(o.position)}`,
             `size ${fmtNum(s.size[0])},${fmtNum(s.size[1])}`,
             `pivot ${fmtNum(s.pivot[0])},${fmtNum(s.pivot[1])}`,

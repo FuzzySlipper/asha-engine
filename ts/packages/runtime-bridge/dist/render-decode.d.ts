@@ -1,4 +1,4 @@
-import { type RenderFrameDiff, type RenderDiff, type MeshPayloadDescriptor, type StaticMeshAsset, type SpriteInstanceDescriptor } from '@asha/contracts';
+import { type RenderFrameDiff, type RenderDiff, type MeshPayloadDescriptor, type StaticMeshAsset, type SpriteInstanceDescriptor, type RenderMaterialDescriptor, type TextureDescriptor, type SpriteAtlasDescriptor } from '@asha/contracts';
 /** Raised when a payload does not match the render-diff contract shape. */
 export declare class RenderDecodeError extends Error {
     readonly path: string;
@@ -6,6 +6,12 @@ export declare class RenderDecodeError extends Error {
 }
 /** Decode and structurally validate a mesh payload descriptor. */
 export declare function decodeMeshPayloadDescriptor(v: unknown, path?: string): MeshPayloadDescriptor;
+/** Decode a catalog material descriptor (visual projection; never collision). */
+export declare function decodeMaterialDescriptor(v: unknown, path?: string): RenderMaterialDescriptor;
+/** Decode a texture descriptor (metadata only; never pixel bytes). */
+export declare function decodeTextureDescriptor(v: unknown, path?: string): TextureDescriptor;
+/** Decode a sprite atlas descriptor, validating unique, non-degenerate frames. */
+export declare function decodeSpriteAtlas(v: unknown, path?: string): SpriteAtlasDescriptor;
 /** Decode a static mesh asset, validating slot uniqueness and group bindings. */
 export declare function decodeStaticMeshAsset(v: unknown, path?: string): StaticMeshAsset;
 /** Decode and validate a sprite instance descriptor. */

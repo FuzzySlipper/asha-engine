@@ -1,0 +1,1 @@
+handle 1  layer scene  kind sprite  asset sprite/spark-sheet  frame 0  uv 0,0,0.5,1  pos 0,0,0  size 1,1  pivot 0.5,0.5  billboard spherical  tint 1,1,1,1  order 0  depth default  shading unlit  visible true  attach 1/10/-  label "spark"

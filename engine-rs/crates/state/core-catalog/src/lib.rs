@@ -40,6 +40,7 @@ pub mod lock;
 pub mod material;
 pub mod revalidate;
 pub mod validate;
+pub mod voxel;
 
 pub use dag::DependencyGraph;
 pub use entry::{Catalog, CatalogEntry};
@@ -53,8 +54,14 @@ pub use material::{
     CollisionMaterial, MaterialAuthority, MaterialDef, MaterialStyle, RenderMaterial, Rgba,
     StructuralClass, UvStrategy,
 };
-pub use revalidate::{revalidate_asset, ChangeImpactReport, ChangeKind, ReloadSuggestion};
+pub use revalidate::{
+    classify_material_change, material_change_impact, revalidate_asset, ChangeImpactReport,
+    ChangeKind, ReloadSuggestion,
+};
 pub use validate::{validate, CatalogValidationError, CatalogValidationReport};
+pub use voxel::{
+    VoxelMaterialError, VoxelMaterialTable, VoxelMaterialTableReport, VoxelRenderResolution,
+};
 
 #[cfg(test)]
 mod tests {

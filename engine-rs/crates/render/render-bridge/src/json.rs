@@ -15,6 +15,22 @@ use protocol_render::{
     SpriteSizeMode, StaticMeshAsset, StaticMeshInstanceDescriptor, Transform,
 };
 
+/// Encode a single frame as a pretty `{ "ops": [ … ] }` object — the shape the
+/// `renderer-three` golden harness applies directly (one frame per fixture).
+pub fn encode_frame(frame: &RenderFrameDiff) -> String {
+    let mut out = String::from("{\n  \"ops\": [\n");
+    for (oi, op) in frame.ops.iter().enumerate() {
+        out.push_str("    ");
+        encode_diff(&mut out, op);
+        if oi + 1 < frame.ops.len() {
+            out.push(',');
+        }
+        out.push('\n');
+    }
+    out.push_str("  ]\n}\n");
+    out
+}
+
 /// Encode a sequence of frames as a pretty JSON array of frame objects.
 pub fn encode_sequence(frames: &[RenderFrameDiff]) -> String {
     let mut out = String::from("[\n");
@@ -92,6 +108,21 @@ fn encode_diff(out: &mut String, diff: &RenderDiff) {
                 handle.raw()
             ));
             encode_mesh_payload(out, payload);
+            out.push_str(" }");
+        }
+        RenderDiff::DefineMaterial { material } => {
+            out.push_str("{ \"op\": \"defineMaterial\", \"material\": ");
+            encode_material_descriptor(out, material);
+            out.push_str(" }");
+        }
+        RenderDiff::DefineTexture { texture } => {
+            out.push_str("{ \"op\": \"defineTexture\", \"texture\": ");
+            encode_texture_descriptor(out, texture);
+            out.push_str(" }");
+        }
+        RenderDiff::DefineSpriteAtlas { atlas } => {
+            out.push_str("{ \"op\": \"defineSpriteAtlas\", \"atlas\": ");
+            encode_sprite_atlas(out, atlas);
             out.push_str(" }");
         }
         RenderDiff::DefineStaticMesh { asset } => {
@@ -192,6 +223,60 @@ fn encode_collision_policy(out: &mut String, policy: &MeshCollisionPolicy) {
         )),
         MeshCollisionPolicy::AabbFallback => out.push_str("{ \"kind\": \"aabbFallback\" }"),
     }
+}
+
+fn encode_texture_descriptor(out: &mut String, t: &protocol_render::TextureDescriptor) {
+    out.push_str(&format!(
+        "{{ \"id\": {}, \"width\": {}, \"height\": {}, \"filter\": \"{}\", \"wrap\": \"{}\", \"contentHash\": ",
+        encode_json_string(&t.id),
+        t.width,
+        t.height,
+        t.filter.label(),
+        t.wrap.label()
+    ));
+    match &t.content_hash {
+        Some(h) => out.push_str(&encode_json_string(h)),
+        None => out.push_str("null"),
+    }
+    out.push_str(&format!(", \"version\": {} }}", t.version));
+}
+
+fn encode_sprite_atlas(out: &mut String, a: &protocol_render::SpriteAtlasDescriptor) {
+    out.push_str(&format!(
+        "{{ \"id\": {}, \"texture\": {}, \"frames\": [",
+        encode_json_string(&a.id),
+        encode_json_string(&a.texture)
+    ));
+    for (i, rect) in a.frames.iter().enumerate() {
+        if i > 0 {
+            out.push_str(", ");
+        }
+        out.push_str(&format!("{{ \"frame\": {}, \"uvMin\": ", rect.frame));
+        encode_f32_array(out, &rect.uv_min);
+        out.push_str(", \"uvMax\": ");
+        encode_f32_array(out, &rect.uv_max);
+        out.push_str(" }");
+    }
+    out.push_str("] }");
+}
+
+fn encode_material_descriptor(out: &mut String, m: &protocol_render::RenderMaterialDescriptor) {
+    out.push_str(&format!(
+        "{{ \"id\": {}, \"color\": ",
+        encode_json_string(&m.id)
+    ));
+    encode_f32_array(out, &m.color);
+    out.push_str(", \"texture\": ");
+    match &m.texture {
+        Some(t) => out.push_str(&encode_json_string(t)),
+        None => out.push_str("null"),
+    }
+    out.push_str(&format!(
+        ", \"roughness\": {}, \"emissive\": {}, \"uvStrategy\": \"{}\" }}",
+        m.roughness,
+        m.emissive,
+        m.uv_strategy.label()
+    ));
 }
 
 fn encode_static_mesh_asset(out: &mut String, asset: &StaticMeshAsset) {

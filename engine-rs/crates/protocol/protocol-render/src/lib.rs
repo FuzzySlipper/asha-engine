@@ -136,6 +136,55 @@ impl Default for Material {
     }
 }
 
+// ── Catalog material descriptor (material-wiring super, epic #2353) ─────────────
+
+/// How a material samples colour across geometry. Mirrors
+/// `core_catalog::material::UvStrategy` — the *visual* projection only; no
+/// collision/authority field ever appears here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum MaterialUvStrategy {
+    /// A single flat colour, no texture sampling.
+    #[default]
+    Flat,
+    /// Sample the bound texture with planar UVs.
+    Planar,
+    /// Sample an atlas sub-rectangle (sprite sheets).
+    Atlas,
+}
+
+impl MaterialUvStrategy {
+    /// Stable border label.
+    pub fn label(self) -> &'static str {
+        match self {
+            MaterialUvStrategy::Flat => "flat",
+            MaterialUvStrategy::Planar => "planar",
+            MaterialUvStrategy::Atlas => "atlas",
+        }
+    }
+}
+
+/// The renderer-facing projection of a catalog material, keyed by its asset id so
+/// the renderer can resolve a static-mesh slot or a sprite ref to a real material
+/// descriptor instead of a placeholder colour (render-material-01, #2373).
+///
+/// This is the **visual** projection: a linear-RGBA colour, an optional bound
+/// texture id, scalar roughness/emissive, and a UV strategy. It carries **no**
+/// collision/authority field (`solid`/`collidable`/`occludes`/`structural_class`
+/// live on the disjoint `CollisionMaterial` projection) — a boundary leak is a
+/// type error here, not a review nit (boundary 18).
+#[derive(Debug, Clone, PartialEq)]
+pub struct RenderMaterialDescriptor {
+    /// Catalog material asset id, e.g. `material/concrete-wet`.
+    pub id: String,
+    /// Linear RGBA, each component in `0.0..=1.0`.
+    pub color: [f32; 4],
+    /// Optional bound texture asset id (a `texture/...` ref). Atlas wiring: #2374.
+    pub texture: Option<String>,
+    pub roughness: f32,
+    pub emissive: f32,
+    pub uv_strategy: MaterialUvStrategy,
+}
+
 // ── Layer ─────────────────────────────────────────────────────────────────────
 
 /// Which retained layer a node belongs to.
@@ -227,6 +276,18 @@ pub enum RenderDiff {
         handle: RenderHandle,
         payload: MeshPayloadDescriptor,
     },
+    /// Define (or redefine) a catalog material descriptor under its asset id, so a
+    /// static-mesh slot or sprite ref resolves to a real visual material instead of
+    /// a placeholder colour (render-material-01, #2373). Idempotent: define once,
+    /// reference by id from many instances.
+    DefineMaterial { material: RenderMaterialDescriptor },
+    /// Define (or redefine) a texture asset descriptor under its id (dimensions +
+    /// sampling policy + content metadata; pixel bytes load via the renderer's
+    /// texture provider). Idempotent (render-material-02, #2374).
+    DefineTexture { texture: TextureDescriptor },
+    /// Define (or redefine) a sprite atlas descriptor under its id, so a sprite's
+    /// frame resolves to a deterministic UV sub-rectangle (#2374). Idempotent.
+    DefineSpriteAtlas { atlas: SpriteAtlasDescriptor },
     /// Define (or redefine) a static mesh asset's shared geometry + material
     /// slots + collision policy under its asset id. Idempotent: many instances
     /// reference the asset and share one uploaded geometry (render-asset-04).
@@ -801,6 +862,167 @@ impl SpriteInstanceDescriptor {
     }
 }
 
+// ── Textures + sprite atlases (material-wiring super, epic #2353; #2374) ────────
+
+/// Texture sampling filter. The border carries the *policy*; the renderer maps it
+/// to its GPU equivalent. Pixel bytes are not in the descriptor — they load
+/// through a renderer-side texture provider, never ambiently from policy code.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TextureFilter {
+    /// Nearest-neighbour (crisp pixel art).
+    #[default]
+    Nearest,
+    /// Bilinear smoothing.
+    Linear,
+}
+
+impl TextureFilter {
+    pub fn label(self) -> &'static str {
+        match self {
+            TextureFilter::Nearest => "nearest",
+            TextureFilter::Linear => "linear",
+        }
+    }
+}
+
+/// Texture wrap/addressing policy outside `[0,1]`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TextureWrap {
+    /// Clamp to edge.
+    #[default]
+    Clamp,
+    /// Repeat (tile).
+    Repeat,
+}
+
+impl TextureWrap {
+    pub fn label(self) -> &'static str {
+        match self {
+            TextureWrap::Clamp => "clamp",
+            TextureWrap::Repeat => "repeat",
+        }
+    }
+}
+
+/// A texture asset descriptor: identity, pixel dimensions, sampling policy, and
+/// content metadata. Carries **no pixel bytes** — the renderer loads those through
+/// an explicit texture provider (the file-loading seam), so authority/policy code
+/// never touches the filesystem (boundary: file loading is a renderer concern).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TextureDescriptor {
+    /// Catalog texture asset id, e.g. `texture/spark-sheet`.
+    pub id: String,
+    pub width: u32,
+    pub height: u32,
+    pub filter: TextureFilter,
+    pub wrap: TextureWrap,
+    /// Optional content fingerprint (cache/version key); identity stays `id`.
+    pub content_hash: Option<String>,
+    /// Monotonic content version (bumped on a content change).
+    pub version: u32,
+}
+
+/// A malformed texture descriptor, classified for agent routing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TextureError {
+    EmptyTextureId,
+    ZeroDimension { width: u32, height: u32 },
+}
+
+impl TextureDescriptor {
+    /// Validate identity + non-zero dimensions.
+    pub fn validate(&self) -> Result<(), TextureError> {
+        if self.id.is_empty() {
+            return Err(TextureError::EmptyTextureId);
+        }
+        if self.width == 0 || self.height == 0 {
+            return Err(TextureError::ZeroDimension {
+                width: self.width,
+                height: self.height,
+            });
+        }
+        Ok(())
+    }
+}
+
+/// One atlas frame: its sprite frame id and its **normalized** UV sub-rectangle in
+/// `[0,1]` (origin bottom-left). Normalized UVs keep the rect texture-resolution
+/// independent and let the renderer map a sprite frame straight onto plane UVs.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SpriteFrameRect {
+    pub frame: u32,
+    /// Lower-left UV corner.
+    pub uv_min: [f32; 2],
+    /// Upper-right UV corner.
+    pub uv_max: [f32; 2],
+}
+
+/// A sprite atlas/sheet descriptor: the texture it samples and its frame rects.
+/// The renderer resolves a `SpriteInstanceDescriptor::frame` to one of these rects
+/// deterministically; a frame id absent here is a classified miss, not a guess.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpriteAtlasDescriptor {
+    /// Sprite-sheet asset id, e.g. `sprite/spark-sheet`.
+    pub id: String,
+    /// The texture asset id this atlas samples.
+    pub texture: String,
+    /// Frame rects, expected in ascending `frame` order with unique ids.
+    pub frames: Vec<SpriteFrameRect>,
+}
+
+/// A malformed sprite atlas descriptor, classified for agent routing.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SpriteAtlasError {
+    EmptyAtlasId,
+    EmptyTextureRef,
+    NoFrames,
+    DuplicateFrame { frame: u32 },
+    UvOutOfRange { frame: u32 },
+    DegenerateRect { frame: u32 },
+}
+
+impl SpriteAtlasDescriptor {
+    /// Validate identity, a bound texture, and every frame rect (in range,
+    /// non-degenerate, unique frame id).
+    pub fn validate(&self) -> Result<(), SpriteAtlasError> {
+        if self.id.is_empty() {
+            return Err(SpriteAtlasError::EmptyAtlasId);
+        }
+        if self.texture.is_empty() {
+            return Err(SpriteAtlasError::EmptyTextureRef);
+        }
+        if self.frames.is_empty() {
+            return Err(SpriteAtlasError::NoFrames);
+        }
+        let mut seen: Vec<u32> = Vec::with_capacity(self.frames.len());
+        for rect in &self.frames {
+            if seen.contains(&rect.frame) {
+                return Err(SpriteAtlasError::DuplicateFrame { frame: rect.frame });
+            }
+            seen.push(rect.frame);
+            for c in [
+                rect.uv_min[0],
+                rect.uv_min[1],
+                rect.uv_max[0],
+                rect.uv_max[1],
+            ] {
+                if !(0.0..=1.0).contains(&c) {
+                    return Err(SpriteAtlasError::UvOutOfRange { frame: rect.frame });
+                }
+            }
+            if rect.uv_max[0] <= rect.uv_min[0] || rect.uv_max[1] <= rect.uv_min[1] {
+                return Err(SpriteAtlasError::DegenerateRect { frame: rect.frame });
+            }
+        }
+        Ok(())
+    }
+
+    /// The UV rect for a sprite frame id, or `None` if the atlas has no such frame.
+    pub fn frame_rect(&self, frame: u32) -> Option<&SpriteFrameRect> {
+        self.frames.iter().find(|r| r.frame == frame)
+    }
+}
+
 /// A renderer-side sprite pick hit, traced to **authority identity** for the
 /// authority to interpret (render-asset-06).
 ///
@@ -1347,5 +1569,105 @@ mod sprite_tests {
             diff,
             RenderDiff::UpdateSprite { frame: Some(3), .. }
         ));
+    }
+
+    fn atlas(frames: Vec<SpriteFrameRect>) -> SpriteAtlasDescriptor {
+        SpriteAtlasDescriptor {
+            id: "sprite/spark-sheet".into(),
+            texture: "texture/spark".into(),
+            frames,
+        }
+    }
+
+    #[test]
+    fn texture_descriptor_validates_id_and_dimensions() {
+        let ok = TextureDescriptor {
+            id: "texture/spark".into(),
+            width: 64,
+            height: 64,
+            filter: TextureFilter::Nearest,
+            wrap: TextureWrap::Clamp,
+            content_hash: None,
+            version: 1,
+        };
+        assert!(ok.validate().is_ok());
+
+        let zero = TextureDescriptor {
+            width: 0,
+            ..ok.clone()
+        };
+        assert_eq!(
+            zero.validate(),
+            Err(TextureError::ZeroDimension {
+                width: 0,
+                height: 64
+            })
+        );
+        let empty = TextureDescriptor {
+            id: "".into(),
+            ..ok
+        };
+        assert_eq!(empty.validate(), Err(TextureError::EmptyTextureId));
+    }
+
+    #[test]
+    fn atlas_resolves_frames_and_rejects_bad_rects() {
+        let a = atlas(vec![
+            SpriteFrameRect {
+                frame: 0,
+                uv_min: [0.0, 0.0],
+                uv_max: [0.5, 1.0],
+            },
+            SpriteFrameRect {
+                frame: 3,
+                uv_min: [0.5, 0.0],
+                uv_max: [1.0, 1.0],
+            },
+        ]);
+        assert!(a.validate().is_ok());
+        assert_eq!(a.frame_rect(3).unwrap().uv_min, [0.5, 0.0]);
+        assert!(a.frame_rect(7).is_none(), "unknown frame resolves to None");
+
+        // Duplicate frame id.
+        let dup = atlas(vec![
+            SpriteFrameRect {
+                frame: 0,
+                uv_min: [0.0, 0.0],
+                uv_max: [0.5, 1.0],
+            },
+            SpriteFrameRect {
+                frame: 0,
+                uv_min: [0.5, 0.0],
+                uv_max: [1.0, 1.0],
+            },
+        ]);
+        assert_eq!(
+            dup.validate(),
+            Err(SpriteAtlasError::DuplicateFrame { frame: 0 })
+        );
+
+        // Degenerate (zero-area) rect.
+        let degenerate = atlas(vec![SpriteFrameRect {
+            frame: 1,
+            uv_min: [0.5, 0.5],
+            uv_max: [0.5, 1.0],
+        }]);
+        assert_eq!(
+            degenerate.validate(),
+            Err(SpriteAtlasError::DegenerateRect { frame: 1 })
+        );
+
+        // UV outside [0,1].
+        let oob = atlas(vec![SpriteFrameRect {
+            frame: 2,
+            uv_min: [0.0, 0.0],
+            uv_max: [1.5, 1.0],
+        }]);
+        assert_eq!(
+            oob.validate(),
+            Err(SpriteAtlasError::UvOutOfRange { frame: 2 })
+        );
+
+        assert_eq!(atlas(vec![]).validate(), Err(SpriteAtlasError::NoFrames));
     }
 }
