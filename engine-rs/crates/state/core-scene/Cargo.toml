@@ -11,3 +11,4 @@ core-ids    = { path = "../../foundation/core-ids" }
 core-assets = { path = "../../foundation/core-assets" }
 core-math   = { path = "../../foundation/core-math" }
 core-error  = { path = "../../foundation/core-error" }
+core-entity = { path = "../core-entity" }

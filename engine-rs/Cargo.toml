@@ -13,6 +13,7 @@ members = [
 
     # State
     "crates/state/core-voxel",
+    "crates/state/core-entity",
     "crates/state/core-scene",
     "crates/state/core-state",
     "crates/state/core-events",

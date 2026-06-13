@@ -85,6 +85,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "core-entity"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "core-error",
+ "core-ids",
+ "core-math",
+]
+
+[[package]]
 name = "core-error"
 version = "0.1.0"
 
@@ -110,6 +120,7 @@ name = "core-scene"
 version = "0.1.0"
 dependencies = [
  "core-assets",
+ "core-entity",
  "core-error",
  "core-ids",
  "core-math",

@@ -20,6 +20,12 @@
 
 use core_error::ErrorCategory;
 
+pub mod buffer_provider;
+
+pub use buffer_provider::{
+    fixtures, BufferKind, BufferLifetime, BufferMetadata, RuntimeBufferProvider,
+};
+
 // ── Error taxonomy ────────────────────────────────────────────────────────────
 
 /// Typed, classified error channel shared by every bridge operation. There is no
@@ -226,11 +232,14 @@ pub trait RuntimeBridge {
 // body lives in `native-bridge`; this is the deterministic reference the mock and
 // native paths must match.
 
-/// A minimal deterministic bridge used for boundary smoke tests.
+/// A minimal deterministic bridge used for boundary smoke tests. Large payloads
+/// are owned by the [`RuntimeBufferProvider`]; the seed buffer is allocated as the
+/// first handle (`0`) at init so the boundary `get_buffer`/`release_buffer` verbs
+/// exercise the real provider rather than a bespoke `Vec`.
 #[derive(Debug, Default)]
 pub struct ReferenceBridge {
     engine: Option<EngineHandle>,
-    buffer: Vec<u8>,
+    buffers: buffer_provider::RuntimeBufferProvider,
     /// The currently-loaded world's scene identity (the staged/live world).
     loaded_world: Option<u64>,
 }
@@ -248,8 +257,16 @@ impl RuntimeBridge for ReferenceBridge {
     fn initialize_engine(&mut self, config: EngineConfig) -> BridgeResult<EngineHandle> {
         let handle = EngineHandle::new(config.seed);
         self.engine = Some(handle);
-        // Deterministic: buffer content derived from the seed.
-        self.buffer = config.seed.to_le_bytes().to_vec();
+        // Deterministic: seed buffer is the first provider handle (0), so the
+        // boundary buffer verbs below operate on the real lifetime model.
+        self.buffers.reset();
+        let seed_handle = self.buffers.create(
+            buffer_provider::BufferKind::Opaque,
+            buffer_provider::BufferLifetime::Manual,
+            None,
+            config.seed.to_le_bytes().to_vec(),
+        );
+        debug_assert_eq!(seed_handle.raw(), 0);
         Ok(handle)
     }
 
@@ -267,27 +284,11 @@ impl RuntimeBridge for ReferenceBridge {
     }
 
     fn get_buffer(&self, handle: RuntimeBufferHandle) -> BridgeResult<RuntimeBufferView<'_>> {
-        if handle.raw() != 0 {
-            return Err(RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::UnknownHandle,
-                format!("no buffer for handle {}", handle.raw()),
-            ));
-        }
-        Ok(RuntimeBufferView {
-            handle,
-            bytes: &self.buffer,
-        })
+        self.buffers.view(handle)
     }
 
     fn release_buffer(&mut self, handle: RuntimeBufferHandle) -> BridgeResult<()> {
-        if handle.raw() != 0 {
-            return Err(RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::UnknownHandle,
-                format!("no buffer for handle {}", handle.raw()),
-            ));
-        }
-        self.buffer.clear();
-        Ok(())
+        self.buffers.dispose(handle)
     }
 
     fn load_world_bundle(&mut self, request: WorldLoadRequest) -> BridgeResult<CompositionStatus> {

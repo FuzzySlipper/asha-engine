@@ -1,8 +1,19 @@
 import * as THREE from 'three';
+import { type RuntimeBufferHandle, type RuntimeBufferView } from '@asha/runtime-bridge';
 import type { RenderDiff, RenderFrameDiff, RenderHandle, SpritePickHit, RenderMaterialDescriptor, TextureDescriptor, SpriteAtlasDescriptor } from '@asha/contracts';
 /** Raised when a diff cannot be applied (duplicate, unknown, or stale handle). */
 export declare class RenderApplyError extends Error {
     constructor(message: string);
+}
+/**
+ * The capability the renderer needs to upload a handle-backed mesh payload: borrow
+ * the bridge-owned bytes for a {@link RuntimeBufferHandle}. Satisfied by the
+ * `@asha/runtime-bridge` facade (`Pick<RuntimeBridge, 'getBuffer'>`); the renderer
+ * never owns the bytes, never mutates authority, and copies out immediately so the
+ * borrow is not retained past the upload.
+ */
+export interface MeshBufferSource {
+    getBuffer(handle: RuntimeBufferHandle): RuntimeBufferView;
 }
 /**
  * A retained Three.js scene driven entirely by render diffs.
@@ -14,7 +25,9 @@ export declare class RenderApplyError extends Error {
 export declare class ThreeRenderer {
     #private;
     readonly scene: THREE.Scene<THREE.Object3DEventMap>;
-    constructor();
+    constructor(options?: {
+        meshBufferSource?: MeshBufferSource;
+    });
     /** Apply a whole frame of diffs in order. */
     applyFrame(frame: RenderFrameDiff): void;
     /** Decode a raw payload through `@asha/runtime-bridge` and apply it. */

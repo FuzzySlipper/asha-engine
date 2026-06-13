@@ -8,7 +8,12 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { renderHandle, entityId, type RenderDiff, type RenderNode } from '@asha/contracts';
-import { ThreeRenderer, RenderApplyError } from './index.js';
+import {
+  RuntimeBridgeError,
+  type RuntimeBufferHandle,
+  type RuntimeBufferView,
+} from '@asha/runtime-bridge';
+import { ThreeRenderer, RenderApplyError, type MeshBufferSource } from './index.js';
 
 function cubeNode(label = 'cube'): RenderNode {
   return {
@@ -240,19 +245,142 @@ test('replaceMeshPayload on an unknown handle throws', () => {
   );
 });
 
-test('handle-source payloads are rejected until runtime buffer wiring exists', () => {
+// ── Handle-backed mesh payloads (#2382) ──────────────────────────────────────
+
+/** Pack the quad's inline streams into one `[positions|normals|indices]` blob. */
+function quadHandleBytes(): Uint8Array {
+  const positions = [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0];
+  const normals = [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1];
+  const indices = [0, 1, 2, 0, 2, 3];
+  const bytes = new Uint8Array((positions.length + normals.length + indices.length) * 4);
+  const dv = new DataView(bytes.buffer);
+  let offset = 0;
+  for (const v of positions) {
+    dv.setFloat32(offset, v, true);
+    offset += 4;
+  }
+  for (const v of normals) {
+    dv.setFloat32(offset, v, true);
+    offset += 4;
+  }
+  for (const v of indices) {
+    dv.setUint32(offset, v, true);
+    offset += 4;
+  }
+  return bytes;
+}
+
+/** The quad payload addressed by a buffer handle instead of inline arrays. */
+function quadHandlePayload(buffer: number): MeshPayloadDescriptor {
+  return {
+    ...quadPayload(),
+    source: {
+      kind: 'handle',
+      buffer,
+      positionsByteOffset: 0,
+      normalsByteOffset: 48,
+      indicesByteOffset: 96,
+    },
+  };
+}
+
+/** A minimal in-memory mesh buffer source mirroring the runtime bridge contract. */
+class MapBufferSource implements MeshBufferSource {
+  readonly #buffers = new Map<number, Uint8Array>();
+  #expired = new Set<number>();
+
+  set(handle: number, bytes: Uint8Array): void {
+    this.#buffers.set(handle, bytes);
+  }
+
+  expire(handle: number): void {
+    this.#expired.add(handle);
+  }
+
+  getBuffer(handle: RuntimeBufferHandle): RuntimeBufferView {
+    const raw = handle as number;
+    if (this.#expired.has(raw)) {
+      throw new RuntimeBridgeError('buffer_expired', `buffer ${raw} expired`);
+    }
+    const bytes = this.#buffers.get(raw);
+    if (bytes === undefined) {
+      throw new RuntimeBridgeError('unknown_handle', `no buffer for handle ${raw}`);
+    }
+    return { handle, bytes };
+  }
+}
+
+test('inline and handle-backed sources produce equivalent geometry', () => {
+  const inlineRenderer = new ThreeRenderer();
+  const hi = renderHandle(1);
+  inlineRenderer.applyDiff({ op: 'create', handle: hi, parent: null, node: meshNode() });
+  inlineRenderer.applyDiff({ op: 'replaceMeshPayload', handle: hi, payload: quadPayload() });
+  const inlineGeo = (inlineRenderer.objectFor(hi) as THREE.Mesh).geometry;
+
+  const source = new MapBufferSource();
+  source.set(7, quadHandleBytes());
+  const handleRenderer = new ThreeRenderer({ meshBufferSource: source });
+  const hh = renderHandle(1);
+  handleRenderer.applyDiff({ op: 'create', handle: hh, parent: null, node: meshNode() });
+  handleRenderer.applyDiff({ op: 'replaceMeshPayload', handle: hh, payload: quadHandlePayload(7) });
+  const handleGeo = (handleRenderer.objectFor(hh) as THREE.Mesh).geometry;
+
+  assert.deepEqual(
+    Array.from(handleGeo.getAttribute('position').array),
+    Array.from(inlineGeo.getAttribute('position').array),
+  );
+  assert.deepEqual(
+    Array.from(handleGeo.getAttribute('normal').array),
+    Array.from(inlineGeo.getAttribute('normal').array),
+  );
+  assert.deepEqual(Array.from(handleGeo.getIndex()!.array), Array.from(inlineGeo.getIndex()!.array));
+  assert.deepEqual(
+    handleGeo.groups.map((g) => [g.start, g.count, g.materialIndex]),
+    inlineGeo.groups.map((g) => [g.start, g.count, g.materialIndex]),
+  );
+});
+
+test('handle source with no buffer provider fails closed', () => {
   const r = new ThreeRenderer();
   const h = renderHandle(1);
   r.applyDiff({ op: 'create', handle: h, parent: null, node: meshNode() });
-  const p = quadPayload();
-  (p as { source: unknown }).source = {
-    kind: 'handle',
-    buffer: 7,
-    positionsByteOffset: 0,
-    normalsByteOffset: 48,
-    indicesByteOffset: 96,
-  };
-  assert.throws(() => r.applyDiff({ op: 'replaceMeshPayload', handle: h, payload: p }), RenderApplyError);
+  assert.throws(
+    () => r.applyDiff({ op: 'replaceMeshPayload', handle: h, payload: quadHandlePayload(7) }),
+    RenderApplyError,
+  );
+});
+
+test('unknown and stale buffer handles produce a classified error, not an empty mesh', () => {
+  const source = new MapBufferSource();
+  const r = new ThreeRenderer({ meshBufferSource: source });
+  const h = renderHandle(1);
+  r.applyDiff({ op: 'create', handle: h, parent: null, node: meshNode() });
+
+  // Unknown handle (provider has no buffer 7).
+  assert.throws(
+    () => r.applyDiff({ op: 'replaceMeshPayload', handle: h, payload: quadHandlePayload(7) }),
+    /unavailable \[unknown_handle\]/,
+  );
+
+  // Stale handle (provider reports the buffer expired).
+  source.set(7, quadHandleBytes());
+  source.expire(7);
+  assert.throws(
+    () => r.applyDiff({ op: 'replaceMeshPayload', handle: h, payload: quadHandlePayload(7) }),
+    /unavailable \[buffer_expired\]/,
+  );
+});
+
+test('a buffer too small for the declared layout fails closed', () => {
+  const source = new MapBufferSource();
+  source.set(7, quadHandleBytes().slice(0, 64)); // truncated: not enough for normals+indices
+  const r = new ThreeRenderer({ meshBufferSource: source });
+  const h = renderHandle(1);
+  r.applyDiff({ op: 'create', handle: h, parent: null, node: meshNode() });
+  assert.throws(
+    () => r.applyDiff({ op: 'replaceMeshPayload', handle: h, payload: quadHandlePayload(7) }),
+    /exceeds buffer/,
+  );
 });
 
 // ── static mesh assets + instances (render-asset-04 / #2327) ──────────────────
@@ -613,4 +741,146 @@ test('pickSprite traces to source entity / scene node / asset, never a render ha
   assert.equal(hit!.attachmentPoint, 'muzzle');
   // A non-sprite handle yields no pick hit.
   assert.equal(r.pickSprite(renderHandle(99)), undefined);
+});
+
+// ── Large-payload lifecycle conformance + resource-leak (#2383) ──────────────
+
+/** Generate a non-trivially large triangle-strip mesh's inline streams. */
+function bigMeshStreams(vertexCount: number): {
+  positions: number[];
+  normals: number[];
+  indices: number[];
+} {
+  const positions: number[] = [];
+  const normals: number[] = [];
+  for (let i = 0; i < vertexCount; i++) {
+    positions.push(i, i * 0.5, 0);
+    normals.push(0, 0, 1);
+  }
+  const indices: number[] = [];
+  for (let i = 0; i + 2 < vertexCount; i++) {
+    indices.push(i, i + 1, i + 2);
+  }
+  return { positions, normals, indices };
+}
+
+/** Pack inline streams into one `[positions|normals|indices]` little-endian blob. */
+function packStreams(streams: {
+  positions: number[];
+  normals: number[];
+  indices: number[];
+}): Uint8Array {
+  const { positions, normals, indices } = streams;
+  const bytes = new Uint8Array((positions.length + normals.length + indices.length) * 4);
+  const dv = new DataView(bytes.buffer);
+  let offset = 0;
+  for (const v of positions) {
+    dv.setFloat32(offset, v, true);
+    offset += 4;
+  }
+  for (const v of normals) {
+    dv.setFloat32(offset, v, true);
+    offset += 4;
+  }
+  for (const v of indices) {
+    dv.setUint32(offset, v, true);
+    offset += 4;
+  }
+  return bytes;
+}
+
+/** A handle-backed payload sized for arbitrary vertex/index counts. */
+function bigMeshPayload(buffer: number, vertexCount: number, indexCount: number): MeshPayloadDescriptor {
+  return {
+    layout: {
+      vertexCount,
+      indexCount,
+      indexWidth: 'u32',
+      attributes: [
+        { name: 'position', components: 3, kind: 'f32' },
+        { name: 'normal', components: 3, kind: 'f32' },
+      ],
+    },
+    groups: [{ materialSlot: 1, start: 0, count: indexCount }],
+    bounds: { min: [0, 0, 0], max: [vertexCount, vertexCount, 0] },
+    source: {
+      kind: 'handle',
+      buffer,
+      positionsByteOffset: 0,
+      normalsByteOffset: vertexCount * 3 * 4,
+      indicesByteOffset: vertexCount * 3 * 4 * 2,
+    },
+    provenance: 'voxelChunk',
+  };
+}
+
+test('large handle-backed payload uploads with the declared counts', () => {
+  const vertexCount = 4096;
+  const streams = bigMeshStreams(vertexCount);
+  const source = new MapBufferSource();
+  source.set(10, packStreams(streams));
+  const r = new ThreeRenderer({ meshBufferSource: source });
+  const h = renderHandle(1);
+  r.applyDiff({ op: 'create', handle: h, parent: null, node: meshNode() });
+  r.applyDiff({
+    op: 'replaceMeshPayload',
+    handle: h,
+    payload: bigMeshPayload(10, vertexCount, streams.indices.length),
+  });
+  const geo = (r.objectFor(h) as THREE.Mesh).geometry;
+  assert.equal(geo.getAttribute('position').count, vertexCount);
+  assert.equal(geo.getIndex()!.count, streams.indices.length);
+});
+
+test('create/replace/destroy/invalidate cycle leaves no leaked geometry and stable diagnostics', () => {
+  const source = new MapBufferSource();
+  source.set(1, quadHandleBytes());
+  source.set(2, quadHandleBytes());
+  source.set(3, quadHandleBytes());
+  const r = new ThreeRenderer({ meshBufferSource: source });
+
+  // Upload three handle-backed meshes.
+  const handles = [renderHandle(1), renderHandle(2), renderHandle(3)];
+  for (const h of handles) {
+    r.applyDiff({ op: 'create', handle: h, parent: null, node: meshNode() });
+    r.applyDiff({ op: 'replaceMeshPayload', handle: h, payload: quadHandlePayload((h as number)) });
+  }
+  for (const h of handles) {
+    assert.ok(r.has(h));
+  }
+
+  // Replace one: its previous uploaded geometry must be disposed (no leak).
+  const replaced = (r.objectFor(handles[0]!) as THREE.Mesh).geometry;
+  let replacedDisposed = false;
+  replaced.addEventListener('dispose', () => {
+    replacedDisposed = true;
+  });
+  r.applyDiff({ op: 'replaceMeshPayload', handle: handles[0]!, payload: quadHandlePayload(1) });
+  assert.ok(replacedDisposed, 'replaced geometry should be disposed');
+
+  // Destroy one: handle freed and its geometry disposed.
+  const destroyed = (r.objectFor(handles[1]!) as THREE.Mesh).geometry;
+  let destroyedDisposed = false;
+  destroyed.addEventListener('dispose', () => {
+    destroyedDisposed = true;
+  });
+  r.applyDiff({ op: 'destroy', handle: handles[1]! });
+  assert.ok(!r.has(handles[1]!));
+  assert.ok(destroyedDisposed, 'destroyed geometry should be disposed');
+
+  // Invalidate the third buffer in the provider: a re-upload referencing it fails
+  // closed with a stable, source-linked diagnostic, and the node keeps its prior
+  // geometry (no partial mutation).
+  const survivor = (r.objectFor(handles[2]!) as THREE.Mesh).geometry;
+  source.expire(3);
+  assert.throws(
+    () => r.applyDiff({ op: 'replaceMeshPayload', handle: handles[2]!, payload: quadHandlePayload(3) }),
+    /buffer 3 unavailable \[buffer_expired\]/,
+  );
+  assert.equal((r.objectFor(handles[2]!) as THREE.Mesh).geometry, survivor, 'failed upload must not swap geometry');
+
+  // Final state: handles 1 and 3 survive, handle 2 destroyed.
+  assert.ok(r.has(handles[0]!));
+  assert.ok(!r.has(handles[1]!));
+  assert.ok(r.has(handles[2]!));
 });

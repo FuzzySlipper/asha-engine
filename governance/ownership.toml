@@ -38,9 +38,18 @@ lane = "rust-state"
 may_depend_on = []
 may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
+[crate."engine-rs/crates/state/core-entity"]
+lane = "rust-state"
+# Generic entity substrate (entity-model-design, #2387). Foundation value/id deps
+# only; core-scene depends on THIS, never the reverse (design §7).
+may_depend_on = ["core-ids", "core-math", "core-assets", "core-error"]
+may_not_depend_on = ["core-scene", "protocol-render", "wasm-api", "render-bridge"]
+
 [crate."engine-rs/crates/state/core-scene"]
 lane = "rust-state"
-may_depend_on = ["core-ids", "core-assets", "core-math", "core-error"]
+# Composes the generic entity substrate (design §7): WorldState holds a
+# core-entity EntityStore rather than embedding a mandatory transform.
+may_depend_on = ["core-ids", "core-assets", "core-math", "core-error", "core-entity"]
 may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 [crate."engine-rs/crates/state/core-catalog"]
@@ -367,6 +376,14 @@ may_not_import = ["@asha/policy-core", "@asha/policy-examples"]
 lane = "ts-shell"
 may_import = ["@asha/contracts", "@asha/runtime-bridge", "@asha/renderer-three", "@asha/ui-dom", "@asha/editor-tools", "@asha/script-host"]
 may_not_import = ["@asha/electron-main", "@asha/native-bridge", "@asha/wasm-replay-bridge"]
+
+# Developer smoke harness (#2395–#2398): boots the facade against an abstract
+# fixture world and emits structured pass/fail evidence. Shell-lane consumer of the
+# facade + renderer; never imports the raw native addon directly.
+[package."ts/packages/smoke"]
+lane = "ts-shell"
+may_import = ["@asha/contracts", "@asha/runtime-bridge", "@asha/renderer-three", "@asha/editor-tools", "@asha/app"]
+may_not_import = ["@asha/native-bridge", "@asha/electron-main", "@asha/wasm-replay-bridge"]
 
 # ─── Runtime bridge boundary (ADR 0006) ──────────────────────────────────────
 # Forward-declared by task #2248. The TS deny-lists below take effect as soon as

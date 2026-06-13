@@ -5,7 +5,8 @@
     "build": "pnpm -r build",
     "typecheck": "tsc --build packages/*/tsconfig.json",
     "test": "pnpm -r test",
-    "lint": "eslint packages"
+    "lint": "eslint packages",
+    "dev:asha-smoke": "pnpm --filter @asha/smoke dev:asha-smoke"
   },
   "devDependencies": {
     "@types/node": "^25.9.2",

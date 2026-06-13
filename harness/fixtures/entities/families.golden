@@ -1,0 +1,49 @@
+# family spatial_rendered
+entity 1  lifecycle active  source runtimeCreated  labels [10]  caps [transform(1,2,3),render(visible=true)]
+entity 2  lifecycle active  source imported(mesh/static-fixture-a)  labels []  caps [transform(0,0,0),render(visible=true),asset(mesh/static-fixture-a)]
+entity 3  lifecycle active  source sceneBootstrap(node=10)  labels []  caps [transform(5,0,0),render(visible=true)]
+
+# family spatial_non_rendered
+entity 1  lifecycle active  source runtimeCreated  labels []  caps [bounds(0,0,0..2,2,2),collision(static=false)]
+entity 2  lifecycle active  source runtimeCreated  labels []  caps [transform(0,1,0)]
+entity 3  lifecycle active  source runtimeCreated  labels []  caps [bounds(-1,-1,-1..1,1,1)]
+
+# family non_spatial_logical
+entity 1  lifecycle active  source runtimeCreated  labels [7,8]  caps [controller(process=42)]
+entity 2  lifecycle active  source runtimeCreated  labels []  caps []
+entity 3  lifecycle active  source policyProposed(by=5)  labels []  caps []
+
+# family contained
+entity 1  lifecycle active  source runtimeCreated  labels []  caps []
+entity 2  lifecycle active  source runtimeCreated  labels []  caps [contained_in(1)]
+entity 3  lifecycle active  source runtimeCreated  labels []  caps [contained_in(1)]
+entity 4  lifecycle active  source imported(mesh/logical-item)  labels []  caps [contained_in(1),asset(mesh/logical-item)]
+
+# family ui_devtools
+entity 1  lifecycle active  source diagnosticTooling  labels []  caps []
+entity 2  lifecycle active  source diagnosticTooling  labels []  caps [transform(3,3,0)]
+entity 3  lifecycle active  source diagnosticTooling  labels []  caps [render(visible=false)]
+
+# family attachment_contrast
+entity 1  lifecycle active  source runtimeCreated  labels []  caps [transform(10,0,0)]
+entity 2  lifecycle active  source runtimeCreated  labels []  caps [transform(1,0,0)]  rels [transform_parent(1)]
+entity 3  lifecycle active  source runtimeCreated  labels []  caps []
+entity 4  lifecycle active  source runtimeCreated  labels []  caps [contained_in(3)]
+entity 5  lifecycle active  source runtimeCreated  labels []  caps []
+entity 6  lifecycle active  source runtimeCreated  labels []  caps []  rels [derived_from(5)]
+entity 7  lifecycle active  source runtimeCreated  labels []  caps [controller(process=99)]
+
+# family movement
+entity 1  lifecycle active  source runtimeCreated  labels []  caps [transform(0,0,0),bounds(-0.5,-0.5,-0.5..0.5,0.5,0.5),collision(static=false)]
+entity 2  lifecycle active  source runtimeCreated  labels []  caps [transform(1,0,0),bounds(-0.5,-0.5,-0.5..0.5,0.5,0.5),collision(static=true)]
+entity 3  lifecycle active  source runtimeCreated  labels []  caps []
+entity 4  lifecycle active  source runtimeCreated  labels []  caps [transform(5,0,0),collision(static=true)]
+entity 5  lifecycle active  source runtimeCreated  labels []  caps [transform(0,5,0),render(visible=true)]
+entity 6  lifecycle active  source runtimeCreated  labels []  caps [transform(0,0,5),bounds(-0.5,-0.5,-0.5..0.5,0.5,0.5),collision(static=false)]
+
+# family lifecycle_scenario
+entity 1  lifecycle tombstoned  source sceneBootstrap(node=100)  labels []  caps []
+entity 2  lifecycle active  source runtimeCreated  labels [1,2,3]  caps [transform(0,5,0)]
+entity 3  lifecycle disabled  source runtimeCreated  labels []  caps []
+entity 4  lifecycle active  source diagnosticTooling  labels []  caps []
+

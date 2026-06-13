@@ -7,7 +7,7 @@
 // context (only pixel rendering does), so this is testable headlessly; a real
 // WebGL/offscreen renderer for screenshots is layered on in a later task.
 import * as THREE from 'three';
-import { decodeRenderFrameDiff } from '@asha/runtime-bridge';
+import { decodeRenderFrameDiff, RuntimeBridgeError, } from '@asha/runtime-bridge';
 /** Raised when a diff cannot be applied (duplicate, unknown, or stale handle). */
 export class RenderApplyError extends Error {
     constructor(message) {
@@ -43,7 +43,13 @@ export class ThreeRenderer {
     #atlases = new Map();
     /** How many times a sprite frame fell back to full UVs (no atlas/frame). */
     #spriteFallbackCount = 0;
-    constructor() {
+    /**
+     * Optional runtime buffer source for handle-backed mesh payloads. When absent,
+     * handle sources fail closed (the inline fixture path still works for goldens).
+     */
+    #meshBufferSource;
+    constructor(options = {}) {
+        this.#meshBufferSource = options.meshBufferSource;
         this.#sceneGroup.name = 'scene';
         this.#debugGroup.name = 'debug';
         this.scene.add(this.#sceneGroup, this.#debugGroup);
@@ -493,7 +499,7 @@ export class ThreeRenderer {
         if (!(object instanceof THREE.Mesh)) {
             throw new RenderApplyError(`replaceMeshPayload: handle ${diff.handle} is not a mesh`);
         }
-        const geometry = buildMeshGeometry(diff.payload);
+        const geometry = buildMeshGeometry(diff.payload, this.#meshBufferSource);
         const materials = diff.payload.groups.map((g) => {
             const m = new THREE.MeshBasicMaterial({ color: this.#slotColor(g.materialSlot) });
             return m;
@@ -634,23 +640,100 @@ function buildMaterial(shape, material) {
 }
 /**
  * Build a `THREE.BufferGeometry` from a mesh payload descriptor. Inline sources
- * wrap the contract number arrays as typed arrays directly; handle sources need a
- * runtime buffer provider (deferred — runtime-bridge wiring), so they are rejected
- * here with a classified error rather than silently producing an empty mesh.
+ * wrap the contract number arrays as typed arrays directly; handle sources resolve
+ * the bridge-owned bytes through the optional {@link MeshBufferSource} and slice the
+ * attribute/index streams out by byte offset. A handle source with no provider, an
+ * unknown/stale handle, or a buffer too small for the declared layout fails closed
+ * with a classified `RenderApplyError` — never a silent empty mesh.
  */
-function buildMeshGeometry(payload) {
-    if (payload.source.kind !== 'inline') {
-        throw new RenderApplyError('replaceMeshPayload: handle-source payloads need a runtime buffer provider (not wired yet)');
-    }
-    const { positions, normals, indices } = payload.source;
+function buildMeshGeometry(payload, bufferSource) {
+    const streams = payload.source.kind === 'inline'
+        ? inlineStreams(payload.source)
+        : handleStreams(payload, payload.source, bufferSource);
+    const positionComponents = attributeComponents(payload, 'position');
+    const normalComponents = attributeComponents(payload, 'normal');
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
-    geometry.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
-    geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
+    geometry.setAttribute('position', new THREE.BufferAttribute(streams.positions, positionComponents));
+    geometry.setAttribute('normal', new THREE.BufferAttribute(streams.normals, normalComponents));
+    geometry.setIndex(new THREE.BufferAttribute(streams.indices, 1));
     // One draw group per material slot (BufferGeometry.addGroup(start, count, index)).
     payload.groups.forEach((g, i) => geometry.addGroup(g.start, g.count, i));
     geometry.boundingBox = new THREE.Box3(new THREE.Vector3(payload.bounds.min[0], payload.bounds.min[1], payload.bounds.min[2]), new THREE.Vector3(payload.bounds.max[0], payload.bounds.max[1], payload.bounds.max[2]));
     return geometry;
+}
+/** Wrap inline contract number arrays as typed arrays (the golden-fixture path). */
+function inlineStreams(source) {
+    return {
+        positions: new Float32Array(source.positions),
+        normals: new Float32Array(source.normals),
+        indices: new Uint32Array(source.indices),
+    };
+}
+/**
+ * Resolve a handle-backed payload's bytes and slice each stream out by byte offset.
+ * Copies out of the borrowed buffer immediately (so the borrow is not retained) and
+ * validates that every declared stream fits within the buffer and that indices are
+ * in range before producing geometry.
+ */
+function handleStreams(payload, source, bufferSource) {
+    if (bufferSource === undefined) {
+        throw new RenderApplyError(`replaceMeshPayload: handle-source payload needs a runtime buffer provider (buffer ${source.buffer})`);
+    }
+    let view;
+    try {
+        view = bufferSource.getBuffer(source.buffer);
+    }
+    catch (cause) {
+        if (cause instanceof RuntimeBridgeError) {
+            // The bridge error is already classified (unknown_handle / buffer_expired);
+            // surface it at the renderer boundary as a RenderApplyError, not a crash.
+            throw new RenderApplyError(`replaceMeshPayload: buffer ${source.buffer} unavailable [${cause.kind}]: ${cause.message}`);
+        }
+        throw cause;
+    }
+    const { vertexCount, indexCount } = payload.layout;
+    const positionComponents = attributeComponents(payload, 'position');
+    const normalComponents = attributeComponents(payload, 'normal');
+    const positions = sliceFloat32(view, source.positionsByteOffset, vertexCount * positionComponents, 'positions', source.buffer);
+    const normals = sliceFloat32(view, source.normalsByteOffset, vertexCount * normalComponents, 'normals', source.buffer);
+    const indices = sliceUint32(view, source.indicesByteOffset, indexCount, source.buffer);
+    for (let i = 0; i < indices.length; i++) {
+        if (indices[i] >= vertexCount) {
+            throw new RenderApplyError(`replaceMeshPayload: index ${indices[i]} out of range for ${vertexCount} vertices (buffer ${source.buffer})`);
+        }
+    }
+    return { positions, normals, indices };
+}
+/** Components-per-vertex for a declared attribute (defaults to 3 if unspecified). */
+function attributeComponents(payload, name) {
+    const attribute = payload.layout.attributes.find((a) => a.name === name);
+    return attribute?.components ?? 3;
+}
+/** Copy `count` f32s out of a borrowed buffer at `byteOffset`, failing closed if out of bounds. */
+function sliceFloat32(view, byteOffset, count, label, buffer) {
+    const byteLength = count * Float32Array.BYTES_PER_ELEMENT;
+    const bytes = requireBytes(view, byteOffset, byteLength, label, buffer);
+    return new Float32Array(bytes.buffer, bytes.byteOffset, count);
+}
+/** Copy `count` u32s out of a borrowed buffer at `byteOffset`, failing closed if out of bounds. */
+function sliceUint32(view, byteOffset, count, buffer) {
+    const byteLength = count * Uint32Array.BYTES_PER_ELEMENT;
+    const bytes = requireBytes(view, byteOffset, byteLength, 'indices', buffer);
+    return new Uint32Array(bytes.buffer, bytes.byteOffset, count);
+}
+/**
+ * Copy a `[byteOffset, byteOffset+byteLength)` window out of the borrowed view into
+ * a fresh, alignment-safe buffer. Throws a classified `RenderApplyError` if the
+ * window does not fit — a stale/wrong-layout handle must not read past its bytes.
+ */
+function requireBytes(view, byteOffset, byteLength, label, buffer) {
+    if (byteOffset < 0 || byteOffset + byteLength > view.bytes.length) {
+        throw new RenderApplyError(`replaceMeshPayload: ${label} window [${byteOffset}, ${byteOffset + byteLength}) ` +
+            `exceeds buffer ${buffer} length ${view.bytes.length}`);
+    }
+    // slice() returns a fresh ArrayBuffer at offset 0 — a copy-out that drops the
+    // borrow and guarantees 4-byte alignment for the typed-array views above.
+    return view.bytes.slice(byteOffset, byteOffset + byteLength);
 }
 function pointGeometry() {
     const geometry = new THREE.BufferGeometry();

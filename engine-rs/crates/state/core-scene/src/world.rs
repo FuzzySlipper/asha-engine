@@ -6,12 +6,20 @@
 //! diverge) and the source trace `scene node → runtime entity`. The authored
 //! document is never mutated by runtime movement.
 //!
-//! This crate's `core-state::StateStore` owns abstract entity/tag state; world
-//! transforms and provenance are a separate concern, so they live here rather
-//! than being bolted onto that store.
+//! # Composition over a generic entity substrate (#2388, design §0/§7)
+//!
+//! `WorldState` no longer embeds a mandatory `transform` in every entity record —
+//! that was the "entity means thing-with-a-position" anti-pattern the entity design
+//! gate forbids. Instead it *composes* [`core_entity::EntityStore`]: identity +
+//! lifecycle + source live in the entity core, and the runtime transform is an
+//! **optional `TransformCapability`** that bootstrap attaches to scene-sourced
+//! entities. The world's public transform/provenance API is unchanged, and the
+//! [`WorldState::hash`] byte sequence is preserved (every world entity carries a
+//! transform today, so the fingerprint is identical).
 
 use std::collections::BTreeMap;
 
+use core_entity::{EntityLifecycleCommand, EntitySource, EntityStore, EntityTransform, Quat};
 use core_ids::{EntityId, SceneNodeId, WorldId};
 
 use crate::transform::SceneTransform;
@@ -20,23 +28,24 @@ use crate::transform::SceneTransform;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WorldHash(pub u64);
 
-/// One entity's runtime state in the world.
+/// A read view of one entity's runtime world state: its (optional) runtime
+/// transform and scene-node provenance. Transform is `Option` because, in the
+/// composed model, transform is a capability — not every entity has one.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EntityRuntime {
-    /// Authority-owned runtime transform. Seeded from the scene initial transform
-    /// at bootstrap; mutating it does not touch the scene document.
-    pub transform: SceneTransform,
+    /// Authority-owned runtime transform, if the entity has the transform
+    /// capability. Seeded from the scene initial transform at bootstrap.
+    pub transform: Option<SceneTransform>,
     /// The scene node this entity was bootstrapped from, or `None` for an entity
     /// created at runtime (no authored provenance).
     pub source_node: Option<SceneNodeId>,
 }
 
-/// Live world authority: entity runtime transforms plus scene-node provenance.
+/// Live world authority: a composed entity store plus scene-node provenance index.
 #[derive(Debug, Clone, PartialEq)]
 pub struct WorldState {
     id: WorldId,
-    /// `BTreeMap` for deterministic iteration (stable hashing without a sort pass).
-    entities: BTreeMap<EntityId, EntityRuntime>,
+    entities: EntityStore,
     /// Reverse trace: scene node (raw) → runtime entity.
     node_to_entity: BTreeMap<u64, EntityId>,
 }
@@ -46,7 +55,7 @@ impl WorldState {
     pub fn empty(id: WorldId) -> Self {
         Self {
             id,
-            entities: BTreeMap::new(),
+            entities: EntityStore::new(),
             node_to_entity: BTreeMap::new(),
         }
     }
@@ -56,60 +65,76 @@ impl WorldState {
     }
 
     pub fn entity_count(&self) -> usize {
-        self.entities.len()
+        self.entities.total_count()
     }
 
-    /// Insert a scene-sourced entity. Returns `false` (no-op) if the entity id or
-    /// the source node is already present, so bootstrap stays one-to-one.
+    /// Insert a scene-sourced entity and attach its initial transform capability.
+    /// Returns `false` (no-op) if the entity id or the source node is already
+    /// present, so bootstrap stays one-to-one.
     pub(crate) fn insert_scene_entity(
         &mut self,
         entity: EntityId,
         node: SceneNodeId,
         transform: SceneTransform,
     ) -> bool {
-        if self.entities.contains_key(&entity) || self.node_to_entity.contains_key(&node.raw()) {
+        if self.entities.contains(entity) || self.node_to_entity.contains_key(&node.raw()) {
             return false;
         }
-        self.entities.insert(
-            entity,
-            EntityRuntime {
-                transform,
-                source_node: Some(node),
-            },
-        );
+        self.entities
+            .apply(EntityLifecycleCommand::Create {
+                id: entity,
+                source: EntitySource::SceneBootstrap { node },
+                labels: Vec::new(),
+            })
+            .expect("fresh scene entity id is unique");
+        self.entities
+            .attach_transform(entity, to_entity_transform(transform));
         self.node_to_entity.insert(node.raw(), entity);
         true
     }
 
-    /// Create an entity at runtime with no scene provenance (`source_node` is
-    /// `None`). Returns `false` if the id is already present.
+    /// Create an entity at runtime with no scene provenance, attaching a runtime
+    /// transform capability. Returns `false` if the id is already present.
     pub fn create_runtime_entity(&mut self, entity: EntityId, transform: SceneTransform) -> bool {
-        if self.entities.contains_key(&entity) {
+        if self.entities.contains(entity) {
             return false;
         }
-        self.entities.insert(
-            entity,
-            EntityRuntime {
-                transform,
-                source_node: None,
-            },
-        );
+        self.entities
+            .apply(EntityLifecycleCommand::Create {
+                id: entity,
+                source: EntitySource::RuntimeCreated { by: None },
+                labels: Vec::new(),
+            })
+            .expect("fresh runtime entity id is unique");
+        self.entities
+            .attach_transform(entity, to_entity_transform(transform));
         true
     }
 
-    /// The runtime record for `entity`, if present.
-    pub fn entity(&self, entity: EntityId) -> Option<&EntityRuntime> {
-        self.entities.get(&entity)
+    /// The runtime view for `entity`, if present.
+    pub fn entity(&self, entity: EntityId) -> Option<EntityRuntime> {
+        let core = self.entities.core(entity)?;
+        Some(EntityRuntime {
+            transform: self
+                .entities
+                .transform(entity)
+                .map(|c| to_scene_transform(c.transform)),
+            source_node: core.source.scene_node(),
+        })
     }
 
-    /// The runtime transform for `entity`, if present.
+    /// The runtime transform for `entity`, if it has one.
     pub fn transform(&self, entity: EntityId) -> Option<SceneTransform> {
-        self.entities.get(&entity).map(|e| e.transform)
+        self.entities
+            .transform(entity)
+            .map(|c| to_scene_transform(c.transform))
     }
 
     /// The scene node `entity` was bootstrapped from, if any.
     pub fn source_node(&self, entity: EntityId) -> Option<SceneNodeId> {
-        self.entities.get(&entity).and_then(|e| e.source_node)
+        self.entities
+            .core(entity)
+            .and_then(|c| c.source.scene_node())
     }
 
     /// The runtime entity a scene node bootstrapped into, if any.
@@ -118,32 +143,43 @@ impl WorldState {
     }
 
     /// Overwrite an entity's runtime transform (authority-owned movement).
-    /// Returns `false` if the entity is unknown. Never touches scene documents.
+    /// Returns `false` if the entity is unknown or tombstoned. Never touches scene
+    /// documents.
     pub fn set_transform(&mut self, entity: EntityId, transform: SceneTransform) -> bool {
-        match self.entities.get_mut(&entity) {
-            Some(rec) => {
-                rec.transform = transform;
-                true
-            }
-            None => false,
-        }
+        self.entities
+            .attach_transform(entity, to_entity_transform(transform))
     }
 
-    /// Entities in ascending id order.
-    pub fn entities(&self) -> impl Iterator<Item = (EntityId, &EntityRuntime)> {
-        self.entities.iter().map(|(id, rec)| (*id, rec))
+    /// Entities (with their runtime views) in ascending id order.
+    pub fn entities(&self) -> impl Iterator<Item = (EntityId, EntityRuntime)> + '_ {
+        self.entities.entities().map(|core| {
+            (
+                core.id,
+                EntityRuntime {
+                    transform: self
+                        .entities
+                        .transform(core.id)
+                        .map(|c| to_scene_transform(c.transform)),
+                    source_node: core.source.scene_node(),
+                },
+            )
+        })
     }
 
     /// Deterministic FNV-1a fingerprint of the world: id, then each entity (in
-    /// ascending id order) with its transform bits and source node. Mirrors the
-    /// `core-snapshot` hashing approach so fingerprints are stable across runs.
+    /// ascending id order) with its transform bits and source node. The byte
+    /// sequence is preserved from the pre-composition layout so world hashes (and
+    /// the bootstrap-summary golden) stay stable.
     pub fn hash(&self) -> WorldHash {
         let mut h = Fnv1a::new();
         h.write_u64(self.id.raw());
         h.write_u8(0x01); // entities section
-        for (id, rec) in &self.entities {
+        for (id, rec) in self.entities() {
             h.write_u64(id.raw());
-            hash_transform(&mut h, &rec.transform);
+            let transform = rec
+                .transform
+                .expect("world entities carry a transform capability");
+            hash_transform(&mut h, &transform);
             match rec.source_node {
                 Some(n) => {
                     h.write_u8(1);
@@ -153,6 +189,36 @@ impl WorldState {
             }
         }
         WorldHash(h.finish())
+    }
+}
+
+// ── SceneTransform ⇄ EntityTransform ─────────────────────────────────────────--
+// A straight field copy: the two shapes are intentionally identical (design §value)
+// so this is a representation bridge, not a reinterpretation.
+
+fn to_entity_transform(t: SceneTransform) -> EntityTransform {
+    EntityTransform {
+        translation: t.translation,
+        rotation: Quat {
+            x: t.rotation.x,
+            y: t.rotation.y,
+            z: t.rotation.z,
+            w: t.rotation.w,
+        },
+        scale: t.scale,
+    }
+}
+
+fn to_scene_transform(t: EntityTransform) -> SceneTransform {
+    SceneTransform {
+        translation: t.translation,
+        rotation: crate::transform::Quat {
+            x: t.rotation.x,
+            y: t.rotation.y,
+            z: t.rotation.z,
+            w: t.rotation.w,
+        },
+        scale: t.scale,
     }
 }
 

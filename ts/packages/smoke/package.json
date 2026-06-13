@@ -1,0 +1,27 @@
+{
+  "name": "@asha/smoke",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build",
+    "test": "tsc --build && node --test 'dist/**/*.test.js'",
+    "dev:asha-smoke": "tsc --build && node dist/cli.js"
+  },
+  "dependencies": {
+    "@asha/contracts": "workspace:*",
+    "@asha/runtime-bridge": "workspace:*",
+    "@asha/renderer-three": "workspace:*",
+    "@asha/editor-tools": "workspace:*",
+    "@asha/app": "workspace:*"
+  }
+}
