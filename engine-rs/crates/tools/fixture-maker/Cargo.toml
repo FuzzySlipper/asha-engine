@@ -3,9 +3,21 @@ name    = "fixture-maker"
 version.workspace = true
 edition.workspace = true
 
+[lib]
+name = "fixture_maker"
+path = "src/lib.rs"
+
 [[bin]]
 name = "fixture-maker"
 path = "src/main.rs"
+
+[dependencies]
+core-space        = { path = "../../foundation/core-space" }
+core-voxel        = { path = "../../state/core-voxel" }
+svc-volume        = { path = "../../services/svc-volume" }
+svc-spatial       = { path = "../../services/svc-spatial" }
+svc-serialization = { path = "../../services/svc-serialization" }
+rule-voxel-edit   = { path = "../../rules/rule-voxel-edit" }
 
 [lints]
 workspace = true
