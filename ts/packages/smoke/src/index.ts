@@ -25,5 +25,6 @@ export {
   fixtureWorldHash,
   fixtureRenderFrame,
   fixtureCommandBatch,
+  fixtureVoxelCommand,
   fixtureCommandEnvelopes,
 } from './fixtures.js';

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { VoxelEditController } from './index.js';
+import { createMockRuntimeBridge } from '@asha/runtime-bridge';
+import { VoxelEditController, bridgeCommandSink } from './index.js';
 function controller() {
     const submitted = [];
     const ctrl = new VoxelEditController((cmds) => submitted.push([...cmds]));
@@ -29,6 +30,19 @@ test('preview does not submit / mutate authority', () => {
     // Reading the proposal does not submit either.
     ctrl.proposal();
     assert.equal(submitted.length, 0, 'no submission happens until commit()');
+});
+test('commit through bridgeCommandSink reaches submitCommands and returns a classified result', () => {
+    const bridge = createMockRuntimeBridge();
+    bridge.initializeEngine({ seed: 1 });
+    const results = [];
+    const ctrl = new VoxelEditController(bridgeCommandSink(bridge, (r) => results.push(r)));
+    ctrl.store.dispatch({ type: 'setTool', tool: 'place' });
+    ctrl.store.dispatch({ type: 'setMaterial', material: 1 });
+    ctrl.store.dispatch({ type: 'setSelection', selection: { voxel: { x: 0, y: 0, z: 0 }, face: 'posX' } });
+    const cmd = ctrl.commit();
+    assert.equal(cmd?.op, 'setVoxel');
+    // The generated VoxelCommand reached the facade and authority classified it.
+    assert.deepEqual(results, [{ accepted: 1, rejected: 0, rejections: [] }]);
 });
 test('commit with nothing to do does not call the sink', () => {
     const submitted = [];

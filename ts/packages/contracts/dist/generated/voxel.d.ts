@@ -67,6 +67,14 @@ export type VoxelEditRejection = {
     readonly expected: number;
     readonly actual: number;
 };
+export interface CommandBatch {
+    readonly commands: readonly VoxelCommand[];
+}
+export interface CommandResult {
+    readonly accepted: number;
+    readonly rejected: number;
+    readonly rejections: readonly VoxelEditRejection[];
+}
 export type Face = 'posX' | 'negX' | 'posY' | 'negY' | 'posZ' | 'negZ';
 export type PickRejection = {
     readonly reason: 'noHit';

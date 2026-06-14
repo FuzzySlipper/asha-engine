@@ -44,6 +44,18 @@ export type VoxelEditRejection =
   | { readonly reason: 'chunkNotResident'; readonly chunk: ChunkCoord }
   | { readonly reason: 'generationDivergence'; readonly chunk: ChunkCoord; readonly expected: number; readonly actual: number };
 
+// A batch of proposed voxel commands submitted to Rust authority for validation + apply (the runtime facade `submitCommands` input).
+export interface CommandBatch {
+  readonly commands: readonly VoxelCommand[];
+}
+
+// The classified outcome of a submitted command batch: how many commands authority accepted/rejected, plus one classified rejection per refused command in submission order. Accepted commands have already mutated authority and marked their chunks dirty.
+export interface CommandResult {
+  readonly accepted: number;
+  readonly rejected: number;
+  readonly rejections: readonly VoxelEditRejection[];
+}
+
 // A cube face / axis-aligned outward normal direction.
 export type Face = 'posX' | 'negX' | 'posY' | 'negY' | 'posZ' | 'negZ';
 

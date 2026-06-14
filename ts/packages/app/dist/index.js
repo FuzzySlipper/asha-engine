@@ -6,6 +6,20 @@
 import { EditorStore, proposeCommand, previewTargets } from '@asha/editor-tools';
 export { EditorStore } from '@asha/editor-tools';
 /**
+ * The real command sink: submit the generated `VoxelCommand`s through the runtime
+ * facade's `submitCommands` verb (carrying the `protocol_voxel::CommandBatch`
+ * border straight to Rust authority) and forward the classified {@link
+ * CommandResult} to `onResult` for UI/diagnostics. The app is the ONLY package
+ * permitted to take this transport dependency.
+ */
+export function bridgeCommandSink(bridge, onResult) {
+    return (commands) => {
+        const batch = { commands: [...commands] };
+        const result = bridge.submitCommands(batch);
+        onResult?.(result);
+    };
+}
+/**
  * The single authority-safe edit path. Holds the persistent {@link EditorStore},
  * computes a non-authoritative preview, and — only on {@link commit} — submits the
  * proposed command through the injected {@link CommandSink}. It never mutates voxel

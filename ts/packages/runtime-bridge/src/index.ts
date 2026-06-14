@@ -9,12 +9,17 @@
 // The public facade is hand-written for readability but MUST satisfy the
 // manifest-derived conformance test (see conformance.test.ts).
 
-import type { RenderFrameDiff } from '@asha/contracts';
+import type { CommandBatch, CommandResult, RenderFrameDiff } from '@asha/contracts';
 import { loadNativeAddon, NativeAddonUnavailable, type NativeAddon } from '@asha/native-bridge';
 import { MANIFEST_OPERATIONS } from './generated/operations.js';
 
 export { MANIFEST_OPERATIONS } from './generated/operations.js';
 export type { BridgeOperation, BridgeSurface } from './generated/operations.js';
+
+// `submit_commands` carries the generated voxel command border (manifest
+// `protocol_voxel::{CommandBatch, CommandResult}`). Re-exported so consumers still
+// couple only to this facade package for the runtime surface (ADR 0006).
+export type { CommandBatch, CommandResult } from '@asha/contracts';
 
 // Render-diff decode (moved from the former @asha/wasm-bridge). Transport-neutral
 // payload → contract types; backs `readRenderDiffs`. See render-decode.ts.
@@ -79,16 +84,10 @@ export interface StepResult {
   readonly tick: number;
   readonly diffCount: number;
 }
-export interface ProposedCommand {
-  readonly kind: string;
-}
-export interface CommandBatch {
-  readonly commands: readonly ProposedCommand[];
-}
-export interface CommandResult {
-  readonly accepted: number;
-  readonly rejected: number;
-}
+// `CommandBatch` / `CommandResult` are NOT prototype DTOs: they are the generated
+// voxel command border (imported from `@asha/contracts`). `submitCommands` carries
+// the real `VoxelCommand` union — there is no `{ kind: 'smoke-edit' }` placeholder
+// command tunnel; an ad-hoc command shape fails to type-check at the call site.
 /** Borrowed, read-only view over bridge-owned bytes (large payloads, e.g. mesh). */
 export interface RuntimeBufferView {
   readonly handle: RuntimeBufferHandle;
@@ -177,7 +176,11 @@ export class MockRuntimeBridge implements RuntimeBridge {
     if (this.#engine === null) {
       throw new RuntimeBridgeError('not_initialized', 'submitCommands before initializeEngine');
     }
-    return { accepted: batch.commands.length, rejected: 0 };
+    // The mock is a transport stand-in, NOT authority: it does not re-validate the
+    // voxel edit (Rust `rule-voxel-edit` owns that, exercised on the native path).
+    // It fail-closes on transport preconditions (init) and accepts well-typed
+    // commands, returning the classified result shape with no rejections.
+    return { accepted: batch.commands.length, rejected: 0, rejections: [] };
   }
 
   readRenderDiffs(cursor: FrameCursor): RenderFrameDiff {

@@ -42,10 +42,10 @@ summary = "Advance the simulation one tick from a deterministic input envelope."
 [[operation]]
 name = "submit_commands"
 surface = "stable"
-input = "protocol_script::CommandBatch"
-output = "protocol_script::CommandResult"
+input = "protocol_voxel::CommandBatch"
+output = "protocol_voxel::CommandResult"
 errors = "RuntimeBridgeError"
-summary = "Submit a batch of proposed commands for Rust-side validation + apply."
+summary = "Submit a batch of proposed voxel commands (generated VoxelCommand union) for Rust-side validation + apply."
 
 [[operation]]
 name = "read_render_diffs"

@@ -1,7 +1,8 @@
-import type { RenderFrameDiff } from '@asha/contracts';
+import type { CommandBatch, CommandResult, RenderFrameDiff } from '@asha/contracts';
 import { type NativeAddon } from '@asha/native-bridge';
 export { MANIFEST_OPERATIONS } from './generated/operations.js';
 export type { BridgeOperation, BridgeSurface } from './generated/operations.js';
+export type { CommandBatch, CommandResult } from '@asha/contracts';
 export { decodeRenderDiff, decodeRenderFrameDiff, RenderDecodeError, RenderDiffStream, FrameMemory, } from './render-decode.js';
 export type EngineHandle = number & {
     readonly __brand: 'EngineHandle';
@@ -31,16 +32,6 @@ export interface StepInputEnvelope {
 export interface StepResult {
     readonly tick: number;
     readonly diffCount: number;
-}
-export interface ProposedCommand {
-    readonly kind: string;
-}
-export interface CommandBatch {
-    readonly commands: readonly ProposedCommand[];
-}
-export interface CommandResult {
-    readonly accepted: number;
-    readonly rejected: number;
 }
 /** Borrowed, read-only view over bridge-owned bytes (large payloads, e.g. mesh). */
 export interface RuntimeBufferView {

@@ -6,17 +6,39 @@
 
 import type { VoxelCommand, VoxelCoord } from '@asha/contracts';
 import { EditorStore, proposeCommand, previewTargets } from '@asha/editor-tools';
+import type { CommandBatch, CommandResult, RuntimeBridge } from '@asha/runtime-bridge';
 
 export { EditorStore } from '@asha/editor-tools';
 export type { EditorContext, EditorAction, VoxelSelection } from '@asha/editor-tools';
 
 /**
- * Where committed commands go. In real wiring this is backed by
- * `@asha/runtime-bridge` (`submitCommands`), which sends the batch to Rust for
+ * Where committed commands go. The real wiring is {@link bridgeCommandSink}, which
+ * sends the batch through `@asha/runtime-bridge` (`submitCommands`) to Rust for
  * validation + application. Injected so the editor controller stays decoupled from
  * the transport and is trivially testable.
  */
 export type CommandSink = (commands: readonly VoxelCommand[]) => void;
+
+/** Observes the classified accept/reject summary authority returns for a batch. */
+export type CommandResultHandler = (result: CommandResult) => void;
+
+/**
+ * The real command sink: submit the generated `VoxelCommand`s through the runtime
+ * facade's `submitCommands` verb (carrying the `protocol_voxel::CommandBatch`
+ * border straight to Rust authority) and forward the classified {@link
+ * CommandResult} to `onResult` for UI/diagnostics. The app is the ONLY package
+ * permitted to take this transport dependency.
+ */
+export function bridgeCommandSink(
+  bridge: RuntimeBridge,
+  onResult?: CommandResultHandler,
+): CommandSink {
+  return (commands) => {
+    const batch: CommandBatch = { commands: [...commands] };
+    const result = bridge.submitCommands(batch);
+    onResult?.(result);
+  };
+}
 
 /**
  * The single authority-safe edit path. Holds the persistent {@link EditorStore},

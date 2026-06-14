@@ -247,7 +247,9 @@ function bootFailedResult(boot) {
 function probeRejectedEdit() {
     const fresh = createMockRuntimeBridge();
     try {
-        fresh.submitCommands({ commands: [{ kind: 'rejected-edit' }] });
+        // A real generated VoxelCommand batch (not a `{ kind }` placeholder) against an
+        // uninitialized facade must fail closed with a classified not_initialized error.
+        fresh.submitCommands(fixtureCommandBatch());
         return false;
     }
     catch (cause) {

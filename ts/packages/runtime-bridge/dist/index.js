@@ -54,7 +54,11 @@ export class MockRuntimeBridge {
         if (this.#engine === null) {
             throw new RuntimeBridgeError('not_initialized', 'submitCommands before initializeEngine');
         }
-        return { accepted: batch.commands.length, rejected: 0 };
+        // The mock is a transport stand-in, NOT authority: it does not re-validate the
+        // voxel edit (Rust `rule-voxel-edit` owns that, exercised on the native path).
+        // It fail-closes on transport preconditions (init) and accepts well-typed
+        // commands, returning the classified result shape with no rejections.
+        return { accepted: batch.commands.length, rejected: 0, rejections: [] };
     }
     readRenderDiffs(cursor) {
         if (this.#engine === null) {

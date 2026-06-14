@@ -6,6 +6,7 @@ import type {
   MeshPayloadDescriptor,
   RenderFrameDiff,
   RenderNode,
+  VoxelCommand,
 } from '@asha/contracts';
 import { entityId, renderHandle } from '@asha/contracts';
 import type { CommandBatch, WorldLoadRequest } from '@asha/runtime-bridge';
@@ -49,18 +50,22 @@ export function fixtureCommandEnvelopes(): readonly CommandEnvelope[] {
 }
 
 /**
- * The fixture edit batch for the facade. The facade's `submitCommands` still takes
- * the prototype `{ kind }` proposed-command shape (the generated command contract
- * is not wired into the bridge yet — tracked with the runtime-bridge DTO debt), so
- * each command's stable `kind` is *derived from* a generated CommandEnvelope rather
- * than hand-written, keeping the edit honest and drift-visible.
+ * A deterministic generated `VoxelCommand` the smoke edit stage submits: set the
+ * origin voxel solid with launch material 1. It lands in the reference bridge's
+ * resident origin chunk (0,0,0) with an in-catalog material, so Rust authority
+ * accepts it on the native path.
+ */
+export function fixtureVoxelCommand(): VoxelCommand {
+  return { op: 'setVoxel', grid: 1, coord: { x: 0, y: 0, z: 0 }, value: { kind: 'solid', material: 1 } };
+}
+
+/**
+ * The fixture edit batch for the facade. `submitCommands` now carries the generated
+ * `VoxelCommand` union (manifest `protocol_voxel::CommandBatch`) straight to Rust
+ * authority — no `{ kind: 'smoke-edit' }` placeholder command tunnel.
  */
 export function fixtureCommandBatch(): CommandBatch {
-  return {
-    commands: fixtureCommandEnvelopes().map((envelope) => ({
-      kind: `${envelope.command.domain}.${envelope.command.command.kind}`,
-    })),
-  };
+  return { commands: [fixtureVoxelCommand()] };
 }
 
 /** A minimal mesh node to host the fixture geometry. */

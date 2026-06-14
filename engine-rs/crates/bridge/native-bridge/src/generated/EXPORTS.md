@@ -9,7 +9,7 @@ operations are replay/devtools-only.
 |---|---|---|---|---|
 | `initialize_engine` | stable | `protocol_runtime::EngineConfig` | `EngineHandle` | `RuntimeBridgeError` |
 | `step_simulation` | stable | `protocol_runtime::StepInputEnvelope` | `protocol_runtime::StepResult` | `RuntimeBridgeError` |
-| `submit_commands` | stable | `protocol_script::CommandBatch` | `protocol_script::CommandResult` | `RuntimeBridgeError` |
+| `submit_commands` | stable | `protocol_voxel::CommandBatch` | `protocol_voxel::CommandResult` | `RuntimeBridgeError` |
 | `read_render_diffs` | stable | `FrameCursor` | `protocol_render::RenderFrameDiffDescriptor` | `RuntimeBridgeError` |
 | `get_buffer` | stable | `RuntimeBufferHandle` | `RuntimeBufferView` | `RuntimeBridgeError` |
 | `release_buffer` | stable | `RuntimeBufferHandle` | `Unit` | `RuntimeBridgeError` |

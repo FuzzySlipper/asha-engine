@@ -22,8 +22,8 @@
       "manifestName": "submit_commands",
       "facadeMethod": "submitCommands",
       "surface": "stable",
-      "input": "protocol_script::CommandBatch",
-      "output": "protocol_script::CommandResult",
+      "input": "protocol_voxel::CommandBatch",
+      "output": "protocol_voxel::CommandResult",
       "errors": "RuntimeBridgeError"
     },
     {

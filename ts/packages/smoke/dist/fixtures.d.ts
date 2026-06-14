@@ -1,4 +1,4 @@
-import type { CommandEnvelope, RenderFrameDiff } from '@asha/contracts';
+import type { CommandEnvelope, RenderFrameDiff, VoxelCommand } from '@asha/contracts';
 import type { CommandBatch, WorldLoadRequest } from '@asha/runtime-bridge';
 /** The abstract fixture world the smoke harness loads through the facade. */
 export declare const FIXTURE_WORLD: WorldLoadRequest;
@@ -11,11 +11,16 @@ export declare function fixtureWorldHash(request: WorldLoadRequest): string;
  */
 export declare function fixtureCommandEnvelopes(): readonly CommandEnvelope[];
 /**
- * The fixture edit batch for the facade. The facade's `submitCommands` still takes
- * the prototype `{ kind }` proposed-command shape (the generated command contract
- * is not wired into the bridge yet — tracked with the runtime-bridge DTO debt), so
- * each command's stable `kind` is *derived from* a generated CommandEnvelope rather
- * than hand-written, keeping the edit honest and drift-visible.
+ * A deterministic generated `VoxelCommand` the smoke edit stage submits: set the
+ * origin voxel solid with launch material 1. It lands in the reference bridge's
+ * resident origin chunk (0,0,0) with an in-catalog material, so Rust authority
+ * accepts it on the native path.
+ */
+export declare function fixtureVoxelCommand(): VoxelCommand;
+/**
+ * The fixture edit batch for the facade. `submitCommands` now carries the generated
+ * `VoxelCommand` union (manifest `protocol_voxel::CommandBatch`) straight to Rust
+ * authority — no `{ kind: 'smoke-edit' }` placeholder command tunnel.
  */
 export declare function fixtureCommandBatch(): CommandBatch;
 /**

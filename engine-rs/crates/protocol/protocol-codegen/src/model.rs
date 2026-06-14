@@ -918,6 +918,28 @@ pub fn voxel_module() -> Module {
                 ),
             ],
         ),
+        // ── submit_commands border (launchable-voxel, #2436) ──────────────────
+        // The runtime facade's `submit_commands` verb carries a batch of generated
+        // `VoxelCommand`s to Rust authority and returns a classified accept/reject
+        // summary. Mirrors `runtime_bridge_api::{CommandBatch, CommandResult}`.
+        iface(
+            "A batch of proposed voxel commands submitted to Rust authority for \
+             validation + apply (the runtime facade `submitCommands` input).",
+            "CommandBatch",
+            vec![f("commands", TsType::array(r("VoxelCommand")))],
+        ),
+        iface(
+            "The classified outcome of a submitted command batch: how many commands \
+             authority accepted/rejected, plus one classified rejection per refused \
+             command in submission order. Accepted commands have already mutated \
+             authority and marked their chunks dirty.",
+            "CommandResult",
+            vec![
+                f("accepted", num()),
+                f("rejected", num()),
+                f("rejections", TsType::array(r("VoxelEditRejection"))),
+            ],
+        ),
         Item::Alias {
             doc: "A cube face / axis-aligned outward normal direction.".to_string(),
             name: "Face".to_string(),

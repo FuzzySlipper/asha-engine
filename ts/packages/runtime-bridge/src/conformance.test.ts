@@ -9,6 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
+import type { CommandBatch, VoxelCommand } from '@asha/contracts';
 import {
   MANIFEST_OPERATIONS,
   MockRuntimeBridge,
@@ -107,6 +108,38 @@ test('mock: an unsupported bundle version fails closed without swapping the worl
   );
   // The prior world stays loaded (no partial swap).
   assert.equal(bridge.getCompositionStatus().loadedWorld, 7);
+});
+
+test('mock: submitCommands carries the generated VoxelCommand union (the launch path)', () => {
+  const bridge = createMockRuntimeBridge();
+  bridge.initializeEngine({ seed: 1 });
+  // A real generated voxel command — the authority-owned union, not a `{ kind }` blob.
+  const command: VoxelCommand = {
+    op: 'setVoxel',
+    grid: 1,
+    coord: { x: 0, y: 0, z: 0 },
+    value: { kind: 'solid', material: 1 },
+  };
+  const result = bridge.submitCommands({ commands: [command] });
+  assert.deepEqual(result, { accepted: 1, rejected: 0, rejections: [] });
+});
+
+test('mock: submitCommands before init fails closed', () => {
+  const bridge = createMockRuntimeBridge();
+  assert.throws(
+    () => bridge.submitCommands({ commands: [] }),
+    (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'not_initialized',
+  );
+});
+
+test('an ad-hoc `{ kind }` command is NOT the launch path (compile-time guard)', () => {
+  const bridge = createMockRuntimeBridge();
+  bridge.initializeEngine({ seed: 1 });
+  // The placeholder command shape the launch path used to accept must no longer
+  // type-check: `submitCommands` takes the generated VoxelCommand union only.
+  // @ts-expect-error — `{ kind: 'smoke-edit' }` is not a VoxelCommand.
+  const bad: CommandBatch = { commands: [{ kind: 'smoke-edit' }] };
+  assert.equal(bad.commands.length, 1);
 });
 
 test('native factory classifies a missing addon path', () => {
