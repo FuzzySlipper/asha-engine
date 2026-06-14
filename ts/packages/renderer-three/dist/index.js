@@ -212,10 +212,11 @@ export class ThreeRenderer {
             existing.geometry.dispose();
             existing.materials.forEach((m) => m.dispose());
         }
-        if (asset.payload.source.kind !== 'inline') {
-            throw new RenderApplyError(`defineStaticMesh: handle-source payloads need a runtime buffer provider (not wired yet)`);
-        }
-        const geometry = buildMeshGeometry(asset.payload);
+        // Inline and handle-backed payloads both upload here (#2428): a handle-backed
+        // static mesh asset borrows the bridge buffer, copies its bytes out, and
+        // releases the borrow. A missing provider / unknown / stale / too-small buffer
+        // fails closed below — never silently producing empty geometry.
+        const geometry = buildMeshGeometry(asset.payload, this.#meshBufferSource, 'defineStaticMesh');
         const slotIndex = new Map();
         const materials = asset.materialSlots.map((s, i) => {
             slotIndex.set(s.slot, i);
@@ -499,7 +500,7 @@ export class ThreeRenderer {
         if (!(object instanceof THREE.Mesh)) {
             throw new RenderApplyError(`replaceMeshPayload: handle ${diff.handle} is not a mesh`);
         }
-        const geometry = buildMeshGeometry(diff.payload, this.#meshBufferSource);
+        const geometry = buildMeshGeometry(diff.payload, this.#meshBufferSource, 'replaceMeshPayload');
         const materials = diff.payload.groups.map((g) => {
             const m = new THREE.MeshBasicMaterial({ color: this.#slotColor(g.materialSlot) });
             return m;
@@ -646,10 +647,10 @@ function buildMaterial(shape, material) {
  * unknown/stale handle, or a buffer too small for the declared layout fails closed
  * with a classified `RenderApplyError` — never a silent empty mesh.
  */
-function buildMeshGeometry(payload, bufferSource) {
+function buildMeshGeometry(payload, bufferSource, ctx) {
     const streams = payload.source.kind === 'inline'
         ? inlineStreams(payload.source)
-        : handleStreams(payload, payload.source, bufferSource);
+        : handleStreams(payload, payload.source, bufferSource, ctx);
     const positionComponents = attributeComponents(payload, 'position');
     const normalComponents = attributeComponents(payload, 'normal');
     const geometry = new THREE.BufferGeometry();
@@ -670,39 +671,79 @@ function inlineStreams(source) {
     };
 }
 /**
- * Resolve a handle-backed payload's bytes and slice each stream out by byte offset.
- * Copies out of the borrowed buffer immediately (so the borrow is not retained) and
- * validates that every declared stream fits within the buffer and that indices are
- * in range before producing geometry.
+ * Resolve a handle-backed payload's bytes under the **borrow → copy → release**
+ * contract (#2428): borrow the buffer, copy every declared stream out immediately
+ * (so the borrow is never retained), then release the borrow. The borrow is
+ * released on both the success and the failure path; a missing provider, an
+ * unknown/stale/expired handle, an out-of-bounds window, or an out-of-range index
+ * all fail closed with a classified `RenderApplyError` — never empty geometry.
  */
-function handleStreams(payload, source, bufferSource) {
+function handleStreams(payload, source, bufferSource, ctx) {
     if (bufferSource === undefined) {
-        throw new RenderApplyError(`replaceMeshPayload: handle-source payload needs a runtime buffer provider (buffer ${source.buffer})`);
+        throw new RenderApplyError(`${ctx}: handle-source payload needs a runtime buffer provider (buffer ${source.buffer})`);
     }
+    const handle = source.buffer;
     let view;
     try {
-        view = bufferSource.getBuffer(source.buffer);
+        view = bufferSource.getBuffer(handle);
     }
     catch (cause) {
-        if (cause instanceof RuntimeBridgeError) {
-            // The bridge error is already classified (unknown_handle / buffer_expired);
-            // surface it at the renderer boundary as a RenderApplyError, not a crash.
-            throw new RenderApplyError(`replaceMeshPayload: buffer ${source.buffer} unavailable [${cause.kind}]: ${cause.message}`);
-        }
+        // No borrow was acquired, so nothing to release. Classify and fail closed.
+        throw classifyBufferError(cause, source.buffer, ctx, 'unavailable');
+    }
+    // Borrow acquired — copy out, then release exactly once on every exit path.
+    let streams;
+    try {
+        streams = copyHandleStreams(view, payload, source, ctx);
+    }
+    catch (cause) {
+        releaseBorrowBestEffort(bufferSource, handle); // failure path: never mask the cause
         throw cause;
     }
+    // Success path: release and surface a classified error if release itself fails.
+    releaseBorrow(bufferSource, handle, source.buffer, ctx);
+    return streams;
+}
+/** Copy + validate the three streams out of a borrowed view (no borrow retained). */
+function copyHandleStreams(view, payload, source, ctx) {
     const { vertexCount, indexCount } = payload.layout;
     const positionComponents = attributeComponents(payload, 'position');
     const normalComponents = attributeComponents(payload, 'normal');
-    const positions = sliceFloat32(view, source.positionsByteOffset, vertexCount * positionComponents, 'positions', source.buffer);
-    const normals = sliceFloat32(view, source.normalsByteOffset, vertexCount * normalComponents, 'normals', source.buffer);
-    const indices = sliceUint32(view, source.indicesByteOffset, indexCount, source.buffer);
+    const positions = sliceFloat32(view, source.positionsByteOffset, vertexCount * positionComponents, 'positions', source.buffer, ctx);
+    const normals = sliceFloat32(view, source.normalsByteOffset, vertexCount * normalComponents, 'normals', source.buffer, ctx);
+    const indices = sliceUint32(view, source.indicesByteOffset, indexCount, source.buffer, ctx);
     for (let i = 0; i < indices.length; i++) {
         if (indices[i] >= vertexCount) {
-            throw new RenderApplyError(`replaceMeshPayload: index ${indices[i]} out of range for ${vertexCount} vertices (buffer ${source.buffer})`);
+            throw new RenderApplyError(`${ctx}: index ${indices[i]} out of range for ${vertexCount} vertices (buffer ${source.buffer})`);
         }
     }
     return { positions, normals, indices };
+}
+/** Map a classified bridge error to a renderer-boundary `RenderApplyError`. */
+function classifyBufferError(cause, buffer, ctx, what) {
+    if (cause instanceof RuntimeBridgeError) {
+        return new RenderApplyError(`${ctx}: buffer ${buffer} ${what} [${cause.kind}]: ${cause.message}`);
+    }
+    return cause;
+}
+/** Release a borrow on the success path; a release failure is classified, not hidden. */
+function releaseBorrow(bufferSource, handle, buffer, ctx) {
+    try {
+        bufferSource.releaseBuffer(handle);
+    }
+    catch (cause) {
+        throw classifyBufferError(cause, buffer, ctx, 'release failed');
+    }
+}
+/** Release a borrow on a failure path; swallow release errors so the original
+ *  failure (the reason we are unwinding) is the one the caller sees. */
+function releaseBorrowBestEffort(bufferSource, handle) {
+    try {
+        bufferSource.releaseBuffer(handle);
+    }
+    catch {
+        // best-effort: the copy/validation error already in flight is the primary one
+    }
 }
 /** Components-per-vertex for a declared attribute (defaults to 3 if unspecified). */
 function attributeComponents(payload, name) {
@@ -710,15 +751,15 @@ function attributeComponents(payload, name) {
     return attribute?.components ?? 3;
 }
 /** Copy `count` f32s out of a borrowed buffer at `byteOffset`, failing closed if out of bounds. */
-function sliceFloat32(view, byteOffset, count, label, buffer) {
+function sliceFloat32(view, byteOffset, count, label, buffer, ctx) {
     const byteLength = count * Float32Array.BYTES_PER_ELEMENT;
-    const bytes = requireBytes(view, byteOffset, byteLength, label, buffer);
+    const bytes = requireBytes(view, byteOffset, byteLength, label, buffer, ctx);
     return new Float32Array(bytes.buffer, bytes.byteOffset, count);
 }
 /** Copy `count` u32s out of a borrowed buffer at `byteOffset`, failing closed if out of bounds. */
-function sliceUint32(view, byteOffset, count, buffer) {
+function sliceUint32(view, byteOffset, count, buffer, ctx) {
     const byteLength = count * Uint32Array.BYTES_PER_ELEMENT;
-    const bytes = requireBytes(view, byteOffset, byteLength, 'indices', buffer);
+    const bytes = requireBytes(view, byteOffset, byteLength, 'indices', buffer, ctx);
     return new Uint32Array(bytes.buffer, bytes.byteOffset, count);
 }
 /**
@@ -726,9 +767,9 @@ function sliceUint32(view, byteOffset, count, buffer) {
  * a fresh, alignment-safe buffer. Throws a classified `RenderApplyError` if the
  * window does not fit — a stale/wrong-layout handle must not read past its bytes.
  */
-function requireBytes(view, byteOffset, byteLength, label, buffer) {
+function requireBytes(view, byteOffset, byteLength, label, buffer, ctx) {
     if (byteOffset < 0 || byteOffset + byteLength > view.bytes.length) {
-        throw new RenderApplyError(`replaceMeshPayload: ${label} window [${byteOffset}, ${byteOffset + byteLength}) ` +
+        throw new RenderApplyError(`${ctx}: ${label} window [${byteOffset}, ${byteOffset + byteLength}) ` +
             `exceeds buffer ${buffer} length ${view.bytes.length}`);
     }
     // slice() returns a fresh ArrayBuffer at offset 0 — a copy-out that drops the
