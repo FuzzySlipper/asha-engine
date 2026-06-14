@@ -21,37 +21,46 @@ TypeScript never mutates authoritative state.
 ## Repository layout
 
 ```
-engine-rs/          Rust workspace (38 crates)
+engine-rs/          Rust workspace (59 crates)
   crates/
-    foundation/     core-ids, core-math, core-time, core-error, core-collections
-    state/          core-state, core-events, core-commands, core-snapshot
-    protocol/       protocol-*, protocol-codegen
+    foundation/     core-ids, core-math, core-time, core-error, core-collections, core-space, core-assets
+    state/          core-state, core-entity, core-scene, core-catalog, core-voxel, core-events, core-commands, core-snapshot
+    protocol/       protocol-{ids,script,render,replay,telemetry,scene,world-bundle,assets,diagnostics,policy-view}, protocol-codegen
     sim/            sim-kernel, sim-validator, sim-applier, sim-replay, sim-runner
-    services/       svc-rng, svc-spatial, svc-collision, svc-physics, svc-pathfinding, ...
-    rules/          rule-lifecycle, rule-process, rule-scheduler, rule-relationship, rule-state-machine
+    services/       svc-rng, svc-spatial, svc-collision, svc-physics, svc-pathfinding, svc-mesh, svc-volume, svc-serialization, svc-policy-view
+    rules/          rule-lifecycle, rule-process, rule-scheduler, rule-relationship, rule-state-machine, rule-voxel-edit, rule-world-bundle
     render/         render-bridge, render-debug
-    wasm/           wasm-api
-    tools/          replay-tool, snapshot-diff, protocol-dump, state-inspector, fixture-maker
+    bridge/         runtime-bridge-api (curated bridge manifest), native-bridge (napi-rs addon)
+    wasm/           wasm-api (replay/golden WASM surface)
+    tools/          replay-tool, snapshot-diff, protocol-dump, state-inspector, fixture-maker, asset-import, scene-diagnostics, voxel-diagnostics
 
-ts/                 pnpm workspace (14 packages)
+ts/                 pnpm workspace (18 packages)
   packages/
-    contracts/      generated TypeScript contract types (do not hand-edit generated/)
-    script-sdk/     view types, command helpers, test harness
-    script-host/    policy loader, sandbox, deterministic invocation
-    policy-*/       constrained policy packages
-    catalog-*/      typed catalog definitions
-    wasm-bridge/    WASM loading, memory views, protocol encode/decode
-    renderer-three/ Three.js scene, handle registry, render diff application
-    ui-dom/         DOM panels, inspectors, command palette
-    cosmetic/       non-authoritative visual effects
-    devtools/       replay viewer, debug dashboard, state inspector
-    electron-main/  process/window/IPC integration
-    app/            runtime loop and wiring
+    contracts/          generated TypeScript contract types (do not hand-edit generated/)
+    script-sdk/         view types, command helpers, deterministic env, test harness
+    script-host/        policy loader, sandbox, runtime isolation, deterministic invocation
+    policy-*/           constrained policy packages
+    catalog-*/          typed catalog definitions
+    runtime-bridge/     transport-agnostic runtime facade + render-diff decode (ADR 0006)
+    native-bridge/      thin loader for the compiled napi-rs runtime addon
+    wasm-replay-bridge/ WASM replay/golden path (imported by tests/devtools only)
+    renderer-three/     Three.js scene, handle registry, render diff application
+    editor-tools/       editor-side scene/command helpers
+    ui-dom/             DOM panels, inspectors, command palette
+    cosmetic/           non-authoritative visual effects
+    devtools/           replay viewer, debug dashboard, state inspector
+    smoke/              end-to-end developer smoke harness
+    electron-main/      process/window/IPC integration
+    app/                runtime loop and wiring
 
 governance/         Lane assignments, ownership rules, ADRs, reviewer prompts
-harness/            CI scripts, dep-graph verifiers, goldens, fixtures
+harness/            CI scripts, dep-graph verifiers, goldens, fixtures, bridge manifest tooling
 docs/               Architecture and protocol documentation
 ```
+
+The runtime bridge replaced the former `wasm-bridge` package: app/UI/renderer/devtools
+couple only to `@asha/runtime-bridge`, which is backed by `native-bridge` (napi-rs),
+the mock, or the `wasm-replay-bridge` (ADR 0006; see `docs/runtime-bridge-boundary.md`).
 
 ---
 
@@ -62,7 +71,8 @@ docs/               Architecture and protocol documentation
 **TypeScript:**
 ```
 contracts → script-sdk → policy/catalog → script-host
-contracts → wasm-bridge → renderer / ui / devtools → app → electron-main
+contracts → runtime-bridge → renderer / ui / devtools / editor-tools → app → electron-main
+native-bridge / wasm-replay-bridge → runtime-bridge (transport backends only)
 ```
 
 No lower layer may import a higher layer. The dep-graph verifier enforces this on every CI run.

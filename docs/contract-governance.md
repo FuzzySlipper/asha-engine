@@ -15,9 +15,14 @@ Rust protocol crates are the source of truth:
 - `protocol-render`
 - `protocol-replay`
 - `protocol-telemetry`
+- `protocol-scene` — authored scene-graph documents
+- `protocol-world-bundle` — world bundle manifests, load plans, save summaries
+- `protocol-assets` — asset catalog/lock shapes
+- `protocol-diagnostics` — classified diagnostic reports (load/projection/composition)
+- `protocol-policy-view` — read-only world view + proposed world commands
 
 Generated TypeScript lives in `ts/packages/contracts/src/generated/` and is committed
-for worker convenience. It is never hand-edited.
+for worker convenience. It is never hand-edited. `protocol-codegen` is the emitter.
 
 ## Change process
 
@@ -45,10 +50,18 @@ differs from committed files. A PR with a manual edit to generated files will fa
 
 ## Protocol families and their consumers
 
-| Protocol | Primary TS consumer |
-|---|---|
-| `protocol-script` | `script-sdk`, `script-host`, policy packages |
-| `protocol-render` | `runtime-bridge` (decode), `renderer-three` |
-| `protocol-replay` | `devtools` replay viewer, CI replay check |
-| `protocol-telemetry` | `devtools` debug dashboard |
-| `protocol-ids` | all packages via `contracts` |
+| Protocol | Primary TS consumer | Golden / check expectation |
+|---|---|---|
+| `protocol-ids` | all packages via `contracts` | `check-contracts.sh` (codegen sync) |
+| `protocol-script` | `script-sdk`, `script-host`, policy packages | `check-contracts.sh`; policy sandbox tests |
+| `protocol-render` | `runtime-bridge` (decode), `renderer-three` | `check-render-goldens.sh`; render-diff fixtures |
+| `protocol-replay` | `devtools` replay viewer, CI replay check | `check-replays.sh` golden reproduction |
+| `protocol-telemetry` | `devtools` debug dashboard | `check-contracts.sh` |
+| `protocol-scene` | `editor-tools`, `runtime-bridge` (world load) | `check-contracts.sh`; scene fixtures/goldens |
+| `protocol-world-bundle` | `runtime-bridge` (load/save), `smoke` | `check-contracts.sh`; world-bundle fixtures |
+| `protocol-assets` | `catalog-*`, `renderer-three` (asset refs) | `check-contracts.sh`; asset-catalog fixtures |
+| `protocol-diagnostics` | `runtime-bridge`, `devtools`, `smoke` | `check-contracts.sh`; diagnostics fixtures |
+| `protocol-policy-view` | `script-sdk`, `script-host` policies | `check-contracts.sh`; policy fixtures |
+
+Every protocol change must keep `check-contracts.sh` green (generated TS matches Rust)
+and re-bless any golden listed above whose shape it intentionally changes.

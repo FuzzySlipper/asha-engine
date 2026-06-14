@@ -327,7 +327,7 @@ mod tests {
     }
 
     /// The Rust render bridge still emits exactly the committed cross-language
-    /// fixture that `wasm-bridge` and `renderer-three` consume. If this drifts,
+    /// fixture that `runtime-bridge` (decode) and `renderer-three` consume. If this drifts,
     /// the render *protocol or Rust bridge* changed — fix Rust, regenerate the
     /// fixture, and re-run the TS decode/renderer tests.
     #[test]

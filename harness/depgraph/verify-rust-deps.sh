@@ -22,9 +22,21 @@ with open(workspace_toml, "rb") as f:
 
 failures = []
 
+# Crates deliberately excluded from ownership (documented exemptions). Empty today;
+# add a path here with a comment if a workspace member should not carry ownership.
+ownership_exempt = set(ownership.get("ownership_exempt", {}).get("crates", []))
+
 for rel_path in workspace.get("workspace", {}).get("members", []):
     crate_path = engine_rs / rel_path
     ownership_key = f"engine-rs/{rel_path}"
+
+    # Ownership completeness: every workspace member must have an ownership entry
+    # (or be an explicit, documented exemption). Missing ownership is a failure,
+    # not a silent gap — orchestrators route work by these entries.
+    if ownership_key not in crates and ownership_key not in ownership_exempt:
+        failures.append(f"FAIL: {ownership_key} has no ownership entry in governance/ownership.toml")
+        continue
+
     crate_meta = crates.get(ownership_key, {})
     forbidden = crate_meta.get("may_not_depend_on", [])
     if not forbidden:

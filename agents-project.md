@@ -40,7 +40,9 @@ See `docs/design.md` for the full system design.
       /script-host      # policy execution sandbox
       /policy-core      # default/noop policies
       /catalog-core     # typed catalog definitions
-      /wasm-bridge      # WASM loading and protocol encode/decode
+      /runtime-bridge   # transport-agnostic runtime facade + render-diff decode (ADR 0006)
+      /native-bridge    # loader for the compiled napi-rs runtime addon
+      /wasm-replay-bridge # WASM replay/golden path (tests/devtools only)
       /renderer-three # scene projection from render diffs
       /ui-dom           # panels, inspectors, command palette
       /app              # composition and wiring

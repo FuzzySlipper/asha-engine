@@ -330,6 +330,31 @@ lane = "rust-tools"
 may_depend_on = ["core-ids", "core-assets", "core-error", "core-catalog", "protocol-render"]
 may_not_depend_on = ["render-bridge", "wasm-api"]
 
+[crate."engine-rs/crates/tools/replay-tool"]
+lane = "rust-tools"
+may_depend_on = ["sim-replay", "sim-runner"]
+may_not_depend_on = ["render-bridge", "wasm-api"]
+
+[crate."engine-rs/crates/tools/snapshot-diff"]
+lane = "rust-tools"
+may_depend_on = ["core-snapshot", "core-state"]
+may_not_depend_on = ["render-bridge", "wasm-api"]
+
+[crate."engine-rs/crates/tools/protocol-dump"]
+lane = "rust-tools"
+may_depend_on = ["protocol-ids", "protocol-script", "protocol-render", "protocol-replay"]
+may_not_depend_on = ["render-bridge", "wasm-api"]
+
+[crate."engine-rs/crates/tools/state-inspector"]
+lane = "rust-tools"
+may_depend_on = ["core-state", "core-snapshot"]
+may_not_depend_on = ["render-bridge", "wasm-api"]
+
+[crate."engine-rs/crates/tools/fixture-maker"]
+lane = "rust-tools"
+may_depend_on = ["core-state", "core-events", "core-commands"]
+may_not_depend_on = ["render-bridge", "wasm-api"]
+
 # ─── TypeScript ──────────────────────────────────────────────────────────────
 
 [package."ts/packages/contracts"]

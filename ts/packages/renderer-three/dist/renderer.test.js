@@ -78,7 +78,7 @@ test('debug-layer nodes land in the debug group', () => {
     r.applyDiff(createDiff(1, node));
     assert.equal(r.objectFor(renderHandle(1))?.parent?.name, 'debug');
 });
-test('applyEncodedFrame decodes through wasm-bridge and sequences create→update→destroy', () => {
+test('applyEncodedFrame decodes through runtime-bridge and sequences create→update→destroy', () => {
     const fixture = JSON.parse(readFileSync(resolve(import.meta.dirname, '../../../../harness/fixtures/render-diffs/sample-frame.json'), 'utf8'));
     const r = new ThreeRenderer();
     r.applyEncodedFrame(fixture);
@@ -86,7 +86,7 @@ test('applyEncodedFrame decodes through wasm-bridge and sequences create→updat
     assert.equal(r.handleCount, 0);
 });
 test('applies the Rust render-bridge fixture sequence end-to-end', () => {
-    // Rust render bridge → fixture → wasm-bridge decode → renderer apply.
+    // Rust render bridge → fixture → runtime-bridge decode → renderer apply.
     // Frame 1 creates handles 1 & 2; frame 2 creates 3, updates 1, destroys 2.
     const frames = JSON.parse(readFileSync(resolve(import.meta.dirname, '../../../../harness/fixtures/render-diffs/bridge-sequence.json'), 'utf8'));
     const r = new ThreeRenderer();
