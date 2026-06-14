@@ -8,6 +8,8 @@
 // remains the sole validator (proven over the bridge in a later task).
 // Sandboxed world-policy invocation with classified violations (#2393).
 export * from './sandbox.js';
+// Runtime-enforced policy isolation: deep-frozen views + capability quarantine (#2427).
+export * from './isolation.js';
 // Deterministic policy tick stage (#2394).
 export * from './tick.js';
 /** Convenience constructor for a {@link NamedPolicy}. */

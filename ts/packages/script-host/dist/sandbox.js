@@ -10,6 +10,12 @@
 //
 // The host never validates command *semantics* (that is Rust authority via
 // `svc-policy-view`); it only guards *shape* and *isolation*.
+//
+// Isolation is runtime-enforced, not lint-only (#2427): the view is deep-frozen and
+// ambient host capabilities are quarantined for the synchronous policy call (see
+// ./isolation.ts), so view mutation and `process`/timer/`Function`-escape attempts
+// throw and are classified as `policyThrew` rather than silently succeeding.
+import { deepFreeze, runQuarantined } from './isolation.js';
 /** Convenience constructor for a {@link NamedWorldPolicy}. */
 export function defineWorldPolicy(name, policy) {
     return { name, policy };
@@ -40,7 +46,11 @@ function messageOf(error) {
 export function runWorldPolicySandboxed(named, view, env) {
     let produced;
     try {
-        produced = named.policy(view, env);
+        // Freeze the view (shared across policies + replay diagnostics) and quarantine
+        // ambient capabilities for the synchronous call. Either boundary turns a
+        // hostile action into a throw, classified below — never a silent corruption.
+        const frozenView = deepFreeze(view);
+        produced = runQuarantined(() => named.policy(frozenView, env));
     }
     catch (error) {
         return {

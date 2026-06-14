@@ -12,6 +12,9 @@ import type { Policy, PolicyCommand, PolicyView } from '@asha/script-sdk';
 // Sandboxed world-policy invocation with classified violations (#2393).
 export * from './sandbox.js';
 
+// Runtime-enforced policy isolation: deep-frozen views + capability quarantine (#2427).
+export * from './isolation.js';
+
 // Deterministic policy tick stage (#2394).
 export * from './tick.js';
 
