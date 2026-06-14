@@ -6,6 +6,10 @@
 // structured diagnostics if a policy misbehaves. It never validates commands,
 // never owns or mutates state, and never reaches outside the policy lane — Rust
 // remains the sole validator (proven over the bridge in a later task).
+// Sandboxed world-policy invocation with classified violations (#2393).
+export * from './sandbox.js';
+// Deterministic policy tick stage (#2394).
+export * from './tick.js';
 /** Convenience constructor for a {@link NamedPolicy}. */
 export function definePolicy(name, policy) {
     return { name, policy };

@@ -1,0 +1,14 @@
+[package]
+name = "protocol-policy-view"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Border-only crate: the read-only world-layer view a constrained policy is handed,
+# and the narrow world/entity command + outcome shapes it may propose back (#2391,
+# #2392). Authority logic (projection, validation, apply) stays in `svc-policy-view`;
+# this crate carries only the wire shapes and stable string vocabularies that
+# `protocol-codegen` mirrors to TypeScript. Like `protocol-scene`, it depends on
+# `core-ids` only — pure data, no behavior.
+[dependencies]
+core-ids = { path = "../../foundation/core-ids" }

@@ -20,6 +20,12 @@ import type {
   Command,
 } from '@asha/contracts';
 
+// Read-only world-layer view a policy is handed (#2391).
+export * from './world-view.js';
+
+// Deterministic execution envelope (#2393): the only source of time/random/tick.
+export * from './env.js';
+
 // Re-export the generated contract surface a policy needs, so authors have a
 // single import. Render and replay families are intentionally NOT re-exported:
 // a policy has no business with them.

@@ -380,6 +380,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "protocol-policy-view"
+version = "0.1.0"
+dependencies = [
+ "core-ids",
+]
+
+[[package]]
 name = "protocol-render"
 version = "0.1.0"
 dependencies = [
@@ -705,6 +712,17 @@ version = "0.1.0"
 [[package]]
 name = "svc-physics"
 version = "0.1.0"
+
+[[package]]
+name = "svc-policy-view"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "core-entity",
+ "core-ids",
+ "core-math",
+ "protocol-policy-view",
+]
 
 [[package]]
 name = "svc-rng"

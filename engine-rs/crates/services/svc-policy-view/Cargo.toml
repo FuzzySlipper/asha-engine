@@ -1,0 +1,14 @@
+[package]
+name = "svc-policy-view"
+version.workspace = true
+edition.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+core-ids = { path = "../../foundation/core-ids" }
+core-math = { path = "../../foundation/core-math" }
+core-assets = { path = "../../foundation/core-assets" }
+core-entity = { path = "../../state/core-entity" }
+protocol-policy-view = { path = "../../protocol/protocol-policy-view" }

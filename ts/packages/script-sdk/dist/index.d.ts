@@ -1,4 +1,6 @@
 import type { EntityId, ModeId, ProcessId, SignalId, SubjectId, TagId, ScriptView, EntityView, ProcessView, Command } from '@asha/contracts';
+export * from './world-view.js';
+export * from './env.js';
 export type { EntityId, SubjectId, ProcessId, ModeId, SignalId, TagId, ScriptView, EntityView, ProcessView, Command, CommandEnvelope, CommandKind, EntityCommand, SubjectCommand, ProcessCommand, ModeCommand, SignalCommand, TagCommand, ScriptRejection, ScriptOutcome, } from '@asha/contracts';
 export { entityId, subjectId, processId, modeId, signalId, tagId, } from '@asha/contracts';
 /** The read-only view a policy is handed. Backed by the generated `ScriptView`. */

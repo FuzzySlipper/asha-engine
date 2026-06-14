@@ -1,4 +1,6 @@
 import type { Policy, PolicyCommand, PolicyView } from '@asha/script-sdk';
+export * from './sandbox.js';
+export * from './tick.js';
 /** A policy paired with a stable name, so diagnostics can identify it. */
 export interface NamedPolicy {
     readonly name: string;

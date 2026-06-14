@@ -1597,6 +1597,158 @@ pub fn assets_module() -> Module {
     }
 }
 
+// ── policyView.ts — read-only world view a constrained policy is handed ────────
+
+pub fn policy_view_module() -> Module {
+    let imports = vec![import("./ids.js", &["EntityId", "TagId"])];
+
+    let triple = || TsType::Tuple(vec![num(), num(), num()]);
+    let quad = || TsType::Tuple(vec![num(), num(), num(), num()]);
+
+    let items = vec![
+        iface(
+            "A runtime transform as a policy sees it (translation, rotation xyzw, scale).",
+            "PolicyTransform",
+            vec![
+                f("translation", triple()),
+                f("rotation", quad()),
+                f("scale", triple()),
+            ],
+        ),
+        Item::Alias {
+            doc: "Lifecycle states a policy may observe. Tombstoned entities are omitted, never shown."
+                .to_string(),
+            name: "PolicyEntityLifecycle".to_string(),
+            ty: TsType::StringEnum(vec!["active".to_string(), "disabled".to_string()]),
+        },
+        union(
+            "Where an entity came from, as a policy sees it. DiagnosticTooling is redacted entirely.",
+            "PolicyEntitySource",
+            "kind",
+            vec![
+                v("sceneNode", vec![f("node", num())]),
+                v("runtime", vec![]),
+                v("imported", vec![f("asset", string())]),
+                v("policy", vec![]),
+            ],
+        ),
+        Item::Alias {
+            doc: "Catalog resolution status of an asset a policy may reference.".to_string(),
+            name: "PolicyAssetStatus".to_string(),
+            ty: TsType::StringEnum(vec![
+                "resolved".to_string(),
+                "missing".to_string(),
+                "stale".to_string(),
+            ]),
+        },
+        iface(
+            "One asset a policy may reason about: id, kind, and resolution status.",
+            "PolicyAssetView",
+            vec![
+                f("id", string()),
+                f("kind", string()),
+                f("status", r("PolicyAssetStatus")),
+            ],
+        ),
+        iface(
+            "One entity as a policy sees it: identity, lifecycle, optional transform, source, labels, spatiality.",
+            "PolicyEntityView",
+            vec![
+                f("id", r("EntityId")),
+                f("lifecycle", r("PolicyEntityLifecycle")),
+                f("transform", TsType::nullable(r("PolicyTransform"))),
+                f("source", r("PolicyEntitySource")),
+                f("labels", TsType::array(r("TagId"))),
+                f("spatial", boolean()),
+            ],
+        ),
+        iface(
+            "Cheap aggregate counts so a policy can branch without scanning the whole view.",
+            "PolicyWorldSummary",
+            vec![
+                f("tick", num()),
+                f("activeEntities", num()),
+                f("spatialEntities", num()),
+                f("assetCount", num()),
+                f("missingAssets", num()),
+            ],
+        ),
+        iface(
+            "The complete read-only world projection handed to a policy for one tick.",
+            "PolicyWorldView",
+            vec![
+                f("tick", num()),
+                f("entities", TsType::array(r("PolicyEntityView"))),
+                f("assets", TsType::array(r("PolicyAssetView"))),
+                f("summary", r("PolicyWorldSummary")),
+            ],
+        ),
+        union(
+            "The narrow, safe set of world/entity actions a policy may propose. Each is a request; authority validates and applies or rejects.",
+            "PolicyWorldCommand",
+            "kind",
+            vec![
+                v(
+                    "requestSetTransform",
+                    vec![f("entity", r("EntityId")), f("transform", r("PolicyTransform"))],
+                ),
+                v(
+                    "requestAddLabel",
+                    vec![f("entity", r("EntityId")), f("label", r("TagId"))],
+                ),
+                v("requestDisable", vec![f("entity", r("EntityId"))]),
+                v("noopMarker", vec![f("note", string())]),
+            ],
+        ),
+        union(
+            "The accepted domain event a validated command becomes. Distinct from the command and the rejection.",
+            "PolicyWorldEvent",
+            "kind",
+            vec![
+                v(
+                    "transformSet",
+                    vec![f("entity", r("EntityId")), f("transform", r("PolicyTransform"))],
+                ),
+                v(
+                    "labelAdded",
+                    vec![f("entity", r("EntityId")), f("label", r("TagId"))],
+                ),
+                v("disabled", vec![f("entity", r("EntityId"))]),
+                v("noopRecorded", vec![f("note", string())]),
+            ],
+        ),
+        Item::Alias {
+            doc: "The classified reason authority refused a proposed command. A policy reflects this; it never decides acceptance."
+                .to_string(),
+            name: "PolicyWorldRejection".to_string(),
+            ty: TsType::StringEnum(vec![
+                "unknownEntity".to_string(),
+                "entityDisabled".to_string(),
+                "notSpatial".to_string(),
+                "immovable".to_string(),
+                "invalidTransform".to_string(),
+                "labelAlreadyPresent".to_string(),
+                "alreadyDisabled".to_string(),
+            ]),
+        },
+        union(
+            "The outcome authority reports for one proposed command: accepted (with its event) or rejected (with the reason).",
+            "PolicyWorldOutcome",
+            "status",
+            vec![
+                v("accepted", vec![f("event", r("PolicyWorldEvent"))]),
+                v("rejected", vec![f("rejection", r("PolicyWorldRejection"))]),
+            ],
+        ),
+    ];
+
+    Module {
+        name: "policyView",
+        imports,
+        items,
+    }
+}
+
 // ── index.ts — barrel ─────────────────────────────────────────────────────────
 
 pub fn index_module() -> Module {
@@ -1631,6 +1783,9 @@ pub fn index_module() -> Module {
             Item::ReExport {
                 from: "./diagnostics.js".to_string(),
             },
+            Item::ReExport {
+                from: "./policyView.js".to_string(),
+            },
         ],
     }
 }
@@ -1647,6 +1802,7 @@ pub fn all_modules() -> Vec<Module> {
         world_bundle_module(),
         assets_module(),
         diagnostics_module(),
+        policy_view_module(),
         index_module(),
     ]
 }

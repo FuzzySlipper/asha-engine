@@ -1,0 +1,7 @@
+policy-tick 1 accepted=3 rejected=3
+  [0] requestSetTransform entity=1 translation=[4, 0, 0] -> accepted transformSet entity=1
+  [1] requestSetTransform entity=2 translation=[0, 0, 0] -> rejected notSpatial
+  [2] requestSetTransform entity=3 translation=[0, 0, 0] -> rejected entityDisabled
+  [3] requestAddLabel entity=1 label=5 -> accepted labelAdded entity=1 label=5
+  [4] requestDisable entity=99 -> rejected unknownEntity
+  [5] noopMarker note="tick-complete" -> accepted noopRecorded note="tick-complete"

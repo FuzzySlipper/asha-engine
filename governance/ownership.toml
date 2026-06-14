@@ -137,6 +137,15 @@ lane = "contract-steward"
 may_depend_on = ["core-ids", "core-assets"]
 may_not_depend_on = ["core-state", "core-catalog", "sim-kernel", "protocol-render", "wasm-api", "render-bridge"]
 
+# Policy world-layer cross-boundary schema (policy-integration super, #2391/#2392):
+# the read-only world view a constrained policy is handed, and the narrow
+# world/entity command + event + rejection + outcome shapes it may propose back.
+# Projection/validation/apply stay in svc-policy-view. core-ids only.
+[crate."engine-rs/crates/protocol/protocol-policy-view"]
+lane = "contract-steward"
+may_depend_on = ["core-ids"]
+may_not_depend_on = ["core-state", "core-entity", "core-scene", "sim-kernel", "protocol-render", "wasm-api", "render-bridge"]
+
 [crate."engine-rs/crates/protocol/protocol-codegen"]
 lane = "contract-steward"
 may_depend_on = ["protocol-ids", "protocol-script", "protocol-render", "protocol-replay", "protocol-telemetry", "protocol-diagnostics", "protocol-scene", "protocol-world-bundle", "protocol-assets"]
@@ -211,6 +220,15 @@ may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 [crate."engine-rs/crates/services/svc-mesh"]
 lane = "rust-service"
 may_depend_on = ["core-ids", "core-math", "core-error", "core-space", "core-voxel", "svc-volume", "svc-spatial"]
+may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
+
+# Deterministic policy world-layer service (policy-integration super, #2391/#2392/
+# #2394): projects authority state into the read-only PolicyWorldView, validates
+# proposed PolicyWorldCommands into events or classified rejections, and records the
+# proposed/accepted/rejected replay path. Reads authority state; never renders.
+[crate."engine-rs/crates/services/svc-policy-view"]
+lane = "rust-service"
+may_depend_on = ["core-ids", "core-math", "core-error", "core-assets", "core-entity", "protocol-policy-view"]
 may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 # ─── Rust: Rules ─────────────────────────────────────────────────────────────
@@ -312,11 +330,13 @@ may_import = []
 lane = "ts-policy"
 may_import = ["@asha/contracts"]
 may_not_import = ["@asha/renderer-three", "@asha/ui-dom", "@asha/runtime-bridge", "@asha/native-bridge", "@asha/wasm-replay-bridge", "@asha/electron-main"]
+forbid_globals = ["Date", "Math.random", "document", "window", "localStorage", "fetch"]
 
 [package."ts/packages/script-host"]
 lane = "ts-policy"
 may_import = ["@asha/contracts", "@asha/script-sdk"]
-may_not_import = ["@asha/renderer-three", "@asha/ui-dom", "@asha/electron-main"]
+may_not_import = ["@asha/renderer-three", "@asha/ui-dom", "@asha/runtime-bridge", "@asha/native-bridge", "@asha/wasm-replay-bridge", "@asha/electron-main"]
+forbid_globals = ["Date", "Math.random", "document", "window", "localStorage", "fetch"]
 
 [package."ts/packages/policy-core"]
 lane = "ts-policy"

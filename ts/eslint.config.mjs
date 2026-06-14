@@ -21,6 +21,20 @@ const FORBIDDEN_SHELL_IMPORTS = [
       "ts-policy/ts-catalog may not import the ts-shell wasm bridge. Policy proposes commands; it never touches WASM memory.",
   },
   {
+    name: "@asha/wasm-replay-bridge",
+    message:
+      "ts-policy/ts-catalog may not import the ts-shell wasm replay bridge. Policy proposes commands; it never touches WASM memory.",
+  },
+  {
+    name: "@asha/runtime-bridge",
+    message:
+      "ts-policy/ts-catalog may not import the runtime bridge. Policy proposes commands across the contract border; it never drives the bridge.",
+  },
+  {
+    name: "@asha/native-bridge",
+    message: "ts-policy/ts-catalog may not import the native addon bridge.",
+  },
+  {
     name: "@asha/electron-main",
     message: "ts-policy/ts-catalog may not import the Electron main process.",
   },
@@ -44,7 +58,12 @@ export default [
   // Policy/catalog sandbox: forbid dangerous globals everywhere in the package,
   // including tests — determinism must hold for fixtures too.
   {
-    files: ["packages/policy-*/**/*.ts", "packages/catalog-*/**/*.ts"],
+    files: [
+      "packages/policy-*/**/*.ts",
+      "packages/catalog-*/**/*.ts",
+      "packages/script-sdk/**/*.ts",
+      "packages/script-host/**/*.ts",
+    ],
     rules: {
       "no-restricted-globals": [
         "error",
@@ -67,7 +86,12 @@ export default [
   // files legitimately use Node's built-in test runner and fixture I/O, so they
   // are excluded from this block; policy/catalog *source* must stay pure.
   {
-    files: ["packages/policy-*/**/*.ts", "packages/catalog-*/**/*.ts"],
+    files: [
+      "packages/policy-*/**/*.ts",
+      "packages/catalog-*/**/*.ts",
+      "packages/script-sdk/**/*.ts",
+      "packages/script-host/**/*.ts",
+    ],
     ignores: ["**/*.test.ts"],
     rules: {
       "no-restricted-imports": [

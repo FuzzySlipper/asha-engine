@@ -6,6 +6,10 @@
 // re-exported from the generated contracts), never mutates state, and never
 // reaches for the renderer, UI, bridge, Electron, filesystem, network, clock, or
 // ambient randomness. The Rust authority core remains the sole validator.
+// Read-only world-layer view a policy is handed (#2391).
+export * from './world-view.js';
+// Deterministic execution envelope (#2393): the only source of time/random/tick.
+export * from './env.js';
 export { entityId, subjectId, processId, modeId, signalId, tagId, } from '@asha/contracts';
 // ── Command construction helpers ──────────────────────────────────────────────
 /**
