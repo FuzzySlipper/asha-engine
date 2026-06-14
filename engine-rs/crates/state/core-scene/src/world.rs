@@ -16,6 +16,28 @@
 //! entities. The world's public transform/provenance API is unchanged, and the
 //! [`WorldState::hash`] byte sequence is preserved (every world entity carries a
 //! transform today, so the fingerprint is identical).
+//!
+//! # Spatial-world invariant (#2425, decision: option 1)
+//!
+//! The generic entity model treats transform as an *optional* capability, but
+//! `WorldState` is the **spatial scene-runtime world**: every live entity it holds
+//! has the transform capability. This is enforced by construction — the only ways
+//! to add an entity are [`WorldState::insert_scene_entity`] and
+//! [`WorldState::create_runtime_entity`], both of which attach a transform, and
+//! there is no public destroy/disable/detach path that could strip one. Non-spatial
+//! / logical entities therefore do **not** live in a `WorldState`; they belong in a
+//! separate [`core_entity::EntityStore`] scope.
+//!
+//! Consequences this module guarantees:
+//! * [`WorldState::entities`] and [`WorldState::hash`] iterate **live** entities
+//!   only, so a (currently unreachable) tombstone — whose capabilities are cleared
+//!   — can never feed a transform-less record into the fingerprint.
+//! * [`WorldState::hash`] therefore cannot panic from any normal public API path.
+//!   The `expect` it contains documents the spatial-world invariant for future
+//!   maintainers, and `tests/world_invariant.rs` proves it holds across the public
+//!   surface. A worker who wants non-spatial entities in the world authority must
+//!   revisit this decision (option 2: hash `Option<Transform>` deterministically),
+//!   not silently insert transform-less entities here.
 
 use std::collections::BTreeMap;
 
@@ -150,35 +172,45 @@ impl WorldState {
             .attach_transform(entity, to_entity_transform(transform))
     }
 
-    /// Entities (with their runtime views) in ascending id order.
+    /// Live entities (with their runtime views) in ascending id order. Tombstoned
+    /// entities are excluded: in the spatial-world model (see module docs) a live
+    /// world entity always has a transform, while a tombstone has none.
     pub fn entities(&self) -> impl Iterator<Item = (EntityId, EntityRuntime)> + '_ {
-        self.entities.entities().map(|core| {
-            (
-                core.id,
-                EntityRuntime {
-                    transform: self
-                        .entities
-                        .transform(core.id)
-                        .map(|c| to_scene_transform(c.transform)),
-                    source_node: core.source.scene_node(),
-                },
-            )
-        })
+        self.entities
+            .entities()
+            .filter(|core| core.lifecycle.is_alive())
+            .map(|core| {
+                (
+                    core.id,
+                    EntityRuntime {
+                        transform: self
+                            .entities
+                            .transform(core.id)
+                            .map(|c| to_scene_transform(c.transform)),
+                        source_node: core.source.scene_node(),
+                    },
+                )
+            })
     }
 
-    /// Deterministic FNV-1a fingerprint of the world: id, then each entity (in
-    /// ascending id order) with its transform bits and source node. The byte
+    /// Deterministic FNV-1a fingerprint of the world: id, then each **live** entity
+    /// (in ascending id order) with its transform bits and source node. The byte
     /// sequence is preserved from the pre-composition layout so world hashes (and
     /// the bootstrap-summary golden) stay stable.
+    ///
+    /// Cannot panic from a normal public API path: by the spatial-world invariant
+    /// (module docs) every live world entity has a transform, and only live
+    /// entities are hashed. The `expect` documents that invariant for maintainers.
     pub fn hash(&self) -> WorldHash {
         let mut h = Fnv1a::new();
         h.write_u64(self.id.raw());
         h.write_u8(0x01); // entities section
         for (id, rec) in self.entities() {
             h.write_u64(id.raw());
-            let transform = rec
-                .transform
-                .expect("world entities carry a transform capability");
+            let transform = rec.transform.expect(
+                "spatial-world invariant: every live WorldState entity has a transform \
+                 (see module docs, #2425)",
+            );
             hash_transform(&mut h, &transform);
             match rec.source_node {
                 Some(n) => {
