@@ -44,14 +44,20 @@ export class RenderApplyError extends Error {
 }
 
 /**
- * The capability the renderer needs to upload a handle-backed mesh payload: borrow
- * the bridge-owned bytes for a {@link RuntimeBufferHandle}. Satisfied by the
- * `@asha/runtime-bridge` facade (`Pick<RuntimeBridge, 'getBuffer'>`); the renderer
- * never owns the bytes, never mutates authority, and copies out immediately so the
- * borrow is not retained past the upload.
+ * The capability the renderer needs to upload a handle-backed mesh payload.
+ *
+ * Lifetime semantics (#2428): **borrow → copy → release**. The renderer borrows the
+ * bridge-owned bytes with {@link getBuffer}, copies every declared stream out into
+ * fresh, renderer-owned typed arrays, and then returns the borrow with
+ * {@link releaseBuffer} — on both the success and the failure path. It never retains
+ * the borrowed view, never mutates authority, and never owns the bridge's bytes.
+ *
+ * Satisfied by the `@asha/runtime-bridge` facade
+ * (`Pick<RuntimeBridge, 'getBuffer' | 'releaseBuffer'>`).
  */
 export interface MeshBufferSource {
   getBuffer(handle: RuntimeBufferHandle): RuntimeBufferView;
+  releaseBuffer(handle: RuntimeBufferHandle): void;
 }
 
 type NodeKind = 'primitive' | 'staticMesh' | 'sprite';
@@ -301,12 +307,15 @@ export class ThreeRenderer {
       existing.geometry.dispose();
       existing.materials.forEach((m) => m.dispose());
     }
-    if (asset.payload.source.kind !== 'inline') {
-      throw new RenderApplyError(
-        `defineStaticMesh: handle-source payloads need a runtime buffer provider (not wired yet)`,
-      );
-    }
-    const geometry = buildMeshGeometry(asset.payload);
+    // Inline and handle-backed payloads both upload here (#2428): a handle-backed
+    // static mesh asset borrows the bridge buffer, copies its bytes out, and
+    // releases the borrow. A missing provider / unknown / stale / too-small buffer
+    // fails closed below — never silently producing empty geometry.
+    const geometry = buildMeshGeometry(
+      asset.payload,
+      this.#meshBufferSource,
+      'defineStaticMesh',
+    );
     const slotIndex = new Map<number, number>();
     const materials = asset.materialSlots.map((s, i) => {
       slotIndex.set(s.slot, i);
@@ -620,7 +629,7 @@ export class ThreeRenderer {
     if (!(object instanceof THREE.Mesh)) {
       throw new RenderApplyError(`replaceMeshPayload: handle ${diff.handle} is not a mesh`);
     }
-    const geometry = buildMeshGeometry(diff.payload, this.#meshBufferSource);
+    const geometry = buildMeshGeometry(diff.payload, this.#meshBufferSource, 'replaceMeshPayload');
     const materials = diff.payload.groups.map((g) => {
       const m = new THREE.MeshBasicMaterial({ color: this.#slotColor(g.materialSlot) });
       return m;
@@ -784,12 +793,13 @@ function buildMaterial(shape: Geometry['shape'], material: Material): THREE.Mate
  */
 function buildMeshGeometry(
   payload: MeshPayloadDescriptor,
-  bufferSource?: MeshBufferSource,
+  bufferSource: MeshBufferSource | undefined,
+  ctx: string,
 ): THREE.BufferGeometry {
   const streams =
     payload.source.kind === 'inline'
       ? inlineStreams(payload.source)
-      : handleStreams(payload, payload.source, bufferSource);
+      : handleStreams(payload, payload.source, bufferSource, ctx);
 
   const positionComponents = attributeComponents(payload, 'position');
   const normalComponents = attributeComponents(payload, 'normal');
@@ -823,36 +833,54 @@ function inlineStreams(source: Extract<MeshPayloadDescriptor['source'], { kind: 
 }
 
 /**
- * Resolve a handle-backed payload's bytes and slice each stream out by byte offset.
- * Copies out of the borrowed buffer immediately (so the borrow is not retained) and
- * validates that every declared stream fits within the buffer and that indices are
- * in range before producing geometry.
+ * Resolve a handle-backed payload's bytes under the **borrow → copy → release**
+ * contract (#2428): borrow the buffer, copy every declared stream out immediately
+ * (so the borrow is never retained), then release the borrow. The borrow is
+ * released on both the success and the failure path; a missing provider, an
+ * unknown/stale/expired handle, an out-of-bounds window, or an out-of-range index
+ * all fail closed with a classified `RenderApplyError` — never empty geometry.
  */
 function handleStreams(
   payload: MeshPayloadDescriptor,
   source: Extract<MeshPayloadDescriptor['source'], { kind: 'handle' }>,
-  bufferSource?: MeshBufferSource,
+  bufferSource: MeshBufferSource | undefined,
+  ctx: string,
 ): MeshStreams {
   if (bufferSource === undefined) {
     throw new RenderApplyError(
-      `replaceMeshPayload: handle-source payload needs a runtime buffer provider (buffer ${source.buffer})`,
+      `${ctx}: handle-source payload needs a runtime buffer provider (buffer ${source.buffer})`,
     );
   }
 
+  const handle = source.buffer as RuntimeBufferHandle;
   let view: RuntimeBufferView;
   try {
-    view = bufferSource.getBuffer(source.buffer as RuntimeBufferHandle);
+    view = bufferSource.getBuffer(handle);
   } catch (cause) {
-    if (cause instanceof RuntimeBridgeError) {
-      // The bridge error is already classified (unknown_handle / buffer_expired);
-      // surface it at the renderer boundary as a RenderApplyError, not a crash.
-      throw new RenderApplyError(
-        `replaceMeshPayload: buffer ${source.buffer} unavailable [${cause.kind}]: ${cause.message}`,
-      );
-    }
-    throw cause;
+    // No borrow was acquired, so nothing to release. Classify and fail closed.
+    throw classifyBufferError(cause, source.buffer, ctx, 'unavailable');
   }
 
+  // Borrow acquired — copy out, then release exactly once on every exit path.
+  let streams: MeshStreams;
+  try {
+    streams = copyHandleStreams(view, payload, source, ctx);
+  } catch (cause) {
+    releaseBorrowBestEffort(bufferSource, handle); // failure path: never mask the cause
+    throw cause;
+  }
+  // Success path: release and surface a classified error if release itself fails.
+  releaseBorrow(bufferSource, handle, source.buffer, ctx);
+  return streams;
+}
+
+/** Copy + validate the three streams out of a borrowed view (no borrow retained). */
+function copyHandleStreams(
+  view: RuntimeBufferView,
+  payload: MeshPayloadDescriptor,
+  source: Extract<MeshPayloadDescriptor['source'], { kind: 'handle' }>,
+  ctx: string,
+): MeshStreams {
   const { vertexCount, indexCount } = payload.layout;
   const positionComponents = attributeComponents(payload, 'position');
   const normalComponents = attributeComponents(payload, 'normal');
@@ -863,6 +891,7 @@ function handleStreams(
     vertexCount * positionComponents,
     'positions',
     source.buffer,
+    ctx,
   );
   const normals = sliceFloat32(
     view,
@@ -870,17 +899,52 @@ function handleStreams(
     vertexCount * normalComponents,
     'normals',
     source.buffer,
+    ctx,
   );
-  const indices = sliceUint32(view, source.indicesByteOffset, indexCount, source.buffer);
+  const indices = sliceUint32(view, source.indicesByteOffset, indexCount, source.buffer, ctx);
 
   for (let i = 0; i < indices.length; i++) {
     if ((indices[i] as number) >= vertexCount) {
       throw new RenderApplyError(
-        `replaceMeshPayload: index ${indices[i]} out of range for ${vertexCount} vertices (buffer ${source.buffer})`,
+        `${ctx}: index ${indices[i]} out of range for ${vertexCount} vertices (buffer ${source.buffer})`,
       );
     }
   }
   return { positions, normals, indices };
+}
+
+/** Map a classified bridge error to a renderer-boundary `RenderApplyError`. */
+function classifyBufferError(cause: unknown, buffer: number, ctx: string, what: string): unknown {
+  if (cause instanceof RuntimeBridgeError) {
+    return new RenderApplyError(
+      `${ctx}: buffer ${buffer} ${what} [${cause.kind}]: ${cause.message}`,
+    );
+  }
+  return cause;
+}
+
+/** Release a borrow on the success path; a release failure is classified, not hidden. */
+function releaseBorrow(
+  bufferSource: MeshBufferSource,
+  handle: RuntimeBufferHandle,
+  buffer: number,
+  ctx: string,
+): void {
+  try {
+    bufferSource.releaseBuffer(handle);
+  } catch (cause) {
+    throw classifyBufferError(cause, buffer, ctx, 'release failed');
+  }
+}
+
+/** Release a borrow on a failure path; swallow release errors so the original
+ *  failure (the reason we are unwinding) is the one the caller sees. */
+function releaseBorrowBestEffort(bufferSource: MeshBufferSource, handle: RuntimeBufferHandle): void {
+  try {
+    bufferSource.releaseBuffer(handle);
+  } catch {
+    // best-effort: the copy/validation error already in flight is the primary one
+  }
 }
 
 /** Components-per-vertex for a declared attribute (defaults to 3 if unspecified). */
@@ -896,9 +960,10 @@ function sliceFloat32(
   count: number,
   label: string,
   buffer: number,
+  ctx: string,
 ): Float32Array {
   const byteLength = count * Float32Array.BYTES_PER_ELEMENT;
-  const bytes = requireBytes(view, byteOffset, byteLength, label, buffer);
+  const bytes = requireBytes(view, byteOffset, byteLength, label, buffer, ctx);
   return new Float32Array(bytes.buffer, bytes.byteOffset, count);
 }
 
@@ -908,9 +973,10 @@ function sliceUint32(
   byteOffset: number,
   count: number,
   buffer: number,
+  ctx: string,
 ): Uint32Array {
   const byteLength = count * Uint32Array.BYTES_PER_ELEMENT;
-  const bytes = requireBytes(view, byteOffset, byteLength, 'indices', buffer);
+  const bytes = requireBytes(view, byteOffset, byteLength, 'indices', buffer, ctx);
   return new Uint32Array(bytes.buffer, bytes.byteOffset, count);
 }
 
@@ -925,10 +991,11 @@ function requireBytes(
   byteLength: number,
   label: string,
   buffer: number,
+  ctx: string,
 ): Uint8Array {
   if (byteOffset < 0 || byteOffset + byteLength > view.bytes.length) {
     throw new RenderApplyError(
-      `replaceMeshPayload: ${label} window [${byteOffset}, ${byteOffset + byteLength}) ` +
+      `${ctx}: ${label} window [${byteOffset}, ${byteOffset + byteLength}) ` +
         `exceeds buffer ${buffer} length ${view.bytes.length}`,
     );
   }

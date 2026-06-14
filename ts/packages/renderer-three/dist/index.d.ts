@@ -6,14 +6,20 @@ export declare class RenderApplyError extends Error {
     constructor(message: string);
 }
 /**
- * The capability the renderer needs to upload a handle-backed mesh payload: borrow
- * the bridge-owned bytes for a {@link RuntimeBufferHandle}. Satisfied by the
- * `@asha/runtime-bridge` facade (`Pick<RuntimeBridge, 'getBuffer'>`); the renderer
- * never owns the bytes, never mutates authority, and copies out immediately so the
- * borrow is not retained past the upload.
+ * The capability the renderer needs to upload a handle-backed mesh payload.
+ *
+ * Lifetime semantics (#2428): **borrow → copy → release**. The renderer borrows the
+ * bridge-owned bytes with {@link getBuffer}, copies every declared stream out into
+ * fresh, renderer-owned typed arrays, and then returns the borrow with
+ * {@link releaseBuffer} — on both the success and the failure path. It never retains
+ * the borrowed view, never mutates authority, and never owns the bridge's bytes.
+ *
+ * Satisfied by the `@asha/runtime-bridge` facade
+ * (`Pick<RuntimeBridge, 'getBuffer' | 'releaseBuffer'>`).
  */
 export interface MeshBufferSource {
     getBuffer(handle: RuntimeBufferHandle): RuntimeBufferView;
+    releaseBuffer(handle: RuntimeBufferHandle): void;
 }
 /**
  * A retained Three.js scene driven entirely by render diffs.

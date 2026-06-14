@@ -284,10 +284,15 @@ function quadHandlePayload(buffer: number): MeshPayloadDescriptor {
   };
 }
 
-/** A minimal in-memory mesh buffer source mirroring the runtime bridge contract. */
+/** A minimal in-memory mesh buffer source mirroring the runtime bridge contract,
+ *  recording borrow/release calls so tests can assert the lifetime semantics. */
 class MapBufferSource implements MeshBufferSource {
   readonly #buffers = new Map<number, Uint8Array>();
   #expired = new Set<number>();
+  #failRelease = new Set<number>();
+  /** Handles passed to getBuffer / releaseBuffer, in call order. */
+  readonly borrowed: number[] = [];
+  readonly released: number[] = [];
 
   set(handle: number, bytes: Uint8Array): void {
     this.#buffers.set(handle, bytes);
@@ -295,6 +300,15 @@ class MapBufferSource implements MeshBufferSource {
 
   expire(handle: number): void {
     this.#expired.add(handle);
+  }
+
+  failReleaseOf(handle: number): void {
+    this.#failRelease.add(handle);
+  }
+
+  /** Borrows minus releases — must return to zero after every upload. */
+  get outstanding(): number {
+    return this.borrowed.length - this.released.length;
   }
 
   getBuffer(handle: RuntimeBufferHandle): RuntimeBufferView {
@@ -306,7 +320,16 @@ class MapBufferSource implements MeshBufferSource {
     if (bytes === undefined) {
       throw new RuntimeBridgeError('unknown_handle', `no buffer for handle ${raw}`);
     }
+    this.borrowed.push(raw);
     return { handle, bytes };
+  }
+
+  releaseBuffer(handle: RuntimeBufferHandle): void {
+    const raw = handle as number;
+    this.released.push(raw);
+    if (this.#failRelease.has(raw)) {
+      throw new RuntimeBridgeError('unknown_handle', `release: no buffer for handle ${raw}`);
+    }
   }
 }
 
@@ -380,6 +403,115 @@ test('a buffer too small for the declared layout fails closed', () => {
   assert.throws(
     () => r.applyDiff({ op: 'replaceMeshPayload', handle: h, payload: quadHandlePayload(7) }),
     /exceeds buffer/,
+  );
+});
+
+test('replaceMeshPayload releases the borrow on success (borrow → copy → release)', () => {
+  const source = new MapBufferSource();
+  source.set(7, quadHandleBytes());
+  const r = new ThreeRenderer({ meshBufferSource: source });
+  const h = renderHandle(1);
+  r.applyDiff({ op: 'create', handle: h, parent: null, node: meshNode() });
+  r.applyDiff({ op: 'replaceMeshPayload', handle: h, payload: quadHandlePayload(7) });
+  assert.deepEqual(source.borrowed, [7]);
+  assert.deepEqual(source.released, [7]);
+  assert.equal(source.outstanding, 0, 'no borrow is retained past the upload');
+});
+
+// ── Handle-backed static mesh ASSETS (#2428) ──────────────────────────────────
+
+/** A `mesh/crate` static mesh asset whose payload is addressed by a buffer handle. */
+function handleCrateAsset(buffer: number): StaticMeshAsset {
+  return { ...crateAsset(), payload: { ...quadHandlePayload(buffer), provenance: 'staticAsset' } };
+}
+
+test('defineStaticMesh consumes a handle-backed payload and releases the borrow', () => {
+  const source = new MapBufferSource();
+  source.set(7, quadHandleBytes());
+  const r = new ThreeRenderer({ meshBufferSource: source });
+
+  r.applyDiff({ op: 'defineStaticMesh', asset: handleCrateAsset(7) });
+  r.applyDiff({
+    op: 'createStaticMeshInstance',
+    handle: renderHandle(1),
+    parent: null,
+    instance: crateInstance(),
+  });
+
+  // Borrow was released; nothing retained.
+  assert.deepEqual(source.released, [7]);
+  assert.equal(source.outstanding, 0);
+
+  // The handle-backed asset produced the same geometry as the inline path.
+  const inline = new ThreeRenderer();
+  inline.applyDiff({ op: 'defineStaticMesh', asset: crateAsset() });
+  inline.applyDiff({
+    op: 'createStaticMeshInstance',
+    handle: renderHandle(1),
+    parent: null,
+    instance: crateInstance(),
+  });
+  const handleGeo = (r.objectFor(renderHandle(1)) as THREE.Mesh).geometry;
+  const inlineGeo = (inline.objectFor(renderHandle(1)) as THREE.Mesh).geometry;
+  assert.deepEqual(
+    Array.from(handleGeo.getAttribute('position').array),
+    Array.from(inlineGeo.getAttribute('position').array),
+  );
+  assert.deepEqual(Array.from(handleGeo.getIndex()!.array), Array.from(inlineGeo.getIndex()!.array));
+});
+
+test('defineStaticMesh with a handle payload but no provider fails closed', () => {
+  const r = new ThreeRenderer(); // no buffer source
+  assert.throws(
+    () => r.applyDiff({ op: 'defineStaticMesh', asset: handleCrateAsset(7) }),
+    /defineStaticMesh: handle-source payload needs a runtime buffer provider/,
+  );
+  // The asset was not defined (no empty geometry left behind).
+  assert.throws(
+    () =>
+      r.applyDiff({
+        op: 'createStaticMeshInstance',
+        handle: renderHandle(1),
+        parent: null,
+        instance: crateInstance(),
+      }),
+    /undefined static mesh asset/,
+  );
+});
+
+test('defineStaticMesh with an unknown handle fails closed without leaking a borrow', () => {
+  const source = new MapBufferSource(); // buffer 7 never set
+  const r = new ThreeRenderer({ meshBufferSource: source });
+  assert.throws(
+    () => r.applyDiff({ op: 'defineStaticMesh', asset: handleCrateAsset(7) }),
+    /defineStaticMesh: buffer 7 unavailable \[unknown_handle\]/,
+  );
+  assert.equal(source.outstanding, 0, 'getBuffer threw, so no borrow to release');
+  assert.deepEqual(source.released, []);
+});
+
+test('defineStaticMesh releases the borrow even when the copy fails (too small)', () => {
+  const source = new MapBufferSource();
+  source.set(7, quadHandleBytes().slice(0, 64)); // truncated
+  const r = new ThreeRenderer({ meshBufferSource: source });
+  assert.throws(
+    () => r.applyDiff({ op: 'defineStaticMesh', asset: handleCrateAsset(7) }),
+    /defineStaticMesh: .* exceeds buffer/,
+  );
+  // Borrow acquired then released on the failure path — no leak.
+  assert.deepEqual(source.borrowed, [7]);
+  assert.deepEqual(source.released, [7]);
+  assert.equal(source.outstanding, 0);
+});
+
+test('a release failure on the success path is classified, not swallowed', () => {
+  const source = new MapBufferSource();
+  source.set(7, quadHandleBytes());
+  source.failReleaseOf(7);
+  const r = new ThreeRenderer({ meshBufferSource: source });
+  assert.throws(
+    () => r.applyDiff({ op: 'defineStaticMesh', asset: handleCrateAsset(7) }),
+    /defineStaticMesh: buffer 7 release failed \[unknown_handle\]/,
   );
 });
 
