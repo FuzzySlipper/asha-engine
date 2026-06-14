@@ -16,6 +16,41 @@ const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const scale = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
 const length = (a) => Math.hypot(a[0], a[1], a[2]);
+const cross = (a, b) => [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+];
+const normalize = (a) => {
+    const l = length(a);
+    return l === 0 ? a : scale(a, 1 / l);
+};
+/**
+ * Build the world-space {@link PickRay} for a pointer over the viewport, given the
+ * deterministic camera and viewport aspect (width / height). This is plain camera
+ * un-projection (perspective, vertical `fovDegrees`) — the renderer/UI's job. The
+ * voxel-grid raycast itself stays in Rust authority (`pickVoxel`); the renderer
+ * never owns voxel coordinates or runs a parallel DDA.
+ */
+export function cameraPointerRay(cam, pointer, aspect, grid, maxDistance = 1_000) {
+    const forward = normalize(sub(cam.target, cam.position));
+    // Right-handed basis; guard a degenerate up parallel to forward.
+    let right = cross(forward, cam.up);
+    if (length(right) === 0) {
+        right = cross(forward, [0, 0, 1]);
+    }
+    right = normalize(right);
+    const trueUp = cross(right, forward);
+    const tanHalfFov = Math.tan((cam.fovDegrees * Math.PI) / 360);
+    const [px, py] = pointer;
+    const dir = normalize(add(add(forward, scale(right, px * aspect * tanHalfFov)), scale(trueUp, py * tanHalfFov)));
+    return {
+        grid,
+        origin: [...cam.position],
+        direction: [...dir],
+        maxDistance,
+    };
+}
 /** Dolly the camera toward/away from its target by a factor (clamped > 0). */
 export function dolly(cam, factor) {
     const offset = sub(cam.position, cam.target);

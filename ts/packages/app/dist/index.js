@@ -54,4 +54,29 @@ export class VoxelEditController {
         return command;
     }
 }
+/** The real picker: route the ray through the runtime facade's `pickVoxel` verb. */
+export function bridgePicker(bridge) {
+    return (ray) => bridge.pickVoxel(ray);
+}
+/**
+ * The single pointer→selection path: cast `ray` against authority (Rust owns the
+ * voxel-grid raycast — the renderer only built the ray) and update editor selection
+ * through pure actions. A hit selects the struck voxel + face; a classified miss
+ * clears the selection. Selection is keyed on authority voxel coordinates, never a
+ * render handle, so it survives reprojection. Returns the authority result for UI
+ * diagnostics. Never mutates voxel state.
+ */
+export function pickAndSelect(store, pick, ray) {
+    const result = pick(ray);
+    if (result.outcome === 'hit') {
+        store.dispatch({
+            type: 'setSelection',
+            selection: { voxel: result.hit.voxel, face: result.hit.face },
+        });
+    }
+    else {
+        store.dispatch({ type: 'clearSelection' });
+    }
+    return result;
+}
 //# sourceMappingURL=index.js.map

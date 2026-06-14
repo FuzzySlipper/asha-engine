@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { EditorStore, initialEditorContext, type EditorContext } from '@asha/editor-tools';
 import {
   defaultCamera,
+  cameraPointerRay,
   orbitYaw,
   dolly,
   clampCameraOutOfSolid,
@@ -97,4 +98,27 @@ test('preview overlay emits debug-layer wireframe diffs, never scene/authority',
 test('preview overlay is empty when preview is disabled or nothing selected', () => {
   assert.deepEqual(previewOverlayDiffs(selectedContext({ preview: { enabled: false } })), []);
   assert.deepEqual(previewOverlayDiffs(initialEditorContext(0)), []); // no selection
+});
+
+test('cameraPointerRay: centre pointer casts from the camera toward its target', () => {
+  const cam = defaultCamera(); // position [8,8,8] looking at origin
+  const ray = cameraPointerRay(cam, [0, 0], 1, 1);
+  assert.equal(ray.grid, 1);
+  assert.deepEqual(ray.origin, [8, 8, 8]);
+  // The centre ray points straight at the target: normalize(target - position).
+  const inv = 1 / Math.sqrt(3);
+  for (let i = 0; i < 3; i++) {
+    assert.ok(Math.abs(ray.direction[i]! - -inv) < 1e-9, `dir[${i}]`);
+  }
+});
+
+test('cameraPointerRay: a right-of-centre pointer aims further along +x in world space', () => {
+  // Camera on +Z looking at origin, world up +Y: screen-right maps to world +X.
+  const cam = { position: [0, 0, 10] as Vec3, target: [0, 0, 0] as Vec3, up: [0, 1, 0] as Vec3, fovDegrees: 60 };
+  const centre = cameraPointerRay(cam, [0, 0], 1, 1);
+  const right = cameraPointerRay(cam, [0.5, 0], 1, 1);
+  assert.ok(Math.abs(centre.direction[0]!) < 1e-9, 'centre ray has no x component');
+  assert.ok(right.direction[0]! > 0, 'a right pointer tilts the ray toward +x');
+  // It is a unit direction (pure geometry, not a DDA).
+  assert.ok(Math.abs(Math.hypot(...right.direction) - 1) < 1e-9);
 });

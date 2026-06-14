@@ -1,4 +1,4 @@
-import type { RenderDiff, VoxelCoord } from '@asha/contracts';
+import type { Face, PickRay, RenderDiff, VoxelCoord } from '@asha/contracts';
 import { type EditorContext } from '@asha/editor-tools';
 export type Vec3 = readonly [number, number, number];
 /** A deterministic camera description — stable for screenshot/golden configs. */
@@ -10,6 +10,16 @@ export interface CameraConfig {
 }
 /** A fixed default camera (deterministic): looking at the origin from +X/+Y/+Z. */
 export declare function defaultCamera(): CameraConfig;
+/** A pointer in normalized device coordinates: `x,y ∈ [-1, 1]`, `+y` up, centre `[0,0]`. */
+export type PointerNdc = readonly [number, number];
+/**
+ * Build the world-space {@link PickRay} for a pointer over the viewport, given the
+ * deterministic camera and viewport aspect (width / height). This is plain camera
+ * un-projection (perspective, vertical `fovDegrees`) — the renderer/UI's job. The
+ * voxel-grid raycast itself stays in Rust authority (`pickVoxel`); the renderer
+ * never owns voxel coordinates or runs a parallel DDA.
+ */
+export declare function cameraPointerRay(cam: CameraConfig, pointer: PointerNdc, aspect: number, grid: number, maxDistance?: number): PickRay;
 /** Dolly the camera toward/away from its target by a factor (clamped > 0). */
 export declare function dolly(cam: CameraConfig, factor: number): CameraConfig;
 /** Orbit the camera around its target by `yaw` (about up/Y) — deterministic. */
@@ -39,7 +49,7 @@ export interface InspectorReadout {
     readonly snapping: boolean;
     readonly previewEnabled: boolean;
     readonly selectedVoxel: VoxelCoord | null;
-    readonly selectedFace: string | null;
+    readonly selectedFace: Face | null;
     readonly affectedCells: number;
     readonly diagnostics: Diagnostics;
 }

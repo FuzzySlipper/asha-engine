@@ -7,7 +7,7 @@
 // render diffs that mutate nothing. Imports `@asha/contracts` + `@asha/editor-tools`
 // only — no `three`, no policy, no native bridge.
 
-import type { RenderDiff, RenderHandle, VoxelCoord } from '@asha/contracts';
+import type { Face, PickRay, RenderDiff, RenderHandle, VoxelCoord } from '@asha/contracts';
 import { renderHandle } from '@asha/contracts';
 import { type EditorContext, previewTargets } from '@asha/editor-tools';
 
@@ -32,6 +32,58 @@ const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const scale = (a: Vec3, s: number): Vec3 => [a[0] * s, a[1] * s, a[2] * s];
 const length = (a: Vec3): number => Math.hypot(a[0], a[1], a[2]);
+const cross = (a: Vec3, b: Vec3): Vec3 => [
+  a[1] * b[2] - a[2] * b[1],
+  a[2] * b[0] - a[0] * b[2],
+  a[0] * b[1] - a[1] * b[0],
+];
+const normalize = (a: Vec3): Vec3 => {
+  const l = length(a);
+  return l === 0 ? a : scale(a, 1 / l);
+};
+
+// ── Pointer + camera → world-space pick ray (pure; no DDA, no authority) ───────
+
+/** A pointer in normalized device coordinates: `x,y ∈ [-1, 1]`, `+y` up, centre `[0,0]`. */
+export type PointerNdc = readonly [number, number];
+
+/**
+ * Build the world-space {@link PickRay} for a pointer over the viewport, given the
+ * deterministic camera and viewport aspect (width / height). This is plain camera
+ * un-projection (perspective, vertical `fovDegrees`) — the renderer/UI's job. The
+ * voxel-grid raycast itself stays in Rust authority (`pickVoxel`); the renderer
+ * never owns voxel coordinates or runs a parallel DDA.
+ */
+export function cameraPointerRay(
+  cam: CameraConfig,
+  pointer: PointerNdc,
+  aspect: number,
+  grid: number,
+  maxDistance = 1_000,
+): PickRay {
+  const forward = normalize(sub(cam.target, cam.position));
+  // Right-handed basis; guard a degenerate up parallel to forward.
+  let right = cross(forward, cam.up);
+  if (length(right) === 0) {
+    right = cross(forward, [0, 0, 1]);
+  }
+  right = normalize(right);
+  const trueUp = cross(right, forward);
+  const tanHalfFov = Math.tan((cam.fovDegrees * Math.PI) / 360);
+  const [px, py] = pointer;
+  const dir = normalize(
+    add(
+      add(forward, scale(right, px * aspect * tanHalfFov)),
+      scale(trueUp, py * tanHalfFov),
+    ),
+  );
+  return {
+    grid,
+    origin: [...cam.position] as [number, number, number],
+    direction: [...dir] as [number, number, number],
+    maxDistance,
+  };
+}
 
 /** Dolly the camera toward/away from its target by a factor (clamped > 0). */
 export function dolly(cam: CameraConfig, factor: number): CameraConfig {
@@ -102,7 +154,7 @@ export interface InspectorReadout {
   readonly snapping: boolean;
   readonly previewEnabled: boolean;
   readonly selectedVoxel: VoxelCoord | null;
-  readonly selectedFace: string | null;
+  readonly selectedFace: Face | null;
   readonly affectedCells: number;
   readonly diagnostics: Diagnostics;
 }
