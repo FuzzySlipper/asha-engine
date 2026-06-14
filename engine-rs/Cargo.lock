@@ -565,8 +565,14 @@ dependencies = [
 name = "runtime-bridge-api"
 version = "0.1.0"
 dependencies = [
+ "core-commands",
  "core-error",
  "core-ids",
+ "core-space",
+ "core-voxel",
+ "rule-voxel-edit",
+ "svc-spatial",
+ "svc-volume",
 ]
 
 [[package]]

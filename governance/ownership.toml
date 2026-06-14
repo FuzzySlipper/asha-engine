@@ -471,7 +471,9 @@ may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-ho
 # Rust: bridge layer (between wasm and tools).
 [crate."engine-rs/crates/bridge/runtime-bridge-api"]
 lane = "rust-bridge"
-may_depend_on = ["core-ids", "core-error", "protocol-render", "protocol-script", "protocol-replay"]
+# Also depends on voxel authority crates: the facade routes submitted voxel
+# commands into rule-voxel-edit validation/apply (launchable-voxel, #2436).
+may_depend_on = ["core-ids", "core-error", "core-space", "core-voxel", "core-commands", "svc-spatial", "svc-volume", "rule-voxel-edit", "protocol-render", "protocol-script", "protocol-replay"]
 may_not_depend_on = ["napi", "wasm-bindgen"]
 
 [crate."engine-rs/crates/bridge/native-bridge"]

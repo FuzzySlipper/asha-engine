@@ -12,3 +12,10 @@ workspace = true
 [dependencies]
 core-ids   = { path = "../../foundation/core-ids" }
 core-error = { path = "../../foundation/core-error" }
+# Voxel command submission → Rust authority validation/apply (launchable-voxel, #2436).
+core-space      = { path = "../../foundation/core-space" }
+core-voxel      = { path = "../../state/core-voxel" }
+core-commands   = { path = "../../state/core-commands" }
+svc-spatial     = { path = "../../services/svc-spatial" }
+svc-volume      = { path = "../../services/svc-volume" }
+rule-voxel-edit = { path = "../../rules/rule-voxel-edit" }

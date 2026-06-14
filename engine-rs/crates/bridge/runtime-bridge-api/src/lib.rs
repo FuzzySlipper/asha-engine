@@ -18,7 +18,13 @@
 
 #![forbid(unsafe_code)]
 
+use core_commands::VoxelCommand;
 use core_error::ErrorCategory;
+use core_space::{ChunkCoord, ChunkDims, GridId, VoxelGridSpec};
+use core_voxel::{MaterialCatalog, VoxelMaterialId};
+use rule_voxel_edit::VoxelEditRejection;
+use svc_spatial::VoxelWorld;
+use svc_volume::VoxelChunk;
 
 pub mod buffer_provider;
 
@@ -204,6 +210,31 @@ pub struct WorldSaveSummary {
     pub retained_edits: u32,
 }
 
+// ── Command submission payloads (launchable-voxel, #2436) ─────────────────────
+//
+// The launch/edit loop submits **generated** voxel commands (the authority-owned
+// `core_commands::VoxelCommand`, mirrored into the TS `voxel.ts` contract) for
+// Rust-side validation + apply via `rule-voxel-edit`. No placeholder `{ kind }`
+// command tunnel: the batch carries the real typed command union.
+
+/// A batch of proposed voxel commands awaiting Rust-side validation + apply.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CommandBatch {
+    pub commands: Vec<VoxelCommand>,
+}
+
+/// The classified outcome of a [`RuntimeBridge::submit_commands`] batch: how many
+/// commands authority accepted/rejected, plus the classified rejection for each
+/// refused command (never a silent drop). Accepted commands have already mutated
+/// authority voxel state and marked their chunks dirty.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CommandResult {
+    pub accepted: u32,
+    pub rejected: u32,
+    /// One classified rejection per refused command, in submission order.
+    pub rejections: Vec<VoxelEditRejection>,
+}
+
 // ── The bridge surface ────────────────────────────────────────────────────────
 
 /// The bounded set of verbs every transport implements. There is no generic
@@ -211,6 +242,10 @@ pub struct WorldSaveSummary {
 pub trait RuntimeBridge {
     fn initialize_engine(&mut self, config: EngineConfig) -> BridgeResult<EngineHandle>;
     fn step_simulation(&mut self, input: StepInputEnvelope) -> BridgeResult<StepResult>;
+    /// Submit a batch of proposed voxel commands for Rust-side validation + apply
+    /// (mirrors manifest `submit_commands`). Accepted commands mutate authority and
+    /// mark dirty chunks; rejected commands are classified and leave state unchanged.
+    fn submit_commands(&mut self, batch: CommandBatch) -> BridgeResult<CommandResult>;
     fn get_buffer(&self, handle: RuntimeBufferHandle) -> BridgeResult<RuntimeBufferView<'_>>;
     fn release_buffer(&mut self, handle: RuntimeBufferHandle) -> BridgeResult<()>;
 
@@ -242,6 +277,11 @@ pub struct ReferenceBridge {
     buffers: buffer_provider::RuntimeBufferProvider,
     /// The currently-loaded world's scene identity (the staged/live world).
     loaded_world: Option<u64>,
+    /// Live voxel authority for the launch/edit loop (launchable-voxel, #2436).
+    /// Present once `initialize_engine` has set up the runtime.
+    voxel: Option<VoxelWorld>,
+    /// The material catalog voxel edits validate against.
+    materials: MaterialCatalog,
 }
 
 /// The bundle schema / protocol versions this reference bridge understands.
@@ -250,6 +290,17 @@ const REFERENCE_SUPPORTED_VERSION: u32 = 1;
 impl ReferenceBridge {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// The default launch grid: id 1, voxel size 1.0, cubic 2×2×2 chunks (matches
+    /// the canonical voxel fixture). Chunk dims come from the spec, not a global.
+    fn launch_grid() -> VoxelGridSpec {
+        VoxelGridSpec::new(
+            GridId::new(1),
+            1.0,
+            ChunkDims::cubic(2).expect("nonzero dims"),
+        )
+        .expect("positive voxel size")
     }
 }
 
@@ -267,7 +318,55 @@ impl RuntimeBridge for ReferenceBridge {
             config.seed.to_le_bytes().to_vec(),
         );
         debug_assert_eq!(seed_handle.raw(), 0);
+
+        // Stand up the voxel authority for the launch/edit loop: a resident origin
+        // chunk so edits land, plus the launch material catalog. Start clean so a
+        // later submit's dirty marking is observable.
+        let spec = Self::launch_grid();
+        let mut world = VoxelWorld::new(spec);
+        world.insert(ChunkCoord::new(0, 0, 0), VoxelChunk::from_spec(&spec));
+        let _ = world.drain_dirty();
+        self.voxel = Some(world);
+        self.materials = MaterialCatalog::new([1, 2, 3].into_iter().map(VoxelMaterialId::new));
+
         Ok(handle)
+    }
+
+    fn submit_commands(&mut self, batch: CommandBatch) -> BridgeResult<CommandResult> {
+        let materials = &self.materials;
+        let world = self.voxel.as_mut().ok_or_else(|| {
+            RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::NotInitialized,
+                "submit_commands called before initialize_engine",
+            )
+        })?;
+
+        let mut accepted = 0u32;
+        let mut rejections = Vec::new();
+        for cmd in &batch.commands {
+            // Validate (no mutation), then apply on accept. A rejected command is
+            // classified and never touches authority state.
+            match rule_voxel_edit::validate(cmd, world, materials) {
+                Ok(events) => {
+                    for event in &events {
+                        rule_voxel_edit::apply(world, event).map_err(|rej| {
+                            RuntimeBridgeError::new(
+                                RuntimeBridgeErrorKind::Internal,
+                                format!("validated voxel command failed to apply: {rej}"),
+                            )
+                        })?;
+                    }
+                    accepted += 1;
+                }
+                Err(rejection) => rejections.push(rejection),
+            }
+        }
+
+        Ok(CommandResult {
+            accepted,
+            rejected: rejections.len() as u32,
+            rejections,
+        })
     }
 
     fn step_simulation(&mut self, input: StepInputEnvelope) -> BridgeResult<StepResult> {
@@ -435,6 +534,128 @@ mod tests {
                 diff_count: 2
             }
         );
+    }
+
+    // ── Voxel command submission → Rust authority (launchable-voxel, #2436) ──
+
+    use core_space::{LocalVoxelCoord, VoxelCoord};
+    use core_voxel::VoxelValue;
+
+    fn init_bridge() -> ReferenceBridge {
+        let mut bridge = ReferenceBridge::new();
+        bridge.initialize_engine(EngineConfig { seed: 1 }).unwrap();
+        bridge
+    }
+
+    fn set_voxel(coord: VoxelCoord, material: u16) -> VoxelCommand {
+        VoxelCommand::SetVoxel {
+            grid: GridId::new(1),
+            coord,
+            value: VoxelValue::solid_raw(material),
+        }
+    }
+
+    #[test]
+    fn submit_before_init_fails_closed() {
+        let mut bridge = ReferenceBridge::new();
+        let err = bridge.submit_commands(CommandBatch::default()).unwrap_err();
+        assert_eq!(err.kind, RuntimeBridgeErrorKind::NotInitialized);
+    }
+
+    #[test]
+    fn accepted_voxel_command_mutates_authority_and_marks_dirty() {
+        let mut bridge = init_bridge();
+        // The batch carries a generated VoxelCommand — not a `{ kind }` placeholder.
+        let result = bridge
+            .submit_commands(CommandBatch {
+                commands: vec![set_voxel(VoxelCoord::new(0, 0, 0), 1)],
+            })
+            .unwrap();
+        assert_eq!(result.accepted, 1);
+        assert_eq!(result.rejected, 0);
+        assert!(result.rejections.is_empty());
+
+        let world = bridge.voxel.as_ref().unwrap();
+        let chunk = world.get(ChunkCoord::new(0, 0, 0)).unwrap();
+        assert_eq!(
+            chunk.get(LocalVoxelCoord::new(0, 0, 0)),
+            Some(VoxelValue::solid_raw(1)),
+            "authority voxel state changed"
+        );
+        assert!(
+            world.is_dirty(ChunkCoord::new(0, 0, 0)),
+            "the edited chunk is marked dirty"
+        );
+    }
+
+    #[test]
+    fn rejected_unknown_material_is_classified_and_does_not_mutate() {
+        let mut bridge = init_bridge();
+        let before = bridge
+            .voxel
+            .as_ref()
+            .unwrap()
+            .get(ChunkCoord::new(0, 0, 0))
+            .unwrap()
+            .content_hash();
+
+        let result = bridge
+            .submit_commands(CommandBatch {
+                commands: vec![set_voxel(VoxelCoord::new(0, 0, 0), 99)],
+            })
+            .unwrap();
+        assert_eq!(result.accepted, 0);
+        assert_eq!(result.rejected, 1);
+        assert!(matches!(
+            result.rejections[0],
+            VoxelEditRejection::UnknownMaterial(_)
+        ));
+
+        let after = bridge
+            .voxel
+            .as_ref()
+            .unwrap()
+            .get(ChunkCoord::new(0, 0, 0))
+            .unwrap()
+            .content_hash();
+        assert_eq!(
+            before, after,
+            "a rejected command must not mutate authority"
+        );
+    }
+
+    #[test]
+    fn rejected_non_resident_chunk_is_classified() {
+        let mut bridge = init_bridge();
+        let result = bridge
+            .submit_commands(CommandBatch {
+                commands: vec![set_voxel(VoxelCoord::new(100, 0, 0), 1)],
+            })
+            .unwrap();
+        assert_eq!(result.rejected, 1);
+        assert!(matches!(
+            result.rejections[0],
+            VoxelEditRejection::ChunkNotResident { .. }
+        ));
+    }
+
+    #[test]
+    fn mixed_batch_accepts_valid_and_classifies_invalid_in_order() {
+        let mut bridge = init_bridge();
+        let result = bridge
+            .submit_commands(CommandBatch {
+                commands: vec![
+                    set_voxel(VoxelCoord::new(1, 0, 0), 2), // resident, known material → accept
+                    set_voxel(VoxelCoord::new(0, 0, 0), 77), // unknown material → reject
+                ],
+            })
+            .unwrap();
+        assert_eq!(result.accepted, 1);
+        assert_eq!(result.rejected, 1);
+        assert!(matches!(
+            result.rejections[0],
+            VoxelEditRejection::UnknownMaterial(_)
+        ));
     }
 
     #[test]
