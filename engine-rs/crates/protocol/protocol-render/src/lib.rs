@@ -351,6 +351,17 @@ pub enum MeshIndexWidth {
     U32,
 }
 
+impl MeshIndexWidth {
+    /// The stable wire label for this index width — the single source of truth for
+    /// JSON/artifact serialization, so emitters derive it instead of hardcoding a
+    /// literal that could drift from a future variant (#2429).
+    pub fn label(self) -> &'static str {
+        match self {
+            MeshIndexWidth::U32 => "u32",
+        }
+    }
+}
+
 /// The buffer layout a renderer needs to wrap bytes as typed arrays without
 /// transcoding (separate attribute streams; `BufferGeometry`-compatible).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1081,6 +1092,13 @@ mod tests {
             ..RenderMetadata::default()
         };
         assert_eq!(meta.source, Some(EntityId::new(7)));
+    }
+
+    #[test]
+    fn mesh_index_width_label_is_the_contract_vocabulary() {
+        // The single source of truth for the wire label; emitters derive from this
+        // (#2429). A new variant forces the exhaustive match above to be updated.
+        assert_eq!(MeshIndexWidth::U32.label(), "u32");
     }
 
     #[test]

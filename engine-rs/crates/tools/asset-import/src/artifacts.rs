@@ -33,7 +33,9 @@ pub fn render_static_mesh(asset: &StaticMeshAsset) -> String {
         false,
     );
     w.field_num("indexCount", asset.payload.layout.index_count as f64, false);
-    w.field_str("indexWidth", "u32", true);
+    // Derived from the protocol enum (not a hardcoded literal) so the artifact
+    // cannot silently drift from the contract's index-width vocabulary (#2429).
+    w.field_str("indexWidth", asset.payload.layout.index_width.label(), true);
     w.end_object(true);
 
     // bounds
