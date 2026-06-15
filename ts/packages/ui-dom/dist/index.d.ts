@@ -1,5 +1,5 @@
-import type { Face, PickRay, RenderDiff, VoxelCoord } from '@asha/contracts';
-import { type BrushShape, type EditorAction, type EditorContext } from '@asha/editor-tools';
+import type { AuthoringTransform, EntityAuthoringCommand, EntityId, Face, PickRay, RenderDiff, VoxelCoord } from '@asha/contracts';
+import { type BrushShape, type EditorAction, type EditorContext, type EntityCapabilityFlags } from '@asha/editor-tools';
 export type Vec3 = readonly [number, number, number];
 /** A deterministic camera description — stable for screenshot/golden configs. */
 export interface CameraConfig {
@@ -107,6 +107,26 @@ export declare function buildEditorControls(ctx: EditorContext, palette: readonl
  * so the DOM/agent layer only forwards interactions.
  */
 export declare function controlToAction(id: string, value: string): EditorAction | null;
+/** Values a value-carrying authoring control needs when its command is built. */
+export interface EntityAuthoringParams {
+    readonly newEntityId?: EntityId;
+    readonly transform?: AuthoringTransform;
+    readonly moveDelta?: readonly [number, number, number];
+    readonly container?: EntityId;
+}
+/**
+ * The accessible authoring control set for a selected entity, derived purely from
+ * its capability flags. Transform/move are eligibility-gated (disabled + reason);
+ * attach/contain/destroy reflect lifecycle. `create` is selection-independent.
+ */
+export declare function buildEntityAuthoringControls(flags: EntityCapabilityFlags): EditorControl[];
+/**
+ * Map an authoring control interaction to a proposal command, or `null` if the
+ * control needs a parameter that was not supplied (e.g. a containment target). The
+ * app submits the returned command to Rust validation; the UI never applies it.
+ * `target` is the selected entity (or, for `create`, the allocated new id).
+ */
+export declare function entityAuthoringControlToCommand(controlId: string, target: EntityId, params?: EntityAuthoringParams): EntityAuthoringCommand | null;
 /** Reserved handle base for editor overlay nodes; well above projected scene handles. */
 export declare const OVERLAY_HANDLE_BASE = 1000000;
 /**

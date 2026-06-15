@@ -64,6 +64,33 @@ export class VoxelEditController {
         this.store.dispatch({ type: 'clearSelection' });
     }
 }
+/**
+ * The single authority-safe generic-entity authoring path. Forwards a proposal
+ * (built by `@asha/ui-dom` / `@asha/editor-tools`) through the injected
+ * {@link EntityAuthoringSink} and records the classified outcome for the devtools
+ * inspector to display. It never mutates entity authority itself.
+ */
+export class EntityAuthoringController {
+    #sink;
+    #last = null;
+    constructor(sink) {
+        this.#sink = sink;
+    }
+    /**
+     * Submit a proposed authoring command for validation. Returns the classified
+     * outcome (also retained as {@link lastOutcome}); on rejection authority is
+     * unchanged — the controller mutates nothing locally either way.
+     */
+    submit(command) {
+        const outcome = this.#sink(command);
+        this.#last = outcome;
+        return outcome;
+    }
+    /** The last authoring outcome, for the inspector's "last command result" readout. */
+    lastOutcome() {
+        return this.#last;
+    }
+}
 /** The real picker: route the ray through the runtime facade's `pickVoxel` verb. */
 export function bridgePicker(bridge) {
     return (ray) => bridge.pickVoxel(ray);

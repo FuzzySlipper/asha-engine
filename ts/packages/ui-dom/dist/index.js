@@ -7,7 +7,7 @@
 // render diffs that mutate nothing. Imports `@asha/contracts` + `@asha/editor-tools`
 // only — no `three`, no policy, no native bridge.
 import { renderHandle } from '@asha/contracts';
-import { previewTargets, proposeCommand, } from '@asha/editor-tools';
+import { IDENTITY_AUTHORING_TRANSFORM, movementEligibility, previewTargets, proposeAttachCapability, proposeCreateEntity, proposeDestroyEntity, proposeMove, proposeSetContainment, proposeSetEntityTransform, proposeCommand, transformEligibility, } from '@asha/editor-tools';
 /** A fixed default camera (deterministic): looking at the origin from +X/+Y/+Z. */
 export function defaultCamera() {
     return { position: [8, 8, 8], target: [0, 0, 0], up: [0, 1, 0], fovDegrees: 60 };
@@ -222,6 +222,90 @@ export function controlToAction(id, value) {
             return { type: 'setPreviewEnabled', enabled: value === 'on' };
         default:
             return null; // commit / cancel are app-level
+    }
+}
+function gatedLabel(base, gate) {
+    return gate.eligible ? base : `${base} (${gate.reason})`;
+}
+/**
+ * The accessible authoring control set for a selected entity, derived purely from
+ * its capability flags. Transform/move are eligibility-gated (disabled + reason);
+ * attach/contain/destroy reflect lifecycle. `create` is selection-independent.
+ */
+export function buildEntityAuthoringControls(flags) {
+    const transformGate = transformEligibility(flags);
+    const moveGate = movementEligibility(flags);
+    const alive = flags.lifecycle === 'active';
+    return [
+        { id: 'entity-create', role: 'button', label: 'Create entity', value: 'create' },
+        {
+            id: 'entity-set-transform',
+            role: 'button',
+            label: gatedLabel('Set transform', transformGate),
+            value: 'setTransform',
+            disabled: !transformGate.eligible,
+        },
+        {
+            id: 'entity-move',
+            role: 'button',
+            label: gatedLabel('Move', moveGate),
+            value: 'move',
+            disabled: !moveGate.eligible,
+        },
+        {
+            id: 'entity-attach-render',
+            role: 'button',
+            label: 'Attach render',
+            value: 'attachRender',
+            disabled: !alive,
+        },
+        {
+            id: 'entity-attach-collision',
+            role: 'button',
+            label: 'Attach collision',
+            value: 'attachCollision',
+            disabled: !alive,
+        },
+        {
+            id: 'entity-contain',
+            role: 'button',
+            label: 'Contain in…',
+            value: 'contain',
+            disabled: !alive,
+        },
+        {
+            id: 'entity-destroy',
+            role: 'button',
+            label: 'Destroy',
+            value: 'destroy',
+            disabled: flags.lifecycle === 'tombstoned',
+        },
+    ];
+}
+/**
+ * Map an authoring control interaction to a proposal command, or `null` if the
+ * control needs a parameter that was not supplied (e.g. a containment target). The
+ * app submits the returned command to Rust validation; the UI never applies it.
+ * `target` is the selected entity (or, for `create`, the allocated new id).
+ */
+export function entityAuthoringControlToCommand(controlId, target, params = {}) {
+    switch (controlId) {
+        case 'entity-create':
+            return proposeCreateEntity(params.newEntityId ?? target, { kind: 'runtimeCreated', by: null });
+        case 'entity-set-transform':
+            return proposeSetEntityTransform(target, params.transform ?? IDENTITY_AUTHORING_TRANSFORM);
+        case 'entity-move':
+            return params.moveDelta ? proposeMove(target, params.moveDelta) : null;
+        case 'entity-attach-render':
+            return proposeAttachCapability(target, { kind: 'render', visible: true });
+        case 'entity-attach-collision':
+            return proposeAttachCapability(target, { kind: 'collision', staticCollider: false });
+        case 'entity-contain':
+            return params.container !== undefined ? proposeSetContainment(target, params.container) : null;
+        case 'entity-destroy':
+            return proposeDestroyEntity(target);
+        default:
+            return null;
     }
 }
 // ── Debug overlay (non-authoritative `debug`-layer render diffs) ───────────────

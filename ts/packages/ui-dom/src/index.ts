@@ -7,15 +7,34 @@
 // render diffs that mutate nothing. Imports `@asha/contracts` + `@asha/editor-tools`
 // only — no `three`, no policy, no native bridge.
 
-import type { Face, PickRay, RenderDiff, RenderHandle, VoxelCoord } from '@asha/contracts';
+import type {
+  AuthoringTransform,
+  EntityAuthoringCommand,
+  EntityId,
+  Face,
+  PickRay,
+  RenderDiff,
+  RenderHandle,
+  VoxelCoord,
+} from '@asha/contracts';
 import { renderHandle } from '@asha/contracts';
 import {
   type BrushShape,
   type EditorAction,
   type EditorContext,
+  type EntityCapabilityFlags,
   type ToolMode,
+  IDENTITY_AUTHORING_TRANSFORM,
+  movementEligibility,
   previewTargets,
+  proposeAttachCapability,
+  proposeCreateEntity,
+  proposeDestroyEntity,
+  proposeMove,
+  proposeSetContainment,
+  proposeSetEntityTransform,
   proposeCommand,
+  transformEligibility,
 } from '@asha/editor-tools';
 
 // ── Camera (deterministic data; renderer builds the THREE camera) ──────────────
@@ -354,6 +373,115 @@ export function controlToAction(id: string, value: string): EditorAction | null 
       return { type: 'setPreviewEnabled', enabled: value === 'on' };
     default:
       return null; // commit / cancel are app-level
+  }
+}
+
+// ── Accessible generic entity authoring controls (#2485) ───────────────────────
+//
+// The authoring panel is described as data (like the voxel toolbar) so both a user
+// (DOM) and an agent (Playwright `getByRole`/`getByLabel`) can drive generic entity
+// authoring. Each control carries a stable `id`/test handle and an ARIA `label`;
+// eligibility-gated verbs are `disabled` with the classified reason appended to the
+// label so an ineligible control is visibly explained. State never lives here — the
+// controls are a pure function of the selected entity's capability flags, and a
+// control interaction maps to a proposal the app submits to Rust validation.
+
+/** Values a value-carrying authoring control needs when its command is built. */
+export interface EntityAuthoringParams {
+  readonly newEntityId?: EntityId;
+  readonly transform?: AuthoringTransform;
+  readonly moveDelta?: readonly [number, number, number];
+  readonly container?: EntityId;
+}
+
+function gatedLabel(base: string, gate: { readonly eligible: boolean; readonly reason: string | null }): string {
+  return gate.eligible ? base : `${base} (${gate.reason})`;
+}
+
+/**
+ * The accessible authoring control set for a selected entity, derived purely from
+ * its capability flags. Transform/move are eligibility-gated (disabled + reason);
+ * attach/contain/destroy reflect lifecycle. `create` is selection-independent.
+ */
+export function buildEntityAuthoringControls(flags: EntityCapabilityFlags): EditorControl[] {
+  const transformGate = transformEligibility(flags);
+  const moveGate = movementEligibility(flags);
+  const alive = flags.lifecycle === 'active';
+  return [
+    { id: 'entity-create', role: 'button', label: 'Create entity', value: 'create' },
+    {
+      id: 'entity-set-transform',
+      role: 'button',
+      label: gatedLabel('Set transform', transformGate),
+      value: 'setTransform',
+      disabled: !transformGate.eligible,
+    },
+    {
+      id: 'entity-move',
+      role: 'button',
+      label: gatedLabel('Move', moveGate),
+      value: 'move',
+      disabled: !moveGate.eligible,
+    },
+    {
+      id: 'entity-attach-render',
+      role: 'button',
+      label: 'Attach render',
+      value: 'attachRender',
+      disabled: !alive,
+    },
+    {
+      id: 'entity-attach-collision',
+      role: 'button',
+      label: 'Attach collision',
+      value: 'attachCollision',
+      disabled: !alive,
+    },
+    {
+      id: 'entity-contain',
+      role: 'button',
+      label: 'Contain in…',
+      value: 'contain',
+      disabled: !alive,
+    },
+    {
+      id: 'entity-destroy',
+      role: 'button',
+      label: 'Destroy',
+      value: 'destroy',
+      disabled: flags.lifecycle === 'tombstoned',
+    },
+  ];
+}
+
+/**
+ * Map an authoring control interaction to a proposal command, or `null` if the
+ * control needs a parameter that was not supplied (e.g. a containment target). The
+ * app submits the returned command to Rust validation; the UI never applies it.
+ * `target` is the selected entity (or, for `create`, the allocated new id).
+ */
+export function entityAuthoringControlToCommand(
+  controlId: string,
+  target: EntityId,
+  params: EntityAuthoringParams = {},
+): EntityAuthoringCommand | null {
+  switch (controlId) {
+    case 'entity-create':
+      return proposeCreateEntity(params.newEntityId ?? target, { kind: 'runtimeCreated', by: null });
+    case 'entity-set-transform':
+      return proposeSetEntityTransform(target, params.transform ?? IDENTITY_AUTHORING_TRANSFORM);
+    case 'entity-move':
+      return params.moveDelta ? proposeMove(target, params.moveDelta) : null;
+    case 'entity-attach-render':
+      return proposeAttachCapability(target, { kind: 'render', visible: true });
+    case 'entity-attach-collision':
+      return proposeAttachCapability(target, { kind: 'collision', staticCollider: false });
+    case 'entity-contain':
+      return params.container !== undefined ? proposeSetContainment(target, params.container) : null;
+    case 'entity-destroy':
+      return proposeDestroyEntity(target);
+    default:
+      return null;
   }
 }
 
