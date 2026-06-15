@@ -4,6 +4,7 @@
 import type {
   CommandEnvelope,
   MeshPayloadDescriptor,
+  PickRay,
   RenderFrameDiff,
   RenderNode,
   VoxelCommand,
@@ -66,6 +67,37 @@ export function fixtureVoxelCommand(): VoxelCommand {
  */
 export function fixtureCommandBatch(): CommandBatch {
   return { commands: [fixtureVoxelCommand()] };
+}
+
+/**
+ * A deterministic pick ray for the picking stage: cast from outside the launch grid
+ * toward the origin voxel along +X. Against the reference facade (no authority
+ * geometry) it classifies as a miss; against a wired native facade it can hit the
+ * origin voxel. Either way the picking PATH is exercised and a classified result is
+ * returned — never a swallowed error.
+ */
+export function fixturePickRay(): PickRay {
+  return { grid: 1, origin: [-5, 0.5, 0.5], direction: [1, 0, 0], maxDistance: 100 };
+}
+
+/**
+ * A deterministic render-update frame for the post-edit render stage: nudge the
+ * fixture node's transform. This proves the renderer applies a retained-mode UPDATE
+ * (leak-safe, no destroy+create) reflecting a committed edit, without adding a node.
+ */
+export function fixtureEditUpdateFrame(): RenderFrameDiff {
+  return {
+    ops: [
+      {
+        op: 'update',
+        handle: renderHandle(1),
+        transform: { translation: [0, 1, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+        material: null,
+        visible: null,
+        metadata: null,
+      },
+    ],
+  };
 }
 
 /** A minimal mesh node to host the fixture geometry. */

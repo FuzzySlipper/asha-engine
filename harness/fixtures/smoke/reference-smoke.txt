@@ -1,0 +1,19 @@
+asha-smoke: PASS [mock_reference_passed]
+command: pnpm --filter @asha/smoke dev:asha-smoke
+smokeMode: reference
+runtimeMode: mock (nativeAvailable=false)
+capabilities: runtimeBridge=mock worldLoad=mock renderer=ok projection=mock
+fixture: id=1001 worldHash=f4a19eb318f7749d
+diagnostics: total=0 fatal=0 blocksLoad=false
+render: applied=true sceneNodes=1
+counters: leakedHandles=0 peakHandles=2 sceneNodes=1 debugNodes=1 fallbackMaterials=0 spriteFallbacks=0 outstandingBuffers=0
+stage boot: ok — runtime facade up in mock mode, reference intent (nativeAvailable=false)
+stage load: ok — loaded world 1001
+stage render: ok — applied frame from fixtureRenderFrame; scene nodes=1
+stage pick: ok — classified miss (noHit); selection cleared=true
+stage preview: ok — overlay cells=1 debugNodes=1; scene unchanged=true
+stage command-submit: ok — submitted 1 generated VoxelCommand(s) → accepted=1 rejected=0
+stage authority-classify: ok — rejected-path visible=true
+stage render-update: ok — applied post-edit update from fixtureEditUpdateFrame; scene nodes 1→1
+stage save-reload-replay: ok — saved artifacts=3 (compacted=0 retained=0); reloaded world 1001; replay step 1 diverged=false
+stage cleanup: ok — destroyed 2 handle(s); leakedHandles=0 outstandingBuffers=0

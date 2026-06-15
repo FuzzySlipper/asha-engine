@@ -18,6 +18,10 @@ export function formatResult(result) {
     lines.push(`diagnostics: total=${result.diagnostics.total} fatal=${result.diagnostics.fatal} ` +
         `blocksLoad=${result.diagnostics.blocksLoad}`);
     lines.push(`render: applied=${result.render.applied} sceneNodes=${result.render.sceneNodes}`);
+    lines.push(`counters: leakedHandles=${result.counters.leakedHandles} peakHandles=${result.counters.peakHandles} ` +
+        `sceneNodes=${result.counters.sceneNodes} debugNodes=${result.counters.debugNodes} ` +
+        `fallbackMaterials=${result.counters.fallbackMaterials} spriteFallbacks=${result.counters.spriteFallbacks} ` +
+        `outstandingBuffers=${result.counters.outstandingBuffers}`);
     for (const stage of result.stages) {
         lines.push(`stage ${stage.name}: ${stage.ok ? 'ok' : 'FAIL'} — ${stage.detail}`);
     }

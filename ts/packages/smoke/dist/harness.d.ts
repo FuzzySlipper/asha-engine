@@ -18,20 +18,20 @@ export interface SmokeOptions {
     readonly bootBridge?: () => BridgeBoot;
 }
 /**
- * Default boot: the canonical deterministic reference smoke on the mock facade,
- * while *probing* native availability for an honest capability readout. The native
- * addon today is a partial prototype (only initialize/step are wired), so the
- * reference smoke does not depend on it.
+ * Default boot: the canonical deterministic reference smoke on the mock facade, while
+ * *probing* native availability for an honest capability readout. The native addon
+ * today is a partial prototype (only initialize/step are wired), so the reference
+ * smoke does not depend on it.
  */
 export declare function defaultBootBridge(): BridgeBoot;
 /**
- * Authority boot: attempt the real native path. If the native addon is not
- * loadable, the boot fails *closed* with a classified error — the harness reports
- * an honest failure rather than silently downgrading to the mock.
+ * Authority boot: attempt the real native path. If the native addon is not loadable,
+ * the boot fails *closed* with a classified error — the harness reports an honest
+ * failure rather than silently downgrading to the mock.
  */
 export declare function authorityBootBridge(): BridgeBoot;
 /** Pick a boot strategy from an explicit smoke mode (used by the CLI). */
 export declare function bootForMode(mode: SmokeMode): BridgeBoot;
-/** Run the full smoke flow and return a deterministic structured result. */
+/** Run the full staged smoke flow and return a deterministic structured result. */
 export declare function runSmoke(options?: SmokeOptions): SmokeResult;
 //# sourceMappingURL=harness.d.ts.map

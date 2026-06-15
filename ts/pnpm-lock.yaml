@@ -183,6 +183,9 @@ importers:
       '@asha/runtime-bridge':
         specifier: workspace:*
         version: link:../runtime-bridge
+      '@asha/ui-dom':
+        specifier: workspace:*
+        version: link:../ui-dom
 
   packages/ui-dom:
     dependencies:
