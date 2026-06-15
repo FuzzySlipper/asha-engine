@@ -146,9 +146,17 @@ lane = "contract-steward"
 may_depend_on = ["core-ids"]
 may_not_depend_on = ["core-state", "core-entity", "core-scene", "sim-kernel", "protocol-render", "wasm-api", "render-bridge"]
 
+# Generic entity authoring border (#2485): the fuller create/destroy/capability/
+# relation/movement command + outcome shapes a UI/agent authoring surface proposes
+# back. Validation/apply stay in svc-entity-authoring. core-ids only.
+[crate."engine-rs/crates/protocol/protocol-entity-authoring"]
+lane = "contract-steward"
+may_depend_on = ["core-ids"]
+may_not_depend_on = ["core-state", "core-entity", "core-scene", "sim-kernel", "protocol-render", "wasm-api", "render-bridge"]
+
 [crate."engine-rs/crates/protocol/protocol-codegen"]
 lane = "contract-steward"
-may_depend_on = ["protocol-ids", "protocol-script", "protocol-render", "protocol-replay", "protocol-telemetry", "protocol-diagnostics", "protocol-scene", "protocol-world-bundle", "protocol-assets"]
+may_depend_on = ["protocol-ids", "protocol-script", "protocol-render", "protocol-replay", "protocol-telemetry", "protocol-diagnostics", "protocol-scene", "protocol-world-bundle", "protocol-assets", "protocol-entity-authoring"]
 
 # ─── Rust: Sim ───────────────────────────────────────────────────────────────
 
@@ -229,6 +237,15 @@ may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 [crate."engine-rs/crates/services/svc-policy-view"]
 lane = "rust-service"
 may_depend_on = ["core-ids", "core-math", "core-error", "core-assets", "core-entity", "protocol-policy-view"]
+may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
+
+# Validate/apply for the generic entity authoring border (#2485): translates a
+# protocol-entity-authoring command into core-entity's atomic, fail-closed authority
+# operations and returns the classified outcome. Reads/mutates authority via
+# core-entity only; never renders. Mirrors svc-policy-view's validate/apply role.
+[crate."engine-rs/crates/services/svc-entity-authoring"]
+lane = "rust-service"
+may_depend_on = ["core-ids", "core-math", "core-assets", "core-entity", "protocol-entity-authoring"]
 may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 # ─── Rust: Rules ─────────────────────────────────────────────────────────────

@@ -10,6 +10,8 @@
 // `app` command-submission path does that). See docs/voxel-ui-architecture.md.
 // Proposal-only scene authoring controls with Rust validation feedback (#2380).
 export * from './scene-authoring.js';
+// Proposal-only generic entity authoring controls with Rust validation feedback (#2485).
+export * from './entity-authoring.js';
 /** The editing tools that author voxels (have a preview + a proposal). */
 export const EDITING_TOOLS = ['place', 'remove', 'paint'];
 function isEditingTool(tool) {

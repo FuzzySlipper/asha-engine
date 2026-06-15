@@ -32,6 +32,7 @@ members = [
     "crates/protocol/protocol-world-bundle",
     "crates/protocol/protocol-assets",
     "crates/protocol/protocol-policy-view",
+    "crates/protocol/protocol-entity-authoring",
     "crates/protocol/protocol-codegen",
 
     # Sim
@@ -51,6 +52,7 @@ members = [
     "crates/services/svc-volume",
     "crates/services/svc-mesh",
     "crates/services/svc-policy-view",
+    "crates/services/svc-entity-authoring",
 
     # Rules
     "crates/rules/rule-lifecycle",

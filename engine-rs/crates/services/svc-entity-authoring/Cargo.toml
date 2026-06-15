@@ -1,0 +1,18 @@
+[package]
+name = "svc-entity-authoring"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Authority-side validate/apply for the generic entity authoring border
+# (post-launchable-03, #2485). Takes a `protocol-entity-authoring` command,
+# validates and applies it against a `core-entity` EntityStore through the
+# existing atomic, fail-closed authority operations, and returns the classified
+# border outcome. Mirrors `svc-policy-view`'s validate/apply role; it must not
+# reach into protocol-render/UI/TS. A rejected command mutates nothing.
+[dependencies]
+core-ids                  = { path = "../../foundation/core-ids" }
+core-math                 = { path = "../../foundation/core-math" }
+core-assets               = { path = "../../foundation/core-assets" }
+core-entity               = { path = "../../state/core-entity" }
+protocol-entity-authoring = { path = "../../protocol/protocol-entity-authoring" }

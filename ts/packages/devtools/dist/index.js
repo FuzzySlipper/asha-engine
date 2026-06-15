@@ -11,6 +11,8 @@ export * from './scene-outliner.js';
 export * from './asset-inspector.js';
 // World-bundle save/load and diagnostics panel read models (#2379).
 export * from './bundle-panel.js';
+// Generic entity authoring inspector read model (#2485).
+export * from './entity-inspector.js';
 /** Deterministic display lines for a scene report (pure formatter). */
 export function summarizeScene(report) {
     const lines = [

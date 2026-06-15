@@ -1,0 +1,16 @@
+[package]
+name = "protocol-entity-authoring"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Border-only crate: the generic entity **authoring** command + outcome shapes a
+# UI/agent authoring surface proposes back to authority (post-launchable-03,
+# #2485). Unlike `protocol-policy-view` (the narrow, sandboxed policy command set),
+# this is the fuller create/destroy/capability/relation/movement surface an
+# operator or agent drives through devtools — still proposal-only: authority
+# validates and applies or rejects. Authority logic lives in `svc-entity-authoring`;
+# this crate carries only wire shapes + stable string vocabularies that
+# `protocol-codegen` mirrors to TypeScript. Depends on `core-ids` only.
+[dependencies]
+core-ids = { path = "../../foundation/core-ids" }

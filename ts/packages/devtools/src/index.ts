@@ -17,6 +17,9 @@ export * from './asset-inspector.js';
 // World-bundle save/load and diagnostics panel read models (#2379).
 export * from './bundle-panel.js';
 
+// Generic entity authoring inspector read model (#2485).
+export * from './entity-inspector.js';
+
 /** A plain mirror of the Rust `voxel-diagnostics` scene report (carried over the
  *  bridge as projected data — devtools never reads authority directly). */
 export interface SceneReportSummary {

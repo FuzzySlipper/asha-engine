@@ -14,6 +14,9 @@ import type { VoxelCommand, VoxelCoord, Face, VoxelValue } from '@asha/contracts
 // Proposal-only scene authoring controls with Rust validation feedback (#2380).
 export * from './scene-authoring.js';
 
+// Proposal-only generic entity authoring controls with Rust validation feedback (#2485).
+export * from './entity-authoring.js';
+
 // ── Editor tool context ────────────────────────────────────────────────────────
 
 // Authoring tools: `place` adds a voxel across the struck face; `remove` clears the

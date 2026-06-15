@@ -1825,6 +1825,132 @@ pub fn policy_view_module() -> Module {
     }
 }
 
+pub fn entity_authoring_module() -> Module {
+    let imports = vec![
+        import("./ids.js", &["EntityId", "TagId", "ProcessId", "SubjectId"]),
+        import("./scene.js", &["SceneNodeId"]),
+    ];
+
+    let triple = || TsType::Tuple(vec![num(), num(), num()]);
+    let quad = || TsType::Tuple(vec![num(), num(), num(), num()]);
+
+    let items = vec![
+        iface(
+            "A runtime transform on the authoring border (translation, rotation xyzw, scale).",
+            "AuthoringTransform",
+            vec![
+                f("translation", triple()),
+                f("rotation", quad()),
+                f("scale", triple()),
+            ],
+        ),
+        union(
+            "Where an authored entity comes from. Mirrors core-entity's EntitySource on the wire.",
+            "AuthoringSource",
+            "kind",
+            vec![
+                v("sceneBootstrap", vec![f("node", r("SceneNodeId"))]),
+                v("runtimeCreated", vec![f("by", TsType::nullable(r("ProcessId")))]),
+                v("imported", vec![f("asset", string())]),
+                v("diagnosticTooling", vec![]),
+                v("policyProposed", vec![f("by", r("SubjectId"))]),
+            ],
+        ),
+        union(
+            "A capability an attachCapability command establishes on a live entity.",
+            "AuthoringCapability",
+            "kind",
+            vec![
+                v("transform", vec![f("transform", r("AuthoringTransform"))]),
+                v("render", vec![f("visible", boolean())]),
+                v("collision", vec![f("staticCollider", boolean())]),
+                v("bounds", vec![f("min", triple()), f("max", triple())]),
+            ],
+        ),
+        union(
+            "A proposed generic entity authoring change. Proposal-only: authority validates and applies or rejects.",
+            "EntityAuthoringCommand",
+            "kind",
+            vec![
+                v(
+                    "create",
+                    vec![
+                        f("id", r("EntityId")),
+                        f("source", r("AuthoringSource")),
+                        f("labels", TsType::array(r("TagId"))),
+                    ],
+                ),
+                v("destroy", vec![f("id", r("EntityId"))]),
+                v("disable", vec![f("id", r("EntityId"))]),
+                v("enable", vec![f("id", r("EntityId"))]),
+                v("addLabel", vec![f("id", r("EntityId")), f("tag", r("TagId"))]),
+                v("removeLabel", vec![f("id", r("EntityId")), f("tag", r("TagId"))]),
+                v(
+                    "attachCapability",
+                    vec![f("id", r("EntityId")), f("capability", r("AuthoringCapability"))],
+                ),
+                v(
+                    "setTransform",
+                    vec![f("id", r("EntityId")), f("transform", r("AuthoringTransform"))],
+                ),
+                v("move", vec![f("id", r("EntityId")), f("delta", triple())]),
+                v(
+                    "attachTransformParent",
+                    vec![f("child", r("EntityId")), f("parent", r("EntityId"))],
+                ),
+                v("detachTransformParent", vec![f("child", r("EntityId"))]),
+                v(
+                    "setContainment",
+                    vec![f("member", r("EntityId")), f("container", r("EntityId"))],
+                ),
+                v("clearContainment", vec![f("member", r("EntityId"))]),
+                v(
+                    "setDerivedFrom",
+                    vec![f("derived", r("EntityId")), f("origin", r("EntityId"))],
+                ),
+            ],
+        ),
+        string_enum(
+            "The kind of accepted authoring change (compact; re-read the snapshot for full detail).",
+            "AuthoringEventKind",
+            protocol_entity_authoring::EVENT_KINDS,
+        ),
+        iface(
+            "The accepted authoring event: what happened, to which entity.",
+            "EntityAuthoringEvent",
+            vec![f("kind", r("AuthoringEventKind")), f("entity", r("EntityId"))],
+        ),
+        string_enum(
+            "The classified reason authority refused a proposed authoring command. A UI reflects this; it never decides acceptance.",
+            "AuthoringRejectionReason",
+            protocol_entity_authoring::REJECTION_REASONS,
+        ),
+        iface(
+            "The classified refusal: a reason plus the primary entity it concerns.",
+            "EntityAuthoringRejection",
+            vec![
+                f("reason", r("AuthoringRejectionReason")),
+                f("entity", r("EntityId")),
+            ],
+        ),
+        union(
+            "The outcome authority reports for one proposed authoring command.",
+            "EntityAuthoringOutcome",
+            "status",
+            vec![
+                v("accepted", vec![f("event", r("EntityAuthoringEvent"))]),
+                v("rejected", vec![f("rejection", r("EntityAuthoringRejection"))]),
+            ],
+        ),
+    ];
+
+    Module {
+        name: "entityAuthoring",
+        imports,
+        items,
+    }
+}
+
 // ── index.ts — barrel ─────────────────────────────────────────────────────────
 
 pub fn index_module() -> Module {
@@ -1862,6 +1988,9 @@ pub fn index_module() -> Module {
             Item::ReExport {
                 from: "./policyView.js".to_string(),
             },
+            Item::ReExport {
+                from: "./entityAuthoring.js".to_string(),
+            },
         ],
     }
 }
@@ -1879,6 +2008,7 @@ pub fn all_modules() -> Vec<Module> {
         assets_module(),
         diagnostics_module(),
         policy_view_module(),
+        entity_authoring_module(),
         index_module(),
     ]
 }

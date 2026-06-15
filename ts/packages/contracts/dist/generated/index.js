@@ -15,4 +15,5 @@ export * from './worldBundle.js';
 export * from './assets.js';
 export * from './diagnostics.js';
 export * from './policyView.js';
+export * from './entityAuthoring.js';
 //# sourceMappingURL=index.js.map

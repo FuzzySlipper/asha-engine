@@ -1,5 +1,6 @@
 import type { VoxelCommand, VoxelCoord, Face } from '@asha/contracts';
 export * from './scene-authoring.js';
+export * from './entity-authoring.js';
 export type ToolMode = 'place' | 'remove' | 'paint' | 'select' | 'inspect';
 export type SelectionMode = 'voxel' | 'face';
 /** Brush shape: a single cell, or an axis-aligned box of side `brushSize` (fill). */

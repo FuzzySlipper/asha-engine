@@ -21,3 +21,4 @@ protocol-diagnostics = { path = "../protocol-diagnostics" }
 protocol-scene = { path = "../protocol-scene" }
 protocol-world-bundle = { path = "../protocol-world-bundle" }
 protocol-assets = { path = "../protocol-assets" }
+protocol-entity-authoring = { path = "../protocol-entity-authoring" }

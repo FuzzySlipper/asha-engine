@@ -155,6 +155,7 @@ mod tests {
                 format!("{OUTPUT_DIR}/assets.ts"),
                 format!("{OUTPUT_DIR}/diagnostics.ts"),
                 format!("{OUTPUT_DIR}/policyView.ts"),
+                format!("{OUTPUT_DIR}/entityAuthoring.ts"),
                 format!("{OUTPUT_DIR}/index.ts"),
             ],
         );
