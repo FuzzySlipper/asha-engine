@@ -1,87 +1,141 @@
 # ASHA — Agent Safety & Harness Architecture
 
-An engine infrastructure designed for high fan-out agent development. The structure optimizes
-for hard boundaries, compiler-checkable contracts, deterministic tests, and machine-reviewable
-dependency rules so that parallel coding agents can work in isolated lanes without hidden coupling.
+ASHA is engine infrastructure for high fan-out agent development. The repository is shaped so many short-lived coding agents can work in bounded lanes while the compiler, generated contracts, fixtures, dependency checks, and review prompts make cross-lane drift visible.
 
----
-
-## Core split
+The core split is:
 
 > **Rust owns authority. TypeScript owns expression and projection. Generated contracts define the border.**
 
-- **Rust** — canonical state, validation, event application, deterministic services, replay, simulation
-- **TypeScript policy** — receives generated read-only views, returns proposed commands
-- **TypeScript shell** — renders and displays what Rust says happened
+- **Rust** owns canonical state, validation, accepted event application, deterministic services, replay, serialization, bridge surfaces, and render projections.
+- **TypeScript policy/catalog packages** author constrained proposals and data, but do not mutate authority.
+- **TypeScript shell/render/UI packages** display projected state, collect input, show diagnostics, and submit typed requests through the runtime bridge.
+- **Generated contracts** define the Rust/TypeScript border. Generated TypeScript files are committed for worker convenience but must not be hand-edited.
 
-TypeScript never mutates authoritative state.
+TypeScript never becomes a second authoritative engine.
+
+---
+
+## Current posture
+
+This repo has moved past the original prototype-phase checklist. Do not infer current work from old phase language. Current planning, implementation queues, and architectural decisions live in Den under project `asha`; use Den tasks/docs/messages as the durable source of truth when available.
+
+Current major surfaces include:
+
+- Rust authoritative state, commands, events, snapshots, replay, voxel data, voxel edit rules, world-bundle load/save, diagnostics, and render projection infrastructure.
+- Generated protocol contracts for TypeScript packages.
+- A transport-agnostic runtime bridge with native-addon, reference/mock, and WASM replay-related surfaces.
+- Three.js retained renderer consuming render diffs.
+- Editor tools, DOM/devtools read models, smoke harnesses, fixtures, goldens, and CI governance checks.
+- Ongoing launchable voxel tooling work tracked in Den, not as README phases.
+
+For the full architecture, start with `docs/design.md` and live Den guidance (`get_agent_guidance(project_id="asha")`).
 
 ---
 
 ## Repository layout
 
-```
-engine-rs/          Rust workspace (59 crates)
+```text
+engine-rs/          Rust workspace (60 crates)
   crates/
-    foundation/     core-ids, core-math, core-time, core-error, core-collections, core-space, core-assets
-    state/          core-state, core-entity, core-scene, core-catalog, core-voxel, core-events, core-commands, core-snapshot
-    protocol/       protocol-{ids,script,render,replay,telemetry,scene,world-bundle,assets,diagnostics,policy-view}, protocol-codegen
-    sim/            sim-kernel, sim-validator, sim-applier, sim-replay, sim-runner
-    services/       svc-rng, svc-spatial, svc-collision, svc-physics, svc-pathfinding, svc-mesh, svc-volume, svc-serialization, svc-policy-view
-    rules/          rule-lifecycle, rule-process, rule-scheduler, rule-relationship, rule-state-machine, rule-voxel-edit, rule-world-bundle
-    render/         render-bridge, render-debug
-    bridge/         runtime-bridge-api (curated bridge manifest), native-bridge (napi-rs addon)
-    wasm/           wasm-api (replay/golden WASM surface)
-    tools/          replay-tool, snapshot-diff, protocol-dump, state-inspector, fixture-maker, asset-import, scene-diagnostics, voxel-diagnostics
+    foundation/     core IDs, math, time, errors, collections, coordinates, assets
+    state/          authoritative state, entities, scene, catalog, voxel, commands, events, snapshots
+    protocol/       Rust protocol schemas + codegen for TS contracts
+    sim/            validation, event application, replay, runner
+    services/       deterministic services: rng, spatial, collision, mesh, volume, serialization, policy views
+    rules/          domain/rule lanes: lifecycle, process, scheduler, relationship, state machine, voxel edit, world bundle
+    render/         render-bridge and render-debug projection lanes
+    bridge/         runtime-bridge-api manifest and native-bridge napi addon
+    wasm/           wasm-api for replay/golden surfaces
+    tools/          fixture-maker, replay-tool, diagnostics, protocol dump, asset import, snapshot diff, state inspector
 
 ts/                 pnpm workspace (18 packages)
   packages/
     contracts/          generated TypeScript contract types (do not hand-edit generated/)
-    script-sdk/         view types, command helpers, deterministic env, test harness
-    script-host/        policy loader, sandbox, runtime isolation, deterministic invocation
-    policy-*/           constrained policy packages
-    catalog-*/          typed catalog definitions
-    runtime-bridge/     transport-agnostic runtime facade + render-diff decode (ADR 0006)
-    native-bridge/      thin loader for the compiled napi-rs runtime addon
-    wasm-replay-bridge/ WASM replay/golden path (imported by tests/devtools only)
-    renderer-three/     Three.js scene, handle registry, render diff application
-    editor-tools/       editor-side scene/command helpers
-    ui-dom/             DOM panels, inspectors, command palette
+    script-sdk/         policy view/command helpers, deterministic env, test harness
+    script-host/        policy loading, sandboxing, deterministic invocation
+    policy-*            constrained policy packages
+    catalog-*           typed catalog definitions/examples
+    runtime-bridge/     transport-agnostic runtime facade and render-diff decode
+    native-bridge/      loader for compiled napi-rs runtime addon
+    wasm-replay-bridge/ WASM replay/golden bridge for tests/devtools
+    renderer-three/     Three.js handle registry and render-diff application
+    editor-tools/       pure editor state, selections, previews, voxel command helpers
+    ui-dom/             DOM panels, inspectors, command palette, preview overlays
     cosmetic/           non-authoritative visual effects
-    devtools/           replay viewer, debug dashboard, state inspector
+    devtools/           diagnostics/readout panels and replay/world-bundle views
     smoke/              end-to-end developer smoke harness
+    app/                runtime/app composition and wiring
     electron-main/      process/window/IPC integration
-    app/                runtime loop and wiring
 
-governance/         Lane assignments, ownership rules, ADRs, reviewer prompts
-harness/            CI scripts, dep-graph verifiers, goldens, fixtures, bridge manifest tooling
-docs/               Architecture and protocol documentation
+governance/         Ownership rules, ADRs, lane guidance, reviewer prompts
+harness/            CI scripts, depgraph verifiers, fixtures, goldens, smoke/perf outputs
+docs/               Architecture, contracts, replay, render, voxel, bridge, and determinism docs
 ```
-
-The runtime bridge replaced the former `wasm-bridge` package: app/UI/renderer/devtools
-couple only to `@asha/runtime-bridge`, which is backed by `native-bridge` (napi-rs),
-the mock, or the `wasm-replay-bridge` (ADR 0006; see `docs/runtime-bridge-boundary.md`).
 
 ---
 
-## Dependency direction
+## Architecture boundaries
 
-**Rust:** `foundation → state → protocol → sim / services / rules → render / wasm / tools`
+### Authority and projection
 
-**TypeScript:**
+The normal flow is:
+
+```text
+inputs / tools / policy / UI
+  -> proposed commands
+  -> Rust validation
+  -> accepted domain events
+  -> authoritative state mutation
+  -> render diffs, telemetry, diagnostics, replay records
+  -> TypeScript renderer/UI/devtools projections
 ```
-contracts → script-sdk → policy/catalog → script-host
-contracts → runtime-bridge → renderer / ui / devtools / editor-tools → app → electron-main
-native-bridge / wasm-replay-bridge → runtime-bridge (transport backends only)
-```
 
-No lower layer may import a higher layer. The dep-graph verifier enforces this on every CI run.
+Keep the categories separate. Do not collapse commands, events, render diffs, telemetry, and replay records into a generic event bus.
+
+### Runtime bridge
+
+The old direct `wasm-bridge` style was replaced by `@asha/runtime-bridge` as the transport-neutral facade. App/UI/renderer/devtools should couple to the runtime bridge, not directly to native/WASM implementation details.
+
+Backends include:
+
+- `@asha/native-bridge` / Rust `native-bridge` napi addon where available;
+- reference/mock bridge paths for development and tests;
+- `@asha/wasm-replay-bridge` for replay/golden tests and devtools-related surfaces.
+
+Native unavailable or unimplemented operations must fail closed with classified errors, not silently fall back to mock behavior.
+
+### Contracts
+
+Rust protocol crates define the border. TypeScript generated contracts live under `ts/packages/contracts/src/generated/` and are regenerated by project tooling. Do not hand-edit generated files.
+
+A protocol change should include:
+
+- Rust protocol/schema update;
+- regenerated TypeScript contracts;
+- fixture/golden updates where relevant;
+- downstream Rust/TS tests;
+- compatibility/diagnostic notes when the change affects runtime behavior.
+
+### Lanes
+
+Every crate/package is an assignment cell. Ownership and allowed dependency edges are machine-readable in `governance/ownership.toml`; prose lane expectations live in `governance/lanes/` and reviewer prompts.
+
+Do not “just import” across lanes to make a task pass. If a dependency is needed, update the appropriate governance rule and justify the boundary change.
 
 ---
 
-## Getting started
+## Common commands
 
-**Rust**
+Run from the repository root unless noted.
+
+### Full check suite
+
+```sh
+./harness/ci/check-all.sh
+```
+
+### Rust
+
 ```sh
 cd engine-rs
 cargo check --workspace
@@ -89,48 +143,34 @@ cargo test --workspace
 cargo clippy --workspace
 ```
 
-**TypeScript**
+### TypeScript
+
 ```sh
 cd ts
 pnpm install
+pnpm -r build
 pnpm -r typecheck
 pnpm -r test
 ```
 
-**Full CI check**
+### Focused governance/golden checks
+
 ```sh
-bash harness/ci/check-all.sh
+./harness/ci/check-depgraph.sh
+./harness/ci/check-contracts.sh
+./harness/ci/check-replays.sh
+./harness/ci/check-render-goldens.sh
+./harness/ci/check-bridge.sh
 ```
 
-**Dep-graph verification**
+### Developer smoke
+
 ```sh
-bash harness/depgraph/verify-rust-deps.sh
-bash harness/depgraph/verify-ts-deps.sh
+cd ts
+pnpm dev:asha-smoke
 ```
 
----
-
-## Agent lane assignment
-
-Every crate and package is an agent assignment cell. Ownership, allowed dependencies,
-and forbidden imports are machine-readable in `governance/ownership.toml`.
-
-Lane prose rules (what to own, what to avoid, required tests, drift smells) live in `governance/lanes/`.
-Architecture and protocol docs live in `docs/`.
-
----
-
-## Prototype phases
-
-| Phase | Description | Status |
-|---|---|---|
-| **0** | Governance skeleton — repo structure, workspaces, lane docs, CI, dep-graph checker | **Complete** |
-| 1 | Minimal Rust authority core — typed IDs, StateStore, commands, events, tick | **Complete** |
-| 2 | Protocol generation — Rust protocol crates, TS contract codegen | **Complete** |
-| 3 | Constrained TypeScript policy — script SDK, host, sandbox lint | **Complete** |
-| 4 | Replay audit path — recording, playback, divergence reports | **Complete** |
-| 5 | Render projection — retained render diffs, WASM bridge, Three.js scene | **Complete** |
-| 6 | Parallel agent fan-out trial | Pending |
+Check the relevant package scripts before adding new commands; this workspace intentionally prefers explicit package/lane surfaces over hidden global magic.
 
 ---
 
@@ -138,12 +178,29 @@ Architecture and protocol docs live in `docs/`.
 
 | Document | Purpose |
 |---|---|
-| `docs/design.md` | Full system design |
+| `docs/design.md` | Full system design and architecture principles |
 | `docs/architecture-overview.md` | Layer model and dependency rules |
+| `docs/runtime-bridge-boundary.md` | Runtime bridge facade and transport boundary |
+| `docs/contract-governance.md` | Protocol/codegen change process |
 | `docs/replay-model.md` | Replay recording, playback, and determinism audit |
-| `docs/policy-authoring.md` | How to write and test a policy pack |
 | `docs/render-protocol.md` | Retained-mode render diff protocol |
 | `docs/determinism.md` | Determinism requirements and enforcement |
-| `docs/contract-governance.md` | Protocol change process |
-| `governance/ownership.toml` | Machine-readable lane and dependency rules |
+| `docs/policy-authoring.md` | Policy package authoring and testing |
+| `docs/voxel-coordinates.md` | Voxel/grid/chunk coordinate conventions |
+| `docs/voxel-mesh-seam.md` | Voxel meshing/seam design notes |
+| `docs/voxel-ui-architecture.md` | Voxel editor/UI architecture notes |
+| `governance/ownership.toml` | Machine-readable lane ownership and dependency rules |
 | `governance/lanes/` | Per-lane prose rules for agent assignment |
+
+---
+
+## Notes for outside agents
+
+- Resolve live Den guidance before substantial work: `get_agent_guidance(project_id="asha")`.
+- Treat Den tasks/docs/messages as the source of truth for current planning state.
+- Read `AGENTS.md` for local bootstrap, but remember it is generated from Den guidance plus `agents-project.md` and may lag between regenerations.
+- Preserve the authority boundary: TypeScript proposes/projects; Rust validates/applies.
+- Do not introduce product-domain concepts into infrastructure tasks unless the active Den task explicitly asks for them.
+- Do not hand-edit generated contracts.
+- Prefer adding or updating fixtures/goldens when changing state, protocol, replay, render projection, bridge, or voxel behavior.
+- Keep mock/reference/native behavior visibly classified; never hide native gaps behind silent fallback.
