@@ -1,0 +1,49 @@
+=== sidecar.json ===
+{
+  "schemaVersion": 1,
+  "guid": "28426a627e8870ba9fdefd6a0d998bfc",
+  "sourceUri": {
+    "kind": "relativePath",
+    "value": "assets/crate.mesh.json"
+  },
+  "contentHash": "10e3120609316b58",
+  "importerVersion": 1,
+  "declaredKind": "mesh",
+  "labels": ["prop", "static"],
+  "importSettings": {
+    "scale": 1,
+    "generateCollision": true,
+    "materialNamespace": "surface"
+  },
+  "generatedArtifacts": [
+    {
+      "path": "crate.catalog.json",
+      "hash": "0011223344556677"
+    },
+    {
+      "path": "crate.staticmesh.json",
+      "hash": "8899aabbccddeeff"
+    }
+  ]
+}
+
+=== inspect ===
+guid 28426a627e8870ba9fdefd6a0d998bfc
+source relativePath assets/crate.mesh.json
+contentHash 10e3120609316b58
+declaredKind mesh
+importerVersion 1
+settings scale=1 generateCollision=true materialNamespace=surface
+labels prop,static
+artifact crate.catalog.json 0011223344556677
+artifact crate.staticmesh.json 8899aabbccddeeff
+
+=== drift ===
+status unchanged; nothing to do
+status movedFile from=assets/crate.mesh.json to=moved/crate.mesh.json; reconcile the recorded source URI (guid and artifacts stay valid)
+status contentChanged from=10e3120609316b58 to=10e3150609317071; reimport — derived artifacts are stale (guid and references survive)
+
+=== shared-source overrides (guid 28426a627e8870ba9fdefd6a0d998bfc) ===
+projectA scale=0.5 generateCollision=true
+projectB scale=4 generateCollision=false
+shared scale=1 generateCollision=true (unmutated)

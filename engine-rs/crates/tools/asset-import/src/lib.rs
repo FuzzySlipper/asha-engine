@@ -27,11 +27,17 @@ pub mod fixtures;
 pub mod import;
 pub mod json;
 pub mod manifest;
+pub mod sidecar;
 pub mod source;
 
 pub use diagnostic::{ImportCode, ImportDiagnostic, ImportSeverity};
 pub use import::{import, import_with_context, ImportContext, ImportOutcome, ImportedAssets};
 pub use manifest::{ImportManifest, ReimportPlan};
+pub use sidecar::{
+    detect_duplicate_guids, drift_report, init_metadata, inspect_report, parse_sidecar, reconcile,
+    sidecar_path, AssetGuid, ImportSettings, ProjectOverride, SidecarMetadata, SidecarStatus,
+    SourceUri, SIDECAR_SCHEMA_VERSION,
+};
 pub use source::{parse_source, SourceMesh, SourceParse};
 
 /// The importer version. Bumped when import output for unchanged source could
