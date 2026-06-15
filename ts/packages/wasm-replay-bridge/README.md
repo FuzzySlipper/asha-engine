@@ -20,9 +20,9 @@ Nothing here decodes render diffs or drives a scene — those are runtime concer
 behind the facade. This package keeps **only** replay/golden/devtools duties:
 `replayHashes`, the `ReferenceReplayRunner` baseline, and `classifyDivergence`.
 
-> Migration note: the decode/stream **move** out of `wasm-bridge` and the renderer
-> repoint to `@asha/runtime-bridge` is staged but deferred so existing Phase 5
-> render-goldens stay green; it is the remaining step of the #2248 migration plan.
+> Migration note: the decode/stream move out of legacy `wasm-bridge` and the renderer
+> repoint to `@asha/runtime-bridge` are completed. This package is replay/golden/devtools
+> WASM only; runtime render-diff decode belongs behind `@asha/runtime-bridge`.
 
 ## What works now (offline, verified)
 

@@ -6,6 +6,8 @@
 **Primary goal:** Make a complex simulation/rendering codebase maintainable under high fan-out agent development  
 **Non-goal:** Solve specific product-domain, authored-content, or state-modeling problems during the infrastructure prototype
 
+> **Current-status note (2026-06):** this document is the architecture/design baseline, not the live implementation queue. Some package names and the prototype phase plan below are historical. Use `README.md`, `AGENTS.md`, `docs/launchable-voxel.md`, Den guidance, and current Den tasks for implementation status.
+
 ---
 
 ## 1. Executive summary
@@ -1457,6 +1459,8 @@ Restriction:
 ---
 
 ## 13. Prototype plan
+
+> **Historical section:** these phases describe the original infrastructure prototype plan. They are not the current work queue. Current implementation status is tracked in Den tasks/docs; the launchable voxel loop and post-launchable expansion work are indexed from `README.md` and `docs/launchable-voxel.md`.
 
 The prototype should prove infrastructure capability, not product-domain behavior.
 
