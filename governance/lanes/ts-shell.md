@@ -45,6 +45,26 @@
 - `runtime-bridge` exposing raw addon/WASM memory pointers to policy packages.
 - A shell package importing `native-bridge`/`wasm-replay-bridge` instead of the `runtime-bridge` facade.
 
+## Launchable-voxel boundaries (reviewer checklist)
+- **App shell composition** (`@asha/app` `composeAppShell`): the renderer, UI control
+  model, and devtools inspection must read the ONE `EditorStore` — no parallel editor
+  state. Host capabilities, bridge boot, fixtures, and the renderer are injected; the
+  shell must not import Electron/browser globals. Electron main (`@asha/electron-main`)
+  stays window/process only and must not import runtime/renderer/app packages.
+- **Accessibility**: editor controls (`ui-dom` `buildEditorControls`) must carry a stable
+  id + ARIA role + accessible label so agents (Playwright `getByRole`/`getByLabel`) and
+  users can drive them. Flag any control rendered without these.
+- **Picking authority path**: a pick must cross the facade (`pickVoxel`) to Rust
+  (`svc-collision`); the renderer may only supply a hint that authority re-validates
+  (`revalidatePickHint`). Selection is keyed on authoritative voxel coords, never a
+  render handle. Flag any renderer-owned coordinate used as truth.
+- **Runtime mode honesty**: native/reference/degraded/unavailable must be surfaced — no
+  silent native→mock downgrade. The smoke/shell must classify a missing native op, not
+  pass on mock behaviour.
+- **Preview must not remesh**: editor preview emits debug-layer overlay diffs only
+  (handles `≥ OVERLAY_HANDLE_BASE`); it must never mutate authoritative scene geometry or
+  submit a command (smoke's preview-remesh guardrail).
+
 ## Public API changes that require escalation
 - Changes to the render diff stream / decode API in `runtime-bridge` — affects renderer.
 - Changes to the bridge manifest (`bridge-manifest.toml`) — boundary change, regenerate glue.
