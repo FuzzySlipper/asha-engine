@@ -142,6 +142,64 @@ export function buildSavePlanModel(summary: SaveSummary): SavePlanView {
   };
 }
 
+// ── Voxel save/reload/replay durability read model (task #2440) ──────────────────
+//
+// A projected mirror of the Rust `rule-world-bundle` durability evidence (the
+// post-load / post-edit / post-reload world fingerprints for the canonical fixture).
+// Observational only: devtools never computes the checkpoints — authority owns the
+// fingerprints; this formats them so a panel/agent can read whether the edited world
+// survives a save→reload→replay cycle.
+
+/** Projected durability checkpoints for a fixture (mirrors `DurabilityEvidence`). */
+export interface VoxelDurabilityEvidence {
+  readonly fixture: string;
+  /** World fingerprint after the base fixture loads (generation only). */
+  readonly postLoad: string;
+  /** World fingerprint after the canonical edit sequence. */
+  readonly postEdit: string;
+  /** World fingerprint after compaction + reload. */
+  readonly postReload: string;
+  readonly compactedEdits: number;
+  readonly retainedEdits: number;
+}
+
+/** The summarized durability status: durable iff the reload reproduces the edit. */
+export interface VoxelDurabilityView {
+  readonly fixture: string;
+  readonly postLoad: string;
+  readonly postEdit: string;
+  readonly postReload: string;
+  /** A no-op edit (load == edit) is suspicious — the sequence changed nothing. */
+  readonly editedWorld: boolean;
+  /** Durability holds iff post-edit and post-reload fingerprints agree. */
+  readonly durable: boolean;
+  readonly compactedEdits: number;
+  readonly retainedEdits: number;
+}
+
+/** Build the durability read model from projected evidence (pure, no authority read). */
+export function buildVoxelDurabilityModel(evidence: VoxelDurabilityEvidence): VoxelDurabilityView {
+  return {
+    fixture: evidence.fixture,
+    postLoad: evidence.postLoad,
+    postEdit: evidence.postEdit,
+    postReload: evidence.postReload,
+    editedWorld: evidence.postLoad !== evidence.postEdit,
+    durable: evidence.postEdit === evidence.postReload,
+    compactedEdits: evidence.compactedEdits,
+    retainedEdits: evidence.retainedEdits,
+  };
+}
+
+/** Deterministic display lines summarizing save/reload/replay durability. */
+export function summarizeVoxelDurability(view: VoxelDurabilityView): string[] {
+  return [
+    `fixture ${view.fixture}: durable=${view.durable} edited=${view.editedWorld}`,
+    `postLoad=${view.postLoad} postEdit=${view.postEdit} postReload=${view.postReload}`,
+    `compaction folded=${view.compactedEdits} retained=${view.retainedEdits}`,
+  ];
+}
+
 // ── Generator mismatch + round-trip equivalence read model ───────────────────────
 
 export interface GeneratorMismatchView {

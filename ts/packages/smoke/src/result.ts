@@ -15,6 +15,12 @@ export type SmokeFailureCategory =
   | 'projection_failure'
   | 'render_init_failure'
   | 'ui_command_rejected'
+  // Distinct picking/preview/replay/leak classifications so a failure in those
+  // stages routes to the right subsystem instead of collapsing into `internal`.
+  | 'pick_failure'
+  | 'preview_failure'
+  | 'replay_failure'
+  | 'resource_leak'
   | 'internal';
 
 /** Status of one capability the harness probes. */
@@ -43,6 +49,29 @@ export interface SmokeStage {
   readonly ok: boolean;
   /** Stable, human/agent-legible evidence line for the stage. */
   readonly detail: string;
+}
+
+/**
+ * Deterministic renderer/resource counters captured across the run. These prove the
+ * lifecycle is bounded: handles created are destroyed, buffers released, and fallbacks
+ * are visible rather than hidden. `leakedHandles`/`outstandingBuffers` must be 0 after
+ * the cleanup stage.
+ */
+export interface SmokeCounters {
+  /** Live render handles after cleanup (must be 0 — no leak). */
+  readonly leakedHandles: number;
+  /** Peak live render handles during the run (scene + overlay). */
+  readonly peakHandles: number;
+  /** Scene-layer nodes after the render-update stage. */
+  readonly sceneNodes: number;
+  /** Debug-layer (preview overlay) nodes at preview time. */
+  readonly debugNodes: number;
+  /** Placeholder-fallback material resolutions (diagnostic, not a failure). */
+  readonly fallbackMaterials: number;
+  /** Sprite-frame fallbacks (diagnostic). */
+  readonly spriteFallbacks: number;
+  /** Bridge buffers still held after cleanup (must be 0). */
+  readonly outstandingBuffers: number;
 }
 
 /** One failure, with the subsystem and an actionable next step. */
@@ -87,6 +116,8 @@ export interface SmokeResult {
     readonly applied: boolean;
     readonly sceneNodes: number;
   };
+  /** Deterministic renderer/resource counters (leak + fallback evidence). */
+  readonly counters: SmokeCounters;
   readonly stages: readonly SmokeStage[];
   readonly failures: readonly SmokeFailure[];
 }
@@ -109,6 +140,12 @@ export function formatResult(result: SmokeResult): string {
       `blocksLoad=${result.diagnostics.blocksLoad}`,
   );
   lines.push(`render: applied=${result.render.applied} sceneNodes=${result.render.sceneNodes}`);
+  lines.push(
+    `counters: leakedHandles=${result.counters.leakedHandles} peakHandles=${result.counters.peakHandles} ` +
+      `sceneNodes=${result.counters.sceneNodes} debugNodes=${result.counters.debugNodes} ` +
+      `fallbackMaterials=${result.counters.fallbackMaterials} spriteFallbacks=${result.counters.spriteFallbacks} ` +
+      `outstandingBuffers=${result.counters.outstandingBuffers}`,
+  );
   for (const stage of result.stages) {
     lines.push(`stage ${stage.name}: ${stage.ok ? 'ok' : 'FAIL'} — ${stage.detail}`);
   }

@@ -71,6 +71,27 @@ export function buildSavePlanModel(summary) {
         snapshotChunks: compaction.snapshotChunks.length,
     };
 }
+/** Build the durability read model from projected evidence (pure, no authority read). */
+export function buildVoxelDurabilityModel(evidence) {
+    return {
+        fixture: evidence.fixture,
+        postLoad: evidence.postLoad,
+        postEdit: evidence.postEdit,
+        postReload: evidence.postReload,
+        editedWorld: evidence.postLoad !== evidence.postEdit,
+        durable: evidence.postEdit === evidence.postReload,
+        compactedEdits: evidence.compactedEdits,
+        retainedEdits: evidence.retainedEdits,
+    };
+}
+/** Deterministic display lines summarizing save/reload/replay durability. */
+export function summarizeVoxelDurability(view) {
+    return [
+        `fixture ${view.fixture}: durable=${view.durable} edited=${view.editedWorld}`,
+        `postLoad=${view.postLoad} postEdit=${view.postEdit} postReload=${view.postReload}`,
+        `compaction folded=${view.compactedEdits} retained=${view.retainedEdits}`,
+    ];
+}
 /** Describe a fail-closed generator version mismatch (never rewrites a save). */
 export function describeGeneratorMismatch(mismatch) {
     return {

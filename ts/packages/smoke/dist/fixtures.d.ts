@@ -1,4 +1,4 @@
-import type { CommandEnvelope, RenderFrameDiff, VoxelCommand } from '@asha/contracts';
+import type { CommandEnvelope, PickRay, RenderFrameDiff, VoxelCommand } from '@asha/contracts';
 import type { CommandBatch, WorldLoadRequest } from '@asha/runtime-bridge';
 /** The abstract fixture world the smoke harness loads through the facade. */
 export declare const FIXTURE_WORLD: WorldLoadRequest;
@@ -23,6 +23,20 @@ export declare function fixtureVoxelCommand(): VoxelCommand;
  * authority — no `{ kind: 'smoke-edit' }` placeholder command tunnel.
  */
 export declare function fixtureCommandBatch(): CommandBatch;
+/**
+ * A deterministic pick ray for the picking stage: cast from outside the launch grid
+ * toward the origin voxel along +X. Against the reference facade (no authority
+ * geometry) it classifies as a miss; against a wired native facade it can hit the
+ * origin voxel. Either way the picking PATH is exercised and a classified result is
+ * returned — never a swallowed error.
+ */
+export declare function fixturePickRay(): PickRay;
+/**
+ * A deterministic render-update frame for the post-edit render stage: nudge the
+ * fixture node's transform. This proves the renderer applies a retained-mode UPDATE
+ * (leak-safe, no destroy+create) reflecting a committed edit, without adding a node.
+ */
+export declare function fixtureEditUpdateFrame(): RenderFrameDiff;
 /**
  * A deterministic fixture render frame: create one mesh node, then upload the quad
  * payload. Drives the renderer through its real create→replaceMeshPayload path.

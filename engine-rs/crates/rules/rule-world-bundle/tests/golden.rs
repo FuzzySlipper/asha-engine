@@ -34,6 +34,28 @@ fn compacted_save_matches_committed_golden() {
 }
 
 #[test]
+fn voxel_durability_matches_committed_golden() {
+    let evidence = render::sample_durability_evidence();
+    // The fixture must be a genuine edit (load != edit) and durable (edit == reload).
+    assert_ne!(
+        evidence.post_load, evidence.post_edit,
+        "durability fixture must actually edit the world"
+    );
+    assert!(
+        evidence.is_durable(),
+        "canonical fixture must save/reload/replay to an identical world fingerprint"
+    );
+    let committed =
+        std::fs::read_to_string(dir().join("voxel-durability.txt")).expect("read voxel-durability");
+    let rendered = render::render_durability(&evidence);
+    assert_eq!(
+        rendered, committed,
+        "voxel durability checkpoints drifted from harness/fixtures/world-bundle/voxel-durability.txt; \
+         regenerate with `cargo run -p rule-world-bundle --example dump_durability`"
+    );
+}
+
+#[test]
 fn regen_conflict_matches_committed_golden() {
     let committed =
         std::fs::read_to_string(dir().join("regen-conflict.txt")).expect("read regen-conflict");

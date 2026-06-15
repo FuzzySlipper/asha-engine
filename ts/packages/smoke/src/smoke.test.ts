@@ -3,6 +3,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   createMockRuntimeBridge,
@@ -12,7 +15,26 @@ import {
 
 import { authorityBootBridge, runSmoke } from './harness.js';
 import { formatResult } from './result.js';
-import { FIXTURE_WORLD, fixtureRenderFrame, fixtureWorldHash } from './fixtures.js';
+import {
+  FIXTURE_WORLD,
+  fixtureEditUpdateFrame,
+  fixtureRenderFrame,
+  fixtureWorldHash,
+} from './fixtures.js';
+
+/** The canonical 10-stage launchable-voxel proof order (task #2441). */
+const STAGE_ORDER = [
+  'boot',
+  'load',
+  'render',
+  'pick',
+  'preview',
+  'command-submit',
+  'authority-classify',
+  'render-update',
+  'save-reload-replay',
+  'cleanup',
+];
 
 function mockBoot() {
   return {
@@ -37,15 +59,74 @@ test('mock run passes and reports trustworthy evidence', () => {
   // Deterministic fixture evidence.
   assert.equal(result.fixture.id, FIXTURE_WORLD.sceneId);
   assert.equal(result.fixture.worldHash, fixtureWorldHash(FIXTURE_WORLD));
-  // Real load → projection → render and edit/save stages all ran.
+  // The full 10-stage launchable proof ran, every stage green.
   assert.deepEqual(
     result.stages.map((s) => s.name),
-    ['boot', 'load', 'render', 'edit-save'],
+    STAGE_ORDER,
   );
   assert.ok(result.stages.every((s) => s.ok));
   assert.equal(result.render.applied, true);
   assert.ok(result.render.sceneNodes > 0);
   assert.equal(result.failures.length, 0);
+  // Resource lifecycle is bounded: created handles were destroyed, no leak/buffer held.
+  assert.equal(result.counters.leakedHandles, 0);
+  assert.equal(result.counters.outstandingBuffers, 0);
+  assert.ok(result.counters.peakHandles > 0, 'handles were actually created during the run');
+  assert.ok(result.counters.debugNodes > 0, 'a preview overlay was drawn on the debug layer');
+});
+
+test('every required launchable stage is present and ordered', () => {
+  const names = runSmoke({ bootBridge: mockBoot }).stages.map((s) => s.name);
+  assert.deepEqual(names, STAGE_ORDER, '10-stage proof: boot→…→cleanup');
+});
+
+test('picking stage classifies the reference miss and clears selection (no swallowed error)', () => {
+  const result = runSmoke({ bootBridge: mockBoot });
+  const pick = result.stages.find((s) => s.name === 'pick');
+  assert.ok(pick?.ok);
+  assert.match(pick!.detail, /classified miss/);
+});
+
+test('preview stage holds the remesh guardrail (debug overlay, scene untouched)', () => {
+  const result = runSmoke({ bootBridge: mockBoot });
+  const preview = result.stages.find((s) => s.name === 'preview');
+  assert.ok(preview?.ok, 'preview must pass without remeshing authority');
+  assert.match(preview!.detail, /scene unchanged=true/);
+  assert.ok(result.counters.debugNodes >= 1);
+});
+
+test('save/reload/replay stage proves durability through the facade', () => {
+  const result = runSmoke({ bootBridge: mockBoot });
+  const stage = result.stages.find((s) => s.name === 'save-reload-replay');
+  assert.ok(stage?.ok);
+  assert.match(stage!.detail, /saved artifacts=\d+/);
+  assert.match(stage!.detail, /diverged=false/);
+});
+
+test('a thrown pick surfaces a classified pick_failure, not a generic internal error', () => {
+  const broken = bridgeWith({
+    pickVoxel: () => {
+      throw new RuntimeBridgeError('invalid_input', 'bad ray');
+    },
+  });
+  const result = runSmoke({
+    bootBridge: () => ({ bridge: broken, mode: 'mock', intent: 'reference', nativeAvailable: false }),
+  });
+  assert.equal(result.ok, false);
+  assert.ok(result.failures.some((f) => f.category === 'pick_failure'));
+});
+
+test('a thrown replay surfaces a classified replay_failure', () => {
+  const broken = bridgeWith({
+    runReplayStep: () => {
+      throw new RuntimeBridgeError('internal', 'replay engine fault');
+    },
+  });
+  const result = runSmoke({
+    bootBridge: () => ({ bridge: broken, mode: 'mock', intent: 'reference', nativeAvailable: false }),
+  });
+  assert.equal(result.ok, false);
+  assert.ok(result.failures.some((f) => f.category === 'replay_failure'));
 });
 
 test('formatResult is deterministic and lists every stage', () => {
@@ -54,7 +135,22 @@ test('formatResult is deterministic and lists every stage', () => {
   assert.equal(a, b);
   assert.match(a, /asha-smoke: PASS/);
   assert.match(a, /stage render: ok/);
-  assert.match(a, /stage edit-save: ok/);
+  assert.match(a, /stage save-reload-replay: ok/);
+  assert.match(a, /stage cleanup: ok/);
+  assert.match(a, /counters: leakedHandles=0/);
+});
+
+test('reference smoke matches the committed golden snapshot', () => {
+  // dist/smoke.test.js → repo root is four levels up.
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
+  const committed = readFileSync(resolve(root, 'harness/fixtures/smoke/reference-smoke.txt'), 'utf8');
+  const rendered = formatResult(runSmoke({ bootBridge: mockBoot }));
+  assert.equal(
+    rendered,
+    committed,
+    'reference smoke drifted from harness/fixtures/smoke/reference-smoke.txt; ' +
+      'regenerate it from the reference run if the change is intended',
+  );
 });
 
 /** A bridge that delegates to a real mock but lets one method be overridden. */
@@ -109,9 +205,13 @@ test('a thrown bridge load surfaces a classified failure', () => {
 // ── Authority-path smoke (#2424) ──────────────────────────────────────────────
 
 /** An authority-capable bridge: a mock that serves real render diffs through the
- *  facade, standing in for a wired native runtime in tests. */
+ *  facade, standing in for a wired native runtime in tests. The cursor advances —
+ *  cursor 0 yields the initial projection (creates); later cursors yield the post-edit
+ *  update — so the render-update stage applies an UPDATE, not a duplicate create. */
 function authorityBridge(): RuntimeBridge {
-  return bridgeWith({ readRenderDiffs: () => fixtureRenderFrame() });
+  return bridgeWith({
+    readRenderDiffs: (cursor) => ((cursor as number) === 0 ? fixtureRenderFrame() : fixtureEditUpdateFrame()),
+  });
 }
 
 test('authority run reads diffs through the facade and earns native_authority_passed', () => {

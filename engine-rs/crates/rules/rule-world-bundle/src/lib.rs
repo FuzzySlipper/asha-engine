@@ -19,11 +19,15 @@
 #![forbid(unsafe_code)]
 
 pub mod compose;
+pub mod durability;
 pub mod load;
 pub mod regen;
 
 pub use compose::{
     compact_voxel_save, reconstruct, voxel_save_plan, ChunkSnapshotArtifact, CompactedVoxelSave,
+};
+pub use durability::{
+    build_durability_evidence, world_fingerprint, DurabilityError, DurabilityEvidence,
 };
 pub use load::{
     execute_load_plan, execute_load_plan_with, ArtifactSource, BundleArtifacts, LoadExecutionError,

@@ -39,6 +39,35 @@ export interface SavePlanView {
 }
 /** Build the save/compaction read model from a generated save summary. */
 export declare function buildSavePlanModel(summary: SaveSummary): SavePlanView;
+/** Projected durability checkpoints for a fixture (mirrors `DurabilityEvidence`). */
+export interface VoxelDurabilityEvidence {
+    readonly fixture: string;
+    /** World fingerprint after the base fixture loads (generation only). */
+    readonly postLoad: string;
+    /** World fingerprint after the canonical edit sequence. */
+    readonly postEdit: string;
+    /** World fingerprint after compaction + reload. */
+    readonly postReload: string;
+    readonly compactedEdits: number;
+    readonly retainedEdits: number;
+}
+/** The summarized durability status: durable iff the reload reproduces the edit. */
+export interface VoxelDurabilityView {
+    readonly fixture: string;
+    readonly postLoad: string;
+    readonly postEdit: string;
+    readonly postReload: string;
+    /** A no-op edit (load == edit) is suspicious — the sequence changed nothing. */
+    readonly editedWorld: boolean;
+    /** Durability holds iff post-edit and post-reload fingerprints agree. */
+    readonly durable: boolean;
+    readonly compactedEdits: number;
+    readonly retainedEdits: number;
+}
+/** Build the durability read model from projected evidence (pure, no authority read). */
+export declare function buildVoxelDurabilityModel(evidence: VoxelDurabilityEvidence): VoxelDurabilityView;
+/** Deterministic display lines summarizing save/reload/replay durability. */
+export declare function summarizeVoxelDurability(view: VoxelDurabilityView): string[];
 export interface GeneratorMismatchView {
     readonly savedVersion: number;
     readonly currentVersion: number;

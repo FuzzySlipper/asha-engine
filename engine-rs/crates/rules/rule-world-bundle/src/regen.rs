@@ -249,17 +249,6 @@ fn value_at(spec: VoxelGridSpec, world: &VoxelWorld, coord: VoxelCoord) -> Voxel
         .unwrap_or(VoxelValue::EMPTY)
 }
 
-/// Deterministic FNV fingerprint of a world's resident chunks (sorted by coord,
-/// each by content hash).
-fn world_fingerprint(world: &VoxelWorld) -> BundleHash {
-    let mut rows: Vec<(i64, i64, i64, u64)> = world
-        .resident_chunks()
-        .map(|(c, chunk)| (c.x, c.y, c.z, chunk.content_hash().0))
-        .collect();
-    rows.sort_unstable();
-    let mut s = String::new();
-    for (x, y, z, h) in rows {
-        s.push_str(&format!("{x},{y},{z}:{h}\n"));
-    }
-    BundleHash::of_str(&s)
-}
+// The world fingerprint is shared with the durability checkpoints so the two paths
+// stay directly comparable: see [`crate::durability::world_fingerprint`].
+use crate::durability::world_fingerprint;

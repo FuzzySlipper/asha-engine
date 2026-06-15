@@ -1,0 +1,8 @@
+voxeldurability 1
+fixture launch-sequence
+postLoad a86e394cb6f6468a
+postEdit 6183c2613603b87d
+postReload 6183c2613603b87d
+durable true
+compactedEdits 2
+retainedEdits 1

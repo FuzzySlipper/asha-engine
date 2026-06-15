@@ -8,8 +8,8 @@ use core_space::{ChunkCoord, ChunkDims, GridId, VoxelCoord, VoxelGridSpec};
 use core_voxel::VoxelValue;
 use rule_voxel_edit::generate_chunk;
 use rule_world_bundle::{
-    compact_voxel_save, regenerate_and_replay, voxel_save_plan, CompactedVoxelSave,
-    RegenReplayReport,
+    build_durability_evidence, compact_voxel_save, regenerate_and_replay, voxel_save_plan,
+    CompactedVoxelSave, DurabilityEvidence, RegenReplayReport,
 };
 
 pub fn spec() -> VoxelGridSpec {
@@ -50,6 +50,45 @@ pub fn full_log() -> Vec<VoxelEditEvent> {
 
 pub fn sample_compacted_save() -> CompactedVoxelSave {
     compact_voxel_save(spec(), &full_log(), 1).expect("compact")
+}
+
+// ── #2440 durability evidence ──────────────────────────────────────────────────
+
+/// The canonical durability sequence reuses the compacted-save fixture log: the
+/// `ChunkGenerated` prefix is the loaded base; the three voxel edits are the user
+/// edit sequence applied on top.
+pub fn canonical_durability_base() -> Vec<VoxelEditEvent> {
+    full_log()[..1].to_vec()
+}
+
+pub fn canonical_durability_edits() -> Vec<VoxelEditEvent> {
+    full_log()[1..].to_vec()
+}
+
+/// Build the committed durability evidence for the canonical sequence (retain 1).
+pub fn sample_durability_evidence() -> DurabilityEvidence {
+    build_durability_evidence(
+        spec(),
+        &canonical_durability_base(),
+        &canonical_durability_edits(),
+        1,
+    )
+    .expect("durability evidence")
+}
+
+/// Render the durability checkpoint evidence deterministically (the golden form).
+pub fn render_durability(ev: &DurabilityEvidence) -> String {
+    use core::fmt::Write;
+    let mut s = String::new();
+    let _ = writeln!(s, "voxeldurability 1");
+    let _ = writeln!(s, "fixture launch-sequence");
+    let _ = writeln!(s, "postLoad {}", ev.post_load.to_hex());
+    let _ = writeln!(s, "postEdit {}", ev.post_edit.to_hex());
+    let _ = writeln!(s, "postReload {}", ev.post_reload.to_hex());
+    let _ = writeln!(s, "durable {}", ev.is_durable());
+    let _ = writeln!(s, "compactedEdits {}", ev.compacted_edits);
+    let _ = writeln!(s, "retainedEdits {}", ev.retained_edits);
+    s
 }
 
 /// Render the compacted save bundle section: the save plan summary plus each

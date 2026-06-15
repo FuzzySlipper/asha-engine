@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createMockRuntimeBridge, RuntimeBridgeError } from '@asha/runtime-bridge';
 import { sceneId, worldId, } from '@asha/contracts';
-import { buildDiagnosticsPanel, buildLoadPlanModel, buildLoadRequest, buildManifestModel, buildRegenReport, buildSavePlanModel, describeGeneratorMismatch, navigateSource, submitLoad, submitSave, } from './bundle-panel.js';
+import { buildDiagnosticsPanel, buildLoadPlanModel, buildLoadRequest, buildManifestModel, buildRegenReport, buildSavePlanModel, buildVoxelDurabilityModel, describeGeneratorMismatch, summarizeVoxelDurability, navigateSource, submitLoad, submitSave, } from './bundle-panel.js';
 function manifest() {
     return {
         bundleSchemaVersion: 1,
@@ -197,5 +197,38 @@ test('submitLoad rethrows non-bridge errors unchanged', () => {
     assert.throws(() => submitLoad(exploding, buildLoadRequest(manifest())), TypeError);
     // Sanity: a bridge error is caught, a TypeError is not.
     assert.ok(new RuntimeBridgeError('internal', 'x') instanceof RuntimeBridgeError);
+});
+// ── voxel durability read model (task #2440) ─────────────────────────────────────
+const DURABLE_EVIDENCE = {
+    fixture: 'launch-sequence',
+    postLoad: 'a86e394cb6f6468a',
+    postEdit: '6183c2613603b87d',
+    postReload: '6183c2613603b87d',
+    compactedEdits: 2,
+    retainedEdits: 1,
+};
+test('buildVoxelDurabilityModel classifies a durable, genuinely-edited fixture', () => {
+    const view = buildVoxelDurabilityModel(DURABLE_EVIDENCE);
+    assert.equal(view.durable, true, 'post-edit equals post-reload');
+    assert.equal(view.editedWorld, true, 'post-load differs from post-edit');
+    assert.equal(view.compactedEdits, 2);
+    assert.equal(view.retainedEdits, 1);
+});
+test('buildVoxelDurabilityModel flags a non-durable reload (fingerprint divergence)', () => {
+    const view = buildVoxelDurabilityModel({ ...DURABLE_EVIDENCE, postReload: 'ffffffffffffffff' });
+    assert.equal(view.durable, false, 'a reload that does not reproduce the edit is not durable');
+    assert.equal(view.editedWorld, true);
+});
+test('buildVoxelDurabilityModel flags a no-op edit sequence', () => {
+    const view = buildVoxelDurabilityModel({ ...DURABLE_EVIDENCE, postEdit: DURABLE_EVIDENCE.postLoad });
+    assert.equal(view.editedWorld, false, 'load == edit means the sequence changed nothing');
+});
+test('summarizeVoxelDurability renders deterministic display lines', () => {
+    const lines = summarizeVoxelDurability(buildVoxelDurabilityModel(DURABLE_EVIDENCE));
+    assert.deepEqual(lines, [
+        'fixture launch-sequence: durable=true edited=true',
+        'postLoad=a86e394cb6f6468a postEdit=6183c2613603b87d postReload=6183c2613603b87d',
+        'compaction folded=2 retained=1',
+    ]);
 });
 //# sourceMappingURL=bundle-panel.test.js.map

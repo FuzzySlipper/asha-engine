@@ -92,6 +92,38 @@ replay, the diverging step, expected vs. actual, and a likely owner:
 The report is deterministic and CI-friendly so an orchestrator can route the
 failure to the responsible lane — never a bare "replay failed".
 
+## Voxel durability evidence (parallel path; unification deferred)
+
+The first launchable voxel loop has its own **durability** evidence that is
+deliberately *separate* from the generic `ReplayRecord` above. A voxel world is
+saved as a base **edit log** (`rule-voxel-edit::persist`) optionally compacted into
+chunk **snapshots** plus a retained edit tail (`rule-world-bundle::compose`).
+`rule-world-bundle::durability` records three world fingerprints for the canonical
+fixture sequence and proves the edited world survives a save→compaction→reload cycle:
+
+| Checkpoint | Meaning |
+|---|---|
+| `postLoad` | fingerprint after the base fixture loads (generation only) |
+| `postEdit` | fingerprint after the canonical edit sequence |
+| `postReload` | fingerprint after compaction + reconstruction |
+
+Durability holds iff `postEdit == postReload`; a mismatch (tampered snapshot or edit
+log) fails **closed** with a classified `DurabilityError`/`SnapshotError` rather than
+loading a divergent world. The committed golden lives at
+`harness/fixtures/world-bundle/voxel-durability.txt` and is checked by the
+`voxel_durability_matches_committed_golden` test in `rule-world-bundle` (run under
+`cargo test` / `check-rust.sh`); regenerate it with
+`cargo run -p rule-world-bundle --example dump_durability`. The TS devtools read model
+`buildVoxelDurabilityModel` / `summarizeVoxelDurability` summarizes the projected
+status for a panel.
+
+**Deferred debt (Den task #2440):** this voxel save/reload fingerprint path is *not*
+yet unified with the tick-stepped `ReplayRecord`. Unifying them — so a voxel edit
+sequence is just another replay stream verified by `replay-tool` — is intentionally
+deferred so it does not block the first launchable loop. The world fingerprint used
+here is the same FNV-1a `BundleHash` the regenerate-and-replay diagnostic uses, so the
+two paths stay directly comparable when they are eventually merged.
+
 ## Adding a new golden replay
 
 1. Record the scenario with `sim-runner::Recorder` (see the
