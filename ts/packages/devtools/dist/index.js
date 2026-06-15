@@ -15,6 +15,8 @@ export * from './bundle-panel.js';
 export * from './entity-inspector.js';
 // Policy-run summary read model (#2487).
 export * from './policy-panel.js';
+// Unified operator console read model + agent-readable export (#2488).
+export * from './operator-console.js';
 /** Deterministic display lines for a scene report (pure formatter). */
 export function summarizeScene(report) {
     const lines = [
