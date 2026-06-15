@@ -82,4 +82,37 @@ export interface ImpactReport {
  * dependency edges and never mutates.
  */
 export declare function impactOfChangedAsset(catalog: Catalog, changedId: string): ImpactReport;
+/** Sidecar reconcile status, mirrored from the Rust `SidecarStatus`. */
+export type AssetSidecarStatus = 'unchanged' | 'movedFile' | 'contentChanged' | 'missingSidecar';
+/** One imported asset's source-trace projection (from its import manifest/sidecar). */
+export interface AssetSourceTraceInput {
+    /** The stable sidecar GUID, or null for a source not yet tracked. */
+    readonly guid: string | null;
+    readonly source: string;
+    /** The catalog/mesh asset id the lock pins (trace endpoint). */
+    readonly catalogId: string;
+    readonly artifacts: readonly {
+        readonly path: string;
+        readonly hash: string;
+    }[];
+    readonly status: AssetSidecarStatus;
+}
+/** A classified source-trace readout: identity, trackedness, and actionable drift. */
+export interface AssetSourceTraceView {
+    readonly guid: string | null;
+    /** True when a stable GUID exists (the source is tracked). */
+    readonly tracked: boolean;
+    readonly source: string;
+    readonly catalogId: string;
+    readonly artifactCount: number;
+    readonly status: AssetSidecarStatus;
+    /** Content changed under a stable GUID — derived artifacts are stale. */
+    readonly needsReimport: boolean;
+    /** No GUID / no sidecar — `init` is required before the source is tracked. */
+    readonly needsInit: boolean;
+}
+/** Build the source-trace read model for one imported asset. Pure. */
+export declare function buildAssetSourceTrace(input: AssetSourceTraceInput): AssetSourceTraceView;
+/** Deterministic, greppable rendering of a source-trace view (golden-friendly). */
+export declare function formatAssetSourceTrace(view: AssetSourceTraceView): string[];
 //# sourceMappingURL=asset-inspector.d.ts.map

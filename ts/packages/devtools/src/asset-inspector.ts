@@ -296,3 +296,63 @@ export function impactOfChangedAsset(catalog: Catalog, changedId: string): Impac
     unknownAsset: !present.has(changedId),
   };
 }
+
+// ── Source-asset GUID / sidecar trace read model (#2486) ────────────────────────
+//
+// Surfaces the file-driven asset metadata (sidecar GUID, source URI, generated
+// artifacts, sidecar reconcile status) the importer records, projected from the
+// import manifest — so an operator/agent sees source-asset identity and drift
+// without reading raw manifest files. Observational only; TS never re-inits a GUID
+// or re-locks an asset.
+
+/** Sidecar reconcile status, mirrored from the Rust `SidecarStatus`. */
+export type AssetSidecarStatus = 'unchanged' | 'movedFile' | 'contentChanged' | 'missingSidecar';
+
+/** One imported asset's source-trace projection (from its import manifest/sidecar). */
+export interface AssetSourceTraceInput {
+  /** The stable sidecar GUID, or null for a source not yet tracked. */
+  readonly guid: string | null;
+  readonly source: string;
+  /** The catalog/mesh asset id the lock pins (trace endpoint). */
+  readonly catalogId: string;
+  readonly artifacts: readonly { readonly path: string; readonly hash: string }[];
+  readonly status: AssetSidecarStatus;
+}
+
+/** A classified source-trace readout: identity, trackedness, and actionable drift. */
+export interface AssetSourceTraceView {
+  readonly guid: string | null;
+  /** True when a stable GUID exists (the source is tracked). */
+  readonly tracked: boolean;
+  readonly source: string;
+  readonly catalogId: string;
+  readonly artifactCount: number;
+  readonly status: AssetSidecarStatus;
+  /** Content changed under a stable GUID — derived artifacts are stale. */
+  readonly needsReimport: boolean;
+  /** No GUID / no sidecar — `init` is required before the source is tracked. */
+  readonly needsInit: boolean;
+}
+
+/** Build the source-trace read model for one imported asset. Pure. */
+export function buildAssetSourceTrace(input: AssetSourceTraceInput): AssetSourceTraceView {
+  return {
+    guid: input.guid,
+    tracked: input.guid !== null,
+    source: input.source,
+    catalogId: input.catalogId,
+    artifactCount: input.artifacts.length,
+    status: input.status,
+    needsReimport: input.status === 'contentChanged',
+    needsInit: input.guid === null || input.status === 'missingSidecar',
+  };
+}
+
+/** Deterministic, greppable rendering of a source-trace view (golden-friendly). */
+export function formatAssetSourceTrace(view: AssetSourceTraceView): string[] {
+  return [
+    `sourceTrace guid=${view.guid ?? '-'} tracked=${view.tracked} status=${view.status}`,
+    `  source=${view.source} catalog=${view.catalogId} artifacts=${view.artifactCount}`,
+    `  needsReimport=${view.needsReimport} needsInit=${view.needsInit}`,
+  ];
+}

@@ -214,3 +214,50 @@ test('impactOfChangedAsset flags an unknown asset and an asset with no dependent
   const leaf = impactOfChangedAsset(validCatalog(), 'mesh:wall');
   assert.deepEqual(leaf.dependents, []);
 });
+
+import {
+  buildAssetSourceTrace,
+  formatAssetSourceTrace,
+  type AssetSourceTraceInput,
+} from './asset-inspector.js';
+
+function trace(over: Partial<AssetSourceTraceInput>): AssetSourceTraceInput {
+  return {
+    guid: '28426a627e8870ba9fdefd6a0d998bfc',
+    source: 'assets/crate.mesh.json',
+    catalogId: 'mesh/crate',
+    artifacts: [{ path: 'crate.staticmesh.json', hash: '8899aabbccddeeff' }],
+    status: 'unchanged',
+    ...over,
+  };
+}
+
+test('source trace surfaces a tracked GUID and clean status', () => {
+  const v = buildAssetSourceTrace(trace({}));
+  assert.equal(v.tracked, true);
+  assert.equal(v.needsReimport, false);
+  assert.equal(v.needsInit, false);
+  assert.equal(v.artifactCount, 1);
+});
+
+test('content change under a stable GUID flags a reimport, not re-init', () => {
+  const v = buildAssetSourceTrace(trace({ status: 'contentChanged' }));
+  assert.equal(v.tracked, true);
+  assert.equal(v.needsReimport, true);
+  assert.equal(v.needsInit, false);
+});
+
+test('a missing sidecar / absent GUID flags init', () => {
+  const missing = buildAssetSourceTrace(trace({ status: 'missingSidecar' }));
+  assert.equal(missing.needsInit, true);
+  const guidless = buildAssetSourceTrace(trace({ guid: null }));
+  assert.equal(guidless.tracked, false);
+  assert.equal(guidless.needsInit, true);
+});
+
+test('formatAssetSourceTrace is deterministic and greppable', () => {
+  const lines = formatAssetSourceTrace(buildAssetSourceTrace(trace({ status: 'movedFile' })));
+  assert.ok(lines[0]!.includes('guid=28426a627e8870ba9fdefd6a0d998bfc'));
+  assert.ok(lines[0]!.includes('status=movedFile'));
+  assert.ok(lines[2]!.includes('needsReimport=false'));
+});

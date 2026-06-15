@@ -183,4 +183,25 @@ export function impactOfChangedAsset(catalog, changedId) {
         unknownAsset: !present.has(changedId),
     };
 }
+/** Build the source-trace read model for one imported asset. Pure. */
+export function buildAssetSourceTrace(input) {
+    return {
+        guid: input.guid,
+        tracked: input.guid !== null,
+        source: input.source,
+        catalogId: input.catalogId,
+        artifactCount: input.artifacts.length,
+        status: input.status,
+        needsReimport: input.status === 'contentChanged',
+        needsInit: input.guid === null || input.status === 'missingSidecar',
+    };
+}
+/** Deterministic, greppable rendering of a source-trace view (golden-friendly). */
+export function formatAssetSourceTrace(view) {
+    return [
+        `sourceTrace guid=${view.guid ?? '-'} tracked=${view.tracked} status=${view.status}`,
+        `  source=${view.source} catalog=${view.catalogId} artifacts=${view.artifactCount}`,
+        `  needsReimport=${view.needsReimport} needsInit=${view.needsInit}`,
+    ];
+}
 //# sourceMappingURL=asset-inspector.js.map

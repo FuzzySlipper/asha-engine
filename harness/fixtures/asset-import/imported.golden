@@ -85,6 +85,7 @@
   "importerVersion": 1,
   "schemaVersion": 1,
   "meshAssetId": "mesh/import-fixture-a",
+  "guid": null,
   "artifacts": [
     {
       "path": "import-fixture-a.catalog.json",
@@ -208,6 +209,7 @@
   "importerVersion": 1,
   "schemaVersion": 1,
   "meshAssetId": "mesh/import-fixture-b",
+  "guid": null,
   "artifacts": [
     {
       "path": "import-fixture-b.catalog.json",

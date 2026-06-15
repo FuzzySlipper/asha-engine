@@ -28,17 +28,45 @@ pub struct ImportManifest {
     pub importer_version: u32,
     pub schema_version: u64,
     pub mesh_asset_id: String,
+    /// The stable sidecar GUID of the source asset, when one exists (#2486). Links
+    /// the manifest's generated artifacts and catalog entry to a content/path-
+    /// independent source identity, so a source-asset → artifact → catalog → lock
+    /// trace survives moves and re-locks. `None` for a source with no sidecar yet.
+    pub guid: Option<String>,
     /// Generated artifact fingerprints, in stable path order.
     pub artifacts: Vec<ArtifactFingerprint>,
 }
 
 impl ImportManifest {
+    /// Attach the source asset's sidecar GUID (builder-style).
+    pub fn with_guid(mut self, guid: &str) -> Self {
+        self.guid = Some(guid.to_string());
+        self
+    }
+
     /// The fingerprint of one artifact by path, if present.
     pub fn artifact_hash(&self, rel_path: &str) -> Option<&str> {
         self.artifacts
             .iter()
             .find(|a| a.rel_path == rel_path)
             .map(|a| a.hash.as_str())
+    }
+
+    /// A deterministic source trace: source-asset GUID → each generated artifact
+    /// (by hash) → the catalog/mesh asset id the lock pins. Stable text for agents
+    /// and CI. The GUID anchors the trace so it survives a source move or re-lock.
+    pub fn source_trace_report(&self) -> String {
+        let mut out = String::new();
+        out.push_str(&format!(
+            "sourceTrace guid={} source={}\n",
+            self.guid.as_deref().unwrap_or("-"),
+            self.source_path,
+        ));
+        for a in &self.artifacts {
+            out.push_str(&format!("  artifact {} {}\n", a.rel_path, a.hash));
+        }
+        out.push_str(&format!("  catalog {}\n", self.mesh_asset_id));
+        out
     }
 
     /// Deterministic JSON rendering for the on-disk manifest + golden fixtures.
@@ -50,6 +78,7 @@ impl ImportManifest {
         w.field_num("importerVersion", self.importer_version as f64, false);
         w.field_num("schemaVersion", self.schema_version as f64, false);
         w.field_str("meshAssetId", &self.mesh_asset_id, false);
+        w.field_opt_str("guid", self.guid.as_deref(), false);
         w.begin_array_field("artifacts");
         for (i, a) in self.artifacts.iter().enumerate() {
             let last = i + 1 == self.artifacts.len();
@@ -86,6 +115,7 @@ pub fn parse_manifest(text: &str) -> Option<ImportManifest> {
         importer_version: root.get("importerVersion")?.as_u64()? as u32,
         schema_version: root.get("schemaVersion")?.as_u64()?,
         mesh_asset_id: root.get("meshAssetId")?.as_str()?.to_string(),
+        guid: root.get("guid").and_then(Json::as_str).map(str::to_string),
         artifacts,
     })
 }
@@ -114,6 +144,7 @@ pub fn build_manifest(
         importer_version,
         schema_version,
         mesh_asset_id: mesh_asset_id.to_string(),
+        guid: None,
         artifacts: fingerprints,
     }
 }
@@ -284,6 +315,29 @@ mod tests {
             plan_reimport(&prior, &next),
             ReimportPlan::StructuralReload { .. }
         ));
+    }
+
+    #[test]
+    fn guid_round_trips_and_drives_a_source_trace() {
+        let m = manifest("src", "cat", "mesh").with_guid("28426a627e8870ba9fdefd6a0d998bfc");
+        // The GUID survives manifest encode/decode.
+        let decoded = parse_manifest(&m.render()).expect("decode");
+        assert_eq!(
+            decoded.guid.as_deref(),
+            Some("28426a627e8870ba9fdefd6a0d998bfc")
+        );
+        // The source trace links GUID → artifacts → catalog id deterministically.
+        let trace = m.source_trace_report();
+        assert!(trace.contains("guid=28426a627e8870ba9fdefd6a0d998bfc"));
+        assert!(trace.contains("artifact a.catalog.json"));
+        assert!(trace.contains("catalog mesh/a"));
+    }
+
+    #[test]
+    fn a_guidless_manifest_still_round_trips() {
+        let m = manifest("src", "cat", "mesh");
+        assert_eq!(m.guid, None);
+        assert_eq!(parse_manifest(&m.render()).unwrap().guid, None);
     }
 
     #[test]

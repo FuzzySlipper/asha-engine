@@ -8,5 +8,5 @@ reimportPlan: firstImport
 artifacts:
   import-fixture-a.catalog.json (8e223ad75452ef28)
   import-fixture-a.staticmesh.json (af4bb5a726dc578e)
-  import-fixture-a.import.json (73702ffedf84d768)
+  import-fixture-a.import.json (a76ef34a53e80d22)
 result: OK (dry-run, nothing written)
