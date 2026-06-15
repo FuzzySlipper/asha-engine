@@ -550,8 +550,10 @@ name = "rule-world-bundle"
 version = "0.1.0"
 dependencies = [
  "core-assets",
+ "core-entity",
  "core-events",
  "core-ids",
+ "core-math",
  "core-scene",
  "core-space",
  "core-voxel",
@@ -597,8 +599,10 @@ version = "0.1.0"
 dependencies = [
  "core-assets",
  "core-catalog",
+ "core-entity",
  "core-events",
  "core-ids",
+ "core-math",
  "core-scene",
  "core-space",
  "core-voxel",

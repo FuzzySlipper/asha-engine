@@ -12,8 +12,12 @@ core-assets       = { path = "../../foundation/core-assets" }
 core-space        = { path = "../../foundation/core-space" }
 core-voxel        = { path = "../../state/core-voxel" }
 core-events       = { path = "../../state/core-events" }
+core-entity       = { path = "../../state/core-entity" }
 core-scene        = { path = "../../state/core-scene" }
 svc-volume        = { path = "../../services/svc-volume" }
 svc-spatial       = { path = "../../services/svc-spatial" }
 svc-serialization = { path = "../../services/svc-serialization" }
 rule-voxel-edit   = { path = "../rule-voxel-edit" }
+
+[dev-dependencies]
+core-math = { path = "../../foundation/core-math" }

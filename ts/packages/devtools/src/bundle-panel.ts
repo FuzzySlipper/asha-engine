@@ -99,6 +99,8 @@ function describeLoadStep(step: LoadStep): string {
       return `apply voxel edits (${step.editLogs.length} logs, ${step.snapshots.length} snapshots)`;
     case 'bootstrapScene':
       return `bootstrap scene ${step.scene as number} → world ${step.world as number}`;
+    case 'restoreWorldState':
+      return `restore runtime world state ${step.artifact}`;
     case 'validateFinalState':
       return `validate final state`;
   }

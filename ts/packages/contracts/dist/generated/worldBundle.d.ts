@@ -2,7 +2,7 @@ import type { SceneId, WorldId } from './scene.js';
 import type { VoxelCoord, VoxelValue } from './voxel.js';
 export type ArtifactClass = 'durable' | 'generated' | 'cache';
 export type KnownArtifactRole = 'sceneDocument' | 'assetLock' | 'worldStateSnapshot' | 'voxelChunkSnapshot' | 'voxelEditLog' | 'replayRecord' | 'generatedMetadata' | 'cache';
-export type LoadStage = 'versions' | 'assetLock' | 'sceneDocument' | 'terrainGeneration' | 'voxelEdits' | 'bootstrap' | 'finalValidation';
+export type LoadStage = 'versions' | 'assetLock' | 'sceneDocument' | 'terrainGeneration' | 'voxelEdits' | 'bootstrap' | 'worldStateSnapshot' | 'finalValidation';
 export type SuggestedAction = 'keepEdit' | 'reviewConflict';
 export interface ArtifactEntry {
     readonly path: string;
@@ -84,6 +84,9 @@ export type LoadStep = {
     readonly step: 'bootstrapScene';
     readonly scene: SceneId;
     readonly world: WorldId;
+} | {
+    readonly step: 'restoreWorldState';
+    readonly artifact: string;
 } | {
     readonly step: 'validateFinalState';
 };

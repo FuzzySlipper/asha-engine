@@ -401,6 +401,107 @@ pub fn movement_family() -> EntityStore {
     store
 }
 
+/// The #2484 mixed-world **save** fixture: one store holding every fixture
+/// vocabulary class a runtime world-state snapshot must persist in a single save —
+/// a runtime-created spatial rendered entity, a spatial non-rendered collider, a
+/// non-spatial logical entity, a containment relation, a transform attachment, an
+/// asset-bound import, a source-ancestry trace, a scene-sourced entity whose
+/// runtime transform has diverged from its authored origin, and a tombstone. It is
+/// the canonical input for the world-state snapshot codec round-trip and the
+/// committed equivalence golden.
+pub fn mixed_world_save_fixture() -> EntityStore {
+    use crate::relation::RelationCommand;
+
+    let mut store = EntityStore::new();
+
+    // 1. scene-sourced spatial rendered entity, runtime transform diverged.
+    let scene = create(
+        &mut store,
+        1,
+        EntitySource::SceneBootstrap {
+            node: SceneNodeId::new(10),
+        },
+        &[3, 7],
+    );
+    store.attach_transform(scene, EntityTransform::at(Vec3::new(4.0, 0.5, -2.0)));
+    store.attach_render_projection(scene, true);
+
+    // 2. runtime-created spatial non-rendered collider.
+    let collider = create(
+        &mut store,
+        2,
+        EntitySource::RuntimeCreated {
+            by: Some(ProcessId::new(9)),
+        },
+        &[],
+    );
+    store.attach_transform(collider, EntityTransform::IDENTITY);
+    store.attach_bounds(collider, Aabb::new(Vec3::splat(-1.0), Vec3::splat(1.0)));
+    store.attach_collision(collider, true);
+
+    // 3. non-spatial logical entity (no transform), controller association.
+    let logical = create(
+        &mut store,
+        3,
+        EntitySource::PolicyProposed {
+            by: SubjectId::new(5),
+        },
+        &[1],
+    );
+    store.attach_controller(logical, ControllerCapability::Subject(SubjectId::new(5)));
+
+    // 4. contained member (containment relation into the collider).
+    let member = create(
+        &mut store,
+        4,
+        EntitySource::RuntimeCreated { by: None },
+        &[],
+    );
+    store
+        .apply_relation(RelationCommand::SetContainment {
+            member,
+            container: collider,
+        })
+        .expect("set containment");
+
+    // 5. attached child: transform parent = scene, asset binding, source ancestry.
+    let child = create(
+        &mut store,
+        5,
+        EntitySource::Imported {
+            asset: mesh_asset("mesh/static-fixture-a"),
+        },
+        &[],
+    );
+    store.attach_transform(child, EntityTransform::at(Vec3::new(0.0, 1.0, 0.0)));
+    store.attach_asset_binding(child, mesh_asset("mesh/static-fixture-a"));
+    store
+        .apply_relation(RelationCommand::AttachTransformParent {
+            child,
+            parent: scene,
+        })
+        .expect("attach transform parent");
+    store
+        .apply_relation(RelationCommand::SetDerivedFrom {
+            derived: child,
+            origin: member,
+        })
+        .expect("set derived_from");
+
+    // 6. a tombstone: a destroyed runtime entity is retained for replay/diagnostics.
+    let removed = create(
+        &mut store,
+        6,
+        EntitySource::RuntimeCreated { by: None },
+        &[],
+    );
+    store
+        .apply(EntityLifecycleCommand::Destroy { id: removed })
+        .expect("destroy");
+
+    store
+}
+
 /// All families plus the lifecycle scenario, labelled for the combined golden.
 pub fn all_families() -> Vec<(&'static str, EntityStore)> {
     vec![

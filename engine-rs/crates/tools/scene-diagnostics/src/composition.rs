@@ -117,6 +117,14 @@ pub fn composition_failure_diagnostic(err: &LoadExecutionError) -> DiagnosticRep
             RemedyAction::Regenerate,
             "pin the old generator or run dev regenerate-and-replay to resolve the conflict",
         ),
+        LoadExecutionError::WorldStateDecode { path, error } => report(
+            DiagnosticCode::CorruptBundleArtifact,
+            "worldStateSnapshot",
+            DiagnosticSourceRef::empty().with_bundle_path(path.clone()),
+            format!("world-state snapshot `{path}` failed to decode: {error}"),
+            RemedyAction::RestoreArtifact,
+            "restore the world-state snapshot artifact from a known-good copy",
+        ),
         LoadExecutionError::FinalConsistency { detail } => report(
             DiagnosticCode::FinalConsistencyMismatch,
             "finalValidation",

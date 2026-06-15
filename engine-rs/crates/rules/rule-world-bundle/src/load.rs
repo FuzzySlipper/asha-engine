@@ -18,6 +18,7 @@
 
 use std::collections::BTreeMap;
 
+use core_entity::{decode_snapshot, EntityStore, SnapshotDecodeError};
 use core_ids::SceneId;
 use core_scene::{
     bootstrap_scene, decode as decode_scene, validate as validate_scene, BootstrapError,
@@ -108,6 +109,12 @@ pub struct StageOutcome {
 pub struct WorldLoadResult {
     /// Scene/entity authority (runtime transforms + `scene node → entity` trace).
     pub world: WorldState,
+    /// Restored runtime-diverged entity authority, when the bundle carried a
+    /// world-state snapshot (#2484). Holds the full generic entity store —
+    /// runtime-created entities, capability tables, relations, and source traces —
+    /// over and above the spatial bootstrap baseline in `world`. `None` when the
+    /// save had no runtime divergence to persist.
+    pub runtime_entities: Option<EntityStore>,
     /// Voxel authority, when the bundle carried a voxel section.
     pub voxel: Option<VoxelWorld>,
     /// The atomic bootstrap record (carries the source trace).
@@ -132,6 +139,14 @@ impl WorldLoadResult {
             self.voxel.is_some(),
             self.world_hash.0
         ));
+        match &self.runtime_entities {
+            Some(store) => out.push_str(&format!(
+                "runtimeEntities count={} entityHash={:016x}\n",
+                store.total_count(),
+                store.hash().0
+            )),
+            None => out.push_str("runtimeEntities none\n"),
+        }
         out.push_str(&format!(
             "sourceTrace count={}\n",
             self.bootstrap.source_trace.len()
@@ -172,6 +187,14 @@ pub enum LoadExecutionError {
     VoxelSpecMissing,
     /// Voxel replay/reconstruction rejected the edits.
     VoxelReplay { detail: String },
+    /// The world-state snapshot artifact failed to decode (fail closed before any
+    /// runtime authority is restored). Carries the classified codec error, so a
+    /// schema-version mismatch, malformed structure, and unknown discriminant stay
+    /// distinguishable.
+    WorldStateDecode {
+        path: String,
+        error: SnapshotDecodeError,
+    },
     /// The final consistency pass found a problem after composition.
     FinalConsistency { detail: String },
 }
@@ -242,6 +265,7 @@ pub fn execute_load_plan(
     let mut scene_doc: Option<FlatSceneDocument> = None;
     let mut voxel_world: Option<VoxelWorld> = None;
     let mut world_and_record: Option<(WorldState, BootstrapRecord)> = None;
+    let mut runtime_entities: Option<EntityStore> = None;
 
     for step in &plan.steps {
         match step {
@@ -353,6 +377,39 @@ pub fn execute_load_plan(
                 });
                 world_and_record = Some((state, record));
             }
+            LoadStep::RestoreWorldState { artifact } => {
+                // Restore over the bootstrapped baseline: the snapshot is the full
+                // runtime authority. Fail closed (no partial mutation) on a missing,
+                // empty, or undecodable artifact.
+                if world_and_record.is_none() {
+                    return Err(LoadExecutionError::FinalConsistency {
+                        detail: "world-state restore reached before scene bootstrap".into(),
+                    });
+                }
+                let text = read_required(artifacts, LoadStage::WorldStateSnapshot, artifact)?;
+                if text.trim().is_empty() {
+                    return Err(LoadExecutionError::EmptyArtifact {
+                        stage: LoadStage::WorldStateSnapshot,
+                        path: artifact.clone(),
+                    });
+                }
+                let snapshot = decode_snapshot(text).map_err(|error| {
+                    LoadExecutionError::WorldStateDecode {
+                        path: artifact.clone(),
+                        error,
+                    }
+                })?;
+                let store = EntityStore::from_snapshot(snapshot);
+                stages.push(StageOutcome {
+                    stage: LoadStage::WorldStateSnapshot,
+                    detail: format!(
+                        "artifact={artifact} entities={} entityHash={:016x}",
+                        store.total_count(),
+                        store.hash().0
+                    ),
+                });
+                runtime_entities = Some(store);
+            }
             LoadStep::ValidateFinalState => {
                 let (state, record) =
                     world_and_record
@@ -391,6 +448,7 @@ pub fn execute_load_plan(
 
     Ok(WorldLoadResult {
         world,
+        runtime_entities,
         voxel: voxel_world,
         bootstrap,
         world_hash,

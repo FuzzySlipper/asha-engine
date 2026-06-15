@@ -164,6 +164,25 @@ impl WorldState {
         self.node_to_entity.get(&node.raw()).copied()
     }
 
+    /// A durable snapshot of the composed entity store, for persisting the
+    /// world's **runtime-diverged** authority (transforms, runtime-created
+    /// entities, capabilities, relations, source traces) into a world-state
+    /// snapshot artifact (#2484). Excludes `DiagnosticTooling`-sourced entities by
+    /// default save policy. The reverse `scene node → entity` index is recoverable
+    /// from the per-record source traces, so it is not duplicated here.
+    pub fn entity_snapshot(&self) -> core_entity::EntitySnapshot {
+        self.entities.snapshot_durable()
+    }
+
+    /// The deterministic fingerprint of the composed entity store (capability and
+    /// relation aware). Distinct from [`WorldState::hash`], which fingerprints only
+    /// the spatial transform/source-node view; this covers the full authority the
+    /// world-state snapshot persists, so divergence detection and round-trip
+    /// equivalence compare like for like.
+    pub fn entity_hash(&self) -> core_entity::EntityHash {
+        self.entities.hash()
+    }
+
     /// Overwrite an entity's runtime transform (authority-owned movement).
     /// Returns `false` if the entity is unknown or tombstoned. Never touches scene
     /// documents.

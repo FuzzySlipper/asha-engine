@@ -1422,6 +1422,7 @@ pub fn world_bundle_module() -> Module {
                     "bootstrapScene",
                     vec![f("scene", r("SceneId")), f("world", r("WorldId"))],
                 ),
+                v("restoreWorldState", vec![f("artifact", string())]),
                 v("validateFinalState", vec![]),
             ],
         ),

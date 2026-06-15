@@ -19,10 +19,13 @@
 //! A mismatch is reported as a structured [`DiagnosticCode::RoundTripMismatch`]
 //! report (not just an assertion failure), so a harness failure is agent-legible.
 //!
-//! Runtime *transform* persistence (saving an entity's diverged runtime transform
-//! into a world-state snapshot artifact) is not yet wired; the scene/entity side
-//! therefore round-trips its bootstrapped identity. The voxel side exercises a
-//! real persisted edit. This is called out so the comparison stays honest.
+//! This harness focuses on the scene-bootstrap identity + voxel authority facets,
+//! so the scene/entity side here round-trips its bootstrapped identity. Runtime
+//! *divergence* persistence — saving runtime-created entities and diverged
+//! transforms/capabilities/relations into a `worldStateSnapshot` artifact — is now
+//! wired separately (#2484): see [`crate::world_state::world_state_round_trip`] for
+//! the runtime-authority equivalence harness and the executor's
+//! `RestoreWorldState` stage for the load path.
 
 use core_events::VoxelEditEvent;
 use core_ids::{SceneId, WorldId};

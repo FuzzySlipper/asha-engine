@@ -16,7 +16,7 @@ export type ArtifactClass = 'durable' | 'generated' | 'cache';
 export type KnownArtifactRole = 'sceneDocument' | 'assetLock' | 'worldStateSnapshot' | 'voxelChunkSnapshot' | 'voxelEditLog' | 'replayRecord' | 'generatedMetadata' | 'cache';
 
 // A stage in the canonical, ordered authority load sequence.
-export type LoadStage = 'versions' | 'assetLock' | 'sceneDocument' | 'terrainGeneration' | 'voxelEdits' | 'bootstrap' | 'finalValidation';
+export type LoadStage = 'versions' | 'assetLock' | 'sceneDocument' | 'terrainGeneration' | 'voxelEdits' | 'bootstrap' | 'worldStateSnapshot' | 'finalValidation';
 
 // What to do about an edit whose generated context changed under a new generator.
 export type SuggestedAction = 'keepEdit' | 'reviewConflict';
@@ -87,6 +87,7 @@ export type LoadStep =
   | { readonly step: 'generateTerrain'; readonly seed: number; readonly version: number; readonly params: string }
   | { readonly step: 'applyVoxelEdits'; readonly editLogs: readonly string[]; readonly snapshots: readonly string[] }
   | { readonly step: 'bootstrapScene'; readonly scene: SceneId; readonly world: WorldId }
+  | { readonly step: 'restoreWorldState'; readonly artifact: string }
   | { readonly step: 'validateFinalState' };
 
 // A deterministic, ordered authority load plan.

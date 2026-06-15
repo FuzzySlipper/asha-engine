@@ -95,6 +95,7 @@ fn stage_summary_matches_golden() {
          stage bootstrap world=7 entities=2\n\
          stage finalValidation worldHash={world_hash:016x} ok\n\
          result entities=2 voxel=false worldHash={world_hash:016x}\n\
+         runtimeEntities none\n\
          sourceTrace count=2\n"
     );
     assert_eq!(summary, expected);

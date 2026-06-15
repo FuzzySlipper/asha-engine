@@ -42,6 +42,7 @@ pub mod roundtrip;
 pub mod scene;
 pub mod text;
 pub mod trace;
+pub mod world_state;
 
 pub use bundle::{
     artifact_integrity_diagnostics, generator_mismatch_diagnostic, manifest_diagnostics,
@@ -56,6 +57,10 @@ pub use roundtrip::{
 };
 pub use scene::scene_diagnostics;
 pub use trace::{build_source_traces, source_trace_diagnostics, ProjectionRecord};
+pub use world_state::{
+    compare_entity_snapshots, missing_world_state_snapshot, world_state_round_trip,
+    WorldStateEquivalenceReport,
+};
 
 // Re-export the protocol surface so a single `scene_diagnostics::` import gives a
 // consumer the report types alongside the emitters.

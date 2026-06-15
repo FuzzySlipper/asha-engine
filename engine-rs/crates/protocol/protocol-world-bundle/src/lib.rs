@@ -79,6 +79,7 @@ pub const LOAD_STAGES: &[&str] = &[
     "terrainGeneration",
     "voxelEdits",
     "bootstrap",
+    "worldStateSnapshot",
     "finalValidation",
 ];
 
@@ -91,6 +92,10 @@ pub enum LoadStage {
     TerrainGeneration,
     VoxelEdits,
     Bootstrap,
+    /// Restore the runtime-diverged world-state snapshot over the bootstrapped
+    /// scene baseline. Optional: present only when a save carried runtime
+    /// divergence (#2484).
+    WorldStateSnapshot,
     FinalValidation,
 }
 
@@ -103,6 +108,7 @@ impl LoadStage {
             LoadStage::TerrainGeneration => "terrainGeneration",
             LoadStage::VoxelEdits => "voxelEdits",
             LoadStage::Bootstrap => "bootstrap",
+            LoadStage::WorldStateSnapshot => "worldStateSnapshot",
             LoadStage::FinalValidation => "finalValidation",
         }
     }
@@ -116,6 +122,7 @@ pub const ALL_LOAD_STAGES: &[LoadStage] = &[
     LoadStage::TerrainGeneration,
     LoadStage::VoxelEdits,
     LoadStage::Bootstrap,
+    LoadStage::WorldStateSnapshot,
     LoadStage::FinalValidation,
 ];
 
@@ -127,6 +134,7 @@ pub const LOAD_STEP_KINDS: &[&str] = &[
     "generateTerrain",
     "applyVoxelEdits",
     "bootstrapScene",
+    "restoreWorldState",
     "validateFinalState",
 ];
 
