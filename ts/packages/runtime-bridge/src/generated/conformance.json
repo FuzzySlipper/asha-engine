@@ -43,6 +43,30 @@
       "errors": "RuntimeBridgeError"
     },
     {
+      "manifestName": "create_camera",
+      "facadeMethod": "createCamera",
+      "surface": "stable",
+      "input": "protocol_view::CameraCreateRequest",
+      "output": "protocol_view::CameraSnapshot",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "apply_first_person_camera_input",
+      "facadeMethod": "applyFirstPersonCameraInput",
+      "surface": "stable",
+      "input": "protocol_view::FirstPersonCameraInputEnvelope",
+      "output": "protocol_view::CameraSnapshot",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "read_camera_projection",
+      "facadeMethod": "readCameraProjection",
+      "surface": "stable",
+      "input": "protocol_view::CameraProjectionRequest",
+      "output": "protocol_view::CameraProjectionSnapshot",
+      "errors": "RuntimeBridgeError"
+    },
+    {
       "manifestName": "get_buffer",
       "facadeMethod": "getBuffer",
       "surface": "stable",

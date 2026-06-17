@@ -12,6 +12,9 @@ operations are replay/devtools-only.
 | `submit_commands` | stable | `protocol_voxel::CommandBatch` | `protocol_voxel::CommandResult` | `RuntimeBridgeError` |
 | `pick_voxel` | stable | `protocol_voxel::PickRay` | `protocol_voxel::PickResult` | `RuntimeBridgeError` |
 | `read_render_diffs` | stable | `FrameCursor` | `protocol_render::RenderFrameDiffDescriptor` | `RuntimeBridgeError` |
+| `create_camera` | stable | `protocol_view::CameraCreateRequest` | `protocol_view::CameraSnapshot` | `RuntimeBridgeError` |
+| `apply_first_person_camera_input` | stable | `protocol_view::FirstPersonCameraInputEnvelope` | `protocol_view::CameraSnapshot` | `RuntimeBridgeError` |
+| `read_camera_projection` | stable | `protocol_view::CameraProjectionRequest` | `protocol_view::CameraProjectionSnapshot` | `RuntimeBridgeError` |
 | `get_buffer` | stable | `RuntimeBufferHandle` | `RuntimeBufferView` | `RuntimeBridgeError` |
 | `release_buffer` | stable | `RuntimeBufferHandle` | `Unit` | `RuntimeBridgeError` |
 | `load_world_bundle` | stable | `protocol_world_bundle::WorldBundleManifest` | `protocol_diagnostics::DiagnosticReportSet` | `RuntimeBridgeError` |

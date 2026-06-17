@@ -11,7 +11,7 @@
 //
 // It is value-level on purpose: constructing real union values exercises the
 // discriminants and field shapes, not just the type names.
-import { entityId, modeId, tagId, renderHandle, stepIndex, replayHash, REPLAY_FORMAT_VERSION, sceneId, worldId, sceneNodeId, } from './index.js';
+import { entityId, modeId, tagId, renderHandle, stepIndex, replayHash, REPLAY_FORMAT_VERSION, sceneId, worldId, sceneNodeId, cameraHandle, } from './index.js';
 // Branded IDs are nominally typed and built through their constructors.
 const entity = entityId(1);
 // A command authored the way a policy would author it.
@@ -343,6 +343,61 @@ const fallback = {
     outcome: 'failClosed',
     reason: 'collision-critical asset missing; refusing to load incomplete authority',
 };
+// A deterministic camera/view surface value set for first-person mover evidence.
+// These contracts are view/projection infrastructure, not gameplay authority or
+// renderer object handles.
+const camera = cameraHandle(11);
+const cameraPose = {
+    position: [0, 1.6, 0],
+    yawDegrees: 0,
+    pitchDegrees: 0,
+};
+const cameraBasis = {
+    forward: [0, 0, -1],
+    right: [1, 0, 0],
+    up: [0, 1, 0],
+};
+const projection = {
+    fovYDegrees: 60,
+    near: 0.1,
+    far: 1000,
+};
+const viewport = { width: 1280, height: 720 };
+const cameraCreate = {
+    initialPose: cameraPose,
+    projection,
+    viewport,
+};
+const firstPersonInput = {
+    moveForward: 1,
+    moveRight: 0,
+    moveUp: 0,
+    yawDeltaDegrees: 15,
+    pitchDeltaDegrees: -5,
+    dtSeconds: 1 / 60,
+    moveSpeedUnitsPerSecond: 3,
+};
+const firstPersonEnvelope = {
+    camera,
+    input: firstPersonInput,
+    tick: 1,
+};
+const cameraSnapshot = {
+    camera,
+    tick: 1,
+    pose: cameraPose,
+    basis: cameraBasis,
+    projection,
+    viewport,
+};
+const cameraProjectionRequest = { camera, viewport: null };
+const cameraProjection = {
+    ...cameraSnapshot,
+    viewMatrix: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, -1.6, 0, 1],
+    projectionMatrix: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, -1, 0, 0, -0.2, 0],
+    viewProjectionMatrix: [1, 0, 0, 0, 0, 1, 0, 0, 0, 1.6, -1, -1, 0, 0, -0.2, 0],
+    projectionHash: 'sha256:camera-smoke',
+};
 // Exported so the values are "used" (lint-clean) and tree-shakeable. Consumers
 // of @asha/contracts never see this — it is not re-exported by index.ts.
 export const __contractSmoke = {
@@ -367,5 +422,16 @@ export const __contractSmoke = {
     lockReport,
     renderMaterial,
     fallback,
+    camera,
+    cameraPose,
+    cameraBasis,
+    projection,
+    viewport,
+    cameraCreate,
+    firstPersonInput,
+    firstPersonEnvelope,
+    cameraSnapshot,
+    cameraProjectionRequest,
+    cameraProjection,
 };
 //# sourceMappingURL=smoke.js.map

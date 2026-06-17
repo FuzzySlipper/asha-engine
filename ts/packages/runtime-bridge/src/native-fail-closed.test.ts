@@ -21,6 +21,26 @@ import {
   type ReplaySessionHandle,
 } from './index.js';
 
+const CAMERA_CREATE_REQUEST = {
+  initialPose: { position: [0, 1.6, 0] as const, yawDegrees: 0, pitchDegrees: 0 },
+  projection: { fovYDegrees: 60, near: 0.1, far: 1000 },
+  viewport: { width: 1280, height: 720 },
+} as const;
+
+const CAMERA_INPUT = {
+  camera: 1 as import('@asha/contracts').CameraHandle,
+  tick: 1,
+  input: {
+    moveForward: 1,
+    moveRight: 0,
+    moveUp: 0,
+    yawDeltaDegrees: 15,
+    pitchDeltaDegrees: -5,
+    dtSeconds: 1 / 60,
+    moveSpeedUnitsPerSecond: 3,
+  },
+} as const;
+
 // A fake addon with sentinel return values distinct from MockRuntimeBridge, so a
 // silent mock fallback would be observable in the wired-op assertions below.
 function fakeAddon(): NativeAddon {
@@ -43,6 +63,9 @@ const INVOKE = new Map<string, (b: RuntimeBridge) => unknown>([
     (b) => b.pickVoxel({ grid: 1, origin: [0, 0, 0], direction: [1, 0, 0], maxDistance: 10 }),
   ],
   ['readRenderDiffs', (b) => b.readRenderDiffs(frameCursor(0))],
+  ['createCamera', (b) => b.createCamera(CAMERA_CREATE_REQUEST)],
+  ['applyFirstPersonCameraInput', (b) => b.applyFirstPersonCameraInput(CAMERA_INPUT)],
+  ['readCameraProjection', (b) => b.readCameraProjection({ camera: CAMERA_INPUT.camera, viewport: null })],
   ['getBuffer', (b) => b.getBuffer(0 as RuntimeBufferHandle)],
   ['releaseBuffer', (b) => b.releaseBuffer(0 as RuntimeBufferHandle)],
   [

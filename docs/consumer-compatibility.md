@@ -85,6 +85,10 @@ Consumer behavior:
 
 Breaking facade/operation changes require a migration note using the template below.
 
+Additive notes under `runtime-bridge.v0`:
+
+- #2564 adds three stable camera/view operations to the manifest-backed facade: `create_camera` / `createCamera`, `apply_first_person_camera_input` / `applyFirstPersonCameraInput`, and `read_camera_projection` / `readCameraProjection`. Native remains fail-closed with `operation_unimplemented` until a real native implementation lands; the mock/reference paths provide deterministic boundary evidence only. The compatibility marker remains `runtime-bridge.v0` because the change is additive.
+
 ## Consumer pinning guidance
 
 Until ASHA has registry/package publication, `asha-demo` pins by local path plus ASHA git commit:

@@ -1,8 +1,8 @@
-import type { CommandBatch, CommandResult, PickRay, PickResult, RenderFrameDiff } from '@asha/contracts';
+import type { CameraCreateRequest, CameraProjectionRequest, CameraProjectionSnapshot, CameraSnapshot, CommandBatch, CommandResult, FirstPersonCameraInputEnvelope, PickRay, PickResult, RenderFrameDiff } from '@asha/contracts';
 import { type NativeAddon } from '@asha/native-bridge';
 export { MANIFEST_OPERATIONS } from './generated/operations.js';
 export type { BridgeOperation, BridgeSurface } from './generated/operations.js';
-export type { CommandBatch, CommandResult, PickRay, PickResult } from '@asha/contracts';
+export type { CameraCreateRequest, CameraProjectionRequest, CameraProjectionSnapshot, CameraSnapshot, CommandBatch, CommandResult, FirstPersonCameraInputEnvelope, PickRay, PickResult, } from '@asha/contracts';
 export { decodeRenderDiff, decodeRenderFrameDiff, RenderDecodeError, RenderDiffStream, FrameMemory, } from './render-decode.js';
 export type EngineHandle = number & {
     readonly __brand: 'EngineHandle';
@@ -69,6 +69,9 @@ export interface RuntimeBridge {
     submitCommands(batch: CommandBatch): CommandResult;
     pickVoxel(ray: PickRay): PickResult;
     readRenderDiffs(cursor: FrameCursor): RenderFrameDiff;
+    createCamera(request: CameraCreateRequest): CameraSnapshot;
+    applyFirstPersonCameraInput(input: FirstPersonCameraInputEnvelope): CameraSnapshot;
+    readCameraProjection(request: CameraProjectionRequest): CameraProjectionSnapshot;
     getBuffer(handle: RuntimeBufferHandle): RuntimeBufferView;
     releaseBuffer(handle: RuntimeBufferHandle): void;
     loadWorldBundle(request: WorldLoadRequest): CompositionStatus;
@@ -85,6 +88,9 @@ export declare class MockRuntimeBridge implements RuntimeBridge {
     submitCommands(batch: CommandBatch): CommandResult;
     pickVoxel(ray: PickRay): PickResult;
     readRenderDiffs(cursor: FrameCursor): RenderFrameDiff;
+    createCamera(request: CameraCreateRequest): CameraSnapshot;
+    applyFirstPersonCameraInput(envelope: FirstPersonCameraInputEnvelope): CameraSnapshot;
+    readCameraProjection(request: CameraProjectionRequest): CameraProjectionSnapshot;
     getBuffer(handle: RuntimeBufferHandle): RuntimeBufferView;
     releaseBuffer(handle: RuntimeBufferHandle): void;
     loadWorldBundle(request: WorldLoadRequest): CompositionStatus;
@@ -112,6 +118,9 @@ export declare class NativeRuntimeBridge implements RuntimeBridge {
     submitCommands(): CommandResult;
     pickVoxel(): PickResult;
     readRenderDiffs(): RenderFrameDiff;
+    createCamera(): CameraSnapshot;
+    applyFirstPersonCameraInput(): CameraSnapshot;
+    readCameraProjection(): CameraProjectionSnapshot;
     getBuffer(): RuntimeBufferView;
     releaseBuffer(): void;
     loadWorldBundle(): CompositionStatus;

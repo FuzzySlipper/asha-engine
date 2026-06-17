@@ -18,12 +18,18 @@
 
 #![forbid(unsafe_code)]
 
+use std::collections::BTreeMap;
+
 use core_commands::VoxelCommand;
 use core_error::ErrorCategory;
 use core_space::{
     ChunkCoord, ChunkDims, Face, GridId, VoxelCoord, VoxelGridSpec, WorldPos, WorldVec,
 };
 use core_voxel::{MaterialCatalog, VoxelMaterialId};
+use protocol_view::{
+    CameraCreateRequest, CameraProjectionRequest, CameraProjectionSnapshot, CameraSnapshot,
+    FirstPersonCameraInputEnvelope,
+};
 use rule_voxel_edit::VoxelEditRejection;
 use svc_collision::{CollisionProjection, Ray};
 use svc_spatial::VoxelWorld;
@@ -300,6 +306,15 @@ pub trait RuntimeBridge {
     /// the voxel-grid raycast; the renderer only builds the ray. Reads authority —
     /// never mutates it.
     fn pick_voxel(&self, ray: PickRay) -> BridgeResult<PickResult>;
+    fn create_camera(&mut self, request: CameraCreateRequest) -> BridgeResult<CameraSnapshot>;
+    fn apply_first_person_camera_input(
+        &mut self,
+        input: FirstPersonCameraInputEnvelope,
+    ) -> BridgeResult<CameraSnapshot>;
+    fn read_camera_projection(
+        &self,
+        request: CameraProjectionRequest,
+    ) -> BridgeResult<CameraProjectionSnapshot>;
     fn get_buffer(&self, handle: RuntimeBufferHandle) -> BridgeResult<RuntimeBufferView<'_>>;
     fn release_buffer(&mut self, handle: RuntimeBufferHandle) -> BridgeResult<()>;
 
@@ -336,6 +351,9 @@ pub struct ReferenceBridge {
     voxel: Option<VoxelWorld>,
     /// The material catalog voxel edits validate against.
     materials: MaterialCatalog,
+    /// Bridge-owned runtime view cameras (view/projection evidence, not gameplay authority).
+    cameras: BTreeMap<u64, CameraSnapshot>,
+    next_camera: u64,
 }
 
 /// The bundle schema / protocol versions this reference bridge understands.
@@ -355,6 +373,103 @@ impl ReferenceBridge {
             ChunkDims::cubic(2).expect("nonzero dims"),
         )
         .expect("positive voxel size")
+    }
+
+    fn require_initialized(&self, op: &str) -> BridgeResult<()> {
+        if self.engine.is_none() {
+            return Err(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::NotInitialized,
+                format!("{op} called before initialize_engine"),
+            ));
+        }
+        Ok(())
+    }
+
+    fn basis_from_pose(pose: protocol_view::CameraPose) -> protocol_view::CameraBasis {
+        let yaw = pose.yaw_degrees.to_radians();
+        let pitch = pose.pitch_degrees.to_radians();
+        let cp = pitch.cos();
+        let sp = pitch.sin();
+        let sy = yaw.sin();
+        let cy = yaw.cos();
+        protocol_view::CameraBasis {
+            forward: [sy * cp, sp, -cy * cp],
+            right: [cy, 0.0, sy],
+            up: [-sy * sp, cp, cy * sp],
+        }
+    }
+
+    fn projection_snapshot(
+        snapshot: CameraSnapshot,
+        viewport: protocol_view::ViewportSize,
+    ) -> CameraProjectionSnapshot {
+        CameraProjectionSnapshot {
+            camera: snapshot.camera,
+            tick: snapshot.tick,
+            pose: snapshot.pose,
+            basis: snapshot.basis,
+            projection: snapshot.projection,
+            viewport,
+            view_matrix: [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                -snapshot.pose.position[0],
+                -snapshot.pose.position[1],
+                -snapshot.pose.position[2],
+                1.0,
+            ],
+            projection_matrix: [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                -1.0,
+                -1.0,
+                0.0,
+                0.0,
+                -snapshot.projection.near * 2.0,
+                0.0,
+            ],
+            view_projection_matrix: [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                -snapshot.pose.position[1],
+                -1.0,
+                -1.0,
+                -snapshot.pose.position[0],
+                0.0,
+                -snapshot.projection.near * 2.0,
+                0.0,
+            ],
+            projection_hash: format!(
+                "sha256:reference-camera-{}-{}",
+                snapshot.camera.raw(),
+                snapshot.tick
+            ),
+        }
     }
 }
 
@@ -382,6 +497,8 @@ impl RuntimeBridge for ReferenceBridge {
         let _ = world.drain_dirty();
         self.voxel = Some(world);
         self.materials = MaterialCatalog::new([1, 2, 3].into_iter().map(VoxelMaterialId::new));
+        self.cameras.clear();
+        self.next_camera = 1;
 
         Ok(handle)
     }
@@ -471,6 +588,91 @@ impl RuntimeBridge for ReferenceBridge {
         })
     }
 
+    fn create_camera(&mut self, request: CameraCreateRequest) -> BridgeResult<CameraSnapshot> {
+        self.require_initialized("create_camera")?;
+        let camera = protocol_view::CameraHandle::new(self.next_camera);
+        self.next_camera += 1;
+        let snapshot = CameraSnapshot {
+            camera,
+            tick: 0,
+            pose: request.initial_pose,
+            basis: Self::basis_from_pose(request.initial_pose),
+            projection: request.projection,
+            viewport: request.viewport,
+        };
+        self.cameras.insert(camera.raw(), snapshot);
+        Ok(snapshot)
+    }
+
+    fn apply_first_person_camera_input(
+        &mut self,
+        envelope: FirstPersonCameraInputEnvelope,
+    ) -> BridgeResult<CameraSnapshot> {
+        self.require_initialized("apply_first_person_camera_input")?;
+        let prior = *self.cameras.get(&envelope.camera.raw()).ok_or_else(|| {
+            RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::UnknownHandle,
+                "unknown camera handle",
+            )
+        })?;
+        let input = envelope.input;
+        if input.dt_seconds < 0.0 || input.move_speed_units_per_second < 0.0 {
+            return Err(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                "dt_seconds and move_speed_units_per_second must be non-negative",
+            ));
+        }
+        let distance = input.dt_seconds * input.move_speed_units_per_second;
+        let basis = prior.basis;
+        let pose = protocol_view::CameraPose {
+            position: [
+                prior.pose.position[0]
+                    + (basis.forward[0] * input.move_forward
+                        + basis.right[0] * input.move_right
+                        + basis.up[0] * input.move_up)
+                        * distance,
+                prior.pose.position[1]
+                    + (basis.forward[1] * input.move_forward
+                        + basis.right[1] * input.move_right
+                        + basis.up[1] * input.move_up)
+                        * distance,
+                prior.pose.position[2]
+                    + (basis.forward[2] * input.move_forward
+                        + basis.right[2] * input.move_right
+                        + basis.up[2] * input.move_up)
+                        * distance,
+            ],
+            yaw_degrees: prior.pose.yaw_degrees + input.yaw_delta_degrees,
+            pitch_degrees: (prior.pose.pitch_degrees + input.pitch_delta_degrees)
+                .clamp(-89.0, 89.0),
+        };
+        let snapshot = CameraSnapshot {
+            tick: envelope.tick,
+            pose,
+            basis: Self::basis_from_pose(pose),
+            ..prior
+        };
+        self.cameras.insert(envelope.camera.raw(), snapshot);
+        Ok(snapshot)
+    }
+
+    fn read_camera_projection(
+        &self,
+        request: CameraProjectionRequest,
+    ) -> BridgeResult<CameraProjectionSnapshot> {
+        self.require_initialized("read_camera_projection")?;
+        let snapshot = *self.cameras.get(&request.camera.raw()).ok_or_else(|| {
+            RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::UnknownHandle,
+                "unknown camera handle",
+            )
+        })?;
+        Ok(Self::projection_snapshot(
+            snapshot,
+            request.viewport.unwrap_or(snapshot.viewport),
+        ))
+    }
+
     fn get_buffer(&self, handle: RuntimeBufferHandle) -> BridgeResult<RuntimeBufferView<'_>> {
         self.buffers.view(handle)
     }
@@ -549,6 +751,78 @@ mod tests {
         assert_eq!(err.kind, RuntimeBridgeErrorKind::NotInitialized);
         // And status reflects no loaded world.
         assert_eq!(bridge.get_composition_status().unwrap().loaded_world, None);
+    }
+
+    #[test]
+    fn camera_view_surface_round_trips_and_fails_closed() {
+        use protocol_view::{
+            CameraHandle, CameraPose, FirstPersonCameraInput, PerspectiveProjection, ViewportSize,
+        };
+
+        let mut bridge = ReferenceBridge::new();
+        let request = CameraCreateRequest {
+            initial_pose: CameraPose {
+                position: [0.0, 1.6, 0.0],
+                yaw_degrees: 0.0,
+                pitch_degrees: 0.0,
+            },
+            projection: PerspectiveProjection {
+                fov_y_degrees: 60.0,
+                near: 0.1,
+                far: 1000.0,
+            },
+            viewport: ViewportSize {
+                width: 1280,
+                height: 720,
+            },
+        };
+        assert_eq!(
+            bridge.create_camera(request).unwrap_err().kind,
+            RuntimeBridgeErrorKind::NotInitialized
+        );
+
+        bridge.initialize_engine(EngineConfig { seed: 1 }).unwrap();
+        let created = bridge.create_camera(request).unwrap();
+        assert_eq!(created.camera.raw(), 1);
+        assert_eq!(created.pose, request.initial_pose);
+
+        let moved = bridge
+            .apply_first_person_camera_input(FirstPersonCameraInputEnvelope {
+                camera: created.camera,
+                tick: 1,
+                input: FirstPersonCameraInput {
+                    move_forward: 1.0,
+                    move_right: 0.0,
+                    move_up: 0.0,
+                    yaw_delta_degrees: 15.0,
+                    pitch_delta_degrees: -5.0,
+                    dt_seconds: 1.0 / 60.0,
+                    move_speed_units_per_second: 3.0,
+                },
+            })
+            .unwrap();
+        assert_eq!(moved.tick, 1);
+        assert_ne!(moved.pose, created.pose);
+
+        let projected = bridge
+            .read_camera_projection(CameraProjectionRequest {
+                camera: moved.camera,
+                viewport: None,
+            })
+            .unwrap();
+        assert_eq!(projected.view_matrix.len(), 16);
+        assert_eq!(projected.projection_hash, "sha256:reference-camera-1-1");
+
+        assert_eq!(
+            bridge
+                .read_camera_projection(CameraProjectionRequest {
+                    camera: CameraHandle::new(999),
+                    viewport: None,
+                })
+                .unwrap_err()
+                .kind,
+            RuntimeBridgeErrorKind::UnknownHandle
+        );
     }
 
     #[test]

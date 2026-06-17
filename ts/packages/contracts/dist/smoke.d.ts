@@ -1,4 +1,4 @@
-import { type EntityId, type CommandEnvelope, type ScriptView, type ReplayRecord, type DiagnosticReportSet, type SourceTrace, type RendererResourceReport, type FlatSceneDocument, type SceneValidationReport, type BootstrapRecord, type WorldBundleManifest, type LoadPlan, type RegenConflictReport, type CatalogValidationReport, type LockValidationReport, type RenderMaterial } from './index.js';
+import { type EntityId, type CommandEnvelope, type ScriptView, type ReplayRecord, type DiagnosticReportSet, type SourceTrace, type RendererResourceReport, type FlatSceneDocument, type SceneValidationReport, type BootstrapRecord, type WorldBundleManifest, type LoadPlan, type RegenConflictReport, type CatalogValidationReport, type LockValidationReport, type RenderMaterial, type CameraBasis, type CameraCreateRequest, type CameraHandle, type CameraPose, type CameraProjectionRequest, type CameraProjectionSnapshot, type CameraSnapshot, type FirstPersonCameraInput, type FirstPersonCameraInputEnvelope, type PerspectiveProjection, type ViewportSize } from './index.js';
 export declare const __contractSmoke: {
     readonly entity: EntityId;
     readonly addTag: {
@@ -37,5 +37,16 @@ export declare const __contractSmoke: {
         readonly outcome: "failClosed";
         readonly reason: string;
     };
+    readonly camera: CameraHandle;
+    readonly cameraPose: CameraPose;
+    readonly cameraBasis: CameraBasis;
+    readonly projection: PerspectiveProjection;
+    readonly viewport: ViewportSize;
+    readonly cameraCreate: CameraCreateRequest;
+    readonly firstPersonInput: FirstPersonCameraInput;
+    readonly firstPersonEnvelope: FirstPersonCameraInputEnvelope;
+    readonly cameraSnapshot: CameraSnapshot;
+    readonly cameraProjectionRequest: CameraProjectionRequest;
+    readonly cameraProjection: CameraProjectionSnapshot;
 };
 //# sourceMappingURL=smoke.d.ts.map

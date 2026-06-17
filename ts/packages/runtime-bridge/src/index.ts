@@ -10,8 +10,13 @@
 // manifest-derived conformance test (see conformance.test.ts).
 
 import type {
+  CameraCreateRequest,
+  CameraProjectionRequest,
+  CameraProjectionSnapshot,
+  CameraSnapshot,
   CommandBatch,
   CommandResult,
+  FirstPersonCameraInputEnvelope,
   PickRay,
   PickResult,
   RenderFrameDiff,
@@ -26,7 +31,17 @@ export type { BridgeOperation, BridgeSurface } from './generated/operations.js';
 // `protocol_voxel::{CommandBatch, CommandResult, PickRay, PickResult}`). Re-exported
 // so consumers still couple only to this facade package for the runtime surface
 // (ADR 0006).
-export type { CommandBatch, CommandResult, PickRay, PickResult } from '@asha/contracts';
+export type {
+  CameraCreateRequest,
+  CameraProjectionRequest,
+  CameraProjectionSnapshot,
+  CameraSnapshot,
+  CommandBatch,
+  CommandResult,
+  FirstPersonCameraInputEnvelope,
+  PickRay,
+  PickResult,
+} from '@asha/contracts';
 
 // Render-diff decode (moved from the former @asha/wasm-bridge). Transport-neutral
 // payload → contract types; backs `readRenderDiffs`. See render-decode.ts.
@@ -138,6 +153,9 @@ export interface RuntimeBridge {
   submitCommands(batch: CommandBatch): CommandResult;
   pickVoxel(ray: PickRay): PickResult;
   readRenderDiffs(cursor: FrameCursor): RenderFrameDiff;
+  createCamera(request: CameraCreateRequest): CameraSnapshot;
+  applyFirstPersonCameraInput(input: FirstPersonCameraInputEnvelope): CameraSnapshot;
+  readCameraProjection(request: CameraProjectionRequest): CameraProjectionSnapshot;
   getBuffer(handle: RuntimeBufferHandle): RuntimeBufferView;
   releaseBuffer(handle: RuntimeBufferHandle): void;
   // World load/save composition (operational; not a replay-verification replacement).
@@ -154,11 +172,70 @@ export interface RuntimeBridge {
 // Targets the facade so most TS tests need no addon load. Behaviour mirrors the
 // Rust `ReferenceBridge` so native/mock parity is meaningful.
 
+type MutableCameraSnapshot = CameraSnapshot;
+
+function finite(value: number, field: string): number {
+  if (!Number.isFinite(value)) {
+    throw new RuntimeBridgeError('invalid_input', `${field} must be finite`);
+  }
+  return value;
+}
+
+function validateViewport(viewport: { readonly width: number; readonly height: number }): void {
+  if (!Number.isInteger(viewport.width) || viewport.width <= 0) {
+    throw new RuntimeBridgeError('invalid_input', 'viewport width must be a positive integer');
+  }
+  if (!Number.isInteger(viewport.height) || viewport.height <= 0) {
+    throw new RuntimeBridgeError('invalid_input', 'viewport height must be a positive integer');
+  }
+}
+
+function validateProjection(projection: CameraCreateRequest['projection']): void {
+  finite(projection.fovYDegrees, 'fovYDegrees');
+  finite(projection.near, 'near');
+  finite(projection.far, 'far');
+  if (projection.fovYDegrees <= 0 || projection.fovYDegrees >= 180) {
+    throw new RuntimeBridgeError('invalid_input', 'fovYDegrees must be in (0, 180)');
+  }
+  if (projection.near <= 0 || projection.far <= projection.near) {
+    throw new RuntimeBridgeError('invalid_input', 'projection near/far must satisfy 0 < near < far');
+  }
+}
+
+function basisFromPose(pose: CameraSnapshot['pose']): CameraSnapshot['basis'] {
+  const yaw = (pose.yawDegrees * Math.PI) / 180;
+  const pitch = (pose.pitchDegrees * Math.PI) / 180;
+  const cp = Math.cos(pitch);
+  const sp = Math.sin(pitch);
+  const sy = Math.sin(yaw);
+  const cy = Math.cos(yaw);
+  return {
+    forward: [sy * cp, sp, -cy * cp],
+    right: [cy, 0, sy],
+    up: [-sy * sp, cp, cy * sp],
+  };
+}
+
+function projectionSnapshot(snapshot: CameraSnapshot, viewport = snapshot.viewport): CameraProjectionSnapshot {
+  return {
+    ...snapshot,
+    viewport,
+    // Placeholder deterministic matrices for #2564 facade coverage. #2565 owns
+    // the Rust/reference golden math and will replace this with strict evidence.
+    viewMatrix: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -snapshot.pose.position[0], -snapshot.pose.position[1], -snapshot.pose.position[2], 1],
+    projectionMatrix: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, -1, 0, 0, -snapshot.projection.near * 2, 0],
+    viewProjectionMatrix: [1, 0, 0, 0, 0, 1, 0, 0, 0, -snapshot.pose.position[1], -1, -1, -snapshot.pose.position[0], 0, -snapshot.projection.near * 2, 0],
+    projectionHash: `sha256:mock-camera-${snapshot.camera as number}-${snapshot.tick}`,
+  };
+}
+
 export class MockRuntimeBridge implements RuntimeBridge {
   #engine: EngineHandle | null = null;
   #buffer: Uint8Array = new Uint8Array();
   #replaySteps = 0;
   #loadedWorld: number | null = null;
+  #nextCamera = 1;
+  #cameras = new Map<number, MutableCameraSnapshot>();
 
   initializeEngine(config: EngineConfig): EngineHandle {
     if (!Number.isInteger(config.seed) || config.seed < 0) {
@@ -212,6 +289,84 @@ export class MockRuntimeBridge implements RuntimeBridge {
       throw new RuntimeBridgeError('invalid_input', `frame cursor must be a non-negative integer`);
     }
     return { ops: [] };
+  }
+
+  createCamera(request: CameraCreateRequest): CameraSnapshot {
+    if (this.#engine === null) {
+      throw new RuntimeBridgeError('not_initialized', 'createCamera before initializeEngine');
+    }
+    validateProjection(request.projection);
+    validateViewport(request.viewport);
+    for (const [index, value] of request.initialPose.position.entries()) {
+      finite(value, `initialPose.position[${index}]`);
+    }
+    finite(request.initialPose.yawDegrees, 'initialPose.yawDegrees');
+    finite(request.initialPose.pitchDegrees, 'initialPose.pitchDegrees');
+    const camera = this.#nextCamera++ as CameraSnapshot['camera'];
+    const snapshot: MutableCameraSnapshot = {
+      camera,
+      tick: 0,
+      pose: request.initialPose,
+      basis: basisFromPose(request.initialPose),
+      projection: request.projection,
+      viewport: request.viewport,
+    };
+    this.#cameras.set(camera as number, snapshot);
+    return snapshot;
+  }
+
+  applyFirstPersonCameraInput(envelope: FirstPersonCameraInputEnvelope): CameraSnapshot {
+    if (this.#engine === null) {
+      throw new RuntimeBridgeError('not_initialized', 'applyFirstPersonCameraInput before initializeEngine');
+    }
+    const prior = this.#cameras.get(envelope.camera as number);
+    if (!prior) {
+      throw new RuntimeBridgeError('unknown_handle', `no camera for handle ${envelope.camera}`);
+    }
+    const i = envelope.input;
+    finite(i.moveForward, 'moveForward');
+    finite(i.moveRight, 'moveRight');
+    finite(i.moveUp, 'moveUp');
+    finite(i.yawDeltaDegrees, 'yawDeltaDegrees');
+    finite(i.pitchDeltaDegrees, 'pitchDeltaDegrees');
+    finite(i.dtSeconds, 'dtSeconds');
+    finite(i.moveSpeedUnitsPerSecond, 'moveSpeedUnitsPerSecond');
+    if (i.dtSeconds < 0 || i.moveSpeedUnitsPerSecond < 0) {
+      throw new RuntimeBridgeError('invalid_input', 'dtSeconds and moveSpeedUnitsPerSecond must be non-negative');
+    }
+    const basis = prior.basis;
+    const distance = i.dtSeconds * i.moveSpeedUnitsPerSecond;
+    const position = [
+      prior.pose.position[0] + (basis.forward[0] * i.moveForward + basis.right[0] * i.moveRight + basis.up[0] * i.moveUp) * distance,
+      prior.pose.position[1] + (basis.forward[1] * i.moveForward + basis.right[1] * i.moveRight + basis.up[1] * i.moveUp) * distance,
+      prior.pose.position[2] + (basis.forward[2] * i.moveForward + basis.right[2] * i.moveRight + basis.up[2] * i.moveUp) * distance,
+    ] as const;
+    const pitchDegrees = Math.max(-89, Math.min(89, prior.pose.pitchDegrees + i.pitchDeltaDegrees));
+    const pose = {
+      position,
+      yawDegrees: prior.pose.yawDegrees + i.yawDeltaDegrees,
+      pitchDegrees,
+    };
+    const snapshot: MutableCameraSnapshot = {
+      ...prior,
+      tick: envelope.tick,
+      pose,
+      basis: basisFromPose(pose),
+    };
+    this.#cameras.set(envelope.camera as number, snapshot);
+    return snapshot;
+  }
+
+  readCameraProjection(request: CameraProjectionRequest): CameraProjectionSnapshot {
+    if (this.#engine === null) {
+      throw new RuntimeBridgeError('not_initialized', 'readCameraProjection before initializeEngine');
+    }
+    const snapshot = this.#cameras.get(request.camera as number);
+    if (!snapshot) {
+      throw new RuntimeBridgeError('unknown_handle', `no camera for handle ${request.camera}`);
+    }
+    if (request.viewport !== null) validateViewport(request.viewport);
+    return projectionSnapshot(snapshot, request.viewport ?? snapshot.viewport);
   }
 
   getBuffer(handle: RuntimeBufferHandle): RuntimeBufferView {
@@ -346,6 +501,18 @@ export class NativeRuntimeBridge implements RuntimeBridge {
 
   readRenderDiffs(): RenderFrameDiff {
     throw nativeUnimplemented('read_render_diffs');
+  }
+
+  createCamera(): CameraSnapshot {
+    throw nativeUnimplemented('create_camera');
+  }
+
+  applyFirstPersonCameraInput(): CameraSnapshot {
+    throw nativeUnimplemented('apply_first_person_camera_input');
+  }
+
+  readCameraProjection(): CameraProjectionSnapshot {
+    throw nativeUnimplemented('read_camera_projection');
   }
 
   getBuffer(): RuntimeBufferView {

@@ -20,11 +20,53 @@ test('facade exposes exactly the manifest operations (conformance)', () => {
     const known = new Set(MANIFEST_OPERATIONS.map((o) => o.facadeMethod));
     assert.deepEqual(proto.filter((n) => !known.has(n)), [], 'mock must not expose methods outside the manifest');
 });
+test('manifest exposes public camera view operations', () => {
+    const cameraOps = MANIFEST_OPERATIONS.filter((op) => op.facadeMethod.includes('Camera'));
+    assert.deepEqual(cameraOps.map((op) => [op.manifestName, op.facadeMethod, op.surface]), [
+        ['create_camera', 'createCamera', 'stable'],
+        ['apply_first_person_camera_input', 'applyFirstPersonCameraInput', 'stable'],
+        ['read_camera_projection', 'readCameraProjection', 'stable'],
+    ]);
+});
 test('mock: init then step is deterministic', () => {
     const bridge = createMockRuntimeBridge();
     const handle = bridge.initializeEngine({ seed: 7 });
     assert.equal(handle, 7);
     assert.deepEqual(bridge.stepSimulation({ tick: 6 }), { tick: 6, diffCount: 2 });
+});
+test('mock: camera view operations produce deterministic public evidence', () => {
+    const bridge = createMockRuntimeBridge();
+    bridge.initializeEngine({ seed: 1 });
+    const create = {
+        initialPose: { position: [0, 1.6, 0], yawDegrees: 0, pitchDegrees: 0 },
+        projection: { fovYDegrees: 60, near: 0.1, far: 1000 },
+        viewport: { width: 1280, height: 720 },
+    };
+    const created = bridge.createCamera(create);
+    assert.equal(created.camera, 1);
+    assert.deepEqual(created.pose, create.initialPose);
+    const input = {
+        camera: created.camera,
+        tick: 1,
+        input: {
+            moveForward: 1,
+            moveRight: 0,
+            moveUp: 0,
+            yawDeltaDegrees: 15,
+            pitchDeltaDegrees: -5,
+            dtSeconds: 1 / 60,
+            moveSpeedUnitsPerSecond: 3,
+        },
+    };
+    const moved = bridge.applyFirstPersonCameraInput(input);
+    assert.equal(moved.tick, 1);
+    assert.notDeepEqual(moved.pose, created.pose);
+    const projection = { camera: moved.camera, viewport: null };
+    const snapshot = bridge.readCameraProjection(projection);
+    assert.equal(snapshot.projectionHash, 'sha256:mock-camera-1-1');
+    assert.equal(snapshot.viewMatrix.length, 16);
+    assert.equal(snapshot.projectionMatrix.length, 16);
+    assert.equal(snapshot.viewProjectionMatrix.length, 16);
 });
 test('mock: step before init throws a classified error', () => {
     const bridge = createMockRuntimeBridge();
