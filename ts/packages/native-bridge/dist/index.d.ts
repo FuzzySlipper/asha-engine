@@ -6,7 +6,32 @@
  */
 export interface NativeAddon {
     initializeEngine(seed: number): number;
-    stepSimulation(seed: number, tick: number): number;
+    loadWorldBundle(handle: number, bundleSchemaVersion: number, protocolVersion: number, sceneId: number): {
+        loadedWorld: number | null;
+        fatalCount: number;
+        totalCount: number;
+        blocksLoad: boolean;
+    };
+    submitCommands(handle: number, commandsJson: string): {
+        accepted: number;
+        rejected: number;
+        rejections: unknown[];
+    };
+    stepSimulation(handle: number, tick: number): number;
+    readRenderDiffs(handle: number, cursor: number): {
+        ops: unknown[];
+    };
+    saveCurrentWorld(handle: number): {
+        artifactsWritten: number;
+        compactedEdits: number;
+        retainedEdits: number;
+    };
+    getCompositionStatus(handle: number): {
+        loadedWorld: number | null;
+        fatalCount: number;
+        totalCount: number;
+        blocksLoad: boolean;
+    };
 }
 /** Raised when the native addon cannot be loaded (missing build / ABI mismatch). */
 export declare class NativeAddonUnavailable extends Error {

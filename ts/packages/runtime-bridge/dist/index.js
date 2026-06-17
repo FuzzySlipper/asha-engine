@@ -368,7 +368,12 @@ export function createMockRuntimeBridge() {
  */
 export const NATIVE_WIRED_OPERATIONS = new Set([
     'initialize_engine',
+    'load_world_bundle',
+    'submit_commands',
     'step_simulation',
+    'read_render_diffs',
+    'save_current_world',
+    'get_composition_status',
 ]);
 function nativeUnimplemented(manifestName) {
     return new RuntimeBridgeError('operation_unimplemented', `native bridge operation '${manifestName}' is not wired; the native facade is ` +
@@ -379,6 +384,7 @@ export class NativeRuntimeBridge {
     #addon;
     #seed = 0;
     #initialized = false;
+    #engineHandle = null;
     constructor(addon) {
         this.#addon = addon;
     }
@@ -389,27 +395,46 @@ export class NativeRuntimeBridge {
         }
         this.#seed = config.seed;
         const handle = this.#addon.initializeEngine(config.seed);
+        this.#engineHandle = handle;
         this.#initialized = true;
         return handle;
     }
-    stepSimulation(input) {
-        if (!this.#initialized) {
-            throw new RuntimeBridgeError('not_initialized', 'step before initializeEngine');
+    #requireHandle(operation) {
+        if (!this.#initialized || this.#engineHandle === null) {
+            throw new RuntimeBridgeError('not_initialized', `${operation} before initializeEngine`);
         }
-        const diffCount = this.#addon.stepSimulation(this.#seed, input.tick);
+        return this.#engineHandle;
+    }
+    loadWorldBundle(request) {
+        const handle = this.#requireHandle('loadWorldBundle');
+        return this.#addon.loadWorldBundle(handle, request.bundleSchemaVersion, request.protocolVersion, request.sceneId);
+    }
+    submitCommands(batch) {
+        const handle = this.#requireHandle('submitCommands');
+        return this.#addon.submitCommands(handle, JSON.stringify(batch.commands));
+    }
+    stepSimulation(input) {
+        const handle = this.#requireHandle('stepSimulation');
+        const diffCount = this.#addon.stepSimulation(handle, input.tick);
         return { tick: input.tick, diffCount };
+    }
+    readRenderDiffs(cursor) {
+        const handle = this.#requireHandle('readRenderDiffs');
+        return this.#addon.readRenderDiffs(handle, cursor);
+    }
+    saveCurrentWorld() {
+        const handle = this.#requireHandle('saveCurrentWorld');
+        return this.#addon.saveCurrentWorld(handle);
+    }
+    getCompositionStatus() {
+        const handle = this.#requireHandle('getCompositionStatus');
+        return this.#addon.getCompositionStatus(handle);
     }
     // ── Unwired operations: fail-closed, never mock-backed ─────────────────────
     // Replace each body with its real native call (and add the manifest name to
     // NATIVE_WIRED_OPERATIONS) when the codegen emitter wires the `#[napi]` export.
-    submitCommands() {
-        throw nativeUnimplemented('submit_commands');
-    }
     pickVoxel() {
         throw nativeUnimplemented('pick_voxel');
-    }
-    readRenderDiffs() {
-        throw nativeUnimplemented('read_render_diffs');
     }
     createCamera() {
         throw nativeUnimplemented('create_camera');
@@ -425,15 +450,6 @@ export class NativeRuntimeBridge {
     }
     releaseBuffer() {
         throw nativeUnimplemented('release_buffer');
-    }
-    loadWorldBundle() {
-        throw nativeUnimplemented('load_world_bundle');
-    }
-    saveCurrentWorld() {
-        throw nativeUnimplemented('save_current_world');
-    }
-    getCompositionStatus() {
-        throw nativeUnimplemented('get_composition_status');
     }
     unloadWorld() {
         throw nativeUnimplemented('unload_world');

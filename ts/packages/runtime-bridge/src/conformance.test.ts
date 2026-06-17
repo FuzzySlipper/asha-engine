@@ -272,7 +272,30 @@ test('native bridge matches the mock when the addon is built (else skip)', (t) =
     }
     throw e;
   }
-  // Parity with MockRuntimeBridge / Rust ReferenceBridge.
-  assert.equal(bridge.initializeEngine({ seed: 7 }) as number, 7);
+  // Parity with MockRuntimeBridge / Rust ReferenceBridge for the native authority sequence.
+  const handle = bridge.initializeEngine({ seed: 7 }) as number;
+  assert.equal(typeof handle, 'number');
+  assert.deepEqual(bridge.loadWorldBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1001 }), {
+    loadedWorld: 1001,
+    fatalCount: 0,
+    totalCount: 0,
+    blocksLoad: false,
+  });
+  assert.deepEqual(
+    bridge.submitCommands({
+      commands: [
+        { op: 'setVoxel', grid: 1, coord: { x: 0, y: 0, z: 0 }, value: { kind: 'solid', material: 1 } },
+      ],
+    }),
+    { accepted: 1, rejected: 0, rejections: [] },
+  );
   assert.deepEqual(bridge.stepSimulation({ tick: 6 }), { tick: 6, diffCount: 2 });
+  assert.deepEqual(bridge.readRenderDiffs(frameCursor(0)), { ops: [] });
+  assert.deepEqual(bridge.saveCurrentWorld(), { artifactsWritten: 3, compactedEdits: 0, retainedEdits: 0 });
+  assert.deepEqual(bridge.getCompositionStatus(), {
+    loadedWorld: 1001,
+    fatalCount: 0,
+    totalCount: 0,
+    blocksLoad: false,
+  });
 });

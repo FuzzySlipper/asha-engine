@@ -41,13 +41,49 @@ const CAMERA_INPUT = {
   },
 } as const;
 
+const REQUIRED_NATIVE_CONFORMANCE_OPS = [
+  'initialize_engine',
+  'load_world_bundle',
+  'submit_commands',
+  'step_simulation',
+  'read_render_diffs',
+  'save_current_world',
+  'get_composition_status',
+] as const;
+
 // A fake addon with sentinel return values distinct from MockRuntimeBridge, so a
 // silent mock fallback would be observable in the wired-op assertions below.
-function fakeAddon(): NativeAddon {
+function fakeAddon(calls: string[] = []): NativeAddon {
   return {
-    initializeEngine: (seed) => seed + 100,
-    stepSimulation: () => 9,
-  };
+    initializeEngine: (seed: number) => {
+      calls.push(`initialize:${seed}`);
+      return seed + 100;
+    },
+    loadWorldBundle: (_handle: number, bundleSchemaVersion: number, protocolVersion: number, sceneId: number) => {
+      calls.push(`load:${bundleSchemaVersion}:${protocolVersion}:${sceneId}`);
+      return { loadedWorld: sceneId + 1000, fatalCount: 0, totalCount: 0, blocksLoad: false };
+    },
+    submitCommands: (_handle: number, commandsJson: string) => {
+      calls.push(`submit:${commandsJson}`);
+      return { accepted: JSON.parse(commandsJson).length, rejected: 0, rejections: [] };
+    },
+    stepSimulation: (_handle: number, tick: number) => {
+      calls.push(`step:${tick}`);
+      return 9;
+    },
+    readRenderDiffs: (_handle: number, cursor: number) => {
+      calls.push(`render:${cursor}`);
+      return { ops: [{ op: 'sentinel' }] } as never;
+    },
+    saveCurrentWorld: (_handle: number) => {
+      calls.push('save');
+      return { artifactsWritten: 5, compactedEdits: 2, retainedEdits: 3 };
+    },
+    getCompositionStatus: (_handle: number) => {
+      calls.push('status');
+      return { loadedWorld: 2001, fatalCount: 0, totalCount: 0, blocksLoad: false };
+    },
+  } as unknown as NativeAddon;
 }
 
 // One invocation per facade method. The native bridge is fully initialized first
@@ -102,23 +138,62 @@ test('unwired native ops fail closed with operation_unimplemented (no mock fallb
   }
 });
 
+test('required native conformance operations are declared wired', () => {
+  for (const manifestName of REQUIRED_NATIVE_CONFORMANCE_OPS) {
+    assert.ok(
+      NATIVE_WIRED_OPERATIONS.has(manifestName),
+      `${manifestName} must be wired for native authority conformance`,
+    );
+  }
+});
+
+test('native conformance sequence routes through the addon without mock fallback', () => {
+  const calls: string[] = [];
+  const bridge: RuntimeBridge = new NativeRuntimeBridge(fakeAddon(calls));
+
+  assert.equal(bridge.initializeEngine({ seed: 7 }) as number, 107);
+  assert.deepEqual(bridge.loadWorldBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1001 }), {
+    loadedWorld: 2001,
+    fatalCount: 0,
+    totalCount: 0,
+    blocksLoad: false,
+  });
+  assert.deepEqual(
+    bridge.submitCommands({
+      commands: [
+        { op: 'setVoxel', grid: 1, coord: { x: 0, y: 0, z: 0 }, value: { kind: 'solid', material: 1 } },
+      ],
+    }),
+    { accepted: 1, rejected: 0, rejections: [] },
+  );
+  assert.deepEqual(bridge.stepSimulation({ tick: 6 }), { tick: 6, diffCount: 9 });
+  assert.deepEqual(bridge.readRenderDiffs(frameCursor(0)), { ops: [{ op: 'sentinel' }] });
+  assert.deepEqual(bridge.saveCurrentWorld(), { artifactsWritten: 5, compactedEdits: 2, retainedEdits: 3 });
+  assert.deepEqual(bridge.getCompositionStatus(), {
+    loadedWorld: 2001,
+    fatalCount: 0,
+    totalCount: 0,
+    blocksLoad: false,
+  });
+
+  assert.deepEqual(calls, [
+    'initialize:7',
+    'load:1:1:1001',
+    'submit:[{"op":"setVoxel","grid":1,"coord":{"x":0,"y":0,"z":0},"value":{"kind":"solid","material":1}}]',
+    'step:6',
+    'render:0',
+    'save',
+    'status',
+  ]);
+});
+
 test('wired native ops route through the addon, not the mock', () => {
   const calls: string[] = [];
-  const addon: NativeAddon = {
-    initializeEngine: (seed) => {
-      calls.push('init');
-      return seed + 100;
-    },
-    stepSimulation: () => {
-      calls.push('step');
-      return 9;
-    },
-  };
-  const bridge = new NativeRuntimeBridge(addon);
+  const bridge = new NativeRuntimeBridge(fakeAddon(calls));
   // Mock would return the seed (7) and diffCount 2; the addon returns 107 / 9.
   assert.equal(bridge.initializeEngine({ seed: 7 }) as number, 107);
   assert.deepEqual(bridge.stepSimulation({ tick: 6 }), { tick: 6, diffCount: 9 });
-  assert.deepEqual(calls, ['init', 'step']);
+  assert.deepEqual(calls, ['initialize:7', 'step:6']);
 });
 
 test('native bridge does not extend MockRuntimeBridge (no inherited mock methods)', () => {

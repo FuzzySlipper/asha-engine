@@ -16,7 +16,35 @@ import { createRequire } from 'node:module';
  */
 export interface NativeAddon {
   initializeEngine(seed: number): number;
-  stepSimulation(seed: number, tick: number): number;
+  loadWorldBundle(
+    handle: number,
+    bundleSchemaVersion: number,
+    protocolVersion: number,
+    sceneId: number,
+  ): {
+    loadedWorld: number | null;
+    fatalCount: number;
+    totalCount: number;
+    blocksLoad: boolean;
+  };
+  submitCommands(handle: number, commandsJson: string): {
+    accepted: number;
+    rejected: number;
+    rejections: unknown[];
+  };
+  stepSimulation(handle: number, tick: number): number;
+  readRenderDiffs(handle: number, cursor: number): { ops: unknown[] };
+  saveCurrentWorld(handle: number): {
+    artifactsWritten: number;
+    compactedEdits: number;
+    retainedEdits: number;
+  };
+  getCompositionStatus(handle: number): {
+    loadedWorld: number | null;
+    fatalCount: number;
+    totalCount: number;
+    blocksLoad: boolean;
+  };
 }
 
 /** Raised when the native addon cannot be loaded (missing build / ABI mismatch). */
@@ -26,6 +54,16 @@ export class NativeAddonUnavailable extends Error {
     this.name = 'NativeAddonUnavailable';
   }
 }
+
+const REQUIRED_EXPORTS = [
+  'initializeEngine',
+  'loadWorldBundle',
+  'submitCommands',
+  'stepSimulation',
+  'readRenderDiffs',
+  'saveCurrentWorld',
+  'getCompositionStatus',
+] as const;
 
 /**
  * Attempt to load the compiled addon. Returns a typed handle or throws a
@@ -37,10 +75,11 @@ export class NativeAddonUnavailable extends Error {
 export function loadNativeAddon(modulePath = './native-bridge.node'): NativeAddon {
   const require = createRequire(import.meta.url);
   try {
-    const mod = require(modulePath) as Partial<NativeAddon>;
-    if (typeof mod.initializeEngine !== 'function' || typeof mod.stepSimulation !== 'function') {
+    const mod = require(modulePath) as Partial<Record<(typeof REQUIRED_EXPORTS)[number], unknown>>;
+    const missing = REQUIRED_EXPORTS.filter((name) => typeof mod[name] !== 'function');
+    if (missing.length > 0) {
       throw new NativeAddonUnavailable(
-        `addon at ${modulePath} is missing expected exports (initializeEngine/stepSimulation)`,
+        `addon at ${modulePath} is missing expected exports (${missing.join(', ')})`,
       );
     }
     return mod as NativeAddon;

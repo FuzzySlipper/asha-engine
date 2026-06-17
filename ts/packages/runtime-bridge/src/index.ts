@@ -569,7 +569,12 @@ export function createMockRuntimeBridge(): RuntimeBridge {
  */
 export const NATIVE_WIRED_OPERATIONS: ReadonlySet<string> = new Set<string>([
   'initialize_engine',
+  'load_world_bundle',
+  'submit_commands',
   'step_simulation',
+  'read_render_diffs',
+  'save_current_world',
+  'get_composition_status',
 ]);
 
 function nativeUnimplemented(manifestName: string): RuntimeBridgeError {
@@ -586,6 +591,8 @@ export class NativeRuntimeBridge implements RuntimeBridge {
   #seed = 0;
   #initialized = false;
 
+  #engineHandle: EngineHandle | null = null;
+
   constructor(addon: NativeAddon) {
     this.#addon = addon;
   }
@@ -597,31 +604,59 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     }
     this.#seed = config.seed;
     const handle = this.#addon.initializeEngine(config.seed) as EngineHandle;
+    this.#engineHandle = handle;
     this.#initialized = true;
     return handle;
   }
 
-  stepSimulation(input: StepInputEnvelope): StepResult {
-    if (!this.#initialized) {
-      throw new RuntimeBridgeError('not_initialized', 'step before initializeEngine');
+  #requireHandle(operation: string): EngineHandle {
+    if (!this.#initialized || this.#engineHandle === null) {
+      throw new RuntimeBridgeError('not_initialized', `${operation} before initializeEngine`);
     }
-    const diffCount = this.#addon.stepSimulation(this.#seed, input.tick);
+    return this.#engineHandle;
+  }
+
+  loadWorldBundle(request: WorldLoadRequest): CompositionStatus {
+    const handle = this.#requireHandle('loadWorldBundle');
+    return this.#addon.loadWorldBundle(
+      handle,
+      request.bundleSchemaVersion,
+      request.protocolVersion,
+      request.sceneId,
+    ) as CompositionStatus;
+  }
+
+  submitCommands(batch: CommandBatch): CommandResult {
+    const handle = this.#requireHandle('submitCommands');
+    return this.#addon.submitCommands(handle, JSON.stringify(batch.commands)) as CommandResult;
+  }
+
+  stepSimulation(input: StepInputEnvelope): StepResult {
+    const handle = this.#requireHandle('stepSimulation');
+    const diffCount = this.#addon.stepSimulation(handle, input.tick);
     return { tick: input.tick, diffCount };
+  }
+
+  readRenderDiffs(cursor: FrameCursor): RenderFrameDiff {
+    const handle = this.#requireHandle('readRenderDiffs');
+    return this.#addon.readRenderDiffs(handle, cursor) as RenderFrameDiff;
+  }
+
+  saveCurrentWorld(): WorldSaveSummary {
+    const handle = this.#requireHandle('saveCurrentWorld');
+    return this.#addon.saveCurrentWorld(handle) as WorldSaveSummary;
+  }
+
+  getCompositionStatus(): CompositionStatus {
+    const handle = this.#requireHandle('getCompositionStatus');
+    return this.#addon.getCompositionStatus(handle) as CompositionStatus;
   }
 
   // ── Unwired operations: fail-closed, never mock-backed ─────────────────────
   // Replace each body with its real native call (and add the manifest name to
   // NATIVE_WIRED_OPERATIONS) when the codegen emitter wires the `#[napi]` export.
-  submitCommands(): CommandResult {
-    throw nativeUnimplemented('submit_commands');
-  }
-
   pickVoxel(): PickResult {
     throw nativeUnimplemented('pick_voxel');
-  }
-
-  readRenderDiffs(): RenderFrameDiff {
-    throw nativeUnimplemented('read_render_diffs');
   }
 
   createCamera(): CameraSnapshot {
@@ -642,18 +677,6 @@ export class NativeRuntimeBridge implements RuntimeBridge {
 
   releaseBuffer(): void {
     throw nativeUnimplemented('release_buffer');
-  }
-
-  loadWorldBundle(): CompositionStatus {
-    throw nativeUnimplemented('load_world_bundle');
-  }
-
-  saveCurrentWorld(): WorldSaveSummary {
-    throw nativeUnimplemented('save_current_world');
-  }
-
-  getCompositionStatus(): CompositionStatus {
-    throw nativeUnimplemented('get_composition_status');
   }
 
   unloadWorld(): void {

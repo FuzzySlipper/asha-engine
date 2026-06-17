@@ -13,6 +13,15 @@ export class NativeAddonUnavailable extends Error {
         this.name = 'NativeAddonUnavailable';
     }
 }
+const REQUIRED_EXPORTS = [
+    'initializeEngine',
+    'loadWorldBundle',
+    'submitCommands',
+    'stepSimulation',
+    'readRenderDiffs',
+    'saveCurrentWorld',
+    'getCompositionStatus',
+];
 /**
  * Attempt to load the compiled addon. Returns a typed handle or throws a
  * classified {@link NativeAddonUnavailable} — never a raw module-resolution error,
@@ -24,8 +33,9 @@ export function loadNativeAddon(modulePath = './native-bridge.node') {
     const require = createRequire(import.meta.url);
     try {
         const mod = require(modulePath);
-        if (typeof mod.initializeEngine !== 'function' || typeof mod.stepSimulation !== 'function') {
-            throw new NativeAddonUnavailable(`addon at ${modulePath} is missing expected exports (initializeEngine/stepSimulation)`);
+        const missing = REQUIRED_EXPORTS.filter((name) => typeof mod[name] !== 'function');
+        if (missing.length > 0) {
+            throw new NativeAddonUnavailable(`addon at ${modulePath} is missing expected exports (${missing.join(', ')})`);
         }
         return mod;
     }

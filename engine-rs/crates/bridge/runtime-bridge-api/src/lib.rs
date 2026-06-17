@@ -25,7 +25,7 @@ use core_error::ErrorCategory;
 use core_space::{
     ChunkCoord, ChunkDims, Face, GridId, VoxelCoord, VoxelGridSpec, WorldPos, WorldVec,
 };
-use core_voxel::{MaterialCatalog, VoxelMaterialId};
+use core_voxel::{MaterialCatalog, VoxelMaterialId, VoxelValue};
 use protocol_view::{
     CameraCreateRequest, CameraProjectionRequest, CameraProjectionSnapshot, CameraSnapshot,
     FirstPersonCameraInputEnvelope,
@@ -242,6 +242,17 @@ pub struct CommandResult {
     pub rejected: u32,
     /// One classified rejection per refused command, in submission order.
     pub rejections: Vec<VoxelEditRejection>,
+}
+
+/// Build the public set-voxel command used by transport glue that must stay
+/// outside the state/rule crates. This keeps native/wasm adapters from depending
+/// directly on authority internals while still carrying the real command union.
+pub fn set_voxel_command(grid: u32, x: i64, y: i64, z: i64, material: u16) -> VoxelCommand {
+    VoxelCommand::SetVoxel {
+        grid: GridId::new(grid),
+        coord: VoxelCoord::new(x, y, z),
+        value: VoxelValue::solid_raw(material),
+    }
 }
 
 // ── Pick (voxel raycast) payloads (launchable-voxel picking, #2437) ───────────
