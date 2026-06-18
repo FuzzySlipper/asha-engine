@@ -246,6 +246,20 @@ test('mock: pickVoxel carries a PickRay and returns a classified PickResult', ()
   assert.deepEqual(result, { outcome: 'miss', rejection: { reason: 'noHit' } });
 });
 
+test('mock: readVoxelMeshEvidence returns compact chunk evidence and fails closed', () => {
+  const bridge = createMockRuntimeBridge();
+  assert.throws(
+    () => bridge.readVoxelMeshEvidence({ grid: 1, chunks: [] }),
+    (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'not_initialized',
+  );
+  bridge.initializeEngine({ seed: 1 });
+  const snapshot = bridge.readVoxelMeshEvidence({ grid: 1, chunks: [] });
+  assert.equal(snapshot.fixtureId, 'basic-voxel-landscape-interaction');
+  assert.equal(snapshot.meshingStrategy, 'visible-face');
+  assert.equal(snapshot.chunks.length, 1);
+  assert.equal(snapshot.chunks[0]?.meshHash, 'fnv1a64:mock-mesh');
+});
+
 test('mock: pickVoxel before init fails closed', () => {
   const bridge = createMockRuntimeBridge();
   assert.throws(

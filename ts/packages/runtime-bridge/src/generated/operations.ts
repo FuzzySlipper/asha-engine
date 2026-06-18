@@ -18,6 +18,7 @@ export const MANIFEST_OPERATIONS: readonly BridgeOperation[] = [
   { manifestName: 'step_simulation', facadeMethod: 'stepSimulation', surface: 'stable' },
   { manifestName: 'submit_commands', facadeMethod: 'submitCommands', surface: 'stable' },
   { manifestName: 'pick_voxel', facadeMethod: 'pickVoxel', surface: 'stable' },
+  { manifestName: 'read_voxel_mesh_evidence', facadeMethod: 'readVoxelMeshEvidence', surface: 'stable' },
   { manifestName: 'read_render_diffs', facadeMethod: 'readRenderDiffs', surface: 'stable' },
   { manifestName: 'create_camera', facadeMethod: 'createCamera', surface: 'stable' },
   { manifestName: 'apply_first_person_camera_input', facadeMethod: 'applyFirstPersonCameraInput', surface: 'stable' },

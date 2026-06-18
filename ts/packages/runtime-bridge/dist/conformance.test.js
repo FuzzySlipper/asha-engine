@@ -179,6 +179,16 @@ test('mock: pickVoxel carries a PickRay and returns a classified PickResult', ()
     // The mock hosts no geometry, so it classifies as a miss (Rust authority owns hits).
     assert.deepEqual(result, { outcome: 'miss', rejection: { reason: 'noHit' } });
 });
+test('mock: readVoxelMeshEvidence returns compact chunk evidence and fails closed', () => {
+    const bridge = createMockRuntimeBridge();
+    assert.throws(() => bridge.readVoxelMeshEvidence({ grid: 1, chunks: [] }), (e) => e instanceof RuntimeBridgeError && e.kind === 'not_initialized');
+    bridge.initializeEngine({ seed: 1 });
+    const snapshot = bridge.readVoxelMeshEvidence({ grid: 1, chunks: [] });
+    assert.equal(snapshot.fixtureId, 'basic-voxel-landscape-interaction');
+    assert.equal(snapshot.meshingStrategy, 'visible-face');
+    assert.equal(snapshot.chunks.length, 1);
+    assert.equal(snapshot.chunks[0]?.meshHash, 'fnv1a64:mock-mesh');
+});
 test('mock: pickVoxel before init fails closed', () => {
     const bridge = createMockRuntimeBridge();
     assert.throws(() => bridge.pickVoxel({ grid: 1, origin: [0, 0, 0], direction: [1, 0, 0], maxDistance: 10 }), (e) => e instanceof RuntimeBridgeError && e.kind === 'not_initialized');

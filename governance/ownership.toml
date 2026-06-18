@@ -94,6 +94,11 @@ lane = "contract-steward"
 may_depend_on = ["core-ids", "core-error"]
 may_not_depend_on = ["core-state", "sim-kernel"]
 
+[crate."engine-rs/crates/protocol/protocol-view"]
+lane = "contract-steward"
+may_depend_on = []
+may_not_depend_on = ["core-state", "sim-kernel", "render-bridge", "wasm-api"]
+
 [crate."engine-rs/crates/protocol/protocol-replay"]
 lane = "contract-steward"
 may_depend_on = ["core-ids", "core-error", "core-events", "core-commands"]
@@ -156,7 +161,7 @@ may_not_depend_on = ["core-state", "core-entity", "core-scene", "sim-kernel", "p
 
 [crate."engine-rs/crates/protocol/protocol-codegen"]
 lane = "contract-steward"
-may_depend_on = ["protocol-ids", "protocol-script", "protocol-render", "protocol-replay", "protocol-telemetry", "protocol-diagnostics", "protocol-scene", "protocol-world-bundle", "protocol-assets", "protocol-entity-authoring"]
+may_depend_on = ["protocol-ids", "protocol-script", "protocol-render", "protocol-replay", "protocol-telemetry", "protocol-diagnostics", "protocol-scene", "protocol-world-bundle", "protocol-assets", "protocol-entity-authoring", "protocol-view"]
 
 # ─── Rust: Sim ───────────────────────────────────────────────────────────────
 
@@ -489,10 +494,11 @@ may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-ho
 # Rust: bridge layer (between wasm and tools).
 [crate."engine-rs/crates/bridge/runtime-bridge-api"]
 lane = "rust-bridge"
-# Also depends on voxel authority crates: the facade routes submitted voxel
-# commands into rule-voxel-edit validation/apply (launchable-voxel, #2436) and
-# raycasts picks against authority via svc-collision (picking, #2437).
-may_depend_on = ["core-ids", "core-error", "core-space", "core-voxel", "core-commands", "svc-spatial", "svc-volume", "svc-collision", "rule-voxel-edit", "protocol-render", "protocol-script", "protocol-replay"]
+# Also depends on voxel authority/evidence crates: the facade routes submitted voxel
+# commands into rule-voxel-edit validation/apply (launchable-voxel, #2436),
+# raycasts picks against authority via svc-collision (picking, #2437), and reads
+# compact mesh/remesh evidence via svc-mesh + svc-serialization (#2646).
+may_depend_on = ["core-ids", "core-error", "core-space", "core-voxel", "core-commands", "svc-spatial", "svc-volume", "svc-collision", "svc-mesh", "svc-serialization", "rule-voxel-edit", "protocol-render", "protocol-script", "protocol-replay"]
 may_not_depend_on = ["napi", "wasm-bindgen"]
 
 [crate."engine-rs/crates/bridge/native-bridge"]

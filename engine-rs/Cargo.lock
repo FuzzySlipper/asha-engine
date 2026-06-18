@@ -589,6 +589,8 @@ dependencies = [
  "protocol-view",
  "rule-voxel-edit",
  "svc-collision",
+ "svc-mesh",
+ "svc-serialization",
  "svc-spatial",
  "svc-volume",
 ]

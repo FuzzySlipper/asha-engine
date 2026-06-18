@@ -219,6 +219,34 @@ export class MockRuntimeBridge {
         }
         return { outcome: 'miss', rejection: { reason: 'noHit' } };
     }
+    readVoxelMeshEvidence(request) {
+        if (this.#engine === null) {
+            throw new RuntimeBridgeError('not_initialized', 'readVoxelMeshEvidence before initializeEngine');
+        }
+        if (request.grid !== 1) {
+            throw new RuntimeBridgeError('invalid_input', 'readVoxelMeshEvidence request targets an unknown grid');
+        }
+        const chunks = request.chunks.length === 0 ? [{ x: 0, y: 0, z: 0 }] : request.chunks;
+        return {
+            grid: request.grid,
+            fixtureId: 'basic-voxel-landscape-interaction',
+            worldHash: 'mock-voxel-world',
+            meshingStrategy: 'visible-face',
+            chunks: chunks.map((coord) => ({
+                coord,
+                resident: coord.x === 0 && coord.y === 0 && coord.z === 0,
+                visible: coord.x === 0 && coord.y === 0 && coord.z === 0,
+                contentHash: coord.x === 0 && coord.y === 0 && coord.z === 0 ? 'mock-content' : null,
+                meshHash: coord.x === 0 && coord.y === 0 && coord.z === 0 ? 'fnv1a64:mock-mesh' : null,
+                stats: coord.x === 0 && coord.y === 0 && coord.z === 0
+                    ? { vertices: 48, indices: 72, quads: 12, facesEmitted: 12, facesCulled: 12 }
+                    : null,
+                bounds: coord.x === 0 && coord.y === 0 && coord.z === 0 ? { min: [0, 0, 0], max: [2, 2, 1] } : null,
+                materialSlots: coord.x === 0 && coord.y === 0 && coord.z === 0 ? [1] : [],
+            })),
+            diagnostics: [],
+        };
+    }
     readRenderDiffs(cursor) {
         if (this.#engine === null) {
             throw new RuntimeBridgeError('not_initialized', 'readRenderDiffs before initializeEngine');
@@ -484,6 +512,9 @@ export class NativeRuntimeBridge {
     // NATIVE_WIRED_OPERATIONS) when the codegen emitter wires the `#[napi]` export.
     pickVoxel() {
         throw nativeUnimplemented('pick_voxel');
+    }
+    readVoxelMeshEvidence() {
+        throw nativeUnimplemented('read_voxel_mesh_evidence');
     }
     createCamera() {
         throw nativeUnimplemented('create_camera');

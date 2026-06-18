@@ -63,11 +63,53 @@ export interface WorldSaveSummary {
     readonly compactedEdits: number;
     readonly retainedEdits: number;
 }
+export interface VoxelMeshEvidenceRequest {
+    readonly grid: number;
+    readonly chunks: readonly {
+        readonly x: number;
+        readonly y: number;
+        readonly z: number;
+    }[];
+}
+export interface VoxelMeshStatsEvidence {
+    readonly vertices: number;
+    readonly indices: number;
+    readonly quads: number;
+    readonly facesEmitted: number;
+    readonly facesCulled: number;
+}
+export interface VoxelMeshBoundsEvidence {
+    readonly min: readonly [number, number, number];
+    readonly max: readonly [number, number, number];
+}
+export interface VoxelMeshChunkEvidence {
+    readonly coord: {
+        readonly x: number;
+        readonly y: number;
+        readonly z: number;
+    };
+    readonly resident: boolean;
+    readonly visible: boolean;
+    readonly contentHash: string | null;
+    readonly meshHash: string | null;
+    readonly stats: VoxelMeshStatsEvidence | null;
+    readonly bounds: VoxelMeshBoundsEvidence | null;
+    readonly materialSlots: readonly number[];
+}
+export interface VoxelMeshEvidenceSnapshot {
+    readonly grid: number;
+    readonly fixtureId: string;
+    readonly worldHash: string;
+    readonly meshingStrategy: string;
+    readonly chunks: readonly VoxelMeshChunkEvidence[];
+    readonly diagnostics: readonly string[];
+}
 export interface RuntimeBridge {
     initializeEngine(config: EngineConfig): EngineHandle;
     stepSimulation(input: StepInputEnvelope): StepResult;
     submitCommands(batch: CommandBatch): CommandResult;
     pickVoxel(ray: PickRay): PickResult;
+    readVoxelMeshEvidence(request: VoxelMeshEvidenceRequest): VoxelMeshEvidenceSnapshot;
     readRenderDiffs(cursor: FrameCursor): RenderFrameDiff;
     createCamera(request: CameraCreateRequest): CameraSnapshot;
     applyFirstPersonCameraInput(input: FirstPersonCameraInputEnvelope): CameraSnapshot;
@@ -87,6 +129,7 @@ export declare class MockRuntimeBridge implements RuntimeBridge {
     stepSimulation(input: StepInputEnvelope): StepResult;
     submitCommands(batch: CommandBatch): CommandResult;
     pickVoxel(ray: PickRay): PickResult;
+    readVoxelMeshEvidence(request: VoxelMeshEvidenceRequest): VoxelMeshEvidenceSnapshot;
     readRenderDiffs(cursor: FrameCursor): RenderFrameDiff;
     createCamera(request: CameraCreateRequest): CameraSnapshot;
     applyFirstPersonCameraInput(envelope: FirstPersonCameraInputEnvelope): CameraSnapshot;
@@ -121,6 +164,7 @@ export declare class NativeRuntimeBridge implements RuntimeBridge {
     saveCurrentWorld(): WorldSaveSummary;
     getCompositionStatus(): CompositionStatus;
     pickVoxel(): PickResult;
+    readVoxelMeshEvidence(): VoxelMeshEvidenceSnapshot;
     createCamera(): CameraSnapshot;
     applyFirstPersonCameraInput(): CameraSnapshot;
     readCameraProjection(): CameraProjectionSnapshot;

@@ -35,6 +35,14 @@
       "errors": "RuntimeBridgeError"
     },
     {
+      "manifestName": "read_voxel_mesh_evidence",
+      "facadeMethod": "readVoxelMeshEvidence",
+      "surface": "stable",
+      "input": "protocol_render::VoxelMeshEvidenceRequest",
+      "output": "protocol_render::VoxelMeshEvidenceSnapshot",
+      "errors": "RuntimeBridgeError"
+    },
+    {
       "manifestName": "read_render_diffs",
       "facadeMethod": "readRenderDiffs",
       "surface": "stable",

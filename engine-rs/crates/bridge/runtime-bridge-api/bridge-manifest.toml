@@ -56,6 +56,14 @@ errors = "RuntimeBridgeError"
 summary = "Raycast a world-space PickRay against authority voxel state and return the nearest classified VoxelHit (or a classified miss). Rust owns the voxel-grid raycast; the renderer only builds the ray."
 
 [[operation]]
+name = "read_voxel_mesh_evidence"
+surface = "stable"
+input = "protocol_render::VoxelMeshEvidenceRequest"
+output = "protocol_render::VoxelMeshEvidenceSnapshot"
+errors = "RuntimeBridgeError"
+summary = "Read compact deterministic voxel mesh/remesh evidence (world hash, per-chunk content/mesh hashes, stats, material slots) derived from Rust authority and svc-mesh; no renderer internals or inline geometry."
+
+[[operation]]
 name = "read_render_diffs"
 surface = "stable"
 input = "FrameCursor"

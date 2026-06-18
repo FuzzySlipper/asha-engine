@@ -72,12 +72,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "core-assets"
+version = "0.1.0"
+
+[[package]]
 name = "core-commands"
 version = "0.1.0"
 dependencies = [
  "core-ids",
  "core-space",
  "core-voxel",
+]
+
+[[package]]
+name = "core-entity"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "core-error",
+ "core-ids",
+ "core-math",
 ]
 
 [[package]]
@@ -96,6 +110,21 @@ dependencies = [
 [[package]]
 name = "core-ids"
 version = "0.1.0"
+
+[[package]]
+name = "core-math"
+version = "0.1.0"
+
+[[package]]
+name = "core-scene"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "core-entity",
+ "core-error",
+ "core-ids",
+ "core-math",
+]
 
 [[package]]
 name = "core-space"
@@ -477,6 +506,8 @@ dependencies = [
  "protocol-view",
  "rule-voxel-edit",
  "svc-collision",
+ "svc-mesh",
+ "svc-serialization",
  "svc-spatial",
  "svc-volume",
 ]
@@ -590,6 +621,26 @@ dependencies = [
  "parry3d-f64",
  "svc-spatial",
  "svc-volume",
+]
+
+[[package]]
+name = "svc-mesh"
+version = "0.1.0"
+dependencies = [
+ "core-space",
+ "core-voxel",
+ "svc-spatial",
+ "svc-volume",
+]
+
+[[package]]
+name = "svc-serialization"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "core-error",
+ "core-ids",
+ "core-scene",
 ]
 
 [[package]]

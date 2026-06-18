@@ -81,6 +81,7 @@ const INVOKE = new Map([
         'pickVoxel',
         (b) => b.pickVoxel({ grid: 1, origin: [0, 0, 0], direction: [1, 0, 0], maxDistance: 10 }),
     ],
+    ['readVoxelMeshEvidence', (b) => b.readVoxelMeshEvidence({ grid: 1, chunks: [] })],
     ['readRenderDiffs', (b) => b.readRenderDiffs(frameCursor(0))],
     ['createCamera', (b) => b.createCamera(CAMERA_CREATE_REQUEST)],
     ['applyFirstPersonCameraInput', (b) => b.applyFirstPersonCameraInput(CAMERA_INPUT)],

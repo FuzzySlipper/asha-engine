@@ -158,6 +158,41 @@ export interface WorldSaveSummary {
   readonly compactedEdits: number;
   readonly retainedEdits: number;
 }
+// Compact voxel mesh/remesh evidence (#2646). Prototype DTOs until generated
+// protocol_render contracts grow the same shapes.
+export interface VoxelMeshEvidenceRequest {
+  readonly grid: number;
+  readonly chunks: readonly { readonly x: number; readonly y: number; readonly z: number }[];
+}
+export interface VoxelMeshStatsEvidence {
+  readonly vertices: number;
+  readonly indices: number;
+  readonly quads: number;
+  readonly facesEmitted: number;
+  readonly facesCulled: number;
+}
+export interface VoxelMeshBoundsEvidence {
+  readonly min: readonly [number, number, number];
+  readonly max: readonly [number, number, number];
+}
+export interface VoxelMeshChunkEvidence {
+  readonly coord: { readonly x: number; readonly y: number; readonly z: number };
+  readonly resident: boolean;
+  readonly visible: boolean;
+  readonly contentHash: string | null;
+  readonly meshHash: string | null;
+  readonly stats: VoxelMeshStatsEvidence | null;
+  readonly bounds: VoxelMeshBoundsEvidence | null;
+  readonly materialSlots: readonly number[];
+}
+export interface VoxelMeshEvidenceSnapshot {
+  readonly grid: number;
+  readonly fixtureId: string;
+  readonly worldHash: string;
+  readonly meshingStrategy: string;
+  readonly chunks: readonly VoxelMeshChunkEvidence[];
+  readonly diagnostics: readonly string[];
+}
 
 // ── The facade surface ────────────────────────────────────────────────────────
 // Bounded verbs only — mirrors bridge-manifest.toml. No generic call(method, json).
@@ -167,6 +202,7 @@ export interface RuntimeBridge {
   stepSimulation(input: StepInputEnvelope): StepResult;
   submitCommands(batch: CommandBatch): CommandResult;
   pickVoxel(ray: PickRay): PickResult;
+  readVoxelMeshEvidence(request: VoxelMeshEvidenceRequest): VoxelMeshEvidenceSnapshot;
   readRenderDiffs(cursor: FrameCursor): RenderFrameDiff;
   createCamera(request: CameraCreateRequest): CameraSnapshot;
   applyFirstPersonCameraInput(input: FirstPersonCameraInputEnvelope): CameraSnapshot;
@@ -392,6 +428,36 @@ export class MockRuntimeBridge implements RuntimeBridge {
       throw new RuntimeBridgeError('invalid_input', 'pick ray direction must be non-zero');
     }
     return { outcome: 'miss', rejection: { reason: 'noHit' } };
+  }
+
+  readVoxelMeshEvidence(request: VoxelMeshEvidenceRequest): VoxelMeshEvidenceSnapshot {
+    if (this.#engine === null) {
+      throw new RuntimeBridgeError('not_initialized', 'readVoxelMeshEvidence before initializeEngine');
+    }
+    if (request.grid !== 1) {
+      throw new RuntimeBridgeError('invalid_input', 'readVoxelMeshEvidence request targets an unknown grid');
+    }
+    const chunks = request.chunks.length === 0 ? [{ x: 0, y: 0, z: 0 }] : request.chunks;
+    return {
+      grid: request.grid,
+      fixtureId: 'basic-voxel-landscape-interaction',
+      worldHash: 'mock-voxel-world',
+      meshingStrategy: 'visible-face',
+      chunks: chunks.map((coord) => ({
+        coord,
+        resident: coord.x === 0 && coord.y === 0 && coord.z === 0,
+        visible: coord.x === 0 && coord.y === 0 && coord.z === 0,
+        contentHash: coord.x === 0 && coord.y === 0 && coord.z === 0 ? 'mock-content' : null,
+        meshHash: coord.x === 0 && coord.y === 0 && coord.z === 0 ? 'fnv1a64:mock-mesh' : null,
+        stats:
+          coord.x === 0 && coord.y === 0 && coord.z === 0
+            ? { vertices: 48, indices: 72, quads: 12, facesEmitted: 12, facesCulled: 12 }
+            : null,
+        bounds: coord.x === 0 && coord.y === 0 && coord.z === 0 ? { min: [0, 0, 0], max: [2, 2, 1] } : null,
+        materialSlots: coord.x === 0 && coord.y === 0 && coord.z === 0 ? [1] : [],
+      })),
+      diagnostics: [],
+    };
   }
 
   readRenderDiffs(cursor: FrameCursor): RenderFrameDiff {
@@ -705,6 +771,10 @@ export class NativeRuntimeBridge implements RuntimeBridge {
   // NATIVE_WIRED_OPERATIONS) when the codegen emitter wires the `#[napi]` export.
   pickVoxel(): PickResult {
     throw nativeUnimplemented('pick_voxel');
+  }
+
+  readVoxelMeshEvidence(): VoxelMeshEvidenceSnapshot {
+    throw nativeUnimplemented('read_voxel_mesh_evidence');
   }
 
   createCamera(): CameraSnapshot {

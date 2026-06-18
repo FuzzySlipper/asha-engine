@@ -32,6 +32,8 @@ use protocol_view::{
 };
 use rule_voxel_edit::VoxelEditRejection;
 use svc_collision::{CollisionProjection, Ray};
+use svc_mesh::mesh_chunk_in_world;
+use svc_serialization::BundleHash;
 use svc_spatial::VoxelWorld;
 use svc_volume::VoxelChunk;
 
@@ -301,6 +303,58 @@ pub enum PickResult {
     Miss(PickRejection),
 }
 
+// ── Voxel mesh/remesh evidence (basic graphical voxel proof, #2646) ───────────
+
+/// Compact request for deterministic voxel mesh evidence. If `chunks` is empty,
+/// the bridge reports every resident chunk in canonical coordinate order.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct VoxelMeshEvidenceRequest {
+    pub grid: u64,
+    pub chunks: Vec<ChunkCoord>,
+}
+
+/// Compact mesh counters suitable for artifacts without inline geometry arrays.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct VoxelMeshStatsEvidence {
+    pub vertices: u32,
+    pub indices: u32,
+    pub quads: u32,
+    pub faces_emitted: u32,
+    pub faces_culled: u32,
+}
+
+/// Axis-aligned chunk-local mesh bounds.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct VoxelMeshBoundsEvidence {
+    pub min: [f32; 3],
+    pub max: [f32; 3],
+}
+
+/// Per-chunk compact mesh evidence derived from authoritative voxel state.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VoxelMeshChunkEvidence {
+    pub coord: ChunkCoord,
+    pub resident: bool,
+    pub visible: bool,
+    pub content_hash: Option<String>,
+    pub mesh_hash: Option<String>,
+    pub stats: Option<VoxelMeshStatsEvidence>,
+    pub bounds: Option<VoxelMeshBoundsEvidence>,
+    pub material_slots: Vec<u16>,
+}
+
+/// Compact mesh snapshot for proof artifacts: no Three.js objects, no inline mesh
+/// arrays by default, just stable hashes/stats sufficient to prove remeshing.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VoxelMeshEvidenceSnapshot {
+    pub grid: u64,
+    pub fixture_id: String,
+    pub world_hash: String,
+    pub meshing_strategy: String,
+    pub chunks: Vec<VoxelMeshChunkEvidence>,
+    pub diagnostics: Vec<String>,
+}
+
 // ── The bridge surface ────────────────────────────────────────────────────────
 
 /// The bounded set of verbs every transport implements. There is no generic
@@ -317,6 +371,13 @@ pub trait RuntimeBridge {
     /// the voxel-grid raycast; the renderer only builds the ray. Reads authority —
     /// never mutates it.
     fn pick_voxel(&self, ray: PickRay) -> BridgeResult<PickResult>;
+    /// Read compact deterministic voxel mesh evidence for resident/requested chunks.
+    /// This summarizes authority-derived `svc-mesh` output with hashes/stats, not
+    /// renderer-owned objects or inline Three.js geometry.
+    fn read_voxel_mesh_evidence(
+        &self,
+        request: VoxelMeshEvidenceRequest,
+    ) -> BridgeResult<VoxelMeshEvidenceSnapshot>;
     fn create_camera(&mut self, request: CameraCreateRequest) -> BridgeResult<CameraSnapshot>;
     fn apply_first_person_camera_input(
         &mut self,
@@ -384,6 +445,133 @@ impl ReferenceBridge {
             ChunkDims::cubic(2).expect("nonzero dims"),
         )
         .expect("positive voxel size")
+    }
+
+    fn material_for_chunk(coord: ChunkCoord) -> u16 {
+        const MATERIAL_IDS: [u16; 3] = [1, 2, 3];
+        let idx = (coord.x * 2 + coord.y).rem_euclid(MATERIAL_IDS.len() as i64) as usize;
+        MATERIAL_IDS[idx]
+    }
+
+    fn launch_world() -> VoxelWorld {
+        let spec = Self::launch_grid();
+        let mut world = VoxelWorld::new(spec);
+        let dims = spec.chunk_dims();
+        for coord in [
+            ChunkCoord::new(0, 0, 0),
+            ChunkCoord::new(1, 0, 0),
+            ChunkCoord::new(0, 1, 0),
+            ChunkCoord::new(1, 1, 0),
+        ] {
+            let mut chunk = VoxelChunk::from_spec(&spec);
+            chunk
+                .fill_region(
+                    core_space::LocalVoxelCoord::new(0, 0, 0),
+                    core_space::LocalVoxelCoord::new(dims.x(), dims.y(), 1),
+                    VoxelValue::solid_raw(Self::material_for_chunk(coord)),
+                )
+                .expect("canonical launch chunk fill within bounds");
+            world.insert(coord, chunk);
+        }
+        let _ = world.drain_dirty();
+        world
+    }
+
+    fn world_hash(world: &VoxelWorld) -> String {
+        let mut buf = String::new();
+        for (coord, chunk) in world.resident_chunks() {
+            buf.push_str(&format!(
+                "{},{},{}={:016x};",
+                coord.x,
+                coord.y,
+                coord.z,
+                chunk.content_hash().0
+            ));
+        }
+        BundleHash::of_str(&buf).to_hex()
+    }
+
+    fn mesh_payload_hash(mesh: &svc_mesh::MeshPayload) -> String {
+        format!("fnv1a64:{}", Self::fnv1a64(&mesh.to_fixture_string()))
+    }
+
+    fn mesh_evidence_for(
+        world: &VoxelWorld,
+        coord: ChunkCoord,
+    ) -> (VoxelMeshChunkEvidence, Vec<String>) {
+        let Some(chunk) = world.get(coord) else {
+            return (
+                VoxelMeshChunkEvidence {
+                    coord,
+                    resident: false,
+                    visible: false,
+                    content_hash: None,
+                    mesh_hash: None,
+                    stats: None,
+                    bounds: None,
+                    material_slots: Vec::new(),
+                },
+                Vec::new(),
+            );
+        };
+
+        match mesh_chunk_in_world(world, coord) {
+            Some(Ok(mesh)) if !mesh.indices.is_empty() => {
+                let stats = mesh.stats;
+                (
+                    VoxelMeshChunkEvidence {
+                        coord,
+                        resident: true,
+                        visible: true,
+                        content_hash: Some(format!("{:016x}", chunk.content_hash().0)),
+                        mesh_hash: Some(Self::mesh_payload_hash(&mesh)),
+                        stats: Some(VoxelMeshStatsEvidence {
+                            vertices: stats.vertices,
+                            indices: stats.indices,
+                            quads: stats.quads,
+                            faces_emitted: stats.faces_emitted,
+                            faces_culled: stats.faces_culled,
+                        }),
+                        bounds: Some(VoxelMeshBoundsEvidence {
+                            min: mesh.bounds.min,
+                            max: mesh.bounds.max,
+                        }),
+                        material_slots: mesh.groups.iter().map(|g| g.material_slot).collect(),
+                    },
+                    Vec::new(),
+                )
+            }
+            Some(Ok(_)) => (
+                VoxelMeshChunkEvidence {
+                    coord,
+                    resident: true,
+                    visible: false,
+                    content_hash: Some(format!("{:016x}", chunk.content_hash().0)),
+                    mesh_hash: None,
+                    stats: None,
+                    bounds: None,
+                    material_slots: Vec::new(),
+                },
+                Vec::new(),
+            ),
+            Some(Err(err)) => (
+                VoxelMeshChunkEvidence {
+                    coord,
+                    resident: true,
+                    visible: false,
+                    content_hash: Some(format!("{:016x}", chunk.content_hash().0)),
+                    mesh_hash: None,
+                    stats: None,
+                    bounds: None,
+                    material_slots: Vec::new(),
+                },
+                vec![format!(
+                    "mesh error for chunk {},{},{}: {err}",
+                    coord.x, coord.y, coord.z
+                )],
+            ),
+            None => unreachable!("world.get(coord) already proved resident"),
+        }
     }
 
     fn require_initialized(&self, op: &str) -> BridgeResult<()> {
@@ -569,10 +757,7 @@ impl RuntimeBridge for ReferenceBridge {
         // Stand up the voxel authority for the launch/edit loop: a resident origin
         // chunk so edits land, plus the launch material catalog. Start clean so a
         // later submit's dirty marking is observable.
-        let spec = Self::launch_grid();
-        let mut world = VoxelWorld::new(spec);
-        world.insert(ChunkCoord::new(0, 0, 0), VoxelChunk::from_spec(&spec));
-        let _ = world.drain_dirty();
+        let world = Self::launch_world();
         self.voxel = Some(world);
         self.materials = MaterialCatalog::new([1, 2, 3].into_iter().map(VoxelMaterialId::new));
         self.cameras.clear();
@@ -651,6 +836,52 @@ impl RuntimeBridge for ReferenceBridge {
             })),
             None => Ok(PickResult::Miss(PickRejection::NoHit)),
         }
+    }
+
+    fn read_voxel_mesh_evidence(
+        &self,
+        request: VoxelMeshEvidenceRequest,
+    ) -> BridgeResult<VoxelMeshEvidenceSnapshot> {
+        let world = self.voxel.as_ref().ok_or_else(|| {
+            RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::NotInitialized,
+                "read_voxel_mesh_evidence called before initialize_engine",
+            )
+        })?;
+        if request.grid != world.grid().id().raw() as u64 {
+            return Err(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                "read_voxel_mesh_evidence request targets an unknown grid",
+            ));
+        }
+
+        let mut coords = if request.chunks.is_empty() {
+            world
+                .resident_chunks()
+                .map(|(coord, _)| coord)
+                .collect::<Vec<_>>()
+        } else {
+            request.chunks
+        };
+        coords.sort();
+        coords.dedup();
+
+        let mut chunks = Vec::with_capacity(coords.len());
+        let mut diagnostics = Vec::new();
+        for coord in coords {
+            let (evidence, mut diag) = Self::mesh_evidence_for(world, coord);
+            chunks.push(evidence);
+            diagnostics.append(&mut diag);
+        }
+
+        Ok(VoxelMeshEvidenceSnapshot {
+            grid: request.grid,
+            fixture_id: "basic-voxel-landscape-interaction".to_string(),
+            world_hash: Self::world_hash(world),
+            meshing_strategy: "visible-face".to_string(),
+            chunks,
+            diagnostics,
+        })
     }
 
     fn step_simulation(&mut self, input: StepInputEnvelope) -> BridgeResult<StepResult> {
@@ -1102,6 +1333,71 @@ mod tests {
     }
 
     #[test]
+    fn mesh_evidence_reports_fixture_chunks_and_changes_after_edit() {
+        let mut bridge = init_bridge();
+        let before = bridge
+            .read_voxel_mesh_evidence(VoxelMeshEvidenceRequest {
+                grid: 1,
+                chunks: vec![ChunkCoord::new(0, 0, 0)],
+            })
+            .unwrap();
+        assert_eq!(before.fixture_id, "basic-voxel-landscape-interaction");
+        assert_eq!(before.world_hash, "27f89a36b51a8cb7");
+        assert_eq!(before.meshing_strategy, "visible-face");
+        assert_eq!(before.chunks.len(), 1);
+        let before_chunk = &before.chunks[0];
+        assert!(before_chunk.resident);
+        assert!(before_chunk.visible);
+        let before_hash = before_chunk.mesh_hash.clone().expect("mesh hash");
+        assert_eq!(before_chunk.material_slots, vec![1]);
+        assert_eq!(before_chunk.stats.unwrap().quads, 12);
+
+        bridge
+            .submit_commands(CommandBatch {
+                commands: vec![set_voxel(VoxelCoord::new(1, 1, 1), 2)],
+            })
+            .unwrap();
+        let after = bridge
+            .read_voxel_mesh_evidence(VoxelMeshEvidenceRequest {
+                grid: 1,
+                chunks: vec![ChunkCoord::new(0, 0, 0)],
+            })
+            .unwrap();
+        let after_chunk = &after.chunks[0];
+        assert_ne!(after.world_hash, before.world_hash);
+        assert_ne!(after_chunk.mesh_hash.as_ref().unwrap(), &before_hash);
+        assert_eq!(after_chunk.material_slots, vec![1, 2]);
+        assert!(after_chunk.stats.unwrap().quads > before_chunk.stats.unwrap().quads);
+    }
+
+    #[test]
+    fn mesh_evidence_fails_closed_before_init_and_unknown_grid() {
+        let bridge = ReferenceBridge::new();
+        assert_eq!(
+            bridge
+                .read_voxel_mesh_evidence(VoxelMeshEvidenceRequest {
+                    grid: 1,
+                    chunks: Vec::new(),
+                })
+                .unwrap_err()
+                .kind,
+            RuntimeBridgeErrorKind::NotInitialized
+        );
+
+        let bridge = init_bridge();
+        assert_eq!(
+            bridge
+                .read_voxel_mesh_evidence(VoxelMeshEvidenceRequest {
+                    grid: 999,
+                    chunks: Vec::new(),
+                })
+                .unwrap_err()
+                .kind,
+            RuntimeBridgeErrorKind::InvalidInput
+        );
+    }
+
+    #[test]
     fn mixed_batch_accepts_valid_and_classifies_invalid_in_order() {
         let mut bridge = init_bridge();
         let result = bridge
@@ -1162,10 +1458,12 @@ mod tests {
 
     #[test]
     fn pick_empty_space_misses() {
-        // The resident origin chunk is seeded empty: nothing to hit.
+        // The canonical launch terrain occupies z=0 only; a ray above the slab misses.
         let bridge = init_bridge();
+        let mut ray = pick_ray_plus_x();
+        ray.origin = [-5.0, 0.5, 1.5];
         assert_eq!(
-            bridge.pick_voxel(pick_ray_plus_x()).unwrap(),
+            bridge.pick_voxel(ray).unwrap(),
             PickResult::Miss(PickRejection::NoHit)
         );
     }
