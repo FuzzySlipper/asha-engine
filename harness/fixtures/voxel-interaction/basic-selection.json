@@ -14,7 +14,7 @@
   ],
   "worldHash": "27f89a36b51a8cb7",
   "camera": {
-    "initialPose": { "position": [1.5, 2.6, 5.5], "yawDegrees": 180, "pitchDegrees": -15 },
+    "initialPose": { "position": [1.5, 1.5, 4], "yawDegrees": 0, "pitchDegrees": 0 },
     "projection": { "fovYDegrees": 60, "near": 0.1, "far": 1000 },
     "viewport": { "width": 1280, "height": 720 }
   },

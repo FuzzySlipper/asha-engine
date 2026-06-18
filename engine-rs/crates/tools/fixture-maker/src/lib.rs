@@ -147,10 +147,42 @@ pub fn render_fixture() -> Vec<GeneratedArtifact> {
     out
 }
 
-/// The center-crosshair ray for the basic interaction proof. It points down onto
-/// the canonical terrain patch and names a stable hit on voxel `(1, 1, 0)`.
+/// Minimal camera pose metadata recorded with the interaction fixture. This uses
+/// the same yaw/pitch-to-forward convention as `runtime-bridge-api` camera bases:
+/// `forward = [sin(yaw)*cos(pitch), sin(pitch), -cos(yaw)*cos(pitch)]`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct InteractionCameraPose {
+    pub position: WorldPos,
+    pub yaw_degrees: f64,
+    pub pitch_degrees: f64,
+}
+
+/// The camera pose for the basic interaction proof. The center crosshair ray from
+/// this pose points down -Z onto the canonical terrain patch and names a stable
+/// hit on voxel `(1, 1, 0)`.
+pub fn basic_interaction_camera_pose() -> InteractionCameraPose {
+    InteractionCameraPose {
+        position: WorldPos::new(1.5, 1.5, 4.0),
+        yaw_degrees: 0.0,
+        pitch_degrees: 0.0,
+    }
+}
+
+/// Derive the center-crosshair pick ray from the recorded interaction camera pose.
+/// This intentionally avoids a hand-authored ray that can drift away from the
+/// graphical camera metadata consumed by downstream `asha-demo` / Agora tasks.
 pub fn basic_interaction_pick_ray() -> Ray {
-    Ray::new(WorldPos::new(1.5, 1.5, 4.0), WorldVec::new(0.0, 0.0, -1.0))
+    center_pick_ray_from_camera(basic_interaction_camera_pose())
+}
+
+fn center_pick_ray_from_camera(camera: InteractionCameraPose) -> Ray {
+    let yaw = camera.yaw_degrees.to_radians();
+    let pitch = camera.pitch_degrees.to_radians();
+    let cp = pitch.cos();
+    Ray::new(
+        camera.position,
+        WorldVec::new(yaw.sin() * cp, pitch.sin(), -yaw.cos() * cp),
+    )
 }
 
 /// Render the interaction-proof golden manifest. It deliberately reuses the
@@ -161,7 +193,8 @@ pub fn render_interaction_fixture() -> Vec<GeneratedArtifact> {
     let spec = world.grid();
     let (rows, _) = render_chunk_rows(&world);
     let world_hash_hex = world_hash(&rows).to_hex();
-    let ray = basic_interaction_pick_ray();
+    let camera = basic_interaction_camera_pose();
+    let ray = center_pick_ray_from_camera(camera);
     let hit = CollisionProjection::build(&world)
         .raycast(ray, 16.0)
         .expect("canonical fixture supports the basic interaction ray");
@@ -169,7 +202,7 @@ pub fn render_interaction_fixture() -> Vec<GeneratedArtifact> {
 
     vec![GeneratedArtifact {
         rel_path: INTERACTION_MANIFEST_NAME.to_string(),
-        contents: render_interaction_manifest(spec, &world_hash_hex, ray, hit, edit_anchor),
+        contents: render_interaction_manifest(spec, &world_hash_hex, camera, ray, hit, edit_anchor),
     }]
 }
 
@@ -300,6 +333,7 @@ fn chunk_json(coord: ChunkCoord) -> String {
 fn render_interaction_manifest(
     spec: VoxelGridSpec,
     world_hash_hex: &str,
+    camera: InteractionCameraPose,
     ray: Ray,
     hit: svc_collision::VoxelHit,
     edit_anchor: VoxelCoord,
@@ -340,7 +374,14 @@ fn render_interaction_manifest(
     s.push_str("  ],\n");
     s.push_str(&format!("  \"worldHash\": {:?},\n", world_hash_hex));
     s.push_str("  \"camera\": {\n");
-    s.push_str("    \"initialPose\": { \"position\": [1.5, 2.6, 5.5], \"yawDegrees\": 180, \"pitchDegrees\": -15 },\n");
+    s.push_str(&format!(
+        "    \"initialPose\": {{ \"position\": [{}, {}, {}], \"yawDegrees\": {}, \"pitchDegrees\": {} }},\n",
+        camera.position.x,
+        camera.position.y,
+        camera.position.z,
+        camera.yaw_degrees,
+        camera.pitch_degrees,
+    ));
     s.push_str("    \"projection\": { \"fovYDegrees\": 60, \"near\": 0.1, \"far\": 1000 },\n");
     s.push_str("    \"viewport\": { \"width\": 1280, \"height\": 720 }\n");
     s.push_str("  },\n");
@@ -453,6 +494,15 @@ mod tests {
         assert!(manifest.contains("\"face\": \"posZ\""));
         assert!(manifest.contains("\"editAnchor\": { \"x\": 1, \"y\": 1, \"z\": 1 }"));
         assert!(manifest.contains("\"op\": \"setVoxel\""));
+    }
+
+    #[test]
+    fn basic_interaction_pick_ray_is_derived_from_camera_center() {
+        let camera = basic_interaction_camera_pose();
+        let ray = basic_interaction_pick_ray();
+        assert_eq!(ray.origin, camera.position);
+        assert_eq!(ray.dir, WorldVec::new(0.0, 0.0, -1.0));
+        assert_eq!(ray, center_pick_ray_from_camera(camera));
     }
 
     #[test]

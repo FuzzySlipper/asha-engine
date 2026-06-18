@@ -373,8 +373,9 @@ may_not_depend_on = ["render-bridge", "wasm-api"]
 [crate."engine-rs/crates/tools/fixture-maker"]
 lane = "rust-tools"
 # Builds the canonical abstract voxel fixture (#2434): voxel storage/world +
-# persist snapshot format + world-bundle hashing.
-may_depend_on = ["core-space", "core-voxel", "svc-volume", "svc-spatial", "svc-serialization", "rule-voxel-edit"]
+# persist snapshot format + world-bundle hashing. The basic interaction golden
+# uses svc-collision only to derive/check its authoritative selection hit.
+may_depend_on = ["core-space", "core-voxel", "svc-volume", "svc-spatial", "svc-serialization", "svc-collision", "rule-voxel-edit"]
 may_not_depend_on = ["render-bridge", "wasm-api"]
 
 # ─── TypeScript ──────────────────────────────────────────────────────────────
