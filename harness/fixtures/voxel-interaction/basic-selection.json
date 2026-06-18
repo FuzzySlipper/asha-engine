@@ -1,0 +1,34 @@
+{
+  "scenario": "basic-voxel-landscape-interaction",
+  "fixture": "basic-voxel-landscape-interaction",
+  "sourceFixture": "canonical-voxel-world",
+  "sourceFixtureManifest": "harness/fixtures/voxel-world/voxel-world.manifest.json",
+  "generation": { "seed": 2645, "generatorVersion": 1, "generatorLabel": "fixture-maker.basic-voxel-landscape-interaction" },
+  "grid": { "id": 1, "voxelSize": 1, "chunkDims": [2, 2, 2] },
+  "materials": [1, 2, 3],
+  "terrainFeatures": [
+    "2x2x1 resident chunk patch",
+    "bottom local z layer is solid in every chunk",
+    "top local z layer remains empty for exposed face meshing and edit anchors",
+    "abstract material ids only; no product block taxonomy"
+  ],
+  "worldHash": "27f89a36b51a8cb7",
+  "camera": {
+    "initialPose": { "position": [1.5, 2.6, 5.5], "yawDegrees": 180, "pitchDegrees": -15 },
+    "projection": { "fovYDegrees": 60, "near": 0.1, "far": 1000 },
+    "viewport": { "width": 1280, "height": 720 }
+  },
+  "selection": {
+    "screenPoint": { "x": 0.5, "y": 0.5, "space": "normalized_0_1" },
+    "pickRay": { "grid": 1, "origin": [1.5, 1.5, 4], "direction": [0, 0, -1], "maxDistance": 16 },
+    "pickResult": { "outcome": "hit", "hit": { "grid": 1, "voxel": { "x": 1, "y": 1, "z": 0 }, "chunk": { "x": 0, "y": 0, "z": 0 }, "face": "posZ", "point": [1.5, 1.5, 1], "distance": 3 } },
+    "editAnchor": { "x": 1, "y": 1, "z": 1 }
+  },
+  "intendedEdit": { "op": "setVoxel", "grid": 1, "coord": { "x": 1, "y": 1, "z": 1 }, "value": { "kind": "solid", "material": 2 }, "source": "raycast_selection" },
+  "evidencePurpose": [
+    "stable generated terrain setup",
+    "stable center-crosshair raycast hit",
+    "stable edit anchor for later submitCommands proof",
+    "stable fixture metadata for later collision, mesh, asha-demo, and Agora tasks"
+  ]
+}

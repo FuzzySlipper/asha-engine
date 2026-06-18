@@ -29,15 +29,36 @@
 
 #![forbid(unsafe_code)]
 
-use core_space::{ChunkCoord, ChunkDims, GridId, LocalVoxelCoord, VoxelGridSpec};
+use core_space::{
+    ChunkCoord, ChunkDims, Face, GridId, LocalVoxelCoord, VoxelCoord, VoxelGridSpec, WorldPos,
+    WorldVec,
+};
 use core_voxel::{MaterialCatalog, VoxelMaterialId, VoxelValue};
 use rule_voxel_edit::persist::encode_chunk_snapshot;
+use svc_collision::{CollisionProjection, Ray};
 use svc_serialization::BundleHash;
 use svc_spatial::VoxelWorld;
 use svc_volume::VoxelChunk;
 
 /// Repo-relative directory holding the committed canonical voxel payload.
 pub const FIXTURE_DIR: &str = "harness/fixtures/voxel-world";
+
+/// Repo-relative directory holding interaction-proof fixture/golden evidence.
+pub const INTERACTION_FIXTURE_DIR: &str = "harness/fixtures/voxel-interaction";
+
+/// The interaction scenario id used by the basic graphical voxel proof.
+pub const INTERACTION_FIXTURE_ID: &str = "basic-voxel-landscape-interaction";
+
+/// Stable seed recorded for generated fixture provenance. The current fixture is
+/// deterministic table-driven generation, but downstream artifacts still need an
+/// explicit seed field to prevent hidden ambient randomness.
+pub const INTERACTION_GENERATOR_SEED: u64 = 2645;
+
+/// Version of the fixture-maker interaction scenario/golden format.
+pub const INTERACTION_GENERATOR_VERSION: u32 = 1;
+
+/// The committed interaction manifest's file name within [`INTERACTION_FIXTURE_DIR`].
+pub const INTERACTION_MANIFEST_NAME: &str = "basic-selection.json";
 
 /// The manifest artifact's file name within [`FIXTURE_DIR`].
 pub const MANIFEST_NAME: &str = "voxel-world.manifest.json";
@@ -113,8 +134,54 @@ pub fn build_world() -> VoxelWorld {
 pub fn render_fixture() -> Vec<GeneratedArtifact> {
     let world = build_world();
     let spec = world.grid();
+    let (rows, artifacts) = render_chunk_rows(&world);
 
-    // Stable, ascending chunk order (VoxelWorld iterates a BTreeMap).
+    let manifest = render_manifest(spec, &rows);
+    // Manifest first for readability; order is otherwise path-stable.
+    let mut out = Vec::with_capacity(artifacts.len() + 1);
+    out.push(GeneratedArtifact {
+        rel_path: MANIFEST_NAME.to_string(),
+        contents: manifest,
+    });
+    out.extend(artifacts);
+    out
+}
+
+/// The center-crosshair ray for the basic interaction proof. It points down onto
+/// the canonical terrain patch and names a stable hit on voxel `(1, 1, 0)`.
+pub fn basic_interaction_pick_ray() -> Ray {
+    Ray::new(WorldPos::new(1.5, 1.5, 4.0), WorldVec::new(0.0, 0.0, -1.0))
+}
+
+/// Render the interaction-proof golden manifest. It deliberately reuses the
+/// canonical voxel world when that fixture is sufficient, avoiding a redundant
+/// parallel terrain shape.
+pub fn render_interaction_fixture() -> Vec<GeneratedArtifact> {
+    let world = build_world();
+    let spec = world.grid();
+    let (rows, _) = render_chunk_rows(&world);
+    let world_hash_hex = world_hash(&rows).to_hex();
+    let ray = basic_interaction_pick_ray();
+    let hit = CollisionProjection::build(&world)
+        .raycast(ray, 16.0)
+        .expect("canonical fixture supports the basic interaction ray");
+    let edit_anchor = adjacent_voxel(hit.voxel, hit.face);
+
+    vec![GeneratedArtifact {
+        rel_path: INTERACTION_MANIFEST_NAME.to_string(),
+        contents: render_interaction_manifest(spec, &world_hash_hex, ray, hit, edit_anchor),
+    }]
+}
+
+struct ChunkRow {
+    coord: ChunkCoord,
+    material: u16,
+    artifact: String,
+    chunk_hash: u64,
+    content_hash: BundleHash,
+}
+
+fn render_chunk_rows(world: &VoxelWorld) -> (Vec<ChunkRow>, Vec<GeneratedArtifact>) {
     let mut rows: Vec<ChunkRow> = Vec::new();
     let mut artifacts: Vec<GeneratedArtifact> = Vec::new();
     for (coord, chunk) in world.resident_chunks() {
@@ -132,24 +199,7 @@ pub fn render_fixture() -> Vec<GeneratedArtifact> {
             contents: snapshot,
         });
     }
-
-    let manifest = render_manifest(spec, &rows);
-    // Manifest first for readability; order is otherwise path-stable.
-    let mut out = Vec::with_capacity(artifacts.len() + 1);
-    out.push(GeneratedArtifact {
-        rel_path: MANIFEST_NAME.to_string(),
-        contents: manifest,
-    });
-    out.extend(artifacts);
-    out
-}
-
-struct ChunkRow {
-    coord: ChunkCoord,
-    material: u16,
-    artifact: String,
-    chunk_hash: u64,
-    content_hash: BundleHash,
+    (rows, artifacts)
 }
 
 fn chunk_artifact_name(coord: ChunkCoord) -> String {
@@ -213,6 +263,123 @@ fn render_manifest(spec: VoxelGridSpec, rows: &[ChunkRow]) -> String {
     s
 }
 
+fn adjacent_voxel(voxel: VoxelCoord, face: Face) -> VoxelCoord {
+    let [dx, dy, dz] = face.offset();
+    VoxelCoord::new(
+        voxel.x + dx as i64,
+        voxel.y + dy as i64,
+        voxel.z + dz as i64,
+    )
+}
+
+fn face_json(face: Face) -> &'static str {
+    match face {
+        Face::PosX => "posX",
+        Face::NegX => "negX",
+        Face::PosY => "posY",
+        Face::NegY => "negY",
+        Face::PosZ => "posZ",
+        Face::NegZ => "negZ",
+    }
+}
+
+fn voxel_json(coord: VoxelCoord) -> String {
+    format!(
+        "{{ \"x\": {}, \"y\": {}, \"z\": {} }}",
+        coord.x, coord.y, coord.z
+    )
+}
+
+fn chunk_json(coord: ChunkCoord) -> String {
+    format!(
+        "{{ \"x\": {}, \"y\": {}, \"z\": {} }}",
+        coord.x, coord.y, coord.z
+    )
+}
+
+fn render_interaction_manifest(
+    spec: VoxelGridSpec,
+    world_hash_hex: &str,
+    ray: Ray,
+    hit: svc_collision::VoxelHit,
+    edit_anchor: VoxelCoord,
+) -> String {
+    let dims = spec.chunk_dims();
+    let materials = MATERIAL_IDS
+        .iter()
+        .map(|m| m.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let mut s = String::new();
+    s.push_str("{\n");
+    s.push_str("  \"scenario\": \"basic-voxel-landscape-interaction\",\n");
+    s.push_str("  \"fixture\": \"basic-voxel-landscape-interaction\",\n");
+    s.push_str("  \"sourceFixture\": \"canonical-voxel-world\",\n");
+    s.push_str("  \"sourceFixtureManifest\": \"harness/fixtures/voxel-world/voxel-world.manifest.json\",\n");
+    s.push_str(&format!(
+        "  \"generation\": {{ \"seed\": {}, \"generatorVersion\": {}, \"generatorLabel\": \"fixture-maker.basic-voxel-landscape-interaction\" }},\n",
+        INTERACTION_GENERATOR_SEED, INTERACTION_GENERATOR_VERSION,
+    ));
+    s.push_str(&format!(
+        "  \"grid\": {{ \"id\": {}, \"voxelSize\": {}, \"chunkDims\": [{}, {}, {}] }},\n",
+        spec.id().raw(),
+        spec.voxel_size(),
+        dims.x(),
+        dims.y(),
+        dims.z(),
+    ));
+    s.push_str(&format!("  \"materials\": [{materials}],\n"));
+    s.push_str("  \"terrainFeatures\": [\n");
+    s.push_str("    \"2x2x1 resident chunk patch\",\n");
+    s.push_str("    \"bottom local z layer is solid in every chunk\",\n");
+    s.push_str(
+        "    \"top local z layer remains empty for exposed face meshing and edit anchors\",\n",
+    );
+    s.push_str("    \"abstract material ids only; no product block taxonomy\"\n");
+    s.push_str("  ],\n");
+    s.push_str(&format!("  \"worldHash\": {:?},\n", world_hash_hex));
+    s.push_str("  \"camera\": {\n");
+    s.push_str("    \"initialPose\": { \"position\": [1.5, 2.6, 5.5], \"yawDegrees\": 180, \"pitchDegrees\": -15 },\n");
+    s.push_str("    \"projection\": { \"fovYDegrees\": 60, \"near\": 0.1, \"far\": 1000 },\n");
+    s.push_str("    \"viewport\": { \"width\": 1280, \"height\": 720 }\n");
+    s.push_str("  },\n");
+    s.push_str(&format!(
+        "  \"selection\": {{\n    \"screenPoint\": {{ \"x\": 0.5, \"y\": 0.5, \"space\": \"normalized_0_1\" }},\n    \"pickRay\": {{ \"grid\": {}, \"origin\": [{}, {}, {}], \"direction\": [{}, {}, {}], \"maxDistance\": 16 }},\n    \"pickResult\": {{ \"outcome\": \"hit\", \"hit\": {{ \"grid\": {}, \"voxel\": {}, \"chunk\": {}, \"face\": {:?}, \"point\": [{}, {}, {}], \"distance\": {} }} }},\n    \"editAnchor\": {}\n  }},\n",
+        spec.id().raw(),
+        ray.origin.x,
+        ray.origin.y,
+        ray.origin.z,
+        ray.dir.x,
+        ray.dir.y,
+        ray.dir.z,
+        spec.id().raw(),
+        voxel_json(hit.voxel),
+        chunk_json(hit.chunk),
+        face_json(hit.face),
+        hit.point.x,
+        hit.point.y,
+        hit.point.z,
+        hit.distance,
+        voxel_json(edit_anchor),
+    ));
+    s.push_str(&format!(
+        "  \"intendedEdit\": {{ \"op\": \"setVoxel\", \"grid\": {}, \"coord\": {}, \"value\": {{ \"kind\": \"solid\", \"material\": 2 }}, \"source\": \"raycast_selection\" }},\n",
+        spec.id().raw(),
+        voxel_json(edit_anchor),
+    ));
+    s.push_str("  \"evidencePurpose\": [\n");
+    s.push_str("    \"stable generated terrain setup\",\n");
+    s.push_str("    \"stable center-crosshair raycast hit\",\n");
+    s.push_str("    \"stable edit anchor for later submitCommands proof\",\n");
+    s.push_str(
+        "    \"stable fixture metadata for later collision, mesh, asha-demo, and Agora tasks\"\n",
+    );
+    s.push_str("  ]\n");
+    s.push_str("}\n");
+    s
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -271,5 +438,36 @@ mod tests {
             );
             assert!(art.contents.starts_with("voxelchunk "));
         }
+    }
+
+    #[test]
+    fn basic_interaction_fixture_records_stable_pick_and_edit_anchor() {
+        let artifacts = render_interaction_fixture();
+        assert_eq!(artifacts.len(), 1);
+        assert_eq!(artifacts[0].rel_path, INTERACTION_MANIFEST_NAME);
+        let manifest = &artifacts[0].contents;
+        assert!(manifest.contains("\"scenario\": \"basic-voxel-landscape-interaction\""));
+        assert!(manifest.contains("\"sourceFixture\": \"canonical-voxel-world\""));
+        assert!(manifest.contains("\"worldHash\": \"27f89a36b51a8cb7\""));
+        assert!(manifest.contains("\"voxel\": { \"x\": 1, \"y\": 1, \"z\": 0 }"));
+        assert!(manifest.contains("\"face\": \"posZ\""));
+        assert!(manifest.contains("\"editAnchor\": { \"x\": 1, \"y\": 1, \"z\": 1 }"));
+        assert!(manifest.contains("\"op\": \"setVoxel\""));
+    }
+
+    #[test]
+    fn basic_interaction_ray_hits_canonical_world_top_face() {
+        let world = build_world();
+        let ray = basic_interaction_pick_ray();
+        let hit = CollisionProjection::build(&world)
+            .raycast(ray, 16.0)
+            .expect("basic proof ray must hit canonical fixture");
+        assert_eq!(hit.voxel, VoxelCoord::new(1, 1, 0));
+        assert_eq!(hit.chunk, ChunkCoord::new(0, 0, 0));
+        assert_eq!(hit.face, Face::PosZ);
+        assert_eq!(
+            adjacent_voxel(hit.voxel, hit.face),
+            VoxelCoord::new(1, 1, 1)
+        );
     }
 }

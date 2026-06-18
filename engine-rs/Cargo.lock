@@ -198,6 +198,7 @@ dependencies = [
  "core-space",
  "core-voxel",
  "rule-voxel-edit",
+ "svc-collision",
  "svc-serialization",
  "svc-spatial",
  "svc-volume",

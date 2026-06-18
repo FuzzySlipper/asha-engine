@@ -8,7 +8,9 @@
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use fixture_maker::{render_fixture, FIXTURE_DIR};
+use fixture_maker::{
+    render_fixture, render_interaction_fixture, FIXTURE_DIR, INTERACTION_FIXTURE_DIR,
+};
 
 fn repo_root() -> PathBuf {
     // <repo>/engine-rs/crates/tools/fixture-maker -> up five to <repo>.
@@ -19,43 +21,63 @@ fn repo_root() -> PathBuf {
         .to_path_buf()
 }
 
-fn fixture_path(root: &Path) -> PathBuf {
-    root.join(FIXTURE_DIR)
+fn fixture_path(root: &Path, dir_name: &str) -> PathBuf {
+    root.join(dir_name)
 }
 
-fn write() -> ExitCode {
-    let dir = fixture_path(&repo_root());
+fn write_artifacts(root: &Path, dir_name: &str, artifacts: Vec<fixture_maker::GeneratedArtifact>) {
+    let dir = root.join(dir_name);
     std::fs::create_dir_all(&dir).expect("create fixture dir");
-    for art in render_fixture() {
+    for art in artifacts {
         let path = dir.join(&art.rel_path);
         std::fs::write(&path, &art.contents).unwrap_or_else(|e| panic!("write {path:?}: {e}"));
         println!("wrote {}", path.display());
     }
+}
+
+fn write() -> ExitCode {
+    let root = repo_root();
+    write_artifacts(&root, FIXTURE_DIR, render_fixture());
+    write_artifacts(&root, INTERACTION_FIXTURE_DIR, render_interaction_fixture());
     ExitCode::SUCCESS
 }
 
-fn check() -> ExitCode {
-    let dir = fixture_path(&repo_root());
+fn check_artifacts(
+    root: &Path,
+    dir_name: &str,
+    artifacts: Vec<fixture_maker::GeneratedArtifact>,
+) -> bool {
+    let dir = fixture_path(root, dir_name);
     let mut drift = false;
-    for art in render_fixture() {
+    for art in artifacts {
         let path = dir.join(&art.rel_path);
         match std::fs::read_to_string(&path) {
             Ok(on_disk) if on_disk == art.contents => {}
             Ok(_) => {
-                eprintln!("DRIFT: {} differs from generator output", art.rel_path);
+                eprintln!(
+                    "DRIFT: {}/{} differs from generator output",
+                    dir_name, art.rel_path
+                );
                 drift = true;
             }
             Err(e) => {
-                eprintln!("MISSING: {} ({e})", art.rel_path);
+                eprintln!("MISSING: {}/{} ({e})", dir_name, art.rel_path);
                 drift = true;
             }
         }
     }
+    drift
+}
+
+fn check() -> ExitCode {
+    let root = repo_root();
+    let drift = check_artifacts(&root, FIXTURE_DIR, render_fixture())
+        | check_artifacts(&root, INTERACTION_FIXTURE_DIR, render_interaction_fixture());
     if drift {
-        eprintln!("canonical voxel fixture is stale — regenerate with `fixture-maker write`");
+        eprintln!("voxel fixtures are stale — regenerate with `fixture-maker write`");
         ExitCode::FAILURE
     } else {
-        println!("canonical voxel fixture: OK");
+        println!("voxel fixtures: OK");
         ExitCode::SUCCESS
     }
 }

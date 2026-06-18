@@ -17,6 +17,7 @@ core-voxel        = { path = "../../state/core-voxel" }
 svc-volume        = { path = "../../services/svc-volume" }
 svc-spatial       = { path = "../../services/svc-spatial" }
 svc-serialization = { path = "../../services/svc-serialization" }
+svc-collision     = { path = "../../services/svc-collision" }
 rule-voxel-edit   = { path = "../../rules/rule-voxel-edit" }
 
 [lints]
