@@ -70,13 +70,17 @@ See `docs/design.md` for the full system design and `README.md` for current repo
 ./harness/ci/check-all.sh
 
 # Focused gates
-./harness/ci/check-rust.sh
+./harness/ci/check-rust.sh      # includes cargo fmt --check, cargo check, cargo clippy --workspace -- -D warnings, cargo test
 ./harness/ci/check-ts.sh
 ./harness/ci/check-depgraph.sh
 ./harness/ci/check-contracts.sh
 ./harness/ci/check-replays.sh
 ./harness/ci/check-render-goldens.sh
 ./harness/ci/check-bridge.sh
+
+# Rust lane quick checks when a full Rust gate is too broad
+(cd engine-rs && cargo clippy --workspace -- -D warnings)
+(cd engine-rs && cargo clippy -p <crate-name> --all-targets -- -D warnings)
 
 # Launchable voxel smoke / shell / perf
 cd ts
