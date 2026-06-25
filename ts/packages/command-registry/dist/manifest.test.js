@@ -13,6 +13,7 @@ const REQUIRED_IDS = [
     'inspection.material',
     'inspection.model',
     'preview.model_material',
+    'scene.load_asset',
     'selection.voxel_from_screen_point',
     'inspection.voxel',
     'preview.voxel_brush',
@@ -113,6 +114,18 @@ test('model/material commands use public contract DTOs and runtime readback clas
     assert.deepEqual(preview.outputContractRefs.map((ref) => ref.exportName), ['RenderFrameDiff']);
     assert.ok(preview.artifacts.some((artifact) => artifact.type === 'render_diff_preview'));
     assert.ok(preview.runtimeRequirements.some((requirement) => requirement.kind === 'runtime_bridge_operation' && requirement.operation === 'read_model_material_preview'));
+});
+test('scene load command places a catalog asset through editor-local render-diff evidence', () => {
+    const load = requireKnownCommand('scene.load_asset', COMMAND_MANIFEST);
+    assert.equal(load.category, 'scene');
+    assert.equal(load.operationClass, 'editor_local');
+    assert.equal(load.agentExposure.kind, 'editor_local');
+    assert.deepEqual(load.menuPath, ['Scene', 'Load Asset']);
+    assert.deepEqual(load.outputContractRefs.map((ref) => ref.exportName), ['RenderFrameDiff']);
+    assert.ok(load.runtimeRequirements.some((requirement) => requirement.kind === 'runtime_bridge_operation' && requirement.operation === 'read_model_material_preview'));
+    assert.ok(load.artifacts.some((artifact) => artifact.type === 'render_diff_preview'));
+    assert.equal(load.stateImpact.authority, 'read');
+    assert.equal(load.idempotency.kind, 'conditional');
 });
 test('selection command uses screen-point camera request, not a caller-supplied pick ray', () => {
     const select = requireKnownCommand('selection.voxel_from_screen_point', COMMAND_MANIFEST);

@@ -1592,6 +1592,408 @@
     }
   },
   {
+    "id": "scene.load_asset",
+    "version": 1,
+    "label": "Load Asset Into Scene",
+    "summary": "Load a catalog asset into the active scene as a placed renderable using public retained-mode render-diff evidence without authority mutation.",
+    "category": "scene",
+    "menuPath": [
+      "Scene",
+      "Load Asset"
+    ],
+    "commandPalette": {
+      "visible": true,
+      "keywords": [
+        "scene",
+        "load",
+        "asset",
+        "place",
+        "render diff"
+      ]
+    },
+    "inputSchema": {
+      "name": "LoadSceneAssetInput",
+      "version": 1,
+      "shape": {
+        "kind": "object",
+        "allowExtraFields": false,
+        "fields": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Stable studio session identifier."
+          },
+          {
+            "name": "assetId",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Public catalog static-mesh asset id to load into the scene."
+          },
+          {
+            "name": "materialId",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Catalog material id to bind to the placed instance."
+          },
+          {
+            "name": "placement",
+            "required": true,
+            "shape": {
+              "kind": "object",
+              "allowExtraFields": false,
+              "fields": [
+                {
+                  "name": "translation",
+                  "required": true,
+                  "shape": {
+                    "kind": "array",
+                    "items": {
+                      "kind": "scalar",
+                      "scalar": "number"
+                    },
+                    "minItems": 3
+                  },
+                  "summary": "World translation x, y, z."
+                },
+                {
+                  "name": "rotation",
+                  "required": true,
+                  "shape": {
+                    "kind": "array",
+                    "items": {
+                      "kind": "scalar",
+                      "scalar": "number"
+                    },
+                    "minItems": 4
+                  },
+                  "summary": "Rotation quaternion x, y, z, w."
+                },
+                {
+                  "name": "scale",
+                  "required": true,
+                  "shape": {
+                    "kind": "array",
+                    "items": {
+                      "kind": "scalar",
+                      "scalar": "number"
+                    },
+                    "minItems": 3
+                  },
+                  "summary": "Scale x, y, z."
+                }
+              ]
+            },
+            "summary": "Scene placement transform for the loaded asset."
+          }
+        ]
+      }
+    },
+    "outputSchema": {
+      "name": "LoadSceneAssetOutput",
+      "version": 1,
+      "shape": {
+        "kind": "object",
+        "allowExtraFields": false,
+        "fields": [
+          {
+            "name": "assetId",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Loaded catalog asset id."
+          },
+          {
+            "name": "renderableIds",
+            "required": true,
+            "shape": {
+              "kind": "array",
+              "items": {
+                "kind": "scalar",
+                "scalar": "string"
+              }
+            },
+            "summary": "Named renderable ids created for the placed asset."
+          },
+          {
+            "name": "loadDiff",
+            "required": true,
+            "shape": {
+              "kind": "contract",
+              "ref": {
+                "package": "@asha/contracts",
+                "exportName": "RenderFrameDiff"
+              }
+            },
+            "summary": "Generated public retained-mode render diff that defines and places the asset."
+          },
+          {
+            "name": "rendererClassification",
+            "required": true,
+            "shape": {
+              "kind": "literal",
+              "values": [
+                "reference_placement",
+                "runtime_readback"
+              ]
+            },
+            "summary": "Whether evidence is reference placement or runtime readback."
+          },
+          {
+            "name": "diagnostics",
+            "required": true,
+            "shape": {
+              "kind": "array",
+              "items": {
+                "kind": "scalar",
+                "scalar": "string"
+              }
+            },
+            "summary": "Typed diagnostic strings for unavailable/degraded support."
+          }
+        ]
+      }
+    },
+    "inputContractRefs": [],
+    "outputContractRefs": [
+      {
+        "package": "@asha/contracts",
+        "exportName": "RenderFrameDiff"
+      }
+    ],
+    "operationClass": "editor_local",
+    "agentExposure": {
+      "kind": "editor_local"
+    },
+    "guiMirror": {
+      "required": true,
+      "menuPath": [
+        "Scene",
+        "Load Asset"
+      ],
+      "commandPaletteVisible": true,
+      "argumentSummary": "LoadSceneAssetInput: sessionId: Stable studio session identifier. assetId: Public catalog static-mesh asset id to load into the scene. materialId: Catalog material id to bind to the placed instance. placement: Scene placement transform for the loaded asset.",
+      "resultSummary": "LoadSceneAssetOutput: assetId: Loaded catalog asset id. renderableIds: Named renderable ids created for the placed asset. loadDiff: Generated public retained-mode render diff that defines and places the asset. rendererClassification: Whether evidence is reference placement or runtime readback. diagnostics: Typed diagnostic strings for unavailable/degraded support.",
+      "artifactSummary": "model_metadata: Loaded static mesh asset metadata. material_metadata: Bound material projection metadata. render_diff_preview: Retained-mode render diff that defines and places the loaded asset.",
+      "panel": "viewport",
+      "dialog": "simple_form"
+    },
+    "undo": {
+      "kind": "editor_local",
+      "inverseData": [
+        "previous loaded scene asset snapshot"
+      ]
+    },
+    "retry": "safe_to_retry",
+    "idempotency": {
+      "kind": "conditional",
+      "condition": "Same asset id, material id, placement, and catalog versions produce the same load diff."
+    },
+    "artifacts": [
+      {
+        "type": "model_metadata",
+        "required": true,
+        "producedWhen": "always",
+        "summary": "Loaded static mesh asset metadata."
+      },
+      {
+        "type": "material_metadata",
+        "required": true,
+        "producedWhen": "always",
+        "summary": "Bound material projection metadata."
+      },
+      {
+        "type": "render_diff_preview",
+        "required": true,
+        "producedWhen": "always",
+        "summary": "Retained-mode render diff that defines and places the loaded asset."
+      }
+    ],
+    "stateImpact": {
+      "authority": "read",
+      "editor": "mutate",
+      "render": "capture",
+      "workspace": "none"
+    },
+    "owningLane": "ts-command-registry",
+    "owningPackage": "@asha/command-registry",
+    "runtimeRequirements": [
+      {
+        "kind": "runtime_bridge_operation",
+        "operation": "read_model_material_preview"
+      },
+      {
+        "kind": "editor_store"
+      },
+      {
+        "kind": "render_surface"
+      }
+    ],
+    "compatibility": {
+      "contracts": "contracts.v0",
+      "runtimeBridge": "runtime-bridge.v0",
+      "commandRegistry": "command-registry.v0"
+    },
+    "knownLimitations": [
+      "Load evidence is render-diff/readback metadata only; screenshots, hardware GPU, and performance evidence are out of scope.",
+      "Asset placement is browser/reference projection; Rust/WASM authority placement remains deferred until the runtime bridge is approved."
+    ],
+    "typedInputExample": {
+      "sessionId": "session-1",
+      "assetId": "mesh.preview-cube",
+      "materialId": "material.copper",
+      "placement": {
+        "translation": [
+          1,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    "typedOutputExample": {
+      "assetId": "mesh.preview-cube",
+      "renderableIds": [
+        "scene-asset:mesh.preview-cube:0"
+      ],
+      "loadDiff": {
+        "ops": [
+          {
+            "op": "defineMaterial",
+            "material": {
+              "id": "material.copper",
+              "color": [
+                0.8,
+                0.4,
+                0.2,
+                1
+              ],
+              "texture": null,
+              "roughness": 0.6,
+              "emissive": 0,
+              "uvStrategy": "flat"
+            }
+          },
+          {
+            "op": "defineStaticMesh",
+            "asset": {
+              "asset": "mesh.preview-cube",
+              "payload": {
+                "layout": {
+                  "vertexCount": 8,
+                  "indexCount": 36,
+                  "indexWidth": "u32",
+                  "attributes": [
+                    {
+                      "name": "position",
+                      "components": 3,
+                      "kind": "f32"
+                    },
+                    {
+                      "name": "normal",
+                      "components": 3,
+                      "kind": "f32"
+                    }
+                  ]
+                },
+                "groups": [
+                  {
+                    "materialSlot": 0,
+                    "start": 0,
+                    "count": 36
+                  }
+                ],
+                "bounds": {
+                  "min": [
+                    -0.5,
+                    -0.5,
+                    -0.5
+                  ],
+                  "max": [
+                    0.5,
+                    0.5,
+                    0.5
+                  ]
+                },
+                "source": {
+                  "kind": "inline",
+                  "positions": [],
+                  "normals": [],
+                  "indices": []
+                },
+                "provenance": "staticAsset"
+              },
+              "materialSlots": [
+                {
+                  "slot": 0,
+                  "material": "material.copper"
+                }
+              ],
+              "collision": {
+                "kind": "aabbFallback"
+              }
+            }
+          },
+          {
+            "op": "createStaticMeshInstance",
+            "handle": 7101,
+            "parent": null,
+            "instance": {
+              "asset": "mesh.preview-cube",
+              "transform": {
+                "translation": [
+                  1,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "materialOverrides": [],
+              "metadata": {
+                "source": null,
+                "tags": [],
+                "label": "Loaded demo asset instance"
+              }
+            }
+          }
+        ]
+      },
+      "rendererClassification": "reference_placement",
+      "diagnostics": []
+    }
+  },
+  {
     "id": "selection.voxel_from_screen_point",
     "version": 1,
     "label": "Select Voxel From Screen Point",

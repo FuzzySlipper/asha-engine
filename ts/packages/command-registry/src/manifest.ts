@@ -13,6 +13,8 @@ import type {
   ExportAgentReadoutInput,
   ExportAgentReadoutOutput,
   LastCommandResultOutput,
+  LoadSceneAssetInput,
+  LoadSceneAssetOutput,
   MaterialInspectionInput,
   MaterialInspectionOutput,
   ModelInspectionInput,
@@ -230,6 +232,23 @@ const modelMaterialPreviewOutput = objectSchema('ModelMaterialPreviewOutput', [
   field('rendererClassification', literal(['reference_preview', 'runtime_readback']), 'Whether evidence is reference preview or runtime readback.'),
   field('diagnostics', arrayOf(stringShape), 'Typed diagnostic strings for unavailable/degraded support.'),
 ]);
+const loadSceneAssetInput = objectSchema('LoadSceneAssetInput', [
+  SESSION_ID_FIELD,
+  field('assetId', stringShape, 'Public catalog static-mesh asset id to load into the scene.'),
+  field('materialId', stringShape, 'Catalog material id to bind to the placed instance.'),
+  field('placement', objectShape([
+    field('translation', arrayOf(scalar('number'), 3), 'World translation x, y, z.'),
+    field('rotation', arrayOf(scalar('number'), 4), 'Rotation quaternion x, y, z, w.'),
+    field('scale', arrayOf(scalar('number'), 3), 'Scale x, y, z.'),
+  ]), 'Scene placement transform for the loaded asset.'),
+]);
+const loadSceneAssetOutput = objectSchema('LoadSceneAssetOutput', [
+  field('assetId', stringShape, 'Loaded catalog asset id.'),
+  field('renderableIds', arrayOf(stringShape), 'Named renderable ids created for the placed asset.'),
+  field('loadDiff', RENDER_FRAME_DIFF_SCHEMA, 'Generated public retained-mode render diff that defines and places the asset.'),
+  field('rendererClassification', literal(['reference_placement', 'runtime_readback']), 'Whether evidence is reference placement or runtime readback.'),
+  field('diagnostics', arrayOf(stringShape), 'Typed diagnostic strings for unavailable/degraded support.'),
+]);
 const screenPointInput = objectSchema('ScreenPointInput', [
   SESSION_ID_FIELD,
   field('request', contract('ScreenPointToPickRayRequest'), 'Generated public screen-point/camera selection request.'),
@@ -320,6 +339,14 @@ const modelMaterialPreviewDiffExample: RenderFrameDiff = {
   ],
 };
 
+const loadSceneAssetDiffExample: RenderFrameDiff = {
+  ops: [
+    { op: 'defineMaterial', material: { id: 'material.copper', color: [0.8, 0.4, 0.2, 1], texture: null, roughness: 0.6, emissive: 0, uvStrategy: 'flat' } },
+    { op: 'defineStaticMesh', asset: meshAssetExample },
+    { op: 'createStaticMeshInstance', handle: 7101 as import('@asha/contracts').RenderHandle, parent: null, instance: { asset: 'mesh.preview-cube', transform: { translation: [1, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, materialOverrides: [], metadata: { source: null, tags: [], label: 'Loaded demo asset instance' } } },
+  ],
+};
+
 const selectionExample = {
   pickRay: {
     camera: CAMERA_HANDLE,
@@ -375,6 +402,10 @@ export const COMMAND_MANIFEST = [
   base<ModelMaterialPreviewInput, ModelMaterialPreviewOutput>({
     id: 'preview.model_material', label: 'Preview Model / Material', summary: 'Preview a static mesh with catalog material projection as retained-mode render-diff evidence without authority mutation.', category: 'preview', menuPath: ['Preview', 'Model / Material'], keywords: ['preview', 'model', 'material', 'render diff'],
     inputSchema: modelMaterialPreviewInput, outputSchema: modelMaterialPreviewOutput, operationClass: 'editor_local', stateImpact: { authority: 'read', editor: 'mutate', render: 'capture', workspace: 'none' }, runtimeRequirements: [runtime('read_model_material_preview'), { kind: 'editor_store' }, { kind: 'render_surface' }], artifacts: [artifact('model_metadata', 'Static mesh preview metadata.'), artifact('material_metadata', 'Material projection metadata.'), artifact('render_diff_preview', 'Retained-mode render diff preview evidence.')], typedInputExample: { sessionId: 'session-1', modelAsset: meshAssetExample, materialId: 'material.copper' }, typedOutputExample: { previewDiff: modelMaterialPreviewDiffExample, rendererClassification: 'reference_preview', diagnostics: [] }, panel: 'viewport', dialog: 'simple_form', inputContractRefs: [{ package: '@asha/contracts', exportName: 'StaticMeshAsset' }], outputContractRefs: [{ package: '@asha/contracts', exportName: 'RenderFrameDiff' }], agentExposure: { kind: 'editor_local' }, undo: { kind: 'editor_local', inverseData: ['previous model/material preview snapshot'] }, idempotency: { kind: 'conditional', condition: 'Same model asset, material id, and catalog versions produce the same preview diff.' }, knownLimitations: ['Preview evidence is render-diff/readback metadata only; screenshots, hardware GPU, and performance evidence are out of scope.'],
+  }),
+  base<LoadSceneAssetInput, LoadSceneAssetOutput>({
+    id: 'scene.load_asset', label: 'Load Asset Into Scene', summary: 'Load a catalog asset into the active scene as a placed renderable using public retained-mode render-diff evidence without authority mutation.', category: 'scene', menuPath: ['Scene', 'Load Asset'], keywords: ['scene', 'load', 'asset', 'place', 'render diff'],
+    inputSchema: loadSceneAssetInput, outputSchema: loadSceneAssetOutput, operationClass: 'editor_local', stateImpact: { authority: 'read', editor: 'mutate', render: 'capture', workspace: 'none' }, runtimeRequirements: [runtime('read_model_material_preview'), { kind: 'editor_store' }, { kind: 'render_surface' }], artifacts: [artifact('model_metadata', 'Loaded static mesh asset metadata.'), artifact('material_metadata', 'Bound material projection metadata.'), artifact('render_diff_preview', 'Retained-mode render diff that defines and places the loaded asset.')], typedInputExample: { sessionId: 'session-1', assetId: 'mesh.preview-cube', materialId: 'material.copper', placement: { translation: [1, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] } }, typedOutputExample: { assetId: 'mesh.preview-cube', renderableIds: ['scene-asset:mesh.preview-cube:0'], loadDiff: loadSceneAssetDiffExample, rendererClassification: 'reference_placement', diagnostics: [] }, panel: 'viewport', dialog: 'simple_form', outputContractRefs: [{ package: '@asha/contracts', exportName: 'RenderFrameDiff' }], agentExposure: { kind: 'editor_local' }, undo: { kind: 'editor_local', inverseData: ['previous loaded scene asset snapshot'] }, idempotency: { kind: 'conditional', condition: 'Same asset id, material id, placement, and catalog versions produce the same load diff.' }, knownLimitations: ['Load evidence is render-diff/readback metadata only; screenshots, hardware GPU, and performance evidence are out of scope.', 'Asset placement is browser/reference projection; Rust/WASM authority placement remains deferred until the runtime bridge is approved.'],
   }),
   base<ScreenPointInput, VoxelSelectionOutput>({
     id: 'selection.voxel_from_screen_point', label: 'Select Voxel From Screen Point', summary: 'Project a screen point through public camera evidence into typed ASHA voxel selection evidence.', category: 'selection', menuPath: ['Select', 'Voxel From Screen Point'], keywords: ['screen point', 'pick', 'select', 'voxel'],

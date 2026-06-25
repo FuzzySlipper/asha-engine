@@ -565,6 +565,89 @@
       ]
     },
     {
+      "id": "scene.load_asset",
+      "version": 1,
+      "label": "Load Asset Into Scene",
+      "summary": "Load a catalog asset into the active scene as a placed renderable using public retained-mode render-diff evidence without authority mutation.",
+      "category": "scene",
+      "operationClass": "editor_local",
+      "agentExposureKind": "editor_local",
+      "menuPath": [
+        "Scene",
+        "Load Asset"
+      ],
+      "commandPaletteVisible": true,
+      "commandPaletteKeywords": [
+        "scene",
+        "load",
+        "asset",
+        "place",
+        "render diff"
+      ],
+      "guiMirror": {
+        "required": true,
+        "menuPath": [
+          "Scene",
+          "Load Asset"
+        ],
+        "commandPaletteVisible": true,
+        "argumentSummary": "LoadSceneAssetInput: sessionId: Stable studio session identifier. assetId: Public catalog static-mesh asset id to load into the scene. materialId: Catalog material id to bind to the placed instance. placement: Scene placement transform for the loaded asset.",
+        "resultSummary": "LoadSceneAssetOutput: assetId: Loaded catalog asset id. renderableIds: Named renderable ids created for the placed asset. loadDiff: Generated public retained-mode render diff that defines and places the asset. rendererClassification: Whether evidence is reference placement or runtime readback. diagnostics: Typed diagnostic strings for unavailable/degraded support.",
+        "artifactSummary": "model_metadata: Loaded static mesh asset metadata. material_metadata: Bound material projection metadata. render_diff_preview: Retained-mode render diff that defines and places the loaded asset.",
+        "panel": "viewport",
+        "dialog": "simple_form"
+      },
+      "inputSchemaName": "LoadSceneAssetInput",
+      "outputSchemaName": "LoadSceneAssetOutput",
+      "inputContractRefs": [],
+      "outputContractRefs": [
+        {
+          "package": "@asha/contracts",
+          "exportName": "RenderFrameDiff"
+        }
+      ],
+      "artifacts": [
+        {
+          "type": "model_metadata",
+          "required": true,
+          "producedWhen": "always",
+          "summary": "Loaded static mesh asset metadata."
+        },
+        {
+          "type": "material_metadata",
+          "required": true,
+          "producedWhen": "always",
+          "summary": "Bound material projection metadata."
+        },
+        {
+          "type": "render_diff_preview",
+          "required": true,
+          "producedWhen": "always",
+          "summary": "Retained-mode render diff that defines and places the loaded asset."
+        }
+      ],
+      "stateImpact": {
+        "authority": "read",
+        "editor": "mutate",
+        "render": "capture",
+        "workspace": "none"
+      },
+      "owningLane": "ts-command-registry",
+      "owningPackage": "@asha/command-registry",
+      "runtimeRequirements": [
+        {
+          "kind": "runtime_bridge_operation",
+          "operation": "read_model_material_preview"
+        },
+        {
+          "kind": "editor_store"
+        },
+        {
+          "kind": "render_surface"
+        }
+      ]
+    },
+    {
       "id": "selection.voxel_from_screen_point",
       "version": 1,
       "label": "Select Voxel From Screen Point",

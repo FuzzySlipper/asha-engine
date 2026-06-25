@@ -1,6 +1,6 @@
 import type { CatalogEntry, MaterialProjection, RenderFrameDiff, ScreenPointToPickRayRequest, StaticMeshAsset, VoxelCommand, VoxelCoord, VoxelSelectionSnapshot } from '@asha/contracts';
-export type StudioCommandId = 'session.list_scenarios' | 'session.start' | 'session.load_scenario' | 'inspection.session_status' | 'inspection.world_summary' | 'inspection.editor_state' | 'inspection.material' | 'inspection.model' | 'preview.model_material' | 'selection.voxel_from_screen_point' | 'inspection.voxel' | 'preview.voxel_brush' | 'authority.voxel.apply_brush' | 'inspection.last_command_result' | 'render.capture_before_after' | 'export.agent_readout';
-export type CommandCategory = 'session' | 'inspection' | 'selection' | 'preview' | 'authority_edit' | 'render_evidence' | 'diagnostics' | 'export' | 'workspace';
+export type StudioCommandId = 'session.list_scenarios' | 'session.start' | 'session.load_scenario' | 'inspection.session_status' | 'inspection.world_summary' | 'inspection.editor_state' | 'inspection.material' | 'inspection.model' | 'preview.model_material' | 'scene.load_asset' | 'selection.voxel_from_screen_point' | 'inspection.voxel' | 'preview.voxel_brush' | 'authority.voxel.apply_brush' | 'inspection.last_command_result' | 'render.capture_before_after' | 'export.agent_readout';
+export type CommandCategory = 'session' | 'inspection' | 'selection' | 'preview' | 'scene' | 'authority_edit' | 'render_evidence' | 'diagnostics' | 'export' | 'workspace';
 export type OperationClass = 'read_only' | 'editor_local' | 'authority_mutating' | 'render_evidence' | 'diagnostic_export' | 'workspace_io';
 export type AshaLane = 'contract-steward' | 'ts-command-registry' | 'ts-shell' | 'ts-tools' | 'rust-bridge' | 'rust-render' | 'rust-rule' | 'rust-service';
 export type ContractRef = {
@@ -238,6 +238,24 @@ export interface ModelMaterialPreviewInput {
 export interface ModelMaterialPreviewOutput {
     readonly previewDiff: RenderFrameDiff;
     readonly rendererClassification: 'reference_preview' | 'runtime_readback';
+    readonly diagnostics: readonly string[];
+}
+export interface LoadSceneAssetPlacement {
+    readonly translation: readonly number[];
+    readonly rotation: readonly number[];
+    readonly scale: readonly number[];
+}
+export interface LoadSceneAssetInput {
+    readonly sessionId: string;
+    readonly assetId: string;
+    readonly materialId: string;
+    readonly placement: LoadSceneAssetPlacement;
+}
+export interface LoadSceneAssetOutput {
+    readonly assetId: string;
+    readonly renderableIds: readonly string[];
+    readonly loadDiff: RenderFrameDiff;
+    readonly rendererClassification: 'reference_placement' | 'runtime_readback';
     readonly diagnostics: readonly string[];
 }
 export interface ScreenPointInput {

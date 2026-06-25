@@ -25,6 +25,7 @@ export type StudioCommandId =
   | 'inspection.material'
   | 'inspection.model'
   | 'preview.model_material'
+  | 'scene.load_asset'
   | 'selection.voxel_from_screen_point'
   | 'inspection.voxel'
   | 'preview.voxel_brush'
@@ -38,6 +39,7 @@ export type CommandCategory =
   | 'inspection'
   | 'selection'
   | 'preview'
+  | 'scene'
   | 'authority_edit'
   | 'render_evidence'
   | 'diagnostics'
@@ -236,6 +238,9 @@ export interface ModelInspectionInput { readonly sessionId: string; readonly ass
 export interface ModelInspectionOutput { readonly assetId: string; readonly meshAsset: StaticMeshAsset; readonly materialSlots: readonly string[]; }
 export interface ModelMaterialPreviewInput { readonly sessionId: string; readonly modelAsset: StaticMeshAsset; readonly materialId: string; }
 export interface ModelMaterialPreviewOutput { readonly previewDiff: RenderFrameDiff; readonly rendererClassification: 'reference_preview' | 'runtime_readback'; readonly diagnostics: readonly string[]; }
+export interface LoadSceneAssetPlacement { readonly translation: readonly number[]; readonly rotation: readonly number[]; readonly scale: readonly number[]; }
+export interface LoadSceneAssetInput { readonly sessionId: string; readonly assetId: string; readonly materialId: string; readonly placement: LoadSceneAssetPlacement; }
+export interface LoadSceneAssetOutput { readonly assetId: string; readonly renderableIds: readonly string[]; readonly loadDiff: RenderFrameDiff; readonly rendererClassification: 'reference_placement' | 'runtime_readback'; readonly diagnostics: readonly string[]; }
 export interface ScreenPointInput { readonly sessionId: string; readonly request: ScreenPointToPickRayRequest; }
 export interface VoxelSelectionOutput { readonly selection: VoxelSelectionSnapshot; }
 export interface VoxelInspectionInput { readonly sessionId: string; readonly voxel: VoxelCoord; }
