@@ -181,11 +181,177 @@ function projectionSnapshot(snapshot, viewport = snapshot.viewport) {
         projectionHash,
     };
 }
+function cloneFlatSceneDocument(document) {
+    return JSON.parse(JSON.stringify(document));
+}
+function initialMockSceneDocument() {
+    return {
+        schemaVersion: 1,
+        id: 1,
+        metadata: { name: 'Mock scene', authoringFormatVersion: 1 },
+        dependencies: [],
+        nodes: [
+            {
+                id: 1,
+                parent: null,
+                childOrder: 0,
+                label: 'Root',
+                tags: [],
+                transform: { translation: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+                kind: { kind: 'emptyGroup' },
+            },
+            {
+                id: 2,
+                parent: 1,
+                childOrder: 0,
+                label: 'Preview cube',
+                tags: [],
+                transform: { translation: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+                kind: {
+                    kind: 'staticMesh',
+                    asset: { id: 'static-mesh:preview/cube', version: { req: 'any' }, hash: null },
+                },
+            },
+        ],
+    };
+}
+function sceneDocumentHash(document) {
+    const hex = fnv1a64(JSON.stringify({
+        ...document,
+        nodes: [...document.nodes].sort((a, b) => a.id - b.id),
+    }));
+    return Number.parseInt(hex.slice(0, 13), 16);
+}
+function sceneObjectSnapshotFromDocument(document) {
+    return {
+        documentHash: sceneDocumentHash(document),
+        objects: [...document.nodes]
+            .sort((a, b) => a.id - b.id)
+            .map((node) => ({
+            id: node.id,
+            parent: node.parent,
+            childOrder: node.childOrder,
+            label: node.label,
+            kind: node.kind.kind,
+            hasRenderableAsset: node.kind.kind !== 'emptyGroup',
+        })),
+    };
+}
+function nodeIndex(document, id) {
+    return document.nodes.findIndex((node) => node.id === id);
+}
+function commandRejection(code, id, parent = null, expectedHash = null, actualHash = null) {
+    return {
+        accepted: false,
+        outcome: null,
+        rejection: { code, id, parent, expectedHash, actualHash, validationErrors: [] },
+    };
+}
+function descendantIds(document, root) {
+    const doomed = new Set([root]);
+    let changed = true;
+    while (changed) {
+        changed = false;
+        for (const node of document.nodes) {
+            if (node.parent !== null && doomed.has(node.parent) && !doomed.has(node.id)) {
+                doomed.add(node.id);
+                changed = true;
+            }
+        }
+    }
+    return doomed;
+}
+function createsCycle(document, id, parent) {
+    let current = parent;
+    while (current !== null) {
+        if (current === id)
+            return true;
+        const parentNode = document.nodes.find((node) => node.id === current);
+        current = parentNode?.parent ?? null;
+    }
+    return false;
+}
+function applyMockSceneObjectCommand(document, request) {
+    const actualHash = sceneDocumentHash(document);
+    if (request.expectedDocumentHash !== actualHash) {
+        return commandRejection('stale-scene-object-snapshot', null, null, request.expectedDocumentHash, actualHash);
+    }
+    let next = cloneFlatSceneDocument(document);
+    let selected = null;
+    switch (request.command.kind) {
+        case 'create': {
+            if (nodeIndex(next, request.command.record.id) !== -1) {
+                return commandRejection('duplicate-scene-object', request.command.record.id);
+            }
+            if (request.command.record.parent !== null && nodeIndex(next, request.command.record.parent) === -1) {
+                return commandRejection('missing-scene-object-parent', request.command.record.id, request.command.record.parent);
+            }
+            next = { ...next, nodes: [...next.nodes, request.command.record] };
+            break;
+        }
+        case 'delete': {
+            if (nodeIndex(next, request.command.id) === -1) {
+                return commandRejection('missing-scene-object', request.command.id);
+            }
+            const doomed = descendantIds(next, request.command.id);
+            next = { ...next, nodes: next.nodes.filter((node) => !doomed.has(node.id)) };
+            break;
+        }
+        case 'rename': {
+            if (request.command.label !== null && request.command.label.trim() === '') {
+                return commandRejection('blank-scene-object-label', request.command.id);
+            }
+            const id = request.command.id;
+            const label = request.command.label;
+            const index = nodeIndex(next, id);
+            if (index === -1)
+                return commandRejection('missing-scene-object', id);
+            const node = next.nodes[index];
+            next = { ...next, nodes: next.nodes.map((existing) => existing.id === id ? { ...node, label } : existing) };
+            selected = id;
+            break;
+        }
+        case 'reparent': {
+            const id = request.command.id;
+            const parent = request.command.parent;
+            const childOrder = request.command.childOrder;
+            const index = nodeIndex(next, id);
+            if (index === -1)
+                return commandRejection('missing-scene-object', id);
+            if (parent === id)
+                return commandRejection('scene-object-self-parent', id);
+            if (parent !== null && nodeIndex(next, parent) === -1) {
+                return commandRejection('missing-scene-object-parent', id, parent);
+            }
+            if (createsCycle(next, id, parent)) {
+                return commandRejection('invalid-scene-after-command', id, parent);
+            }
+            const node = next.nodes[index];
+            next = { ...next, nodes: next.nodes.map((existing) => existing.id === id ? { ...node, parent, childOrder } : existing) };
+            selected = id;
+            break;
+        }
+        case 'select': {
+            if (request.command.id !== null && nodeIndex(next, request.command.id) === -1) {
+                return commandRejection('missing-scene-object', request.command.id);
+            }
+            selected = request.command.id;
+            break;
+        }
+    }
+    const snapshot = sceneObjectSnapshotFromDocument(next);
+    return {
+        accepted: true,
+        outcome: { document: next, snapshot, selected },
+        rejection: null,
+    };
+}
 export class MockRuntimeBridge {
     #engine = null;
     #buffer = new Uint8Array();
     #replaySteps = 0;
     #loadedWorld = null;
+    #sceneDocument = initialMockSceneDocument();
     #nextCamera = 1;
     #cameras = new Map();
     initializeEngine(config) {
@@ -429,6 +595,22 @@ export class MockRuntimeBridge {
             rendererClassification: 'reference_preview',
             diagnostics: ['native runtime readback for model/material preview may fail closed until wired'],
         };
+    }
+    readSceneObjectSnapshot() {
+        if (this.#engine === null) {
+            throw new RuntimeBridgeError('not_initialized', 'readSceneObjectSnapshot before initializeEngine');
+        }
+        return sceneObjectSnapshotFromDocument(this.#sceneDocument);
+    }
+    applySceneObjectCommand(request) {
+        if (this.#engine === null) {
+            throw new RuntimeBridgeError('not_initialized', 'applySceneObjectCommand before initializeEngine');
+        }
+        const result = applyMockSceneObjectCommand(this.#sceneDocument, request);
+        if (result.outcome !== null) {
+            this.#sceneDocument = result.outcome.document;
+        }
+        return result;
     }
     readRenderDiffs(cursor) {
         if (this.#engine === null) {
@@ -679,6 +861,12 @@ export class NativeRuntimeBridge {
     }
     readModelMaterialPreview(_request) {
         throw nativeUnimplemented('read_model_material_preview');
+    }
+    readSceneObjectSnapshot() {
+        throw nativeUnimplemented('read_scene_object_snapshot');
+    }
+    applySceneObjectCommand() {
+        throw nativeUnimplemented('apply_scene_object_command');
     }
     readRenderDiffs(cursor) {
         const handle = this.#requireHandle('readRenderDiffs');

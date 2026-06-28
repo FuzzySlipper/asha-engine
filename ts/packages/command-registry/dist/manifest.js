@@ -166,6 +166,16 @@ const loadSceneAssetOutput = objectSchema('LoadSceneAssetOutput', [
     field('rendererClassification', literal(['reference_placement', 'runtime_readback']), 'Whether evidence is reference placement or runtime readback.'),
     field('diagnostics', arrayOf(stringShape), 'Typed diagnostic strings for unavailable/degraded support.'),
 ]);
+const sceneObjectSnapshotOutput = objectSchema('ReadSceneObjectSnapshotOutput', [
+    field('snapshot', contract('SceneObjectSnapshot'), 'Generated public scene-object hierarchy snapshot.'),
+]);
+const sceneObjectCommandInput = objectSchema('ApplySceneObjectCommandInput', [
+    SESSION_ID_FIELD,
+    field('request', contract('SceneObjectCommandRequest'), 'Generated public scene-object command request envelope.'),
+]);
+const sceneObjectCommandOutput = objectSchema('ApplySceneObjectCommandOutput', [
+    field('result', contract('SceneObjectCommandResult'), 'Generated public scene-object command result envelope.'),
+]);
 const screenPointInput = objectSchema('ScreenPointInput', [
     SESSION_ID_FIELD,
     field('request', contract('ScreenPointToPickRayRequest'), 'Generated public screen-point/camera selection request.'),
@@ -297,6 +307,64 @@ const loadSceneAssetDiffExample = {
         { op: 'createStaticMeshInstance', handle: 7101, parent: null, instance: { asset: 'mesh.preview-cube', transform: { translation: [1, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, materialOverrides: [], metadata: { source: null, tags: [], label: 'Loaded demo asset instance' } } },
     ],
 };
+const sceneObjectDocumentExample = {
+    schemaVersion: 1,
+    id: 1,
+    metadata: { name: 'Scene object example', authoringFormatVersion: 1 },
+    dependencies: [],
+    nodes: [
+        {
+            id: 1,
+            parent: null,
+            childOrder: 0,
+            label: 'Root',
+            tags: [],
+            transform: { translation: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+            kind: { kind: 'emptyGroup' },
+        },
+    ],
+};
+const sceneObjectSnapshotExample = {
+    documentHash: 1001,
+    objects: [
+        {
+            id: 1,
+            parent: null,
+            childOrder: 0,
+            label: 'Root',
+            kind: 'emptyGroup',
+            hasRenderableAsset: false,
+        },
+    ],
+};
+const renamedSceneObjectRecordExample = {
+    id: 1,
+    parent: null,
+    childOrder: 0,
+    label: 'Renamed root',
+    kind: 'emptyGroup',
+    hasRenderableAsset: false,
+};
+const sceneObjectCommandRequestExample = {
+    expectedDocumentHash: sceneObjectSnapshotExample.documentHash,
+    command: {
+        kind: 'rename',
+        id: 1,
+        label: 'Renamed root',
+    },
+};
+const sceneObjectCommandResultExample = {
+    accepted: true,
+    outcome: {
+        document: sceneObjectDocumentExample,
+        snapshot: {
+            documentHash: 1002,
+            objects: [renamedSceneObjectRecordExample],
+        },
+        selected: 1,
+    },
+    rejection: null,
+};
 const selectionExample = {
     pickRay: {
         camera: CAMERA_HANDLE,
@@ -355,6 +423,14 @@ export const COMMAND_MANIFEST = [
     base({
         id: 'scene.load_asset', label: 'Load Asset Into Scene', summary: 'Load a catalog asset into the active scene as a placed renderable using public retained-mode render-diff evidence without authority mutation.', category: 'scene', menuPath: ['Scene', 'Load Asset'], keywords: ['scene', 'load', 'asset', 'place', 'render diff'],
         inputSchema: loadSceneAssetInput, outputSchema: loadSceneAssetOutput, operationClass: 'editor_local', stateImpact: { authority: 'read', editor: 'mutate', render: 'capture', workspace: 'none' }, runtimeRequirements: [runtime('read_model_material_preview'), { kind: 'editor_store' }, { kind: 'render_surface' }], artifacts: [artifact('model_metadata', 'Loaded static mesh asset metadata.'), artifact('material_metadata', 'Bound material projection metadata.'), artifact('render_diff_preview', 'Retained-mode render diff that defines and places the loaded asset.')], typedInputExample: { sessionId: 'session-1', assetId: 'mesh.preview-cube', materialId: 'material.copper', placement: { translation: [1, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] } }, typedOutputExample: { assetId: 'mesh.preview-cube', renderableIds: ['scene-asset:mesh.preview-cube:0'], loadDiff: loadSceneAssetDiffExample, rendererClassification: 'reference_placement', diagnostics: [] }, panel: 'viewport', dialog: 'simple_form', outputContractRefs: [{ package: '@asha/contracts', exportName: 'RenderFrameDiff' }], agentExposure: { kind: 'editor_local' }, undo: { kind: 'editor_local', inverseData: ['previous loaded scene asset snapshot'] }, idempotency: { kind: 'conditional', condition: 'Same asset id, material id, placement, and catalog versions produce the same load diff.' }, knownLimitations: ['Load evidence is render-diff/readback metadata only; screenshots, hardware GPU, and performance evidence are out of scope.', 'Asset placement is browser/reference projection; Rust/WASM authority placement remains deferred until the runtime bridge is approved.'],
+    }),
+    base({
+        id: 'scene.read_object_snapshot', label: 'Read Scene Object Snapshot', summary: 'Read the canonical scene-object hierarchy snapshot from public Rust authority/protocol DTOs.', category: 'scene', menuPath: ['Scene', 'Read Object Snapshot'], keywords: ['scene', 'hierarchy', 'object', 'snapshot'],
+        inputSchema: sessionIdInput, outputSchema: sceneObjectSnapshotOutput, operationClass: 'read_only', stateImpact: readAuthority, runtimeRequirements: [runtime('read_scene_object_snapshot')], artifacts: [artifact('editor_state', 'Canonical scene-object hierarchy snapshot.')], typedInputExample: { sessionId: 'session-1' }, typedOutputExample: { snapshot: sceneObjectSnapshotExample }, panel: 'inspector', dialog: 'readout_only', outputContractRefs: [{ package: '@asha/contracts', exportName: 'SceneObjectSnapshot' }], knownLimitations: ['Mock/runtime bridge snapshot is a deterministic public contract surface; native authority wiring may fail closed until read_scene_object_snapshot is wired.'],
+    }),
+    base({
+        id: 'scene.apply_object_command', label: 'Apply Scene Object Command', summary: 'Apply one typed scene-object hierarchy command with expected snapshot hash validation and classified rejection output.', category: 'scene', menuPath: ['Scene', 'Apply Object Command'], keywords: ['scene', 'hierarchy', 'rename', 'reparent', 'authority'],
+        inputSchema: sceneObjectCommandInput, outputSchema: sceneObjectCommandOutput, operationClass: 'authority_mutating', stateImpact: mutateAuthority, runtimeRequirements: [runtime('apply_scene_object_command'), runtime('read_scene_object_snapshot')], artifacts: [artifact('command_result', 'Accepted/rejected scene-object command result with hierarchy snapshot evidence.')], typedInputExample: { sessionId: 'session-1', request: sceneObjectCommandRequestExample }, typedOutputExample: { result: sceneObjectCommandResultExample }, panel: 'timeline', dialog: 'simple_form', inputContractRefs: [{ package: '@asha/contracts', exportName: 'SceneObjectCommandRequest' }], outputContractRefs: [{ package: '@asha/contracts', exportName: 'SceneObjectCommandResult' }], agentExposure: { kind: 'authority_mutating', requiresPreview: false, batchable: false }, undo: { kind: 'authority_reversing', inverseCommandRefs: ['scene.apply_object_command'], requiresSameStateHash: true }, retry: 'safe_to_retry_if_state_hash_unchanged', idempotency: { kind: 'conditional', condition: 'Safe when expectedDocumentHash still matches and the command has not already committed.' }, knownLimitations: ['Native runtime bridge may fail closed until apply_scene_object_command is wired; no private UI-only mutation path is declared.'],
     }),
     base({
         id: 'selection.voxel_from_screen_point', label: 'Select Voxel From Screen Point', summary: 'Project a screen point through public camera evidence into typed ASHA voxel selection evidence.', category: 'selection', menuPath: ['Select', 'Voxel From Screen Point'], keywords: ['screen point', 'pick', 'select', 'voxel'],

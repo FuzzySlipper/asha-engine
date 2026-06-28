@@ -45,6 +45,7 @@
 pub mod bootstrap;
 pub mod document;
 pub mod json;
+pub mod scene_object;
 pub mod transform;
 pub mod validate;
 pub mod world;
@@ -57,6 +58,11 @@ pub use document::{
     SceneTree,
 };
 pub use json::{decode, encode, SceneDecodeError};
+pub use scene_object::{
+    apply_scene_object_command, scene_object_snapshot, SceneObjectCommand,
+    SceneObjectCommandOutcome, SceneObjectCommandRejection, SceneObjectRecord, SceneObjectSnapshot,
+    SceneObjectSnapshotHash,
+};
 pub use transform::{Quat, SceneTransform, TransformInvalid};
 pub use validate::{validate, SceneValidationError, SceneValidationReport};
 pub use world::{EntityRuntime, WorldHash, WorldState};

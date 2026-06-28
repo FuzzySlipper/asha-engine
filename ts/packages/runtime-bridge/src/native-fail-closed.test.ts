@@ -154,6 +154,15 @@ const INVOKE = new Map<string, (b: RuntimeBridge) => unknown>([
   ],
   ['readVoxelMeshEvidence', (b) => b.readVoxelMeshEvidence({ grid: 1, chunks: [] })],
   ['readModelMaterialPreview', (b) => b.readModelMaterialPreview(MODEL_MATERIAL_PREVIEW_REQUEST)],
+  ['readSceneObjectSnapshot', (b) => b.readSceneObjectSnapshot()],
+  [
+    'applySceneObjectCommand',
+    (b) =>
+      b.applySceneObjectCommand({
+        expectedDocumentHash: 1,
+        command: { kind: 'select', id: null },
+      }),
+  ],
   ['readRenderDiffs', (b) => b.readRenderDiffs(frameCursor(0))],
   ['createCamera', (b) => b.createCamera(CAMERA_CREATE_REQUEST)],
   ['applyFirstPersonCameraInput', (b) => b.applyFirstPersonCameraInput(CAMERA_INPUT)],

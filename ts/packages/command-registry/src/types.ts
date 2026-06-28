@@ -8,6 +8,9 @@ import type {
   CatalogEntry,
   MaterialProjection,
   RenderFrameDiff,
+  SceneObjectCommandRequest,
+  SceneObjectCommandResult,
+  SceneObjectSnapshot,
   ScreenPointToPickRayRequest,
   StaticMeshAsset,
   VoxelCommand,
@@ -26,6 +29,8 @@ export type StudioCommandId =
   | 'inspection.model'
   | 'preview.model_material'
   | 'scene.load_asset'
+  | 'scene.read_object_snapshot'
+  | 'scene.apply_object_command'
   | 'selection.voxel_from_screen_point'
   | 'selection.set_active_entity'
   | 'entity.set_name'
@@ -76,7 +81,10 @@ export type ContractRef =
   | { readonly package: '@asha/contracts'; readonly exportName: 'CatalogEntry' }
   | { readonly package: '@asha/contracts'; readonly exportName: 'MaterialProjection' }
   | { readonly package: '@asha/contracts'; readonly exportName: 'StaticMeshAsset' }
-  | { readonly package: '@asha/contracts'; readonly exportName: 'RenderFrameDiff' };
+  | { readonly package: '@asha/contracts'; readonly exportName: 'RenderFrameDiff' }
+  | { readonly package: '@asha/contracts'; readonly exportName: 'SceneObjectSnapshot' }
+  | { readonly package: '@asha/contracts'; readonly exportName: 'SceneObjectCommandRequest' }
+  | { readonly package: '@asha/contracts'; readonly exportName: 'SceneObjectCommandResult' };
 
 export type RuntimeBridgeOperationRef =
   | 'initialize_engine'
@@ -86,6 +94,8 @@ export type RuntimeBridgeOperationRef =
   | 'read_voxel_mesh_evidence'
   | 'read_render_diffs'
   | 'read_model_material_preview'
+  | 'read_scene_object_snapshot'
+  | 'apply_scene_object_command'
   | 'load_world_bundle'
   | 'save_current_world'
   | 'get_composition_status';
@@ -245,6 +255,9 @@ export interface ModelMaterialPreviewOutput { readonly previewDiff: RenderFrameD
 export interface LoadSceneAssetPlacement { readonly translation: readonly number[]; readonly rotation: readonly number[]; readonly scale: readonly number[]; }
 export interface LoadSceneAssetInput { readonly sessionId: string; readonly assetId: string; readonly materialId: string; readonly placement: LoadSceneAssetPlacement; }
 export interface LoadSceneAssetOutput { readonly assetId: string; readonly renderableIds: readonly string[]; readonly loadDiff: RenderFrameDiff; readonly rendererClassification: 'reference_placement' | 'runtime_readback'; readonly diagnostics: readonly string[]; }
+export interface ReadSceneObjectSnapshotOutput { readonly snapshot: SceneObjectSnapshot; }
+export interface ApplySceneObjectCommandInput { readonly sessionId: string; readonly request: SceneObjectCommandRequest; }
+export interface ApplySceneObjectCommandOutput { readonly result: SceneObjectCommandResult; }
 export interface ScreenPointInput { readonly sessionId: string; readonly request: ScreenPointToPickRayRequest; }
 export interface VoxelSelectionOutput { readonly selection: VoxelSelectionSnapshot; }
 export interface SetActiveEntityInput { readonly sessionId: string; readonly entityId: string; }

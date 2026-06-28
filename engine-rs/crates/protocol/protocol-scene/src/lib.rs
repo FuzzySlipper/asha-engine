@@ -52,6 +52,19 @@ pub const SCENE_VALIDATION_CODES: &[&str] = &[
     "asset-kind-mismatch",
 ];
 
+/// Stable scene-object command rejection codes. Mirrors
+/// `core_scene::SceneObjectCommandRejection::label`; the string form is a contract.
+pub const SCENE_OBJECT_COMMAND_REJECTION_CODES: &[&str] = &[
+    "stale-scene-object-snapshot",
+    "invalid-scene-before-command",
+    "invalid-scene-after-command",
+    "missing-scene-object",
+    "duplicate-scene-object",
+    "missing-scene-object-parent",
+    "scene-object-self-parent",
+    "blank-scene-object-label",
+];
+
 /// The scene-node kind tag as a closed enum with a stable string form.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SceneNodeKindTag {
@@ -116,6 +129,49 @@ pub const ALL_SCENE_VALIDATION_CODES: &[SceneValidationCode] = &[
     SceneValidationCode::Cycle,
     SceneValidationCode::InvalidTransform,
     SceneValidationCode::AssetKindMismatch,
+];
+
+/// A classified scene-object command rejection code as a closed enum with a
+/// stable string form.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SceneObjectCommandRejectionCode {
+    StaleSnapshot,
+    InvalidBefore,
+    InvalidAfter,
+    MissingObject,
+    DuplicateObject,
+    MissingParent,
+    SelfParent,
+    BlankLabel,
+}
+
+impl SceneObjectCommandRejectionCode {
+    /// The stable wire string. Must match
+    /// [`SCENE_OBJECT_COMMAND_REJECTION_CODES`].
+    pub fn as_str(self) -> &'static str {
+        match self {
+            SceneObjectCommandRejectionCode::StaleSnapshot => "stale-scene-object-snapshot",
+            SceneObjectCommandRejectionCode::InvalidBefore => "invalid-scene-before-command",
+            SceneObjectCommandRejectionCode::InvalidAfter => "invalid-scene-after-command",
+            SceneObjectCommandRejectionCode::MissingObject => "missing-scene-object",
+            SceneObjectCommandRejectionCode::DuplicateObject => "duplicate-scene-object",
+            SceneObjectCommandRejectionCode::MissingParent => "missing-scene-object-parent",
+            SceneObjectCommandRejectionCode::SelfParent => "scene-object-self-parent",
+            SceneObjectCommandRejectionCode::BlankLabel => "blank-scene-object-label",
+        }
+    }
+}
+
+/// Every [`SceneObjectCommandRejectionCode`] in declaration order, for tests.
+pub const ALL_SCENE_OBJECT_COMMAND_REJECTION_CODES: &[SceneObjectCommandRejectionCode] = &[
+    SceneObjectCommandRejectionCode::StaleSnapshot,
+    SceneObjectCommandRejectionCode::InvalidBefore,
+    SceneObjectCommandRejectionCode::InvalidAfter,
+    SceneObjectCommandRejectionCode::MissingObject,
+    SceneObjectCommandRejectionCode::DuplicateObject,
+    SceneObjectCommandRejectionCode::MissingParent,
+    SceneObjectCommandRejectionCode::SelfParent,
+    SceneObjectCommandRejectionCode::BlankLabel,
 ];
 
 // ── Asset reference border DTO ────────────────────────────────────────────────
@@ -278,6 +334,85 @@ impl SceneValidationReportDto {
     }
 }
 
+// ── Scene-object hierarchy command border DTOs ───────────────────────────────
+
+/// Border projection of one canonical scene object. Scene objects are authored
+/// scene nodes, never runtime entities or render handles.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SceneObjectRecordDto {
+    pub id: SceneNodeId,
+    pub parent: Option<SceneNodeId>,
+    pub child_order: u32,
+    pub label: Option<String>,
+    pub kind: SceneNodeKindTag,
+    pub has_renderable_asset: bool,
+}
+
+/// Border projection of the deterministic hierarchy snapshot.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SceneObjectSnapshotDto {
+    pub document_hash: u64,
+    pub objects: Vec<SceneObjectRecordDto>,
+}
+
+/// Explicit scene-object hierarchy commands. Selection is included so GUI and
+/// agent surfaces share the same command identity.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SceneObjectCommandDto {
+    Create {
+        record: SceneNodeRecordDto,
+    },
+    Delete {
+        id: SceneNodeId,
+    },
+    Rename {
+        id: SceneNodeId,
+        label: Option<String>,
+    },
+    Reparent {
+        id: SceneNodeId,
+        parent: Option<SceneNodeId>,
+        child_order: u32,
+    },
+    Select {
+        id: Option<SceneNodeId>,
+    },
+}
+
+/// Border form of a scene-object command rejection.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SceneObjectCommandRejectionDto {
+    pub code: SceneObjectCommandRejectionCode,
+    pub id: Option<SceneNodeId>,
+    pub parent: Option<SceneNodeId>,
+    pub expected_hash: Option<u64>,
+    pub actual_hash: Option<u64>,
+    pub validation_errors: Vec<SceneValidationErrorDto>,
+}
+
+/// Border form of a successful scene-object command.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SceneObjectCommandOutcomeDto {
+    pub document: FlatSceneDocumentDto,
+    pub snapshot: SceneObjectSnapshotDto,
+    pub selected: Option<SceneNodeId>,
+}
+
+/// One-in request envelope for applying a scene-object command.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SceneObjectCommandRequestDto {
+    pub expected_document_hash: u64,
+    pub command: SceneObjectCommandDto,
+}
+
+/// One-out result envelope for applying a scene-object command.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SceneObjectCommandResultDto {
+    pub accepted: bool,
+    pub outcome: Option<SceneObjectCommandOutcomeDto>,
+    pub rejection: Option<SceneObjectCommandRejectionDto>,
+}
+
 // ── Source trace + bootstrap border DTOs ──────────────────────────────────────
 
 /// Border form of one hop in the `scene node → runtime entity` source trace.
@@ -322,6 +457,15 @@ mod tests {
             .map(|c| c.as_str())
             .collect();
         assert_eq!(from_variants, SCENE_VALIDATION_CODES);
+    }
+
+    #[test]
+    fn scene_object_command_rejection_table_matches_variants() {
+        let from_variants: Vec<&str> = ALL_SCENE_OBJECT_COMMAND_REJECTION_CODES
+            .iter()
+            .map(|c| c.as_str())
+            .collect();
+        assert_eq!(from_variants, SCENE_OBJECT_COMMAND_REJECTION_CODES);
     }
 
     #[test]
@@ -374,5 +518,36 @@ mod tests {
         assert_eq!(doc.nodes.len(), 1);
         assert_eq!(doc.nodes[0].kind.tag(), SceneNodeKindTag::StaticMesh);
         assert!(doc.nodes[0].kind.asset().is_some());
+
+        let snapshot = SceneObjectSnapshotDto {
+            document_hash: 99,
+            objects: vec![SceneObjectRecordDto {
+                id: SceneNodeId::new(10),
+                parent: None,
+                child_order: 0,
+                label: Some("crate".into()),
+                kind: SceneNodeKindTag::StaticMesh,
+                has_renderable_asset: true,
+            }],
+        };
+        let command = SceneObjectCommandDto::Rename {
+            id: SceneNodeId::new(10),
+            label: Some("renamed".into()),
+        };
+        let outcome = SceneObjectCommandOutcomeDto {
+            document: doc,
+            snapshot,
+            selected: Some(SceneNodeId::new(10)),
+        };
+        let result = SceneObjectCommandResultDto {
+            accepted: true,
+            outcome: Some(outcome),
+            rejection: None,
+        };
+        assert!(matches!(command, SceneObjectCommandDto::Rename { .. }));
+        assert_eq!(
+            result.outcome.unwrap().snapshot.objects[0].kind,
+            SceneNodeKindTag::StaticMesh
+        );
     }
 }

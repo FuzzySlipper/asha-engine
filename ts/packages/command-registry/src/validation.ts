@@ -275,6 +275,132 @@ function isRenderFrameDiff(value: unknown): boolean {
   });
 }
 
+function isAssetVersionReq(value: unknown): boolean {
+  if (!isPlainObject(value) || !hasField(value, 'req')) return false;
+  if (value.req === 'any') return hasExactKeys(value, ['req']);
+  return (value.req === 'exact' || value.req === 'atLeast') && hasExactKeys(value, ['req', 'value']) && isInteger(value.value);
+}
+
+function isSceneTransform(value: unknown): boolean {
+  return isPlainObject(value) && hasExactKeys(value, ['translation', 'rotation', 'scale']) && isNumberTuple3(value.translation) && isNumberTuple4(value.rotation) && isNumberTuple3(value.scale);
+}
+
+function isSceneNodeKind(value: unknown): boolean {
+  if (!isPlainObject(value) || !hasField(value, 'kind')) return false;
+  if (value.kind === 'emptyGroup') return hasExactKeys(value, ['kind']);
+  return isLiteral(value.kind, ['staticMesh', 'sprite', 'voxelVolume'])
+    && hasExactKeys(value, ['kind', 'asset'])
+    && isPlainObject(value.asset)
+    && hasExactKeys(value.asset, ['id', 'version', 'hash'])
+    && isString(value.asset.id)
+    && isAssetVersionReq(value.asset.version)
+    && (value.asset.hash === null || isString(value.asset.hash));
+}
+
+function isSceneNodeRecord(value: unknown): boolean {
+  return isPlainObject(value)
+    && hasExactKeys(value, ['id', 'parent', 'childOrder', 'label', 'tags', 'transform', 'kind'])
+    && isInteger(value.id)
+    && (value.parent === null || isInteger(value.parent))
+    && isInteger(value.childOrder)
+    && (value.label === null || isString(value.label))
+    && Array.isArray(value.tags)
+    && value.tags.every(isString)
+    && isSceneTransform(value.transform)
+    && isSceneNodeKind(value.kind);
+}
+
+function isFlatSceneDocument(value: unknown): boolean {
+  return isPlainObject(value)
+    && hasExactKeys(value, ['schemaVersion', 'id', 'metadata', 'dependencies', 'nodes'])
+    && isInteger(value.schemaVersion)
+    && isInteger(value.id)
+    && isPlainObject(value.metadata)
+    && hasExactKeys(value.metadata, ['name', 'authoringFormatVersion'])
+    && (value.metadata.name === null || isString(value.metadata.name))
+    && isInteger(value.metadata.authoringFormatVersion)
+    && Array.isArray(value.dependencies)
+    && value.dependencies.every((dep) => isPlainObject(dep) && hasExactKeys(dep, ['id', 'version', 'hash']) && isString(dep.id) && isAssetVersionReq(dep.version) && (dep.hash === null || isString(dep.hash)))
+    && Array.isArray(value.nodes)
+    && value.nodes.every(isSceneNodeRecord);
+}
+
+function isSceneValidationError(value: unknown): boolean {
+  return isPlainObject(value)
+    && hasExactKeys(value, ['code', 'node', 'parent', 'expectedKind', 'actualKind', 'transformReason', 'cyclePath'])
+    && isLiteral(value.code, ['duplicate-node-id', 'unknown-parent', 'cycle', 'invalid-transform', 'asset-kind-mismatch'])
+    && (value.node === null || isInteger(value.node))
+    && (value.parent === null || isInteger(value.parent))
+    && (value.expectedKind === null || isString(value.expectedKind))
+    && (value.actualKind === null || isString(value.actualKind))
+    && (value.transformReason === null || isString(value.transformReason))
+    && Array.isArray(value.cyclePath)
+    && value.cyclePath.every(isInteger);
+}
+
+function isSceneObjectRecord(value: unknown): boolean {
+  return isPlainObject(value)
+    && hasExactKeys(value, ['id', 'parent', 'childOrder', 'label', 'kind', 'hasRenderableAsset'])
+    && isInteger(value.id)
+    && (value.parent === null || isInteger(value.parent))
+    && isInteger(value.childOrder)
+    && (value.label === null || isString(value.label))
+    && isLiteral(value.kind, ['emptyGroup', 'staticMesh', 'sprite', 'voxelVolume'])
+    && typeof value.hasRenderableAsset === 'boolean';
+}
+
+function isSceneObjectSnapshot(value: unknown): boolean {
+  return isPlainObject(value)
+    && hasExactKeys(value, ['documentHash', 'objects'])
+    && isInteger(value.documentHash)
+    && Array.isArray(value.objects)
+    && value.objects.every(isSceneObjectRecord);
+}
+
+function isSceneObjectCommand(value: unknown): boolean {
+  if (!isPlainObject(value) || !hasField(value, 'kind')) return false;
+  if (value.kind === 'create') return hasExactKeys(value, ['kind', 'record']) && isSceneNodeRecord(value.record);
+  if (value.kind === 'delete') return hasExactKeys(value, ['kind', 'id']) && isInteger(value.id);
+  if (value.kind === 'rename') return hasExactKeys(value, ['kind', 'id', 'label']) && isInteger(value.id) && (value.label === null || isString(value.label));
+  if (value.kind === 'reparent') return hasExactKeys(value, ['kind', 'id', 'parent', 'childOrder']) && isInteger(value.id) && (value.parent === null || isInteger(value.parent)) && isInteger(value.childOrder);
+  return value.kind === 'select' && hasExactKeys(value, ['kind', 'id']) && (value.id === null || isInteger(value.id));
+}
+
+function isSceneObjectCommandRejection(value: unknown): boolean {
+  return isPlainObject(value)
+    && hasExactKeys(value, ['code', 'id', 'parent', 'expectedHash', 'actualHash', 'validationErrors'])
+    && isLiteral(value.code, ['stale-scene-object-snapshot', 'invalid-scene-before-command', 'invalid-scene-after-command', 'missing-scene-object', 'duplicate-scene-object', 'missing-scene-object-parent', 'scene-object-self-parent', 'blank-scene-object-label'])
+    && (value.id === null || isInteger(value.id))
+    && (value.parent === null || isInteger(value.parent))
+    && (value.expectedHash === null || isInteger(value.expectedHash))
+    && (value.actualHash === null || isInteger(value.actualHash))
+    && Array.isArray(value.validationErrors)
+    && value.validationErrors.every(isSceneValidationError);
+}
+
+function isSceneObjectCommandOutcome(value: unknown): boolean {
+  return isPlainObject(value)
+    && hasExactKeys(value, ['document', 'snapshot', 'selected'])
+    && isFlatSceneDocument(value.document)
+    && isSceneObjectSnapshot(value.snapshot)
+    && (value.selected === null || isInteger(value.selected));
+}
+
+function isSceneObjectCommandRequest(value: unknown): boolean {
+  return isPlainObject(value)
+    && hasExactKeys(value, ['expectedDocumentHash', 'command'])
+    && isInteger(value.expectedDocumentHash)
+    && isSceneObjectCommand(value.command);
+}
+
+function isSceneObjectCommandResult(value: unknown): boolean {
+  return isPlainObject(value)
+    && hasExactKeys(value, ['accepted', 'outcome', 'rejection'])
+    && typeof value.accepted === 'boolean'
+    && (value.outcome === null || isSceneObjectCommandOutcome(value.outcome))
+    && (value.rejection === null || isSceneObjectCommandRejection(value.rejection));
+}
+
 function validateContractValue(value: unknown, exportName: string): boolean {
   switch (exportName) {
     case 'ScreenPointToPickRayRequest':
@@ -293,6 +419,12 @@ function validateContractValue(value: unknown, exportName: string): boolean {
       return isStaticMeshAsset(value);
     case 'RenderFrameDiff':
       return isRenderFrameDiff(value);
+    case 'SceneObjectSnapshot':
+      return isSceneObjectSnapshot(value);
+    case 'SceneObjectCommandRequest':
+      return isSceneObjectCommandRequest(value);
+    case 'SceneObjectCommandResult':
+      return isSceneObjectCommandResult(value);
     default:
       return false;
   }

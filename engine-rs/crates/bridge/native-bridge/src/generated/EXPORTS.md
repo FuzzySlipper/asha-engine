@@ -16,6 +16,8 @@ operations are replay/devtools-only.
 | `read_voxel_mesh_evidence` | stable | `protocol_render::VoxelMeshEvidenceRequest` | `protocol_render::VoxelMeshEvidenceSnapshot` | `RuntimeBridgeError` |
 | `read_render_diffs` | stable | `FrameCursor` | `protocol_render::RenderFrameDiffDescriptor` | `RuntimeBridgeError` |
 | `read_model_material_preview` | stable | `protocol_render::ModelMaterialPreviewRequest` | `protocol_render::ModelMaterialPreviewSnapshot` | `RuntimeBridgeError` |
+| `read_scene_object_snapshot` | stable | `Unit` | `protocol_scene::SceneObjectSnapshot` | `RuntimeBridgeError` |
+| `apply_scene_object_command` | stable | `protocol_scene::SceneObjectCommandRequest` | `protocol_scene::SceneObjectCommandResult` | `RuntimeBridgeError` |
 | `create_camera` | stable | `protocol_view::CameraCreateRequest` | `protocol_view::CameraSnapshot` | `RuntimeBridgeError` |
 | `apply_first_person_camera_input` | stable | `protocol_view::FirstPersonCameraInputEnvelope` | `protocol_view::CameraSnapshot` | `RuntimeBridgeError` |
 | `read_camera_projection` | stable | `protocol_view::CameraProjectionRequest` | `protocol_view::CameraProjectionSnapshot` | `RuntimeBridgeError` |

@@ -96,6 +96,22 @@ output = "protocol_render::ModelMaterialPreviewSnapshot"
 errors = "RuntimeBridgeError"
 summary = "Read/derive a typed model-material preview using public catalog/material/static-mesh DTOs and retained-mode render-diff evidence. Native transports may fail closed until wired; no renderer internals or hardware claims."
 
+[[operation]]
+name = "read_scene_object_snapshot"
+surface = "stable"
+input = "Unit"
+output = "protocol_scene::SceneObjectSnapshot"
+errors = "RuntimeBridgeError"
+summary = "Read the canonical scene-object hierarchy snapshot from Rust authority. Scene objects are authored scene nodes, not render handles or runtime entities."
+
+[[operation]]
+name = "apply_scene_object_command"
+surface = "stable"
+input = "protocol_scene::SceneObjectCommandRequest"
+output = "protocol_scene::SceneObjectCommandResult"
+errors = "RuntimeBridgeError"
+summary = "Apply one typed scene-object hierarchy command with expected-document-hash validation, returning either an accepted outcome or a classified rejection."
+
 # ── Runtime view/camera surface (#2561/#2564) ─────────────────────────────────
 # Deterministic bridge-owned view/projection state for editor/testbench evidence.
 # This is not gameplay authority, not a renderer object, and not a StateStore handle.

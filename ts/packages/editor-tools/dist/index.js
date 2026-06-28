@@ -10,6 +10,8 @@
 // `app` command-submission path does that). See docs/voxel-ui-architecture.md.
 // Proposal-only scene authoring controls with Rust validation feedback (#2380).
 export * from './scene-authoring.js';
+// Canonical scene-object hierarchy snapshot/proposal helpers over FlatSceneDocument.
+export * from './scene-object-hierarchy.js';
 // Proposal-only generic entity authoring controls with Rust validation feedback (#2485).
 export * from './entity-authoring.js';
 /** The editing tools that author voxels (have a preview + a proposal). */

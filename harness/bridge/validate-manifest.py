@@ -41,6 +41,7 @@ PROTOCOL_MODULE_TO_GENERATED_FILE = {
     "protocol_diagnostics": "diagnostics.ts",
     "protocol_render": "render.ts",
     "protocol_replay": "replay.ts",
+    "protocol_scene": "scene.ts",
     "protocol_view": "view.ts",
     "protocol_voxel": "voxel.ts",
     "protocol_world_bundle": "worldBundle.ts",

@@ -26,6 +26,9 @@ export type SceneNodeKindTag = 'emptyGroup' | 'staticMesh' | 'sprite' | 'voxelVo
 // Stable classified scene-validation code. The string form is a contract.
 export type SceneValidationCode = 'duplicate-node-id' | 'unknown-parent' | 'cycle' | 'invalid-transform' | 'asset-kind-mismatch';
 
+// Stable classified scene-object command rejection code. The string form is a contract.
+export type SceneObjectCommandRejectionCode = 'stale-scene-object-snapshot' | 'invalid-scene-before-command' | 'invalid-scene-after-command' | 'missing-scene-object' | 'duplicate-scene-object' | 'missing-scene-object-parent' | 'scene-object-self-parent' | 'blank-scene-object-label';
+
 // An asset version requirement.
 export type AssetVersionReq =
   | { readonly req: 'any' }
@@ -93,6 +96,60 @@ export interface SceneValidationError {
 // A full scene-validation report: every classified error.
 export interface SceneValidationReport {
   readonly errors: readonly SceneValidationError[];
+}
+
+// One canonical scene object projected from a flat scene document.
+export interface SceneObjectRecord {
+  readonly id: SceneNodeId;
+  readonly parent: SceneNodeId | null;
+  readonly childOrder: number;
+  readonly label: string | null;
+  readonly kind: SceneNodeKindTag;
+  readonly hasRenderableAsset: boolean;
+}
+
+// A deterministic scene-object hierarchy snapshot.
+export interface SceneObjectSnapshot {
+  readonly documentHash: number;
+  readonly objects: readonly SceneObjectRecord[];
+}
+
+// Explicit scene-object hierarchy command.
+export type SceneObjectCommand =
+  | { readonly kind: 'create'; readonly record: SceneNodeRecord }
+  | { readonly kind: 'delete'; readonly id: SceneNodeId }
+  | { readonly kind: 'rename'; readonly id: SceneNodeId; readonly label: string | null }
+  | { readonly kind: 'reparent'; readonly id: SceneNodeId; readonly parent: SceneNodeId | null; readonly childOrder: number }
+  | { readonly kind: 'select'; readonly id: SceneNodeId | null };
+
+// A classified scene-object command rejection.
+export interface SceneObjectCommandRejection {
+  readonly code: SceneObjectCommandRejectionCode;
+  readonly id: SceneNodeId | null;
+  readonly parent: SceneNodeId | null;
+  readonly expectedHash: number | null;
+  readonly actualHash: number | null;
+  readonly validationErrors: readonly SceneValidationError[];
+}
+
+// A successful scene-object command application.
+export interface SceneObjectCommandOutcome {
+  readonly document: FlatSceneDocument;
+  readonly snapshot: SceneObjectSnapshot;
+  readonly selected: SceneNodeId | null;
+}
+
+// One-in request envelope for applying a scene-object command.
+export interface SceneObjectCommandRequest {
+  readonly expectedDocumentHash: number;
+  readonly command: SceneObjectCommand;
+}
+
+// One-out result envelope for applying a scene-object command.
+export interface SceneObjectCommandResult {
+  readonly accepted: boolean;
+  readonly outcome: SceneObjectCommandOutcome | null;
+  readonly rejection: SceneObjectCommandRejection | null;
 }
 
 // One hop in the scene-node to runtime-entity source trace.

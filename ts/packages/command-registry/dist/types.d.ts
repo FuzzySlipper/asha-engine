@@ -1,5 +1,5 @@
-import type { CatalogEntry, MaterialProjection, RenderFrameDiff, ScreenPointToPickRayRequest, StaticMeshAsset, VoxelCommand, VoxelCoord, VoxelSelectionSnapshot } from '@asha/contracts';
-export type StudioCommandId = 'session.list_scenarios' | 'session.start' | 'session.load_scenario' | 'inspection.session_status' | 'inspection.world_summary' | 'inspection.editor_state' | 'inspection.material' | 'inspection.model' | 'preview.model_material' | 'scene.load_asset' | 'selection.voxel_from_screen_point' | 'selection.set_active_entity' | 'entity.set_name' | 'transform.translate_entity' | 'inspection.voxel' | 'preview.voxel_brush' | 'authority.voxel.apply_brush' | 'inspection.last_command_result' | 'render.capture_before_after' | 'export.agent_readout';
+import type { CatalogEntry, MaterialProjection, RenderFrameDiff, SceneObjectCommandRequest, SceneObjectCommandResult, SceneObjectSnapshot, ScreenPointToPickRayRequest, StaticMeshAsset, VoxelCommand, VoxelCoord, VoxelSelectionSnapshot } from '@asha/contracts';
+export type StudioCommandId = 'session.list_scenarios' | 'session.start' | 'session.load_scenario' | 'inspection.session_status' | 'inspection.world_summary' | 'inspection.editor_state' | 'inspection.material' | 'inspection.model' | 'preview.model_material' | 'scene.load_asset' | 'scene.read_object_snapshot' | 'scene.apply_object_command' | 'selection.voxel_from_screen_point' | 'selection.set_active_entity' | 'entity.set_name' | 'transform.translate_entity' | 'inspection.voxel' | 'preview.voxel_brush' | 'authority.voxel.apply_brush' | 'inspection.last_command_result' | 'render.capture_before_after' | 'export.agent_readout';
 export type CommandCategory = 'session' | 'inspection' | 'selection' | 'preview' | 'scene' | 'entity' | 'authority_edit' | 'render_evidence' | 'diagnostics' | 'export' | 'workspace';
 export type OperationClass = 'read_only' | 'editor_local' | 'authority_mutating' | 'render_evidence' | 'diagnostic_export' | 'workspace_io';
 export type AshaLane = 'contract-steward' | 'ts-command-registry' | 'ts-shell' | 'ts-tools' | 'rust-bridge' | 'rust-render' | 'rust-rule' | 'rust-service';
@@ -27,8 +27,17 @@ export type ContractRef = {
 } | {
     readonly package: '@asha/contracts';
     readonly exportName: 'RenderFrameDiff';
+} | {
+    readonly package: '@asha/contracts';
+    readonly exportName: 'SceneObjectSnapshot';
+} | {
+    readonly package: '@asha/contracts';
+    readonly exportName: 'SceneObjectCommandRequest';
+} | {
+    readonly package: '@asha/contracts';
+    readonly exportName: 'SceneObjectCommandResult';
 };
-export type RuntimeBridgeOperationRef = 'initialize_engine' | 'pick_voxel' | 'select_voxel' | 'submit_commands' | 'read_voxel_mesh_evidence' | 'read_render_diffs' | 'read_model_material_preview' | 'load_world_bundle' | 'save_current_world' | 'get_composition_status';
+export type RuntimeBridgeOperationRef = 'initialize_engine' | 'pick_voxel' | 'select_voxel' | 'submit_commands' | 'read_voxel_mesh_evidence' | 'read_render_diffs' | 'read_model_material_preview' | 'read_scene_object_snapshot' | 'apply_scene_object_command' | 'load_world_bundle' | 'save_current_world' | 'get_composition_status';
 export type SchemaScalarKind = 'string' | 'number' | 'boolean' | 'integer' | 'state_hash' | 'artifact_ref' | 'null';
 export type SchemaShape = {
     readonly kind: 'empty';
@@ -257,6 +266,16 @@ export interface LoadSceneAssetOutput {
     readonly loadDiff: RenderFrameDiff;
     readonly rendererClassification: 'reference_placement' | 'runtime_readback';
     readonly diagnostics: readonly string[];
+}
+export interface ReadSceneObjectSnapshotOutput {
+    readonly snapshot: SceneObjectSnapshot;
+}
+export interface ApplySceneObjectCommandInput {
+    readonly sessionId: string;
+    readonly request: SceneObjectCommandRequest;
+}
+export interface ApplySceneObjectCommandOutput {
+    readonly result: SceneObjectCommandResult;
 }
 export interface ScreenPointInput {
     readonly sessionId: string;

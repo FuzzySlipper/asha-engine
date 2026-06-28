@@ -30,6 +30,13 @@ import type {
   StaticMeshAsset,
   ModelMaterialPreviewRequest,
   ModelMaterialPreviewSnapshot,
+  FlatSceneDocument,
+  SceneNodeId,
+  SceneNodeRecord,
+  SceneObjectCommandRejection,
+  SceneObjectCommandRequest,
+  SceneObjectCommandResult,
+  SceneObjectSnapshot,
   VoxelCoord,
 } from '@asha/contracts';
 import { loadNativeAddon, NativeAddonUnavailable, type NativeAddon } from '@asha/native-bridge';
@@ -62,6 +69,13 @@ export type {
   StaticMeshAsset,
   ModelMaterialPreviewRequest,
   ModelMaterialPreviewSnapshot,
+  FlatSceneDocument,
+  SceneNodeId,
+  SceneNodeRecord,
+  SceneObjectCommandRejection,
+  SceneObjectCommandRequest,
+  SceneObjectCommandResult,
+  SceneObjectSnapshot,
 } from '@asha/contracts';
 
 // Render-diff decode (moved from the former @asha/wasm-bridge). Transport-neutral
@@ -227,6 +241,8 @@ export interface RuntimeBridge {
   selectVoxel(request: ScreenPointToPickRayRequest): VoxelSelectionSnapshot;
   readVoxelMeshEvidence(request: VoxelMeshEvidenceRequest): VoxelMeshEvidenceSnapshot;
   readModelMaterialPreview(request: ModelMaterialPreviewRequest): ModelMaterialPreviewSnapshot;
+  readSceneObjectSnapshot(): SceneObjectSnapshot;
+  applySceneObjectCommand(request: SceneObjectCommandRequest): SceneObjectCommandResult;
   readRenderDiffs(cursor: FrameCursor): RenderFrameDiff;
   createCamera(request: CameraCreateRequest): CameraSnapshot;
   applyFirstPersonCameraInput(input: FirstPersonCameraInputEnvelope): CameraSnapshot;
@@ -412,11 +428,190 @@ function projectionSnapshot(snapshot: CameraSnapshot, viewport = snapshot.viewpo
   };
 }
 
+function cloneFlatSceneDocument(document: FlatSceneDocument): FlatSceneDocument {
+  return JSON.parse(JSON.stringify(document)) as FlatSceneDocument;
+}
+
+function initialMockSceneDocument(): FlatSceneDocument {
+  return {
+    schemaVersion: 1,
+    id: 1 as FlatSceneDocument['id'],
+    metadata: { name: 'Mock scene', authoringFormatVersion: 1 },
+    dependencies: [],
+    nodes: [
+      {
+        id: 1 as SceneNodeId,
+        parent: null,
+        childOrder: 0,
+        label: 'Root',
+        tags: [],
+        transform: { translation: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+        kind: { kind: 'emptyGroup' },
+      },
+      {
+        id: 2 as SceneNodeId,
+        parent: 1 as SceneNodeId,
+        childOrder: 0,
+        label: 'Preview cube',
+        tags: [],
+        transform: { translation: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+        kind: {
+          kind: 'staticMesh',
+          asset: { id: 'static-mesh:preview/cube', version: { req: 'any' }, hash: null },
+        },
+      },
+    ],
+  };
+}
+
+function sceneDocumentHash(document: FlatSceneDocument): number {
+  const hex = fnv1a64(JSON.stringify({
+    ...document,
+    nodes: [...document.nodes].sort((a, b) => a.id - b.id),
+  }));
+  return Number.parseInt(hex.slice(0, 13), 16);
+}
+
+function sceneObjectSnapshotFromDocument(document: FlatSceneDocument): SceneObjectSnapshot {
+  return {
+    documentHash: sceneDocumentHash(document),
+    objects: [...document.nodes]
+      .sort((a, b) => a.id - b.id)
+      .map((node) => ({
+        id: node.id,
+        parent: node.parent,
+        childOrder: node.childOrder,
+        label: node.label,
+        kind: node.kind.kind,
+        hasRenderableAsset: node.kind.kind !== 'emptyGroup',
+      })),
+  };
+}
+
+function nodeIndex(document: FlatSceneDocument, id: SceneNodeId): number {
+  return document.nodes.findIndex((node) => node.id === id);
+}
+
+function commandRejection(
+  code: SceneObjectCommandRejection['code'],
+  id: SceneNodeId | null,
+  parent: SceneNodeId | null = null,
+  expectedHash: number | null = null,
+  actualHash: number | null = null,
+): SceneObjectCommandResult {
+  return {
+    accepted: false,
+    outcome: null,
+    rejection: { code, id, parent, expectedHash, actualHash, validationErrors: [] },
+  };
+}
+
+function descendantIds(document: FlatSceneDocument, root: SceneNodeId): Set<SceneNodeId> {
+  const doomed = new Set<SceneNodeId>([root]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const node of document.nodes) {
+      if (node.parent !== null && doomed.has(node.parent) && !doomed.has(node.id)) {
+        doomed.add(node.id);
+        changed = true;
+      }
+    }
+  }
+  return doomed;
+}
+
+function createsCycle(document: FlatSceneDocument, id: SceneNodeId, parent: SceneNodeId | null): boolean {
+  let current = parent;
+  while (current !== null) {
+    if (current === id) return true;
+    const parentNode = document.nodes.find((node) => node.id === current);
+    current = parentNode?.parent ?? null;
+  }
+  return false;
+}
+
+function applyMockSceneObjectCommand(document: FlatSceneDocument, request: SceneObjectCommandRequest): SceneObjectCommandResult {
+  const actualHash = sceneDocumentHash(document);
+  if (request.expectedDocumentHash !== actualHash) {
+    return commandRejection('stale-scene-object-snapshot', null, null, request.expectedDocumentHash, actualHash);
+  }
+  let next = cloneFlatSceneDocument(document);
+  let selected: SceneNodeId | null = null;
+
+  switch (request.command.kind) {
+    case 'create': {
+      if (nodeIndex(next, request.command.record.id) !== -1) {
+        return commandRejection('duplicate-scene-object', request.command.record.id);
+      }
+      if (request.command.record.parent !== null && nodeIndex(next, request.command.record.parent) === -1) {
+        return commandRejection('missing-scene-object-parent', request.command.record.id, request.command.record.parent);
+      }
+      next = { ...next, nodes: [...next.nodes, request.command.record] };
+      break;
+    }
+    case 'delete': {
+      if (nodeIndex(next, request.command.id) === -1) {
+        return commandRejection('missing-scene-object', request.command.id);
+      }
+      const doomed = descendantIds(next, request.command.id);
+      next = { ...next, nodes: next.nodes.filter((node) => !doomed.has(node.id)) };
+      break;
+    }
+    case 'rename': {
+      if (request.command.label !== null && request.command.label.trim() === '') {
+        return commandRejection('blank-scene-object-label', request.command.id);
+      }
+      const id = request.command.id;
+      const label = request.command.label;
+      const index = nodeIndex(next, id);
+      if (index === -1) return commandRejection('missing-scene-object', id);
+      const node = next.nodes[index] as SceneNodeRecord;
+      next = { ...next, nodes: next.nodes.map((existing) => existing.id === id ? { ...node, label } : existing) };
+      selected = id;
+      break;
+    }
+    case 'reparent': {
+      const id = request.command.id;
+      const parent = request.command.parent;
+      const childOrder = request.command.childOrder;
+      const index = nodeIndex(next, id);
+      if (index === -1) return commandRejection('missing-scene-object', id);
+      if (parent === id) return commandRejection('scene-object-self-parent', id);
+      if (parent !== null && nodeIndex(next, parent) === -1) {
+        return commandRejection('missing-scene-object-parent', id, parent);
+      }
+      if (createsCycle(next, id, parent)) {
+        return commandRejection('invalid-scene-after-command', id, parent);
+      }
+      const node = next.nodes[index] as SceneNodeRecord;
+      next = { ...next, nodes: next.nodes.map((existing) => existing.id === id ? { ...node, parent, childOrder } : existing) };
+      selected = id;
+      break;
+    }
+    case 'select': {
+      if (request.command.id !== null && nodeIndex(next, request.command.id) === -1) {
+        return commandRejection('missing-scene-object', request.command.id);
+      }
+      selected = request.command.id;
+      break;
+    }
+  }
+
+  const snapshot = sceneObjectSnapshotFromDocument(next);
+  return {
+    accepted: true,
+    outcome: { document: next, snapshot, selected },
+    rejection: null,
+  };
+}
+
 export class MockRuntimeBridge implements RuntimeBridge {
   #engine: EngineHandle | null = null;
   #buffer: Uint8Array = new Uint8Array();
   #replaySteps = 0;
   #loadedWorld: number | null = null;
+  #sceneDocument = initialMockSceneDocument();
   #nextCamera = 1;
   #cameras = new Map<number, MutableCameraSnapshot>();
 
@@ -671,6 +866,24 @@ export class MockRuntimeBridge implements RuntimeBridge {
       rendererClassification: 'reference_preview',
       diagnostics: ['native runtime readback for model/material preview may fail closed until wired'],
     };
+  }
+
+  readSceneObjectSnapshot(): SceneObjectSnapshot {
+    if (this.#engine === null) {
+      throw new RuntimeBridgeError('not_initialized', 'readSceneObjectSnapshot before initializeEngine');
+    }
+    return sceneObjectSnapshotFromDocument(this.#sceneDocument);
+  }
+
+  applySceneObjectCommand(request: SceneObjectCommandRequest): SceneObjectCommandResult {
+    if (this.#engine === null) {
+      throw new RuntimeBridgeError('not_initialized', 'applySceneObjectCommand before initializeEngine');
+    }
+    const result = applyMockSceneObjectCommand(this.#sceneDocument, request);
+    if (result.outcome !== null) {
+      this.#sceneDocument = result.outcome.document;
+    }
+    return result;
   }
 
   readRenderDiffs(cursor: FrameCursor): RenderFrameDiff {
@@ -966,6 +1179,14 @@ export class NativeRuntimeBridge implements RuntimeBridge {
 
   readModelMaterialPreview(_request: ModelMaterialPreviewRequest): ModelMaterialPreviewSnapshot {
     throw nativeUnimplemented('read_model_material_preview');
+  }
+
+  readSceneObjectSnapshot(): SceneObjectSnapshot {
+    throw nativeUnimplemented('read_scene_object_snapshot');
+  }
+
+  applySceneObjectCommand(): SceneObjectCommandResult {
+    throw nativeUnimplemented('apply_scene_object_command');
   }
 
   readRenderDiffs(cursor: FrameCursor): RenderFrameDiff {

@@ -75,6 +75,22 @@
       "errors": "RuntimeBridgeError"
     },
     {
+      "manifestName": "read_scene_object_snapshot",
+      "facadeMethod": "readSceneObjectSnapshot",
+      "surface": "stable",
+      "input": "Unit",
+      "output": "protocol_scene::SceneObjectSnapshot",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "apply_scene_object_command",
+      "facadeMethod": "applySceneObjectCommand",
+      "surface": "stable",
+      "input": "protocol_scene::SceneObjectCommandRequest",
+      "output": "protocol_scene::SceneObjectCommandResult",
+      "errors": "RuntimeBridgeError"
+    },
+    {
       "manifestName": "create_camera",
       "facadeMethod": "createCamera",
       "surface": "stable",

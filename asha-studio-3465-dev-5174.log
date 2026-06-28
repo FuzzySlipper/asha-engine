@@ -1,0 +1,93 @@
+$ vite --host 127.0.0.1 -- --host 127.0.0.1 --port 5174 --strictPort
+Port 5173 is in use, trying another one...
+
+  VITE v7.3.5  ready in 73 ms
+
+  ➜  Local:   http://127.0.0.1:5174/
+5:22:07 PM [vite] (client) hmr update /src/styles.css
+5:22:58 PM [vite] (client) page reload artifacts/v1-proof/latest/index.html
+6:05:27 PM [vite] (client) page reload src/main.ts
+6:05:39 PM [vite] (client) hmr update /src/styles.css
+6:06:15 PM [vite] (client) page reload artifacts/v1-proof/latest/index.html
+8:47:11 PM [vite] (client) page reload src/main.ts
+8:47:11 PM [vite] (client) page reload src/scene-hierarchy.ts
+8:47:11 PM [vite] (client) hmr update /src/styles.css
+10:24:43 PM [vite] (client) page reload src/command-batch.ts
+10:24:43 PM [vite] (client) page reload src/command-evidence-dock.ts
+10:24:43 PM [vite] (client) page reload src/compatibility.ts
+10:24:43 PM [vite] (client) page reload src/demo-asset-loading.ts
+10:24:43 PM [vite] (client) page reload src/entity-browser.ts
+10:24:43 PM [vite] (client) page reload src/main.ts
+10:24:43 PM [vite] (client) page reload src/model-material-preview.ts
+10:24:43 PM [vite] (client) page reload src/scene-hierarchy.ts
+10:24:43 PM [vite] (client) page reload src/scene-view-model.ts
+10:24:43 PM [vite] (client) page reload src/selected-entity-inspector.ts
+10:24:43 PM [vite] (client) page reload src/selected-target-inspector.ts
+10:24:43 PM [vite] (client) page reload src/session-workspace.ts
+10:24:43 PM [vite] (client) page reload src/studio-model.ts
+10:24:43 PM [vite] (client) page reload src/transform-gizmo.ts
+10:24:43 PM [vite] (client) page reload src/viewport-editor-panel.ts
+10:24:43 PM [vite] (client) page reload src/viewport3d-host.ts
+10:24:43 PM [vite] (client) page reload src/visual-evidence.ts
+10:24:43 PM [vite] (client) page reload src/voxel-workflow.ts
+10:24:43 PM [vite] (client) hmr update /src/styles.css
+10:40:39 PM [vite] (client) page reload package.json
+10:40:39 PM [vite] changed tsconfig file detected: /home/dev/asha-studio/tsconfig.json - Clearing cache and forcing full-reload to ensure TypeScript is compiled with updated config values.
+10:41:03 PM [vite] (client) page reload apps/studio-app/src/index.html
+10:45:36 PM [vite] (client) page reload .nx/cache/13959952895495272911/dist/apps/studio-app/browser/index.html
+10:45:58 PM [vite] changed tsconfig file detected: /home/dev/asha-studio/apps/studio-app/tsconfig.json - Clearing cache and forcing full-reload to ensure TypeScript is compiled with updated config values.
+10:45:58 PM [vite] changed tsconfig file detected: /home/dev/asha-studio/tools/eslint-rules/tsconfig.json - Clearing cache and forcing full-reload to ensure TypeScript is compiled with updated config values.
+10:46:06 PM [vite] (client) page reload .nx/cache/6006400301904830060/dist/apps/studio-app/browser/index.html
+10:46:15 PM [vite] changed tsconfig file detected: /home/dev/asha-studio/tools/eslint-rules/tsconfig.json - Clearing cache and forcing full-reload to ensure TypeScript is compiled with updated config values.
+10:46:47 PM [vite] (client) page reload .nx/cache/6006400301904830060/dist/apps/studio-app/browser/index.html
+10:46:47 PM [vite] (client) page reload .nx/cache/13959952895495272911/dist/apps/studio-app/browser/index.html
+10:47:12 PM [vite] (client) page reload package.json
+10:47:31 PM [vite] (client) page reload .nx/cache/2009599996132735082/dist/apps/studio-app/browser/index.html
+10:47:52 PM [vite] (client) page reload .nx/cache/2009599996132735082/dist/apps/studio-app/browser/index.html
+10:57:40 PM [vite] (client) page reload .nx/cache/15340687847002587058/dist/apps/studio-app/browser/index.html
+11:19:06 PM [vite] (client) page reload .nx/cache/3267611698492232134/dist/apps/studio-app/browser/index.html
+11:55:07 PM [vite] (client) page reload .nx/cache/8934428064031453467/dist/apps/studio-app/browser/index.html
+12:51:17 AM [vite] (client) page reload .nx/cache/11240426976763360444/dist/apps/studio-app/browser/index.html
+1:08:48 AM [vite] (client) page reload .nx/cache/16768682301802335406/dist/apps/studio-app/browser/index.html
+1:24:40 AM [vite] (client) page reload .nx/cache/10647856532026368696/dist/apps/studio-app/browser/index.html
+2:02:40 AM [vite] (client) page reload .nx/cache/157786415475570351/dist/apps/studio-app/browser/index.html
+2:03:57 AM [vite] (client) page reload .nx/cache/12355844470778727234/dist/apps/studio-app/browser/index.html
+2:05:14 AM [vite] (client) page reload .nx/cache/11763217019237065204/dist/apps/studio-app/browser/index.html
+2:23:58 AM [vite] (client) page reload package.json
+2:25:24 AM [vite] (client) page reload .nx/cache/7740573041490769052/dist/apps/studio-app/browser/index.html
+3:19:46 AM [vite] (client) page reload .nx/cache/4757076543037726166/dist/apps/studio-app/browser/index.html
+3:21:27 AM [vite] (client) page reload .nx/cache/1009898553480705647/dist/apps/studio-app/browser/index.html
+3:44:21 AM [vite] (client) page reload .nx/cache/1800404860928661325/dist/apps/studio-app/browser/index.html
+4:03:18 AM [vite] (client) page reload .nx/cache/15842524042469941229/dist/apps/studio-app/browser/index.html
+4:04:02 AM [vite] (client) page reload .nx/cache/565173967082907618/dist/apps/studio-app/browser/index.html
+4:36:53 AM [vite] (client) page reload .nx/cache/2943825802595715613/dist/apps/studio-app/browser/index.html
+3:19:06 PM [vite] (client) page reload .nx/cache/13907865867039535991/dist/apps/studio-app/browser/index.html
+3:37:02 PM [vite] (client) page reload .nx/cache/17812783247322619051/dist/apps/studio-app/browser/index.html
+4:16:33 PM [vite] (client) page reload .nx/cache/11638012868235743151/dist/apps/studio-app/browser/index.html
+4:22:29 PM [vite] (client) page reload .nx/cache/2984572699539790327/dist/apps/studio-app/browser/index.html
+4:45:36 PM [vite] (client) page reload .nx/cache/1506890081690764909/dist/apps/studio-app/browser/index.html
+4:56:37 PM [vite] (client) page reload .nx/cache/13791746754536586636/dist/apps/studio-app/browser/index.html
+6:02:30 PM [vite] (client) page reload .nx/cache/7896574287733177843/dist/apps/studio-app/browser/index.html
+6:03:08 PM [vite] (client) page reload .nx/cache/6300389435442287528/dist/apps/studio-app/browser/index.html
+6:03:38 PM [vite] (client) page reload .nx/cache/13981614095509856980/dist/apps/studio-app/browser/index.html
+6:05:05 PM [vite] (client) page reload .nx/cache/6919640045048521576/dist/apps/studio-app/browser/index.html
+6:05:27 PM [vite] (client) page reload .nx/cache/2759192248723843067/dist/apps/studio-app/browser/index.html
+6:30:36 PM [vite] (client) page reload /home/dev/asha/ts/packages/editor-tools/dist/index.js
+6:35:30 PM [vite] (client) page reload .nx/cache/1750182761475115588/dist/apps/studio-app/browser/index.html
+7:08:30 PM [vite] (client) page reload /home/dev/asha/ts/packages/contracts/dist/generated/scene.js
+7:08:30 PM [vite] (client) page reload /home/dev/asha/ts/packages/contracts/dist/generated/index.js
+7:08:30 PM [vite] (client) page reload /home/dev/asha/ts/packages/contracts/dist/generated/entityAuthoring.js
+7:08:30 PM [vite] (client) page reload /home/dev/asha/ts/packages/contracts/dist/generated/worldBundle.js
+7:08:30 PM [vite] (client) page reload /home/dev/asha/ts/packages/contracts/dist/generated/assets.js
+7:14:19 PM [vite] (client) page reload /home/dev/asha/ts/packages/contracts/dist/generated/scene.js
+7:14:19 PM [vite] (client) page reload /home/dev/asha/ts/packages/contracts/dist/generated/index.js
+7:14:19 PM [vite] (client) page reload /home/dev/asha/ts/packages/contracts/dist/generated/entityAuthoring.js
+7:14:19 PM [vite] (client) page reload /home/dev/asha/ts/packages/contracts/dist/generated/worldBundle.js
+7:14:19 PM [vite] (client) page reload /home/dev/asha/ts/packages/contracts/dist/generated/assets.js
+7:14:19 PM [vite] (client) page reload /home/dev/asha/ts/packages/command-registry/dist/catalog.js
+7:14:19 PM [vite] (client) page reload /home/dev/asha/ts/packages/command-registry/dist/index.js
+7:14:19 PM [vite] (client) page reload /home/dev/asha/ts/packages/command-registry/dist/types.js
+7:14:19 PM [vite] (client) page reload /home/dev/asha/ts/packages/command-registry/dist/validation.js
+7:14:19 PM [vite] (client) page reload /home/dev/asha/ts/packages/command-registry/dist/manifest.js
+7:15:13 PM [vite] (client) page reload /home/dev/asha/ts/packages/command-registry/dist/manifest.js
+7:22:42 PM [vite] (client) page reload .nx/cache/4120446506493445868/dist/apps/studio-app/browser/index.html

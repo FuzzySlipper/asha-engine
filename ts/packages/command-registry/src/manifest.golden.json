@@ -1994,6 +1994,373 @@
     }
   },
   {
+    "id": "scene.read_object_snapshot",
+    "version": 1,
+    "label": "Read Scene Object Snapshot",
+    "summary": "Read the canonical scene-object hierarchy snapshot from public Rust authority/protocol DTOs.",
+    "category": "scene",
+    "menuPath": [
+      "Scene",
+      "Read Object Snapshot"
+    ],
+    "commandPalette": {
+      "visible": true,
+      "keywords": [
+        "scene",
+        "hierarchy",
+        "object",
+        "snapshot"
+      ]
+    },
+    "inputSchema": {
+      "name": "SessionIdInput",
+      "version": 1,
+      "shape": {
+        "kind": "object",
+        "allowExtraFields": false,
+        "fields": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Stable studio session identifier."
+          }
+        ]
+      }
+    },
+    "outputSchema": {
+      "name": "ReadSceneObjectSnapshotOutput",
+      "version": 1,
+      "shape": {
+        "kind": "object",
+        "allowExtraFields": false,
+        "fields": [
+          {
+            "name": "snapshot",
+            "required": true,
+            "shape": {
+              "kind": "contract",
+              "ref": {
+                "package": "@asha/contracts",
+                "exportName": "SceneObjectSnapshot"
+              }
+            },
+            "summary": "Generated public scene-object hierarchy snapshot."
+          }
+        ]
+      }
+    },
+    "inputContractRefs": [],
+    "outputContractRefs": [
+      {
+        "package": "@asha/contracts",
+        "exportName": "SceneObjectSnapshot"
+      }
+    ],
+    "operationClass": "read_only",
+    "agentExposure": {
+      "kind": "read_only"
+    },
+    "guiMirror": {
+      "required": true,
+      "menuPath": [
+        "Scene",
+        "Read Object Snapshot"
+      ],
+      "commandPaletteVisible": true,
+      "argumentSummary": "SessionIdInput: sessionId: Stable studio session identifier.",
+      "resultSummary": "ReadSceneObjectSnapshotOutput: snapshot: Generated public scene-object hierarchy snapshot.",
+      "artifactSummary": "editor_state: Canonical scene-object hierarchy snapshot.",
+      "panel": "inspector",
+      "dialog": "readout_only"
+    },
+    "undo": {
+      "kind": "not_undoable",
+      "reason": "Read-only or diagnostic command has no mutation to reverse."
+    },
+    "retry": "safe_to_retry",
+    "idempotency": {
+      "kind": "idempotent",
+      "keyFields": [
+        "sessionId"
+      ]
+    },
+    "artifacts": [
+      {
+        "type": "editor_state",
+        "required": true,
+        "producedWhen": "always",
+        "summary": "Canonical scene-object hierarchy snapshot."
+      }
+    ],
+    "stateImpact": {
+      "authority": "read",
+      "editor": "none",
+      "render": "none",
+      "workspace": "none"
+    },
+    "owningLane": "ts-command-registry",
+    "owningPackage": "@asha/command-registry",
+    "runtimeRequirements": [
+      {
+        "kind": "runtime_bridge_operation",
+        "operation": "read_scene_object_snapshot"
+      }
+    ],
+    "compatibility": {
+      "contracts": "contracts.v0",
+      "runtimeBridge": "runtime-bridge.v0",
+      "commandRegistry": "command-registry.v0"
+    },
+    "knownLimitations": [
+      "Mock/runtime bridge snapshot is a deterministic public contract surface; native authority wiring may fail closed until read_scene_object_snapshot is wired."
+    ],
+    "typedInputExample": {
+      "sessionId": "session-1"
+    },
+    "typedOutputExample": {
+      "snapshot": {
+        "documentHash": 1001,
+        "objects": [
+          {
+            "id": 1,
+            "parent": null,
+            "childOrder": 0,
+            "label": "Root",
+            "kind": "emptyGroup",
+            "hasRenderableAsset": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "scene.apply_object_command",
+    "version": 1,
+    "label": "Apply Scene Object Command",
+    "summary": "Apply one typed scene-object hierarchy command with expected snapshot hash validation and classified rejection output.",
+    "category": "scene",
+    "menuPath": [
+      "Scene",
+      "Apply Object Command"
+    ],
+    "commandPalette": {
+      "visible": true,
+      "keywords": [
+        "scene",
+        "hierarchy",
+        "rename",
+        "reparent",
+        "authority"
+      ]
+    },
+    "inputSchema": {
+      "name": "ApplySceneObjectCommandInput",
+      "version": 1,
+      "shape": {
+        "kind": "object",
+        "allowExtraFields": false,
+        "fields": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Stable studio session identifier."
+          },
+          {
+            "name": "request",
+            "required": true,
+            "shape": {
+              "kind": "contract",
+              "ref": {
+                "package": "@asha/contracts",
+                "exportName": "SceneObjectCommandRequest"
+              }
+            },
+            "summary": "Generated public scene-object command request envelope."
+          }
+        ]
+      }
+    },
+    "outputSchema": {
+      "name": "ApplySceneObjectCommandOutput",
+      "version": 1,
+      "shape": {
+        "kind": "object",
+        "allowExtraFields": false,
+        "fields": [
+          {
+            "name": "result",
+            "required": true,
+            "shape": {
+              "kind": "contract",
+              "ref": {
+                "package": "@asha/contracts",
+                "exportName": "SceneObjectCommandResult"
+              }
+            },
+            "summary": "Generated public scene-object command result envelope."
+          }
+        ]
+      }
+    },
+    "inputContractRefs": [
+      {
+        "package": "@asha/contracts",
+        "exportName": "SceneObjectCommandRequest"
+      }
+    ],
+    "outputContractRefs": [
+      {
+        "package": "@asha/contracts",
+        "exportName": "SceneObjectCommandResult"
+      }
+    ],
+    "operationClass": "authority_mutating",
+    "agentExposure": {
+      "kind": "authority_mutating",
+      "requiresPreview": false,
+      "batchable": false
+    },
+    "guiMirror": {
+      "required": true,
+      "menuPath": [
+        "Scene",
+        "Apply Object Command"
+      ],
+      "commandPaletteVisible": true,
+      "argumentSummary": "ApplySceneObjectCommandInput: sessionId: Stable studio session identifier. request: Generated public scene-object command request envelope.",
+      "resultSummary": "ApplySceneObjectCommandOutput: result: Generated public scene-object command result envelope.",
+      "artifactSummary": "command_result: Accepted/rejected scene-object command result with hierarchy snapshot evidence.",
+      "panel": "timeline",
+      "dialog": "simple_form"
+    },
+    "undo": {
+      "kind": "authority_reversing",
+      "inverseCommandRefs": [
+        "scene.apply_object_command"
+      ],
+      "requiresSameStateHash": true
+    },
+    "retry": "safe_to_retry_if_state_hash_unchanged",
+    "idempotency": {
+      "kind": "conditional",
+      "condition": "Safe when expectedDocumentHash still matches and the command has not already committed."
+    },
+    "artifacts": [
+      {
+        "type": "command_result",
+        "required": true,
+        "producedWhen": "always",
+        "summary": "Accepted/rejected scene-object command result with hierarchy snapshot evidence."
+      }
+    ],
+    "stateImpact": {
+      "authority": "mutate",
+      "editor": "read",
+      "render": "none",
+      "workspace": "none"
+    },
+    "owningLane": "ts-command-registry",
+    "owningPackage": "@asha/command-registry",
+    "runtimeRequirements": [
+      {
+        "kind": "runtime_bridge_operation",
+        "operation": "apply_scene_object_command"
+      },
+      {
+        "kind": "runtime_bridge_operation",
+        "operation": "read_scene_object_snapshot"
+      }
+    ],
+    "compatibility": {
+      "contracts": "contracts.v0",
+      "runtimeBridge": "runtime-bridge.v0",
+      "commandRegistry": "command-registry.v0"
+    },
+    "knownLimitations": [
+      "Native runtime bridge may fail closed until apply_scene_object_command is wired; no private UI-only mutation path is declared."
+    ],
+    "typedInputExample": {
+      "sessionId": "session-1",
+      "request": {
+        "expectedDocumentHash": 1001,
+        "command": {
+          "kind": "rename",
+          "id": 1,
+          "label": "Renamed root"
+        }
+      }
+    },
+    "typedOutputExample": {
+      "result": {
+        "accepted": true,
+        "outcome": {
+          "document": {
+            "schemaVersion": 1,
+            "id": 1,
+            "metadata": {
+              "name": "Scene object example",
+              "authoringFormatVersion": 1
+            },
+            "dependencies": [],
+            "nodes": [
+              {
+                "id": 1,
+                "parent": null,
+                "childOrder": 0,
+                "label": "Root",
+                "tags": [],
+                "transform": {
+                  "translation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "rotation": [
+                    0,
+                    0,
+                    0,
+                    1
+                  ],
+                  "scale": [
+                    1,
+                    1,
+                    1
+                  ]
+                },
+                "kind": {
+                  "kind": "emptyGroup"
+                }
+              }
+            ]
+          },
+          "snapshot": {
+            "documentHash": 1002,
+            "objects": [
+              {
+                "id": 1,
+                "parent": null,
+                "childOrder": 0,
+                "label": "Renamed root",
+                "kind": "emptyGroup",
+                "hasRenderableAsset": false
+              }
+            ]
+          },
+          "selected": 1
+        },
+        "rejection": null
+      }
+    }
+  },
+  {
     "id": "selection.voxel_from_screen_point",
     "version": 1,
     "label": "Select Voxel From Screen Point",

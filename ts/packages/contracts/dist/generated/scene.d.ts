@@ -13,6 +13,7 @@ export type SceneNodeId = number & {
 export declare const sceneNodeId: (raw: number) => SceneNodeId;
 export type SceneNodeKindTag = 'emptyGroup' | 'staticMesh' | 'sprite' | 'voxelVolume';
 export type SceneValidationCode = 'duplicate-node-id' | 'unknown-parent' | 'cycle' | 'invalid-transform' | 'asset-kind-mismatch';
+export type SceneObjectCommandRejectionCode = 'stale-scene-object-snapshot' | 'invalid-scene-before-command' | 'invalid-scene-after-command' | 'missing-scene-object' | 'duplicate-scene-object' | 'missing-scene-object-parent' | 'scene-object-self-parent' | 'blank-scene-object-label';
 export type AssetVersionReq = {
     readonly req: 'any';
 } | {
@@ -75,6 +76,59 @@ export interface SceneValidationError {
 }
 export interface SceneValidationReport {
     readonly errors: readonly SceneValidationError[];
+}
+export interface SceneObjectRecord {
+    readonly id: SceneNodeId;
+    readonly parent: SceneNodeId | null;
+    readonly childOrder: number;
+    readonly label: string | null;
+    readonly kind: SceneNodeKindTag;
+    readonly hasRenderableAsset: boolean;
+}
+export interface SceneObjectSnapshot {
+    readonly documentHash: number;
+    readonly objects: readonly SceneObjectRecord[];
+}
+export type SceneObjectCommand = {
+    readonly kind: 'create';
+    readonly record: SceneNodeRecord;
+} | {
+    readonly kind: 'delete';
+    readonly id: SceneNodeId;
+} | {
+    readonly kind: 'rename';
+    readonly id: SceneNodeId;
+    readonly label: string | null;
+} | {
+    readonly kind: 'reparent';
+    readonly id: SceneNodeId;
+    readonly parent: SceneNodeId | null;
+    readonly childOrder: number;
+} | {
+    readonly kind: 'select';
+    readonly id: SceneNodeId | null;
+};
+export interface SceneObjectCommandRejection {
+    readonly code: SceneObjectCommandRejectionCode;
+    readonly id: SceneNodeId | null;
+    readonly parent: SceneNodeId | null;
+    readonly expectedHash: number | null;
+    readonly actualHash: number | null;
+    readonly validationErrors: readonly SceneValidationError[];
+}
+export interface SceneObjectCommandOutcome {
+    readonly document: FlatSceneDocument;
+    readonly snapshot: SceneObjectSnapshot;
+    readonly selected: SceneNodeId | null;
+}
+export interface SceneObjectCommandRequest {
+    readonly expectedDocumentHash: number;
+    readonly command: SceneObjectCommand;
+}
+export interface SceneObjectCommandResult {
+    readonly accepted: boolean;
+    readonly outcome: SceneObjectCommandOutcome | null;
+    readonly rejection: SceneObjectCommandRejection | null;
 }
 export interface SceneSourceTrace {
     readonly sceneNodeId: SceneNodeId;

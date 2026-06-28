@@ -1,8 +1,8 @@
-import type { CameraCreateRequest, CameraProjectionRequest, CameraProjectionSnapshot, CameraSnapshot, CameraCollisionSnapshot, CollisionConstrainedCameraInputEnvelope, ScreenPointToPickRayRequest, VoxelSelectionSnapshot, CommandBatch, CommandResult, FirstPersonCameraInputEnvelope, PickRay, PickResult, RenderFrameDiff, ModelMaterialPreviewRequest, ModelMaterialPreviewSnapshot } from '@asha/contracts';
+import type { CameraCreateRequest, CameraProjectionRequest, CameraProjectionSnapshot, CameraSnapshot, CameraCollisionSnapshot, CollisionConstrainedCameraInputEnvelope, ScreenPointToPickRayRequest, VoxelSelectionSnapshot, CommandBatch, CommandResult, FirstPersonCameraInputEnvelope, PickRay, PickResult, RenderFrameDiff, ModelMaterialPreviewRequest, ModelMaterialPreviewSnapshot, SceneObjectCommandRequest, SceneObjectCommandResult, SceneObjectSnapshot } from '@asha/contracts';
 import { type NativeAddon } from '@asha/native-bridge';
 export { MANIFEST_OPERATIONS } from './generated/operations.js';
 export type { BridgeOperation, BridgeSurface } from './generated/operations.js';
-export type { CameraCreateRequest, CameraProjectionRequest, CameraProjectionSnapshot, CameraSnapshot, CameraCollisionSnapshot, CollisionConstrainedCameraInputEnvelope, ScreenPointToPickRayRequest, PickRaySnapshot, VoxelSelectionSnapshot, CommandBatch, CommandResult, FirstPersonCameraInputEnvelope, PickRay, PickResult, CatalogEntry, MaterialProjection, StaticMeshAsset, ModelMaterialPreviewRequest, ModelMaterialPreviewSnapshot, } from '@asha/contracts';
+export type { CameraCreateRequest, CameraProjectionRequest, CameraProjectionSnapshot, CameraSnapshot, CameraCollisionSnapshot, CollisionConstrainedCameraInputEnvelope, ScreenPointToPickRayRequest, PickRaySnapshot, VoxelSelectionSnapshot, CommandBatch, CommandResult, FirstPersonCameraInputEnvelope, PickRay, PickResult, CatalogEntry, MaterialProjection, StaticMeshAsset, ModelMaterialPreviewRequest, ModelMaterialPreviewSnapshot, FlatSceneDocument, SceneNodeId, SceneNodeRecord, SceneObjectCommandRejection, SceneObjectCommandRequest, SceneObjectCommandResult, SceneObjectSnapshot, } from '@asha/contracts';
 export { decodeRenderDiff, decodeRenderFrameDiff, RenderDecodeError, RenderDiffStream, FrameMemory, } from './render-decode.js';
 export type EngineHandle = number & {
     readonly __brand: 'EngineHandle';
@@ -113,6 +113,8 @@ export interface RuntimeBridge {
     selectVoxel(request: ScreenPointToPickRayRequest): VoxelSelectionSnapshot;
     readVoxelMeshEvidence(request: VoxelMeshEvidenceRequest): VoxelMeshEvidenceSnapshot;
     readModelMaterialPreview(request: ModelMaterialPreviewRequest): ModelMaterialPreviewSnapshot;
+    readSceneObjectSnapshot(): SceneObjectSnapshot;
+    applySceneObjectCommand(request: SceneObjectCommandRequest): SceneObjectCommandResult;
     readRenderDiffs(cursor: FrameCursor): RenderFrameDiff;
     createCamera(request: CameraCreateRequest): CameraSnapshot;
     applyFirstPersonCameraInput(input: FirstPersonCameraInputEnvelope): CameraSnapshot;
@@ -136,6 +138,8 @@ export declare class MockRuntimeBridge implements RuntimeBridge {
     selectVoxel(request: ScreenPointToPickRayRequest): VoxelSelectionSnapshot;
     readVoxelMeshEvidence(request: VoxelMeshEvidenceRequest): VoxelMeshEvidenceSnapshot;
     readModelMaterialPreview(request: ModelMaterialPreviewRequest): ModelMaterialPreviewSnapshot;
+    readSceneObjectSnapshot(): SceneObjectSnapshot;
+    applySceneObjectCommand(request: SceneObjectCommandRequest): SceneObjectCommandResult;
     readRenderDiffs(cursor: FrameCursor): RenderFrameDiff;
     createCamera(request: CameraCreateRequest): CameraSnapshot;
     applyFirstPersonCameraInput(envelope: FirstPersonCameraInputEnvelope): CameraSnapshot;
@@ -167,6 +171,8 @@ export declare class NativeRuntimeBridge implements RuntimeBridge {
     submitCommands(batch: CommandBatch): CommandResult;
     stepSimulation(input: StepInputEnvelope): StepResult;
     readModelMaterialPreview(_request: ModelMaterialPreviewRequest): ModelMaterialPreviewSnapshot;
+    readSceneObjectSnapshot(): SceneObjectSnapshot;
+    applySceneObjectCommand(): SceneObjectCommandResult;
     readRenderDiffs(cursor: FrameCursor): RenderFrameDiff;
     saveCurrentWorld(): WorldSaveSummary;
     getCompositionStatus(): CompositionStatus;

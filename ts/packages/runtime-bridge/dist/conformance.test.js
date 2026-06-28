@@ -177,6 +177,27 @@ test('mock: readModelMaterialPreview returns public render-diff evidence without
     assert.deepEqual(snapshot.previewDiff.ops.map((op) => op.op), ['defineMaterial', 'defineStaticMesh', 'createStaticMeshInstance']);
     assert.ok(snapshot.diagnostics.some((diagnostic) => diagnostic.includes('fail closed')));
 });
+test('mock: scene-object snapshot and apply command use typed public contracts', () => {
+    const bridge = createMockRuntimeBridge();
+    bridge.initializeEngine({ seed: 1 });
+    const snapshot = bridge.readSceneObjectSnapshot();
+    assert.equal(snapshot.objects[0]?.kind, 'emptyGroup');
+    assert.ok(snapshot.objects.some((object) => object.hasRenderableAsset));
+    const result = bridge.applySceneObjectCommand({
+        expectedDocumentHash: snapshot.documentHash,
+        command: { kind: 'rename', id: snapshot.objects[0].id, label: 'Renamed root' },
+    });
+    assert.equal(result.accepted, true);
+    assert.equal(result.rejection, null);
+    assert.equal(result.outcome?.selected, snapshot.objects[0].id);
+    assert.equal(result.outcome?.snapshot.objects[0]?.label, 'Renamed root');
+    const stale = bridge.applySceneObjectCommand({
+        expectedDocumentHash: snapshot.documentHash,
+        command: { kind: 'select', id: snapshot.objects[0].id },
+    });
+    assert.equal(stale.accepted, false);
+    assert.equal(stale.rejection?.code, 'stale-scene-object-snapshot');
+});
 test('mock: readRenderDiffs returns a contract-shaped frame', () => {
     const bridge = createMockRuntimeBridge();
     bridge.initializeEngine({ seed: 1 });

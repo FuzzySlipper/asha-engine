@@ -1193,6 +1193,11 @@ pub fn scene_module() -> Module {
             "SceneValidationCode",
             protocol_scene::SCENE_VALIDATION_CODES,
         ),
+        string_enum(
+            "Stable classified scene-object command rejection code. The string form is a contract.",
+            "SceneObjectCommandRejectionCode",
+            protocol_scene::SCENE_OBJECT_COMMAND_REJECTION_CODES,
+        ),
         union(
             "An asset version requirement.",
             "AssetVersionReq",
@@ -1282,6 +1287,89 @@ pub fn scene_module() -> Module {
             "A full scene-validation report: every classified error.",
             "SceneValidationReport",
             vec![f("errors", TsType::array(r("SceneValidationError")))],
+        ),
+        iface(
+            "One canonical scene object projected from a flat scene document.",
+            "SceneObjectRecord",
+            vec![
+                f("id", r("SceneNodeId")),
+                f("parent", TsType::nullable(r("SceneNodeId"))),
+                f("childOrder", num()),
+                f("label", TsType::nullable(string())),
+                f("kind", r("SceneNodeKindTag")),
+                f("hasRenderableAsset", boolean()),
+            ],
+        ),
+        iface(
+            "A deterministic scene-object hierarchy snapshot.",
+            "SceneObjectSnapshot",
+            vec![
+                f("documentHash", num()),
+                f("objects", TsType::array(r("SceneObjectRecord"))),
+            ],
+        ),
+        union(
+            "Explicit scene-object hierarchy command.",
+            "SceneObjectCommand",
+            "kind",
+            vec![
+                v("create", vec![f("record", r("SceneNodeRecord"))]),
+                v("delete", vec![f("id", r("SceneNodeId"))]),
+                v(
+                    "rename",
+                    vec![
+                        f("id", r("SceneNodeId")),
+                        f("label", TsType::nullable(string())),
+                    ],
+                ),
+                v(
+                    "reparent",
+                    vec![
+                        f("id", r("SceneNodeId")),
+                        f("parent", TsType::nullable(r("SceneNodeId"))),
+                        f("childOrder", num()),
+                    ],
+                ),
+                v("select", vec![f("id", TsType::nullable(r("SceneNodeId")))]),
+            ],
+        ),
+        iface(
+            "A classified scene-object command rejection.",
+            "SceneObjectCommandRejection",
+            vec![
+                f("code", r("SceneObjectCommandRejectionCode")),
+                f("id", TsType::nullable(r("SceneNodeId"))),
+                f("parent", TsType::nullable(r("SceneNodeId"))),
+                f("expectedHash", TsType::nullable(num())),
+                f("actualHash", TsType::nullable(num())),
+                f("validationErrors", TsType::array(r("SceneValidationError"))),
+            ],
+        ),
+        iface(
+            "A successful scene-object command application.",
+            "SceneObjectCommandOutcome",
+            vec![
+                f("document", r("FlatSceneDocument")),
+                f("snapshot", r("SceneObjectSnapshot")),
+                f("selected", TsType::nullable(r("SceneNodeId"))),
+            ],
+        ),
+        iface(
+            "One-in request envelope for applying a scene-object command.",
+            "SceneObjectCommandRequest",
+            vec![
+                f("expectedDocumentHash", num()),
+                f("command", r("SceneObjectCommand")),
+            ],
+        ),
+        iface(
+            "One-out result envelope for applying a scene-object command.",
+            "SceneObjectCommandResult",
+            vec![
+                f("accepted", boolean()),
+                f("outcome", TsType::nullable(r("SceneObjectCommandOutcome"))),
+                f("rejection", TsType::nullable(r("SceneObjectCommandRejection"))),
+            ],
         ),
         iface(
             "One hop in the scene-node to runtime-entity source trace.",
