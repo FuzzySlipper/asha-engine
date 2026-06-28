@@ -41,7 +41,7 @@ export function validateAshaConsumerCompatibility(manifest, metadata) {
         diagnostics: [],
     };
 }
-export function validateAshaGameAssetCatalog(catalog, manifest, fileExists) {
+export function validateAshaGameAssetCatalog(catalog, manifest, fileExists, options = {}) {
     const diagnostics = [];
     const seen = new Set();
     for (const [index, entry] of catalog.entries.entries()) {
@@ -65,19 +65,32 @@ export function validateAshaGameAssetCatalog(catalog, manifest, fileExists) {
         else if (!fileExists(entry.source)) {
             diagnostics.push(assetDiag('missing_asset_file', `${path}.source`, `asset source does not exist: ${entry.source}`));
         }
+        validateImportMetadata(entry, path, options, diagnostics);
     }
     validateAssetDependencyGraph(catalog, diagnostics);
     return diagnostics.length === 0 ? { ok: true, catalog, diagnostics: [] } : { ok: false, diagnostics };
 }
-export function resolveAshaGameAssetForDev(catalog, assetId) {
+export function resolveAshaGameAssetForDev(catalog, assetId, sourceHash) {
     const entry = catalog.entries.find((candidate) => candidate.id === assetId);
     if (entry === undefined) {
         return null;
     }
+    const observedSourceHash = sourceHash ?? entry.importMetadata?.sourceHash ?? null;
+    const metadata = entry.importMetadata;
+    const importStatus = metadata === undefined
+        ? 'missing_metadata'
+        : sourceHash === undefined || sourceHash === null
+            ? 'unknown'
+            : sourceHash === metadata.sourceHash
+                ? 'clean'
+                : 'stale';
     return {
         assetId: entry.id,
         sourcePath: entry.source,
-        devCacheKey: `dev-cache/${entry.kind}/${entry.id}`,
+        sourceHash: observedSourceHash,
+        devCacheKey: metadata?.cacheKey ?? `dev-cache/${entry.kind}/${entry.id}`,
+        generatedArtifactVersion: metadata?.generatedArtifactVersion ?? null,
+        importStatus,
         publishOutputKey: entry.publish.outputKey,
     };
 }
@@ -398,6 +411,21 @@ function validateKindSpecificAssetEntry(entry, path, diagnostics) {
     }
     if (!entry.publish.outputKey.startsWith(expected.outputPrefix) || !entry.publish.outputKey.endsWith(expected.outputSuffix)) {
         diagnostics.push(assetDiag('invalid_asset_entry', `${path}.publish.outputKey`, `${entry.kind} publish output must match ${expected.outputPrefix}*${expected.outputSuffix}`));
+    }
+}
+function validateImportMetadata(entry, path, options, diagnostics) {
+    const metadata = entry.importMetadata;
+    if (metadata === undefined)
+        return;
+    if (metadata.sourceHash.length === 0 || metadata.cacheKey.length === 0 || metadata.generatedArtifactVersion.length === 0) {
+        diagnostics.push(assetDiag('invalid_asset_entry', `${path}.importMetadata`, 'sourceHash, cacheKey, and generatedArtifactVersion are required when import metadata is present'));
+        return;
+    }
+    if (options.sourceHash !== undefined) {
+        const observed = options.sourceHash(entry.source);
+        if (observed !== null && observed !== metadata.sourceHash) {
+            diagnostics.push(assetDiag('stale_import_metadata', `${path}.importMetadata.sourceHash`, `asset "${entry.id}" import metadata hash is stale`));
+        }
     }
 }
 function getString(document, section, key, diagnostics) {

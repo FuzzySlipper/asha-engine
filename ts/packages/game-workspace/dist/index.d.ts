@@ -88,6 +88,11 @@ export interface AshaGameAssetCatalogEntry {
     readonly kind: AshaGameAssetKind;
     readonly source: string;
     readonly importProfile: string | null;
+    readonly importMetadata?: {
+        readonly sourceHash: string;
+        readonly cacheKey: string;
+        readonly generatedArtifactVersion: string;
+    };
     readonly dependencies?: readonly string[];
     readonly publish: {
         readonly include: boolean;
@@ -102,7 +107,7 @@ export interface AshaGameAssetCatalog {
     readonly schemaVersion: 1;
     readonly entries: readonly AshaGameAssetCatalogEntry[];
 }
-export type AshaGameAssetCatalogDiagnosticCode = 'duplicate_asset_id' | 'missing_asset_file' | 'forbidden_asset_path' | 'unsupported_asset_kind' | 'missing_asset_dependency' | 'duplicate_asset_dependency' | 'asset_dependency_cycle' | 'invalid_asset_entry';
+export type AshaGameAssetCatalogDiagnosticCode = 'duplicate_asset_id' | 'missing_asset_file' | 'forbidden_asset_path' | 'unsupported_asset_kind' | 'missing_asset_dependency' | 'duplicate_asset_dependency' | 'asset_dependency_cycle' | 'stale_import_metadata' | 'invalid_asset_entry';
 export interface AshaGameAssetCatalogDiagnostic {
     readonly code: AshaGameAssetCatalogDiagnosticCode;
     readonly path: string;
@@ -119,8 +124,14 @@ export type AshaGameAssetCatalogValidation = {
 export interface AshaGameAssetDevResolution {
     readonly assetId: string;
     readonly sourcePath: string;
+    readonly sourceHash: string | null;
     readonly devCacheKey: string;
+    readonly generatedArtifactVersion: string | null;
+    readonly importStatus: 'clean' | 'stale' | 'missing_metadata' | 'unknown';
     readonly publishOutputKey: string;
+}
+export interface AshaGameAssetCatalogValidationOptions {
+    readonly sourceHash?: (path: string) => string | null;
 }
 export interface AshaGamePublishAssetManifest {
     readonly schemaVersion: 1;
@@ -134,7 +145,7 @@ export interface AshaGamePublishAssetManifest {
 }
 export declare function parseAshaGameManifestToml(toml: string): AshaGameManifestValidation;
 export declare function validateAshaConsumerCompatibility(manifest: AshaGameManifest, metadata: Partial<AshaConsumerCompatibilityMetadata>): AshaConsumerCompatibilityValidation;
-export declare function validateAshaGameAssetCatalog(catalog: AshaGameAssetCatalog, manifest: AshaGameManifest, fileExists: (path: string) => boolean): AshaGameAssetCatalogValidation;
-export declare function resolveAshaGameAssetForDev(catalog: AshaGameAssetCatalog, assetId: string): AshaGameAssetDevResolution | null;
+export declare function validateAshaGameAssetCatalog(catalog: AshaGameAssetCatalog, manifest: AshaGameManifest, fileExists: (path: string) => boolean, options?: AshaGameAssetCatalogValidationOptions): AshaGameAssetCatalogValidation;
+export declare function resolveAshaGameAssetForDev(catalog: AshaGameAssetCatalog, assetId: string, sourceHash?: string | null): AshaGameAssetDevResolution | null;
 export declare function buildAshaGamePublishAssetManifest(catalog: AshaGameAssetCatalog): AshaGamePublishAssetManifest;
 //# sourceMappingURL=index.d.ts.map

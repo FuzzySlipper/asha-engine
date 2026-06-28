@@ -119,6 +119,11 @@ export interface AshaGameAssetCatalogEntry {
   readonly kind: AshaGameAssetKind;
   readonly source: string;
   readonly importProfile: string | null;
+  readonly importMetadata?: {
+    readonly sourceHash: string;
+    readonly cacheKey: string;
+    readonly generatedArtifactVersion: string;
+  };
   readonly dependencies?: readonly string[];
   readonly publish: {
     readonly include: boolean;
@@ -143,6 +148,7 @@ export type AshaGameAssetCatalogDiagnosticCode =
   | 'missing_asset_dependency'
   | 'duplicate_asset_dependency'
   | 'asset_dependency_cycle'
+  | 'stale_import_metadata'
   | 'invalid_asset_entry';
 
 export interface AshaGameAssetCatalogDiagnostic {
@@ -165,8 +171,15 @@ export type AshaGameAssetCatalogValidation =
 export interface AshaGameAssetDevResolution {
   readonly assetId: string;
   readonly sourcePath: string;
+  readonly sourceHash: string | null;
   readonly devCacheKey: string;
+  readonly generatedArtifactVersion: string | null;
+  readonly importStatus: 'clean' | 'stale' | 'missing_metadata' | 'unknown';
   readonly publishOutputKey: string;
+}
+
+export interface AshaGameAssetCatalogValidationOptions {
+  readonly sourceHash?: (path: string) => string | null;
 }
 
 export interface AshaGamePublishAssetManifest {
@@ -235,6 +248,7 @@ export function validateAshaGameAssetCatalog(
   catalog: AshaGameAssetCatalog,
   manifest: AshaGameManifest,
   fileExists: (path: string) => boolean,
+  options: AshaGameAssetCatalogValidationOptions = {},
 ): AshaGameAssetCatalogValidation {
   const diagnostics: AshaGameAssetCatalogDiagnostic[] = [];
   const seen = new Set<string>();
@@ -257,6 +271,7 @@ export function validateAshaGameAssetCatalog(
     } else if (!fileExists(entry.source)) {
       diagnostics.push(assetDiag('missing_asset_file', `${path}.source`, `asset source does not exist: ${entry.source}`));
     }
+    validateImportMetadata(entry, path, options, diagnostics);
   }
   validateAssetDependencyGraph(catalog, diagnostics);
 
@@ -266,15 +281,29 @@ export function validateAshaGameAssetCatalog(
 export function resolveAshaGameAssetForDev(
   catalog: AshaGameAssetCatalog,
   assetId: string,
+  sourceHash?: string | null,
 ): AshaGameAssetDevResolution | null {
   const entry = catalog.entries.find((candidate) => candidate.id === assetId);
   if (entry === undefined) {
     return null;
   }
+  const observedSourceHash = sourceHash ?? entry.importMetadata?.sourceHash ?? null;
+  const metadata = entry.importMetadata;
+  const importStatus =
+    metadata === undefined
+      ? 'missing_metadata'
+      : sourceHash === undefined || sourceHash === null
+        ? 'unknown'
+        : sourceHash === metadata.sourceHash
+          ? 'clean'
+          : 'stale';
   return {
     assetId: entry.id,
     sourcePath: entry.source,
-    devCacheKey: `dev-cache/${entry.kind}/${entry.id}`,
+    sourceHash: observedSourceHash,
+    devCacheKey: metadata?.cacheKey ?? `dev-cache/${entry.kind}/${entry.id}`,
+    generatedArtifactVersion: metadata?.generatedArtifactVersion ?? null,
+    importStatus,
     publishOutputKey: entry.publish.outputKey,
   };
 }
@@ -643,6 +672,26 @@ function validateKindSpecificAssetEntry(
   }
   if (!entry.publish.outputKey.startsWith(expected.outputPrefix) || !entry.publish.outputKey.endsWith(expected.outputSuffix)) {
     diagnostics.push(assetDiag('invalid_asset_entry', `${path}.publish.outputKey`, `${entry.kind} publish output must match ${expected.outputPrefix}*${expected.outputSuffix}`));
+  }
+}
+
+function validateImportMetadata(
+  entry: AshaGameAssetCatalogEntry,
+  path: string,
+  options: AshaGameAssetCatalogValidationOptions,
+  diagnostics: AshaGameAssetCatalogDiagnostic[],
+): void {
+  const metadata = entry.importMetadata;
+  if (metadata === undefined) return;
+  if (metadata.sourceHash.length === 0 || metadata.cacheKey.length === 0 || metadata.generatedArtifactVersion.length === 0) {
+    diagnostics.push(assetDiag('invalid_asset_entry', `${path}.importMetadata`, 'sourceHash, cacheKey, and generatedArtifactVersion are required when import metadata is present'));
+    return;
+  }
+  if (options.sourceHash !== undefined) {
+    const observed = options.sourceHash(entry.source);
+    if (observed !== null && observed !== metadata.sourceHash) {
+      diagnostics.push(assetDiag('stale_import_metadata', `${path}.importMetadata.sourceHash`, `asset "${entry.id}" import metadata hash is stale`));
+    }
   }
 }
 

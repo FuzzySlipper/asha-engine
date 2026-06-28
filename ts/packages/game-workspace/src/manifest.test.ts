@@ -163,6 +163,7 @@ function validCatalog(): AshaGameAssetCatalog {
         kind: 'static_mesh',
         source: 'assets/meshes/demo-cube.mesh.json',
         importProfile: 'inline-static-mesh.v0',
+        importMetadata: { sourceHash: 'sha256:mesh', cacheKey: 'dev-cache/static_mesh/mesh.demo-cube/sha256-mesh', generatedArtifactVersion: 'asset-import.v1' },
         dependencies: ['material.demo-copper'],
         publish: { include: true, outputKey: 'meshes/demo-cube.mesh.json' },
         diagnostics: { owner: 'asha-demo', notes: [] },
@@ -172,6 +173,7 @@ function validCatalog(): AshaGameAssetCatalog {
         kind: 'material',
         source: 'assets/materials/demo-copper.material.json',
         importProfile: 'inline-material.v0',
+        importMetadata: { sourceHash: 'sha256:material', cacheKey: 'dev-cache/material/material.demo-copper/sha256-material', generatedArtifactVersion: 'asset-import.v1' },
         dependencies: ['texture.demo-checker'],
         publish: { include: true, outputKey: 'materials/demo-copper.material.json' },
         diagnostics: { owner: 'asha-demo', notes: [] },
@@ -181,6 +183,7 @@ function validCatalog(): AshaGameAssetCatalog {
         kind: 'texture',
         source: 'assets/textures/demo-checker.texture.json',
         importProfile: 'inline-texture.v0',
+        importMetadata: { sourceHash: 'sha256:texture', cacheKey: 'dev-cache/texture/texture.demo-checker/sha256-texture', generatedArtifactVersion: 'asset-import.v1' },
         dependencies: [],
         publish: { include: true, outputKey: 'textures/demo-checker.texture.json' },
         diagnostics: { owner: 'asha-demo', notes: [] },
@@ -192,13 +195,22 @@ function validCatalog(): AshaGameAssetCatalog {
 test('asset catalog validates and resolves a dev resource by catalog id', () => {
   const catalog = validCatalog();
   const existingFiles = new Set(catalog.entries.map((entry) => entry.source));
-  const validation = validateAshaGameAssetCatalog(catalog, validManifest(), (path) => existingFiles.has(path));
+  const sourceHashes = new Map(catalog.entries.map((entry) => [entry.source, entry.importMetadata!.sourceHash]));
+  const validation = validateAshaGameAssetCatalog(
+    catalog,
+    validManifest(),
+    (path) => existingFiles.has(path),
+    { sourceHash: (path) => sourceHashes.get(path) ?? null },
+  );
   assert.equal(validation.ok, true);
-  const resolution = resolveAshaGameAssetForDev(catalog, 'mesh.demo-cube');
+  const resolution = resolveAshaGameAssetForDev(catalog, 'mesh.demo-cube', sourceHashes.get('assets/meshes/demo-cube.mesh.json'));
   assert.deepEqual(resolution, {
     assetId: 'mesh.demo-cube',
     sourcePath: 'assets/meshes/demo-cube.mesh.json',
-    devCacheKey: 'dev-cache/static_mesh/mesh.demo-cube',
+    sourceHash: 'sha256:mesh',
+    devCacheKey: 'dev-cache/static_mesh/mesh.demo-cube/sha256-mesh',
+    generatedArtifactVersion: 'asset-import.v1',
+    importStatus: 'clean',
     publishOutputKey: 'meshes/demo-cube.mesh.json',
   });
   const publishManifest = buildAshaGamePublishAssetManifest(catalog);
@@ -212,6 +224,24 @@ test('asset catalog validates and resolves a dev resource by catalog id', () => 
     'material.demo-copper',
     'texture.demo-checker',
   ]);
+});
+
+test('asset catalog reports stale import metadata in validation and dev resolution', () => {
+  const catalog = validCatalog();
+  const validation = validateAshaGameAssetCatalog(
+    catalog,
+    validManifest(),
+    () => true,
+    { sourceHash: (path) => (path === 'assets/meshes/demo-cube.mesh.json' ? 'sha256:changed' : catalog.entries.find((entry) => entry.source === path)?.importMetadata?.sourceHash ?? null) },
+  );
+  assert.equal(validation.ok, false);
+  if (validation.ok) throw new Error('stale import metadata should fail validation');
+  assert.equal(validation.diagnostics.some((diagnostic) => diagnostic.code === 'stale_import_metadata'), true);
+
+  const resolution = resolveAshaGameAssetForDev(catalog, 'mesh.demo-cube', 'sha256:changed');
+  assert.equal(resolution?.sourcePath, 'assets/meshes/demo-cube.mesh.json');
+  assert.equal(resolution?.sourceHash, 'sha256:changed');
+  assert.equal(resolution?.importStatus, 'stale');
 });
 
 test('asset catalog fails closed for missing file, duplicate id, forbidden path, unsupported kind, and wrong kind profile', () => {
