@@ -5,6 +5,7 @@ export * from './bundle-panel.js';
 export * from './entity-inspector.js';
 export * from './policy-panel.js';
 export * from './operator-console.js';
+export * from './attach-protocol.js';
 /** A plain mirror of the Rust `voxel-diagnostics` scene report (carried over the
  *  bridge as projected data — devtools never reads authority directly). */
 export interface SceneReportSummary {

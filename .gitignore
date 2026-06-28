@@ -15,6 +15,7 @@ coverage/
 harness/smoke-out/
 harness/shell-out/
 harness/perf-out/
+ts/artifacts/
 
 # ── IDE / editor ────────────────────────────────────────────────────────────────
 .vscode/

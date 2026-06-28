@@ -26,6 +26,9 @@ export * from './policy-panel.js';
 // Unified operator console read model + agent-readable export (#2488).
 export * from './operator-console.js';
 
+// Typed game-runtime attach protocol for Studio/headless devtools clients.
+export * from './attach-protocol.js';
+
 /** A plain mirror of the Rust `voxel-diagnostics` scene report (carried over the
  *  bridge as projected data — devtools never reads authority directly). */
 export interface SceneReportSummary {

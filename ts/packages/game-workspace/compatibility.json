@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "surface": "@asha/game-workspace",
+  "compatibilityVersion": "game-workspace.v0",
+  "packageVersion": "0.1.0",
+  "status": "pre-registry-local-path",
+  "manifestFile": "asha.game.toml",
+  "devtoolsProtocolVersion": "devtools-protocol.v0",
+  "publishArtifactFormatVersion": "publish-artifact.v0",
+  "sourceOfTruth": "ts/packages/game-workspace/src/index.ts",
+  "failClosedPolicy": "Consumers must stop on missing compatibility metadata, manifest/package version mismatch, unsupported devtools protocol version, or unsupported publish artifact format; do not infer compatibility from local paths or private imports.",
+  "pinningGuidance": "asha-demo and asha-studio should pin @asha/game-workspace by package path plus ASHA git commit until registry/version publishing exists and record compatibility diagnostics in evidence artifacts.",
+  "breakingChangeRequires": [
+    "game manifest validator update",
+    "golden manifest fixture update",
+    "downstream asha-demo manifest compatibility check",
+    "Studio workspace loader compatibility check",
+    "migration note for downstream consumers"
+  ]
+}

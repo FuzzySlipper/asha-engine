@@ -17,6 +17,8 @@ export * from './entity-inspector.js';
 export * from './policy-panel.js';
 // Unified operator console read model + agent-readable export (#2488).
 export * from './operator-console.js';
+// Typed game-runtime attach protocol for Studio/headless devtools clients.
+export * from './attach-protocol.js';
 /** Deterministic display lines for a scene report (pure formatter). */
 export function summarizeScene(report) {
     const lines = [

@@ -1,5 +1,5 @@
 {
-  "name": "@asha/devtools",
+  "name": "@asha/game-workspace",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -16,13 +16,8 @@
     "test": "tsc --build && node --test 'dist/**/*.test.js'"
   },
   "compatibility": {
-    "surface": "@asha/devtools",
+    "surface": "@asha/game-workspace",
     "metadataFile": "compatibility.json",
-    "changelog": "docs/consumer-compatibility.md#devtools-protocol-compatibility-log"
-  },
-  "dependencies": {
-    "@asha/contracts": "workspace:*",
-    "@asha/runtime-bridge": "workspace:*",
-    "@asha/editor-tools": "workspace:*"
+    "changelog": "docs/consumer-compatibility.md#game-workspace-compatibility-log"
   }
 }

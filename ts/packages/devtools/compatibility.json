@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "surface": "@asha/devtools",
+  "compatibilityVersion": "devtools-protocol.v0",
+  "packageVersion": "0.1.0",
+  "status": "pre-registry-local-path",
+  "protocolVersion": "devtools-protocol.v0",
+  "sourceOfTruth": "ts/packages/devtools/src/attach-protocol.ts",
+  "conformance": "runDevtoolsProtocolConformance",
+  "failClosedPolicy": "Consumers must stop on unsupported protocol version, failed handshake, missing projection, missing telemetry, missing command proposal, or missing evidence export; do not replace the typed attach protocol with method-name JSON hatches.",
+  "pinningGuidance": "asha-demo and asha-studio should pin @asha/devtools by package path or ASHA public package bundle plus git commit until registry/version publishing exists.",
+  "breakingChangeRequires": [
+    "attach protocol schema update",
+    "golden fixture update",
+    "conformance harness update",
+    "downstream asha-demo endpoint proof",
+    "Studio attach client proof"
+  ]
+}

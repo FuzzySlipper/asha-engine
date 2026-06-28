@@ -100,6 +100,8 @@ importers:
 
   packages/electron-main: {}
 
+  packages/game-workspace: {}
+
   packages/native-bridge:
     dependencies:
       '@asha/contracts':
