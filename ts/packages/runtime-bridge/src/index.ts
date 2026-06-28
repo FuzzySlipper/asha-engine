@@ -259,6 +259,174 @@ export interface RuntimeBridge {
   runReplayStep(session: ReplaySessionHandle): ReplayStepReport;
 }
 
+// ── Game runtime launcher facade types (#3653) ────────────────────────────────
+// Higher-level public types for game consumers. These describe launch/session
+// read models without granting access to raw transports or private runtime code.
+
+export type GameRuntimeMode = 'reference' | 'native' | 'degraded';
+
+export type GameRuntimeNonClaim =
+  | 'not_native_runtime'
+  | 'not_hardware_gpu'
+  | 'not_performance_evidence'
+  | 'not_publish_artifact'
+  | 'not_wasm_authority';
+
+export type GameRuntimeDiagnosticCode =
+  | 'missing_compatibility'
+  | 'missing_world_bundle'
+  | 'unsupported_runtime_entry'
+  | 'runtime_unavailable'
+  | 'operation_unimplemented'
+  | 'command_rejected'
+  | 'stale_sequence'
+  | 'stale_readback'
+  | 'internal';
+
+export interface GameRuntimeDiagnostic {
+  readonly code: GameRuntimeDiagnosticCode;
+  readonly severity: 'info' | 'warning' | 'error';
+  readonly message: string;
+}
+
+export interface GameRuntimeCompatibility {
+  readonly contractsPackageVersion: string;
+  readonly runtimeBridgePackageVersion: string;
+  readonly devtoolsProtocolVersion?: string;
+  readonly publishArtifactVersion?: string;
+}
+
+export interface GameRuntimeProfile {
+  readonly profileId: string;
+  readonly runtimeMode: GameRuntimeMode;
+  readonly launcherName: string;
+  readonly bridgeCompatibility: GameRuntimeCompatibility;
+  readonly nonClaims: readonly GameRuntimeNonClaim[];
+}
+
+export interface GameRuntimeResourceProfile {
+  readonly profileId: string;
+  readonly runtimeEntry: string;
+  readonly worldBundleId: string;
+  readonly resourceManifestHash?: string;
+  readonly estimatedBytes?: number;
+}
+
+export interface GameRuntimeEvidenceRef {
+  readonly kind: 'projection' | 'render_diff' | 'replay' | 'evidence_export' | 'telemetry' | 'diagnostic';
+  readonly id: string;
+  readonly path?: string;
+  readonly sha256?: string;
+  readonly sequenceId?: number;
+}
+
+export interface GameRuntimeConfig {
+  readonly gameId: string;
+  readonly workspaceId: string;
+  readonly runtimeEntry: string;
+  readonly compatibility: GameRuntimeCompatibility;
+  readonly resourceProfile: GameRuntimeResourceProfile;
+  readonly world: WorldLoadRequest;
+  readonly startedAtIso?: string;
+}
+
+export interface GameRuntimeIdentity {
+  readonly gameId: string;
+  readonly workspaceId: string;
+  readonly runtimeMode: GameRuntimeMode;
+  readonly runtimeEntry: string;
+  readonly startedAtIso: string;
+  readonly compatibility: GameRuntimeCompatibility;
+  readonly nonClaims: readonly GameRuntimeNonClaim[];
+}
+
+export interface GameRuntimeProjectionSummary {
+  readonly sequenceId: number;
+  readonly worldHash: string;
+  readonly authorityHash: string;
+  readonly loadedWorld: number | null;
+  readonly fatalCount: number;
+  readonly totalDiagnosticCount: number;
+  readonly evidenceRefs: readonly GameRuntimeEvidenceRef[];
+}
+
+export interface GameRuntimeLaunchResult {
+  readonly status: 'launched' | 'degraded' | 'failed';
+  readonly identity: GameRuntimeIdentity;
+  readonly runtimeProfile: GameRuntimeProfile;
+  readonly resourceProfile: GameRuntimeResourceProfile;
+  readonly projection: GameRuntimeProjectionSummary;
+  readonly diagnostics: readonly GameRuntimeDiagnostic[];
+  readonly evidenceRefs: readonly GameRuntimeEvidenceRef[];
+}
+
+export interface GameRuntimeCommandProposalResult {
+  readonly sequenceId: number;
+  readonly status: 'accepted' | 'rejected' | 'failed';
+  readonly batch: CommandBatch;
+  readonly result: CommandResult | null;
+  readonly authorityHashBefore: string;
+  readonly authorityHashAfter: string;
+  readonly diagnostics: readonly GameRuntimeDiagnostic[];
+  readonly evidenceRefs: readonly GameRuntimeEvidenceRef[];
+}
+
+export interface GameRuntimeRenderDiffSnapshot {
+  readonly sequenceId: number;
+  readonly cursor: FrameCursor;
+  readonly frame: RenderFrameDiff;
+  readonly evidenceRefs: readonly GameRuntimeEvidenceRef[];
+}
+
+export interface GameRuntimeTelemetrySnapshot {
+  readonly sequenceId: number;
+  readonly runtimeMode: GameRuntimeMode;
+  readonly acceptedCommandCount: number;
+  readonly rejectedCommandCount: number;
+  readonly diagnostics: readonly GameRuntimeDiagnostic[];
+  readonly evidenceRefs: readonly GameRuntimeEvidenceRef[];
+}
+
+export interface GameRuntimeReplayExportRequest {
+  readonly replayId: string;
+}
+
+export interface GameRuntimeReplayExport {
+  readonly replayId: string;
+  readonly sequenceId: number;
+  readonly authorityHash: string;
+  readonly evidenceRefs: readonly GameRuntimeEvidenceRef[];
+}
+
+export interface GameRuntimeEvidenceExportRequest {
+  readonly evidenceId: string;
+}
+
+export interface GameRuntimeEvidenceExport {
+  readonly evidenceId: string;
+  readonly sequenceId: number;
+  readonly projection: GameRuntimeProjectionSummary;
+  readonly nonClaims: readonly GameRuntimeNonClaim[];
+  readonly evidenceRefs: readonly GameRuntimeEvidenceRef[];
+}
+
+export interface GameRuntimeSession {
+  readonly launch: GameRuntimeLaunchResult;
+  readonly identity: GameRuntimeIdentity;
+  pullProjection(): Promise<GameRuntimeProjectionSummary>;
+  pullRenderDiff(cursor?: FrameCursor): Promise<GameRuntimeRenderDiffSnapshot>;
+  pullTelemetry(): Promise<GameRuntimeTelemetrySnapshot>;
+  proposeCommands(batch: CommandBatch): Promise<GameRuntimeCommandProposalResult>;
+  exportReplay(request: GameRuntimeReplayExportRequest): Promise<GameRuntimeReplayExport>;
+  exportEvidence(request: GameRuntimeEvidenceExportRequest): Promise<GameRuntimeEvidenceExport>;
+  shutdown(): Promise<void>;
+}
+
+export interface GameRuntimeLauncher {
+  readonly mode: GameRuntimeMode;
+  launch(config: GameRuntimeConfig): Promise<GameRuntimeSession>;
+}
+
 // ── Mock implementation ───────────────────────────────────────────────────────
 // Targets the facade so most TS tests need no addon load. Behaviour mirrors the
 // Rust `ReferenceBridge` so native/mock parity is meaningful.
@@ -640,11 +808,18 @@ export class MockRuntimeBridge implements RuntimeBridge {
     if (this.#engine === null) {
       throw new RuntimeBridgeError('not_initialized', 'submitCommands before initializeEngine');
     }
-    // The mock is a transport stand-in, NOT authority: it does not re-validate the
-    // voxel edit (Rust `rule-voxel-edit` owns that, exercised on the native path).
-    // It fail-closes on transport preconditions (init) and accepts well-typed
-    // commands, returning the classified result shape with no rejections.
-    return { accepted: batch.commands.length, rejected: 0, rejections: [] };
+    const rejections: Array<CommandResult['rejections'][number]> = [];
+    for (const command of batch.commands) {
+      const value = command.op === 'setVoxel' || command.op === 'fillRegion' ? command.value : null;
+      if (value?.kind === 'solid' && (value.material < 1 || value.material > 16)) {
+        rejections.push({ reason: 'unknownMaterial', material: value.material });
+      }
+    }
+    return {
+      accepted: batch.commands.length - rejections.length,
+      rejected: rejections.length,
+      rejections,
+    };
   }
 
   pickVoxel(ray: PickRay): PickResult {
@@ -1058,6 +1233,215 @@ export class MockRuntimeBridge implements RuntimeBridge {
 /** Construct the default mock bridge. */
 export function createMockRuntimeBridge(): RuntimeBridge {
   return new MockRuntimeBridge();
+}
+
+function requireNonEmpty(value: string, field: string): string {
+  if (value.trim().length === 0) {
+    throw new RuntimeBridgeError('invalid_input', `${field} must be a non-empty string`);
+  }
+  return value;
+}
+
+function referenceNonClaims(): readonly GameRuntimeNonClaim[] {
+  return ['not_native_runtime', 'not_hardware_gpu', 'not_performance_evidence', 'not_publish_artifact', 'not_wasm_authority'];
+}
+
+function referenceRuntimeProfile(config: GameRuntimeConfig): GameRuntimeProfile {
+  return {
+    profileId: 'reference.launcher.v1',
+    runtimeMode: 'reference',
+    launcherName: 'reference-game-runtime-launcher',
+    bridgeCompatibility: config.compatibility,
+    nonClaims: referenceNonClaims(),
+  };
+}
+
+function projectionSummary(
+  config: GameRuntimeConfig,
+  status: CompositionStatus,
+  sequenceId: number,
+  acceptedCommandCount: number,
+): GameRuntimeProjectionSummary {
+  const loadedWorld = status.loadedWorld;
+  const worldHash = `reference-world:${config.gameId}:${loadedWorld ?? 'none'}:accepted:${acceptedCommandCount}`;
+  const authorityHash = `reference-authority:${config.workspaceId}:${loadedWorld ?? 'none'}:accepted:${acceptedCommandCount}`;
+  return {
+    sequenceId,
+    worldHash,
+    authorityHash,
+    loadedWorld,
+    fatalCount: status.fatalCount,
+    totalDiagnosticCount: status.totalCount,
+    evidenceRefs: [{ kind: 'projection', id: `projection:${sequenceId}`, sequenceId }],
+  };
+}
+
+class ReferenceGameRuntimeSession implements GameRuntimeSession {
+  readonly identity: GameRuntimeIdentity;
+  readonly launch: GameRuntimeLaunchResult;
+  #sequenceId = 0;
+  #acceptedCommandCount = 0;
+  #rejectedCommandCount = 0;
+  #shutdown = false;
+
+  constructor(
+    private readonly bridge: RuntimeBridge,
+    private readonly config: GameRuntimeConfig,
+    runtimeProfile: GameRuntimeProfile,
+    initialStatus: CompositionStatus,
+  ) {
+    const startedAtIso = config.startedAtIso ?? new Date(0).toISOString();
+    this.identity = {
+      gameId: config.gameId,
+      workspaceId: config.workspaceId,
+      runtimeMode: 'reference',
+      runtimeEntry: config.runtimeEntry,
+      startedAtIso,
+      compatibility: config.compatibility,
+      nonClaims: runtimeProfile.nonClaims,
+    };
+    const projection = projectionSummary(config, initialStatus, this.#sequenceId, this.#acceptedCommandCount);
+    this.launch = {
+      status: 'launched',
+      identity: this.identity,
+      runtimeProfile,
+      resourceProfile: config.resourceProfile,
+      projection,
+      diagnostics: [],
+      evidenceRefs: projection.evidenceRefs,
+    };
+  }
+
+  async pullProjection(): Promise<GameRuntimeProjectionSummary> {
+    this.#assertOpen();
+    return projectionSummary(this.config, this.bridge.getCompositionStatus(), this.#sequenceId, this.#acceptedCommandCount);
+  }
+
+  async pullRenderDiff(cursor: FrameCursor = frameCursor(0)): Promise<GameRuntimeRenderDiffSnapshot> {
+    this.#assertOpen();
+    const frame = this.bridge.readRenderDiffs(cursor);
+    return {
+      sequenceId: this.#sequenceId,
+      cursor,
+      frame,
+      evidenceRefs: [{ kind: 'render_diff', id: `render-diff:${cursor as number}`, sequenceId: this.#sequenceId }],
+    };
+  }
+
+  async pullTelemetry(): Promise<GameRuntimeTelemetrySnapshot> {
+    this.#assertOpen();
+    return {
+      sequenceId: this.#sequenceId,
+      runtimeMode: 'reference',
+      acceptedCommandCount: this.#acceptedCommandCount,
+      rejectedCommandCount: this.#rejectedCommandCount,
+      diagnostics: [],
+      evidenceRefs: [{ kind: 'telemetry', id: `telemetry:${this.#sequenceId}`, sequenceId: this.#sequenceId }],
+    };
+  }
+
+  async proposeCommands(batch: CommandBatch): Promise<GameRuntimeCommandProposalResult> {
+    this.#assertOpen();
+    const before = await this.pullProjection();
+    this.#sequenceId += 1;
+    try {
+      const result = this.bridge.submitCommands(batch);
+      this.#acceptedCommandCount += result.accepted;
+      this.#rejectedCommandCount += result.rejected;
+      const after = await this.pullProjection();
+      return {
+        sequenceId: this.#sequenceId,
+        status: result.rejected > 0 ? 'rejected' : 'accepted',
+        batch,
+        result,
+        authorityHashBefore: before.authorityHash,
+        authorityHashAfter: after.authorityHash,
+        diagnostics: result.rejections.map((rejection, index) => ({
+          code: 'command_rejected' as const,
+          severity: 'warning' as const,
+          message: `command ${index} rejected: ${rejection.reason}`,
+        })),
+        evidenceRefs: [{ kind: 'replay', id: `command:${this.#sequenceId}`, sequenceId: this.#sequenceId }],
+      };
+    } catch (cause) {
+      const error = cause instanceof RuntimeBridgeError ? cause : new RuntimeBridgeError('internal', String(cause));
+      const after = await this.pullProjection();
+      return {
+        sequenceId: this.#sequenceId,
+        status: 'failed',
+        batch,
+        result: null,
+        authorityHashBefore: before.authorityHash,
+        authorityHashAfter: after.authorityHash,
+        diagnostics: [{ code: 'internal', severity: 'error', message: error.message }],
+        evidenceRefs: [{ kind: 'diagnostic', id: `command-failed:${this.#sequenceId}`, sequenceId: this.#sequenceId }],
+      };
+    }
+  }
+
+  async exportReplay(request: GameRuntimeReplayExportRequest): Promise<GameRuntimeReplayExport> {
+    this.#assertOpen();
+    requireNonEmpty(request.replayId, 'replayId');
+    const projection = await this.pullProjection();
+    return {
+      replayId: request.replayId,
+      sequenceId: this.#sequenceId,
+      authorityHash: projection.authorityHash,
+      evidenceRefs: [{ kind: 'replay', id: request.replayId, sequenceId: this.#sequenceId }],
+    };
+  }
+
+  async exportEvidence(request: GameRuntimeEvidenceExportRequest): Promise<GameRuntimeEvidenceExport> {
+    this.#assertOpen();
+    requireNonEmpty(request.evidenceId, 'evidenceId');
+    const projection = await this.pullProjection();
+    return {
+      evidenceId: request.evidenceId,
+      sequenceId: this.#sequenceId,
+      projection,
+      nonClaims: this.identity.nonClaims,
+      evidenceRefs: [{ kind: 'evidence_export', id: request.evidenceId, sequenceId: this.#sequenceId }],
+    };
+  }
+
+  async shutdown(): Promise<void> {
+    if (this.#shutdown) return;
+    this.bridge.unloadWorld();
+    this.#shutdown = true;
+  }
+
+  #assertOpen(): void {
+    if (this.#shutdown) {
+      throw new RuntimeBridgeError('not_initialized', 'game runtime session has been shut down');
+    }
+  }
+}
+
+export class ReferenceGameRuntimeLauncher implements GameRuntimeLauncher {
+  readonly mode = 'reference';
+
+  async launch(config: GameRuntimeConfig): Promise<GameRuntimeSession> {
+    requireNonEmpty(config.gameId, 'gameId');
+    requireNonEmpty(config.workspaceId, 'workspaceId');
+    requireNonEmpty(config.runtimeEntry, 'runtimeEntry');
+    requireNonEmpty(config.compatibility.contractsPackageVersion, 'compatibility.contractsPackageVersion');
+    requireNonEmpty(config.compatibility.runtimeBridgePackageVersion, 'compatibility.runtimeBridgePackageVersion');
+    if (config.runtimeEntry !== config.resourceProfile.runtimeEntry) {
+      throw new RuntimeBridgeError('invalid_input', 'runtimeEntry must match resourceProfile.runtimeEntry');
+    }
+
+    const bridge = createMockRuntimeBridge();
+    bridge.initializeEngine({ seed: config.world.sceneId });
+    const status = bridge.loadWorldBundle(config.world);
+    if (status.blocksLoad || status.loadedWorld === null) {
+      throw new RuntimeBridgeError('invalid_input', 'world bundle failed to load for reference launcher');
+    }
+    return new ReferenceGameRuntimeSession(bridge, config, referenceRuntimeProfile(config), status);
+  }
+}
+
+export function createReferenceGameRuntimeLauncher(): GameRuntimeLauncher {
+  return new ReferenceGameRuntimeLauncher();
 }
 
 // ── Native implementation factory ─────────────────────────────────────────────

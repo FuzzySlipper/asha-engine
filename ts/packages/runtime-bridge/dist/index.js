@@ -377,11 +377,18 @@ export class MockRuntimeBridge {
         if (this.#engine === null) {
             throw new RuntimeBridgeError('not_initialized', 'submitCommands before initializeEngine');
         }
-        // The mock is a transport stand-in, NOT authority: it does not re-validate the
-        // voxel edit (Rust `rule-voxel-edit` owns that, exercised on the native path).
-        // It fail-closes on transport preconditions (init) and accepts well-typed
-        // commands, returning the classified result shape with no rejections.
-        return { accepted: batch.commands.length, rejected: 0, rejections: [] };
+        const rejections = [];
+        for (const command of batch.commands) {
+            const value = command.op === 'setVoxel' || command.op === 'fillRegion' ? command.value : null;
+            if (value?.kind === 'solid' && (value.material < 1 || value.material > 16)) {
+                rejections.push({ reason: 'unknownMaterial', material: value.material });
+            }
+        }
+        return {
+            accepted: batch.commands.length - rejections.length,
+            rejected: rejections.length,
+            rejections,
+        };
     }
     pickVoxel(ray) {
         if (this.#engine === null) {
@@ -758,6 +765,193 @@ export class MockRuntimeBridge {
 /** Construct the default mock bridge. */
 export function createMockRuntimeBridge() {
     return new MockRuntimeBridge();
+}
+function requireNonEmpty(value, field) {
+    if (value.trim().length === 0) {
+        throw new RuntimeBridgeError('invalid_input', `${field} must be a non-empty string`);
+    }
+    return value;
+}
+function referenceNonClaims() {
+    return ['not_native_runtime', 'not_hardware_gpu', 'not_performance_evidence', 'not_publish_artifact', 'not_wasm_authority'];
+}
+function referenceRuntimeProfile(config) {
+    return {
+        profileId: 'reference.launcher.v1',
+        runtimeMode: 'reference',
+        launcherName: 'reference-game-runtime-launcher',
+        bridgeCompatibility: config.compatibility,
+        nonClaims: referenceNonClaims(),
+    };
+}
+function projectionSummary(config, status, sequenceId, acceptedCommandCount) {
+    const loadedWorld = status.loadedWorld;
+    const worldHash = `reference-world:${config.gameId}:${loadedWorld ?? 'none'}:accepted:${acceptedCommandCount}`;
+    const authorityHash = `reference-authority:${config.workspaceId}:${loadedWorld ?? 'none'}:accepted:${acceptedCommandCount}`;
+    return {
+        sequenceId,
+        worldHash,
+        authorityHash,
+        loadedWorld,
+        fatalCount: status.fatalCount,
+        totalDiagnosticCount: status.totalCount,
+        evidenceRefs: [{ kind: 'projection', id: `projection:${sequenceId}`, sequenceId }],
+    };
+}
+class ReferenceGameRuntimeSession {
+    bridge;
+    config;
+    identity;
+    launch;
+    #sequenceId = 0;
+    #acceptedCommandCount = 0;
+    #rejectedCommandCount = 0;
+    #shutdown = false;
+    constructor(bridge, config, runtimeProfile, initialStatus) {
+        this.bridge = bridge;
+        this.config = config;
+        const startedAtIso = config.startedAtIso ?? new Date(0).toISOString();
+        this.identity = {
+            gameId: config.gameId,
+            workspaceId: config.workspaceId,
+            runtimeMode: 'reference',
+            runtimeEntry: config.runtimeEntry,
+            startedAtIso,
+            compatibility: config.compatibility,
+            nonClaims: runtimeProfile.nonClaims,
+        };
+        const projection = projectionSummary(config, initialStatus, this.#sequenceId, this.#acceptedCommandCount);
+        this.launch = {
+            status: 'launched',
+            identity: this.identity,
+            runtimeProfile,
+            resourceProfile: config.resourceProfile,
+            projection,
+            diagnostics: [],
+            evidenceRefs: projection.evidenceRefs,
+        };
+    }
+    async pullProjection() {
+        this.#assertOpen();
+        return projectionSummary(this.config, this.bridge.getCompositionStatus(), this.#sequenceId, this.#acceptedCommandCount);
+    }
+    async pullRenderDiff(cursor = frameCursor(0)) {
+        this.#assertOpen();
+        const frame = this.bridge.readRenderDiffs(cursor);
+        return {
+            sequenceId: this.#sequenceId,
+            cursor,
+            frame,
+            evidenceRefs: [{ kind: 'render_diff', id: `render-diff:${cursor}`, sequenceId: this.#sequenceId }],
+        };
+    }
+    async pullTelemetry() {
+        this.#assertOpen();
+        return {
+            sequenceId: this.#sequenceId,
+            runtimeMode: 'reference',
+            acceptedCommandCount: this.#acceptedCommandCount,
+            rejectedCommandCount: this.#rejectedCommandCount,
+            diagnostics: [],
+            evidenceRefs: [{ kind: 'telemetry', id: `telemetry:${this.#sequenceId}`, sequenceId: this.#sequenceId }],
+        };
+    }
+    async proposeCommands(batch) {
+        this.#assertOpen();
+        const before = await this.pullProjection();
+        this.#sequenceId += 1;
+        try {
+            const result = this.bridge.submitCommands(batch);
+            this.#acceptedCommandCount += result.accepted;
+            this.#rejectedCommandCount += result.rejected;
+            const after = await this.pullProjection();
+            return {
+                sequenceId: this.#sequenceId,
+                status: result.rejected > 0 ? 'rejected' : 'accepted',
+                batch,
+                result,
+                authorityHashBefore: before.authorityHash,
+                authorityHashAfter: after.authorityHash,
+                diagnostics: result.rejections.map((rejection, index) => ({
+                    code: 'command_rejected',
+                    severity: 'warning',
+                    message: `command ${index} rejected: ${rejection.reason}`,
+                })),
+                evidenceRefs: [{ kind: 'replay', id: `command:${this.#sequenceId}`, sequenceId: this.#sequenceId }],
+            };
+        }
+        catch (cause) {
+            const error = cause instanceof RuntimeBridgeError ? cause : new RuntimeBridgeError('internal', String(cause));
+            const after = await this.pullProjection();
+            return {
+                sequenceId: this.#sequenceId,
+                status: 'failed',
+                batch,
+                result: null,
+                authorityHashBefore: before.authorityHash,
+                authorityHashAfter: after.authorityHash,
+                diagnostics: [{ code: 'internal', severity: 'error', message: error.message }],
+                evidenceRefs: [{ kind: 'diagnostic', id: `command-failed:${this.#sequenceId}`, sequenceId: this.#sequenceId }],
+            };
+        }
+    }
+    async exportReplay(request) {
+        this.#assertOpen();
+        requireNonEmpty(request.replayId, 'replayId');
+        const projection = await this.pullProjection();
+        return {
+            replayId: request.replayId,
+            sequenceId: this.#sequenceId,
+            authorityHash: projection.authorityHash,
+            evidenceRefs: [{ kind: 'replay', id: request.replayId, sequenceId: this.#sequenceId }],
+        };
+    }
+    async exportEvidence(request) {
+        this.#assertOpen();
+        requireNonEmpty(request.evidenceId, 'evidenceId');
+        const projection = await this.pullProjection();
+        return {
+            evidenceId: request.evidenceId,
+            sequenceId: this.#sequenceId,
+            projection,
+            nonClaims: this.identity.nonClaims,
+            evidenceRefs: [{ kind: 'evidence_export', id: request.evidenceId, sequenceId: this.#sequenceId }],
+        };
+    }
+    async shutdown() {
+        if (this.#shutdown)
+            return;
+        this.bridge.unloadWorld();
+        this.#shutdown = true;
+    }
+    #assertOpen() {
+        if (this.#shutdown) {
+            throw new RuntimeBridgeError('not_initialized', 'game runtime session has been shut down');
+        }
+    }
+}
+export class ReferenceGameRuntimeLauncher {
+    mode = 'reference';
+    async launch(config) {
+        requireNonEmpty(config.gameId, 'gameId');
+        requireNonEmpty(config.workspaceId, 'workspaceId');
+        requireNonEmpty(config.runtimeEntry, 'runtimeEntry');
+        requireNonEmpty(config.compatibility.contractsPackageVersion, 'compatibility.contractsPackageVersion');
+        requireNonEmpty(config.compatibility.runtimeBridgePackageVersion, 'compatibility.runtimeBridgePackageVersion');
+        if (config.runtimeEntry !== config.resourceProfile.runtimeEntry) {
+            throw new RuntimeBridgeError('invalid_input', 'runtimeEntry must match resourceProfile.runtimeEntry');
+        }
+        const bridge = createMockRuntimeBridge();
+        bridge.initializeEngine({ seed: config.world.sceneId });
+        const status = bridge.loadWorldBundle(config.world);
+        if (status.blocksLoad || status.loadedWorld === null) {
+            throw new RuntimeBridgeError('invalid_input', 'world bundle failed to load for reference launcher');
+        }
+        return new ReferenceGameRuntimeSession(bridge, config, referenceRuntimeProfile(config), status);
+    }
+}
+export function createReferenceGameRuntimeLauncher() {
+    return new ReferenceGameRuntimeLauncher();
 }
 // ── Native implementation factory ─────────────────────────────────────────────
 // The ONLY place that touches `@asha/native-bridge`. Wraps the addon's wired

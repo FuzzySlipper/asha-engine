@@ -128,6 +128,135 @@ export interface RuntimeBridge {
     loadReplayFixture(fixture: ReplayFixture): ReplaySessionHandle;
     runReplayStep(session: ReplaySessionHandle): ReplayStepReport;
 }
+export type GameRuntimeMode = 'reference' | 'native' | 'degraded';
+export type GameRuntimeNonClaim = 'not_native_runtime' | 'not_hardware_gpu' | 'not_performance_evidence' | 'not_publish_artifact' | 'not_wasm_authority';
+export type GameRuntimeDiagnosticCode = 'missing_compatibility' | 'missing_world_bundle' | 'unsupported_runtime_entry' | 'runtime_unavailable' | 'operation_unimplemented' | 'command_rejected' | 'stale_sequence' | 'stale_readback' | 'internal';
+export interface GameRuntimeDiagnostic {
+    readonly code: GameRuntimeDiagnosticCode;
+    readonly severity: 'info' | 'warning' | 'error';
+    readonly message: string;
+}
+export interface GameRuntimeCompatibility {
+    readonly contractsPackageVersion: string;
+    readonly runtimeBridgePackageVersion: string;
+    readonly devtoolsProtocolVersion?: string;
+    readonly publishArtifactVersion?: string;
+}
+export interface GameRuntimeProfile {
+    readonly profileId: string;
+    readonly runtimeMode: GameRuntimeMode;
+    readonly launcherName: string;
+    readonly bridgeCompatibility: GameRuntimeCompatibility;
+    readonly nonClaims: readonly GameRuntimeNonClaim[];
+}
+export interface GameRuntimeResourceProfile {
+    readonly profileId: string;
+    readonly runtimeEntry: string;
+    readonly worldBundleId: string;
+    readonly resourceManifestHash?: string;
+    readonly estimatedBytes?: number;
+}
+export interface GameRuntimeEvidenceRef {
+    readonly kind: 'projection' | 'render_diff' | 'replay' | 'evidence_export' | 'telemetry' | 'diagnostic';
+    readonly id: string;
+    readonly path?: string;
+    readonly sha256?: string;
+    readonly sequenceId?: number;
+}
+export interface GameRuntimeConfig {
+    readonly gameId: string;
+    readonly workspaceId: string;
+    readonly runtimeEntry: string;
+    readonly compatibility: GameRuntimeCompatibility;
+    readonly resourceProfile: GameRuntimeResourceProfile;
+    readonly world: WorldLoadRequest;
+    readonly startedAtIso?: string;
+}
+export interface GameRuntimeIdentity {
+    readonly gameId: string;
+    readonly workspaceId: string;
+    readonly runtimeMode: GameRuntimeMode;
+    readonly runtimeEntry: string;
+    readonly startedAtIso: string;
+    readonly compatibility: GameRuntimeCompatibility;
+    readonly nonClaims: readonly GameRuntimeNonClaim[];
+}
+export interface GameRuntimeProjectionSummary {
+    readonly sequenceId: number;
+    readonly worldHash: string;
+    readonly authorityHash: string;
+    readonly loadedWorld: number | null;
+    readonly fatalCount: number;
+    readonly totalDiagnosticCount: number;
+    readonly evidenceRefs: readonly GameRuntimeEvidenceRef[];
+}
+export interface GameRuntimeLaunchResult {
+    readonly status: 'launched' | 'degraded' | 'failed';
+    readonly identity: GameRuntimeIdentity;
+    readonly runtimeProfile: GameRuntimeProfile;
+    readonly resourceProfile: GameRuntimeResourceProfile;
+    readonly projection: GameRuntimeProjectionSummary;
+    readonly diagnostics: readonly GameRuntimeDiagnostic[];
+    readonly evidenceRefs: readonly GameRuntimeEvidenceRef[];
+}
+export interface GameRuntimeCommandProposalResult {
+    readonly sequenceId: number;
+    readonly status: 'accepted' | 'rejected' | 'failed';
+    readonly batch: CommandBatch;
+    readonly result: CommandResult | null;
+    readonly authorityHashBefore: string;
+    readonly authorityHashAfter: string;
+    readonly diagnostics: readonly GameRuntimeDiagnostic[];
+    readonly evidenceRefs: readonly GameRuntimeEvidenceRef[];
+}
+export interface GameRuntimeRenderDiffSnapshot {
+    readonly sequenceId: number;
+    readonly cursor: FrameCursor;
+    readonly frame: RenderFrameDiff;
+    readonly evidenceRefs: readonly GameRuntimeEvidenceRef[];
+}
+export interface GameRuntimeTelemetrySnapshot {
+    readonly sequenceId: number;
+    readonly runtimeMode: GameRuntimeMode;
+    readonly acceptedCommandCount: number;
+    readonly rejectedCommandCount: number;
+    readonly diagnostics: readonly GameRuntimeDiagnostic[];
+    readonly evidenceRefs: readonly GameRuntimeEvidenceRef[];
+}
+export interface GameRuntimeReplayExportRequest {
+    readonly replayId: string;
+}
+export interface GameRuntimeReplayExport {
+    readonly replayId: string;
+    readonly sequenceId: number;
+    readonly authorityHash: string;
+    readonly evidenceRefs: readonly GameRuntimeEvidenceRef[];
+}
+export interface GameRuntimeEvidenceExportRequest {
+    readonly evidenceId: string;
+}
+export interface GameRuntimeEvidenceExport {
+    readonly evidenceId: string;
+    readonly sequenceId: number;
+    readonly projection: GameRuntimeProjectionSummary;
+    readonly nonClaims: readonly GameRuntimeNonClaim[];
+    readonly evidenceRefs: readonly GameRuntimeEvidenceRef[];
+}
+export interface GameRuntimeSession {
+    readonly launch: GameRuntimeLaunchResult;
+    readonly identity: GameRuntimeIdentity;
+    pullProjection(): Promise<GameRuntimeProjectionSummary>;
+    pullRenderDiff(cursor?: FrameCursor): Promise<GameRuntimeRenderDiffSnapshot>;
+    pullTelemetry(): Promise<GameRuntimeTelemetrySnapshot>;
+    proposeCommands(batch: CommandBatch): Promise<GameRuntimeCommandProposalResult>;
+    exportReplay(request: GameRuntimeReplayExportRequest): Promise<GameRuntimeReplayExport>;
+    exportEvidence(request: GameRuntimeEvidenceExportRequest): Promise<GameRuntimeEvidenceExport>;
+    shutdown(): Promise<void>;
+}
+export interface GameRuntimeLauncher {
+    readonly mode: GameRuntimeMode;
+    launch(config: GameRuntimeConfig): Promise<GameRuntimeSession>;
+}
 export declare class MockRuntimeBridge implements RuntimeBridge {
     #private;
     initializeEngine(config: EngineConfig): EngineHandle;
@@ -155,6 +284,11 @@ export declare class MockRuntimeBridge implements RuntimeBridge {
 }
 /** Construct the default mock bridge. */
 export declare function createMockRuntimeBridge(): RuntimeBridge;
+export declare class ReferenceGameRuntimeLauncher implements GameRuntimeLauncher {
+    readonly mode = "reference";
+    launch(config: GameRuntimeConfig): Promise<GameRuntimeSession>;
+}
+export declare function createReferenceGameRuntimeLauncher(): GameRuntimeLauncher;
 /**
  * Manifest names of operations whose native (`#[napi]`) implementation is actually
  * wired. Everything else on {@link NativeRuntimeBridge} fail-closes with

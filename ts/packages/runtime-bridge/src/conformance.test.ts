@@ -53,7 +53,14 @@ import {
   RuntimeBridgeError,
   createMockRuntimeBridge,
   createNativeRuntimeBridge,
+  createReferenceGameRuntimeLauncher,
   frameCursor,
+  type GameRuntimeCommandProposalResult,
+  type GameRuntimeConfig,
+  type GameRuntimeLaunchResult,
+  type GameRuntimeProfile,
+  type GameRuntimeProjectionSummary,
+  type GameRuntimeResourceProfile,
   type ModelMaterialPreviewRequest,
   type RuntimeBufferHandle,
 } from './index.js';
@@ -75,6 +82,171 @@ test('facade exposes exactly the manifest operations (conformance)', () => {
     proto.filter((n) => !known.has(n)),
     [],
     'mock must not expose methods outside the manifest',
+  );
+});
+
+test('game runtime launcher public DTOs compile as package-root consumer fixtures', () => {
+  const compatibility = {
+    contractsPackageVersion: '0.1.0',
+    runtimeBridgePackageVersion: '0.1.0',
+    devtoolsProtocolVersion: 'devtools-protocol.v0',
+    publishArtifactVersion: 'publish-artifact.v0',
+  };
+  const resourceProfile: GameRuntimeResourceProfile = {
+    profileId: 'demo.reference.resources.v1',
+    runtimeEntry: 'harness/conformance/fixtures/minimal-world.json',
+    worldBundleId: 'world.minimal',
+    resourceManifestHash: 'sha256-resource-profile',
+    estimatedBytes: 4096,
+  };
+  const config: GameRuntimeConfig = {
+    gameId: 'asha-demo',
+    workspaceId: 'workspace.local',
+    runtimeEntry: resourceProfile.runtimeEntry,
+    compatibility,
+    resourceProfile,
+    world: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 7 },
+    startedAtIso: '2026-06-28T00:00:00.000Z',
+  };
+  const runtimeProfile: GameRuntimeProfile = {
+    profileId: 'reference.launcher.v1',
+    runtimeMode: 'reference',
+    launcherName: 'reference-game-runtime-launcher',
+    bridgeCompatibility: compatibility,
+    nonClaims: ['not_native_runtime', 'not_hardware_gpu', 'not_performance_evidence', 'not_publish_artifact'],
+  };
+  const projection: GameRuntimeProjectionSummary = {
+    sequenceId: 0,
+    worldHash: 'world:minimal:0',
+    authorityHash: 'authority:minimal:0',
+    loadedWorld: config.world.sceneId,
+    fatalCount: 0,
+    totalDiagnosticCount: 0,
+    evidenceRefs: [{ kind: 'projection', id: 'projection:0', sequenceId: 0 }],
+  };
+  const launch: GameRuntimeLaunchResult = {
+    status: 'launched',
+    identity: {
+      gameId: config.gameId,
+      workspaceId: config.workspaceId,
+      runtimeMode: 'reference',
+      runtimeEntry: config.runtimeEntry,
+      startedAtIso: config.startedAtIso ?? '2026-06-28T00:00:00.000Z',
+      compatibility,
+      nonClaims: runtimeProfile.nonClaims,
+    },
+    runtimeProfile,
+    resourceProfile,
+    projection,
+    diagnostics: [],
+    evidenceRefs: projection.evidenceRefs,
+  };
+  const commandProposal: GameRuntimeCommandProposalResult = {
+    sequenceId: 1,
+    status: 'accepted',
+    batch: { commands: [] },
+    result: { accepted: 0, rejected: 0, rejections: [] },
+    authorityHashBefore: launch.projection.authorityHash,
+    authorityHashAfter: 'authority:minimal:1',
+    diagnostics: [],
+    evidenceRefs: [{ kind: 'replay', id: 'replay:1', sequenceId: 1 }],
+  };
+
+  assert.equal(launch.identity.runtimeMode, 'reference');
+  assert.equal(commandProposal.status, 'accepted');
+});
+
+test('reference game runtime launcher launches fixture and advances command projection', async () => {
+  const launcher = createReferenceGameRuntimeLauncher();
+  const config: GameRuntimeConfig = {
+    gameId: 'asha-demo',
+    workspaceId: 'workspace.local',
+    runtimeEntry: 'harness/conformance/fixtures/minimal-world.json',
+    compatibility: {
+      contractsPackageVersion: '0.1.0',
+      runtimeBridgePackageVersion: '0.1.0',
+      devtoolsProtocolVersion: 'devtools-protocol.v0',
+      publishArtifactVersion: 'publish-artifact.v0',
+    },
+    resourceProfile: {
+      profileId: 'demo.reference.resources.v1',
+      runtimeEntry: 'harness/conformance/fixtures/minimal-world.json',
+      worldBundleId: 'world.minimal',
+      resourceManifestHash: 'sha256-resource-profile',
+    },
+    world: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 7 },
+    startedAtIso: '2026-06-28T00:00:00.000Z',
+  };
+
+  const session = await launcher.launch(config);
+  assert.equal(launcher.mode, 'reference');
+  assert.equal(session.identity.runtimeMode, 'reference');
+  assert.ok(session.identity.nonClaims.includes('not_native_runtime'));
+  assert.ok(!session.identity.nonClaims.includes('not_publish_artifact') || session.identity.runtimeMode === 'reference');
+
+  const before = await session.pullProjection();
+  const command: VoxelCommand = {
+    op: 'setVoxel',
+    grid: 1,
+    coord: { x: 0, y: 0, z: 0 },
+    value: { kind: 'solid', material: 1 },
+  };
+  const receipt = await session.proposeCommands({ commands: [command] });
+  const after = await session.pullProjection();
+  assert.equal(receipt.status, 'accepted');
+  assert.equal(receipt.result?.accepted, 1);
+  assert.equal(receipt.authorityHashBefore, before.authorityHash);
+  assert.equal(receipt.authorityHashAfter, after.authorityHash);
+  assert.notEqual(after.authorityHash, before.authorityHash);
+
+  const rejected = await session.proposeCommands({
+    commands: [{
+      op: 'setVoxel',
+      grid: 1,
+      coord: { x: 0, y: 0, z: 0 },
+      value: { kind: 'solid', material: 999 },
+    }],
+  });
+  const afterRejected = await session.pullProjection();
+  assert.equal(rejected.status, 'rejected');
+  assert.equal(rejected.result?.accepted, 0);
+  assert.equal(rejected.result?.rejected, 1);
+  assert.equal(rejected.authorityHashBefore, after.authorityHash);
+  assert.equal(rejected.authorityHashAfter, after.authorityHash);
+  assert.equal(afterRejected.authorityHash, after.authorityHash);
+
+  const telemetry = await session.pullTelemetry();
+  assert.equal(telemetry.runtimeMode, 'reference');
+  assert.equal(telemetry.acceptedCommandCount, 1);
+  assert.equal(telemetry.rejectedCommandCount, 1);
+
+  const evidence = await session.exportEvidence({ evidenceId: 'evidence:reference-launch' });
+  assert.equal(evidence.sequenceId, afterRejected.sequenceId);
+  assert.ok(evidence.nonClaims.includes('not_hardware_gpu'));
+
+  await session.shutdown();
+});
+
+test('reference game runtime launcher fails closed on unsupported world bundle', async () => {
+  const launcher = createReferenceGameRuntimeLauncher();
+  await assert.rejects(
+    () =>
+      launcher.launch({
+        gameId: 'asha-demo',
+        workspaceId: 'workspace.local',
+        runtimeEntry: 'harness/conformance/fixtures/minimal-world.json',
+        compatibility: {
+          contractsPackageVersion: '0.1.0',
+          runtimeBridgePackageVersion: '0.1.0',
+        },
+        resourceProfile: {
+          profileId: 'demo.reference.resources.v1',
+          runtimeEntry: 'harness/conformance/fixtures/minimal-world.json',
+          worldBundleId: 'world.minimal',
+        },
+        world: { bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 7 },
+      }),
+    (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input',
   );
 });
 
