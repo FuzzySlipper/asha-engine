@@ -375,6 +375,493 @@
     }
   },
   {
+    "id": "workspace.open_game_manifest",
+    "version": 1,
+    "label": "Open Game Workspace",
+    "summary": "Open a game workspace manifest into Studio as a typed readout before live runtime attach.",
+    "category": "workspace",
+    "menuPath": [
+      "File",
+      "Open Game Workspace"
+    ],
+    "commandPalette": {
+      "visible": true,
+      "keywords": [
+        "workspace",
+        "game",
+        "manifest",
+        "open"
+      ]
+    },
+    "inputSchema": {
+      "name": "GameWorkspaceManifestInput",
+      "version": 1,
+      "shape": {
+        "kind": "object",
+        "allowExtraFields": false,
+        "fields": [
+          {
+            "name": "workspaceRoot",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Absolute or workspace-resolved game workspace root selected by the caller."
+          },
+          {
+            "name": "manifestPath",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Manifest path inside the workspace root."
+          }
+        ]
+      }
+    },
+    "outputSchema": {
+      "name": "GameWorkspaceOpenOutput",
+      "version": 1,
+      "shape": {
+        "kind": "object",
+        "allowExtraFields": false,
+        "fields": [
+          {
+            "name": "workspaceVersion",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Studio game workspace read model version."
+          },
+          {
+            "name": "workspaceRoot",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Opened game workspace root."
+          },
+          {
+            "name": "manifestPath",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Manifest path inside the workspace root."
+          },
+          {
+            "name": "gameId",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Stable game identity read from the workspace adapter metadata."
+          },
+          {
+            "name": "engineVersion",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Required ASHA engine compatibility version from the manifest."
+          },
+          {
+            "name": "contractsVersion",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Required ASHA contracts compatibility version from the manifest."
+          },
+          {
+            "name": "runtimeBridgeVersion",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Required runtime bridge compatibility version from the manifest."
+          },
+          {
+            "name": "devtoolsProtocolVersion",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Required devtools protocol compatibility version from the manifest."
+          },
+          {
+            "name": "sceneRoots",
+            "required": true,
+            "shape": {
+              "kind": "array",
+              "items": {
+                "kind": "scalar",
+                "scalar": "string"
+              }
+            },
+            "summary": "Scene root directories declared by the manifest."
+          },
+          {
+            "name": "assetRoots",
+            "required": true,
+            "shape": {
+              "kind": "array",
+              "items": {
+                "kind": "scalar",
+                "scalar": "string"
+              }
+            },
+            "summary": "Asset root directories declared by the manifest."
+          },
+          {
+            "name": "catalogPackages",
+            "required": true,
+            "shape": {
+              "kind": "array",
+              "items": {
+                "kind": "scalar",
+                "scalar": "string"
+              }
+            },
+            "summary": "Catalog package directories declared by the manifest."
+          },
+          {
+            "name": "policyPackages",
+            "required": true,
+            "shape": {
+              "kind": "array",
+              "items": {
+                "kind": "scalar",
+                "scalar": "string"
+              }
+            },
+            "summary": "Policy package directories declared by the manifest."
+          },
+          {
+            "name": "attachEndpoint",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Local devtools websocket endpoint declared by the manifest."
+          },
+          {
+            "name": "devCommand",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Development runtime command declared by the manifest."
+          },
+          {
+            "name": "publishCommand",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Publish command declared by the manifest."
+          },
+          {
+            "name": "workspaceHash",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "state_hash"
+            },
+            "summary": "Deterministic readout hash for the parsed workspace manifest."
+          }
+        ]
+      }
+    },
+    "inputContractRefs": [],
+    "outputContractRefs": [],
+    "operationClass": "workspace_io",
+    "agentExposure": {
+      "kind": "workspace_io",
+      "batchable": false
+    },
+    "guiMirror": {
+      "required": true,
+      "menuPath": [
+        "File",
+        "Open Game Workspace"
+      ],
+      "commandPaletteVisible": true,
+      "argumentSummary": "GameWorkspaceManifestInput: workspaceRoot: Absolute or workspace-resolved game workspace root selected by the caller. manifestPath: Manifest path inside the workspace root.",
+      "resultSummary": "GameWorkspaceOpenOutput: workspaceVersion: Studio game workspace read model version. workspaceRoot: Opened game workspace root. manifestPath: Manifest path inside the workspace root. gameId: Stable game identity read from the workspace adapter metadata. engineVersion: Required ASHA engine compatibility version from the manifest. contractsVersion: Required ASHA contracts compatibility version from the manifest. runtimeBridgeVersion: Required runtime bridge compatibility version from the manifest. devtoolsProtocolVersion: Required devtools protocol compatibility version from the manifest. sceneRoots: Scene root directories declared by the manifest. assetRoots: Asset root directories declared by the manifest. catalogPackages: Catalog package directories declared by the manifest. policyPackages: Policy package directories declared by the manifest. attachEndpoint: Local devtools websocket endpoint declared by the manifest. devCommand: Development runtime command declared by the manifest. publishCommand: Publish command declared by the manifest. workspaceHash: Deterministic readout hash for the parsed workspace manifest.",
+      "artifactSummary": "game_workspace: Parsed game workspace readout with compatibility, roots, commands, and attach endpoint.",
+      "panel": "inspector",
+      "dialog": "simple_form"
+    },
+    "undo": {
+      "kind": "not_undoable",
+      "reason": "Read-only or diagnostic command has no mutation to reverse."
+    },
+    "retry": "retry_after_status_readback",
+    "idempotency": {
+      "kind": "conditional",
+      "condition": "Safe when manifestPath, workspaceRoot, and manifest file contents are unchanged."
+    },
+    "artifacts": [
+      {
+        "type": "game_workspace",
+        "required": true,
+        "producedWhen": "always",
+        "summary": "Parsed game workspace readout with compatibility, roots, commands, and attach endpoint."
+      }
+    ],
+    "stateImpact": {
+      "authority": "none",
+      "editor": "mutate",
+      "render": "none",
+      "workspace": "read"
+    },
+    "owningLane": "ts-command-registry",
+    "owningPackage": "@asha/command-registry",
+    "runtimeRequirements": [
+      {
+        "kind": "editor_store"
+      }
+    ],
+    "compatibility": {
+      "contracts": "contracts.v0",
+      "commandRegistry": "command-registry.v0"
+    },
+    "typedInputExample": {
+      "workspaceRoot": "/workspace/asha-demo",
+      "manifestPath": "asha.game.toml"
+    },
+    "typedOutputExample": {
+      "workspaceVersion": "studio-game-workspace.v0",
+      "workspaceRoot": "/workspace/asha-demo",
+      "manifestPath": "asha.game.toml",
+      "gameId": "asha-demo",
+      "engineVersion": "0.1.0",
+      "contractsVersion": "0.1.0",
+      "runtimeBridgeVersion": "0.1.0",
+      "devtoolsProtocolVersion": "devtools-protocol.v0",
+      "sceneRoots": [
+        "scenes"
+      ],
+      "assetRoots": [
+        "assets"
+      ],
+      "catalogPackages": [
+        "packages/game-catalogs"
+      ],
+      "policyPackages": [
+        "packages/game-policy"
+      ],
+      "attachEndpoint": "ws://127.0.0.1:7391",
+      "devCommand": "npm run dev",
+      "publishCommand": "npm run conformance",
+      "workspaceHash": "studio-game-workspace-hash"
+    }
+  },
+  {
+    "id": "workspace.validate_game_manifest",
+    "version": 1,
+    "label": "Validate Game Manifest",
+    "summary": "Validate a game workspace manifest and return classified diagnostics without opening or attaching runtime state.",
+    "category": "workspace",
+    "menuPath": [
+      "File",
+      "Validate Game Manifest"
+    ],
+    "commandPalette": {
+      "visible": true,
+      "keywords": [
+        "workspace",
+        "game",
+        "manifest",
+        "validate"
+      ]
+    },
+    "inputSchema": {
+      "name": "GameWorkspaceManifestInput",
+      "version": 1,
+      "shape": {
+        "kind": "object",
+        "allowExtraFields": false,
+        "fields": [
+          {
+            "name": "workspaceRoot",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Absolute or workspace-resolved game workspace root selected by the caller."
+          },
+          {
+            "name": "manifestPath",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "string"
+            },
+            "summary": "Manifest path inside the workspace root."
+          }
+        ]
+      }
+    },
+    "outputSchema": {
+      "name": "GameWorkspaceValidateOutput",
+      "version": 1,
+      "shape": {
+        "kind": "object",
+        "allowExtraFields": false,
+        "fields": [
+          {
+            "name": "valid",
+            "required": true,
+            "shape": {
+              "kind": "scalar",
+              "scalar": "boolean"
+            },
+            "summary": "Whether the manifest validates for Studio workspace use."
+          },
+          {
+            "name": "workspaceHash",
+            "required": true,
+            "shape": {
+              "kind": "nullable",
+              "inner": {
+                "kind": "scalar",
+                "scalar": "state_hash"
+              }
+            },
+            "summary": "Deterministic workspace readout hash when validation succeeds."
+          },
+          {
+            "name": "diagnostics",
+            "required": true,
+            "shape": {
+              "kind": "array",
+              "items": {
+                "kind": "object",
+                "allowExtraFields": false,
+                "fields": [
+                  {
+                    "name": "code",
+                    "required": true,
+                    "shape": {
+                      "kind": "scalar",
+                      "scalar": "string"
+                    },
+                    "summary": "Classified workspace manifest diagnostic code."
+                  },
+                  {
+                    "name": "message",
+                    "required": true,
+                    "shape": {
+                      "kind": "scalar",
+                      "scalar": "string"
+                    },
+                    "summary": "Human-readable diagnostic message."
+                  },
+                  {
+                    "name": "source",
+                    "required": true,
+                    "shape": {
+                      "kind": "nullable",
+                      "inner": {
+                        "kind": "scalar",
+                        "scalar": "string"
+                      }
+                    },
+                    "summary": "Manifest field or source path when available."
+                  }
+                ]
+              }
+            },
+            "summary": "Classified manifest diagnostics."
+          }
+        ]
+      }
+    },
+    "inputContractRefs": [],
+    "outputContractRefs": [],
+    "operationClass": "workspace_io",
+    "agentExposure": {
+      "kind": "workspace_io",
+      "batchable": false
+    },
+    "guiMirror": {
+      "required": true,
+      "menuPath": [
+        "File",
+        "Validate Game Manifest"
+      ],
+      "commandPaletteVisible": true,
+      "argumentSummary": "GameWorkspaceManifestInput: workspaceRoot: Absolute or workspace-resolved game workspace root selected by the caller. manifestPath: Manifest path inside the workspace root.",
+      "resultSummary": "GameWorkspaceValidateOutput: valid: Whether the manifest validates for Studio workspace use. workspaceHash: Deterministic workspace readout hash when validation succeeds. diagnostics: Classified manifest diagnostics.",
+      "artifactSummary": "game_workspace: Validation result and classified manifest diagnostics.",
+      "panel": "diagnostics",
+      "dialog": "readout_only"
+    },
+    "undo": {
+      "kind": "not_undoable",
+      "reason": "Read-only or diagnostic command has no mutation to reverse."
+    },
+    "retry": "safe_to_retry",
+    "idempotency": {
+      "kind": "idempotent",
+      "keyFields": [
+        "workspaceRoot",
+        "manifestPath"
+      ]
+    },
+    "artifacts": [
+      {
+        "type": "game_workspace",
+        "required": true,
+        "producedWhen": "always",
+        "summary": "Validation result and classified manifest diagnostics."
+      }
+    ],
+    "stateImpact": {
+      "authority": "none",
+      "editor": "none",
+      "render": "none",
+      "workspace": "read"
+    },
+    "owningLane": "ts-command-registry",
+    "owningPackage": "@asha/command-registry",
+    "runtimeRequirements": [
+      {
+        "kind": "none"
+      }
+    ],
+    "compatibility": {
+      "contracts": "contracts.v0",
+      "commandRegistry": "command-registry.v0"
+    },
+    "typedInputExample": {
+      "workspaceRoot": "/workspace/asha-demo",
+      "manifestPath": "asha.game.toml"
+    },
+    "typedOutputExample": {
+      "valid": true,
+      "workspaceHash": "studio-game-workspace-hash",
+      "diagnostics": []
+    }
+  },
+  {
     "id": "inspection.session_status",
     "version": 1,
     "label": "Inspect Session Status",

@@ -7,6 +7,8 @@ const REQUIRED_IDS = [
     'session.list_scenarios',
     'session.start',
     'session.load_scenario',
+    'workspace.open_game_manifest',
+    'workspace.validate_game_manifest',
     'inspection.session_status',
     'inspection.world_summary',
     'inspection.editor_state',
@@ -200,6 +202,30 @@ test('translate-entity gizmo edit is an editor-local typed transform command wit
     assert.deepEqual(validateExampleAgainstSchema(translate.id, 'typedInputExample', { sessionId: 's', entityId: 'e', axis: 'w', delta: 2, mode: 'apply' }, translate.inputSchema.shape), [{ commandId: 'transform.translate_entity', field: 'typedInputExample', message: 'typedInputExample does not match its declared schema' }]);
     // A transform edit that omits the preview/apply mode fails closed against the schema.
     assert.deepEqual(validateExampleAgainstSchema(translate.id, 'typedInputExample', { sessionId: 's', entityId: 'e', axis: 'x', delta: 2 }, translate.inputSchema.shape), [{ commandId: 'transform.translate_entity', field: 'typedInputExample', message: 'typedInputExample does not match its declared schema' }]);
+});
+test('game workspace manifest commands expose UI and agent-equivalent workspace actions', () => {
+    const open = requireKnownCommand('workspace.open_game_manifest', COMMAND_MANIFEST);
+    assert.equal(open.category, 'workspace');
+    assert.equal(open.operationClass, 'workspace_io');
+    assert.equal(open.agentExposure.kind, 'workspace_io');
+    assert.deepEqual(open.menuPath, ['File', 'Open Game Workspace']);
+    assert.deepEqual(open.runtimeRequirements, [{ kind: 'editor_store' }]);
+    assert.ok(open.artifacts.some((artifact) => artifact.type === 'game_workspace'));
+    assert.equal(open.stateImpact.workspace, 'read');
+    assert.equal(open.stateImpact.editor, 'mutate');
+    assert.equal(open.guiMirror.dialog, 'simple_form');
+    assert.equal(open.outputSchema.shape.kind, 'object');
+    assert.deepEqual(validateExampleAgainstSchema(open.id, 'typedInputExample', { workspaceRoot: '/workspace/asha-demo' }, open.inputSchema.shape), [{ commandId: 'workspace.open_game_manifest', field: 'typedInputExample', message: 'typedInputExample does not match its declared schema' }]);
+    const validate = requireKnownCommand('workspace.validate_game_manifest', COMMAND_MANIFEST);
+    assert.equal(validate.category, 'workspace');
+    assert.equal(validate.operationClass, 'workspace_io');
+    assert.equal(validate.agentExposure.kind, 'workspace_io');
+    assert.deepEqual(validate.menuPath, ['File', 'Validate Game Manifest']);
+    assert.deepEqual(validate.runtimeRequirements, [{ kind: 'none' }]);
+    assert.equal(validate.stateImpact.workspace, 'read');
+    assert.equal(validate.stateImpact.editor, 'none');
+    assert.equal(validate.guiMirror.dialog, 'readout_only');
+    assert.deepEqual(validateExampleAgainstSchema(validate.id, 'typedOutputExample', { valid: false, workspaceHash: null, diagnostics: [{ code: 'manifest_invalid', message: 'bad', source: null }] }, validate.outputSchema.shape), []);
 });
 test('selection command uses screen-point camera request, not a caller-supplied pick ray', () => {
     const select = requireKnownCommand('selection.voxel_from_screen_point', COMMAND_MANIFEST);

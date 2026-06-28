@@ -1,5 +1,5 @@
 import type { CatalogEntry, MaterialProjection, RenderFrameDiff, SceneObjectCommandRequest, SceneObjectCommandResult, SceneObjectSnapshot, ScreenPointToPickRayRequest, StaticMeshAsset, VoxelCommand, VoxelCoord, VoxelSelectionSnapshot } from '@asha/contracts';
-export type StudioCommandId = 'session.list_scenarios' | 'session.start' | 'session.load_scenario' | 'inspection.session_status' | 'inspection.world_summary' | 'inspection.editor_state' | 'inspection.material' | 'inspection.model' | 'preview.model_material' | 'scene.load_asset' | 'scene.read_object_snapshot' | 'scene.apply_object_command' | 'selection.voxel_from_screen_point' | 'selection.set_active_entity' | 'entity.set_name' | 'transform.translate_entity' | 'inspection.voxel' | 'preview.voxel_brush' | 'authority.voxel.apply_brush' | 'inspection.last_command_result' | 'render.capture_before_after' | 'export.agent_readout';
+export type StudioCommandId = 'session.list_scenarios' | 'session.start' | 'session.load_scenario' | 'workspace.open_game_manifest' | 'workspace.validate_game_manifest' | 'inspection.session_status' | 'inspection.world_summary' | 'inspection.editor_state' | 'inspection.material' | 'inspection.model' | 'preview.model_material' | 'scene.load_asset' | 'scene.read_object_snapshot' | 'scene.apply_object_command' | 'selection.voxel_from_screen_point' | 'selection.set_active_entity' | 'entity.set_name' | 'transform.translate_entity' | 'inspection.voxel' | 'preview.voxel_brush' | 'authority.voxel.apply_brush' | 'inspection.last_command_result' | 'render.capture_before_after' | 'export.agent_readout';
 export type CommandCategory = 'session' | 'inspection' | 'selection' | 'preview' | 'scene' | 'entity' | 'authority_edit' | 'render_evidence' | 'diagnostics' | 'export' | 'workspace';
 export type OperationClass = 'read_only' | 'editor_local' | 'authority_mutating' | 'render_evidence' | 'diagnostic_export' | 'workspace_io';
 export type AshaLane = 'contract-steward' | 'ts-command-registry' | 'ts-shell' | 'ts-tools' | 'rust-bridge' | 'rust-render' | 'rust-rule' | 'rust-service';
@@ -128,7 +128,7 @@ export type IdempotencyPosture = {
     readonly kind: 'non_idempotent';
     readonly reason: string;
 };
-export type StudioArtifactType = 'command_manifest' | 'scenario_manifest' | 'session_status' | 'world_summary' | 'editor_state' | 'selection_snapshot' | 'voxel_inspection' | 'voxel_preview' | 'model_metadata' | 'material_metadata' | 'render_diff_preview' | 'command_result' | 'render_before_after' | 'agent_readout';
+export type StudioArtifactType = 'command_manifest' | 'scenario_manifest' | 'session_status' | 'world_summary' | 'editor_state' | 'selection_snapshot' | 'voxel_inspection' | 'voxel_preview' | 'model_metadata' | 'material_metadata' | 'render_diff_preview' | 'game_workspace' | 'command_result' | 'render_before_after' | 'agent_readout';
 export interface ArtifactDeclaration {
     readonly type: StudioArtifactType;
     readonly required: boolean;
@@ -195,6 +195,37 @@ export interface EmptyInput {
 }
 export interface EmptyOutput {
     readonly kind: 'ok';
+}
+export interface GameWorkspaceManifestInput {
+    readonly workspaceRoot: string;
+    readonly manifestPath: string;
+}
+export interface GameWorkspaceOpenOutput {
+    readonly workspaceVersion: string;
+    readonly workspaceRoot: string;
+    readonly manifestPath: string;
+    readonly gameId: string;
+    readonly engineVersion: string;
+    readonly contractsVersion: string;
+    readonly runtimeBridgeVersion: string;
+    readonly devtoolsProtocolVersion: string;
+    readonly sceneRoots: readonly string[];
+    readonly assetRoots: readonly string[];
+    readonly catalogPackages: readonly string[];
+    readonly policyPackages: readonly string[];
+    readonly attachEndpoint: string;
+    readonly devCommand: string;
+    readonly publishCommand: string;
+    readonly workspaceHash: string;
+}
+export interface GameWorkspaceValidateOutput {
+    readonly valid: boolean;
+    readonly workspaceHash: string | null;
+    readonly diagnostics: readonly {
+        readonly code: string;
+        readonly message: string;
+        readonly source: string | null;
+    }[];
 }
 export interface ScenarioIdInput {
     readonly scenarioId: string;

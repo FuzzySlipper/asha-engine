@@ -22,6 +22,8 @@ export type StudioCommandId =
   | 'session.list_scenarios'
   | 'session.start'
   | 'session.load_scenario'
+  | 'workspace.open_game_manifest'
+  | 'workspace.validate_game_manifest'
   | 'inspection.session_status'
   | 'inspection.world_summary'
   | 'inspection.editor_state'
@@ -174,6 +176,7 @@ export type StudioArtifactType =
   | 'model_metadata'
   | 'material_metadata'
   | 'render_diff_preview'
+  | 'game_workspace'
   | 'command_result'
   | 'render_before_after'
   | 'agent_readout';
@@ -240,6 +243,34 @@ export interface StudioCommandDefinition<Input, Output> {
 
 export interface EmptyInput { readonly kind: 'empty'; }
 export interface EmptyOutput { readonly kind: 'ok'; }
+export interface GameWorkspaceManifestInput { readonly workspaceRoot: string; readonly manifestPath: string; }
+export interface GameWorkspaceOpenOutput {
+  readonly workspaceVersion: string;
+  readonly workspaceRoot: string;
+  readonly manifestPath: string;
+  readonly gameId: string;
+  readonly engineVersion: string;
+  readonly contractsVersion: string;
+  readonly runtimeBridgeVersion: string;
+  readonly devtoolsProtocolVersion: string;
+  readonly sceneRoots: readonly string[];
+  readonly assetRoots: readonly string[];
+  readonly catalogPackages: readonly string[];
+  readonly policyPackages: readonly string[];
+  readonly attachEndpoint: string;
+  readonly devCommand: string;
+  readonly publishCommand: string;
+  readonly workspaceHash: string;
+}
+export interface GameWorkspaceValidateOutput {
+  readonly valid: boolean;
+  readonly workspaceHash: string | null;
+  readonly diagnostics: readonly {
+    readonly code: string;
+    readonly message: string;
+    readonly source: string | null;
+  }[];
+}
 export interface ScenarioIdInput { readonly scenarioId: string; }
 export interface SessionIdInput { readonly sessionId: string; }
 export interface SessionStatusOutput { readonly sessionId: string; readonly status: 'not_started' | 'ready' | 'degraded' | 'unavailable'; }

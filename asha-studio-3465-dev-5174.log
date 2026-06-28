@@ -98,3 +98,10 @@ Port 5173 is in use, trying another one...
 1:16:30 AM [vite] (client) page reload .nx/cache/16571158547937706744/dist/apps/studio-app/browser/index.html
 1:17:13 AM [vite] (client) page reload .nx/cache/9936068796712452507/dist/apps/studio-app/browser/index.html
 1:17:40 AM [vite] (client) page reload .nx/cache/7165070584853189535/dist/apps/studio-app/browser/index.html
+2:59:12 AM [vite] (client) page reload package.json
+3:08:29 AM [vite] (client) page reload /home/dev/asha/ts/packages/command-registry/dist/types.js
+3:08:29 AM [vite] (client) page reload /home/dev/asha/ts/packages/command-registry/dist/catalog.js
+3:08:29 AM [vite] (client) page reload /home/dev/asha/ts/packages/command-registry/dist/index.js
+3:08:29 AM [vite] (client) page reload /home/dev/asha/ts/packages/command-registry/dist/validation.js
+3:08:29 AM [vite] (client) page reload /home/dev/asha/ts/packages/command-registry/dist/manifest.js
+3:11:50 AM [vite] (client) page reload package.json

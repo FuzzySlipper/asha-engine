@@ -178,6 +178,122 @@
       ]
     },
     {
+      "id": "workspace.open_game_manifest",
+      "version": 1,
+      "label": "Open Game Workspace",
+      "summary": "Open a game workspace manifest into Studio as a typed readout before live runtime attach.",
+      "category": "workspace",
+      "operationClass": "workspace_io",
+      "agentExposureKind": "workspace_io",
+      "menuPath": [
+        "File",
+        "Open Game Workspace"
+      ],
+      "commandPaletteVisible": true,
+      "commandPaletteKeywords": [
+        "workspace",
+        "game",
+        "manifest",
+        "open"
+      ],
+      "guiMirror": {
+        "required": true,
+        "menuPath": [
+          "File",
+          "Open Game Workspace"
+        ],
+        "commandPaletteVisible": true,
+        "argumentSummary": "GameWorkspaceManifestInput: workspaceRoot: Absolute or workspace-resolved game workspace root selected by the caller. manifestPath: Manifest path inside the workspace root.",
+        "resultSummary": "GameWorkspaceOpenOutput: workspaceVersion: Studio game workspace read model version. workspaceRoot: Opened game workspace root. manifestPath: Manifest path inside the workspace root. gameId: Stable game identity read from the workspace adapter metadata. engineVersion: Required ASHA engine compatibility version from the manifest. contractsVersion: Required ASHA contracts compatibility version from the manifest. runtimeBridgeVersion: Required runtime bridge compatibility version from the manifest. devtoolsProtocolVersion: Required devtools protocol compatibility version from the manifest. sceneRoots: Scene root directories declared by the manifest. assetRoots: Asset root directories declared by the manifest. catalogPackages: Catalog package directories declared by the manifest. policyPackages: Policy package directories declared by the manifest. attachEndpoint: Local devtools websocket endpoint declared by the manifest. devCommand: Development runtime command declared by the manifest. publishCommand: Publish command declared by the manifest. workspaceHash: Deterministic readout hash for the parsed workspace manifest.",
+        "artifactSummary": "game_workspace: Parsed game workspace readout with compatibility, roots, commands, and attach endpoint.",
+        "panel": "inspector",
+        "dialog": "simple_form"
+      },
+      "inputSchemaName": "GameWorkspaceManifestInput",
+      "outputSchemaName": "GameWorkspaceOpenOutput",
+      "inputContractRefs": [],
+      "outputContractRefs": [],
+      "artifacts": [
+        {
+          "type": "game_workspace",
+          "required": true,
+          "producedWhen": "always",
+          "summary": "Parsed game workspace readout with compatibility, roots, commands, and attach endpoint."
+        }
+      ],
+      "stateImpact": {
+        "authority": "none",
+        "editor": "mutate",
+        "render": "none",
+        "workspace": "read"
+      },
+      "owningLane": "ts-command-registry",
+      "owningPackage": "@asha/command-registry",
+      "runtimeRequirements": [
+        {
+          "kind": "editor_store"
+        }
+      ]
+    },
+    {
+      "id": "workspace.validate_game_manifest",
+      "version": 1,
+      "label": "Validate Game Manifest",
+      "summary": "Validate a game workspace manifest and return classified diagnostics without opening or attaching runtime state.",
+      "category": "workspace",
+      "operationClass": "workspace_io",
+      "agentExposureKind": "workspace_io",
+      "menuPath": [
+        "File",
+        "Validate Game Manifest"
+      ],
+      "commandPaletteVisible": true,
+      "commandPaletteKeywords": [
+        "workspace",
+        "game",
+        "manifest",
+        "validate"
+      ],
+      "guiMirror": {
+        "required": true,
+        "menuPath": [
+          "File",
+          "Validate Game Manifest"
+        ],
+        "commandPaletteVisible": true,
+        "argumentSummary": "GameWorkspaceManifestInput: workspaceRoot: Absolute or workspace-resolved game workspace root selected by the caller. manifestPath: Manifest path inside the workspace root.",
+        "resultSummary": "GameWorkspaceValidateOutput: valid: Whether the manifest validates for Studio workspace use. workspaceHash: Deterministic workspace readout hash when validation succeeds. diagnostics: Classified manifest diagnostics.",
+        "artifactSummary": "game_workspace: Validation result and classified manifest diagnostics.",
+        "panel": "diagnostics",
+        "dialog": "readout_only"
+      },
+      "inputSchemaName": "GameWorkspaceManifestInput",
+      "outputSchemaName": "GameWorkspaceValidateOutput",
+      "inputContractRefs": [],
+      "outputContractRefs": [],
+      "artifacts": [
+        {
+          "type": "game_workspace",
+          "required": true,
+          "producedWhen": "always",
+          "summary": "Validation result and classified manifest diagnostics."
+        }
+      ],
+      "stateImpact": {
+        "authority": "none",
+        "editor": "none",
+        "render": "none",
+        "workspace": "read"
+      },
+      "owningLane": "ts-command-registry",
+      "owningPackage": "@asha/command-registry",
+      "runtimeRequirements": [
+        {
+          "kind": "none"
+        }
+      ]
+    },
+    {
       "id": "inspection.session_status",
       "version": 1,
       "label": "Inspect Session Status",

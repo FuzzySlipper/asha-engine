@@ -115,6 +115,38 @@ function base(args) {
 const scenarioListOutput = objectSchema('ScenarioListOutput', [
     field('scenarios', arrayOf({ kind: 'object', allowExtraFields: false, fields: [field('id', stringShape, 'Scenario id.'), field('label', stringShape, 'Human-readable scenario label.')] }), 'Bounded public scenario list.'),
 ]);
+const gameWorkspaceManifestInput = objectSchema('GameWorkspaceManifestInput', [
+    field('workspaceRoot', stringShape, 'Absolute or workspace-resolved game workspace root selected by the caller.'),
+    field('manifestPath', stringShape, 'Manifest path inside the workspace root.'),
+]);
+const gameWorkspaceOpenOutput = objectSchema('GameWorkspaceOpenOutput', [
+    field('workspaceVersion', stringShape, 'Studio game workspace read model version.'),
+    field('workspaceRoot', stringShape, 'Opened game workspace root.'),
+    field('manifestPath', stringShape, 'Manifest path inside the workspace root.'),
+    field('gameId', stringShape, 'Stable game identity read from the workspace adapter metadata.'),
+    field('engineVersion', stringShape, 'Required ASHA engine compatibility version from the manifest.'),
+    field('contractsVersion', stringShape, 'Required ASHA contracts compatibility version from the manifest.'),
+    field('runtimeBridgeVersion', stringShape, 'Required runtime bridge compatibility version from the manifest.'),
+    field('devtoolsProtocolVersion', stringShape, 'Required devtools protocol compatibility version from the manifest.'),
+    field('sceneRoots', arrayOf(stringShape), 'Scene root directories declared by the manifest.'),
+    field('assetRoots', arrayOf(stringShape), 'Asset root directories declared by the manifest.'),
+    field('catalogPackages', arrayOf(stringShape), 'Catalog package directories declared by the manifest.'),
+    field('policyPackages', arrayOf(stringShape), 'Policy package directories declared by the manifest.'),
+    field('attachEndpoint', stringShape, 'Local devtools websocket endpoint declared by the manifest.'),
+    field('devCommand', stringShape, 'Development runtime command declared by the manifest.'),
+    field('publishCommand', stringShape, 'Publish command declared by the manifest.'),
+    field('workspaceHash', hashShape, 'Deterministic readout hash for the parsed workspace manifest.'),
+]);
+const gameWorkspaceDiagnosticShape = objectShape([
+    field('code', stringShape, 'Classified workspace manifest diagnostic code.'),
+    field('message', stringShape, 'Human-readable diagnostic message.'),
+    field('source', nullable(stringShape), 'Manifest field or source path when available.'),
+]);
+const gameWorkspaceValidateOutput = objectSchema('GameWorkspaceValidateOutput', [
+    field('valid', booleanShape, 'Whether the manifest validates for Studio workspace use.'),
+    field('workspaceHash', nullable(hashShape), 'Deterministic workspace readout hash when validation succeeds.'),
+    field('diagnostics', arrayOf(gameWorkspaceDiagnosticShape), 'Classified manifest diagnostics.'),
+]);
 const scenarioIdInput = objectSchema('ScenarioIdInput', [SCENARIO_ID_FIELD]);
 const sessionIdInput = objectSchema('SessionIdInput', [SESSION_ID_FIELD]);
 const sessionStatusOutput = objectSchema('SessionStatusOutput', [SESSION_ID_FIELD, field('status', literal(['not_started', 'ready', 'degraded', 'unavailable']), 'Session/runtime status.')]);
@@ -395,6 +427,14 @@ export const COMMAND_MANIFEST = [
     base({
         id: 'session.load_scenario', label: 'Load Scenario', summary: 'Load a named scenario into the active studio session.', category: 'session', menuPath: ['Session', 'Load Scenario'], keywords: ['load', 'scenario'],
         inputSchema: scenarioIdInput, outputSchema: EMPTY_OUTPUT, operationClass: 'workspace_io', agentExposure: { kind: 'workspace_io', batchable: false }, stateImpact: sessionWorkspace, runtimeRequirements: [runtime('load_world_bundle')], artifacts: [artifact('session_status', 'Scenario load status and diagnostics.')], typedInputExample: { scenarioId: 'voxel-basic' }, typedOutputExample: { kind: 'ok' }, panel: 'timeline', dialog: 'simple_form', retry: 'retry_after_status_readback', idempotency: { kind: 'conditional', condition: 'Safe when current session already targets the same scenario id.' },
+    }),
+    base({
+        id: 'workspace.open_game_manifest', label: 'Open Game Workspace', summary: 'Open a game workspace manifest into Studio as a typed readout before live runtime attach.', category: 'workspace', menuPath: ['File', 'Open Game Workspace'], keywords: ['workspace', 'game', 'manifest', 'open'],
+        inputSchema: gameWorkspaceManifestInput, outputSchema: gameWorkspaceOpenOutput, operationClass: 'workspace_io', agentExposure: { kind: 'workspace_io', batchable: false }, stateImpact: { authority: 'none', editor: 'mutate', render: 'none', workspace: 'read' }, compatibility: REGISTRY_COMPAT, runtimeRequirements: [{ kind: 'editor_store' }], artifacts: [artifact('game_workspace', 'Parsed game workspace readout with compatibility, roots, commands, and attach endpoint.')], typedInputExample: { workspaceRoot: '/workspace/asha-demo', manifestPath: 'asha.game.toml' }, typedOutputExample: { workspaceVersion: 'studio-game-workspace.v0', workspaceRoot: '/workspace/asha-demo', manifestPath: 'asha.game.toml', gameId: 'asha-demo', engineVersion: '0.1.0', contractsVersion: '0.1.0', runtimeBridgeVersion: '0.1.0', devtoolsProtocolVersion: 'devtools-protocol.v0', sceneRoots: ['scenes'], assetRoots: ['assets'], catalogPackages: ['packages/game-catalogs'], policyPackages: ['packages/game-policy'], attachEndpoint: 'ws://127.0.0.1:7391', devCommand: 'npm run dev', publishCommand: 'npm run conformance', workspaceHash: 'studio-game-workspace-hash' }, panel: 'inspector', dialog: 'simple_form', retry: 'retry_after_status_readback', idempotency: { kind: 'conditional', condition: 'Safe when manifestPath, workspaceRoot, and manifest file contents are unchanged.' },
+    }),
+    base({
+        id: 'workspace.validate_game_manifest', label: 'Validate Game Manifest', summary: 'Validate a game workspace manifest and return classified diagnostics without opening or attaching runtime state.', category: 'workspace', menuPath: ['File', 'Validate Game Manifest'], keywords: ['workspace', 'game', 'manifest', 'validate'],
+        inputSchema: gameWorkspaceManifestInput, outputSchema: gameWorkspaceValidateOutput, operationClass: 'workspace_io', agentExposure: { kind: 'workspace_io', batchable: false }, stateImpact: { authority: 'none', editor: 'none', render: 'none', workspace: 'read' }, compatibility: REGISTRY_COMPAT, runtimeRequirements: [{ kind: 'none' }], artifacts: [artifact('game_workspace', 'Validation result and classified manifest diagnostics.')], typedInputExample: { workspaceRoot: '/workspace/asha-demo', manifestPath: 'asha.game.toml' }, typedOutputExample: { valid: true, workspaceHash: 'studio-game-workspace-hash', diagnostics: [] }, panel: 'diagnostics', dialog: 'readout_only', retry: 'safe_to_retry', idempotency: { kind: 'idempotent', keyFields: ['workspaceRoot', 'manifestPath'] },
     }),
     base({
         id: 'inspection.session_status', label: 'Inspect Session Status', summary: 'Read studio/runtime readiness, compatibility, and degradation status.', category: 'inspection', menuPath: ['Inspect', 'Session Status'], keywords: ['status', 'compatibility'],
