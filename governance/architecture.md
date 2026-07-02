@@ -26,7 +26,7 @@ enforced yet; ordering rules should be reviewed as a separate governance change.
 | `@asha/contracts` | `lib` | `protocol` | Generated contract border. |
 | `@asha/runtime-bridge`, `@asha/native-bridge`, `@asha/wasm-replay-bridge` | `lib` | `transport` | Runtime/replay transport facades and raw native wrapper. |
 | `@asha/script-sdk`, `@asha/script-host`, `@asha/policy-*`, `@asha/catalog-*`, `@asha/editor-tools`, `@asha/command-registry`, `@asha/game-workspace` | `lib` | `domain` | Policy/catalog/editor/workspace domain logic and metadata. |
-| `@asha/renderer-three`, `@asha/cosmetic` | `lib` | `renderer` | Render projection/application implementation packages. |
+| `@asha/render-projection`, `@asha/renderer-three`, `@asha/cosmetic` | `lib` | `renderer` | Renderer-neutral projection state plus implementation packages. |
 | `@asha/ui-dom` | `lib` | `components` | DOM component/readout layer. |
 | `@asha/devtools` | `tool` | `tool` | Observational developer/operator tooling. |
 | `@asha/app`, `@asha/electron-main` | `shell` | `shell` | Composition root and thin host wrapper. |

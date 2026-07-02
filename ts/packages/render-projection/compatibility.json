@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "surface": "@asha/render-projection",
+  "packageVersion": "0.1.0",
+  "compatibilityVersion": "render-projection.v0",
+  "status": "unstable-local-path",
+  "sourceOfTruth": "ts/packages/render-projection/src/index.ts plus generated @asha/contracts render DTOs",
+  "changelog": "docs/consumer-compatibility.md#render-projection-compatibility-log",
+  "migrationNoteTemplate": "docs/consumer-compatibility.md#migration-note-template",
+  "failClosedPolicy": "Consumers must fail closed on unsupported render diff operations, unknown handles, malformed mesh payloads, or missing renderer bindings.",
+  "pinningGuidance": "Record ASHA git commit plus render-projection.v0 in downstream conformance artifacts.",
+  "breakingChangeRequires": [
+    "render-projection compatibility log entry",
+    "migration note for downstream renderer bindings",
+    "fixture/golden update for retained projection behavior",
+    "consumer boundary review if allowed roles change"
+  ]
+}

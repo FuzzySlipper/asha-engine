@@ -442,8 +442,15 @@ may_not_import = ["@asha/renderer-three", "@asha/ui-dom", "@asha/runtime-bridge"
 lane = "ts-shell"
 type = "lib"
 layer = "renderer"
-may_import = ["@asha/contracts", "@asha/runtime-bridge"]
+may_import = ["@asha/contracts", "@asha/runtime-bridge", "@asha/render-projection"]
 may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-host", "@asha/native-bridge", "@asha/wasm-replay-bridge"]
+
+[package."ts/packages/render-projection"]
+lane = "ts-shell"
+type = "lib"
+layer = "renderer"
+may_import = ["@asha/contracts"]
+may_not_import = ["@asha/renderer-three", "@asha/ui-dom", "@asha/runtime-bridge", "@asha/native-bridge", "@asha/wasm-replay-bridge", "@asha/policy-core", "@asha/policy-examples", "@asha/script-host", "@asha/electron-main"]
 
 # Persistent editor tool context (ADR 0008). Forward-declared by #2264; the dir
 # lands in #2265. Pure TS state model: imports contracts only — no DOM/three/policy/bridge.

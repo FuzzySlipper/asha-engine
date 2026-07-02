@@ -37,11 +37,12 @@ metadata while their consumer role is still being ratified.
 | `@asha/command-registry` | `unstable` | `ts/packages/command-registry/src/manifest.golden.json` | `command-registry.v0` | Studio command/evidence metadata registry. |
 | `@asha/devtools` | `unstable` | `ts/packages/devtools/compatibility.json` | `devtools-protocol.v0` | Observational attach/readout protocol for tools and testing harnesses. |
 | `@asha/game-workspace` | `unstable` | `ts/packages/game-workspace/compatibility.json` | `game-workspace.v0` | Typed game/workspace manifest validation for consumer repos. |
+| `@asha/render-projection` | `unstable` | `ts/packages/render-projection/compatibility.json` | `render-projection.v0` | Renderer-neutral retained render-diff application model. |
 
 Additional unstable package statuses:
 
 - `@asha/editor-tools` is an unstable Studio/editor helper package. It is editor-local state only, not authority.
-- `@asha/renderer-three` is an unstable Three.js implementation package for engine smoke/testing. It is not the long-term public renderer contract; consumers should expect a renderer-neutral render-diff application API before broad promotion.
+- `@asha/renderer-three` is an unstable Three.js implementation package for engine smoke/testing. It is not the long-term public renderer contract; consumers should prefer `@asha/render-projection` for renderer-neutral retained semantics.
 
 Internal packages, including `@asha/native-bridge`, `@asha/wasm-replay-bridge`, `@asha/app`, `@asha/electron-main`, `@asha/ui-dom`, policy/catalog packages, and `@asha/smoke`, are not downstream public surfaces.
 
@@ -164,9 +165,22 @@ Consumer behavior:
 - The new `asha-demo` may use it for human-facing project workspace setup, but should keep product identity separate from proof harness machinery.
 - Manifest validation rejects private transport hints, ASHA internals, generated paths, and unsupported backend/profile claims.
 
+## Render projection compatibility log
+
+### `render-projection.v0` — unstable renderer-neutral retained projection
+
+Status: unstable root-barrel package surface for renderer-neutral render-diff application.
+
+Consumer behavior:
+
+- Consumers import only from `@asha/render-projection` root export.
+- Consumers feed it decoded `RenderFrameDiff` / `RenderDiff` values from public contracts or runtime facade helpers; it does not decode arbitrary JSON or call raw transports.
+- Consumers bind returned neutral application instructions or retained snapshots into their renderer of choice. Three.js is one possible binding, not the public ASHA contract.
+- The projection fails closed on duplicate/stale handles, unsupported diff operations, malformed mesh payloads, and in-use static mesh redefinitions.
+
 ## Renderer Three unstable status
 
-`@asha/renderer-three` is explicit but unstable. It is an engine-owned Three.js implementation package for smoke/testing and should not be treated as the cross-repo renderer contract. The planned renderer-neutral render-diff application API should be the preferred public contract before Studio or demos rely on renderer semantics broadly.
+`@asha/renderer-three` is explicit but unstable. It is an engine-owned Three.js implementation package for smoke/testing and should not be treated as the cross-repo renderer contract. Studio and demos should prefer `@asha/render-projection` for renderer-neutral ASHA semantics and keep Three.js code as a local binding.
 
 ## Editor Tools unstable status
 

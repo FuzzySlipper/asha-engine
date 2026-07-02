@@ -63,6 +63,15 @@
       "changelog": "docs/consumer-compatibility.md#renderer-three-unstable-status"
     },
     {
+      "package": "@asha/render-projection",
+      "status": "unstable",
+      "ownershipKey": "ts/packages/render-projection",
+      "intendedConsumerRole": "Renderer-neutral retained render-diff application model for Studio/demo renderer bindings.",
+      "allowedConsumerRoles": ["asha-testing", "asha-demo", "asha-studio"],
+      "compatibilityMarker": "render-projection.v0",
+      "changelog": "docs/consumer-compatibility.md#render-projection-compatibility-log"
+    },
+    {
       "package": "@asha/app",
       "status": "internal",
       "ownershipKey": "ts/packages/app",

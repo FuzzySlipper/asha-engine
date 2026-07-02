@@ -1,0 +1,95 @@
+{
+  "nodes": [
+    {
+      "handle": 1,
+      "parent": null,
+      "children": [2],
+      "layer": "scene",
+      "transform": {
+        "translation": [2, 0, 0],
+        "rotation": [0, 0, 0, 1],
+        "scale": [2, 2, 2]
+      },
+      "visible": true,
+      "metadata": { "source": 1, "tags": [7], "label": "root-updated" },
+      "material": { "color": [1, 1, 1, 1], "wireframe": false },
+      "meshPayload": null,
+      "kind": "primitive",
+      "node": {
+        "geometry": { "shape": "cube" },
+        "material": { "color": [1, 1, 1, 1], "wireframe": false },
+        "transform": {
+          "translation": [2, 0, 0],
+          "rotation": [0, 0, 0, 1],
+          "scale": [2, 2, 2]
+        },
+        "visible": true,
+        "layer": "scene",
+        "metadata": { "source": 1, "tags": [7], "label": "root-updated" }
+      }
+    },
+    {
+      "handle": 2,
+      "parent": 1,
+      "children": [],
+      "layer": "scene",
+      "transform": {
+        "translation": [0, 1, 0],
+        "rotation": [0, 0, 0, 1],
+        "scale": [1, 1, 1]
+      },
+      "visible": true,
+      "metadata": { "source": 1, "tags": [], "label": "root-label" },
+      "material": null,
+      "meshPayload": null,
+      "kind": "sprite",
+      "sprite": {
+        "asset": "sprite/ui",
+        "frame": 1,
+        "pivot": [0.5, 0.5],
+        "size": [1, 1],
+        "sizeMode": "world",
+        "billboard": "none",
+        "tint": [0.5, 1, 0.5, 1],
+        "renderOrder": 3,
+        "depth": "default",
+        "shading": "unlit",
+        "transform": {
+          "translation": [0, 1, 0],
+          "rotation": [0, 0, 0, 1],
+          "scale": [1, 1, 1]
+        },
+        "attachment": {
+          "sourceEntity": 1,
+          "sourceSceneNode": null,
+          "attachmentPoint": "label"
+        },
+        "metadata": { "source": 1, "tags": [], "label": "root-label" }
+      },
+      "frameUv": [0.25, 0, 0.5, 0.25],
+      "renderOrder": 3
+    }
+  ],
+  "materials": [
+    {
+      "id": "material/wood",
+      "color": [0.6, 0.4, 0.2, 1],
+      "texture": null,
+      "roughness": 0.8,
+      "emissive": 0,
+      "uvStrategy": "flat"
+    }
+  ],
+  "textures": [],
+  "spriteAtlases": [
+    {
+      "id": "sprite/ui",
+      "texture": "texture/ui",
+      "frames": [
+        { "frame": 0, "uvMin": [0, 0], "uvMax": [0.25, 0.25] },
+        { "frame": 1, "uvMin": [0.25, 0], "uvMax": [0.5, 0.25] }
+      ]
+    }
+  ],
+  "staticMeshes": []
+}
