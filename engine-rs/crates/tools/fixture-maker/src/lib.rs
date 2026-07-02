@@ -170,7 +170,7 @@ pub fn basic_interaction_camera_pose() -> InteractionCameraPose {
 
 /// Derive the center-crosshair pick ray from the recorded interaction camera pose.
 /// This intentionally avoids a hand-authored ray that can drift away from the
-/// graphical camera metadata consumed by downstream `asha-demo` / Agora tasks.
+/// graphical camera metadata consumed by downstream `asha-testing` / Agora tasks.
 pub fn basic_interaction_pick_ray() -> Ray {
     center_pick_ray_from_camera(basic_interaction_camera_pose())
 }
@@ -414,7 +414,7 @@ fn render_interaction_manifest(
     s.push_str("    \"stable center-crosshair raycast hit\",\n");
     s.push_str("    \"stable edit anchor for later submitCommands proof\",\n");
     s.push_str(
-        "    \"stable fixture metadata for later collision, mesh, asha-demo, and Agora tasks\"\n",
+        "    \"stable fixture metadata for later collision, mesh, asha-testing, and Agora tasks\"\n",
     );
     s.push_str("  ]\n");
     s.push_str("}\n");

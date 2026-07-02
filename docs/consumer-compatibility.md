@@ -56,7 +56,7 @@ The metadata schema is intentionally tiny for now:
 - `changelog`: section in this document for surface-specific compatibility entries.
 - `migrationNoteTemplate`: section in this document that breaking changes must fill in.
 - `failClosedPolicy`: what consumers should do when the version or operation is incompatible.
-- `pinningGuidance`: how `asha-demo` should record the surface it tested.
+- `pinningGuidance`: how downstream consumers should record the surface they tested.
 - `breakingChangeRequires`: minimum evidence checklist for border-breaking changes.
 
 `harness/public-surface/check-public-boundary.py` validates that the engine manifest covers every TS package, compatibility metadata has real changelog anchors, ownership entries exist, and raw/native transports remain internal.
@@ -87,7 +87,7 @@ Consumer behavior:
 - Consumers import only from `@asha/contracts` root export.
 - Consumers do **not** import generated file paths directly.
 - Consumers do **not** copy generated DTOs into their own repo as a forked truth source.
-- `asha-demo` records the ASHA git commit plus `contracts.v0` in conformance artifacts until #2536-style metadata is copied into downstream artifacts.
+- `asha-testing` records the ASHA git commit plus `contracts.v0` in conformance artifacts until #2536-style metadata is copied into downstream artifacts. The new human-facing `asha-demo` should record the same metadata only for demo/product evidence it actually owns.
 
 Breaking generated-contract changes require a migration note using the template below.
 
@@ -228,6 +228,7 @@ Why this is engine-level:
 - ...
 
 Downstream impact:
+- `asha-testing`: ...
 - `asha-demo`: ...
 - future consumers: ...
 

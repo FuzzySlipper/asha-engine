@@ -11,12 +11,12 @@
   "changelog": "docs/consumer-compatibility.md#runtime-bridge-compatibility-log",
   "migrationNoteTemplate": "docs/consumer-compatibility.md#migration-note-template",
   "failClosedPolicy": "Consumers must stop on unknown runtime bridge compatibilityVersion, missing facade operation, or classified RuntimeBridgeError that reports native_unavailable/operation_unimplemented for a required operation; do not call raw native/WASM transports or dynamic JSON tunnels.",
-  "pinningGuidance": "asha-demo should pin @asha/runtime-bridge by package path plus ASHA git commit until registry/version publishing exists; conformance artifacts should record compatibilityVersion and stable operation count.",
+  "pinningGuidance": "asha-testing should pin @asha/runtime-bridge by package path plus ASHA git commit for conformance artifacts until registry/version publishing exists; runtime evidence should record compatibilityVersion and stable operation count.",
   "breakingChangeRequires": [
     "bridge manifest or facade signature review",
     "runtime bridge compatibility log entry",
     "migration note for downstream consumers",
     "facade-vs-manifest conformance update",
-    "downstream asha-demo conformance evidence where applicable"
+    "downstream asha-testing conformance evidence where applicable"
   ]
 }

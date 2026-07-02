@@ -13,7 +13,7 @@
   "changelog": "docs/consumer-compatibility.md#generated-contract-compatibility-log",
   "migrationNoteTemplate": "docs/consumer-compatibility.md#migration-note-template",
   "failClosedPolicy": "Consumers must stop on missing/unknown contract compatibilityVersion, schema mismatch, or a breaking contract change without a migration note; do not paper over by copying generated DTOs or importing generated file paths.",
-  "pinningGuidance": "asha-demo should pin @asha/contracts by package path plus ASHA git commit until registry/version publishing exists; future consumers should also record compatibilityVersion in artifacts.",
+  "pinningGuidance": "asha-testing should pin @asha/contracts by package path plus ASHA git commit for conformance artifacts until registry/version publishing exists; future consumers, including the human-facing asha-demo, should also record compatibilityVersion in artifacts they own.",
   "breakingChangeRequires": [
     "Rust protocol source change",
     "regenerated TypeScript contracts",

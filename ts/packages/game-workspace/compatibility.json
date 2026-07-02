@@ -9,11 +9,11 @@
   "publishArtifactFormatVersion": "publish-artifact.v0",
   "sourceOfTruth": "ts/packages/game-workspace/src/index.ts",
   "failClosedPolicy": "Consumers must stop on missing compatibility metadata, manifest/package version mismatch, unsupported devtools protocol version, or unsupported publish artifact format; do not infer compatibility from local paths or private imports.",
-  "pinningGuidance": "asha-demo and asha-studio should pin @asha/game-workspace by package path plus ASHA git commit until registry/version publishing exists and record compatibility diagnostics in evidence artifacts.",
+  "pinningGuidance": "asha-testing and asha-studio should pin @asha/game-workspace by package path plus ASHA git commit for proof/editor artifacts until registry/version publishing exists and record compatibility diagnostics in evidence artifacts; asha-demo should pin it when it adopts a human-facing game workspace.",
   "breakingChangeRequires": [
     "game manifest validator update",
     "golden manifest fixture update",
-    "downstream asha-demo manifest compatibility check",
+    "downstream asha-testing manifest compatibility check",
     "Studio workspace loader compatibility check",
     "migration note for downstream consumers"
   ]

@@ -1,6 +1,6 @@
 # `@asha/runtime-bridge`
 
-`@asha/runtime-bridge` is the Tier 1 public TypeScript runtime facade for ASHA engine consumers such as `asha-demo`.
+`@asha/runtime-bridge` is the Tier 1 public TypeScript runtime facade for ASHA engine consumers such as `asha-testing`, `asha-demo`, and `asha-studio`.
 
 Consumers should import only the package root:
 

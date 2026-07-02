@@ -29,6 +29,6 @@
     "stable generated terrain setup",
     "stable center-crosshair raycast hit",
     "stable edit anchor for later submitCommands proof",
-    "stable fixture metadata for later collision, mesh, asha-demo, and Agora tasks"
+    "stable fixture metadata for later collision, mesh, asha-testing, and Agora tasks"
   ]
 }

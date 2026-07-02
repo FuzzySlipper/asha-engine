@@ -8,9 +8,10 @@ proof work in #3650.
 
 Game consumers launch a runtime through a canonical public facade exported from
 `@asha/runtime-bridge`. The facade owns runtime construction, launch sequencing,
-command receipts, replay/evidence metadata, and non-claim classification. Consumers such
-as `asha-demo` must not instantiate `createMockRuntimeBridge()` directly for a dev
-runtime and must not invent a separate JSON command tunnel.
+command receipts, replay/evidence metadata, and non-claim classification. Proof
+consumers such as `asha-testing`, and product/demo consumers such as `asha-demo`,
+must not instantiate `createMockRuntimeBridge()` directly for a dev runtime and
+must not invent a separate JSON command tunnel.
 
 The lower-level `RuntimeBridge` interface remains the bounded transport facade for
 engine operations. The game launcher is a higher-level public composition layer around
@@ -55,9 +56,11 @@ launcher request; the launcher should not become a manifest parser.
 models to `DevtoolsRuntimeIdentity`, projections, render diffs, telemetry, replay export,
 and evidence export. `@asha/runtime-bridge` should not depend on `@asha/devtools`.
 
-`asha-demo` owns demo-specific file loading and command-line ergonomics. It imports public
-package roots only, creates a reference launcher, launches a session, and serves devtools
-data from the session read models.
+`asha-testing` owns synthetic proof-specific file loading, command-line ergonomics,
+and conformance artifacts. It imports public package roots only, creates a reference
+launcher, launches a session, and serves devtools data from the session read models.
+The new `asha-demo` should reuse the same public launcher contract for human-facing
+demo flows without inheriting the proof harness as its repo identity.
 
 ## Public API Shape
 
@@ -126,7 +129,7 @@ uses the reference launcher.
 ## Follow-On Acceptance
 
 #3653 should add exported public types and tests that compile against the package root only.
-It should also add boundary coverage in `asha-demo` so direct demo imports of
+It should also add boundary coverage in `asha-testing` so direct proof-consumer imports of
 `createMockRuntimeBridge`, `MockRuntimeBridge`, `NativeRuntimeBridge`, raw transports, private
 source paths, and generic method/json tunnels fail.
 
@@ -135,6 +138,6 @@ existing public bridge operations internally. The implementation must report
 `runtimeMode: "reference"` and should include negative tests for missing world, unsupported
 runtime entry, and failed command/readback paths.
 
-#3655 through #3659 should then replace `asha-demo`'s `runtimeMode: "mock"` dev runtime,
-wire devtools to the session read models, and add command/replay/non-claim gates without
-weakening the existing public-boundary checks.
+#3655 through #3659 should then replace the proof consumer's `runtimeMode: "mock"` dev
+runtime, wire devtools to the session read models, and add command/replay/non-claim
+gates without weakening the existing public-boundary checks.

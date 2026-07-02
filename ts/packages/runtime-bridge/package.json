@@ -6,7 +6,7 @@
     "publicSurface": {
       "tier": 1,
       "role": "runtime-facade",
-      "allowedConsumers": ["asha-demo"],
+      "allowedConsumers": ["asha-testing", "asha-demo", "asha-studio"],
       "rootExportOnly": true,
       "nativeTransportAccess": true,
       "nativeTransportRule": "@asha/runtime-bridge is the only public package allowed to import @asha/native-bridge; consumers must not import raw transports directly."

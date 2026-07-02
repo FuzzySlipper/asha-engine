@@ -27,5 +27,5 @@ The current golden records a camera pose whose center/crosshair ray is generated
 `fixture-maker` using the same yaw/pitch forward-vector convention as the runtime
 camera basis. That generated center ray selects the top face of voxel `(1, 1, 0)`
 in chunk `(0, 0, 0)` with face `posZ`; its edit anchor is `(1, 1, 1)`.
-Downstream collision, runtime-meshing, `asha-demo`, and Agora proof tasks should
+Downstream collision, runtime-meshing, `asha-testing`, and Agora proof tasks should
 use the manifest rather than re-deriving a different ad-hoc selection.

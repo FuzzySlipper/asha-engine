@@ -8,12 +8,12 @@
   "sourceOfTruth": "ts/packages/devtools/src/attach-protocol.ts",
   "conformance": "runDevtoolsProtocolConformance",
   "failClosedPolicy": "Consumers must stop on unsupported protocol version, failed handshake, missing projection, missing telemetry, missing command proposal, or missing evidence export; do not replace the typed attach protocol with method-name JSON hatches.",
-  "pinningGuidance": "asha-demo and asha-studio should pin @asha/devtools by package path or ASHA public package bundle plus git commit until registry/version publishing exists.",
+  "pinningGuidance": "asha-testing and asha-studio should pin @asha/devtools by package path or ASHA public package bundle plus git commit for proof and attach artifacts until registry/version publishing exists; asha-demo should do the same when it adds human-facing live demo evidence.",
   "breakingChangeRequires": [
     "attach protocol schema update",
     "golden fixture update",
     "conformance harness update",
-    "downstream asha-demo endpoint proof",
+    "downstream asha-testing endpoint proof",
     "Studio attach client proof"
   ]
 }
