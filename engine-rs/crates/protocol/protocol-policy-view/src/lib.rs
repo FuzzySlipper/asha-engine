@@ -32,12 +32,38 @@
 #![forbid(unsafe_code)]
 
 use core_ids::{EntityId, TagId};
+use serde::{Serialize, Serializer};
+
+fn serialize_entity_id<S>(id: &EntityId, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_u64(id.raw())
+}
+
+fn serialize_tag_id<S>(id: &TagId, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_u64(id.raw())
+}
+
+fn serialize_tag_ids<S>(ids: &[TagId], serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    ids.iter()
+        .map(|id| id.raw())
+        .collect::<Vec<_>>()
+        .serialize(serializer)
+}
 
 // ── Read-only world view ────────────────────────────────────────────────────────
 
 /// A runtime transform as a policy sees it. Mirrors the render border's tuple
 /// order (`translation`, `rotation` xyzw, `scale`) so the projection is a copy.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PolicyTransform {
     pub translation: [f32; 3],
     pub rotation: [f32; 4],
@@ -46,7 +72,8 @@ pub struct PolicyTransform {
 
 /// The lifecycle states a policy may observe. `Tombstoned` is intentionally absent:
 /// retired entities are omitted from the view, not shown as a state.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum PolicyEntityLifecycle {
     Active,
     Disabled,
@@ -63,7 +90,8 @@ impl PolicyEntityLifecycle {
 
 /// Where an entity came from, as a policy sees it. `DiagnosticTooling` has no
 /// variant here: those entities are redacted entirely by the projector.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
 pub enum PolicyEntitySource {
     /// Bootstrapped from an authored scene node (carries the node id).
     SceneNode { node: u64 },
@@ -88,7 +116,8 @@ impl PolicyEntitySource {
 
 /// The resolution status of an asset a policy might reference. Cached/renderer
 /// state is never the source of truth here — this is the catalog's classification.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum PolicyAssetStatus {
     Resolved,
     Missing,
@@ -106,7 +135,8 @@ impl PolicyAssetStatus {
 }
 
 /// One asset a policy may reason about: its id, kind, and resolution status.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PolicyAssetView {
     pub id: String,
     pub kind: String,
@@ -115,18 +145,22 @@ pub struct PolicyAssetView {
 
 /// One entity as a policy sees it: identity, lifecycle, optional transform,
 /// source, labels, and whether it occupies space (has a transform capability).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PolicyEntityView {
+    #[serde(serialize_with = "serialize_entity_id")]
     pub id: EntityId,
     pub lifecycle: PolicyEntityLifecycle,
     pub transform: Option<PolicyTransform>,
     pub source: PolicyEntitySource,
+    #[serde(serialize_with = "serialize_tag_ids")]
     pub labels: Vec<TagId>,
     pub spatial: bool,
 }
 
 /// Cheap aggregate counts so a policy can branch without scanning the whole view.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PolicyWorldSummary {
     pub tick: u64,
     pub active_entities: u32,
@@ -136,7 +170,8 @@ pub struct PolicyWorldSummary {
 }
 
 /// The complete read-only world projection handed to a policy for one tick.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PolicyWorldView {
     pub tick: u64,
     pub entities: Vec<PolicyEntityView>,
@@ -163,17 +198,27 @@ impl PolicyWorldView {
 
 /// The narrow, safe set of world/entity actions a policy may propose. Each is a
 /// *request*: authority validates and applies, or rejects. Nothing here mutates.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
 pub enum PolicyWorldCommand {
     /// Request a new transform for a spatial, active entity.
     RequestSetTransform {
+        #[serde(serialize_with = "serialize_entity_id")]
         entity: EntityId,
         transform: PolicyTransform,
     },
     /// Request a label be added to an entity.
-    RequestAddLabel { entity: EntityId, label: TagId },
+    RequestAddLabel {
+        #[serde(serialize_with = "serialize_entity_id")]
+        entity: EntityId,
+        #[serde(serialize_with = "serialize_tag_id")]
+        label: TagId,
+    },
     /// Request an active entity be disabled (reversible; never a destroy).
-    RequestDisable { entity: EntityId },
+    RequestDisable {
+        #[serde(serialize_with = "serialize_entity_id")]
+        entity: EntityId,
+    },
     /// A no-op diagnostic marker — proposes no state change, only an audit note.
     NoopMarker { note: String },
 }
@@ -192,23 +237,26 @@ impl PolicyWorldCommand {
 
 /// The accepted domain event a validated command becomes. Distinct from the
 /// command (proposal) and from the rejection — the three never share a type.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
 pub enum PolicyWorldEvent {
     TransformSet {
+        #[serde(serialize_with = "serialize_entity_id")]
         entity: EntityId,
         transform: PolicyTransform,
     },
     LabelAdded {
+        #[serde(serialize_with = "serialize_entity_id")]
         entity: EntityId,
+        #[serde(serialize_with = "serialize_tag_id")]
         label: TagId,
     },
     Disabled {
+        #[serde(serialize_with = "serialize_entity_id")]
         entity: EntityId,
     },
     /// A recorded no-op marker (accepted, changes no authority state).
-    NoopRecorded {
-        note: String,
-    },
+    NoopRecorded { note: String },
 }
 
 impl PolicyWorldEvent {
@@ -224,7 +272,8 @@ impl PolicyWorldEvent {
 
 /// The classified reason authority refused a proposed command. Stable string form
 /// is a contract; a policy never decides acceptance, it reflects this.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum PolicyWorldRejection {
     /// The target entity is not present (or was tombstoned/redacted).
     UnknownEntity,
@@ -258,7 +307,8 @@ impl PolicyWorldRejection {
 
 /// The outcome authority reports for one proposed command: accepted (with its
 /// event) or rejected (with the classified reason).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(tag = "status", rename_all = "camelCase")]
 pub enum PolicyWorldOutcome {
     Accepted { event: PolicyWorldEvent },
     Rejected { rejection: PolicyWorldRejection },

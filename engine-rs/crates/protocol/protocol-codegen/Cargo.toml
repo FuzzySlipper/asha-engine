@@ -21,5 +21,11 @@ protocol-diagnostics = { path = "../protocol-diagnostics" }
 protocol-scene = { path = "../protocol-scene" }
 protocol-world-bundle = { path = "../protocol-world-bundle" }
 protocol-assets = { path = "../protocol-assets" }
+protocol-policy-view = { path = "../protocol-policy-view" }
+protocol-telemetry = { path = "../protocol-telemetry" }
 protocol-entity-authoring = { path = "../protocol-entity-authoring" }
 protocol-view = { path = "../protocol-view" }
+
+[dev-dependencies]
+core-ids = { path = "../../foundation/core-ids" }
+serde_json = "1"

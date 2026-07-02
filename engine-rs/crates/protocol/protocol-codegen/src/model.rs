@@ -1952,6 +1952,94 @@ pub fn policy_view_module() -> Module {
     }
 }
 
+// ── telemetry.ts — observational telemetry events ────────────────────────────
+
+pub fn telemetry_module() -> Module {
+    let items = vec![
+        Item::Alias {
+            doc: "Component that produced an observational telemetry event.".to_string(),
+            name: "TelemetrySource".to_string(),
+            ty: TsType::StringEnum(
+                protocol_telemetry::TELEMETRY_SOURCES
+                    .iter()
+                    .map(|value| (*value).to_string())
+                    .collect(),
+            ),
+        },
+        Item::Alias {
+            doc: "Severity of an observational telemetry event.".to_string(),
+            name: "TelemetryLevel".to_string(),
+            ty: TsType::StringEnum(
+                protocol_telemetry::TELEMETRY_LEVELS
+                    .iter()
+                    .map(|value| (*value).to_string())
+                    .collect(),
+            ),
+        },
+        Item::Alias {
+            doc: "Metric value category.".to_string(),
+            name: "TelemetryMetricKind".to_string(),
+            ty: TsType::StringEnum(
+                protocol_telemetry::TELEMETRY_METRIC_KINDS
+                    .iter()
+                    .map(|value| (*value).to_string())
+                    .collect(),
+            ),
+        },
+        iface(
+            "One numeric telemetry sample.",
+            "TelemetryMetric",
+            vec![
+                f("name", string()),
+                f("kind", r("TelemetryMetricKind")),
+                f("value", num()),
+                f("unit", TsType::nullable(string())),
+            ],
+        ),
+        union(
+            "One observational telemetry event.",
+            "TelemetryEvent",
+            "kind",
+            vec![
+                v(
+                    "metric",
+                    vec![
+                        f("source", r("TelemetrySource")),
+                        f("level", r("TelemetryLevel")),
+                        f("sequence", num()),
+                        f("metric", r("TelemetryMetric")),
+                    ],
+                ),
+                v(
+                    "trace",
+                    vec![
+                        f("source", r("TelemetrySource")),
+                        f("level", r("TelemetryLevel")),
+                        f("sequence", num()),
+                        f("span", string()),
+                        f("message", string()),
+                    ],
+                ),
+            ],
+        ),
+        iface(
+            "A batch of telemetry events emitted for one observation point.",
+            "TelemetryEnvelope",
+            vec![
+                f("protocolVersion", num()),
+                f("emittedAtTick", num()),
+                f("events", TsType::array(r("TelemetryEvent"))),
+            ],
+        ),
+    ];
+
+    Module {
+        name: "telemetry",
+        imports: vec![],
+        items,
+    }
+}
+
 pub fn entity_authoring_module() -> Module {
     let imports = vec![
         import("./ids.js", &["EntityId", "TagId", "ProcessId", "SubjectId"]),
@@ -2377,6 +2465,9 @@ pub fn index_module() -> Module {
                 from: "./policyView.js".to_string(),
             },
             Item::ReExport {
+                from: "./telemetry.js".to_string(),
+            },
+            Item::ReExport {
                 from: "./view.js".to_string(),
             },
             Item::ReExport {
@@ -2399,6 +2490,7 @@ pub fn all_modules() -> Vec<Module> {
         assets_module(),
         diagnostics_module(),
         policy_view_module(),
+        telemetry_module(),
         view_module(),
         entity_authoring_module(),
         index_module(),

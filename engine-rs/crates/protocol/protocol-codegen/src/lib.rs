@@ -129,6 +129,9 @@ fn first_diff_line(a: &str, b: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::schema::{Item, Module, TsType, Variant};
+    use serde_json::{json, Value};
+    use std::collections::BTreeSet;
 
     #[test]
     fn generation_is_deterministic() {
@@ -155,6 +158,7 @@ mod tests {
                 format!("{OUTPUT_DIR}/assets.ts"),
                 format!("{OUTPUT_DIR}/diagnostics.ts"),
                 format!("{OUTPUT_DIR}/policyView.ts"),
+                format!("{OUTPUT_DIR}/telemetry.ts"),
                 format!("{OUTPUT_DIR}/view.ts"),
                 format!("{OUTPUT_DIR}/entityAuthoring.ts"),
                 format!("{OUTPUT_DIR}/index.ts"),
@@ -168,6 +172,110 @@ mod tests {
             .find(|f| f.rel_path.ends_with(&format!("/{name}")))
             .unwrap_or_else(|| panic!("no generated file {name}"))
             .contents
+    }
+
+    fn module(name: &str) -> Module {
+        model::all_modules()
+            .into_iter()
+            .find(|module| module.name == name)
+            .unwrap_or_else(|| panic!("no IR module {name}"))
+    }
+
+    fn named_item<'a>(module: &'a Module, item_name: &str) -> &'a Item {
+        module
+            .items
+            .iter()
+            .find(|item| match item {
+                Item::BrandedId { name, .. }
+                | Item::Alias { name, .. }
+                | Item::Interface { name, .. }
+                | Item::Union { name, .. }
+                | Item::Const { name, .. } => name == item_name,
+                Item::ReExport { .. } => false,
+            })
+            .unwrap_or_else(|| panic!("no IR item {item_name} in {}", module.name))
+    }
+
+    fn object_keys(value: &Value) -> BTreeSet<String> {
+        value
+            .as_object()
+            .unwrap_or_else(|| panic!("expected JSON object, got {value:?}"))
+            .keys()
+            .cloned()
+            .collect()
+    }
+
+    fn interface_fields(module: &Module, item_name: &str) -> BTreeSet<String> {
+        match named_item(module, item_name) {
+            Item::Interface { fields, .. } => {
+                fields.iter().map(|field| field.name.clone()).collect()
+            }
+            other => panic!("expected interface {item_name}, got {other:?}"),
+        }
+    }
+
+    fn string_enum_values(module: &Module, item_name: &str) -> BTreeSet<String> {
+        match named_item(module, item_name) {
+            Item::Alias {
+                ty: TsType::StringEnum(values),
+                ..
+            } => values.iter().cloned().collect(),
+            other => panic!("expected string enum alias {item_name}, got {other:?}"),
+        }
+    }
+
+    fn variant<'a>(module: &'a Module, item_name: &str, tag: &str) -> (&'a str, &'a Variant) {
+        match named_item(module, item_name) {
+            Item::Union {
+                discriminant,
+                variants,
+                ..
+            } => {
+                let variant = variants
+                    .iter()
+                    .find(|variant| variant.tag == tag)
+                    .unwrap_or_else(|| panic!("no variant {tag} in {item_name}"));
+                (discriminant, variant)
+            }
+            other => panic!("expected union {item_name}, got {other:?}"),
+        }
+    }
+
+    fn compare_object_to_interface(
+        module: &Module,
+        item_name: &str,
+        value: &Value,
+    ) -> Result<(), String> {
+        let expected = interface_fields(module, item_name);
+        let actual = object_keys(value);
+        if actual == expected {
+            Ok(())
+        } else {
+            Err(format!(
+                "{item_name} fields drifted: expected {expected:?}, got {actual:?}"
+            ))
+        }
+    }
+
+    fn compare_object_to_variant(
+        module: &Module,
+        item_name: &str,
+        tag: &str,
+        value: &Value,
+    ) -> Result<(), String> {
+        let (discriminant, variant) = variant(module, item_name, tag);
+        assert_eq!(value[discriminant], tag);
+
+        let mut expected = BTreeSet::from([discriminant.to_string()]);
+        expected.extend(variant.fields.iter().map(|field| field.name.clone()));
+        let actual = object_keys(value);
+        if actual == expected {
+            Ok(())
+        } else {
+            Err(format!(
+                "{item_name}.{tag} fields drifted: expected {expected:?}, got {actual:?}"
+            ))
+        }
     }
 
     #[test]
@@ -243,6 +351,267 @@ mod tests {
         assert!(d.contains("export interface SourceTrace {"));
         assert!(d.contains("export interface RendererResourceReport {"));
         assert!(d.contains("readonly chunkCoord: readonly [number, number, number] | null;"));
+    }
+
+    #[test]
+    fn policy_view_rust_serialization_matches_ir_shape() {
+        use core_ids::{EntityId, TagId};
+        use protocol_policy_view::{
+            PolicyAssetStatus, PolicyAssetView, PolicyEntityLifecycle, PolicyEntitySource,
+            PolicyEntityView, PolicyTransform, PolicyWorldCommand, PolicyWorldEvent,
+            PolicyWorldOutcome, PolicyWorldRejection, PolicyWorldSummary, PolicyWorldView,
+        };
+
+        let policy_view = module("policyView");
+        let transform = PolicyTransform {
+            translation: [1.0, 2.0, 3.0],
+            rotation: [0.0, 0.0, 0.0, 1.0],
+            scale: [1.0, 1.0, 1.0],
+        };
+        let world = PolicyWorldView {
+            tick: 12,
+            entities: vec![PolicyEntityView {
+                id: EntityId::new(42),
+                lifecycle: PolicyEntityLifecycle::Active,
+                transform: Some(transform),
+                source: PolicyEntitySource::Imported {
+                    asset: "catalog/mesh.box".to_string(),
+                },
+                labels: vec![TagId::new(7)],
+                spatial: true,
+            }],
+            assets: vec![PolicyAssetView {
+                id: "catalog/mesh.box".to_string(),
+                kind: "mesh".to_string(),
+                status: PolicyAssetStatus::Missing,
+            }],
+            summary: PolicyWorldSummary {
+                tick: 12,
+                active_entities: 1,
+                spatial_entities: 1,
+                asset_count: 1,
+                missing_assets: 1,
+            },
+        };
+
+        let serialized = serde_json::to_value(&world).unwrap();
+        compare_object_to_interface(&policy_view, "PolicyWorldView", &serialized).unwrap();
+        compare_object_to_interface(&policy_view, "PolicyWorldSummary", &serialized["summary"])
+            .unwrap();
+        compare_object_to_interface(&policy_view, "PolicyEntityView", &serialized["entities"][0])
+            .unwrap();
+        compare_object_to_interface(
+            &policy_view,
+            "PolicyTransform",
+            &serialized["entities"][0]["transform"],
+        )
+        .unwrap();
+        compare_object_to_variant(
+            &policy_view,
+            "PolicyEntitySource",
+            "imported",
+            &serialized["entities"][0]["source"],
+        )
+        .unwrap();
+        compare_object_to_interface(&policy_view, "PolicyAssetView", &serialized["assets"][0])
+            .unwrap();
+        assert_eq!(serialized["entities"][0]["id"], json!(42));
+        assert_eq!(serialized["entities"][0]["labels"], json!([7]));
+        assert_eq!(serialized["assets"][0]["status"], json!("missing"));
+
+        let command = serde_json::to_value(PolicyWorldCommand::RequestAddLabel {
+            entity: EntityId::new(42),
+            label: TagId::new(7),
+        })
+        .unwrap();
+        compare_object_to_variant(
+            &policy_view,
+            "PolicyWorldCommand",
+            "requestAddLabel",
+            &command,
+        )
+        .unwrap();
+        assert_eq!(command["entity"], json!(42));
+        assert_eq!(command["label"], json!(7));
+
+        let event = serde_json::to_value(PolicyWorldEvent::TransformSet {
+            entity: EntityId::new(42),
+            transform,
+        })
+        .unwrap();
+        compare_object_to_variant(&policy_view, "PolicyWorldEvent", "transformSet", &event)
+            .unwrap();
+
+        let outcome = serde_json::to_value(PolicyWorldOutcome::Rejected {
+            rejection: PolicyWorldRejection::NotSpatial,
+        })
+        .unwrap();
+        compare_object_to_variant(&policy_view, "PolicyWorldOutcome", "rejected", &outcome)
+            .unwrap();
+        assert_eq!(outcome["rejection"], json!("notSpatial"));
+
+        let lifecycle_labels: BTreeSet<String> = [
+            PolicyEntityLifecycle::Active,
+            PolicyEntityLifecycle::Disabled,
+        ]
+        .into_iter()
+        .map(|lifecycle| lifecycle.label().to_string())
+        .collect();
+        assert_eq!(
+            string_enum_values(&policy_view, "PolicyEntityLifecycle"),
+            lifecycle_labels
+        );
+
+        let asset_status_labels: BTreeSet<String> = [
+            PolicyAssetStatus::Resolved,
+            PolicyAssetStatus::Missing,
+            PolicyAssetStatus::Stale,
+        ]
+        .into_iter()
+        .map(|status| status.label().to_string())
+        .collect();
+        assert_eq!(
+            string_enum_values(&policy_view, "PolicyAssetStatus"),
+            asset_status_labels
+        );
+
+        let rejection_labels: BTreeSet<String> = [
+            PolicyWorldRejection::UnknownEntity,
+            PolicyWorldRejection::EntityDisabled,
+            PolicyWorldRejection::NotSpatial,
+            PolicyWorldRejection::Immovable,
+            PolicyWorldRejection::InvalidTransform,
+            PolicyWorldRejection::LabelAlreadyPresent,
+            PolicyWorldRejection::AlreadyDisabled,
+        ]
+        .into_iter()
+        .map(|rejection| rejection.label().to_string())
+        .collect();
+        assert_eq!(
+            string_enum_values(&policy_view, "PolicyWorldRejection"),
+            rejection_labels
+        );
+    }
+
+    #[test]
+    fn policy_view_shape_test_catches_missing_ir_field() {
+        use core_ids::EntityId;
+        use protocol_policy_view::{
+            PolicyEntityLifecycle, PolicyEntitySource, PolicyEntityView, PolicyTransform,
+        };
+
+        let mut policy_view = model::policy_view_module();
+        let entity_item = policy_view
+            .items
+            .iter_mut()
+            .find(|item| matches!(item, Item::Interface { name, .. } if name == "PolicyEntityView"))
+            .unwrap();
+        let Item::Interface { fields, .. } = entity_item else {
+            panic!("PolicyEntityView should be an interface")
+        };
+        fields.retain(|field| field.name != "spatial");
+
+        let entity = PolicyEntityView {
+            id: EntityId::new(42),
+            lifecycle: PolicyEntityLifecycle::Active,
+            transform: Some(PolicyTransform {
+                translation: [1.0, 2.0, 3.0],
+                rotation: [0.0, 0.0, 0.0, 1.0],
+                scale: [1.0, 1.0, 1.0],
+            }),
+            source: PolicyEntitySource::Runtime,
+            labels: Vec::new(),
+            spatial: true,
+        };
+        let serialized = serde_json::to_value(&entity).unwrap();
+        let err =
+            compare_object_to_interface(&policy_view, "PolicyEntityView", &serialized).unwrap_err();
+        assert!(
+            err.contains("spatial"),
+            "mutation-style shape test should name the missing field, got {err}"
+        );
+    }
+
+    #[test]
+    fn telemetry_rust_serialization_matches_ir_shape() {
+        use protocol_telemetry::{
+            TelemetryEnvelope, TelemetryEvent, TelemetryLevel, TelemetryMetric,
+            TelemetryMetricKind, TelemetrySource, TELEMETRY_LEVELS, TELEMETRY_METRIC_KINDS,
+            TELEMETRY_SOURCES,
+        };
+
+        let telemetry = module("telemetry");
+        assert_eq!(
+            string_enum_values(&telemetry, "TelemetrySource"),
+            TELEMETRY_SOURCES
+                .iter()
+                .map(|value| (*value).to_string())
+                .collect()
+        );
+        assert_eq!(
+            string_enum_values(&telemetry, "TelemetryLevel"),
+            TELEMETRY_LEVELS
+                .iter()
+                .map(|value| (*value).to_string())
+                .collect()
+        );
+        assert_eq!(
+            string_enum_values(&telemetry, "TelemetryMetricKind"),
+            TELEMETRY_METRIC_KINDS
+                .iter()
+                .map(|value| (*value).to_string())
+                .collect()
+        );
+
+        let envelope = TelemetryEnvelope {
+            protocol_version: 1,
+            emitted_at_tick: 99,
+            events: vec![TelemetryEvent::Metric {
+                source: TelemetrySource::Runtime,
+                level: TelemetryLevel::Info,
+                sequence: 4,
+                metric: TelemetryMetric {
+                    name: "frame.projection".to_string(),
+                    kind: TelemetryMetricKind::DurationMs,
+                    value: 2.5,
+                    unit: Some("ms".to_string()),
+                },
+            }],
+        };
+        let serialized = serde_json::to_value(&envelope).unwrap();
+        compare_object_to_interface(&telemetry, "TelemetryEnvelope", &serialized).unwrap();
+        compare_object_to_variant(
+            &telemetry,
+            "TelemetryEvent",
+            "metric",
+            &serialized["events"][0],
+        )
+        .unwrap();
+        compare_object_to_interface(
+            &telemetry,
+            "TelemetryMetric",
+            &serialized["events"][0]["metric"],
+        )
+        .unwrap();
+        assert_eq!(serialized["protocolVersion"], json!(1));
+        assert_eq!(serialized["emittedAtTick"], json!(99));
+        assert_eq!(serialized["events"][0]["source"], json!("runtime"));
+        assert_eq!(serialized["events"][0]["level"], json!("info"));
+        assert_eq!(
+            serialized["events"][0]["metric"]["kind"],
+            json!("durationMs")
+        );
+
+        let trace = serde_json::to_value(TelemetryEvent::Trace {
+            source: TelemetrySource::Policy,
+            level: TelemetryLevel::Debug,
+            sequence: 5,
+            span: "tick".to_string(),
+            message: "policy pass complete".to_string(),
+        })
+        .unwrap();
+        compare_object_to_variant(&telemetry, "TelemetryEvent", "trace", &trace).unwrap();
+        assert_eq!(trace["source"], json!("policy"));
     }
 
     /// Focused behavior test for the `scene` family: the node-kind tags and

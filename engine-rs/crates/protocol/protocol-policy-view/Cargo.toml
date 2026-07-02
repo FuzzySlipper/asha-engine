@@ -12,3 +12,4 @@ publish = false
 # `core-ids` only — pure data, no behavior.
 [dependencies]
 core-ids = { path = "../../foundation/core-ids" }
+serde = { version = "1", features = ["derive"] }

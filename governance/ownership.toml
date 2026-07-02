@@ -161,7 +161,7 @@ may_not_depend_on = ["core-state", "core-entity", "core-scene", "sim-kernel", "p
 
 [crate."engine-rs/crates/protocol/protocol-codegen"]
 lane = "contract-steward"
-may_depend_on = ["protocol-ids", "protocol-script", "protocol-render", "protocol-replay", "protocol-telemetry", "protocol-diagnostics", "protocol-scene", "protocol-world-bundle", "protocol-assets", "protocol-entity-authoring", "protocol-view"]
+may_depend_on = ["core-ids", "protocol-ids", "protocol-script", "protocol-render", "protocol-replay", "protocol-telemetry", "protocol-diagnostics", "protocol-scene", "protocol-world-bundle", "protocol-assets", "protocol-policy-view", "protocol-entity-authoring", "protocol-view"]
 
 # ─── Rust: Sim ───────────────────────────────────────────────────────────────
 
