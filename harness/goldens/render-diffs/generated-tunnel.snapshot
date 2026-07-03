@@ -1,0 +1,9 @@
+generated-tunnel-render 1
+output_hash=a9b504096397f5b4
+ops=2
+creates=1
+replace_mesh_payloads=1
+vertices=1136
+indices=1704
+material_slots=[1, 2, 3]
+labels=["chunk 0,0,0"]

@@ -1,0 +1,9 @@
+combat-fire 1
+outcome=hit target=20 distance=3.500 defeated=true
+events=3
+event=fire_hit shooter=10 target=20 distance=3.500 tick=7
+event=damage_applied target=20 amount=40 before=40 after=0
+event=entity_defeated target=20
+next_fire_control=ammo:2 cooldown:4 after:4
+health_hash=3c89045230f2d9d9
+replay_hash=6b133026c511b0f5

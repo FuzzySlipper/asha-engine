@@ -196,7 +196,6 @@ may_not_depend_on = ["render-bridge", "wasm-api"]
 
 [crate."engine-rs/crates/services/svc-rng"]
 lane = "rust-service"
-implementation_status = "reserved"
 may_depend_on = ["core-ids", "core-error"]
 may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
@@ -221,8 +220,7 @@ may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 [crate."engine-rs/crates/services/svc-pathfinding"]
 lane = "rust-service"
-implementation_status = "reserved"
-may_depend_on = ["core-ids", "core-math", "core-error", "core-state"]
+may_depend_on = ["core-space", "svc-spatial", "svc-levelgen"]
 may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 [crate."engine-rs/crates/services/svc-serialization"]
@@ -256,6 +254,22 @@ may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 [crate."engine-rs/crates/services/svc-entity-authoring"]
 lane = "rust-service"
 may_depend_on = ["core-ids", "core-math", "core-assets", "core-entity", "protocol-entity-authoring"]
+may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
+
+# Deterministic generated-level substrate (#4038). Validates reusable generation
+# configs and emits voxel authority plus replay/hash metadata. Render/collision
+# lanes consume the generated world; the generator does not render.
+[crate."engine-rs/crates/services/svc-levelgen"]
+lane = "rust-service"
+may_depend_on = ["core-events", "core-space", "core-voxel", "svc-rng", "svc-volume", "svc-spatial", "svc-collision"]
+may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
+
+# Minimal combat/health/raycast authority substrate (#4040). Validates fire
+# intent, resolves target AABB hits before voxel collision blockers, mutates
+# health state, and emits deterministic readouts. No policy/demo logic.
+[crate."engine-rs/crates/services/svc-combat"]
+lane = "rust-service"
+may_depend_on = ["core-ids", "core-space", "svc-collision", "svc-levelgen"]
 may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 # ─── Rust: Rules ─────────────────────────────────────────────────────────────
@@ -319,6 +333,7 @@ may_depend_on = [
     "svc-spatial",
     "svc-volume",
     "svc-mesh",
+    "svc-levelgen",
     "protocol-render",
 ]
 may_not_depend_on = ["wasm-api"]

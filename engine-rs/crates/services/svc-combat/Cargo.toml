@@ -1,0 +1,15 @@
+[package]
+name    = "svc-combat"
+version.workspace = true
+edition.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+core-ids      = { path = "../../foundation/core-ids" }
+core-space    = { path = "../../foundation/core-space" }
+svc-collision = { path = "../svc-collision" }
+
+[dev-dependencies]
+svc-levelgen = { path = "../svc-levelgen" }

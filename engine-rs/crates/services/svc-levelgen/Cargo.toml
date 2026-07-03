@@ -1,0 +1,18 @@
+[package]
+name    = "svc-levelgen"
+version.workspace = true
+edition.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+core-events = { path = "../../state/core-events" }
+core-space  = { path = "../../foundation/core-space" }
+core-voxel  = { path = "../../state/core-voxel" }
+svc-rng     = { path = "../svc-rng" }
+svc-spatial = { path = "../svc-spatial" }
+svc-volume  = { path = "../svc-volume" }
+
+[dev-dependencies]
+svc-collision = { path = "../svc-collision" }

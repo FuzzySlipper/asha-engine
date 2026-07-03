@@ -35,7 +35,7 @@ For the full architecture, start with `docs/design.md` and live Den guidance (`g
 ## Repository layout
 
 ```text
-engine-rs/          Rust workspace (62 crates, including reserved cells)
+engine-rs/          Rust workspace (64 crates, including reserved cells)
   crates/
     foundation/     core IDs, math, time, errors, collections, coordinates, assets
     state/          authoritative state, entities, scene, catalog, voxel, commands, events, snapshots
@@ -208,6 +208,9 @@ Check the relevant package scripts before adding new commands; this workspace in
 | `docs/replay-model.md` | Replay recording, playback, and determinism audit |
 | `docs/render-protocol.md` | Retained-mode render diff protocol |
 | `docs/determinism.md` | Determinism requirements and enforcement |
+| `docs/tunnel-generator-substrate.md` | Deterministic enclosed tunnel generator schema, import path, and projection evidence |
+| `docs/combat-authority-substrate.md` | Combat/health/fire-intent authority surface and replay evidence |
+| `docs/nav-pathfinding-substrate.md` | Read-only voxel navigation projection and deterministic path query evidence |
 | `docs/policy-authoring.md` | Policy package authoring and testing |
 | `docs/voxel-coordinates.md` | Voxel/grid/chunk coordinate conventions |
 | `docs/voxel-mesh-seam.md` | Voxel meshing/seam design notes |

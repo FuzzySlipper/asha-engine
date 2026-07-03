@@ -1,0 +1,16 @@
+generated-tunnel 1
+generator=asha.tunnel.enclosed.v1
+version=1
+preset=tiny-enclosed
+seed=17
+config_hash=e1d156c6b55137a7
+output_hash=a9b504096397f5b4
+dims=5x4x9
+events=1
+event=chunk_generated chunk=0,0,0 seed=17 version=1 hash=327d1a16bd89a5e6
+render_chunks=1
+render_chunk=0,0,0 solids=138 hash=327d1a16bd89a5e6
+collision_aabbs=138
+spawn_markers=2
+spawn=player_start kind=player voxel=1,1,1 world=1.5,1.5,1.5 yaw=0
+spawn=exit_hint kind=navigation voxel=3,1,7 world=3.5,1.5,7.5 yaw=180

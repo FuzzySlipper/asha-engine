@@ -5,3 +5,10 @@ edition.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+core-space  = { path = "../../foundation/core-space" }
+svc-spatial = { path = "../svc-spatial" }
+
+[dev-dependencies]
+svc-levelgen = { path = "../svc-levelgen" }

@@ -20,4 +20,5 @@ svc-mesh       = { path = "../../services/svc-mesh" }
 protocol-render = { path = "../../protocol/protocol-render" }
 
 [dev-dependencies]
+svc-levelgen  = { path = "../../services/svc-levelgen" }
 svc-volume     = { path = "../../services/svc-volume" }

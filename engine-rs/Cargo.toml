@@ -54,6 +54,8 @@ members = [
     "crates/services/svc-mesh",
     "crates/services/svc-policy-view",
     "crates/services/svc-entity-authoring",
+    "crates/services/svc-levelgen",
+    "crates/services/svc-combat",
 
     # Rules
     "crates/rules/rule-lifecycle",
