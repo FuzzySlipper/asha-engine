@@ -12,6 +12,7 @@ consume them. Their rendered scene snapshots live in
 | `sample-frame.json` | hand-authored create→update→destroy | `renderer-three` decode test |
 | `scene-projection.json`, `scene-projection-sequence.json` | `render-bridge` `ScenePresentationProjector` | `renderer-three` golden snapshot |
 | `scene-showcase.json`, `sprite-showcase.json`, `static-mesh-instances.json` | authored showcase frames | `renderer-three` golden snapshots |
+| `static-room.json` | `@asha/renderer-three` `createStaticRoomRenderFrame` helper | `renderer-three` projection/render path and golden snapshot |
 | `sprite-atlas.json`, `voxel-materials.json` | Rust projector | `renderer-three` / projector goldens |
 
 ## Regenerate

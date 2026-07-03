@@ -34,6 +34,51 @@ export type AuthoringCapability = {
     readonly min: readonly [number, number, number];
     readonly max: readonly [number, number, number];
 };
+export interface EntityDefinitionSourceTrace {
+    readonly projectBundle: string;
+    readonly relativePath: string;
+}
+export interface EntityDefinitionMetadataEntry {
+    readonly key: string;
+    readonly value: string;
+}
+export type EntityDefinitionCapability = {
+    readonly kind: 'transform';
+    readonly transform: AuthoringTransform;
+} | {
+    readonly kind: 'render';
+    readonly visible: boolean;
+} | {
+    readonly kind: 'collision';
+    readonly staticCollider: boolean;
+} | {
+    readonly kind: 'bounds';
+    readonly min: readonly [number, number, number];
+    readonly max: readonly [number, number, number];
+} | {
+    readonly kind: 'unknown';
+    readonly capabilityKind: string;
+};
+export interface EntityDefinition {
+    readonly stableId: string;
+    readonly displayName: string;
+    readonly source: EntityDefinitionSourceTrace;
+    readonly tags: readonly TagId[];
+    readonly metadata: readonly EntityDefinitionMetadataEntry[];
+    readonly capabilities: readonly EntityDefinitionCapability[];
+}
+export type EntityDefinitionDiagnosticCode = 'missingStableId' | 'missingDisplayName' | 'missingSourceTrace' | 'unknownCapability' | 'duplicateCapability' | 'nonFiniteInitialValue' | 'invalidInitialValue';
+export interface EntityDefinitionDiagnostic {
+    readonly code: EntityDefinitionDiagnosticCode;
+    readonly path: string;
+    readonly message: string;
+}
+export type EntityDefinitionValidationOutcome = {
+    readonly status: 'valid';
+} | {
+    readonly status: 'invalid';
+    readonly diagnostics: readonly EntityDefinitionDiagnostic[];
+};
 export type EntityAuthoringCommand = {
     readonly kind: 'create';
     readonly id: EntityId;

@@ -26,7 +26,8 @@ use core_math::Vec3;
 
 use crate::core::EntityLifecycle;
 use crate::store::EntityStore;
-use crate::value::{Aabb, EntityTransform};
+use crate::transform::{TransformCommand, TransformError, TransformEvent};
+use crate::value::{Aabb, EntityTransform, Quat};
 
 /// A proposed kinematic move by a world-space delta.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -56,6 +57,142 @@ pub struct MovementEvent {
     pub hit: Option<EntityId>,
     /// Whether a (visible) render projection should be updated.
     pub projection_changed: bool,
+}
+
+/// Bounded first-person actor/camera input, in the same semantic vocabulary as
+/// `protocol-view::FirstPersonCameraInput` but owned by the authority state lane.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FirstPersonMotionInput {
+    pub move_forward: f32,
+    pub move_right: f32,
+    pub move_up: f32,
+    pub yaw_delta_degrees: f32,
+    pub pitch_delta_degrees: f32,
+    pub dt_seconds: f32,
+    pub move_speed_units_per_second: f32,
+}
+
+/// A proposed first-person motion/look update for a transform-capable entity.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FirstPersonMotionCommand {
+    pub id: EntityId,
+    pub input: FirstPersonMotionInput,
+    pub tick: u64,
+}
+
+/// Authority pose readout after first-person motion integration.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FirstPersonPose {
+    pub position: Vec3,
+    pub yaw_degrees: f32,
+    pub pitch_degrees: f32,
+}
+
+/// Camera-style basis derived from an authority pose. Projection consumers may
+/// use this readout; renderers do not own or mutate it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FirstPersonBasis {
+    pub forward: Vec3,
+    pub right: Vec3,
+    pub up: Vec3,
+}
+
+/// Deterministic projection/readout emitted with an accepted first-person update.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FirstPersonMotionReadout {
+    pub id: EntityId,
+    pub tick: u64,
+    pub pose: FirstPersonPose,
+    pub basis: FirstPersonBasis,
+    pub pose_hash: u64,
+}
+
+/// The authoritative record of an accepted first-person actor/camera update.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FirstPersonMotionEvent {
+    pub id: EntityId,
+    pub tick: u64,
+    pub input: FirstPersonMotionInput,
+    pub from: FirstPersonPose,
+    pub to: FirstPersonPose,
+    pub transform: TransformEvent,
+    pub readout: FirstPersonMotionReadout,
+}
+
+/// Collision/debug readout for a first-person motion command resolved through
+/// authority movement collision.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FirstPersonCollisionReadout {
+    pub outcome: MovementOutcome,
+    pub hit: Option<EntityId>,
+    pub projection_changed: bool,
+}
+
+/// Accepted first-person motion resolved through the entity collision substrate.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FirstPersonCollisionMotionEvent {
+    pub id: EntityId,
+    pub tick: u64,
+    pub input: FirstPersonMotionInput,
+    pub from: FirstPersonPose,
+    pub attempted: FirstPersonPose,
+    pub to: FirstPersonPose,
+    pub movement: MovementEvent,
+    pub transform: TransformEvent,
+    pub readout: FirstPersonMotionReadout,
+    pub collision: FirstPersonCollisionReadout,
+}
+
+/// Why a collision-aware first-person motion command was rejected.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FirstPersonCollisionMotionError {
+    Input(FirstPersonMotionError),
+    Movement(MovementError),
+    Transform(TransformError),
+}
+
+impl FirstPersonCollisionMotionError {
+    pub fn label(&self) -> &'static str {
+        match self {
+            FirstPersonCollisionMotionError::Input(e) => e.label(),
+            FirstPersonCollisionMotionError::Movement(e) => e.label(),
+            FirstPersonCollisionMotionError::Transform(e) => e.label(),
+        }
+    }
+
+    pub fn category(&self) -> ErrorCategory {
+        match self {
+            FirstPersonCollisionMotionError::Input(e) => e.category(),
+            FirstPersonCollisionMotionError::Movement(e) => e.category(),
+            FirstPersonCollisionMotionError::Transform(e) => e.category(),
+        }
+    }
+}
+
+/// Why a first-person motion command was rejected.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FirstPersonMotionError {
+    Transform(TransformError),
+    NonFinite { id: EntityId },
+    NegativeTimeOrSpeed { id: EntityId },
+}
+
+impl FirstPersonMotionError {
+    pub fn label(&self) -> &'static str {
+        match self {
+            FirstPersonMotionError::Transform(e) => e.label(),
+            FirstPersonMotionError::NonFinite { .. } => "nonFinite",
+            FirstPersonMotionError::NegativeTimeOrSpeed { .. } => "negativeTimeOrSpeed",
+        }
+    }
+
+    pub fn category(&self) -> ErrorCategory {
+        match self {
+            FirstPersonMotionError::Transform(e) => e.category(),
+            FirstPersonMotionError::NonFinite { .. }
+            | FirstPersonMotionError::NegativeTimeOrSpeed { .. } => ErrorCategory::Invalid,
+        }
+    }
 }
 
 /// Why a movement command was rejected.
@@ -180,6 +317,147 @@ impl EntityStore {
         self.check_movement_eligible(id)
     }
 
+    /// Validate and apply first-person actor/camera motion without collision. The
+    /// accepted update mutates only the entity's transform capability and returns
+    /// a deterministic pose/basis readout for camera projection consumers.
+    pub fn apply_first_person_motion(
+        &mut self,
+        command: FirstPersonMotionCommand,
+    ) -> Result<FirstPersonMotionEvent, FirstPersonMotionError> {
+        validate_first_person_input(command.id, command.input)?;
+        self.transform_eligible(command.id)
+            .map_err(FirstPersonMotionError::Transform)?;
+        let current = self
+            .transform(command.id)
+            .expect("transform eligibility guarantees a transform capability")
+            .transform;
+        let from = pose_from_transform(current);
+        let basis = basis_from_pose(from);
+        let distance = command.input.dt_seconds * command.input.move_speed_units_per_second;
+        let delta = Vec3::new(
+            (basis.forward.x * command.input.move_forward
+                + basis.right.x * command.input.move_right
+                + basis.up.x * command.input.move_up)
+                * distance,
+            (basis.forward.y * command.input.move_forward
+                + basis.right.y * command.input.move_right
+                + basis.up.y * command.input.move_up)
+                * distance,
+            (basis.forward.z * command.input.move_forward
+                + basis.right.z * command.input.move_right
+                + basis.up.z * command.input.move_up)
+                * distance,
+        );
+        let to = FirstPersonPose {
+            position: Vec3::new(
+                from.position.x + delta.x,
+                from.position.y + delta.y,
+                from.position.z + delta.z,
+            ),
+            yaw_degrees: from.yaw_degrees + command.input.yaw_delta_degrees,
+            pitch_degrees: (from.pitch_degrees + command.input.pitch_delta_degrees)
+                .clamp(-89.0, 89.0),
+        };
+        let next = EntityTransform {
+            translation: to.position,
+            rotation: quat_from_yaw_pitch(to.yaw_degrees, to.pitch_degrees),
+            ..current
+        };
+        let transform = self
+            .apply_transform(TransformCommand::Set {
+                id: command.id,
+                transform: next,
+            })
+            .map_err(FirstPersonMotionError::Transform)?;
+        let readout = FirstPersonMotionReadout {
+            id: command.id,
+            tick: command.tick,
+            pose: to,
+            basis: basis_from_pose(to),
+            pose_hash: pose_hash(to),
+        };
+        Ok(FirstPersonMotionEvent {
+            id: command.id,
+            tick: command.tick,
+            input: command.input,
+            from,
+            to,
+            transform,
+            readout,
+        })
+    }
+
+    /// Validate and apply first-person actor/camera motion through the existing
+    /// authority collision movement substrate. Translation is resolved by
+    /// [`EntityStore::apply_movement`]; yaw/pitch still update through the
+    /// transform capability so a blocked body can look around.
+    pub fn apply_first_person_motion_with_collision(
+        &mut self,
+        command: FirstPersonMotionCommand,
+    ) -> Result<FirstPersonCollisionMotionEvent, FirstPersonCollisionMotionError> {
+        validate_first_person_input(command.id, command.input)
+            .map_err(FirstPersonCollisionMotionError::Input)?;
+        self.movement_eligible(command.id)
+            .map_err(FirstPersonCollisionMotionError::Movement)?;
+        let current = self
+            .transform(command.id)
+            .expect("movement eligibility guarantees a transform capability")
+            .transform;
+        let from = pose_from_transform(current);
+        let attempted = integrate_first_person_pose(from, command.input);
+        let movement = self
+            .apply_movement(MovementCommand {
+                id: command.id,
+                delta: Vec3::new(
+                    attempted.position.x - from.position.x,
+                    attempted.position.y - from.position.y,
+                    attempted.position.z - from.position.z,
+                ),
+            })
+            .map_err(FirstPersonCollisionMotionError::Movement)?;
+        let resolved_position = movement_outcome_position(movement.outcome);
+        let to = FirstPersonPose {
+            position: resolved_position,
+            yaw_degrees: attempted.yaw_degrees,
+            pitch_degrees: attempted.pitch_degrees,
+        };
+        let next = EntityTransform {
+            translation: to.position,
+            rotation: quat_from_yaw_pitch(to.yaw_degrees, to.pitch_degrees),
+            ..current
+        };
+        let transform = self
+            .apply_transform(TransformCommand::Set {
+                id: command.id,
+                transform: next,
+            })
+            .map_err(FirstPersonCollisionMotionError::Transform)?;
+        let readout = FirstPersonMotionReadout {
+            id: command.id,
+            tick: command.tick,
+            pose: to,
+            basis: basis_from_pose(to),
+            pose_hash: pose_hash(to),
+        };
+        let collision = FirstPersonCollisionReadout {
+            outcome: movement.outcome,
+            hit: movement.hit,
+            projection_changed: movement.projection_changed || transform.projection_changed,
+        };
+        Ok(FirstPersonCollisionMotionEvent {
+            id: command.id,
+            tick: command.tick,
+            input: command.input,
+            from,
+            attempted,
+            to,
+            movement,
+            transform,
+            readout,
+            collision,
+        })
+    }
+
     fn check_movement_eligible(&self, id: EntityId) -> Result<(), MovementError> {
         let core = match self.core(id) {
             None => return Err(MovementError::UnknownEntity { id }),
@@ -267,6 +545,138 @@ impl EntityStore {
         self.render_projection(id)
             .map(|r| r.visible)
             .unwrap_or(false)
+    }
+}
+
+fn validate_first_person_input(
+    id: EntityId,
+    input: FirstPersonMotionInput,
+) -> Result<(), FirstPersonMotionError> {
+    let values = [
+        input.move_forward,
+        input.move_right,
+        input.move_up,
+        input.yaw_delta_degrees,
+        input.pitch_delta_degrees,
+        input.dt_seconds,
+        input.move_speed_units_per_second,
+    ];
+    if values.iter().any(|v| !v.is_finite()) {
+        return Err(FirstPersonMotionError::NonFinite { id });
+    }
+    if input.dt_seconds < 0.0 || input.move_speed_units_per_second < 0.0 {
+        return Err(FirstPersonMotionError::NegativeTimeOrSpeed { id });
+    }
+    Ok(())
+}
+
+fn pose_from_transform(transform: EntityTransform) -> FirstPersonPose {
+    let (yaw_degrees, pitch_degrees) = yaw_pitch_from_quat(transform.rotation);
+    FirstPersonPose {
+        position: transform.translation,
+        yaw_degrees,
+        pitch_degrees,
+    }
+}
+
+fn basis_from_pose(pose: FirstPersonPose) -> FirstPersonBasis {
+    let yaw = pose.yaw_degrees.to_radians();
+    let pitch = pose.pitch_degrees.to_radians();
+    let cp = pitch.cos();
+    let sp = pitch.sin();
+    let sy = yaw.sin();
+    let cy = yaw.cos();
+    FirstPersonBasis {
+        forward: Vec3::new(sy * cp, sp, -cy * cp),
+        right: Vec3::new(cy, 0.0, sy),
+        up: Vec3::new(-sy * sp, cp, cy * sp),
+    }
+}
+
+fn integrate_first_person_pose(
+    from: FirstPersonPose,
+    input: FirstPersonMotionInput,
+) -> FirstPersonPose {
+    let basis = basis_from_pose(from);
+    let distance = input.dt_seconds * input.move_speed_units_per_second;
+    let delta = Vec3::new(
+        (basis.forward.x * input.move_forward
+            + basis.right.x * input.move_right
+            + basis.up.x * input.move_up)
+            * distance,
+        (basis.forward.y * input.move_forward
+            + basis.right.y * input.move_right
+            + basis.up.y * input.move_up)
+            * distance,
+        (basis.forward.z * input.move_forward
+            + basis.right.z * input.move_right
+            + basis.up.z * input.move_up)
+            * distance,
+    );
+    FirstPersonPose {
+        position: Vec3::new(
+            from.position.x + delta.x,
+            from.position.y + delta.y,
+            from.position.z + delta.z,
+        ),
+        yaw_degrees: from.yaw_degrees + input.yaw_delta_degrees,
+        pitch_degrees: (from.pitch_degrees + input.pitch_delta_degrees).clamp(-89.0, 89.0),
+    }
+}
+
+fn movement_outcome_position(outcome: MovementOutcome) -> Vec3 {
+    match outcome {
+        MovementOutcome::Moved { to } | MovementOutcome::Slid { to, .. } => to,
+        MovementOutcome::Blocked { at } => at,
+    }
+}
+
+fn quat_from_yaw_pitch(yaw_degrees: f32, pitch_degrees: f32) -> Quat {
+    let yaw = yaw_degrees.to_radians() * 0.5;
+    let pitch = pitch_degrees.to_radians() * 0.5;
+    let (sy, cy) = yaw.sin_cos();
+    let (sp, cp) = pitch.sin_cos();
+    Quat {
+        x: cy * sp,
+        y: sy * cp,
+        z: -sy * sp,
+        w: cy * cp,
+    }
+}
+
+fn yaw_pitch_from_quat(q: Quat) -> (f32, f32) {
+    let sin_pitch = 2.0 * (q.w * q.x - q.y * q.z);
+    let pitch = sin_pitch.clamp(-1.0, 1.0).asin();
+    let yaw = (2.0 * (q.w * q.y - q.z * q.x)).atan2(1.0 - 2.0 * (q.x * q.x + q.y * q.y));
+    (yaw.to_degrees(), pitch.to_degrees())
+}
+
+fn pose_hash(pose: FirstPersonPose) -> u64 {
+    let mut h = Fnv1aLocal::new();
+    h.write_f32(pose.position.x);
+    h.write_f32(pose.position.y);
+    h.write_f32(pose.position.z);
+    h.write_f32(pose.yaw_degrees);
+    h.write_f32(pose.pitch_degrees);
+    h.finish()
+}
+
+struct Fnv1aLocal(u64);
+
+impl Fnv1aLocal {
+    fn new() -> Self {
+        Self(0xcbf2_9ce4_8422_2325)
+    }
+
+    fn write_f32(&mut self, value: f32) {
+        for b in value.to_bits().to_le_bytes() {
+            self.0 ^= b as u64;
+            self.0 = self.0.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    }
+
+    fn finish(self) -> u64 {
+        self.0
     }
 }
 

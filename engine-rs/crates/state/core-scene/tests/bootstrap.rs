@@ -167,7 +167,11 @@ fn ecrp_project_bundle_scene_bootstrap_seeds_session_capability_state() {
 
     let baseline_hash = world.entity_hash();
     assert_eq!(baseline_hash, world.entity_hash());
-    assert_eq!(doc, minimal_doc(), "bootstrap does not mutate stored content");
+    assert_eq!(
+        doc,
+        minimal_doc(),
+        "bootstrap does not mutate stored content"
+    );
 }
 
 #[test]

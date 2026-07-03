@@ -401,6 +401,69 @@ pub fn movement_family() -> EntityStore {
     store
 }
 
+/// Family 8 — static room collision. A first-person actor starts inside a simple
+/// enclosed room of authority AABB colliders. The fixture is intentionally abstract
+/// and mirrors the upstream static-room render proof without using render data as
+/// collision truth.
+pub fn static_room_collision_family() -> EntityStore {
+    let mut store = EntityStore::new();
+
+    let actor = create(
+        &mut store,
+        1,
+        EntitySource::RuntimeCreated { by: None },
+        &[],
+    );
+    store.attach_transform(actor, EntityTransform::at(Vec3::new(0.0, 0.0, 0.0)));
+    store.attach_bounds(actor, Aabb::new(Vec3::splat(-0.25), Vec3::splat(0.25)));
+    store.attach_collision(actor, false);
+    store.attach_render_projection(actor, true);
+
+    let wall_bounds = Aabb::new(Vec3::new(-3.0, -1.0, -0.5), Vec3::new(3.0, 2.0, 0.5));
+    let north = create(
+        &mut store,
+        2,
+        EntitySource::RuntimeCreated { by: None },
+        &[],
+    );
+    store.attach_transform(north, EntityTransform::at(Vec3::new(0.0, 0.0, -2.5)));
+    store.attach_bounds(north, wall_bounds);
+    store.attach_collision(north, true);
+
+    let south = create(
+        &mut store,
+        3,
+        EntitySource::RuntimeCreated { by: None },
+        &[],
+    );
+    store.attach_transform(south, EntityTransform::at(Vec3::new(0.0, 0.0, 2.5)));
+    store.attach_bounds(south, wall_bounds);
+    store.attach_collision(south, true);
+
+    let side_bounds = Aabb::new(Vec3::new(-0.5, -1.0, -3.0), Vec3::new(0.5, 2.0, 3.0));
+    let west = create(
+        &mut store,
+        4,
+        EntitySource::RuntimeCreated { by: None },
+        &[],
+    );
+    store.attach_transform(west, EntityTransform::at(Vec3::new(-2.5, 0.0, 0.0)));
+    store.attach_bounds(west, side_bounds);
+    store.attach_collision(west, true);
+
+    let east = create(
+        &mut store,
+        5,
+        EntitySource::RuntimeCreated { by: None },
+        &[],
+    );
+    store.attach_transform(east, EntityTransform::at(Vec3::new(2.5, 0.0, 0.0)));
+    store.attach_bounds(east, side_bounds);
+    store.attach_collision(east, true);
+
+    store
+}
+
 /// The #2484 mixed-world **save** fixture: one store holding every fixture
 /// vocabulary class a runtime world-state snapshot must persist in a single save —
 /// a runtime-created spatial rendered entity, a spatial non-rendered collider, a
@@ -512,6 +575,7 @@ pub fn all_families() -> Vec<(&'static str, EntityStore)> {
         ("ui_devtools", ui_devtools_family()),
         ("attachment_contrast", attachment_contrast_family()),
         ("movement", movement_family()),
+        ("static_room_collision", static_room_collision_family()),
         ("lifecycle_scenario", lifecycle_scenario()),
     ]
 }
@@ -519,10 +583,12 @@ pub fn all_families() -> Vec<(&'static str, EntityStore)> {
 /// Render every family's deterministic dump into one golden-pinnable string.
 pub fn dump_all_families() -> String {
     let mut out = String::new();
-    for (name, store) in all_families() {
+    for (index, (name, store)) in all_families().into_iter().enumerate() {
+        if index > 0 {
+            out.push('\n');
+        }
         out.push_str(&format!("# family {name}\n"));
         out.push_str(&store.dump());
-        out.push('\n');
     }
     out
 }

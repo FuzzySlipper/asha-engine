@@ -12,6 +12,9 @@
       "path": "../contracts"
     },
     {
+      "path": "../render-projection"
+    },
+    {
       "path": "../runtime-bridge"
     }
   ]

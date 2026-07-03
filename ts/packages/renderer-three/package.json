@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@asha/contracts": "workspace:*",
+    "@asha/render-projection": "workspace:*",
     "@asha/runtime-bridge": "workspace:*",
     "three": "^0.184.0"
   },

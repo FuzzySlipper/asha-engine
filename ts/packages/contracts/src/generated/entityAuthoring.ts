@@ -31,6 +31,51 @@ export type AuthoringCapability =
   | { readonly kind: 'collision'; readonly staticCollider: boolean }
   | { readonly kind: 'bounds'; readonly min: readonly [number, number, number]; readonly max: readonly [number, number, number] };
 
+// Where a stored entity definition was read from inside a durable ProjectBundle.
+export interface EntityDefinitionSourceTrace {
+  readonly projectBundle: string;
+  readonly relativePath: string;
+}
+
+// Small string metadata entry for Studio/project readout.
+export interface EntityDefinitionMetadataEntry {
+  readonly key: string;
+  readonly value: string;
+}
+
+// A stored capability declaration with an initial value.
+export type EntityDefinitionCapability =
+  | { readonly kind: 'transform'; readonly transform: AuthoringTransform }
+  | { readonly kind: 'render'; readonly visible: boolean }
+  | { readonly kind: 'collision'; readonly staticCollider: boolean }
+  | { readonly kind: 'bounds'; readonly min: readonly [number, number, number]; readonly max: readonly [number, number, number] }
+  | { readonly kind: 'unknown'; readonly capabilityKind: string };
+
+// Durable stored entity definition authored in a ProjectBundle/catalog.
+export interface EntityDefinition {
+  readonly stableId: string;
+  readonly displayName: string;
+  readonly source: EntityDefinitionSourceTrace;
+  readonly tags: readonly TagId[];
+  readonly metadata: readonly EntityDefinitionMetadataEntry[];
+  readonly capabilities: readonly EntityDefinitionCapability[];
+}
+
+// Classified validation diagnostic for stored entity definitions.
+export type EntityDefinitionDiagnosticCode = 'missingStableId' | 'missingDisplayName' | 'missingSourceTrace' | 'unknownCapability' | 'duplicateCapability' | 'nonFiniteInitialValue' | 'invalidInitialValue';
+
+// One stored EntityDefinition validation diagnostic.
+export interface EntityDefinitionDiagnostic {
+  readonly code: EntityDefinitionDiagnosticCode;
+  readonly path: string;
+  readonly message: string;
+}
+
+// Validation outcome for stored EntityDefinitions.
+export type EntityDefinitionValidationOutcome =
+  | { readonly status: 'valid' }
+  | { readonly status: 'invalid'; readonly diagnostics: readonly EntityDefinitionDiagnostic[] };
+
 // A proposed generic entity authoring change. Proposal-only: authority validates and applies or rejects.
 export type EntityAuthoringCommand =
   | { readonly kind: 'create'; readonly id: EntityId; readonly source: AuthoringSource; readonly labels: readonly TagId[] }

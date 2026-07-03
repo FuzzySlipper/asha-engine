@@ -1,0 +1,237 @@
+{
+  "ops": [
+    {
+      "op": "defineMaterial",
+      "material": {
+        "id": "material/room-floor",
+        "color": [0.44, 0.48, 0.46, 1],
+        "texture": null,
+        "roughness": 1,
+        "emissive": 0,
+        "uvStrategy": "flat"
+      }
+    },
+    {
+      "op": "defineMaterial",
+      "material": {
+        "id": "material/room-wall",
+        "color": [0.68, 0.73, 0.76, 1],
+        "texture": null,
+        "roughness": 1,
+        "emissive": 0,
+        "uvStrategy": "flat"
+      }
+    },
+    {
+      "op": "defineMaterial",
+      "material": {
+        "id": "material/room-ceiling",
+        "color": [0.86, 0.88, 0.84, 1],
+        "texture": null,
+        "roughness": 1,
+        "emissive": 0,
+        "uvStrategy": "flat"
+      }
+    },
+    {
+      "op": "defineMaterial",
+      "material": {
+        "id": "material/room-marker",
+        "color": [0.92, 0.42, 0.18, 1],
+        "texture": null,
+        "roughness": 1,
+        "emissive": 0,
+        "uvStrategy": "flat"
+      }
+    },
+    {
+      "op": "defineStaticMesh",
+      "asset": {
+        "asset": "mesh/room-floor",
+        "payload": {
+          "layout": {
+            "vertexCount": 4,
+            "indexCount": 6,
+            "indexWidth": "u32",
+            "attributes": [
+              { "name": "position", "components": 3, "kind": "f32" },
+              { "name": "normal", "components": 3, "kind": "f32" }
+            ]
+          },
+          "groups": [{ "materialSlot": 0, "start": 0, "count": 6 }],
+          "bounds": { "min": [-0.5, -0.5, 0], "max": [0.5, 0.5, 0] },
+          "source": {
+            "kind": "inline",
+            "positions": [-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0],
+            "normals": [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],
+            "indices": [0, 1, 2, 0, 2, 3]
+          },
+          "provenance": "generated"
+        },
+        "materialSlots": [{ "slot": 0, "material": "material/room-floor" }],
+        "collision": { "kind": "aabbFallback" }
+      }
+    },
+    {
+      "op": "defineStaticMesh",
+      "asset": {
+        "asset": "mesh/room-wall",
+        "payload": {
+          "layout": {
+            "vertexCount": 4,
+            "indexCount": 6,
+            "indexWidth": "u32",
+            "attributes": [
+              { "name": "position", "components": 3, "kind": "f32" },
+              { "name": "normal", "components": 3, "kind": "f32" }
+            ]
+          },
+          "groups": [{ "materialSlot": 0, "start": 0, "count": 6 }],
+          "bounds": { "min": [-0.5, -0.5, 0], "max": [0.5, 0.5, 0] },
+          "source": {
+            "kind": "inline",
+            "positions": [-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0],
+            "normals": [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],
+            "indices": [0, 1, 2, 0, 2, 3]
+          },
+          "provenance": "generated"
+        },
+        "materialSlots": [{ "slot": 0, "material": "material/room-wall" }],
+        "collision": { "kind": "aabbFallback" }
+      }
+    },
+    {
+      "op": "defineStaticMesh",
+      "asset": {
+        "asset": "mesh/room-ceiling",
+        "payload": {
+          "layout": {
+            "vertexCount": 4,
+            "indexCount": 6,
+            "indexWidth": "u32",
+            "attributes": [
+              { "name": "position", "components": 3, "kind": "f32" },
+              { "name": "normal", "components": 3, "kind": "f32" }
+            ]
+          },
+          "groups": [{ "materialSlot": 0, "start": 0, "count": 6 }],
+          "bounds": { "min": [-0.5, -0.5, 0], "max": [0.5, 0.5, 0] },
+          "source": {
+            "kind": "inline",
+            "positions": [-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0],
+            "normals": [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],
+            "indices": [0, 1, 2, 0, 2, 3]
+          },
+          "provenance": "generated"
+        },
+        "materialSlots": [{ "slot": 0, "material": "material/room-ceiling" }],
+        "collision": { "kind": "aabbFallback" }
+      }
+    },
+    {
+      "op": "defineStaticMesh",
+      "asset": {
+        "asset": "mesh/room-marker",
+        "payload": {
+          "layout": {
+            "vertexCount": 4,
+            "indexCount": 6,
+            "indexWidth": "u32",
+            "attributes": [
+              { "name": "position", "components": 3, "kind": "f32" },
+              { "name": "normal", "components": 3, "kind": "f32" }
+            ]
+          },
+          "groups": [{ "materialSlot": 0, "start": 0, "count": 6 }],
+          "bounds": { "min": [-0.5, -0.5, 0], "max": [0.5, 0.5, 0] },
+          "source": {
+            "kind": "inline",
+            "positions": [-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0],
+            "normals": [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],
+            "indices": [0, 1, 2, 0, 2, 3]
+          },
+          "provenance": "generated"
+        },
+        "materialSlots": [{ "slot": 0, "material": "material/room-marker" }],
+        "collision": { "kind": "aabbFallback" }
+      }
+    },
+    {
+      "op": "createStaticMeshInstance",
+      "handle": 1,
+      "parent": null,
+      "instance": {
+        "asset": "mesh/room-floor",
+        "transform": { "translation": [0, -1, 0], "rotation": [0, 0, 0, 1], "scale": [8, 1, 8] },
+        "materialOverrides": [],
+        "metadata": { "source": null, "tags": [], "label": "room-floor" }
+      }
+    },
+    {
+      "op": "createStaticMeshInstance",
+      "handle": 2,
+      "parent": null,
+      "instance": {
+        "asset": "mesh/room-wall",
+        "transform": { "translation": [0, 1, -4], "rotation": [0, 0, 0, 1], "scale": [8, 4, 1] },
+        "materialOverrides": [],
+        "metadata": { "source": null, "tags": [], "label": "room-wall-north" }
+      }
+    },
+    {
+      "op": "createStaticMeshInstance",
+      "handle": 3,
+      "parent": null,
+      "instance": {
+        "asset": "mesh/room-wall",
+        "transform": { "translation": [0, 1, 4], "rotation": [0, 0, 0, 1], "scale": [8, 4, 1] },
+        "materialOverrides": [],
+        "metadata": { "source": null, "tags": [], "label": "room-wall-south" }
+      }
+    },
+    {
+      "op": "createStaticMeshInstance",
+      "handle": 4,
+      "parent": null,
+      "instance": {
+        "asset": "mesh/room-wall",
+        "transform": { "translation": [-4, 1, 0], "rotation": [0, 0, 0, 1], "scale": [1, 4, 8] },
+        "materialOverrides": [],
+        "metadata": { "source": null, "tags": [], "label": "room-wall-west" }
+      }
+    },
+    {
+      "op": "createStaticMeshInstance",
+      "handle": 5,
+      "parent": null,
+      "instance": {
+        "asset": "mesh/room-wall",
+        "transform": { "translation": [4, 1, 0], "rotation": [0, 0, 0, 1], "scale": [1, 4, 8] },
+        "materialOverrides": [],
+        "metadata": { "source": null, "tags": [], "label": "room-wall-east" }
+      }
+    },
+    {
+      "op": "createStaticMeshInstance",
+      "handle": 6,
+      "parent": null,
+      "instance": {
+        "asset": "mesh/room-ceiling",
+        "transform": { "translation": [0, 3, 0], "rotation": [0, 0, 0, 1], "scale": [8, 1, 8] },
+        "materialOverrides": [],
+        "metadata": { "source": null, "tags": [], "label": "room-ceiling" }
+      }
+    },
+    {
+      "op": "createStaticMeshInstance",
+      "handle": 7,
+      "parent": null,
+      "instance": {
+        "asset": "mesh/room-marker",
+        "transform": { "translation": [0, -0.48, 0], "rotation": [0, 0, 0, 1], "scale": [0.5, 0.04, 0.5] },
+        "materialOverrides": [],
+        "metadata": { "source": null, "tags": [], "label": "room-origin-marker" }
+      }
+    }
+  ]
+}

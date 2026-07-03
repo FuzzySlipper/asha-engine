@@ -99,6 +99,117 @@ impl AuthoringCapability {
     }
 }
 
+// ── Stored EntityDefinition schema ───────────────────────────────────────────
+
+/// Where a stored entity definition was read from inside a durable ProjectBundle.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EntityDefinitionSourceTrace {
+    pub project_bundle: String,
+    pub relative_path: String,
+}
+
+/// Small string metadata entry for Studio/project readout. This is intentionally
+/// display/authoring metadata, not arbitrary runtime authority state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EntityDefinitionMetadataEntry {
+    pub key: String,
+    pub value: String,
+}
+
+/// A stored capability declaration with an initial value. `Unknown` exists so
+/// decoded or hand-authored bad data can be represented and rejected explicitly
+/// instead of disappearing before validation.
+#[derive(Debug, Clone, PartialEq)]
+pub enum EntityDefinitionCapability {
+    Transform { transform: AuthoringTransform },
+    Render { visible: bool },
+    Collision { static_collider: bool },
+    Bounds { min: [f32; 3], max: [f32; 3] },
+    Unknown { capability_kind: String },
+}
+
+/// Stable discriminants for valid stored entity definition capabilities.
+pub const ENTITY_DEFINITION_CAPABILITY_KINDS: &[&str] =
+    &["transform", "render", "collision", "bounds"];
+
+impl EntityDefinitionCapability {
+    pub fn kind(&self) -> &str {
+        match self {
+            EntityDefinitionCapability::Transform { .. } => "transform",
+            EntityDefinitionCapability::Render { .. } => "render",
+            EntityDefinitionCapability::Collision { .. } => "collision",
+            EntityDefinitionCapability::Bounds { .. } => "bounds",
+            EntityDefinitionCapability::Unknown { capability_kind } => capability_kind,
+        }
+    }
+}
+
+/// Durable stored entity definition authored in a ProjectBundle/catalog and later
+/// validated by Rust authority before it can seed runtime CapabilityState.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EntityDefinition {
+    pub stable_id: String,
+    pub display_name: String,
+    pub source: EntityDefinitionSourceTrace,
+    pub tags: Vec<TagId>,
+    pub metadata: Vec<EntityDefinitionMetadataEntry>,
+    pub capabilities: Vec<EntityDefinitionCapability>,
+}
+
+/// Classified validation diagnostic for stored entity definitions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EntityDefinitionDiagnosticCode {
+    MissingStableId,
+    MissingDisplayName,
+    MissingSourceTrace,
+    UnknownCapability,
+    DuplicateCapability,
+    NonFiniteInitialValue,
+    InvalidInitialValue,
+}
+
+/// Stable discriminants for [`EntityDefinitionDiagnosticCode`].
+pub const ENTITY_DEFINITION_DIAGNOSTIC_CODES: &[&str] = &[
+    "missingStableId",
+    "missingDisplayName",
+    "missingSourceTrace",
+    "unknownCapability",
+    "duplicateCapability",
+    "nonFiniteInitialValue",
+    "invalidInitialValue",
+];
+
+impl EntityDefinitionDiagnosticCode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            EntityDefinitionDiagnosticCode::MissingStableId => "missingStableId",
+            EntityDefinitionDiagnosticCode::MissingDisplayName => "missingDisplayName",
+            EntityDefinitionDiagnosticCode::MissingSourceTrace => "missingSourceTrace",
+            EntityDefinitionDiagnosticCode::UnknownCapability => "unknownCapability",
+            EntityDefinitionDiagnosticCode::DuplicateCapability => "duplicateCapability",
+            EntityDefinitionDiagnosticCode::NonFiniteInitialValue => "nonFiniteInitialValue",
+            EntityDefinitionDiagnosticCode::InvalidInitialValue => "invalidInitialValue",
+        }
+    }
+}
+
+/// One stored EntityDefinition validation diagnostic.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EntityDefinitionDiagnostic {
+    pub code: EntityDefinitionDiagnosticCode,
+    pub path: String,
+    pub message: String,
+}
+
+/// Validation outcome for stored EntityDefinitions.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EntityDefinitionValidationOutcome {
+    Valid,
+    Invalid {
+        diagnostics: Vec<EntityDefinitionDiagnostic>,
+    },
+}
+
 /// A proposed generic entity authoring change. Proposal-only: authority validates
 /// and applies or rejects (atomic, fail-closed). One verb per atomic authority op.
 #[derive(Debug, Clone, PartialEq)]
@@ -420,14 +531,31 @@ mod tests {
         for table in [
             SOURCE_KINDS,
             CAPABILITY_KINDS,
+            ENTITY_DEFINITION_CAPABILITY_KINDS,
             COMMAND_KINDS,
             EVENT_KINDS,
             REJECTION_REASONS,
+            ENTITY_DEFINITION_DIAGNOSTIC_CODES,
         ] {
             let mut sorted = table.to_vec();
             sorted.sort_unstable();
             sorted.dedup();
             assert_eq!(sorted.len(), table.len(), "duplicate in {table:?}");
         }
+    }
+
+    #[test]
+    fn entity_definition_diagnostic_table_matches_variants() {
+        let all = [
+            EntityDefinitionDiagnosticCode::MissingStableId,
+            EntityDefinitionDiagnosticCode::MissingDisplayName,
+            EntityDefinitionDiagnosticCode::MissingSourceTrace,
+            EntityDefinitionDiagnosticCode::UnknownCapability,
+            EntityDefinitionDiagnosticCode::DuplicateCapability,
+            EntityDefinitionDiagnosticCode::NonFiniteInitialValue,
+            EntityDefinitionDiagnosticCode::InvalidInitialValue,
+        ];
+        let from: Vec<&str> = all.iter().map(|code| code.as_str()).collect();
+        assert_eq!(from, ENTITY_DEFINITION_DIAGNOSTIC_CODES);
     }
 }

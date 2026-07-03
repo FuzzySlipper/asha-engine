@@ -42,7 +42,7 @@ metadata while their consumer role is still being ratified.
 Additional unstable package statuses:
 
 - `@asha/editor-tools` is an unstable Studio/editor helper package. It is editor-local state only, not authority.
-- `@asha/renderer-three` is an unstable Three.js implementation package for engine smoke/testing. It is not the long-term public renderer contract; consumers should prefer `@asha/render-projection` for renderer-neutral retained semantics.
+- `@asha/renderer-three` is an unstable Three.js implementation package for engine smoke/testing and the approved `asha-demo` static-room render path. It is not the long-term public renderer contract; consumers should prefer `@asha/render-projection` for renderer-neutral retained semantics unless a task explicitly approves the root package binding.
 
 Internal packages, including `@asha/native-bridge`, `@asha/wasm-replay-bridge`, `@asha/app`, `@asha/electron-main`, `@asha/ui-dom`, policy/catalog packages, and `@asha/smoke`, are not downstream public surfaces.
 
@@ -83,25 +83,27 @@ The first `asha-demo` skeleton may depend on only these ASHA package roots:
 | `@asha/runtime-bridge` | `public` | Allowed, but no native/raw transport bypass | Transport-neutral runtime facade. Current World* method names are compatibility names; demo docs should use RuntimeSession/ProjectBundle vocabulary. |
 | `@asha/game-workspace` | `unstable` | Allowed for manifest/workspace validation | The current typed ASHA Game Project manifest/workspace surface. This is the preferred first skeleton dependency. |
 | `@asha/render-projection` | `unstable` | Allowed for renderer-neutral projection state only | Consumers may use retained render-diff projection semantics through the root package. This is not permission to mutate authority or decode arbitrary JSON. |
+| `@asha/renderer-three` | `unstable` | Allowed for the static-room renderer path approved in #4029 | Consumers may import only from the package root and must treat it as an implementation binding over public render diffs/projection state, not as authority or a stable renderer contract. |
 | `@asha/command-registry` | `unstable` | Optional, only for declared command/readout metadata | Useful for Studio-compatible typed command/evidence metadata. The skeleton should not require it unless it has a concrete manifest/readout need. |
 
 The first skeleton must not import these ASHA surfaces directly:
 
 | Forbidden surface | Decision |
 |---|---|
-| `@asha/renderer-three` | Remains `unstable` and allowed only for `asha-testing`. It is an engine-owned Three.js implementation package for smoke/testing, not the initial `asha-demo` renderer contract. A future visual demo must first choose an upstream path: promote/widen a renderer package with compatibility risk documented, or expose another public renderer facade. |
 | `@asha/devtools` | Remains Studio/testing-only. Studio owns live/runtime readouts; `asha-demo` should not make devtools a direct product dependency. |
 | `@asha/script-sdk`, `@asha/script-host`, `@asha/policy-core`, `@asha/policy-examples` | Remain internal. Demo-owned policy packs are deferred until ASHA main exposes a public policy-authoring/packaging surface. `@asha/game-workspace` already classifies policy source authoring as reserved/deferred. |
 | `@asha/native-bridge`, `@asha/wasm-replay-bridge` | Remain internal. Runtime access goes through `@asha/runtime-bridge`; replay/WASM proof paths stay engine/testing-owned. |
 | ASHA package `src/*` or `dist/generated/*` paths | Forbidden. Consumers use package roots only. |
 | Rust crate paths or generated contract hand edits | Forbidden. Protocol changes go through Rust protocol source plus `protocol-codegen`. |
 
-Renderer decision for this gate: the initial `asha-demo` skeleton should not
-claim a Three.js-rendered game. It may record a future rendering placeholder and
-may consume `@asha/render-projection` for renderer-neutral data if needed, but a
-human-facing Three.js renderer is blocked until an upstream public renderer path
-is approved. Directly adding `@asha/renderer-three` to `asha-demo` is not allowed
-by the current manifest.
+Renderer decision for this gate: the initial `asha-demo` skeleton still must not
+claim a Three.js-rendered game, runtime attachment, motion, collision, or gameplay.
+Task #4029 approves a narrow upstream path for a synthetic static-room renderer
+binding: `asha-demo` may import `@asha/renderer-three` from the package root only,
+using public render diffs / `@asha/render-projection` semantics and the
+`createStaticRoomRenderFrame` / `renderProjectedFrame` evidence path. This remains
+unstable and does not promote `@asha/renderer-three` to the long-term renderer
+contract.
 
 Policy decision for this gate: no demo-owned TypeScript policy package is
 allowed yet. Catalog or policy directories may exist as documented placeholders
@@ -166,6 +168,8 @@ Additive notes under `runtime-bridge.v0`:
 
 - #2564 adds three stable camera/view operations to the manifest-backed facade: `create_camera` / `createCamera`, `apply_first_person_camera_input` / `applyFirstPersonCameraInput`, and `read_camera_projection` / `readCameraProjection`. Native remains fail-closed with `operation_unimplemented` until a real native implementation lands; the mock/reference paths provide deterministic boundary evidence only. The compatibility marker remains `runtime-bridge.v0` because the change is additive.
 - #2895 adds one stable model/material preview/readback operation to the manifest-backed facade: `read_model_material_preview` / `readModelMaterialPreview`. The mock/reference facade derives a typed `RenderFrameDiff` from public `CatalogEntry` / `MaterialProjection` / `StaticMeshAsset` inputs. Native intentionally fail-closes with `operation_unimplemented` until a real native implementation is wired; consumers must not bypass this through renderer internals or raw transports. The compatibility marker remains `runtime-bridge.v0` because the change is additive.
+- #4028 adds a semantic `RuntimeSession` facade exported from `@asha/runtime-bridge`: `createMockRuntimeSession` plus `RuntimeSessionFacade` types for initialize/load, typed command submission, deterministic tick, projection readout, telemetry/replay/hash summary, and restart. It wraps the existing public bridge without adding raw transports or arbitrary JSON calls. The compatibility marker remains `runtime-bridge.v0` because the change is additive.
+- #4030 adds browser FPS input collection and RuntimeSession camera input methods at the package root. `BrowserFpsInputCollector` maps structural keyboard/mouse/pointer inputs to a typed `runtime.apply_first_person_camera_input` command carrying `FirstPersonCameraInputEnvelope`, plus typed pointer-lock shell intents. `RuntimeSessionFacade` now exposes `createCamera`, `applyFirstPersonCameraInput`, and `readCameraProjection` wrappers over the existing public camera bridge operations. Primary fire remains an explicit `unsupported_primary_fire` readout until a public action/fire protocol exists. The compatibility marker remains `runtime-bridge.v0` because the change is additive.
 
 ## Command registry compatibility log
 
@@ -225,6 +229,10 @@ Consumer behavior:
 ## Renderer Three unstable status
 
 `@asha/renderer-three` is explicit but unstable. It is an engine-owned Three.js implementation package for smoke/testing and should not be treated as the cross-repo renderer contract. Studio and demos should prefer `@asha/render-projection` for renderer-neutral ASHA semantics and keep Three.js code as a local binding.
+
+Additive notes under this unstable status:
+
+- #4029 widens the engine manifest so `asha-demo` may import the package root for the static-room render path only. The public helper `createStaticRoomRenderFrame` emits a synthetic `RenderFrameDiff`; `renderProjectedFrame` applies that frame through `@asha/render-projection` and the retained `ThreeRenderer`. Evidence lives in `harness/fixtures/render-diffs/static-room.json` and `harness/goldens/render-diffs/static-room.snapshot`. This is structural render evidence only: no gameplay loop, runtime attachment, authority mutation, collision simulation, or browser screenshot is claimed.
 
 ## Editor Tools unstable status
 

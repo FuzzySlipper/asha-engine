@@ -6,6 +6,10 @@ Three.js scene after `@asha/renderer-three` applies the matching
 shape/asset, transform, visibility, material colours, and sprite framing — built
 without a GL context, so it is a pure data snapshot, not pixels.
 
+`static-room.snapshot` is the #4029 upstream demo evidence artifact for the
+synthetic enclosed-room render path. It proves retained Three.js scene structure,
+not gameplay motion, collision, runtime attachment, or a browser screenshot.
+
 Consumer: `ts/packages/renderer-three/src/golden.test.ts` (run via
 `harness/ci/check-render-goldens.sh`).
 

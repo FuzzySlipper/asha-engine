@@ -18,6 +18,8 @@
 
 #![forbid(unsafe_code)]
 
+use std::collections::BTreeSet;
+
 use core_assets::{AssetId, AssetReference, AssetVersionReq};
 use core_entity::{
     Aabb, EntityLifecycleCommand, EntityLifecycleError, EntitySource, EntityStore, EntityTransform,
@@ -28,7 +30,9 @@ use core_math::Vec3;
 use protocol_entity_authoring::{
     AuthoringCapability, AuthoringEventKind, AuthoringRejectionReason, AuthoringSource,
     AuthoringTransform, EntityAuthoringCommand, EntityAuthoringEvent, EntityAuthoringOutcome,
-    EntityAuthoringRejection,
+    EntityAuthoringRejection, EntityDefinition, EntityDefinitionCapability,
+    EntityDefinitionDiagnostic, EntityDefinitionDiagnosticCode, EntityDefinitionSourceTrace,
+    EntityDefinitionValidationOutcome,
 };
 
 // ── Border ⇄ core value mapping ───────────────────────────────────────────────
@@ -132,6 +136,238 @@ fn rejected(
 ) -> EntityAuthoringOutcome {
     EntityAuthoringOutcome::Rejected {
         rejection: EntityAuthoringRejection { reason, entity },
+    }
+}
+
+// ── Stored EntityDefinition validation/bootstrap ─────────────────────────────
+
+/// Authority-side bootstrap failure for a stored EntityDefinition. Invalid stored
+/// data is reported separately from an otherwise-valid definition rejected by the
+/// live runtime store (for example, an already allocated runtime entity id).
+#[derive(Debug, Clone, PartialEq)]
+pub enum EntityDefinitionBootstrapError {
+    Invalid {
+        diagnostics: Vec<EntityDefinitionDiagnostic>,
+    },
+    Rejected {
+        rejection: EntityAuthoringRejection,
+    },
+}
+
+/// Deterministic readout for one stored EntityDefinition bootstrap into runtime
+/// entity/capability state.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EntityDefinitionBootstrapRecord {
+    pub stable_id: String,
+    pub display_name: String,
+    pub entity: core_ids::EntityId,
+    pub source: EntityDefinitionSourceTrace,
+    pub applied_capabilities: Vec<String>,
+    pub entity_hash: core_entity::EntityHash,
+    pub replay_unit_label: &'static str,
+}
+
+/// Validate durable stored EntityDefinition data before it can seed runtime
+/// authority. This is ProjectBundle/catalog input validation, not live mutation.
+pub fn validate_entity_definition(
+    definition: &EntityDefinition,
+) -> EntityDefinitionValidationOutcome {
+    let mut diagnostics = Vec::new();
+    if definition.stable_id.trim().is_empty() {
+        diagnostics.push(entity_definition_diag(
+            EntityDefinitionDiagnosticCode::MissingStableId,
+            "stable_id",
+            "EntityDefinition stable_id is required",
+        ));
+    }
+    if definition.display_name.trim().is_empty() {
+        diagnostics.push(entity_definition_diag(
+            EntityDefinitionDiagnosticCode::MissingDisplayName,
+            "display_name",
+            "EntityDefinition display_name is required",
+        ));
+    }
+    if definition.source.project_bundle.trim().is_empty()
+        || definition.source.relative_path.trim().is_empty()
+    {
+        diagnostics.push(entity_definition_diag(
+            EntityDefinitionDiagnosticCode::MissingSourceTrace,
+            "source",
+            "EntityDefinition source.project_bundle and source.relative_path are required",
+        ));
+    }
+
+    let mut seen_capabilities = BTreeSet::new();
+    for (index, capability) in definition.capabilities.iter().enumerate() {
+        let path = format!("capabilities[{index}]");
+        let kind = capability.kind().to_string();
+        if !matches!(capability, EntityDefinitionCapability::Unknown { .. })
+            && !seen_capabilities.insert(kind.clone())
+        {
+            diagnostics.push(entity_definition_diag(
+                EntityDefinitionDiagnosticCode::DuplicateCapability,
+                format!("{path}.kind"),
+                format!("duplicate capability declaration \"{kind}\""),
+            ));
+        }
+        validate_entity_definition_capability(capability, &path, &mut diagnostics);
+    }
+
+    if diagnostics.is_empty() {
+        EntityDefinitionValidationOutcome::Valid
+    } else {
+        EntityDefinitionValidationOutcome::Invalid { diagnostics }
+    }
+}
+
+/// Validate and bootstrap one stored EntityDefinition into runtime authority.
+/// The function validates first; invalid stored data leaves `store` untouched.
+pub fn bootstrap_entity_definition(
+    store: &mut EntityStore,
+    entity: core_ids::EntityId,
+    definition: &EntityDefinition,
+) -> Result<EntityDefinitionBootstrapRecord, EntityDefinitionBootstrapError> {
+    if let EntityDefinitionValidationOutcome::Invalid { diagnostics } =
+        validate_entity_definition(definition)
+    {
+        return Err(EntityDefinitionBootstrapError::Invalid { diagnostics });
+    }
+
+    let create = validate_and_apply(
+        store,
+        &EntityAuthoringCommand::Create {
+            id: entity,
+            source: AuthoringSource::RuntimeCreated { by: None },
+            labels: definition.tags.clone(),
+        },
+    );
+    if let EntityAuthoringOutcome::Rejected { rejection } = create {
+        return Err(EntityDefinitionBootstrapError::Rejected { rejection });
+    }
+
+    let mut applied_capabilities = Vec::with_capacity(definition.capabilities.len());
+    for capability in &definition.capabilities {
+        let authoring_capability =
+            to_authoring_capability(capability).expect("validated capabilities are known");
+        let outcome = validate_and_apply(
+            store,
+            &EntityAuthoringCommand::AttachCapability {
+                id: entity,
+                capability: authoring_capability,
+            },
+        );
+        match outcome {
+            EntityAuthoringOutcome::Accepted { .. } => {
+                applied_capabilities.push(capability.kind().to_string());
+            }
+            EntityAuthoringOutcome::Rejected { rejection } => {
+                return Err(EntityDefinitionBootstrapError::Rejected { rejection });
+            }
+        }
+    }
+
+    Ok(EntityDefinitionBootstrapRecord {
+        stable_id: definition.stable_id.clone(),
+        display_name: definition.display_name.clone(),
+        entity,
+        source: definition.source.clone(),
+        applied_capabilities,
+        entity_hash: store.hash(),
+        replay_unit_label: "entity_definition.bootstrap",
+    })
+}
+
+fn validate_entity_definition_capability(
+    capability: &EntityDefinitionCapability,
+    path: &str,
+    diagnostics: &mut Vec<EntityDefinitionDiagnostic>,
+) {
+    match capability {
+        EntityDefinitionCapability::Transform { transform } => {
+            if !authoring_transform_is_finite(transform) {
+                diagnostics.push(entity_definition_diag(
+                    EntityDefinitionDiagnosticCode::NonFiniteInitialValue,
+                    path,
+                    "transform initial value must be finite",
+                ));
+            }
+            if transform.scale.iter().any(|axis| *axis == 0.0) {
+                diagnostics.push(entity_definition_diag(
+                    EntityDefinitionDiagnosticCode::InvalidInitialValue,
+                    path,
+                    "transform scale axes must be non-zero",
+                ));
+            }
+        }
+        EntityDefinitionCapability::Render { .. }
+        | EntityDefinitionCapability::Collision { .. } => {}
+        EntityDefinitionCapability::Bounds { min, max } => {
+            if !min.iter().chain(max.iter()).all(|value| value.is_finite()) {
+                diagnostics.push(entity_definition_diag(
+                    EntityDefinitionDiagnosticCode::NonFiniteInitialValue,
+                    path,
+                    "bounds initial value must be finite",
+                ));
+            }
+            if min.iter().zip(max.iter()).any(|(lo, hi)| lo > hi) {
+                diagnostics.push(entity_definition_diag(
+                    EntityDefinitionDiagnosticCode::InvalidInitialValue,
+                    path,
+                    "bounds min must be less than or equal to max on every axis",
+                ));
+            }
+        }
+        EntityDefinitionCapability::Unknown { capability_kind } => {
+            diagnostics.push(entity_definition_diag(
+                EntityDefinitionDiagnosticCode::UnknownCapability,
+                format!("{path}.kind"),
+                format!("unknown capability declaration \"{capability_kind}\""),
+            ));
+        }
+    }
+}
+
+fn to_authoring_capability(capability: &EntityDefinitionCapability) -> Option<AuthoringCapability> {
+    match capability {
+        EntityDefinitionCapability::Transform { transform } => {
+            Some(AuthoringCapability::Transform {
+                transform: *transform,
+            })
+        }
+        EntityDefinitionCapability::Render { visible } => {
+            Some(AuthoringCapability::Render { visible: *visible })
+        }
+        EntityDefinitionCapability::Collision { static_collider } => {
+            Some(AuthoringCapability::Collision {
+                static_collider: *static_collider,
+            })
+        }
+        EntityDefinitionCapability::Bounds { min, max } => Some(AuthoringCapability::Bounds {
+            min: *min,
+            max: *max,
+        }),
+        EntityDefinitionCapability::Unknown { .. } => None,
+    }
+}
+
+fn authoring_transform_is_finite(transform: &AuthoringTransform) -> bool {
+    transform
+        .translation
+        .iter()
+        .chain(transform.rotation.iter())
+        .chain(transform.scale.iter())
+        .all(|value| value.is_finite())
+}
+
+fn entity_definition_diag(
+    code: EntityDefinitionDiagnosticCode,
+    path: impl Into<String>,
+    message: impl Into<String>,
+) -> EntityDefinitionDiagnostic {
+    EntityDefinitionDiagnostic {
+        code,
+        path: path.into(),
+        message: message.into(),
     }
 }
 
@@ -342,7 +578,7 @@ pub fn movement_eligible(
 mod tests {
     use super::*;
     use core_ids::{EntityId, TagId};
-    use protocol_entity_authoring::EntityAuthoringOutcome as O;
+    use protocol_entity_authoring::{EntityAuthoringOutcome as O, EntityDefinitionMetadataEntry};
 
     fn ident() -> AuthoringTransform {
         AuthoringTransform {
@@ -361,6 +597,23 @@ mod tests {
                 labels: vec![],
             },
         )
+    }
+
+    fn minimal_entity_definition() -> EntityDefinition {
+        EntityDefinition {
+            stable_id: "actor/demo-player".into(),
+            display_name: "Demo Player".into(),
+            source: EntityDefinitionSourceTrace {
+                project_bundle: "asha-demo".into(),
+                relative_path: "catalogs/actors/demo-player.entity.json".into(),
+            },
+            tags: vec![TagId::new(11)],
+            metadata: vec![EntityDefinitionMetadataEntry {
+                key: "readout".into(),
+                value: "skeleton".into(),
+            }],
+            capabilities: vec![EntityDefinitionCapability::Transform { transform: ident() }],
+        }
     }
 
     #[test]
@@ -516,5 +769,93 @@ mod tests {
             Err(AuthoringRejectionReason::NotTransformEligible)
         );
         assert_eq!(store.hash(), before);
+    }
+
+    #[test]
+    fn entity_definition_bootstrap_seeds_runtime_capability_state() {
+        let mut store = EntityStore::new();
+        let definition = minimal_entity_definition();
+
+        let record =
+            bootstrap_entity_definition(&mut store, EntityId::new(77), &definition).unwrap();
+
+        assert_eq!(record.stable_id, "actor/demo-player");
+        assert_eq!(record.display_name, "Demo Player");
+        assert_eq!(record.entity, EntityId::new(77));
+        assert_eq!(record.replay_unit_label, "entity_definition.bootstrap");
+        assert_eq!(record.source.project_bundle, "asha-demo");
+        assert_eq!(record.applied_capabilities, vec!["transform".to_string()]);
+        assert_eq!(record.entity_hash, store.hash());
+
+        let core = store
+            .core(EntityId::new(77))
+            .expect("runtime entity exists");
+        assert_eq!(
+            core.source,
+            EntitySource::RuntimeCreated { by: None },
+            "stored source trace is recorded on the bootstrap record until core source provenance grows a stored-definition variant"
+        );
+        assert!(core.has_label(TagId::new(11)));
+        assert_eq!(
+            store.transform(EntityId::new(77)).unwrap().transform,
+            to_entity_transform(&ident())
+        );
+    }
+
+    #[test]
+    fn invalid_entity_definition_rejects_unknown_duplicate_and_invalid_capability() {
+        let mut definition = minimal_entity_definition();
+        definition.capabilities = vec![
+            EntityDefinitionCapability::Transform {
+                transform: AuthoringTransform {
+                    scale: [0.0, 1.0, 1.0],
+                    ..ident()
+                },
+            },
+            EntityDefinitionCapability::Transform {
+                transform: AuthoringTransform {
+                    translation: [f32::NAN, 0.0, 0.0],
+                    ..ident()
+                },
+            },
+            EntityDefinitionCapability::Unknown {
+                capability_kind: "health".into(),
+            },
+        ];
+
+        let outcome = validate_entity_definition(&definition);
+        let EntityDefinitionValidationOutcome::Invalid { diagnostics } = outcome else {
+            panic!("expected invalid EntityDefinition");
+        };
+        let codes: Vec<_> = diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.code)
+            .collect();
+        assert!(codes.contains(&EntityDefinitionDiagnosticCode::UnknownCapability));
+        assert!(codes.contains(&EntityDefinitionDiagnosticCode::DuplicateCapability));
+        assert!(codes.contains(&EntityDefinitionDiagnosticCode::NonFiniteInitialValue));
+        assert!(codes.contains(&EntityDefinitionDiagnosticCode::InvalidInitialValue));
+    }
+
+    #[test]
+    fn invalid_entity_definition_bootstrap_mutates_nothing() {
+        let mut store = EntityStore::new();
+        let mut definition = minimal_entity_definition();
+        definition.stable_id.clear();
+        definition
+            .capabilities
+            .push(EntityDefinitionCapability::Unknown {
+                capability_kind: "combat".into(),
+            });
+        let before = store.hash();
+
+        let result = bootstrap_entity_definition(&mut store, EntityId::new(99), &definition);
+
+        assert!(matches!(
+            result,
+            Err(EntityDefinitionBootstrapError::Invalid { .. })
+        ));
+        assert_eq!(store.hash(), before);
+        assert!(store.core(EntityId::new(99)).is_none());
     }
 }

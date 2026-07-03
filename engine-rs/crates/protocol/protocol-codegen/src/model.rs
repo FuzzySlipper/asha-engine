@@ -2082,6 +2082,66 @@ pub fn entity_authoring_module() -> Module {
                 v("bounds", vec![f("min", triple()), f("max", triple())]),
             ],
         ),
+        iface(
+            "Where a stored entity definition was read from inside a durable ProjectBundle.",
+            "EntityDefinitionSourceTrace",
+            vec![
+                f("projectBundle", string()),
+                f("relativePath", string()),
+            ],
+        ),
+        iface(
+            "Small string metadata entry for Studio/project readout.",
+            "EntityDefinitionMetadataEntry",
+            vec![f("key", string()), f("value", string())],
+        ),
+        union(
+            "A stored capability declaration with an initial value.",
+            "EntityDefinitionCapability",
+            "kind",
+            vec![
+                v("transform", vec![f("transform", r("AuthoringTransform"))]),
+                v("render", vec![f("visible", boolean())]),
+                v("collision", vec![f("staticCollider", boolean())]),
+                v("bounds", vec![f("min", triple()), f("max", triple())]),
+                v("unknown", vec![f("capabilityKind", string())]),
+            ],
+        ),
+        iface(
+            "Durable stored entity definition authored in a ProjectBundle/catalog.",
+            "EntityDefinition",
+            vec![
+                f("stableId", string()),
+                f("displayName", string()),
+                f("source", r("EntityDefinitionSourceTrace")),
+                f("tags", TsType::array(r("TagId"))),
+                f("metadata", TsType::array(r("EntityDefinitionMetadataEntry"))),
+                f("capabilities", TsType::array(r("EntityDefinitionCapability"))),
+            ],
+        ),
+        string_enum(
+            "Classified validation diagnostic for stored entity definitions.",
+            "EntityDefinitionDiagnosticCode",
+            protocol_entity_authoring::ENTITY_DEFINITION_DIAGNOSTIC_CODES,
+        ),
+        iface(
+            "One stored EntityDefinition validation diagnostic.",
+            "EntityDefinitionDiagnostic",
+            vec![
+                f("code", r("EntityDefinitionDiagnosticCode")),
+                f("path", string()),
+                f("message", string()),
+            ],
+        ),
+        union(
+            "Validation outcome for stored EntityDefinitions.",
+            "EntityDefinitionValidationOutcome",
+            "status",
+            vec![
+                v("valid", vec![]),
+                v("invalid", vec![f("diagnostics", TsType::array(r("EntityDefinitionDiagnostic")))]),
+            ],
+        ),
         union(
             "A proposed generic entity authoring change. Proposal-only: authority validates and applies or rejects.",
             "EntityAuthoringCommand",

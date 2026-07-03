@@ -7,7 +7,9 @@
 // context (only pixel rendering does), so this is testable headlessly; a real
 // WebGL/offscreen renderer for screenshots is layered on in a later task.
 import * as THREE from 'three';
+import { RenderProjection } from '@asha/render-projection';
 import { decodeRenderFrameDiff, RuntimeBridgeError, } from '@asha/runtime-bridge';
+export * from './static-room.js';
 /** Raised when a diff cannot be applied (duplicate, unknown, or stale handle). */
 export class RenderApplyError extends Error {
     constructor(message) {
@@ -542,6 +544,21 @@ export class ThreeRenderer {
         }
         return entry;
     }
+}
+/**
+ * Apply a render frame through the renderer-neutral projection and then the
+ * retained Three.js renderer. This is the package-root bridge used by demo
+ * proofs: no authority state, no raw transport, no arbitrary JSON tunnel.
+ */
+export function renderProjectedFrame(frame, renderer = new ThreeRenderer()) {
+    const projection = new RenderProjection();
+    projection.applyFrame(frame);
+    renderer.applyFrame(frame);
+    return {
+        projection,
+        renderer,
+        structuralSnapshot: renderer.snapshot(),
+    };
 }
 // ── Snapshot lines (deterministic golden artifact) ────────────────────────────
 function snapshotLine(handle, entry) {

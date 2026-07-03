@@ -144,6 +144,9 @@ importers:
       '@asha/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@asha/render-projection':
+        specifier: workspace:*
+        version: link:../render-projection
       '@asha/runtime-bridge':
         specifier: workspace:*
         version: link:../runtime-bridge

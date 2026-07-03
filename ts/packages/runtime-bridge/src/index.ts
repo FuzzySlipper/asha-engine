@@ -80,3 +80,5 @@ export type {
 export * from './launcher.js';
 export * from './mock.js';
 export * from './native.js';
+export * from './browser-fps-input.js';
+export * from './runtime-session.js';

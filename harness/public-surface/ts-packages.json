@@ -58,8 +58,8 @@
       "package": "@asha/renderer-three",
       "status": "unstable",
       "ownershipKey": "ts/packages/renderer-three",
-      "intendedConsumerRole": "Three.js render-diff implementation for engine smoke/testing; not the long-term public renderer contract.",
-      "allowedConsumerRoles": ["asha-testing"],
+      "intendedConsumerRole": "Three.js render-diff implementation for engine smoke/testing and the approved asha-demo static-room renderer path; not the long-term public renderer contract.",
+      "allowedConsumerRoles": ["asha-testing", "asha-demo"],
       "changelog": "docs/consumer-compatibility.md#renderer-three-unstable-status"
     },
     {

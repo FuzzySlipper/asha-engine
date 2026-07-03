@@ -7,4 +7,6 @@ export type { CompositionStatus, EngineConfig, EngineHandle, FrameCursor, Replay
 export * from './launcher.js';
 export * from './mock.js';
 export * from './native.js';
+export * from './browser-fps-input.js';
+export * from './runtime-session.js';
 //# sourceMappingURL=index.d.ts.map

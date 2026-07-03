@@ -34,6 +34,11 @@ test('static-mesh-instances fixture renders to the committed golden snapshot', (
     // transforms differ. Drift means the static-mesh asset/instance path changed.
     checkGolden('static-mesh-instances');
 });
+test('static-room fixture renders to the committed golden snapshot', () => {
+    // Synthetic upstream path for asha-demo (#4029): public material/static-mesh
+    // DTOs project to a retained Three.js room without runtime/gameplay claims.
+    checkGolden('static-room');
+});
 test('sprite-showcase fixture renders to the committed golden snapshot', () => {
     // Plane-geometry sprites with billboard/pivot/size/depth + a deterministic
     // projection-driven frame update (handle 1 advances to frame 3).

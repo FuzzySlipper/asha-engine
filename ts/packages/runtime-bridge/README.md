@@ -18,10 +18,13 @@ import {
 Allowed through this facade:
 
 - initialize an engine/runtime session;
+- initialize a semantic `RuntimeSession` from a validated ProjectBundle-shaped request;
 - load a world bundle-shaped DTO;
 - submit generated contract command batches;
 - step deterministic authority ticks;
 - read render/projection diffs;
+- read semantic telemetry/replay/hash summaries;
+- restart/reset a semantic session without exposing authority state;
 - get/release opaque runtime buffer handles;
 - save or inspect current world/composition state;
 - use classified `RuntimeBridgeError` failures.
@@ -41,8 +44,28 @@ The raw native addon wrapper remains internal transport plumbing. This package i
 
 The package root remains the only public import path. Internally, `src/index.ts` is a barrel over concern-focused modules: `bridge.ts` owns handle/error/DTO/interface types, `mock.ts` owns the reference bridge used by tests and deterministic consumers, `native.ts` is the only raw `@asha/native-bridge` importer, and `launcher.ts` owns the `GameRuntimeLauncher` session facade.
 
+`RuntimeSession` is the narrow semantic facade for game repos and Studio. It exposes `initialize`, `submitCommands`, `tick`, `readProjection`, `readTelemetry`, and `restart` over a public `RuntimeBridge` implementation. The first reference implementation wraps the mock bridge and keeps explicit non-claims for native runtime, raw StateStore access, arbitrary JSON bridge calls, gameplay loop, and renderer ownership.
+
 `GameRuntimeLauncher` stays in this package for now because it is a thin public orchestration facade over `RuntimeBridge` and must preserve the same fail-closed backend/profile rules as the transport facade. If launcher policy grows beyond bridge-backed launch/session read models, split it into a future domain package that depends on `@asha/runtime-bridge` instead of moving raw transport access upward.
 
 ## Metadata and checks
 
 The package declares its Tier 1 role in `package.json` under `asha.publicSurface`. The CI bridge check runs `harness/public-surface/check-public-boundary.py` to keep the engine-owned TS public surface manifest, compatibility anchors, raw transport status, and the Rust `runtime-bridge-api` metadata aligned with the Den public-surface design.
+
+## Browser FPS Input
+
+`BrowserFpsInputCollector` is the package-root browser input surface for early FPS
+demo wiring. It accepts structural event objects compatible with DOM keyboard,
+mouse, and pointer events, then drains one typed command per tick:
+
+```ts
+{
+  kind: 'runtime.apply_first_person_camera_input',
+  envelope: FirstPersonCameraInputEnvelope
+}
+```
+
+The envelope is accepted by `RuntimeSessionFacade.applyFirstPersonCameraInput`.
+Pointer-lock request/release are returned separately as typed shell intents because
+the browser owns pointer-lock side effects. Primary fire is reported as
+`unsupported_primary_fire` until ASHA has a public runtime action/fire protocol.

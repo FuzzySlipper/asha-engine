@@ -37,7 +37,12 @@ pub use capability::{
 };
 pub use command::{EntityLifecycleCommand, EntityLifecycleError, EntityLifecycleEvent};
 pub use core::{EntityCore, EntityLifecycle, EntitySource};
-pub use movement::{MovementCommand, MovementError, MovementEvent, MovementOutcome};
+pub use movement::{
+    FirstPersonBasis, FirstPersonCollisionMotionError, FirstPersonCollisionMotionEvent,
+    FirstPersonCollisionReadout, FirstPersonMotionCommand, FirstPersonMotionError,
+    FirstPersonMotionEvent, FirstPersonMotionInput, FirstPersonMotionReadout, FirstPersonPose,
+    MovementCommand, MovementError, MovementEvent, MovementOutcome,
+};
 pub use persist::{decode_snapshot, encode_snapshot, SnapshotDecodeError, SNAPSHOT_SCHEMA_VERSION};
 pub use relation::{RelationCommand, RelationError, RelationKind};
 pub use store::{EntityHash, EntityRecord, EntitySnapshot, EntityStore};
