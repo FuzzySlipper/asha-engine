@@ -27,6 +27,10 @@ function validateProjection(projection) {
 function f32(value) {
     return Math.fround(value);
 }
+function motionDelta(value) {
+    const rounded = f32(value);
+    return Math.abs(rounded) < 0.000001 ? 0 : rounded;
+}
 function basisFromPose(pose) {
     const yaw = f32((pose.yawDegrees * Math.PI) / 180);
     const pitch = f32((pose.pitchDegrees * Math.PI) / 180);
@@ -52,6 +56,65 @@ function fnv1a64(text) {
         hash = (hash * prime) & mask;
     }
     return hash.toString(16).padStart(16, '0');
+}
+const STATIC_ROOM_COLLIDERS = [
+    { id: 'static-room.wall.north', min: [-3, -1, -3], max: [3, 2, -2] },
+    { id: 'static-room.wall.south', min: [-3, -1, 2], max: [3, 2, 3] },
+    { id: 'static-room.wall.west', min: [-3, -1, -3], max: [-2, 2, 3] },
+    { id: 'static-room.wall.east', min: [2, -1, -3], max: [3, 2, 3] },
+];
+const STATIC_ROOM_WORLD_HASH = `fnv1a64:${fnv1a64(STATIC_ROOM_COLLIDERS.map((collider) => `${collider.id}:${collider.min.join(',')}:${collider.max.join(',')}`).join('|'))}`;
+const STATIC_ROOM_COLLISION_PROJECTION_HASH = `fnv1a64:${fnv1a64(`${STATIC_ROOM_WORLD_HASH}|axis-separable-static-room|${STATIC_ROOM_COLLIDERS.length}`)}`;
+function aabbForPose(pose, shape) {
+    return {
+        min: [
+            f32(pose.position[0] - shape.halfExtents[0]),
+            f32(pose.position[1] - shape.halfExtents[1]),
+            f32(pose.position[2] - shape.halfExtents[2]),
+        ],
+        max: [
+            f32(pose.position[0] + shape.halfExtents[0]),
+            f32(pose.position[1] + shape.halfExtents[1]),
+            f32(pose.position[2] + shape.halfExtents[2]),
+        ],
+    };
+}
+function aabbOverlaps(a, b) {
+    return (a.min[0] < b.max[0] &&
+        a.max[0] > b.min[0] &&
+        a.min[1] < b.max[1] &&
+        a.max[1] > b.min[1] &&
+        a.min[2] < b.max[2] &&
+        a.max[2] > b.min[2]);
+}
+function sweptAabb(start, end) {
+    return {
+        min: [
+            Math.min(start.min[0], end.min[0]),
+            Math.min(start.min[1], end.min[1]),
+            Math.min(start.min[2], end.min[2]),
+        ],
+        max: [
+            Math.max(start.max[0], end.max[0]),
+            Math.max(start.max[1], end.max[1]),
+            Math.max(start.max[2], end.max[2]),
+        ],
+    };
+}
+function staticRoomMoveBlocked(fromPose, toPose, shape) {
+    const from = aabbForPose(fromPose, shape);
+    const to = aabbForPose(toPose, shape);
+    const swept = sweptAabb(from, to);
+    return STATIC_ROOM_COLLIDERS.some((collider) => aabbOverlaps(to, collider) || aabbOverlaps(swept, collider));
+}
+function poseWithAxis(pose, axis, value) {
+    const position = [pose.position[0], pose.position[1], pose.position[2]];
+    position[axis] = f32(value);
+    return {
+        position,
+        yawDegrees: pose.yawDegrees,
+        pitchDegrees: pose.pitchDegrees,
+    };
 }
 function multiplyMatrix4(a, b) {
     const out = new Array(16).fill(0);
@@ -375,6 +438,17 @@ export class MockRuntimeBridge {
         if (before === undefined) {
             throw new RuntimeBridgeError('unknown_handle', 'unknown camera handle');
         }
+        const cameraInput = input.input;
+        finite(cameraInput.moveForward, 'moveForward');
+        finite(cameraInput.moveRight, 'moveRight');
+        finite(cameraInput.moveUp, 'moveUp');
+        finite(cameraInput.yawDeltaDegrees, 'yawDeltaDegrees');
+        finite(cameraInput.pitchDeltaDegrees, 'pitchDeltaDegrees');
+        finite(cameraInput.dtSeconds, 'dtSeconds');
+        finite(cameraInput.moveSpeedUnitsPerSecond, 'moveSpeedUnitsPerSecond');
+        if (cameraInput.dtSeconds < 0 || cameraInput.moveSpeedUnitsPerSecond < 0) {
+            throw new RuntimeBridgeError('invalid_input', 'dtSeconds and moveSpeedUnitsPerSecond must be non-negative');
+        }
         for (const [idx, halfExtent] of input.shape.halfExtents.entries()) {
             finite(halfExtent, `shape.halfExtents[${idx}]`);
             if (halfExtent <= 0) {
@@ -384,18 +458,63 @@ export class MockRuntimeBridge {
         if (input.policy.mode !== 'axis_separable_slide' || input.policy.maxIterations < 1 || input.policy.maxIterations > 3) {
             throw new RuntimeBridgeError('invalid_input', 'only axis_separable_slide with maxIterations in 1..=3 is supported');
         }
-        const distance = input.input.dtSeconds * input.input.moveSpeedUnitsPerSecond;
+        const distance = f32(input.input.dtSeconds * input.input.moveSpeedUnitsPerSecond);
         const attemptedPose = {
             position: [
-                f32(before.pose.position[0] + before.basis.forward[0] * input.input.moveForward * distance + before.basis.right[0] * input.input.moveRight * distance + before.basis.up[0] * input.input.moveUp * distance),
-                f32(before.pose.position[1] + before.basis.forward[1] * input.input.moveForward * distance + before.basis.right[1] * input.input.moveRight * distance + before.basis.up[1] * input.input.moveUp * distance),
-                f32(before.pose.position[2] + before.basis.forward[2] * input.input.moveForward * distance + before.basis.right[2] * input.input.moveRight * distance + before.basis.up[2] * input.input.moveUp * distance),
+                f32(before.pose.position[0] +
+                    f32(f32(before.basis.forward[0] * input.input.moveForward) +
+                        f32(before.basis.right[0] * input.input.moveRight) +
+                        f32(before.basis.up[0] * input.input.moveUp)) *
+                        distance),
+                f32(before.pose.position[1] +
+                    f32(f32(before.basis.forward[1] * input.input.moveForward) +
+                        f32(before.basis.right[1] * input.input.moveRight) +
+                        f32(before.basis.up[1] * input.input.moveUp)) *
+                        distance),
+                f32(before.pose.position[2] +
+                    f32(f32(before.basis.forward[2] * input.input.moveForward) +
+                        f32(before.basis.right[2] * input.input.moveRight) +
+                        f32(before.basis.up[2] * input.input.moveUp)) *
+                        distance),
             ],
-            yawDegrees: before.pose.yawDegrees + input.input.yawDeltaDegrees,
-            pitchDegrees: Math.max(-89, Math.min(89, before.pose.pitchDegrees + input.input.pitchDeltaDegrees)),
+            yawDegrees: f32(before.pose.yawDegrees + input.input.yawDeltaDegrees),
+            pitchDegrees: Math.max(-89, Math.min(89, f32(before.pose.pitchDegrees + input.input.pitchDeltaDegrees))),
         };
         const attempted = { ...before, tick: input.tick, pose: attemptedPose, basis: basisFromPose(attemptedPose) };
-        const after = attempted;
+        const delta = [
+            motionDelta(attempted.pose.position[0] - before.pose.position[0]),
+            motionDelta(attempted.pose.position[1] - before.pose.position[1]),
+            motionDelta(attempted.pose.position[2] - before.pose.position[2]),
+        ];
+        let afterPose = {
+            position: before.pose.position,
+            yawDegrees: attempted.pose.yawDegrees,
+            pitchDegrees: attempted.pose.pitchDegrees,
+        };
+        const blockedAxes = [];
+        for (const [axisIndex, axis] of [
+            [0, 'x'],
+            [1, 'y'],
+            [2, 'z'],
+        ]) {
+            if (delta[axisIndex] === 0) {
+                continue;
+            }
+            const candidatePose = poseWithAxis(afterPose, axisIndex, afterPose.position[axisIndex] + delta[axisIndex]);
+            if (staticRoomMoveBlocked(afterPose, candidatePose, input.shape)) {
+                blockedAxes.push(axis);
+            }
+            else {
+                afterPose = candidatePose;
+            }
+        }
+        const after = { ...before, tick: input.tick, pose: afterPose, basis: basisFromPose(afterPose) };
+        const queriedAabb = aabbForPose(after.pose, input.shape);
+        const correction = [
+            f32(after.pose.position[0] - attempted.pose.position[0]),
+            f32(after.pose.position[1] - attempted.pose.position[1]),
+            f32(after.pose.position[2] - attempted.pose.position[2]),
+        ];
         this.#cameras.set(input.camera, after);
         return {
             camera: input.camera,
@@ -407,25 +526,14 @@ export class MockRuntimeBridge {
                 grid: input.grid,
                 shape: input.shape,
                 policy: input.policy,
-                collided: false,
-                blockedAxes: [],
-                correction: [0, 0, 0],
-                queriedAabb: {
-                    min: [
-                        after.pose.position[0] - input.shape.halfExtents[0],
-                        after.pose.position[1] - input.shape.halfExtents[1],
-                        after.pose.position[2] - input.shape.halfExtents[2],
-                    ],
-                    max: [
-                        after.pose.position[0] + input.shape.halfExtents[0],
-                        after.pose.position[1] + input.shape.halfExtents[1],
-                        after.pose.position[2] + input.shape.halfExtents[2],
-                    ],
-                },
-                worldHash: 'mock-voxel-world',
-                collisionProjectionHash: 'fnv1a64:mock-collision-projection',
+                collided: blockedAxes.length > 0,
+                blockedAxes,
+                correction,
+                queriedAabb,
+                worldHash: STATIC_ROOM_WORLD_HASH,
+                collisionProjectionHash: STATIC_ROOM_COLLISION_PROJECTION_HASH,
             },
-            movementHash: `fnv1a64:${fnv1a64(`${input.camera}|${input.tick}|${JSON.stringify(before.pose)}|${JSON.stringify(after.pose)}`)}`,
+            movementHash: `fnv1a64:${fnv1a64(`${input.camera}|${input.tick}|${JSON.stringify(before.pose)}|${JSON.stringify(attempted.pose)}|${JSON.stringify(after.pose)}|${STATIC_ROOM_WORLD_HASH}|${STATIC_ROOM_COLLISION_PROJECTION_HASH}`)}`,
         };
     }
     selectVoxel(request) {

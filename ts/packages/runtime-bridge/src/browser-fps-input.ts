@@ -1,4 +1,5 @@
 import type { CameraHandle, FirstPersonCameraInputEnvelope } from '@asha/contracts';
+import type { RuntimeActionIntentEnvelope } from './runtime-action.js';
 
 export type BrowserFpsKeyCode = 'KeyW' | 'KeyA' | 'KeyS' | 'KeyD' | 'Escape';
 
@@ -45,9 +46,15 @@ export type BrowserFpsRuntimeCommand = {
   readonly envelope: FirstPersonCameraInputEnvelope;
 };
 
+export type BrowserFpsRuntimeActionCommand = {
+  readonly kind: 'runtime.propose_runtime_action_intent';
+  readonly envelope: RuntimeActionIntentEnvelope;
+};
+
 export interface BrowserFpsCommandFrame {
   readonly tick: number;
   readonly runtimeCommand: BrowserFpsRuntimeCommand;
+  readonly runtimeActionIntents: readonly BrowserFpsRuntimeActionCommand[];
   readonly pointerLockIntents: readonly BrowserFpsPointerLockIntent[];
   readonly unsupportedIntents: readonly BrowserFpsUnsupportedIntent[];
   readonly readout: BrowserFpsInputReadout;
@@ -77,6 +84,7 @@ export class BrowserFpsInputCollector {
   #mouseY = 0;
   #primaryFirePressed = false;
   #primaryFireTriggered = false;
+  #primaryFireReleased = false;
 
   constructor(options: BrowserFpsInputCollectorOptions) {
     if (options.moveSpeedUnitsPerSecond < 0 || !Number.isFinite(options.moveSpeedUnitsPerSecond)) {
@@ -170,7 +178,11 @@ export class BrowserFpsInputCollector {
       return;
     }
     event.preventDefault?.();
+    const wasPressed = this.#primaryFirePressed;
     this.#primaryFirePressed = false;
+    if (wasPressed) {
+      this.#primaryFireReleased = true;
+    }
   }
 
   drainFrame(input: BrowserFpsDrainInput): BrowserFpsCommandFrame {
@@ -196,25 +208,20 @@ export class BrowserFpsInputCollector {
         },
       },
     };
-    const unsupportedIntents = this.#primaryFireTriggered
-      ? [{
-          kind: 'unsupported_primary_fire' as const,
-          pressed: this.#primaryFirePressed,
-          triggered: true,
-          reason: 'no_public_runtime_action_protocol' as const,
-        }]
-      : [];
+    const runtimeActionIntents = this.#drainRuntimeActionIntents(input.tick);
     const frame: BrowserFpsCommandFrame = {
       tick: input.tick,
       runtimeCommand,
+      runtimeActionIntents,
       pointerLockIntents: [...this.#pointerLockIntents],
-      unsupportedIntents,
+      unsupportedIntents: [],
       readout: readoutBeforeReset,
     };
     this.#pointerLockIntents.length = 0;
     this.#mouseX = 0;
     this.#mouseY = 0;
     this.#primaryFireTriggered = false;
+    this.#primaryFireReleased = false;
     return frame;
   }
 
@@ -229,6 +236,39 @@ export class BrowserFpsInputCollector {
       primaryFirePressed: this.#primaryFirePressed,
       primaryFireTriggered: this.#primaryFireTriggered,
     };
+  }
+
+  #drainRuntimeActionIntents(tick: number): readonly BrowserFpsRuntimeActionCommand[] {
+    const intents: BrowserFpsRuntimeActionCommand[] = [];
+    if (this.#primaryFireTriggered) {
+      intents.push({
+        kind: 'runtime.propose_runtime_action_intent',
+        envelope: {
+          kind: 'runtime_action_intent.v0',
+          action: 'primary_fire',
+          phase: 'pressed',
+          camera: this.#camera,
+          tick,
+          source: 'browser_fps_pointer',
+          pressed: true,
+        },
+      });
+    }
+    if (this.#primaryFireReleased) {
+      intents.push({
+        kind: 'runtime.propose_runtime_action_intent',
+        envelope: {
+          kind: 'runtime_action_intent.v0',
+          action: 'primary_fire',
+          phase: 'released',
+          camera: this.#camera,
+          tick,
+          source: 'browser_fps_pointer',
+          pressed: false,
+        },
+      });
+    }
+    return intents;
   }
 }
 

@@ -75,8 +75,8 @@ test('BrowserFpsInputCollector emits pointer lock request and Escape release rea
   assert.deepEqual(input.drainFrame({ tick: 3, dtSeconds: 0 }).pointerLockIntents, []);
 });
 
-test('BrowserFpsInputCollector records primary fire as unsupported until runtime protocol exists', () => {
-  const { camera } = initializedSession();
+test('BrowserFpsInputCollector maps primary fire to a typed runtime action intent', () => {
+  const { session, camera } = initializedSession();
   const input = new BrowserFpsInputCollector({
     camera,
     moveSpeedUnitsPerSecond: 3,
@@ -87,11 +87,49 @@ test('BrowserFpsInputCollector records primary fire as unsupported until runtime
   input.handlePointerDown({ button: 0 });
   const frame = input.drainFrame({ tick: 4, dtSeconds: 0 });
 
-  assert.deepEqual(frame.unsupportedIntents, [{
-    kind: 'unsupported_primary_fire',
-    pressed: true,
-    triggered: true,
-    reason: 'no_public_runtime_action_protocol',
-  }]);
-  assert.deepEqual(input.drainFrame({ tick: 5, dtSeconds: 0 }).unsupportedIntents, []);
+  assert.deepEqual(frame.runtimeActionIntents, [
+    {
+      kind: 'runtime.propose_runtime_action_intent',
+      envelope: {
+        kind: 'runtime_action_intent.v0',
+        action: 'primary_fire',
+        phase: 'pressed',
+        camera,
+        tick: 4,
+        source: 'browser_fps_pointer',
+        pressed: true,
+      },
+    },
+  ]);
+  assert.deepEqual(frame.unsupportedIntents, []);
+  const primaryFireIntent = frame.runtimeActionIntents[0];
+  assert.ok(primaryFireIntent);
+  assert.equal('payload' in primaryFireIntent, false);
+
+  const receipt = session.submitRuntimeActionIntent(primaryFireIntent.envelope);
+  assert.equal(receipt.accepted, true);
+  assert.equal(receipt.status, 'accepted');
+  assert.equal(receipt.rejection, null);
+  assert.equal(receipt.combatReadout?.outcome.kind, 'hit');
+  assert.equal(receipt.combatReadout?.health[0]?.dead, true);
+
+  input.handlePointerUp({ button: 0 });
+  const releaseFrame = input.drainFrame({ tick: 5, dtSeconds: 0 });
+  assert.deepEqual(releaseFrame.runtimeActionIntents, [
+    {
+      kind: 'runtime.propose_runtime_action_intent',
+      envelope: {
+        kind: 'runtime_action_intent.v0',
+        action: 'primary_fire',
+        phase: 'released',
+        camera,
+        tick: 5,
+        source: 'browser_fps_pointer',
+        pressed: false,
+      },
+    },
+  ]);
+  const emptyFrame = input.drainFrame({ tick: 6, dtSeconds: 0 });
+  assert.deepEqual(emptyFrame.runtimeActionIntents, []);
+  assert.deepEqual(emptyFrame.unsupportedIntents, []);
 });

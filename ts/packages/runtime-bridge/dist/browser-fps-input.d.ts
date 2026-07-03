@@ -1,4 +1,5 @@
 import type { CameraHandle, FirstPersonCameraInputEnvelope } from '@asha/contracts';
+import type { RuntimeActionIntentEnvelope } from './runtime-action.js';
 export type BrowserFpsKeyCode = 'KeyW' | 'KeyA' | 'KeyS' | 'KeyD' | 'Escape';
 export interface BrowserFpsKeyboardInput {
     readonly code: string;
@@ -40,9 +41,14 @@ export type BrowserFpsRuntimeCommand = {
     readonly kind: 'runtime.apply_first_person_camera_input';
     readonly envelope: FirstPersonCameraInputEnvelope;
 };
+export type BrowserFpsRuntimeActionCommand = {
+    readonly kind: 'runtime.propose_runtime_action_intent';
+    readonly envelope: RuntimeActionIntentEnvelope;
+};
 export interface BrowserFpsCommandFrame {
     readonly tick: number;
     readonly runtimeCommand: BrowserFpsRuntimeCommand;
+    readonly runtimeActionIntents: readonly BrowserFpsRuntimeActionCommand[];
     readonly pointerLockIntents: readonly BrowserFpsPointerLockIntent[];
     readonly unsupportedIntents: readonly BrowserFpsUnsupportedIntent[];
     readonly readout: BrowserFpsInputReadout;

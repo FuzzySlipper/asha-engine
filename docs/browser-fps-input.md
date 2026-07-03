@@ -21,6 +21,18 @@ Typed runtime command emitted per drain:
 ```
 
 The envelope is accepted by `RuntimeSessionFacade.applyFirstPersonCameraInput`.
+Primary fire press/release is emitted as typed runtime action intent proposals:
+
+```ts
+{
+  kind: 'runtime.propose_runtime_action_intent',
+  envelope: RuntimeActionIntentEnvelope
+}
+```
+
+The envelope is accepted by `RuntimeSessionFacade.submitRuntimeActionIntent`;
+the reference RuntimeSession returns typed combat/fire/health readout evidence
+for primary-fire press intents.
 The collector also emits typed shell intents:
 
 - `{ kind: 'request_pointer_lock', reason: 'primary_button' | 'programmatic' }`
@@ -40,4 +52,4 @@ Non-claims:
 - No gameplay movement, collision, or physics.
 - No authority mutation from browser input.
 - No demo wiring yet.
-- Primary fire is reported as `unsupported_primary_fire` because no public runtime action/fire protocol exists yet.
+- Primary fire is a typed proposal/readout path, not local browser authority.

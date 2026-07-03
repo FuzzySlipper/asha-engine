@@ -24,6 +24,8 @@ Allowed through this facade:
 - step deterministic authority ticks;
 - read render/projection diffs;
 - read semantic telemetry/replay/hash summaries;
+- read generated tunnel fixture evidence through typed RuntimeSession readouts;
+- read combat and nav/pathfinding fixture evidence through typed RuntimeSession readouts;
 - restart/reset a semantic session without exposing authority state;
 - get/release opaque runtime buffer handles;
 - save or inspect current world/composition state;
@@ -67,5 +69,8 @@ mouse, and pointer events, then drains one typed command per tick:
 
 The envelope is accepted by `RuntimeSessionFacade.applyFirstPersonCameraInput`.
 Pointer-lock request/release are returned separately as typed shell intents because
-the browser owns pointer-lock side effects. Primary fire is reported as
-`unsupported_primary_fire` until ASHA has a public runtime action/fire protocol.
+the browser owns pointer-lock side effects. Primary fire press/release is returned
+as `runtime.propose_runtime_action_intent` with a `RuntimeActionIntentEnvelope`;
+`RuntimeSessionFacade.submitRuntimeActionIntent` accepts primary-fire press
+proposals and returns typed combat/fire/health readout evidence in the reference
+slice.

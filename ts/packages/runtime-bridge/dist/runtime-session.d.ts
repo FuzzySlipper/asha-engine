@@ -1,5 +1,9 @@
-import type { CameraCreateRequest, CameraProjectionRequest, CameraProjectionSnapshot, CameraSnapshot, CommandBatch, CommandResult, FirstPersonCameraInputEnvelope, RenderFrameDiff } from '@asha/contracts';
+import type { CameraCollisionSnapshot, CameraCreateRequest, CameraProjectionRequest, CameraProjectionSnapshot, CameraSnapshot, CollisionAxis, CollisionConstrainedCameraInputEnvelope, CommandBatch, CommandResult, FirstPersonCameraInputEnvelope, RenderFrameDiff } from '@asha/contracts';
 import { type CompositionStatus, type EngineHandle, type FrameCursor, type RuntimeBridge, type StepResult, type WorldLoadRequest } from './bridge.js';
+import { type CombatReadoutScenario, type CombatRuntimeReadout } from './combat-readout.js';
+import { type GeneratedTunnelOperationReceipt, type GeneratedTunnelOperationRequest, type GeneratedTunnelReadout, type GeneratedTunnelReadoutRequest } from './generated-tunnel.js';
+import { type NavPathQueryRequest, type NavPathReadout, type NavPolicyViewReadout, type NavProjectionReadout } from './nav-readout.js';
+import type { RuntimeActionIntentEnvelope, RuntimeActionIntentRejection, RuntimeActionIntentStatus } from './runtime-action.js';
 export type RuntimeSessionMode = 'reference';
 export interface RuntimeSessionProjectIdentity {
     readonly gameId: string;
@@ -57,7 +61,7 @@ export interface RuntimeSessionProjectionSummary {
 }
 export interface RuntimeSessionReplayRecord {
     readonly sequenceId: number;
-    readonly kind: 'initialize' | 'submitCommands' | 'tick' | 'createCamera' | 'applyFirstPersonCameraInput' | 'restart';
+    readonly kind: 'initialize' | 'submitCommands' | 'tick' | 'createCamera' | 'applyFirstPersonCameraInput' | 'applyCollisionConstrainedCameraInput' | 'submitRuntimeActionIntent' | 'requestGeneratedTunnelOperation' | 'restart';
     readonly recordHash: string;
 }
 export interface RuntimeSessionTelemetrySummary {
@@ -90,11 +94,42 @@ export interface RuntimeSessionCameraInputReceipt {
     readonly sessionHashBefore: string;
     readonly sessionHashAfter: string;
 }
+export interface RuntimeSessionCameraCollisionInputReceipt {
+    readonly sequenceId: number;
+    readonly envelope: CollisionConstrainedCameraInputEnvelope;
+    readonly snapshot: CameraCollisionSnapshot;
+    readonly collided: boolean;
+    readonly blockedAxes: readonly CollisionAxis[];
+    readonly worldHash: string;
+    readonly collisionProjectionHash: string;
+    readonly movementHash: string;
+    readonly sessionHashBefore: string;
+    readonly sessionHashAfter: string;
+}
 export interface RuntimeSessionCameraProjectionReadout {
     readonly sequenceId: number;
     readonly request: CameraProjectionRequest;
     readonly snapshot: CameraProjectionSnapshot;
     readonly projectionHash: string;
+}
+export interface RuntimeSessionActionIntentReceipt {
+    readonly sequenceId: number;
+    readonly envelope: RuntimeActionIntentEnvelope;
+    readonly accepted: boolean;
+    readonly status: RuntimeActionIntentStatus;
+    readonly rejection: RuntimeActionIntentRejection | null;
+    readonly combatReadout: CombatRuntimeReadout | null;
+    readonly sessionHashBefore: string;
+    readonly sessionHashAfter: string;
+}
+export interface RuntimeSessionCombatReadoutRequest {
+    readonly scenario?: CombatReadoutScenario;
+}
+export interface RuntimeSessionGeneratedTunnelOperationReceipt extends GeneratedTunnelOperationReceipt {
+    readonly sequenceId: number;
+    readonly request: GeneratedTunnelOperationRequest;
+    readonly sessionHashBefore: string;
+    readonly sessionHashAfter: string;
 }
 export interface RuntimeSessionFacade {
     initialize(input: RuntimeSessionInitializeInput): RuntimeSessionStateSummary;
@@ -102,6 +137,14 @@ export interface RuntimeSessionFacade {
     tick(input?: RuntimeSessionTickInput): RuntimeSessionTickResult;
     createCamera(request: CameraCreateRequest): RuntimeSessionCameraCreateReceipt;
     applyFirstPersonCameraInput(envelope: FirstPersonCameraInputEnvelope): RuntimeSessionCameraInputReceipt;
+    applyCollisionConstrainedCameraInput(envelope: CollisionConstrainedCameraInputEnvelope): RuntimeSessionCameraCollisionInputReceipt;
+    submitRuntimeActionIntent(envelope: RuntimeActionIntentEnvelope): RuntimeSessionActionIntentReceipt;
+    readCombatReadout(request?: RuntimeSessionCombatReadoutRequest): CombatRuntimeReadout;
+    readGeneratedTunnelReadout(request?: GeneratedTunnelReadoutRequest): GeneratedTunnelReadout;
+    readNavProjection(): NavProjectionReadout;
+    queryNavPath(request?: NavPathQueryRequest): NavPathReadout;
+    readNavPolicyView(): NavPolicyViewReadout;
+    requestGeneratedTunnelOperation(request: GeneratedTunnelOperationRequest): RuntimeSessionGeneratedTunnelOperationReceipt;
     readCameraProjection(request: CameraProjectionRequest): RuntimeSessionCameraProjectionReadout;
     readProjection(): RuntimeSessionProjectionSummary;
     readTelemetry(): RuntimeSessionTelemetrySummary;

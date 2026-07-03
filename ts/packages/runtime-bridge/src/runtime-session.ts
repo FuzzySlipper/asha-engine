@@ -1,8 +1,11 @@
 import type {
+  CameraCollisionSnapshot,
   CameraCreateRequest,
   CameraProjectionRequest,
   CameraProjectionSnapshot,
   CameraSnapshot,
+  CollisionAxis,
+  CollisionConstrainedCameraInputEnvelope,
   CommandBatch,
   CommandResult,
   FirstPersonCameraInputEnvelope,
@@ -18,7 +21,35 @@ import {
   type StepResult,
   type WorldLoadRequest,
 } from './bridge.js';
+import {
+  GENERATED_TUNNEL_FIRE_HIT_READOUT,
+  GENERATED_TUNNEL_FIRE_MISS_READOUT,
+  type CombatReadoutScenario,
+  type CombatRuntimeReadout,
+} from './combat-readout.js';
+import {
+  TINY_GENERATED_TUNNEL_READOUT,
+  type GeneratedTunnelOperationReceipt,
+  type GeneratedTunnelOperationRequest,
+  type GeneratedTunnelReadout,
+  type GeneratedTunnelReadoutRequest,
+} from './generated-tunnel.js';
 import { createMockRuntimeBridge } from './mock.js';
+import {
+  GENERATED_TUNNEL_NAV_POLICY_VIEW,
+  GENERATED_TUNNEL_NAV_PROJECTION,
+  GENERATED_TUNNEL_NO_PATH,
+  GENERATED_TUNNEL_REACHABLE_PATH,
+  type NavPathQueryRequest,
+  type NavPathReadout,
+  type NavPolicyViewReadout,
+  type NavProjectionReadout,
+} from './nav-readout.js';
+import type {
+  RuntimeActionIntentEnvelope,
+  RuntimeActionIntentRejection,
+  RuntimeActionIntentStatus,
+} from './runtime-action.js';
 
 export type RuntimeSessionMode = 'reference';
 
@@ -98,6 +129,9 @@ export interface RuntimeSessionReplayRecord {
     | 'tick'
     | 'createCamera'
     | 'applyFirstPersonCameraInput'
+    | 'applyCollisionConstrainedCameraInput'
+    | 'submitRuntimeActionIntent'
+    | 'requestGeneratedTunnelOperation'
     | 'restart';
   readonly recordHash: string;
 }
@@ -136,11 +170,46 @@ export interface RuntimeSessionCameraInputReceipt {
   readonly sessionHashAfter: string;
 }
 
+export interface RuntimeSessionCameraCollisionInputReceipt {
+  readonly sequenceId: number;
+  readonly envelope: CollisionConstrainedCameraInputEnvelope;
+  readonly snapshot: CameraCollisionSnapshot;
+  readonly collided: boolean;
+  readonly blockedAxes: readonly CollisionAxis[];
+  readonly worldHash: string;
+  readonly collisionProjectionHash: string;
+  readonly movementHash: string;
+  readonly sessionHashBefore: string;
+  readonly sessionHashAfter: string;
+}
+
 export interface RuntimeSessionCameraProjectionReadout {
   readonly sequenceId: number;
   readonly request: CameraProjectionRequest;
   readonly snapshot: CameraProjectionSnapshot;
   readonly projectionHash: string;
+}
+
+export interface RuntimeSessionActionIntentReceipt {
+  readonly sequenceId: number;
+  readonly envelope: RuntimeActionIntentEnvelope;
+  readonly accepted: boolean;
+  readonly status: RuntimeActionIntentStatus;
+  readonly rejection: RuntimeActionIntentRejection | null;
+  readonly combatReadout: CombatRuntimeReadout | null;
+  readonly sessionHashBefore: string;
+  readonly sessionHashAfter: string;
+}
+
+export interface RuntimeSessionCombatReadoutRequest {
+  readonly scenario?: CombatReadoutScenario;
+}
+
+export interface RuntimeSessionGeneratedTunnelOperationReceipt extends GeneratedTunnelOperationReceipt {
+  readonly sequenceId: number;
+  readonly request: GeneratedTunnelOperationRequest;
+  readonly sessionHashBefore: string;
+  readonly sessionHashAfter: string;
 }
 
 export interface RuntimeSessionFacade {
@@ -149,6 +218,18 @@ export interface RuntimeSessionFacade {
   tick(input?: RuntimeSessionTickInput): RuntimeSessionTickResult;
   createCamera(request: CameraCreateRequest): RuntimeSessionCameraCreateReceipt;
   applyFirstPersonCameraInput(envelope: FirstPersonCameraInputEnvelope): RuntimeSessionCameraInputReceipt;
+  applyCollisionConstrainedCameraInput(
+    envelope: CollisionConstrainedCameraInputEnvelope,
+  ): RuntimeSessionCameraCollisionInputReceipt;
+  submitRuntimeActionIntent(envelope: RuntimeActionIntentEnvelope): RuntimeSessionActionIntentReceipt;
+  readCombatReadout(request?: RuntimeSessionCombatReadoutRequest): CombatRuntimeReadout;
+  readGeneratedTunnelReadout(request?: GeneratedTunnelReadoutRequest): GeneratedTunnelReadout;
+  readNavProjection(): NavProjectionReadout;
+  queryNavPath(request?: NavPathQueryRequest): NavPathReadout;
+  readNavPolicyView(): NavPolicyViewReadout;
+  requestGeneratedTunnelOperation(
+    request: GeneratedTunnelOperationRequest,
+  ): RuntimeSessionGeneratedTunnelOperationReceipt;
   readCameraProjection(request: CameraProjectionRequest): RuntimeSessionCameraProjectionReadout;
   readProjection(): RuntimeSessionProjectionSummary;
   readTelemetry(): RuntimeSessionTelemetrySummary;
@@ -267,6 +348,111 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
       sequenceId: this.#sequenceId,
       envelope,
       snapshot,
+      sessionHashBefore: before,
+      sessionHashAfter: this.#sessionHash(),
+    };
+  }
+
+  applyCollisionConstrainedCameraInput(
+    envelope: CollisionConstrainedCameraInputEnvelope,
+  ): RuntimeSessionCameraCollisionInputReceipt {
+    this.#requireInitialized('applyCollisionConstrainedCameraInput');
+    const before = this.#sessionHash();
+    const snapshot = this.#bridge.applyCollisionConstrainedCameraInput(envelope);
+    this.#sequenceId += 1;
+    this.#record('applyCollisionConstrainedCameraInput');
+    return {
+      sequenceId: this.#sequenceId,
+      envelope,
+      snapshot,
+      collided: snapshot.collision.collided,
+      blockedAxes: snapshot.collision.blockedAxes,
+      worldHash: snapshot.collision.worldHash,
+      collisionProjectionHash: snapshot.collision.collisionProjectionHash,
+      movementHash: snapshot.movementHash,
+      sessionHashBefore: before,
+      sessionHashAfter: this.#sessionHash(),
+    };
+  }
+
+  submitRuntimeActionIntent(envelope: RuntimeActionIntentEnvelope): RuntimeSessionActionIntentReceipt {
+    this.#requireInitialized('submitRuntimeActionIntent');
+    validateRuntimeActionIntentEnvelope(envelope);
+    const before = this.#sessionHash();
+    this.#sequenceId += 1;
+    this.#record('submitRuntimeActionIntent');
+    const combatReadout =
+      envelope.action === 'primary_fire' && envelope.phase === 'pressed'
+        ? GENERATED_TUNNEL_FIRE_HIT_READOUT
+        : null;
+    const accepted = combatReadout !== null || (envelope.action === 'primary_fire' && envelope.phase === 'released');
+    return {
+      sequenceId: this.#sequenceId,
+      envelope,
+      accepted,
+      status: accepted ? 'accepted' : 'unsupported',
+      rejection: accepted
+        ? null
+        : {
+            reason: 'combat_runtime_not_wired',
+            detail: 'Only primary_fire press/release is wired in the #4051 reference combat slice.',
+          },
+      combatReadout,
+      sessionHashBefore: before,
+      sessionHashAfter: this.#sessionHash(),
+    };
+  }
+
+  readCombatReadout(request: RuntimeSessionCombatReadoutRequest = {}): CombatRuntimeReadout {
+    this.#requireInitialized('readCombatReadout');
+    const scenario = request.scenario ?? 'generated_tunnel_fire_hit';
+    switch (scenario) {
+      case 'generated_tunnel_fire_hit':
+        return GENERATED_TUNNEL_FIRE_HIT_READOUT;
+      case 'generated_tunnel_geometry_blocked_miss':
+        return GENERATED_TUNNEL_FIRE_MISS_READOUT;
+      default:
+        throw new RuntimeBridgeError('invalid_input', 'unknown combat readout scenario');
+    }
+  }
+
+  readNavProjection(): NavProjectionReadout {
+    this.#requireInitialized('readNavProjection');
+    return GENERATED_TUNNEL_NAV_PROJECTION;
+  }
+
+  queryNavPath(request: NavPathQueryRequest = {}): NavPathReadout {
+    this.#requireInitialized('queryNavPath');
+    validateNavPathQueryRequest(request);
+    return request.scenario === 'generated_tunnel_no_path' ? GENERATED_TUNNEL_NO_PATH : GENERATED_TUNNEL_REACHABLE_PATH;
+  }
+
+  readNavPolicyView(): NavPolicyViewReadout {
+    this.#requireInitialized('readNavPolicyView');
+    return GENERATED_TUNNEL_NAV_POLICY_VIEW;
+  }
+
+  readGeneratedTunnelReadout(request: GeneratedTunnelReadoutRequest = {}): GeneratedTunnelReadout {
+    this.#requireInitialized('readGeneratedTunnelReadout');
+    validateGeneratedTunnelReadoutRequest(request);
+    return TINY_GENERATED_TUNNEL_READOUT;
+  }
+
+  requestGeneratedTunnelOperation(
+    request: GeneratedTunnelOperationRequest,
+  ): RuntimeSessionGeneratedTunnelOperationReceipt {
+    this.#requireInitialized('requestGeneratedTunnelOperation');
+    validateGeneratedTunnelOperationRequest(request);
+    const before = this.#sessionHash();
+    this.#sequenceId += 1;
+    this.#record('requestGeneratedTunnelOperation');
+    return {
+      sequenceId: this.#sequenceId,
+      request,
+      operation: request.operation,
+      status: 'unsupported',
+      reason: 'generated_tunnel_operation_not_wired',
+      detail: 'Generated tunnel regenerate/apply operations are not runtime commands in this slice.',
       sessionHashBefore: before,
       sessionHashAfter: this.#sessionHash(),
     };
@@ -396,6 +582,59 @@ function validateInitializeInput(input: RuntimeSessionInitializeInput): void {
   }
   if (!Number.isSafeInteger(input.seed) || input.seed < 0) {
     throw new RuntimeBridgeError('invalid_input', 'seed must be a non-negative safe integer');
+  }
+}
+
+function validateRuntimeActionIntentEnvelope(envelope: RuntimeActionIntentEnvelope): void {
+  if (envelope.kind !== 'runtime_action_intent.v0') {
+    throw new RuntimeBridgeError('invalid_input', 'runtime action intent kind must be runtime_action_intent.v0');
+  }
+  if (envelope.action !== 'primary_fire' && envelope.action !== 'use') {
+    throw new RuntimeBridgeError('invalid_input', 'runtime action intent action is unsupported');
+  }
+  if (envelope.phase !== 'pressed' && envelope.phase !== 'released') {
+    throw new RuntimeBridgeError('invalid_input', 'runtime action intent phase is unsupported');
+  }
+  if (envelope.source !== 'browser_fps_pointer' && envelope.source !== 'programmatic') {
+    throw new RuntimeBridgeError('invalid_input', 'runtime action intent source is unsupported');
+  }
+  if (!Number.isSafeInteger(envelope.tick) || envelope.tick < 0) {
+    throw new RuntimeBridgeError('invalid_input', 'runtime action intent tick must be a non-negative safe integer');
+  }
+  if (envelope.phase === 'pressed' && !envelope.pressed) {
+    throw new RuntimeBridgeError('invalid_input', 'pressed runtime action intent must report pressed=true');
+  }
+  if (envelope.phase === 'released' && envelope.pressed) {
+    throw new RuntimeBridgeError('invalid_input', 'released runtime action intent must report pressed=false');
+  }
+}
+
+function validateGeneratedTunnelReadoutRequest(request: GeneratedTunnelReadoutRequest): void {
+  if (request.presetId !== undefined && request.presetId !== 'tiny-enclosed') {
+    throw new RuntimeBridgeError('invalid_input', 'only the tiny-enclosed generated tunnel readout is available');
+  }
+  if (request.seed !== undefined && request.seed !== 17) {
+    throw new RuntimeBridgeError('invalid_input', 'only seed 17 generated tunnel fixture readout is available');
+  }
+}
+
+function validateGeneratedTunnelOperationRequest(request: GeneratedTunnelOperationRequest): void {
+  if (request.operation !== 'regenerate' && request.operation !== 'apply_to_runtime_world') {
+    throw new RuntimeBridgeError('invalid_input', 'generated tunnel operation is unsupported');
+  }
+  validateGeneratedTunnelReadoutRequest(request);
+}
+
+function validateNavPathQueryRequest(request: NavPathQueryRequest): void {
+  if (
+    request.scenario !== undefined &&
+    request.scenario !== 'generated_tunnel_reachable' &&
+    request.scenario !== 'generated_tunnel_no_path'
+  ) {
+    throw new RuntimeBridgeError('invalid_input', 'unknown nav path scenario');
+  }
+  if (request.maxVisited !== undefined && (!Number.isSafeInteger(request.maxVisited) || request.maxVisited <= 0)) {
+    throw new RuntimeBridgeError('invalid_input', 'nav path maxVisited must be a positive safe integer');
   }
 }
 
