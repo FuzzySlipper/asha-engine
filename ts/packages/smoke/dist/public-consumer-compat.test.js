@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BrowserFpsInputCollector, RuntimeBridgeError, createMockRuntimeSession, } from '@asha/runtime-bridge';
+import { readDefaultFpsGameplayPreset, readFpsGameplayPresetCatalog, } from '@asha/catalog-core';
 import { buildHudProjection, hudControlToIntent } from '@asha/ui-dom';
 function sessionInput() {
     return {
@@ -41,6 +42,16 @@ test('asha-demo public roots cover RuntimeSession readouts and HUD/menu projecti
     const initialized = session.initialize(sessionInput());
     assert.equal(initialized.identity.mode, 'reference');
     assert.ok(initialized.identity.nonClaims.includes('not_arbitrary_json_bridge'));
+    const gameplayPreset = readDefaultFpsGameplayPreset();
+    assert.equal(gameplayPreset.kind, 'fps_gameplay_preset_readout.v0');
+    assert.equal(gameplayPreset.preset.playerController.moveSpeedUnitsPerSecond, 3);
+    assert.equal(gameplayPreset.preset.weapon.damage, 40);
+    assert.equal(gameplayPreset.preset.encounter.presetId, 'generated-tunnel-small-encounter');
+    assert.equal(gameplayPreset.hashes.presetHash, 'fnv1a64:c5a07d62670d6616');
+    const gameplayCatalog = readFpsGameplayPresetCatalog();
+    assert.equal(gameplayCatalog.hashes.defaultPresetHash, gameplayPreset.hashes.presetHash);
+    assert.ok(gameplayCatalog.consumerOwnership.gameOwned.includes('playerController'));
+    assert.ok(gameplayCatalog.consumerOwnership.engineOwned.includes('runtimeAuthority'));
     const camera = session.createCamera(cameraRequest).snapshot.camera;
     const collector = new BrowserFpsInputCollector({
         camera,
@@ -92,6 +103,21 @@ test('asha-demo public roots cover RuntimeSession readouts and HUD/menu projecti
     assert.equal(unsupportedTunnelOperation.status, 'unsupported');
     assert.equal(unsupportedTunnelOperation.reason, 'generated_tunnel_operation_not_wired');
     assert.equal('payload' in unsupportedTunnelOperation, false);
+    const encounter = session.readEncounterDirector();
+    assert.equal(encounter.kind, 'runtime_session.encounter_director.v0');
+    assert.equal(encounter.state.status, 'pending');
+    assert.equal(encounter.state.pendingEnemyCount, 1);
+    assert.equal(encounter.config.source, 'project_bundle.encounter_preset');
+    assert.equal(encounter.spawns[0]?.spawnMarker.markerId, 'exit_hint');
+    const encounterActivated = session.requestEncounterTransition({
+        kind: 'runtime_session.encounter_transition_request.v0',
+        presetId: 'generated-tunnel-small-encounter',
+        action: 'activate',
+    });
+    assert.equal(encounterActivated.accepted, true);
+    assert.equal(encounterActivated.after.state.status, 'active');
+    assert.equal(encounterActivated.after.state.activeEnemyCount, 1);
+    assert.equal(encounterActivated.event?.kind, 'runtime_encounter.activated.v0');
     const primaryFire = session.submitRuntimeActionIntent({
         kind: 'runtime_action_intent.v0',
         action: 'primary_fire',
@@ -106,6 +132,16 @@ test('asha-demo public roots cover RuntimeSession readouts and HUD/menu projecti
     const health = primaryFire.combatReadout?.health[0];
     assert.ok(health);
     assert.equal(health.dead, true);
+    const combatFeedback = session.readCombatFeedbackProjection({
+        scenario: 'generated_tunnel_fire_hit',
+        camera: motion.snapshot.camera,
+    });
+    assert.equal(combatFeedback.kind, 'combat_feedback_projection.v0');
+    assert.equal(combatFeedback.marker.tone, 'hit');
+    assert.equal(combatFeedback.notifications.at(-1)?.eventKind, 'entity_defeated');
+    assert.equal(combatFeedback.hud.status[0]?.text, 'Entity 20 defeated');
+    assert.equal(combatFeedback.debug.fixturePath, 'harness/fixtures/combat-feedback/generated-tunnel-hit-feedback.snapshot.txt');
+    assert.ok(combatFeedback.hashes.projectionHash.startsWith('fnv1a64:'));
     const unsupportedUse = session.submitRuntimeActionIntent({
         kind: 'runtime_action_intent.v0',
         action: 'use',
@@ -154,14 +190,27 @@ test('asha-demo public roots cover RuntimeSession readouts and HUD/menu projecti
     const playerLossFixture = session.readLifecycleStatus({ scenario: 'generated_tunnel_player_defeated' });
     assert.equal(playerLossFixture.outcome.kind, 'lost');
     assert.equal(playerLossFixture.player.dead, true);
+    const encounterCleared = session.requestEncounterTransition({
+        kind: 'runtime_session.encounter_transition_request.v0',
+        presetId: 'generated-tunnel-small-encounter',
+        action: 'sync_lifecycle',
+    });
+    assert.equal(encounterCleared.accepted, true);
+    assert.equal(encounterCleared.after.state.status, 'cleared');
+    assert.equal(encounterCleared.after.state.defeatedEnemyCount, 1);
+    const lifecycleAfterEncounterSync = session.readLifecycleStatus();
     const hud = buildHudProjection({
-        health: lifecycle.player.health,
-        status: [{ id: 'lifecycle', tone: 'info', text: lifecycle.outcome.label }],
+        health: lifecycleAfterEncounterSync.player.health,
+        status: [
+            { id: 'lifecycle', tone: 'info', text: lifecycleAfterEncounterSync.outcome.label },
+            ...combatFeedback.hud.status,
+        ],
         nonClaims: initialized.identity.nonClaims,
         menuOpen: true,
     });
     assert.equal(hud.kind, 'hud_projection.v0');
     assert.equal(hud.health.label, 'Health 100/100');
+    assert.equal(hud.status.some((status) => status.id === 'combat-feedback'), true);
     const restartIntent = hudControlToIntent('hud-restart');
     assert.deepEqual(restartIntent, { kind: 'runtime.restart_session_intent', source: 'hud_menu' });
     if (restartIntent?.kind !== 'runtime.restart_session_intent') {
@@ -170,11 +219,11 @@ test('asha-demo public roots cover RuntimeSession readouts and HUD/menu projecti
     const restartReceipt = session.requestSessionRestart({
         ...restartIntent,
         requireTerminal: true,
-        expectedSessionHash: lifecycle.sessionHash,
+        expectedSessionHash: lifecycleAfterEncounterSync.sessionHash,
     });
     assert.equal(restartReceipt.accepted, true);
     assert.equal(restartReceipt.statusAfter.outcome.kind, 'in_progress');
-    assert.equal(restartReceipt.statusAfter.fixture.resetHash, lifecycle.fixture.resetHash);
+    assert.equal(restartReceipt.statusAfter.fixture.resetHash, lifecycleAfterEncounterSync.fixture.resetHash);
     assert.deepEqual(hudControlToIntent('hud-options'), {
         kind: 'ui.open_options_intent',
         source: 'hud_menu',

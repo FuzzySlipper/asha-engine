@@ -1,16 +1,17 @@
-import type {
-  CameraCollisionSnapshot,
-  CameraCreateRequest,
-  CameraHandle,
-  CameraProjectionRequest,
-  CameraProjectionSnapshot,
-  CameraSnapshot,
-  CollisionAxis,
-  CollisionConstrainedCameraInputEnvelope,
-  CommandBatch,
-  CommandResult,
-  FirstPersonCameraInputEnvelope,
-  RenderFrameDiff,
+import {
+  cameraHandle,
+  type CameraCollisionSnapshot,
+  type CameraCreateRequest,
+  type CameraHandle,
+  type CameraProjectionRequest,
+  type CameraProjectionSnapshot,
+  type CameraSnapshot,
+  type CollisionAxis,
+  type CollisionConstrainedCameraInputEnvelope,
+  type CommandBatch,
+  type CommandResult,
+  type FirstPersonCameraInputEnvelope,
+  type RenderFrameDiff,
 } from '@asha/contracts';
 import {
   RuntimeBridgeError,
@@ -29,6 +30,11 @@ import {
   type CombatRuntimeReadout,
 } from './combat-readout.js';
 import {
+  buildCombatFeedbackProjection,
+  defaultCombatFeedbackIntent,
+  type CombatFeedbackProjection,
+} from './combat-feedback.js';
+import {
   TINY_GENERATED_TUNNEL_READOUT,
   type GeneratedTunnelOperationReceipt,
   type GeneratedTunnelOperationRequest,
@@ -46,6 +52,21 @@ import {
   type EnemyPolicyTargetView,
   type EnemyPolicyVec3,
 } from './enemy-policy.js';
+import {
+  buildEncounterDirectorReadout,
+  buildEncounterTransitionReceipt,
+  initialEncounterDirectorState,
+  transitionEncounterDirectorState,
+  validateEncounterDirectorReadoutRequest,
+  validateEncounterTransitionRequest,
+  type EncounterDirectorReadout,
+  type EncounterDirectorReadoutRequest,
+  type EncounterDirectorState,
+  type EncounterLifecycleInput,
+  type EncounterLifecycleScenario,
+  type EncounterTransitionRequest,
+  type RuntimeSessionEncounterTransitionReceipt,
+} from './encounter-director.js';
 import { createMockRuntimeBridge } from './mock.js';
 import {
   GENERATED_TUNNEL_NAV_POLICY_VIEW,
@@ -147,6 +168,7 @@ export interface RuntimeSessionReplayRecord {
     | 'lifecycleDeath'
     | 'runAutonomousPolicyTick'
     | 'requestGeneratedTunnelOperation'
+    | 'requestEncounterTransition'
     | 'requestSessionRestart'
     | 'restart';
   readonly recordHash: string;
@@ -434,6 +456,11 @@ export interface RuntimeSessionCombatReadoutRequest {
   readonly scenario?: CombatReadoutScenario;
 }
 
+export interface RuntimeSessionCombatFeedbackProjectionRequest extends RuntimeSessionCombatReadoutRequest {
+  readonly camera?: CameraHandle;
+  readonly viewport?: CameraProjectionRequest['viewport'];
+}
+
 export interface RuntimeSessionGeneratedTunnelOperationReceipt extends GeneratedTunnelOperationReceipt {
   readonly sequenceId: number;
   readonly request: GeneratedTunnelOperationRequest;
@@ -454,7 +481,14 @@ export interface RuntimeSessionFacade {
   runAutonomousPolicyTick(input: RuntimeSessionAutonomousPolicyTickInput): RuntimeSessionAutonomousPolicyTickReadout;
   readLifecycleStatus(request?: RuntimeSessionLifecycleStatusRequest): RuntimeSessionLifecycleStatusReadout;
   requestSessionRestart(intent: RuntimeSessionRestartIntent): RuntimeSessionLifecycleRestartReceipt;
+  readEncounterDirector(request?: EncounterDirectorReadoutRequest): EncounterDirectorReadout;
+  requestEncounterTransition(
+    request: EncounterTransitionRequest,
+  ): RuntimeSessionEncounterTransitionReceipt;
   readCombatReadout(request?: RuntimeSessionCombatReadoutRequest): CombatRuntimeReadout;
+  readCombatFeedbackProjection(
+    request?: RuntimeSessionCombatFeedbackProjectionRequest,
+  ): CombatFeedbackProjection;
   readGeneratedTunnelReadout(request?: GeneratedTunnelReadoutRequest): GeneratedTunnelReadout;
   readNavProjection(): NavProjectionReadout;
   queryNavPath(request?: NavPathQueryRequest): NavPathReadout;
@@ -502,6 +536,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
   #rejectedCommandCount = 0;
   #restartCount = 0;
   #lifecycleState: RuntimeSessionLifecycleState = initialRuntimeSessionLifecycleState();
+  #encounterState: EncounterDirectorState = initialEncounterDirectorState();
   #replayRecords: RuntimeSessionReplayRecord[] = [];
 
   constructor(bridge: RuntimeBridge) {
@@ -526,6 +561,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#acceptedCommandCount = 0;
     this.#rejectedCommandCount = 0;
     this.#lifecycleState = initialRuntimeSessionLifecycleState();
+    this.#encounterState = initialEncounterDirectorState();
     this.#replayRecords = [];
     this.#record('initialize');
     return this.#stateSummary(composition);
@@ -835,6 +871,79 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     };
   }
 
+  readEncounterDirector(request: EncounterDirectorReadoutRequest = {}): EncounterDirectorReadout {
+    const identity = this.#requireInitialized('readEncounterDirector');
+    validateEncounterDirectorReadoutRequest(request);
+    const lifecycle = this.#encounterLifecycleFromScenario(request.lifecycleScenario);
+    return buildEncounterDirectorReadout({
+      state: this.#encounterState,
+      sequenceId: this.#sequenceId,
+      tick: this.#tick,
+      sessionSeed: identity.seed,
+      sessionHash: this.#sessionHash(),
+      lifecycle,
+    });
+  }
+
+  requestEncounterTransition(
+    request: EncounterTransitionRequest,
+  ): RuntimeSessionEncounterTransitionReceipt {
+    this.#requireInitialized('requestEncounterTransition');
+    const sessionHashBefore = this.#sessionHash();
+    const validationRejection = validateEncounterTransitionRequest(request);
+    const lifecycle =
+      validationRejection === undefined
+        ? this.#encounterLifecycleFromScenario(request.lifecycleScenario)
+        : this.#encounterLifecycleFromScenario();
+    const identity = this.#requireInitialized('requestEncounterTransition');
+    const before = buildEncounterDirectorReadout({
+      state: this.#encounterState,
+      sequenceId: this.#sequenceId,
+      tick: this.#tick,
+      sessionSeed: identity.seed,
+      sessionHash: sessionHashBefore,
+      lifecycle,
+    });
+    const result =
+      validationRejection === undefined
+        ? transitionEncounterDirectorState({
+            state: this.#encounterState,
+            action: request.action,
+            lifecycle,
+          })
+        : {
+            accepted: false,
+            state: this.#encounterState,
+            rejectionReason: validationRejection,
+          };
+
+    if (result.accepted) {
+      this.#encounterState = result.state;
+    }
+
+    this.#sequenceId += 1;
+    this.#record('requestEncounterTransition');
+
+    const after = buildEncounterDirectorReadout({
+      state: this.#encounterState,
+      sequenceId: this.#sequenceId,
+      tick: this.#tick,
+      sessionSeed: identity.seed,
+      sessionHash: this.#sessionHash(),
+      lifecycle,
+    });
+
+    return buildEncounterTransitionReceipt({
+      request,
+      sequenceId: this.#sequenceId,
+      before,
+      after,
+      result,
+      sessionHashBefore,
+      sessionHashAfter: this.#sessionHash(),
+    });
+  }
+
   readCombatReadout(request: RuntimeSessionCombatReadoutRequest = {}): CombatRuntimeReadout {
     this.#requireInitialized('readCombatReadout');
     const scenario = request.scenario ?? 'generated_tunnel_fire_hit';
@@ -846,6 +955,29 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
       default:
         throw new RuntimeBridgeError('invalid_input', 'unknown combat readout scenario');
     }
+  }
+
+  readCombatFeedbackProjection(
+    request: RuntimeSessionCombatFeedbackProjectionRequest = {},
+  ): CombatFeedbackProjection {
+    this.#requireInitialized('readCombatFeedbackProjection');
+    const combatReadout = this.readCombatReadout(request);
+    const cameraProjection =
+      request.camera === undefined
+        ? null
+        : this.readCameraProjection({
+            camera: request.camera,
+            viewport: request.viewport ?? null,
+          }).snapshot;
+    return buildCombatFeedbackProjection({
+      sequenceId: this.#sequenceId,
+      ...defaultCombatFeedbackIntent({
+        camera: request.camera ?? cameraHandle(0),
+        tick: combatReadoutTick(combatReadout),
+      }),
+      combatReadout,
+      camera: cameraProjection,
+    });
   }
 
   readNavProjection(): NavProjectionReadout {
@@ -944,6 +1076,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#acceptedCommandCount = 0;
     this.#rejectedCommandCount = 0;
     this.#lifecycleState = initialRuntimeSessionLifecycleState();
+    this.#encounterState = initialEncounterDirectorState();
     this.#restartCount += 1;
     this.#record('restart');
     return {
@@ -996,6 +1129,14 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#record('lifecycleDeath');
   }
 
+  #encounterLifecycleFromScenario(scenario?: EncounterLifecycleScenario): EncounterLifecycleInput {
+    const lifecycleScenario =
+      scenario === undefined || scenario === 'active' ? 'current_session' : scenario;
+    return lifecycleStatusToEncounterLifecycle(
+      this.readLifecycleStatus({ scenario: lifecycleScenario }),
+    );
+  }
+
   #requireInitialized(operation: string): RuntimeSessionIdentity {
     if (this.#identity === null || this.#engine === null) {
       throw new RuntimeBridgeError('not_initialized', `${operation} before RuntimeSession initialize`);
@@ -1027,6 +1168,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
         rejectedCommandCount: this.#rejectedCommandCount,
         restartCount: this.#restartCount,
         lifecycle: lifecycleStateHashRecord(this.#lifecycleState),
+        encounter: encounterStateHashRecord(this.#encounterState),
         composition: compositionHashRecord(this.#bridge.getCompositionStatus()),
       }),
     });
@@ -1041,6 +1183,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
       rejectedCommandCount: this.#rejectedCommandCount,
       restartCount: this.#restartCount,
       lifecycle: this.#identity === null ? null : lifecycleStateHashRecord(this.#lifecycleState),
+      encounter: this.#identity === null ? null : encounterStateHashRecord(this.#encounterState),
       composition: this.#identity === null ? null : compositionHashRecord(this.#bridge.getCompositionStatus()),
     });
   }
@@ -1196,6 +1339,18 @@ function lifecycleOutcome(state: RuntimeSessionLifecycleState): RuntimeSessionLi
     terminal: false,
     reason: 'none',
     label: 'In progress',
+  };
+}
+
+function lifecycleStatusToEncounterLifecycle(
+  status: RuntimeSessionLifecycleStatusReadout,
+): EncounterLifecycleInput {
+  return {
+    outcomeKind: status.outcome.kind,
+    terminal: status.outcome.terminal,
+    enemyDead: status.enemy.dead,
+    playerDead: status.player.dead,
+    lifecycleHash: status.hashes.lifecycleHash,
   };
 }
 
@@ -1427,6 +1582,13 @@ function validateRuntimeActionIntentEnvelope(envelope: RuntimeActionIntentEnvelo
   }
 }
 
+function combatReadoutTick(readout: CombatRuntimeReadout): number {
+  const fireEvent = readout.events.find(
+    (event) => event.kind === 'fire_hit' || event.kind === 'fire_missed',
+  );
+  return fireEvent?.tick ?? 0;
+}
+
 function validateGeneratedTunnelReadoutRequest(request: GeneratedTunnelReadoutRequest): void {
   if (request.presetId !== undefined && request.presetId !== 'tiny-enclosed') {
     throw new RuntimeBridgeError('invalid_input', 'only the tiny-enclosed generated tunnel readout is available');
@@ -1485,7 +1647,19 @@ function runtimeSessionResetHash(identity: RuntimeSessionIdentity): string {
     seed: identity.seed,
     projectBundle: projectBundleHashRecord(identity.projectBundle),
     lifecycle: lifecycleStateHashRecord(initialRuntimeSessionLifecycleState()),
+    encounter: encounterStateHashRecord(initialEncounterDirectorState()),
   });
+}
+
+function encounterStateHashRecord(state: EncounterDirectorState): RuntimeSessionHashRecord {
+  return {
+    presetId: state.presetId,
+    status: state.status,
+    spawnedEnemyIds: state.spawnedEnemyIds,
+    defeatedEnemyIds: state.defeatedEnemyIds,
+    revision: state.revision,
+    lastTransition: state.lastTransition,
+  };
 }
 
 function lifecycleStateHashRecord(state: RuntimeSessionLifecycleState): RuntimeSessionHashRecord {

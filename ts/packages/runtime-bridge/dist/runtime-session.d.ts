@@ -1,8 +1,10 @@
-import type { CameraCollisionSnapshot, CameraCreateRequest, CameraHandle, CameraProjectionRequest, CameraProjectionSnapshot, CameraSnapshot, CollisionAxis, CollisionConstrainedCameraInputEnvelope, CommandBatch, CommandResult, FirstPersonCameraInputEnvelope, RenderFrameDiff } from '@asha/contracts';
+import { type CameraCollisionSnapshot, type CameraCreateRequest, type CameraHandle, type CameraProjectionRequest, type CameraProjectionSnapshot, type CameraSnapshot, type CollisionAxis, type CollisionConstrainedCameraInputEnvelope, type CommandBatch, type CommandResult, type FirstPersonCameraInputEnvelope, type RenderFrameDiff } from '@asha/contracts';
 import { type CompositionStatus, type EngineHandle, type FrameCursor, type RuntimeBridge, type StepResult, type WorldLoadRequest } from './bridge.js';
 import { type CombatReadoutScenario, type CombatRuntimeReadout } from './combat-readout.js';
+import { type CombatFeedbackProjection } from './combat-feedback.js';
 import { type GeneratedTunnelOperationReceipt, type GeneratedTunnelOperationRequest, type GeneratedTunnelReadout, type GeneratedTunnelReadoutRequest } from './generated-tunnel.js';
 import { type EnemyPolicyActorView, type EnemyPolicyCombatView, type EnemyPolicyProposal, type EnemyPolicyProposalFrame, type EnemyPolicySourceDiagnostic, type EnemyPolicyTargetView, type EnemyPolicyVec3 } from './enemy-policy.js';
+import { type EncounterDirectorReadout, type EncounterDirectorReadoutRequest, type EncounterTransitionRequest, type RuntimeSessionEncounterTransitionReceipt } from './encounter-director.js';
 import { type NavPathQueryRequest, type NavPathReadout, type NavPathScenario, type NavPolicyViewReadout, type NavProjectionReadout } from './nav-readout.js';
 import type { RuntimeActionIntentEnvelope, RuntimeActionIntentRejection, RuntimeActionIntentStatus } from './runtime-action.js';
 export type RuntimeSessionMode = 'reference';
@@ -62,7 +64,7 @@ export interface RuntimeSessionProjectionSummary {
 }
 export interface RuntimeSessionReplayRecord {
     readonly sequenceId: number;
-    readonly kind: 'initialize' | 'submitCommands' | 'tick' | 'createCamera' | 'applyFirstPersonCameraInput' | 'applyCollisionConstrainedCameraInput' | 'submitRuntimeActionIntent' | 'lifecycleDeath' | 'runAutonomousPolicyTick' | 'requestGeneratedTunnelOperation' | 'requestSessionRestart' | 'restart';
+    readonly kind: 'initialize' | 'submitCommands' | 'tick' | 'createCamera' | 'applyFirstPersonCameraInput' | 'applyCollisionConstrainedCameraInput' | 'submitRuntimeActionIntent' | 'lifecycleDeath' | 'runAutonomousPolicyTick' | 'requestGeneratedTunnelOperation' | 'requestEncounterTransition' | 'requestSessionRestart' | 'restart';
     readonly recordHash: string;
 }
 export interface RuntimeSessionTelemetrySummary {
@@ -310,6 +312,10 @@ export interface RuntimeSessionAutonomousPolicyTickReadout {
 export interface RuntimeSessionCombatReadoutRequest {
     readonly scenario?: CombatReadoutScenario;
 }
+export interface RuntimeSessionCombatFeedbackProjectionRequest extends RuntimeSessionCombatReadoutRequest {
+    readonly camera?: CameraHandle;
+    readonly viewport?: CameraProjectionRequest['viewport'];
+}
 export interface RuntimeSessionGeneratedTunnelOperationReceipt extends GeneratedTunnelOperationReceipt {
     readonly sequenceId: number;
     readonly request: GeneratedTunnelOperationRequest;
@@ -327,7 +333,10 @@ export interface RuntimeSessionFacade {
     runAutonomousPolicyTick(input: RuntimeSessionAutonomousPolicyTickInput): RuntimeSessionAutonomousPolicyTickReadout;
     readLifecycleStatus(request?: RuntimeSessionLifecycleStatusRequest): RuntimeSessionLifecycleStatusReadout;
     requestSessionRestart(intent: RuntimeSessionRestartIntent): RuntimeSessionLifecycleRestartReceipt;
+    readEncounterDirector(request?: EncounterDirectorReadoutRequest): EncounterDirectorReadout;
+    requestEncounterTransition(request: EncounterTransitionRequest): RuntimeSessionEncounterTransitionReceipt;
     readCombatReadout(request?: RuntimeSessionCombatReadoutRequest): CombatRuntimeReadout;
+    readCombatFeedbackProjection(request?: RuntimeSessionCombatFeedbackProjectionRequest): CombatFeedbackProjection;
     readGeneratedTunnelReadout(request?: GeneratedTunnelReadoutRequest): GeneratedTunnelReadout;
     readNavProjection(): NavProjectionReadout;
     queryNavPath(request?: NavPathQueryRequest): NavPathReadout;

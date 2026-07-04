@@ -1,0 +1,71 @@
+generated-tunnel-default-fps gameplay preset fixture
+kind: fps_gameplay_preset.v0
+presetId: asha.generated_tunnel.default_fps.v0
+displayName: Generated Tunnel Default FPS
+source: project_bundle.gameplay_preset
+projectId: asha-demo
+path: catalog/gameplay/generated-tunnel-default-fps.json
+
+playerController:
+  moveSpeedUnitsPerSecond: 3
+  sprintMultiplier: 1
+  lookSensitivityDegreesPerPixel: 0.1
+  cameraHeightUnits: 1.5
+  collisionHalfExtents: [0.25, 0.25, 0.25]
+  maxPitchDegrees: 89
+
+weapon:
+  weaponId: weapon.primary_fire.generated_tunnel.v0
+  action: primary_fire
+  damage: 40
+  rangeUnits: 8
+  cooldownTicks: 4
+  ammo: 2
+  traceRadiusUnits: 0
+
+enemyBehavior:
+  policyRef: generated_tunnel_enemy_policy_loop.v0
+  entityDefinitionId: entity.enemy.generated_tunnel.basic.v0
+  navProjectionRef: generated_tunnel_nav_projection
+  desiredRangeUnits: 3.5
+  primaryFireEnabled: true
+
+encounter:
+  presetId: generated-tunnel-small-encounter
+  enemyDefinitionId: entity.enemy.generated_tunnel.basic.v0
+  enemyCount: 1
+  spawnMarkerIds: [exit_hint]
+
+generator:
+  presetId: tiny-enclosed
+  seed: 17
+  outputHash: a9b504096397f5b4
+  renderProjectionHash: fnv1a64:21eb8696f6f3b5c4
+  collisionProjectionHash: fnv1a64:78b242163cf67524
+
+ownership:
+  gameOwned: displayName, playerController, weapon, enemyBehavior, encounter, generator
+  engineOwned: schemaValidation, runtimeAuthority, collisionResolution, combatDamageApplication, policyExecution, proceduralGeneration
+
+migration:
+  playerControllerConstants: BrowserFpsInputCollector options
+  weaponConstants: RuntimeSession primary_fire combat readout defaults
+  enemyConstants: generated tunnel enemy policy fixture
+  encounterConstants: generated-tunnel-small-encounter
+  generatorConstants: tiny-enclosed generated tunnel readout
+
+hashes:
+  presetHash: fnv1a64:c5a07d62670d6616
+  tuningHash: fnv1a64:a9d279e7f8749a0f
+  referenceHash: fnv1a64:16fe3b71072981e3
+  catalogHash: fnv1a64:51431466746a3fc4
+
+invalidFixture:
+  rejectedHash: fnv1a64:f58279b2225614a0
+  rejectedCodes: invalidNumberRange, invalidIntegerRange, duplicateReference
+
+nonClaims:
+- not_runtime_authority
+- not_demo_local_constants
+- not_arbitrary_json_catalog
+- not_editor_ui

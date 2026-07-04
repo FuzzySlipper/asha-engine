@@ -36,6 +36,7 @@ metadata while their consumer role is still being ratified.
 |---|---|---|---|---|
 | `@asha/contracts` | `public` | `ts/packages/contracts/compatibility.json` | `contracts.v0` | Generated semantic DTO/type border from Rust protocol crates. |
 | `@asha/runtime-bridge` | `public` | `ts/packages/runtime-bridge/compatibility.json` | `runtime-bridge.v0` | Transport-neutral runtime facade, manifest-backed operation vocabulary, typed errors. |
+| `@asha/catalog-core` | `unstable` | none | none | Typed gameplay preset/catalog validation surface for consumer-owned FPS tuning data; not runtime authority. |
 | `@asha/command-registry` | `unstable` | `ts/packages/command-registry/src/manifest.golden.json` | `command-registry.v0` | Studio command/evidence metadata registry. |
 | `@asha/devtools` | `unstable` | `ts/packages/devtools/compatibility.json` | `devtools-protocol.v0` | Observational attach/readout protocol for tools and testing harnesses. |
 | `@asha/game-workspace` | `unstable` | `ts/packages/game-workspace/compatibility.json` | `game-workspace.v0` | Typed game/workspace manifest validation for consumer repos. |
@@ -44,11 +45,12 @@ metadata while their consumer role is still being ratified.
 
 Additional unstable package statuses:
 
+- `@asha/catalog-core` is an unstable gameplay preset/catalog validation package. It may expose root-level typed tuning schemas and readouts for consumer-owned data, but it does not execute runtime authority, own generated contracts, or validate commands.
 - `@asha/editor-tools` is an unstable Studio/editor helper package. It is editor-local state only, not authority.
 - `@asha/renderer-three` is an unstable Three.js implementation package for engine smoke/testing and the approved `asha-demo` static-room render path. It is not the long-term public renderer contract; consumers should prefer `@asha/render-projection` for renderer-neutral retained semantics unless a task explicitly approves the root package binding.
 - `@asha/ui-dom` is an unstable render-agnostic UI projection/control descriptor package. It can expose root-level HUD/menu projection helpers, but it does not execute runtime commands or own DOM framework state.
 
-Internal packages, including `@asha/native-bridge`, `@asha/wasm-replay-bridge`, `@asha/app`, `@asha/electron-main`, policy/catalog packages, and `@asha/smoke`, are not downstream public surfaces.
+Internal packages, including `@asha/native-bridge`, `@asha/wasm-replay-bridge`, `@asha/app`, `@asha/electron-main`, internal policy packages, `@asha/catalog-examples`, and `@asha/smoke`, are not downstream public surfaces.
 
 The metadata schema is intentionally tiny for now:
 
@@ -85,6 +87,7 @@ The first `asha-demo` skeleton may depend on only these ASHA package roots:
 |---|---|---|---|
 | `@asha/contracts` | `public` | Allowed | Generated DTO/type border from Rust protocol crates. Import from the package root only; never from `src/generated/*` or `dist/generated/*`. |
 | `@asha/runtime-bridge` | `public` | Allowed, but no native/raw transport bypass | Transport-neutral runtime facade. Current World* method names are compatibility names; demo docs should use RuntimeSession/ProjectBundle vocabulary. |
+| `@asha/catalog-core` | `unstable` | Allowed for gameplay preset/catalog validation only | Demo-owned tuning values may live in typed `fps_gameplay_preset.v0` data. Runtime authority, command validation, collision, combat application, policy execution, and procedural generation remain engine-owned. |
 | `@asha/game-workspace` | `unstable` | Allowed for manifest/workspace validation | The current typed ASHA Game Project manifest/workspace surface. This is the preferred first skeleton dependency. |
 | `@asha/render-projection` | `unstable` | Allowed for renderer-neutral projection state only | Consumers may use retained render-diff projection semantics through the root package. This is not permission to mutate authority or decode arbitrary JSON. |
 | `@asha/renderer-three` | `unstable` | Allowed for the static-room renderer path approved in #4029 and the first-person generated-tunnel viewport path approved in #4067 | Consumers may import only from the package root and must treat it as an implementation binding over public render diffs/projection state, not as authority or a stable renderer contract. |
@@ -239,6 +242,32 @@ Consumer behavior:
 - `asha-testing` uses it for synthetic conformance/proof workflows.
 - The new `asha-demo` may use it for human-facing project workspace setup, but should keep product identity separate from proof harness machinery.
 - Manifest validation rejects private transport hints, ASHA internals, generated paths, and unsupported backend/profile claims.
+
+## Catalog Core unstable status
+
+`@asha/catalog-core` is explicit but unstable. It exposes typed gameplay
+preset/catalog validation for consumer-owned tuning data. It does not execute
+runtime authority, own generated contracts, mutate ProjectBundle state, run
+policy, apply combat damage, resolve collision, or generate worlds.
+
+Additive notes under this unstable status:
+
+- #4101 adds `fps_gameplay_preset.v0` and
+  `fps_gameplay_preset_catalog.v0` for the default generated-tunnel FPS loop.
+  Game repos may own `displayName`, player controller tuning, weapon/fire
+  tuning, enemy behavior references, encounter references, and generator preset
+  references through the typed catalog surface. Engine-owned concerns remain
+  schema validation, runtime authority, collision resolution, combat damage
+  application, policy execution, and procedural generation. The default preset
+  fixture is
+  `harness/fixtures/gameplay-presets/generated-tunnel-default-fps.snapshot.txt`;
+  its preset hash is `fnv1a64:c5a07d62670d6616`, tuning hash is
+  `fnv1a64:a9d279e7f8749a0f`, reference hash is
+  `fnv1a64:16fe3b71072981e3`, and catalog hash is
+  `fnv1a64:51431466746a3fc4`. Demo constants should migrate by replacing local
+  movement/look/fire/enemy/encounter/generator constants with reads from
+  `readDefaultFpsGameplayPreset()` or `readFpsGameplayPresetCatalog()` while
+  continuing to submit runtime commands through `@asha/runtime-bridge`.
 
 ## Render projection compatibility log
 

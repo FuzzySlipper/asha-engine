@@ -1,0 +1,56 @@
+generated-tunnel-hit combat feedback fixture
+kind: combat_feedback_projection.v0
+scenario: generated_tunnel_fire_hit
+intent:
+  action: primary_fire
+  phase: pressed
+  status: accepted
+  tick: 7
+
+trace:
+  result: hit
+  shooter: 10
+  target: 20
+  distance: 3.5
+  origin: [2.5, 1.5, 1.5]
+  direction: [0, 0, 1]
+  endpoint: [2.5, 1.5, 5]
+  cameraProjectionHash: fnv1a64:2aa10d532f1ba47c
+
+marker:
+  visible: true
+  tone: hit
+  label: Hit
+  durationMs: 160
+  screenAnchor: normalized center
+
+notifications:
+- eventKind: fire_hit
+  tone: info
+  text: Hit entity 20
+- eventKind: damage_applied
+  tone: danger
+  text: Entity 20 -40
+- eventKind: entity_defeated
+  tone: danger
+  text: Entity 20 defeated
+
+hud:
+  reticle: hit
+  status: Entity 20 defeated
+  ammo: 2
+  cooldownTicksRemaining: 4
+
+hashes:
+  traceHash: fnv1a64:1aceefd6bae6854b
+  markerHash: fnv1a64:a315c6bca60902a7
+  notificationHash: fnv1a64:9642c2b243aba4a6
+  projectionHash: fnv1a64:bc2c68ffadb58153
+  healthHash: 3c89045230f2d9d9
+  combatReplayHash: 6b133026c511b0f5
+
+nonClaims:
+- not_combat_authority
+- not_renderer_state
+- not_ui_state
+- not_animation_or_audio

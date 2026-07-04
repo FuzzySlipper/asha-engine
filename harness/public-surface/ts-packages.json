@@ -7,6 +7,7 @@
         "@asha/contracts",
         "@asha/runtime-bridge",
         "@asha/game-workspace",
+        "@asha/catalog-core",
         "@asha/render-projection",
         "@asha/renderer-three",
         "@asha/command-registry",
@@ -109,10 +110,11 @@
     },
     {
       "package": "@asha/catalog-core",
-      "status": "internal",
+      "status": "unstable",
       "ownershipKey": "ts/packages/catalog-core",
-      "intendedConsumerRole": "Internal catalog fixture/domain package.",
-      "allowedConsumerRoles": []
+      "intendedConsumerRole": "Typed gameplay preset/catalog validation surface for consumer-owned tuning data; not runtime authority.",
+      "allowedConsumerRoles": ["asha-testing", "asha-demo", "asha-studio"],
+      "changelog": "docs/consumer-compatibility.md#catalog-core-unstable-status"
     },
     {
       "package": "@asha/catalog-examples",

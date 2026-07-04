@@ -1,0 +1,50 @@
+generated-tunnel-miss combat feedback fixture
+kind: combat_feedback_projection.v0
+scenario: generated_tunnel_geometry_blocked_miss
+intent:
+  action: primary_fire
+  phase: pressed
+  status: accepted
+  tick: 7
+
+trace:
+  result: miss
+  shooter: 10
+  target: null
+  reason: geometryBlocked
+  origin: null
+  direction: null
+  endpoint: null
+  cameraProjectionHash: null
+
+marker:
+  visible: true
+  tone: blocked
+  label: Blocked
+  durationMs: 120
+  screenAnchor: normalized center
+
+notifications:
+- eventKind: fire_missed
+  tone: warning
+  text: Shot blocked
+
+hud:
+  reticle: blocked
+  status: Shot blocked
+  ammo: 2
+  cooldownTicksRemaining: 4
+
+hashes:
+  traceHash: fnv1a64:e43d8314c447650a
+  markerHash: fnv1a64:60e974b91a995cb9
+  notificationHash: fnv1a64:ecb4d2cfba72dc5f
+  projectionHash: fnv1a64:5bd66a99af374c64
+  healthHash: 56b1331c0f202ff1
+  combatReplayHash: 3b1e1a9897571bc4
+
+nonClaims:
+- not_combat_authority
+- not_renderer_state
+- not_ui_state
+- not_animation_or_audio

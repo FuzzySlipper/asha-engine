@@ -3752,10 +3752,6 @@ const generatedBoundaryConfigs = [
         {
           "paths": [
             {
-              "name": "@asha/catalog-core",
-              "message": "ts/packages/smoke (lane ts-shell) may not import @asha/catalog-core (lane ts-catalog) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
-            },
-            {
               "name": "@asha/catalog-examples",
               "message": "ts/packages/smoke (lane ts-shell) may not import @asha/catalog-examples (lane ts-catalog) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
             },
@@ -3819,7 +3815,7 @@ const generatedBoundaryConfigs = [
               "group": [
                 "@asha/catalog-core/*"
               ],
-              "message": "ts/packages/smoke (lane ts-shell) may not import @asha/catalog-core (lane ts-catalog) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
+              "message": "ts/packages/smoke must import @asha/catalog-core through its root barrel. Do not import @asha/catalog-core/src, @asha/catalog-core/dist, generated internals, or other package-private files."
             },
             {
               "group": [

@@ -1,7 +1,6 @@
 import { renderHandle, } from '@asha/contracts';
 export const STATIC_ROOM_FIXTURE_NAME = 'static-room';
 const IDENTITY_ROTATION = [0, 0, 0, 1];
-const IDENTITY_SCALE = [1, 1, 1];
 export function createStaticRoomRenderFrame() {
     return {
         ops: [

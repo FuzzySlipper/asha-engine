@@ -452,7 +452,6 @@ forbid_globals = ["Date", "Math.random", "document", "window", "localStorage", "
 lane = "ts-catalog"
 type = "lib"
 layer = "domain"
-implementation_status = "reserved"
 may_import = ["@asha/contracts"]
 may_not_import = ["@asha/renderer-three", "@asha/ui-dom", "@asha/runtime-bridge", "@asha/native-bridge", "@asha/wasm-replay-bridge", "@asha/electron-main"]
 
@@ -550,7 +549,7 @@ may_not_import = ["@asha/electron-main", "@asha/native-bridge", "@asha/wasm-repl
 lane = "ts-shell"
 type = "testing"
 layer = "testing-fixtures"
-may_import = ["@asha/contracts", "@asha/runtime-bridge", "@asha/renderer-three", "@asha/editor-tools", "@asha/ui-dom", "@asha/app"]
+may_import = ["@asha/contracts", "@asha/catalog-core", "@asha/runtime-bridge", "@asha/renderer-three", "@asha/editor-tools", "@asha/ui-dom", "@asha/app"]
 may_not_import = ["@asha/native-bridge", "@asha/electron-main", "@asha/wasm-replay-bridge"]
 
 # ─── Runtime bridge boundary (ADR 0006) ──────────────────────────────────────

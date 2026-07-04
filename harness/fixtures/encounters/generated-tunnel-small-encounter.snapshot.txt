@@ -1,0 +1,50 @@
+generated-tunnel-small-encounter fixture
+kind: encounter_config.generated_tunnel_small.v0
+source: project_bundle.encounter_preset
+presetId: generated-tunnel-small-encounter
+seed: 17
+configHash: 3c8c9c0d0541935f
+spawnOrderHash: 68fafab271825648
+
+entityDefinitions:
+- source: project_bundle.entity_definition
+  definitionId: entity.enemy.generated_tunnel.basic.v0
+  entityDefinitionId: generated-tunnel.enemy.basic
+  runtimeEntityId: 20
+  count: 1
+  capabilities: combat.health, enemy_policy, nav.agent
+
+spawnOrder:
+- order: 0
+  waveId: wave.1
+  instanceId: encounter.generated_tunnel_small.wave_1.enemy_001
+  markerSource: generated_tunnel.spawn_marker
+  markerId: exit_hint
+  world: [3.5, 1.5, 7.5]
+  yawDegrees: 180
+
+stateHashes:
+- status: pending
+  encounterHash: b0a61b9060f6cb3f
+  replayHash: 5a3bf9685c280cec
+  sessionHash: fnv1a64:8d388de70be9d3e4
+- status: active
+  eventKind: runtime_encounter.activated.v0
+  eventHash: e47fce759f63a073
+  transitionHash: 56912b8bc4a222ef
+- status: cleared
+  eventKind: runtime_encounter.lifecycle_synced.v0
+  eventHash: d04242bdbeee1321
+  transitionHash: 34bb4206bfe3b988
+  lifecycleHash: fnv1a64:5fbf190733451da1
+- status: failed
+  eventKind: runtime_encounter.lifecycle_synced.v0
+  eventHash: c85cc26e2dccf8b9
+  transitionHash: a22e8945f928bea4
+  lifecycleHash: fnv1a64:32322a108d4f2767
+
+nonClaims:
+- not_wave_design
+- not_demo_local_spawn_state
+- not_loot_or_scoring
+- not_arbitrary_json_encounter_config

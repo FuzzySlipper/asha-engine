@@ -1,7 +1,10 @@
+import { cameraHandle, } from '@asha/contracts';
 import { RuntimeBridgeError, frameCursor, } from './bridge.js';
 import { GENERATED_TUNNEL_FIRE_HIT_READOUT, GENERATED_TUNNEL_FIRE_MISS_READOUT, } from './combat-readout.js';
+import { buildCombatFeedbackProjection, defaultCombatFeedbackIntent, } from './combat-feedback.js';
 import { TINY_GENERATED_TUNNEL_READOUT, } from './generated-tunnel.js';
 import { createGeneratedTunnelEnemyPolicyFixture, validateEnemyPolicySource, } from './enemy-policy.js';
+import { buildEncounterDirectorReadout, buildEncounterTransitionReceipt, initialEncounterDirectorState, transitionEncounterDirectorState, validateEncounterDirectorReadoutRequest, validateEncounterTransitionRequest, } from './encounter-director.js';
 import { createMockRuntimeBridge } from './mock.js';
 import { GENERATED_TUNNEL_NAV_POLICY_VIEW, GENERATED_TUNNEL_NAV_PROJECTION, GENERATED_TUNNEL_NO_PATH, GENERATED_TUNNEL_REACHABLE_PATH, } from './nav-readout.js';
 export function createMockRuntimeSession(options = {}) {
@@ -17,6 +20,7 @@ class ReferenceRuntimeSessionFacade {
     #rejectedCommandCount = 0;
     #restartCount = 0;
     #lifecycleState = initialRuntimeSessionLifecycleState();
+    #encounterState = initialEncounterDirectorState();
     #replayRecords = [];
     constructor(bridge) {
         this.#bridge = bridge;
@@ -39,6 +43,7 @@ class ReferenceRuntimeSessionFacade {
         this.#acceptedCommandCount = 0;
         this.#rejectedCommandCount = 0;
         this.#lifecycleState = initialRuntimeSessionLifecycleState();
+        this.#encounterState = initialEncounterDirectorState();
         this.#replayRecords = [];
         this.#record('initialize');
         return this.#stateSummary(composition);
@@ -317,6 +322,69 @@ class ReferenceRuntimeSessionFacade {
             resetHash: statusAfter.fixture.resetHash,
         };
     }
+    readEncounterDirector(request = {}) {
+        const identity = this.#requireInitialized('readEncounterDirector');
+        validateEncounterDirectorReadoutRequest(request);
+        const lifecycle = this.#encounterLifecycleFromScenario(request.lifecycleScenario);
+        return buildEncounterDirectorReadout({
+            state: this.#encounterState,
+            sequenceId: this.#sequenceId,
+            tick: this.#tick,
+            sessionSeed: identity.seed,
+            sessionHash: this.#sessionHash(),
+            lifecycle,
+        });
+    }
+    requestEncounterTransition(request) {
+        this.#requireInitialized('requestEncounterTransition');
+        const sessionHashBefore = this.#sessionHash();
+        const validationRejection = validateEncounterTransitionRequest(request);
+        const lifecycle = validationRejection === undefined
+            ? this.#encounterLifecycleFromScenario(request.lifecycleScenario)
+            : this.#encounterLifecycleFromScenario();
+        const identity = this.#requireInitialized('requestEncounterTransition');
+        const before = buildEncounterDirectorReadout({
+            state: this.#encounterState,
+            sequenceId: this.#sequenceId,
+            tick: this.#tick,
+            sessionSeed: identity.seed,
+            sessionHash: sessionHashBefore,
+            lifecycle,
+        });
+        const result = validationRejection === undefined
+            ? transitionEncounterDirectorState({
+                state: this.#encounterState,
+                action: request.action,
+                lifecycle,
+            })
+            : {
+                accepted: false,
+                state: this.#encounterState,
+                rejectionReason: validationRejection,
+            };
+        if (result.accepted) {
+            this.#encounterState = result.state;
+        }
+        this.#sequenceId += 1;
+        this.#record('requestEncounterTransition');
+        const after = buildEncounterDirectorReadout({
+            state: this.#encounterState,
+            sequenceId: this.#sequenceId,
+            tick: this.#tick,
+            sessionSeed: identity.seed,
+            sessionHash: this.#sessionHash(),
+            lifecycle,
+        });
+        return buildEncounterTransitionReceipt({
+            request,
+            sequenceId: this.#sequenceId,
+            before,
+            after,
+            result,
+            sessionHashBefore,
+            sessionHashAfter: this.#sessionHash(),
+        });
+    }
     readCombatReadout(request = {}) {
         this.#requireInitialized('readCombatReadout');
         const scenario = request.scenario ?? 'generated_tunnel_fire_hit';
@@ -328,6 +396,25 @@ class ReferenceRuntimeSessionFacade {
             default:
                 throw new RuntimeBridgeError('invalid_input', 'unknown combat readout scenario');
         }
+    }
+    readCombatFeedbackProjection(request = {}) {
+        this.#requireInitialized('readCombatFeedbackProjection');
+        const combatReadout = this.readCombatReadout(request);
+        const cameraProjection = request.camera === undefined
+            ? null
+            : this.readCameraProjection({
+                camera: request.camera,
+                viewport: request.viewport ?? null,
+            }).snapshot;
+        return buildCombatFeedbackProjection({
+            sequenceId: this.#sequenceId,
+            ...defaultCombatFeedbackIntent({
+                camera: request.camera ?? cameraHandle(0),
+                tick: combatReadoutTick(combatReadout),
+            }),
+            combatReadout,
+            camera: cameraProjection,
+        });
     }
     readNavProjection() {
         this.#requireInitialized('readNavProjection');
@@ -415,6 +502,7 @@ class ReferenceRuntimeSessionFacade {
         this.#acceptedCommandCount = 0;
         this.#rejectedCommandCount = 0;
         this.#lifecycleState = initialRuntimeSessionLifecycleState();
+        this.#encounterState = initialEncounterDirectorState();
         this.#restartCount += 1;
         this.#record('restart');
         return {
@@ -459,6 +547,10 @@ class ReferenceRuntimeSessionFacade {
         };
         this.#record('lifecycleDeath');
     }
+    #encounterLifecycleFromScenario(scenario) {
+        const lifecycleScenario = scenario === undefined || scenario === 'active' ? 'current_session' : scenario;
+        return lifecycleStatusToEncounterLifecycle(this.readLifecycleStatus({ scenario: lifecycleScenario }));
+    }
     #requireInitialized(operation) {
         if (this.#identity === null || this.#engine === null) {
             throw new RuntimeBridgeError('not_initialized', `${operation} before RuntimeSession initialize`);
@@ -488,6 +580,7 @@ class ReferenceRuntimeSessionFacade {
                 rejectedCommandCount: this.#rejectedCommandCount,
                 restartCount: this.#restartCount,
                 lifecycle: lifecycleStateHashRecord(this.#lifecycleState),
+                encounter: encounterStateHashRecord(this.#encounterState),
                 composition: compositionHashRecord(this.#bridge.getCompositionStatus()),
             }),
         });
@@ -501,6 +594,7 @@ class ReferenceRuntimeSessionFacade {
             rejectedCommandCount: this.#rejectedCommandCount,
             restartCount: this.#restartCount,
             lifecycle: this.#identity === null ? null : lifecycleStateHashRecord(this.#lifecycleState),
+            encounter: this.#identity === null ? null : encounterStateHashRecord(this.#encounterState),
             composition: this.#identity === null ? null : compositionHashRecord(this.#bridge.getCompositionStatus()),
         });
     }
@@ -631,6 +725,15 @@ function lifecycleOutcome(state) {
         terminal: false,
         reason: 'none',
         label: 'In progress',
+    };
+}
+function lifecycleStatusToEncounterLifecycle(status) {
+    return {
+        outcomeKind: status.outcome.kind,
+        terminal: status.outcome.terminal,
+        enemyDead: status.enemy.dead,
+        playerDead: status.player.dead,
+        lifecycleHash: status.hashes.lifecycleHash,
     };
 }
 function validateLifecycleStatusRequest(request) {
@@ -831,6 +934,10 @@ function validateRuntimeActionIntentEnvelope(envelope) {
         throw new RuntimeBridgeError('invalid_input', 'released runtime action intent must report pressed=false');
     }
 }
+function combatReadoutTick(readout) {
+    const fireEvent = readout.events.find((event) => event.kind === 'fire_hit' || event.kind === 'fire_missed');
+    return fireEvent?.tick ?? 0;
+}
 function validateGeneratedTunnelReadoutRequest(request) {
     if (request.presetId !== undefined && request.presetId !== 'tiny-enclosed') {
         throw new RuntimeBridgeError('invalid_input', 'only the tiny-enclosed generated tunnel readout is available');
@@ -882,7 +989,18 @@ function runtimeSessionResetHash(identity) {
         seed: identity.seed,
         projectBundle: projectBundleHashRecord(identity.projectBundle),
         lifecycle: lifecycleStateHashRecord(initialRuntimeSessionLifecycleState()),
+        encounter: encounterStateHashRecord(initialEncounterDirectorState()),
     });
+}
+function encounterStateHashRecord(state) {
+    return {
+        presetId: state.presetId,
+        status: state.status,
+        spawnedEnemyIds: state.spawnedEnemyIds,
+        defeatedEnemyIds: state.defeatedEnemyIds,
+        revision: state.revision,
+        lastTransition: state.lastTransition,
+    };
 }
 function lifecycleStateHashRecord(state) {
     return {

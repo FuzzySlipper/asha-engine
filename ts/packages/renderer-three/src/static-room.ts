@@ -13,7 +13,6 @@ export const STATIC_ROOM_FIXTURE_NAME = 'static-room';
 type Vec3 = readonly [number, number, number];
 
 const IDENTITY_ROTATION = [0, 0, 0, 1] as const;
-const IDENTITY_SCALE = [1, 1, 1] as const;
 
 export function createStaticRoomRenderFrame(): RenderFrameDiff {
   return {
