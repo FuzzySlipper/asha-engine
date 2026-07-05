@@ -658,6 +658,7 @@ export function mountAshaRendererBrowserSurface(canvas, options = {}) {
         lockPointer: () => controls.lockPointer(),
         movementState: () => controls.movementState(),
         pointerLocked: () => controls.pointerLocked(),
+        projectTargetProjection: (projection) => interactions.projectTargetProjection(projection),
         reset,
         snapshot: () => renderer.snapshot(),
         renderOnce,
@@ -1045,8 +1046,19 @@ function createBrowserSurfaceInteractionController(scene, camera) {
             target.material.color.copy(target.baseColor);
         }
     };
+    const projectTargetProjection = (projection) => {
+        lastEvent = projection.lastEvent ?? lastEvent;
+        for (const target of targets) {
+            target.mesh.visible = projection.visible;
+            target.health = projection.visible ? target.maxHealth : 0;
+            if (projection.visible) {
+                target.material.color.copy(target.baseColor);
+            }
+        }
+    };
     return {
         firePrimary,
+        projectTargetProjection,
         reset,
         state,
     };

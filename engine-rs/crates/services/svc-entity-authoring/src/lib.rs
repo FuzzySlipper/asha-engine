@@ -139,6 +139,142 @@ fn rejected(
     }
 }
 
+// ── ECRP Rule ownership / mutation rights ────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EcrpRuleOwner {
+    EntityBootstrap,
+    LifecycleRule,
+    TransformRule,
+    MovementRule,
+    CollisionRule,
+    RenderProjectionRule,
+    RelationRule,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EcrpCapabilityMutation {
+    Lifecycle,
+    AttachTransform,
+    AttachBounds,
+    AttachRenderProjection,
+    AttachCollision,
+    SetTransform,
+    Move,
+    Relation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EcrpRuleMutationDiagnostic {
+    pub owner: EcrpRuleOwner,
+    pub command_kind: &'static str,
+    pub mutation: EcrpCapabilityMutation,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RuleOwnedEntityAuthoringOutcome {
+    Accepted {
+        event: EntityAuthoringEvent,
+    },
+    Rejected {
+        rejection: EntityAuthoringRejection,
+    },
+    Forbidden {
+        diagnostic: EcrpRuleMutationDiagnostic,
+    },
+}
+
+impl From<EntityAuthoringOutcome> for RuleOwnedEntityAuthoringOutcome {
+    fn from(value: EntityAuthoringOutcome) -> Self {
+        match value {
+            EntityAuthoringOutcome::Accepted { event } => Self::Accepted { event },
+            EntityAuthoringOutcome::Rejected { rejection } => Self::Rejected { rejection },
+        }
+    }
+}
+
+/// Validate a named ECRP Rule owner before applying an authoring command. This is
+/// the authority-facing mutation-right gate for rule paths; UI/devtools proposal
+/// paths still use `validate_and_apply` and should remain separate from Rules.
+pub fn validate_and_apply_rule_owned(
+    store: &mut EntityStore,
+    owner: EcrpRuleOwner,
+    command: &EntityAuthoringCommand,
+) -> RuleOwnedEntityAuthoringOutcome {
+    if let Err(diagnostic) = validate_rule_mutation_right(owner, command) {
+        return RuleOwnedEntityAuthoringOutcome::Forbidden { diagnostic };
+    }
+    validate_and_apply(store, command).into()
+}
+
+pub fn validate_rule_mutation_right(
+    owner: EcrpRuleOwner,
+    command: &EntityAuthoringCommand,
+) -> Result<(), EcrpRuleMutationDiagnostic> {
+    let mutation = command_mutation(command);
+    if rule_owner_allows(owner, mutation) {
+        Ok(())
+    } else {
+        Err(EcrpRuleMutationDiagnostic {
+            owner,
+            command_kind: command.kind(),
+            mutation,
+            message: format!(
+                "{owner:?} cannot apply {mutation:?}; ECRP capability mutation requires its owning Rule"
+            ),
+        })
+    }
+}
+
+fn command_mutation(command: &EntityAuthoringCommand) -> EcrpCapabilityMutation {
+    match command {
+        EntityAuthoringCommand::Create { .. }
+        | EntityAuthoringCommand::Destroy { .. }
+        | EntityAuthoringCommand::Disable { .. }
+        | EntityAuthoringCommand::Enable { .. }
+        | EntityAuthoringCommand::AddLabel { .. }
+        | EntityAuthoringCommand::RemoveLabel { .. } => EcrpCapabilityMutation::Lifecycle,
+        EntityAuthoringCommand::AttachCapability { capability, .. } => match capability {
+            AuthoringCapability::Transform { .. } => EcrpCapabilityMutation::AttachTransform,
+            AuthoringCapability::Render { .. } => EcrpCapabilityMutation::AttachRenderProjection,
+            AuthoringCapability::Collision { .. } => EcrpCapabilityMutation::AttachCollision,
+            AuthoringCapability::Bounds { .. } => EcrpCapabilityMutation::AttachBounds,
+        },
+        EntityAuthoringCommand::SetTransform { .. } => EcrpCapabilityMutation::SetTransform,
+        EntityAuthoringCommand::Move { .. } => EcrpCapabilityMutation::Move,
+        EntityAuthoringCommand::AttachTransformParent { .. }
+        | EntityAuthoringCommand::DetachTransformParent { .. }
+        | EntityAuthoringCommand::SetContainment { .. }
+        | EntityAuthoringCommand::ClearContainment { .. }
+        | EntityAuthoringCommand::SetDerivedFrom { .. } => EcrpCapabilityMutation::Relation,
+    }
+}
+
+fn rule_owner_allows(owner: EcrpRuleOwner, mutation: EcrpCapabilityMutation) -> bool {
+    match owner {
+        EcrpRuleOwner::EntityBootstrap => matches!(
+            mutation,
+            EcrpCapabilityMutation::Lifecycle
+                | EcrpCapabilityMutation::AttachTransform
+                | EcrpCapabilityMutation::AttachBounds
+                | EcrpCapabilityMutation::AttachRenderProjection
+                | EcrpCapabilityMutation::AttachCollision
+        ),
+        EcrpRuleOwner::LifecycleRule => matches!(mutation, EcrpCapabilityMutation::Lifecycle),
+        EcrpRuleOwner::TransformRule => matches!(mutation, EcrpCapabilityMutation::SetTransform),
+        EcrpRuleOwner::MovementRule => matches!(mutation, EcrpCapabilityMutation::Move),
+        EcrpRuleOwner::CollisionRule => matches!(
+            mutation,
+            EcrpCapabilityMutation::AttachCollision | EcrpCapabilityMutation::AttachBounds
+        ),
+        EcrpRuleOwner::RenderProjectionRule => {
+            matches!(mutation, EcrpCapabilityMutation::AttachRenderProjection)
+        }
+        EcrpRuleOwner::RelationRule => matches!(mutation, EcrpCapabilityMutation::Relation),
+    }
+}
+
 // ── Stored EntityDefinition validation/bootstrap ─────────────────────────────
 
 /// Authority-side bootstrap failure for a stored EntityDefinition. Invalid stored
@@ -166,6 +302,72 @@ pub struct EntityDefinitionBootstrapRecord {
     pub entity_hash: core_entity::EntityHash,
     pub replay_unit_label: &'static str,
 }
+
+/// One stored EntityDefinition selected for ProjectBundle bootstrap into a
+/// deterministic runtime entity id.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProjectBundleEntityDefinitionBootstrapEntry {
+    pub entity: core_ids::EntityId,
+    pub definition: EntityDefinition,
+}
+
+/// ProjectBundle-shaped batch bootstrap request. This remains a Rust authority
+/// service shape for now; downstream TS/demo access should go through a public
+/// RuntimeSession readout task rather than raw store handles.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProjectBundleEntityDefinitionBootstrapRequest {
+    pub project_bundle: String,
+    pub entries: Vec<ProjectBundleEntityDefinitionBootstrapEntry>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProjectBundleEntityDefinitionBootstrapDiagnosticCode {
+    MissingProjectBundle,
+    EmptyDefinitions,
+    DefinitionInvalid,
+    SourceProjectBundleMismatch,
+    DuplicateDefinitionStableId,
+    DuplicateRuntimeEntity,
+    RuntimeEntityAlreadyExists,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProjectBundleEntityDefinitionBootstrapDiagnostic {
+    pub code: ProjectBundleEntityDefinitionBootstrapDiagnosticCode,
+    pub path: String,
+    pub stable_id: Option<String>,
+    pub entity: Option<core_ids::EntityId>,
+    pub message: String,
+    pub definition_diagnostics: Vec<EntityDefinitionDiagnostic>,
+}
+
+/// Authority-side batch bootstrap failure. `Invalid` is a preflight failure and
+/// always leaves the live store untouched; `Rejected` means a staged authority
+/// apply was unexpectedly refused and is also not committed to the live store.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ProjectBundleEntityDefinitionBootstrapError {
+    Invalid {
+        diagnostics: Vec<ProjectBundleEntityDefinitionBootstrapDiagnostic>,
+    },
+    Rejected {
+        stable_id: String,
+        entity: core_ids::EntityId,
+        rejection: EntityAuthoringRejection,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProjectBundleEntityDefinitionBootstrapRecord {
+    pub project_bundle: String,
+    pub records: Vec<EntityDefinitionBootstrapRecord>,
+    pub entity_hash: core_entity::EntityHash,
+    pub replay_unit_label: &'static str,
+}
+
+pub type ProjectBundleEntityDefinitionBootstrapResult = Result<
+    ProjectBundleEntityDefinitionBootstrapRecord,
+    ProjectBundleEntityDefinitionBootstrapError,
+>;
 
 /// Validate durable stored EntityDefinition data before it can seed runtime
 /// authority. This is ProjectBundle/catalog input validation, not live mutation.
@@ -233,35 +435,48 @@ pub fn bootstrap_entity_definition(
         return Err(EntityDefinitionBootstrapError::Invalid { diagnostics });
     }
 
-    let create = validate_and_apply(
+    let create = validate_and_apply_rule_owned(
         store,
+        EcrpRuleOwner::EntityBootstrap,
         &EntityAuthoringCommand::Create {
             id: entity,
             source: AuthoringSource::RuntimeCreated { by: None },
             labels: definition.tags.clone(),
         },
     );
-    if let EntityAuthoringOutcome::Rejected { rejection } = create {
-        return Err(EntityDefinitionBootstrapError::Rejected { rejection });
+    match create {
+        RuleOwnedEntityAuthoringOutcome::Accepted { .. } => {}
+        RuleOwnedEntityAuthoringOutcome::Rejected { rejection } => {
+            return Err(EntityDefinitionBootstrapError::Rejected { rejection });
+        }
+        RuleOwnedEntityAuthoringOutcome::Forbidden { diagnostic } => {
+            panic!("EntityBootstrap rule unexpectedly rejected create: {diagnostic:?}");
+        }
     }
 
     let mut applied_capabilities = Vec::with_capacity(definition.capabilities.len());
     for capability in &definition.capabilities {
         let authoring_capability =
             to_authoring_capability(capability).expect("validated capabilities are known");
-        let outcome = validate_and_apply(
+        let outcome = validate_and_apply_rule_owned(
             store,
+            EcrpRuleOwner::EntityBootstrap,
             &EntityAuthoringCommand::AttachCapability {
                 id: entity,
                 capability: authoring_capability,
             },
         );
         match outcome {
-            EntityAuthoringOutcome::Accepted { .. } => {
+            RuleOwnedEntityAuthoringOutcome::Accepted { .. } => {
                 applied_capabilities.push(capability.kind().to_string());
             }
-            EntityAuthoringOutcome::Rejected { rejection } => {
+            RuleOwnedEntityAuthoringOutcome::Rejected { rejection } => {
                 return Err(EntityDefinitionBootstrapError::Rejected { rejection });
+            }
+            RuleOwnedEntityAuthoringOutcome::Forbidden { diagnostic } => {
+                panic!(
+                    "EntityBootstrap rule unexpectedly rejected capability attach: {diagnostic:?}"
+                );
             }
         }
     }
@@ -275,6 +490,165 @@ pub fn bootstrap_entity_definition(
         entity_hash: store.hash(),
         replay_unit_label: "entity_definition.bootstrap",
     })
+}
+
+/// Validate and bootstrap a ProjectBundle batch of stored EntityDefinitions into
+/// runtime Entity/CapabilityState. The batch is atomic: all definitions and ids
+/// are preflighted, then applied to a staging store. The live store is replaced
+/// only after every entry succeeds.
+pub fn bootstrap_project_bundle_entity_definitions(
+    store: &mut EntityStore,
+    request: &ProjectBundleEntityDefinitionBootstrapRequest,
+) -> ProjectBundleEntityDefinitionBootstrapResult {
+    let diagnostics = validate_project_bundle_bootstrap_request(store, request);
+    if !diagnostics.is_empty() {
+        return Err(ProjectBundleEntityDefinitionBootstrapError::Invalid { diagnostics });
+    }
+
+    let mut staging = store.clone();
+    let mut records = Vec::with_capacity(request.entries.len());
+    for (index, entry) in request.entries.iter().enumerate() {
+        match bootstrap_entity_definition(&mut staging, entry.entity, &entry.definition) {
+            Ok(record) => records.push(record),
+            Err(EntityDefinitionBootstrapError::Invalid { diagnostics }) => {
+                return Err(ProjectBundleEntityDefinitionBootstrapError::Invalid {
+                    diagnostics: vec![ProjectBundleEntityDefinitionBootstrapDiagnostic {
+                        code:
+                            ProjectBundleEntityDefinitionBootstrapDiagnosticCode::DefinitionInvalid,
+                        path: format!("entries[{index}].definition"),
+                        stable_id: Some(entry.definition.stable_id.clone()),
+                        entity: Some(entry.entity),
+                        message: "EntityDefinition failed staged validation".into(),
+                        definition_diagnostics: diagnostics,
+                    }],
+                });
+            }
+            Err(EntityDefinitionBootstrapError::Rejected { rejection }) => {
+                return Err(ProjectBundleEntityDefinitionBootstrapError::Rejected {
+                    stable_id: entry.definition.stable_id.clone(),
+                    entity: entry.entity,
+                    rejection,
+                });
+            }
+        }
+    }
+
+    let entity_hash = staging.hash();
+    *store = staging;
+    Ok(ProjectBundleEntityDefinitionBootstrapRecord {
+        project_bundle: request.project_bundle.clone(),
+        records,
+        entity_hash,
+        replay_unit_label: "project_bundle.entity_definitions.bootstrap",
+    })
+}
+
+fn validate_project_bundle_bootstrap_request(
+    store: &EntityStore,
+    request: &ProjectBundleEntityDefinitionBootstrapRequest,
+) -> Vec<ProjectBundleEntityDefinitionBootstrapDiagnostic> {
+    let mut diagnostics = Vec::new();
+    if request.project_bundle.trim().is_empty() {
+        diagnostics.push(project_bundle_bootstrap_diag(
+            ProjectBundleEntityDefinitionBootstrapDiagnosticCode::MissingProjectBundle,
+            "project_bundle",
+            None,
+            None,
+            "ProjectBundle id is required",
+            Vec::new(),
+        ));
+    }
+    if request.entries.is_empty() {
+        diagnostics.push(project_bundle_bootstrap_diag(
+            ProjectBundleEntityDefinitionBootstrapDiagnosticCode::EmptyDefinitions,
+            "entries",
+            None,
+            None,
+            "at least one EntityDefinition entry is required",
+            Vec::new(),
+        ));
+    }
+
+    let mut seen_stable_ids = BTreeSet::new();
+    let mut seen_entities = BTreeSet::new();
+    for (index, entry) in request.entries.iter().enumerate() {
+        let definition = &entry.definition;
+        let entry_path = format!("entries[{index}]");
+        if let EntityDefinitionValidationOutcome::Invalid {
+            diagnostics: definition_diagnostics,
+        } = validate_entity_definition(definition)
+        {
+            diagnostics.push(project_bundle_bootstrap_diag(
+                ProjectBundleEntityDefinitionBootstrapDiagnosticCode::DefinitionInvalid,
+                format!("{entry_path}.definition"),
+                Some(definition.stable_id.clone()),
+                Some(entry.entity),
+                "EntityDefinition is invalid",
+                definition_diagnostics,
+            ));
+        }
+        if definition.source.project_bundle != request.project_bundle {
+            diagnostics.push(project_bundle_bootstrap_diag(
+                ProjectBundleEntityDefinitionBootstrapDiagnosticCode::SourceProjectBundleMismatch,
+                format!("{entry_path}.definition.source.project_bundle"),
+                Some(definition.stable_id.clone()),
+                Some(entry.entity),
+                "EntityDefinition source.project_bundle must match the ProjectBundle bootstrap request",
+                Vec::new(),
+            ));
+        }
+        if !definition.stable_id.trim().is_empty()
+            && !seen_stable_ids.insert(definition.stable_id.clone())
+        {
+            diagnostics.push(project_bundle_bootstrap_diag(
+                ProjectBundleEntityDefinitionBootstrapDiagnosticCode::DuplicateDefinitionStableId,
+                format!("{entry_path}.definition.stable_id"),
+                Some(definition.stable_id.clone()),
+                Some(entry.entity),
+                "EntityDefinition stable_id must be unique within a ProjectBundle bootstrap batch",
+                Vec::new(),
+            ));
+        }
+        if !seen_entities.insert(entry.entity) {
+            diagnostics.push(project_bundle_bootstrap_diag(
+                ProjectBundleEntityDefinitionBootstrapDiagnosticCode::DuplicateRuntimeEntity,
+                format!("{entry_path}.entity"),
+                Some(definition.stable_id.clone()),
+                Some(entry.entity),
+                "runtime entity id must be unique within a ProjectBundle bootstrap batch",
+                Vec::new(),
+            ));
+        }
+        if store.contains(entry.entity) {
+            diagnostics.push(project_bundle_bootstrap_diag(
+                ProjectBundleEntityDefinitionBootstrapDiagnosticCode::RuntimeEntityAlreadyExists,
+                format!("{entry_path}.entity"),
+                Some(definition.stable_id.clone()),
+                Some(entry.entity),
+                "runtime entity id is already allocated in SessionState",
+                Vec::new(),
+            ));
+        }
+    }
+    diagnostics
+}
+
+fn project_bundle_bootstrap_diag(
+    code: ProjectBundleEntityDefinitionBootstrapDiagnosticCode,
+    path: impl Into<String>,
+    stable_id: Option<String>,
+    entity: Option<core_ids::EntityId>,
+    message: impl Into<String>,
+    definition_diagnostics: Vec<EntityDefinitionDiagnostic>,
+) -> ProjectBundleEntityDefinitionBootstrapDiagnostic {
+    ProjectBundleEntityDefinitionBootstrapDiagnostic {
+        code,
+        path: path.into(),
+        stable_id,
+        entity,
+        message: message.into(),
+        definition_diagnostics,
+    }
 }
 
 fn validate_entity_definition_capability(
@@ -616,6 +990,55 @@ mod tests {
         }
     }
 
+    fn target_entity_definition() -> EntityDefinition {
+        EntityDefinition {
+            stable_id: "actor/demo-target".into(),
+            display_name: "Demo Target".into(),
+            source: EntityDefinitionSourceTrace {
+                project_bundle: "asha-demo".into(),
+                relative_path: "catalogs/actors/demo-target.entity.json".into(),
+            },
+            tags: vec![TagId::new(12)],
+            metadata: vec![EntityDefinitionMetadataEntry {
+                key: "readout".into(),
+                value: "target".into(),
+            }],
+            capabilities: vec![
+                EntityDefinitionCapability::Transform {
+                    transform: AuthoringTransform {
+                        translation: [1.0, 0.0, -2.0],
+                        ..ident()
+                    },
+                },
+                EntityDefinitionCapability::Render { visible: true },
+                EntityDefinitionCapability::Collision {
+                    static_collider: true,
+                },
+                EntityDefinitionCapability::Bounds {
+                    min: [-0.25, 0.0, -0.25],
+                    max: [0.25, 1.0, 0.25],
+                },
+            ],
+        }
+    }
+
+    fn project_bundle_request(
+        entries: Vec<(u64, EntityDefinition)>,
+    ) -> ProjectBundleEntityDefinitionBootstrapRequest {
+        ProjectBundleEntityDefinitionBootstrapRequest {
+            project_bundle: "asha-demo".into(),
+            entries: entries
+                .into_iter()
+                .map(
+                    |(entity, definition)| ProjectBundleEntityDefinitionBootstrapEntry {
+                        entity: EntityId::new(entity),
+                        definition,
+                    },
+                )
+                .collect(),
+        }
+    }
+
     #[test]
     fn create_then_attach_then_transform_is_accepted() {
         let mut store = EntityStore::new();
@@ -772,6 +1195,124 @@ mod tests {
     }
 
     #[test]
+    fn rule_owned_entity_bootstrap_can_create_and_attach_capability_state() {
+        let mut store = EntityStore::new();
+
+        let created = validate_and_apply_rule_owned(
+            &mut store,
+            EcrpRuleOwner::EntityBootstrap,
+            &EntityAuthoringCommand::Create {
+                id: EntityId::new(1),
+                source: AuthoringSource::RuntimeCreated { by: None },
+                labels: vec![],
+            },
+        );
+        let attached = validate_and_apply_rule_owned(
+            &mut store,
+            EcrpRuleOwner::EntityBootstrap,
+            &EntityAuthoringCommand::AttachCapability {
+                id: EntityId::new(1),
+                capability: AuthoringCapability::Transform { transform: ident() },
+            },
+        );
+
+        assert!(matches!(
+            created,
+            RuleOwnedEntityAuthoringOutcome::Accepted { .. }
+        ));
+        assert!(matches!(
+            attached,
+            RuleOwnedEntityAuthoringOutcome::Accepted { .. }
+        ));
+        assert!(store.transform(EntityId::new(1)).is_some());
+    }
+
+    #[test]
+    fn rule_owned_mutation_rejects_forbidden_cross_rule_capability_write() {
+        let mut store = EntityStore::new();
+        create(&mut store, 1);
+        let before = store.hash();
+
+        let forbidden = validate_and_apply_rule_owned(
+            &mut store,
+            EcrpRuleOwner::MovementRule,
+            &EntityAuthoringCommand::AttachCapability {
+                id: EntityId::new(1),
+                capability: AuthoringCapability::Collision {
+                    static_collider: false,
+                },
+            },
+        );
+
+        let RuleOwnedEntityAuthoringOutcome::Forbidden { diagnostic } = forbidden else {
+            panic!("expected forbidden MovementRule collision attach");
+        };
+        assert_eq!(diagnostic.owner, EcrpRuleOwner::MovementRule);
+        assert_eq!(diagnostic.mutation, EcrpCapabilityMutation::AttachCollision);
+        assert_eq!(diagnostic.command_kind, "attachCapability");
+        assert_eq!(store.hash(), before);
+        assert!(store.collision(EntityId::new(1)).is_none());
+    }
+
+    #[test]
+    fn rule_owned_movement_rule_can_apply_movement_only_after_capability_setup() {
+        let mut store = EntityStore::new();
+        create(&mut store, 1);
+        validate_and_apply_rule_owned(
+            &mut store,
+            EcrpRuleOwner::EntityBootstrap,
+            &EntityAuthoringCommand::AttachCapability {
+                id: EntityId::new(1),
+                capability: AuthoringCapability::Transform { transform: ident() },
+            },
+        );
+        validate_and_apply_rule_owned(
+            &mut store,
+            EcrpRuleOwner::EntityBootstrap,
+            &EntityAuthoringCommand::AttachCapability {
+                id: EntityId::new(1),
+                capability: AuthoringCapability::Collision {
+                    static_collider: false,
+                },
+            },
+        );
+
+        let moved = validate_and_apply_rule_owned(
+            &mut store,
+            EcrpRuleOwner::MovementRule,
+            &EntityAuthoringCommand::Move {
+                id: EntityId::new(1),
+                delta: [1.0, 0.0, 0.0],
+            },
+        );
+        let wrong_owner = validate_and_apply_rule_owned(
+            &mut store,
+            EcrpRuleOwner::RenderProjectionRule,
+            &EntityAuthoringCommand::Move {
+                id: EntityId::new(1),
+                delta: [1.0, 0.0, 0.0],
+            },
+        );
+
+        assert!(matches!(
+            moved,
+            RuleOwnedEntityAuthoringOutcome::Accepted { .. }
+        ));
+        assert_eq!(
+            store
+                .transform(EntityId::new(1))
+                .expect("transform after move")
+                .transform
+                .translation,
+            Vec3::new(1.0, 0.0, 0.0)
+        );
+        assert!(matches!(
+            wrong_owner,
+            RuleOwnedEntityAuthoringOutcome::Forbidden { .. }
+        ));
+    }
+
+    #[test]
     fn entity_definition_bootstrap_seeds_runtime_capability_state() {
         let mut store = EntityStore::new();
         let definition = minimal_entity_definition();
@@ -800,6 +1341,100 @@ mod tests {
             store.transform(EntityId::new(77)).unwrap().transform,
             to_entity_transform(&ident())
         );
+    }
+
+    #[test]
+    fn project_bundle_bootstrap_seeds_multiple_entity_definitions_atomically() {
+        let mut store = EntityStore::new();
+        let request = project_bundle_request(vec![
+            (77, minimal_entity_definition()),
+            (78, target_entity_definition()),
+        ]);
+
+        let record = bootstrap_project_bundle_entity_definitions(&mut store, &request).unwrap();
+
+        assert_eq!(record.project_bundle, "asha-demo");
+        assert_eq!(
+            record.replay_unit_label,
+            "project_bundle.entity_definitions.bootstrap"
+        );
+        assert_eq!(record.records.len(), 2);
+        assert_eq!(record.records[0].stable_id, "actor/demo-player");
+        assert_eq!(record.records[0].entity, EntityId::new(77));
+        assert_eq!(record.records[1].stable_id, "actor/demo-target");
+        assert_eq!(record.records[1].entity, EntityId::new(78));
+        assert_eq!(record.records[1].source.project_bundle, "asha-demo");
+        assert_eq!(
+            record.records[1].applied_capabilities,
+            vec![
+                "transform".to_string(),
+                "render".to_string(),
+                "collision".to_string(),
+                "bounds".to_string()
+            ]
+        );
+        assert_eq!(record.entity_hash, store.hash());
+        assert_eq!(store.alive_count(), 2);
+        assert!(store.transform(EntityId::new(77)).is_some());
+        assert!(store.transform(EntityId::new(78)).is_some());
+        assert!(store.render_projection(EntityId::new(78)).is_some());
+        assert!(store.collision(EntityId::new(78)).is_some());
+        assert!(store.bounds(EntityId::new(78)).is_some());
+    }
+
+    #[test]
+    fn project_bundle_bootstrap_preflight_rejects_invalid_batch_without_mutation() {
+        let mut store = EntityStore::new();
+        create(&mut store, 7);
+        let before = store.hash();
+        let mut duplicate_definition = target_entity_definition();
+        duplicate_definition.stable_id = "actor/demo-player".into();
+        let mut wrong_bundle_definition = target_entity_definition();
+        wrong_bundle_definition.stable_id = "actor/wrong-bundle".into();
+        wrong_bundle_definition.source.project_bundle = "other-demo".into();
+        let mut invalid_definition = target_entity_definition();
+        invalid_definition.stable_id = "actor/invalid".into();
+        invalid_definition
+            .capabilities
+            .push(EntityDefinitionCapability::Unknown {
+                capability_kind: "health".into(),
+            });
+        let request = project_bundle_request(vec![
+            (7, minimal_entity_definition()),
+            (8, duplicate_definition),
+            (8, wrong_bundle_definition),
+            (9, invalid_definition),
+        ]);
+
+        let result = bootstrap_project_bundle_entity_definitions(&mut store, &request);
+
+        let Err(ProjectBundleEntityDefinitionBootstrapError::Invalid { diagnostics }) = result
+        else {
+            panic!("expected invalid ProjectBundle bootstrap batch");
+        };
+        let codes: Vec<_> = diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.code)
+            .collect();
+        assert!(codes.contains(
+            &ProjectBundleEntityDefinitionBootstrapDiagnosticCode::RuntimeEntityAlreadyExists
+        ));
+        assert!(codes.contains(
+            &ProjectBundleEntityDefinitionBootstrapDiagnosticCode::DuplicateDefinitionStableId
+        ));
+        assert!(codes.contains(
+            &ProjectBundleEntityDefinitionBootstrapDiagnosticCode::DuplicateRuntimeEntity
+        ));
+        assert!(codes.contains(
+            &ProjectBundleEntityDefinitionBootstrapDiagnosticCode::SourceProjectBundleMismatch
+        ));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic
+            .definition_diagnostics
+            .iter()
+            .any(|nested| nested.code == EntityDefinitionDiagnosticCode::UnknownCapability)));
+        assert_eq!(store.hash(), before);
+        assert!(store.core(EntityId::new(8)).is_none());
+        assert!(store.core(EntityId::new(9)).is_none());
     }
 
     #[test]

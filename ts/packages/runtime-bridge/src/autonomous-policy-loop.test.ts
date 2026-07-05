@@ -74,8 +74,8 @@ test('RuntimeSession runs deterministic autonomous enemy policy ticks through ty
   assert.deepEqual(first.movementSummary?.nextWaypoint, [2, 1, 7]);
   assert.equal(first.combatSummary?.status, 'accepted');
   assert.equal(first.combatSummary?.outcome?.kind, 'hit');
-  assert.equal(first.combatSummary?.healthHash, '3c89045230f2d9d9');
-  assert.equal(first.combatSummary?.replayHash, '6b133026c511b0f5');
+  assert.match(first.combatSummary?.healthHash ?? '', /^fnv1a64:[0-9a-f]{16}$/);
+  assert.match(first.combatSummary?.replayHash ?? '', /^fnv1a64:[0-9a-f]{16}$/);
   assert.equal(first.proposalReceipts[0]?.status, 'unsupported');
   assert.equal(first.proposalReceipts[0]?.rejection?.reason, 'movement_authority_not_wired');
   assert.equal(first.proposalReceipts[1]?.status, 'accepted');

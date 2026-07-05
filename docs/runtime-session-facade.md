@@ -22,6 +22,7 @@ RuntimeSession readout/HUD surfaces without private ASHA paths.
 `RuntimeSessionFacade` exposes:
 
 - `initialize(input)`: validates semantic session/project input, initializes the bridge, and loads a ProjectBundle-shaped request.
+- `loadEcrpProject(input)`: validates and loads ProjectBundle-shaped ECRP content (`ProjectBundle`, `EntityDefinition[]`, and `SceneDocument` placements) into the reference RuntimeSession ECRP project state. It returns a typed load receipt with diagnostics and bootstrap hash; rejected loads mutate nothing.
 - `submitCommands(batch)`: submits generated `CommandBatch` values only.
 - `tick(input?)`: advances deterministic runtime ticks through the bridge.
 - `createCamera(request)`: creates a typed bridge-owned camera.
@@ -39,6 +40,7 @@ RuntimeSession readout/HUD surfaces without private ASHA paths.
 - `readNavPolicyView()`: returns a read-only/proposal-only policy-facing nav view shape with no mutation/apply authority.
 - `readCameraProjection(request)`: reads typed camera projection matrices and projection hash.
 - `readProjection()`: returns a render/projection summary from public render diff contracts.
+- `readEcrpRuntimeReadout()`: returns live Entity/CapabilityState/event readouts derived from the loaded ECRP project state.
 - `readTelemetry()`: returns sequence/tick/composition/command/replay/hash summary.
 - `restart()`: unloads/reinitializes/reloads the same ProjectBundle input and resets tick/command counters and lifecycle state.
 
@@ -48,7 +50,7 @@ Lifecycle fixture hashes in the current reference slice:
 - enemy defeated lifecycle hash: `fnv1a64:5fbf190733451da1`
 - player defeated fixture lifecycle hash: `fnv1a64:32322a108d4f2767`
 
-The first implementation is `createMockRuntimeSession`, a reference/mock facade over the existing public `RuntimeBridge` mock. It is sufficient for downstream skeleton boot/readout tests and Studio contract work. For collision-constrained camera input, the reference mock hosts the upstream static-room collision fixture so consumers can prove wall-stop/open-space behavior without importing demo-local physics. It does not claim native authority, renderer ownership, or gameplay behavior.
+The first implementation is `createMockRuntimeSession`, a reference/mock facade over the existing public `RuntimeBridge` mock. It is sufficient for downstream skeleton boot/readout tests and Studio contract work. For collision-constrained camera input, the reference mock hosts the upstream static-room collision fixture so consumers can prove wall-stop/open-space behavior without importing demo-local physics. For ECRP content, the reference RuntimeSession now owns a loaded project-state projection seeded by `loadEcrpProject`; primary-fire lifecycle updates apply to that loaded enemy entity. It does not claim native runtime attach or renderer ownership.
 
 ## Runtime Vocabulary
 

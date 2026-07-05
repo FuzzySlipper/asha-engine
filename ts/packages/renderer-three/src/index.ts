@@ -781,6 +781,11 @@ export interface AshaRendererBrowserSurfaceInteractionState {
   readonly totalTargets: number;
 }
 
+export interface AshaRendererBrowserSurfaceTargetProjection {
+  readonly lastEvent?: string;
+  readonly visible: boolean;
+}
+
 export interface AshaRendererBrowserSurface {
   readonly kind: 'asha_renderer_browser_surface.v0';
   readonly canvas: HTMLCanvasElement;
@@ -792,6 +797,7 @@ export interface AshaRendererBrowserSurface {
   readonly lockPointer: () => void;
   readonly movementState: () => AshaRendererBrowserSurfaceMovementState;
   readonly pointerLocked: () => boolean;
+  readonly projectTargetProjection: (projection: AshaRendererBrowserSurfaceTargetProjection) => void;
   readonly reset: () => void;
   readonly snapshot: () => string;
   readonly renderOnce: (timeMs?: number) => void;
@@ -934,6 +940,7 @@ export function mountAshaRendererBrowserSurface(
     lockPointer: () => controls.lockPointer(),
     movementState: () => controls.movementState(),
     pointerLocked: () => controls.pointerLocked(),
+    projectTargetProjection: (projection) => interactions.projectTargetProjection(projection),
     reset,
     snapshot: () => renderer.snapshot(),
     renderOnce,
@@ -1305,6 +1312,7 @@ function createBrowserSurfaceFirstPersonControls(
 
 interface BrowserSurfaceInteractionController {
   readonly firePrimary: () => AshaRendererBrowserSurfaceFireResult;
+  readonly projectTargetProjection: (projection: AshaRendererBrowserSurfaceTargetProjection) => void;
   readonly reset: () => void;
   readonly state: () => AshaRendererBrowserSurfaceInteractionState;
 }
@@ -1400,8 +1408,20 @@ function createBrowserSurfaceInteractionController(
     }
   };
 
+  const projectTargetProjection = (projection: AshaRendererBrowserSurfaceTargetProjection): void => {
+    lastEvent = projection.lastEvent ?? lastEvent;
+    for (const target of targets) {
+      target.mesh.visible = projection.visible;
+      target.health = projection.visible ? target.maxHealth : 0;
+      if (projection.visible) {
+        target.material.color.copy(target.baseColor);
+      }
+    }
+  };
+
   return {
     firePrimary,
+    projectTargetProjection,
     reset,
     state,
   };

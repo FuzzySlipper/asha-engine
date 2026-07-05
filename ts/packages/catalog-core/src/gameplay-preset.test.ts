@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 
 import {
   GENERATED_TUNNEL_DEFAULT_FPS_PRESET,
+  GENERATED_TUNNEL_FPS_ECRP_OBJECT_MODEL,
+  findFpsEcrpObjectModelEntry,
   readDefaultFpsGameplayPreset,
+  readFpsEcrpObjectModel,
   readFpsGameplayPresetCatalog,
   validateFpsGameplayPreset,
   type FpsGameplayPreset,
@@ -117,4 +120,37 @@ test('FPS gameplay preset catalog readout lists consumer ownership and stable ha
   ]);
   assert.equal(catalog.hashes.catalogHash, 'fnv1a64:51431466746a3fc4');
   assert.equal(catalog.hashes.defaultPresetHash, 'fnv1a64:c5a07d62670d6616');
+});
+
+test('FPS ECRP object model maps playable roles to public RuntimeSession surfaces', () => {
+  const readout = readFpsEcrpObjectModel();
+  const player = findFpsEcrpObjectModelEntry('player');
+  const enemy = findFpsEcrpObjectModelEntry('enemy');
+
+  assert.equal(readout.kind, 'fps_ecrp_object_model_readout.v0');
+  assert.equal(readout.model, GENERATED_TUNNEL_FPS_ECRP_OBJECT_MODEL);
+  assert.equal(readout.model.runtimeContract.ecrpReadoutKind, 'runtime_session.ecrp_readout.v0');
+  assert.equal(readout.model.runtimeContract.projectBundleId, 'asha-demo');
+  assert.equal(readout.model.entries.length, 2);
+  assert.equal(player.entityDefinitionId, 'actor/demo-player');
+  assert.equal(enemy.entityDefinitionId, 'actor/generated-tunnel-enemy');
+  assert.deepEqual(player.capabilityKinds, [
+    'transform',
+    'collisionBody',
+    'controller',
+    'health',
+    'weaponMount',
+    'renderProjection',
+    'faction',
+  ]);
+  assert.ok(enemy.capabilityKinds.includes('policyBinding'));
+  assert.ok(enemy.capabilityKinds.includes('spawnMarker'));
+  assert.ok(player.runtimeSurfaces.includes('RuntimeSessionFacade.applyCollisionConstrainedCameraInput'));
+  assert.ok(enemy.runtimeSurfaces.includes('RuntimeSessionFacade.runAutonomousPolicyTick'));
+  assert.ok(readout.migrationTargets.runtimeReadout === 'RuntimeSessionFacade.readEcrpRuntimeReadout');
+  assert.ok(readout.nonClaims.includes('not_demo_local_entity_model'));
+  assert.match(readout.hashes.modelHash, /^fnv1a64:[0-9a-f]{16}$/);
+  assert.match(readout.hashes.playerEntryHash, /^fnv1a64:[0-9a-f]{16}$/);
+  assert.match(readout.hashes.enemyEntryHash, /^fnv1a64:[0-9a-f]{16}$/);
+  assert.match(readout.hashes.surfaceHash, /^fnv1a64:[0-9a-f]{16}$/);
 });

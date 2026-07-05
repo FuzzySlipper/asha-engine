@@ -35,8 +35,8 @@ export interface CombatFeedbackIntentProjection {
 export interface CombatFeedbackTraceProjection {
     readonly kind: 'combat_feedback.trace.v0';
     readonly result: CombatFeedbackTraceResult;
-    readonly shooter: 10 | null;
-    readonly target: 20 | null;
+    readonly shooter: number | null;
+    readonly target: number | null;
     readonly reason: 'geometryBlocked' | 'noTarget' | 'intent_not_accepted' | null;
     readonly distance: number | null;
     readonly origin: readonly [number, number, number] | null;

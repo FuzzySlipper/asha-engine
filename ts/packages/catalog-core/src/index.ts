@@ -161,6 +161,140 @@ export interface FpsGameplayPresetCatalogReadout {
   readonly consumerOwnership: FpsGameplayOwnership;
 }
 
+export type FpsEcrpObjectModelKind = 'fps_ecrp_object_model.v0';
+
+export type FpsEcrpRuntimeRole = 'player' | 'enemy';
+
+export type FpsEcrpCapabilityKind =
+  | 'transform'
+  | 'collisionBody'
+  | 'controller'
+  | 'health'
+  | 'weaponMount'
+  | 'renderProjection'
+  | 'policyBinding'
+  | 'spawnMarker'
+  | 'faction';
+
+export type FpsEcrpRuleOwner =
+  | 'EntityBootstrap'
+  | 'LifecycleRule'
+  | 'TransformRule'
+  | 'MovementRule'
+  | 'CollisionRule'
+  | 'RenderProjectionRule'
+  | 'RelationRule'
+  | 'CombatRule'
+  | 'EncounterRule'
+  | 'PolicyRule'
+  | 'NavRule';
+
+export type FpsEcrpPolicyRef =
+  | 'browser_fps_input_collector.v0'
+  | 'policy.enemy.generated_tunnel.v0'
+  | 'generated_tunnel_enemy_policy_loop.v0';
+
+export type FpsEcrpDomainEventRef =
+  | 'runtime_session.bootstrap_entity.v0'
+  | 'runtime_session.camera_input.v0'
+  | 'runtime_session.collision_constrained_camera_input.v0'
+  | 'runtime_action.primary_fire.v0'
+  | 'runtime_lifecycle.enemy_defeated.v0'
+  | 'enemy_policy.move_toward_target.v0'
+  | 'enemy_policy.primary_fire_intent.v0';
+
+export type FpsEcrpProjectionRef =
+  | 'runtime_session.ecrp_readout.v0'
+  | 'runtime_session.camera_projection.v0'
+  | 'runtime_session.combat_readout.v0'
+  | 'runtime_session.combat_feedback_projection.v0'
+  | 'runtime_session.lifecycle_status.v0'
+  | 'runtime_session.generated_tunnel_readout.v0'
+  | 'runtime_session.nav_projection.v0'
+  | 'renderer_three.browser_surface.v0'
+  | 'demo_hud_overlay.v0';
+
+export type FpsEcrpRuntimeSurfaceRef =
+  | 'RuntimeSessionFacade.readEcrpRuntimeReadout'
+  | 'RuntimeSessionFacade.applyCollisionConstrainedCameraInput'
+  | 'RuntimeSessionFacade.submitRuntimeActionIntent'
+  | 'RuntimeSessionFacade.readCameraProjection'
+  | 'RuntimeSessionFacade.readCombatReadout'
+  | 'RuntimeSessionFacade.readCombatFeedbackProjection'
+  | 'RuntimeSessionFacade.readLifecycleStatus'
+  | 'RuntimeSessionFacade.readGeneratedTunnelReadout'
+  | 'RuntimeSessionFacade.runAutonomousPolicyTick'
+  | 'RuntimeSessionFacade.readNavProjection'
+  | 'BrowserFpsInputCollector'
+  | 'mountAshaRendererBrowserSurface';
+
+export interface FpsEcrpObjectModelEntry {
+  readonly runtimeRole: FpsEcrpRuntimeRole;
+  readonly entityDefinitionId: string;
+  readonly displayName: string;
+  readonly sourcePath: string;
+  readonly gameplayPresetRefs: readonly FpsGameplayPresetId[];
+  readonly capabilityKinds: readonly FpsEcrpCapabilityKind[];
+  readonly ruleOwners: readonly FpsEcrpRuleOwner[];
+  readonly policyRefs: readonly FpsEcrpPolicyRef[];
+  readonly domainEvents: readonly FpsEcrpDomainEventRef[];
+  readonly projections: readonly FpsEcrpProjectionRef[];
+  readonly runtimeSurfaces: readonly FpsEcrpRuntimeSurfaceRef[];
+}
+
+export interface FpsEcrpObjectModel {
+  readonly kind: FpsEcrpObjectModelKind;
+  readonly modelId: 'asha.generated_tunnel.fps_ecrp_object_model.v0';
+  readonly source: FpsGameplayCatalogSourceTrace;
+  readonly entries: readonly FpsEcrpObjectModelEntry[];
+  readonly runtimeContract: {
+    readonly ecrpReadoutKind: 'runtime_session.ecrp_readout.v0';
+    readonly projectBundleId: 'asha-demo';
+    readonly gameplayCatalogId: FpsGameplayPresetCatalog['catalogId'];
+  };
+  readonly ownership: {
+    readonly authoritative: readonly [
+      'runtime entity lifecycle',
+      'capability state mutation',
+      'collision resolution',
+      'combat damage application',
+      'policy proposal validation',
+      'nav/path projection',
+      'render projection state',
+    ];
+    readonly consumerOwned: readonly [
+      'input collection',
+      'HUD placement',
+      'browser pointer-lock shell',
+      'render canvas mounting',
+    ];
+  };
+}
+
+export interface FpsEcrpObjectModelReadout {
+  readonly kind: 'fps_ecrp_object_model_readout.v0';
+  readonly model: FpsEcrpObjectModel;
+  readonly hashes: {
+    readonly modelHash: string;
+    readonly playerEntryHash: string;
+    readonly enemyEntryHash: string;
+    readonly surfaceHash: string;
+  };
+  readonly migrationTargets: {
+    readonly projectBundle: 'ProjectBundle';
+    readonly entityDefinitions: 'EntityDefinition[]';
+    readonly sceneDocument: 'SceneDocument';
+    readonly runtimeReadout: 'RuntimeSessionFacade.readEcrpRuntimeReadout';
+    readonly rendererSurface: 'mountAshaRendererBrowserSurface';
+  };
+  readonly nonClaims: readonly [
+    'not_runtime_authority',
+    'not_demo_local_entity_model',
+    'not_framework_ecs',
+    'not_arbitrary_json_payload',
+  ];
+}
+
 type GameplayHashPrimitive = string | number | boolean | null;
 type GameplayHashValue =
   | GameplayHashPrimitive
@@ -247,6 +381,148 @@ export const GENERATED_TUNNEL_GAMEPLAY_PRESET_CATALOG: FpsGameplayPresetCatalog 
   presets: [GENERATED_TUNNEL_DEFAULT_FPS_PRESET],
 };
 
+export const GENERATED_TUNNEL_FPS_ECRP_OBJECT_MODEL: FpsEcrpObjectModel = {
+  kind: 'fps_ecrp_object_model.v0',
+  modelId: 'asha.generated_tunnel.fps_ecrp_object_model.v0',
+  source: {
+    kind: 'project_bundle.gameplay_catalog',
+    projectId: 'asha-demo',
+    path: 'catalog/ecrp/fps-object-model.json',
+  },
+  entries: [
+    {
+      runtimeRole: 'player',
+      entityDefinitionId: 'actor/demo-player',
+      displayName: 'Demo Player',
+      sourcePath: 'catalogs/actors/demo-player.entity.json',
+      gameplayPresetRefs: ['asha.generated_tunnel.default_fps.v0'],
+      capabilityKinds: [
+        'transform',
+        'collisionBody',
+        'controller',
+        'health',
+        'weaponMount',
+        'renderProjection',
+        'faction',
+      ],
+      ruleOwners: [
+        'EntityBootstrap',
+        'LifecycleRule',
+        'TransformRule',
+        'MovementRule',
+        'CollisionRule',
+        'CombatRule',
+        'RenderProjectionRule',
+      ],
+      policyRefs: ['browser_fps_input_collector.v0'],
+      domainEvents: [
+        'runtime_session.bootstrap_entity.v0',
+        'runtime_session.camera_input.v0',
+        'runtime_session.collision_constrained_camera_input.v0',
+        'runtime_action.primary_fire.v0',
+      ],
+      projections: [
+        'runtime_session.ecrp_readout.v0',
+        'runtime_session.camera_projection.v0',
+        'runtime_session.combat_readout.v0',
+        'runtime_session.lifecycle_status.v0',
+        'renderer_three.browser_surface.v0',
+        'demo_hud_overlay.v0',
+      ],
+      runtimeSurfaces: [
+        'RuntimeSessionFacade.readEcrpRuntimeReadout',
+        'RuntimeSessionFacade.applyCollisionConstrainedCameraInput',
+        'RuntimeSessionFacade.submitRuntimeActionIntent',
+        'RuntimeSessionFacade.readCameraProjection',
+        'RuntimeSessionFacade.readCombatReadout',
+        'RuntimeSessionFacade.readLifecycleStatus',
+        'BrowserFpsInputCollector',
+        'mountAshaRendererBrowserSurface',
+      ],
+    },
+    {
+      runtimeRole: 'enemy',
+      entityDefinitionId: 'actor/generated-tunnel-enemy',
+      displayName: 'Generated Tunnel Enemy',
+      sourcePath: 'catalogs/actors/generated-tunnel-enemy.entity.json',
+      gameplayPresetRefs: ['asha.generated_tunnel.default_fps.v0'],
+      capabilityKinds: [
+        'transform',
+        'collisionBody',
+        'health',
+        'renderProjection',
+        'policyBinding',
+        'spawnMarker',
+        'faction',
+      ],
+      ruleOwners: [
+        'EntityBootstrap',
+        'LifecycleRule',
+        'CollisionRule',
+        'CombatRule',
+        'EncounterRule',
+        'PolicyRule',
+        'NavRule',
+        'RenderProjectionRule',
+      ],
+      policyRefs: [
+        'policy.enemy.generated_tunnel.v0',
+        'generated_tunnel_enemy_policy_loop.v0',
+      ],
+      domainEvents: [
+        'runtime_session.bootstrap_entity.v0',
+        'enemy_policy.move_toward_target.v0',
+        'enemy_policy.primary_fire_intent.v0',
+        'runtime_action.primary_fire.v0',
+        'runtime_lifecycle.enemy_defeated.v0',
+      ],
+      projections: [
+        'runtime_session.ecrp_readout.v0',
+        'runtime_session.combat_readout.v0',
+        'runtime_session.combat_feedback_projection.v0',
+        'runtime_session.lifecycle_status.v0',
+        'runtime_session.generated_tunnel_readout.v0',
+        'runtime_session.nav_projection.v0',
+        'renderer_three.browser_surface.v0',
+        'demo_hud_overlay.v0',
+      ],
+      runtimeSurfaces: [
+        'RuntimeSessionFacade.readEcrpRuntimeReadout',
+        'RuntimeSessionFacade.submitRuntimeActionIntent',
+        'RuntimeSessionFacade.readCombatReadout',
+        'RuntimeSessionFacade.readCombatFeedbackProjection',
+        'RuntimeSessionFacade.readLifecycleStatus',
+        'RuntimeSessionFacade.readGeneratedTunnelReadout',
+        'RuntimeSessionFacade.runAutonomousPolicyTick',
+        'RuntimeSessionFacade.readNavProjection',
+        'mountAshaRendererBrowserSurface',
+      ],
+    },
+  ],
+  runtimeContract: {
+    ecrpReadoutKind: 'runtime_session.ecrp_readout.v0',
+    projectBundleId: 'asha-demo',
+    gameplayCatalogId: 'asha.generated_tunnel.gameplay_catalog.v0',
+  },
+  ownership: {
+    authoritative: [
+      'runtime entity lifecycle',
+      'capability state mutation',
+      'collision resolution',
+      'combat damage application',
+      'policy proposal validation',
+      'nav/path projection',
+      'render projection state',
+    ],
+    consumerOwned: [
+      'input collection',
+      'HUD placement',
+      'browser pointer-lock shell',
+      'render canvas mounting',
+    ],
+  },
+};
+
 export function validateFpsGameplayPreset(
   preset: FpsGameplayPreset,
 ): FpsGameplayPresetValidationReport {
@@ -307,6 +583,58 @@ export function readFpsGameplayPresetCatalog(): FpsGameplayPresetCatalogReadout 
     },
     consumerOwnership: DEFAULT_OWNERSHIP,
   };
+}
+
+export function readFpsEcrpObjectModel(): FpsEcrpObjectModelReadout {
+  const playerEntry = findFpsEcrpObjectModelEntry('player');
+  const enemyEntry = findFpsEcrpObjectModelEntry('enemy');
+  const surfaceRefs = GENERATED_TUNNEL_FPS_ECRP_OBJECT_MODEL.entries.flatMap(
+    (entry) => entry.runtimeSurfaces,
+  );
+  const playerEntryHash = stableHash(playerEntry);
+  const enemyEntryHash = stableHash(enemyEntry);
+  const surfaceHash = stableHash([...new Set(surfaceRefs)].sort());
+
+  return {
+    kind: 'fps_ecrp_object_model_readout.v0',
+    model: GENERATED_TUNNEL_FPS_ECRP_OBJECT_MODEL,
+    hashes: {
+      modelHash: stableHash({
+        model: GENERATED_TUNNEL_FPS_ECRP_OBJECT_MODEL,
+        playerEntryHash,
+        enemyEntryHash,
+        surfaceHash,
+      }),
+      playerEntryHash,
+      enemyEntryHash,
+      surfaceHash,
+    },
+    migrationTargets: {
+      projectBundle: 'ProjectBundle',
+      entityDefinitions: 'EntityDefinition[]',
+      sceneDocument: 'SceneDocument',
+      runtimeReadout: 'RuntimeSessionFacade.readEcrpRuntimeReadout',
+      rendererSurface: 'mountAshaRendererBrowserSurface',
+    },
+    nonClaims: [
+      'not_runtime_authority',
+      'not_demo_local_entity_model',
+      'not_framework_ecs',
+      'not_arbitrary_json_payload',
+    ],
+  };
+}
+
+export function findFpsEcrpObjectModelEntry(
+  role: FpsEcrpRuntimeRole,
+): FpsEcrpObjectModelEntry {
+  const entry = GENERATED_TUNNEL_FPS_ECRP_OBJECT_MODEL.entries.find(
+    (candidate) => candidate.runtimeRole === role,
+  );
+  if (entry === undefined) {
+    throw new Error(`Unknown FPS ECRP object model role: ${role}`);
+  }
+  return entry;
 }
 
 function buildFpsGameplayPresetReadout(preset: FpsGameplayPreset): FpsGameplayPresetReadout {

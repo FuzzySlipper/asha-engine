@@ -64,7 +64,7 @@ export interface RuntimeSessionProjectionSummary {
 }
 export interface RuntimeSessionReplayRecord {
     readonly sequenceId: number;
-    readonly kind: 'initialize' | 'submitCommands' | 'tick' | 'createCamera' | 'applyFirstPersonCameraInput' | 'applyCollisionConstrainedCameraInput' | 'submitRuntimeActionIntent' | 'lifecycleDeath' | 'runAutonomousPolicyTick' | 'requestGeneratedTunnelOperation' | 'requestEncounterTransition' | 'requestSessionRestart' | 'restart';
+    readonly kind: 'initialize' | 'submitCommands' | 'tick' | 'createCamera' | 'applyFirstPersonCameraInput' | 'applyCollisionConstrainedCameraInput' | 'loadEcrpProject' | 'submitRuntimeActionIntent' | 'lifecycleDeath' | 'runAutonomousPolicyTick' | 'requestGeneratedTunnelOperation' | 'requestEncounterTransition' | 'requestSessionRestart' | 'restart';
     readonly recordHash: string;
 }
 export interface RuntimeSessionTelemetrySummary {
@@ -76,6 +76,175 @@ export interface RuntimeSessionTelemetrySummary {
     readonly restartCount: number;
     readonly sessionHash: string;
     readonly replayRecords: readonly RuntimeSessionReplayRecord[];
+}
+export type RuntimeSessionEcrpCapabilityKind = 'transform' | 'collisionBody' | 'controller' | 'health' | 'weaponMount' | 'renderProjection' | 'policyBinding' | 'spawnMarker' | 'faction';
+export type RuntimeSessionEcrpCapabilityState = {
+    readonly kind: 'transform';
+    readonly position: readonly [number, number, number];
+    readonly yawDegrees: number;
+    readonly pitchDegrees: number;
+    readonly stateHash: string;
+} | {
+    readonly kind: 'collisionBody';
+    readonly staticCollider: boolean;
+    readonly bounds: readonly [number, number, number];
+    readonly stateHash: string;
+} | {
+    readonly kind: 'controller';
+    readonly controller: 'player_input' | 'enemy_policy';
+    readonly stateHash: string;
+} | {
+    readonly kind: 'health';
+    readonly current: number;
+    readonly max: number;
+    readonly dead: boolean;
+    readonly stateHash: string;
+} | {
+    readonly kind: 'weaponMount';
+    readonly weaponId: string;
+    readonly stateHash: string;
+} | {
+    readonly kind: 'renderProjection';
+    readonly visible: boolean;
+    readonly projection: 'first_person_camera' | 'target_cube' | 'spawn_marker';
+    readonly stateHash: string;
+} | {
+    readonly kind: 'policyBinding';
+    readonly policyId: string;
+    readonly stateHash: string;
+} | {
+    readonly kind: 'spawnMarker';
+    readonly markerId: string;
+    readonly stateHash: string;
+} | {
+    readonly kind: 'faction';
+    readonly factionId: string;
+    readonly stateHash: string;
+};
+export interface RuntimeSessionEcrpEntityEventReadout {
+    readonly kind: RuntimeSessionLifecycleEventKind | 'runtime_session.bootstrap_entity.v0';
+    readonly entity: number;
+    readonly tick: number;
+    readonly eventHash: string;
+}
+export interface RuntimeSessionEcrpEntityReadout {
+    readonly entity: number;
+    readonly lifecycle: 'active' | 'tombstoned';
+    readonly definitionStableId: string;
+    readonly displayName: string;
+    readonly source: {
+        readonly projectBundle: string;
+        readonly relativePath: string;
+    };
+    readonly capabilityKinds: readonly RuntimeSessionEcrpCapabilityKind[];
+    readonly capabilities: readonly RuntimeSessionEcrpCapabilityState[];
+    readonly recentEvents: readonly RuntimeSessionEcrpEntityEventReadout[];
+    readonly entityHash: string;
+}
+export interface RuntimeSessionEcrpReadout {
+    readonly kind: 'runtime_session.ecrp_readout.v0';
+    readonly sequenceId: number;
+    readonly tick: number;
+    readonly sessionHash: string;
+    readonly project: RuntimeSessionProjectIdentity;
+    readonly projectBundle: WorldLoadRequest;
+    readonly entities: readonly RuntimeSessionEcrpEntityReadout[];
+    readonly entityCount: number;
+    readonly hashes: {
+        readonly entityReadoutHash: string;
+        readonly capabilityStateHash: string;
+        readonly eventReadoutHash: string;
+    };
+    readonly nonClaims: readonly [
+        'not_raw_state_store',
+        'not_authoring_mode',
+        'not_demo_local_authority'
+    ];
+}
+export type RuntimeSessionEcrpProjectDiagnosticCode = 'duplicateEntityDefinition' | 'duplicatePlacement' | 'emptyEntityDefinitionList' | 'invalidCapability' | 'missingCapability' | 'missingEntityDefinition' | 'missingPlacement' | 'missingProjectBundle' | 'unknownEntityDefinition';
+export interface RuntimeSessionEcrpProjectDiagnostic {
+    readonly code: RuntimeSessionEcrpProjectDiagnosticCode;
+    readonly path: string;
+    readonly detail: string;
+}
+export type RuntimeSessionEcrpProjectCapabilityDefinition = {
+    readonly kind: 'transform';
+    readonly initial: {
+        readonly position: readonly [number, number, number];
+        readonly yawDegrees: number;
+        readonly pitchDegrees: number;
+    };
+} | {
+    readonly kind: 'collisionBody';
+    readonly halfExtents: readonly [number, number, number];
+    readonly staticCollider?: boolean;
+    readonly policy?: object;
+} | {
+    readonly kind: 'controller';
+    readonly controller: 'player_input' | 'enemy_policy';
+    readonly tuning?: object;
+} | {
+    readonly kind: 'health';
+    readonly current: number;
+    readonly max: number;
+} | {
+    readonly kind: 'weaponMount';
+    readonly weaponId: string;
+    readonly tuning?: object;
+} | {
+    readonly kind: 'renderProjection';
+    readonly projection: 'first_person_camera' | 'target_cube' | 'spawn_marker';
+    readonly visible?: boolean;
+} | {
+    readonly kind: 'policyBinding';
+    readonly policyId: string;
+    readonly policyLoopRef?: string;
+} | {
+    readonly kind: 'spawnMarker';
+    readonly markerId: string;
+} | {
+    readonly kind: 'faction';
+    readonly factionId: string;
+};
+export interface RuntimeSessionEcrpEntityDefinition {
+    readonly kind: 'EntityDefinition';
+    readonly stableId: string;
+    readonly displayName: string;
+    readonly source: {
+        readonly projectBundle: string;
+        readonly relativePath: string;
+    };
+    readonly capabilities: readonly RuntimeSessionEcrpProjectCapabilityDefinition[];
+}
+export interface RuntimeSessionEcrpScenePlacement {
+    readonly entityDefinitionId: string;
+    readonly spawnMarkerId?: string;
+    readonly runtimeEntityId?: number;
+}
+export interface RuntimeSessionEcrpSceneDocument {
+    readonly kind: 'SceneDocument';
+    readonly sceneId: string;
+    readonly placements: readonly RuntimeSessionEcrpScenePlacement[];
+}
+export interface RuntimeSessionEcrpProjectLoadInput {
+    readonly kind: 'runtime_session.load_ecrp_project.v0';
+    readonly projectBundle: {
+        readonly kind: 'ProjectBundle';
+        readonly project: RuntimeSessionProjectIdentity;
+        readonly runtimeRequest: WorldLoadRequest;
+    };
+    readonly entityDefinitions: readonly RuntimeSessionEcrpEntityDefinition[];
+    readonly sceneDocument: RuntimeSessionEcrpSceneDocument;
+}
+export interface RuntimeSessionEcrpProjectLoadReceipt {
+    readonly kind: 'runtime_session.ecrp_project_load_receipt.v0';
+    readonly sequenceId: number;
+    readonly accepted: boolean;
+    readonly diagnostics: readonly RuntimeSessionEcrpProjectDiagnostic[];
+    readonly entityCount: number;
+    readonly bootstrapHash: string | null;
+    readonly sessionHashBefore: string;
+    readonly sessionHashAfter: string;
 }
 export interface RuntimeSessionRestartResult {
     readonly sequenceId: number;
@@ -324,6 +493,7 @@ export interface RuntimeSessionGeneratedTunnelOperationReceipt extends Generated
 }
 export interface RuntimeSessionFacade {
     initialize(input: RuntimeSessionInitializeInput): RuntimeSessionStateSummary;
+    loadEcrpProject(input: RuntimeSessionEcrpProjectLoadInput): RuntimeSessionEcrpProjectLoadReceipt;
     submitCommands(batch: CommandBatch): RuntimeSessionCommandReceipt;
     tick(input?: RuntimeSessionTickInput): RuntimeSessionTickResult;
     createCamera(request: CameraCreateRequest): RuntimeSessionCameraCreateReceipt;
@@ -342,6 +512,7 @@ export interface RuntimeSessionFacade {
     queryNavPath(request?: NavPathQueryRequest): NavPathReadout;
     readNavPolicyView(): NavPolicyViewReadout;
     requestGeneratedTunnelOperation(request: GeneratedTunnelOperationRequest): RuntimeSessionGeneratedTunnelOperationReceipt;
+    readEcrpRuntimeReadout(): RuntimeSessionEcrpReadout;
     readCameraProjection(request: CameraProjectionRequest): RuntimeSessionCameraProjectionReadout;
     readProjection(): RuntimeSessionProjectionSummary;
     readTelemetry(): RuntimeSessionTelemetrySummary;

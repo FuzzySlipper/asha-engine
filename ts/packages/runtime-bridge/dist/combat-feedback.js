@@ -122,10 +122,11 @@ function projectTrace(readout, camera) {
         };
     }
     if (readout.outcome.kind === 'hit') {
+        const hitEvent = readout.events.find((event) => event.kind === 'fire_hit');
         return {
             kind: 'combat_feedback.trace.v0',
             result: 'hit',
-            shooter: 10,
+            shooter: hitEvent?.kind === 'fire_hit' ? hitEvent.shooter : null,
             target: readout.outcome.target,
             reason: null,
             distance,

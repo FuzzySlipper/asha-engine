@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { cameraHandle } from '@asha/contracts';
 import { RuntimeBridgeError, createMockRuntimeSession } from './index.js';
 function sessionInput() {
     return {
@@ -13,6 +14,129 @@ function sessionInput() {
             bundleSchemaVersion: 1,
             protocolVersion: 1,
             sceneId: 42,
+        },
+    };
+}
+function ecrpProjectLoadInput() {
+    return {
+        kind: 'runtime_session.load_ecrp_project.v0',
+        projectBundle: {
+            kind: 'ProjectBundle',
+            project: {
+                gameId: 'custom-demo',
+                workspaceId: 'workspace.custom',
+            },
+            runtimeRequest: {
+                bundleSchemaVersion: 1,
+                protocolVersion: 1,
+                sceneId: 77,
+            },
+        },
+        entityDefinitions: [
+            {
+                kind: 'EntityDefinition',
+                stableId: 'actor/custom-player',
+                displayName: 'Custom Player',
+                source: {
+                    projectBundle: 'custom-demo',
+                    relativePath: 'catalogs/actors/custom-player.entity.json',
+                },
+                capabilities: [
+                    {
+                        kind: 'transform',
+                        initial: {
+                            position: [1, 1.7, 2],
+                            yawDegrees: 15,
+                            pitchDegrees: 0,
+                        },
+                    },
+                    {
+                        kind: 'collisionBody',
+                        halfExtents: [0.3, 0.7, 0.3],
+                    },
+                    {
+                        kind: 'controller',
+                        controller: 'player_input',
+                    },
+                    {
+                        kind: 'health',
+                        current: 88,
+                        max: 88,
+                    },
+                    {
+                        kind: 'weaponMount',
+                        weaponId: 'weapon.custom.primary',
+                    },
+                    {
+                        kind: 'renderProjection',
+                        projection: 'first_person_camera',
+                    },
+                    {
+                        kind: 'faction',
+                        factionId: 'player',
+                    },
+                ],
+            },
+            {
+                kind: 'EntityDefinition',
+                stableId: 'actor/custom-enemy',
+                displayName: 'Custom Enemy',
+                source: {
+                    projectBundle: 'custom-demo',
+                    relativePath: 'catalogs/actors/custom-enemy.entity.json',
+                },
+                capabilities: [
+                    {
+                        kind: 'transform',
+                        initial: {
+                            position: [4, 1.2, -6],
+                            yawDegrees: 180,
+                            pitchDegrees: 0,
+                        },
+                    },
+                    {
+                        kind: 'collisionBody',
+                        halfExtents: [0.8, 1, 0.8],
+                    },
+                    {
+                        kind: 'health',
+                        current: 55,
+                        max: 55,
+                    },
+                    {
+                        kind: 'renderProjection',
+                        projection: 'target_cube',
+                    },
+                    {
+                        kind: 'policyBinding',
+                        policyId: 'policy.enemy.custom.v0',
+                    },
+                    {
+                        kind: 'spawnMarker',
+                        markerId: 'spawn.enemy.custom',
+                    },
+                    {
+                        kind: 'faction',
+                        factionId: 'hostile',
+                    },
+                ],
+            },
+        ],
+        sceneDocument: {
+            kind: 'SceneDocument',
+            sceneId: 'custom-demo.scene',
+            placements: [
+                {
+                    entityDefinitionId: 'actor/custom-player',
+                    runtimeEntityId: 101,
+                    spawnMarkerId: 'spawn.player.custom',
+                },
+                {
+                    entityDefinitionId: 'actor/custom-enemy',
+                    runtimeEntityId: 202,
+                    spawnMarkerId: 'spawn.enemy.custom',
+                },
+            ],
         },
     };
 }
@@ -65,6 +189,145 @@ test('RuntimeSession fails closed before initialize and on unsupported ProjectBu
             sceneId: 42,
         },
     }), (error) => error instanceof RuntimeBridgeError && error.kind === 'invalid_input');
+});
+test('RuntimeSession exposes public ECRP entity and CapabilityState readouts', () => {
+    const session = createMockRuntimeSession();
+    assert.throws(() => session.readEcrpRuntimeReadout(), (error) => error instanceof RuntimeBridgeError && error.kind === 'not_initialized');
+    session.initialize(sessionInput());
+    const initial = session.readEcrpRuntimeReadout();
+    assert.equal(initial.kind, 'runtime_session.ecrp_readout.v0');
+    assert.equal(initial.entityCount, 2);
+    assert.ok(initial.nonClaims.includes('not_raw_state_store'));
+    assert.ok(initial.nonClaims.includes('not_demo_local_authority'));
+    const player = initial.entities.find((entity) => entity.definitionStableId === 'actor/demo-player');
+    const enemy = initial.entities.find((entity) => entity.definitionStableId === 'actor/generated-tunnel-enemy');
+    assert.ok(player);
+    assert.ok(enemy);
+    assert.deepEqual(player.capabilityKinds, [
+        'transform',
+        'collisionBody',
+        'controller',
+        'health',
+        'weaponMount',
+        'renderProjection',
+        'faction',
+    ]);
+    assert.ok(enemy.capabilityKinds.includes('health'));
+    assert.ok(enemy.capabilityKinds.includes('policyBinding'));
+    const initialEnemyHealth = enemy.capabilities.find((capability) => capability.kind === 'health');
+    assert.equal(initialEnemyHealth?.kind, 'health');
+    assert.equal(initialEnemyHealth?.dead, false);
+    assert.equal(enemy.recentEvents.length, 1);
+    assert.equal(enemy.recentEvents[0]?.kind, 'runtime_session.bootstrap_entity.v0');
+    const receipt = session.submitRuntimeActionIntent({
+        kind: 'runtime_action_intent.v0',
+        action: 'primary_fire',
+        phase: 'pressed',
+        camera: cameraHandle(1),
+        tick: 7,
+        source: 'programmatic',
+        pressed: true,
+    });
+    assert.equal(receipt.accepted, true);
+    assert.equal(receipt.combatReadout?.scenario, 'generated_tunnel_fire_hit');
+    assert.equal(receipt.combatReadout?.outcome.kind, 'hit');
+    assert.equal(receipt.combatReadout?.outcome.kind === 'hit' ? receipt.combatReadout.outcome.target : null, 20);
+    const afterFire = session.readEcrpRuntimeReadout();
+    const defeatedEnemy = afterFire.entities.find((entity) => entity.entity === 20);
+    const defeatedHealth = defeatedEnemy?.capabilities.find((capability) => capability.kind === 'health');
+    const defeatedRender = defeatedEnemy?.capabilities.find((capability) => capability.kind === 'renderProjection');
+    assert.equal(defeatedHealth?.kind, 'health');
+    assert.equal(defeatedHealth?.dead, true);
+    assert.equal(defeatedHealth?.current, 0);
+    assert.equal(defeatedRender?.kind, 'renderProjection');
+    assert.equal(defeatedRender?.visible, false);
+    assert.ok(defeatedEnemy?.recentEvents.some((event) => event.kind === 'runtime_lifecycle.enemy_defeated.v0'));
+    assert.notEqual(afterFire.hashes.capabilityStateHash, initial.hashes.capabilityStateHash);
+    assert.notEqual(afterFire.hashes.eventReadoutHash, initial.hashes.eventReadoutHash);
+});
+test('RuntimeSession loads ECRP ProjectBundle content into live readouts', () => {
+    const session = createMockRuntimeSession();
+    session.initialize(sessionInput());
+    const load = session.loadEcrpProject(ecrpProjectLoadInput());
+    assert.equal(load.kind, 'runtime_session.ecrp_project_load_receipt.v0');
+    assert.equal(load.accepted, true);
+    assert.deepEqual(load.diagnostics, []);
+    assert.equal(load.entityCount, 2);
+    assert.match(load.bootstrapHash ?? '', /^fnv1a64:[0-9a-f]{16}$/);
+    const readout = session.readEcrpRuntimeReadout();
+    assert.equal(readout.project.gameId, 'custom-demo');
+    assert.equal(readout.projectBundle.sceneId, 77);
+    assert.equal(readout.entityCount, 2);
+    const player = readout.entities.find((entity) => entity.definitionStableId === 'actor/custom-player');
+    const enemy = readout.entities.find((entity) => entity.definitionStableId === 'actor/custom-enemy');
+    assert.equal(player?.entity, 101);
+    assert.equal(enemy?.entity, 202);
+    assert.equal(player?.source.relativePath, 'catalogs/actors/custom-player.entity.json');
+    const playerTransform = player?.capabilities.find((capability) => capability.kind === 'transform');
+    assert.equal(playerTransform?.kind, 'transform');
+    assert.deepEqual(playerTransform?.position, [1, 1.7, 2]);
+    const enemyHealth = enemy?.capabilities.find((capability) => capability.kind === 'health');
+    assert.equal(enemyHealth?.kind, 'health');
+    assert.equal(enemyHealth?.current, 55);
+    assert.equal(enemyHealth?.max, 55);
+    assert.equal(enemyHealth?.dead, false);
+    const receipt = session.submitRuntimeActionIntent({
+        kind: 'runtime_action_intent.v0',
+        action: 'primary_fire',
+        phase: 'pressed',
+        camera: cameraHandle(2),
+        tick: 9,
+        source: 'programmatic',
+        pressed: true,
+    });
+    assert.equal(receipt.accepted, true);
+    assert.equal(receipt.combatReadout?.scenario, 'runtime_session_loaded_project_fire_hit');
+    assert.equal(receipt.combatReadout?.outcome.kind, 'hit');
+    assert.equal(receipt.combatReadout?.outcome.kind === 'hit' ? receipt.combatReadout.outcome.target : null, 202);
+    assert.equal(receipt.combatReadout?.events.find((event) => event.kind === 'fire_hit')?.shooter, 101);
+    assert.equal(receipt.combatReadout?.events.find((event) => event.kind === 'damage_applied')?.target, 202);
+    assert.equal(receipt.combatReadout?.events.find((event) => event.kind === 'damage_applied')?.amount, 55);
+    assert.deepEqual(receipt.combatReadout?.health[0], {
+        entity: 202,
+        current: 0,
+        max: 55,
+        dead: true,
+    });
+    assert.equal(receipt.combatReadout?.fixture, null);
+    const afterFire = session.readEcrpRuntimeReadout();
+    const defeatedEnemy = afterFire.entities.find((entity) => entity.entity === 202);
+    const defeatedHealth = defeatedEnemy?.capabilities.find((capability) => capability.kind === 'health');
+    const defeatedRender = defeatedEnemy?.capabilities.find((capability) => capability.kind === 'renderProjection');
+    assert.equal(defeatedHealth?.kind, 'health');
+    assert.equal(defeatedHealth?.current, 0);
+    assert.equal(defeatedHealth?.dead, true);
+    assert.equal(defeatedRender?.kind, 'renderProjection');
+    assert.equal(defeatedRender?.visible, false);
+    assert.ok(defeatedEnemy?.recentEvents.some((event) => event.kind === 'runtime_lifecycle.enemy_defeated.v0'));
+});
+test('RuntimeSession rejects invalid ECRP ProjectBundle content without replacing live state', () => {
+    const session = createMockRuntimeSession();
+    session.initialize(sessionInput());
+    const before = session.readEcrpRuntimeReadout();
+    const invalid = {
+        ...ecrpProjectLoadInput(),
+        sceneDocument: {
+            ...ecrpProjectLoadInput().sceneDocument,
+            placements: [
+                {
+                    entityDefinitionId: 'actor/unknown',
+                    runtimeEntityId: 404,
+                },
+            ],
+        },
+    };
+    const load = session.loadEcrpProject(invalid);
+    assert.equal(load.accepted, false);
+    assert.ok(load.diagnostics.some((diagnostic) => diagnostic.code === 'unknownEntityDefinition'));
+    assert.ok(load.diagnostics.some((diagnostic) => diagnostic.code === 'missingPlacement'));
+    assert.equal(load.bootstrapHash, null);
+    const after = session.readEcrpRuntimeReadout();
+    assert.deepEqual(after.entities.map((entity) => entity.definitionStableId), before.entities.map((entity) => entity.definitionStableId));
 });
 test('RuntimeSession applies collision-constrained camera input against the static room fixture', () => {
     const session = createMockRuntimeSession();

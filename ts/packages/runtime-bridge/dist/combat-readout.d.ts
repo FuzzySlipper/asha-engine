@@ -1,8 +1,8 @@
-export type CombatReadoutScenario = 'generated_tunnel_fire_hit' | 'generated_tunnel_geometry_blocked_miss';
+export type CombatReadoutScenario = 'generated_tunnel_fire_hit' | 'generated_tunnel_geometry_blocked_miss' | 'runtime_session_loaded_project_fire_hit';
 export type CombatFireOutcomeReadout = {
     readonly kind: 'hit';
-    readonly target: 20;
-    readonly distance: 3.5;
+    readonly target: number;
+    readonly distance: number;
     readonly hitPosition: null;
     readonly defeated: true;
 } | {
@@ -11,27 +11,27 @@ export type CombatFireOutcomeReadout = {
 };
 export type CombatEventReadout = {
     readonly kind: 'fire_hit';
-    readonly shooter: 10;
-    readonly target: 20;
-    readonly distance: 3.5;
-    readonly tick: 7;
+    readonly shooter: number;
+    readonly target: number;
+    readonly distance: number;
+    readonly tick: number;
 } | {
     readonly kind: 'fire_missed';
-    readonly shooter: 10;
+    readonly shooter: number;
     readonly reason: 'geometryBlocked' | 'noTarget';
-    readonly tick: 7;
+    readonly tick: number;
 } | {
     readonly kind: 'damage_applied';
-    readonly target: 20;
-    readonly amount: 40;
-    readonly before: 40;
-    readonly after: 0;
+    readonly target: number;
+    readonly amount: number;
+    readonly before: number;
+    readonly after: number;
 } | {
     readonly kind: 'entity_defeated';
-    readonly target: 20;
+    readonly target: number;
 };
 export interface CombatHealthReadout {
-    readonly entity: 20;
+    readonly entity: number;
     readonly current: number;
     readonly max: number;
     readonly dead: boolean;

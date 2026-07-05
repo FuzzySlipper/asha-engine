@@ -166,6 +166,10 @@ export interface AshaRendererBrowserSurfaceInteractionState {
     readonly shotsFired: number;
     readonly totalTargets: number;
 }
+export interface AshaRendererBrowserSurfaceTargetProjection {
+    readonly lastEvent?: string;
+    readonly visible: boolean;
+}
 export interface AshaRendererBrowserSurface {
     readonly kind: 'asha_renderer_browser_surface.v0';
     readonly canvas: HTMLCanvasElement;
@@ -177,6 +181,7 @@ export interface AshaRendererBrowserSurface {
     readonly lockPointer: () => void;
     readonly movementState: () => AshaRendererBrowserSurfaceMovementState;
     readonly pointerLocked: () => boolean;
+    readonly projectTargetProjection: (projection: AshaRendererBrowserSurfaceTargetProjection) => void;
     readonly reset: () => void;
     readonly snapshot: () => string;
     readonly renderOnce: (timeMs?: number) => void;

@@ -164,6 +164,7 @@ export interface RuntimeSessionReplayRecord {
     | 'createCamera'
     | 'applyFirstPersonCameraInput'
     | 'applyCollisionConstrainedCameraInput'
+    | 'loadEcrpProject'
     | 'submitRuntimeActionIntent'
     | 'lifecycleDeath'
     | 'runAutonomousPolicyTick'
@@ -183,6 +184,224 @@ export interface RuntimeSessionTelemetrySummary {
   readonly restartCount: number;
   readonly sessionHash: string;
   readonly replayRecords: readonly RuntimeSessionReplayRecord[];
+}
+
+export type RuntimeSessionEcrpCapabilityKind =
+  | 'transform'
+  | 'collisionBody'
+  | 'controller'
+  | 'health'
+  | 'weaponMount'
+  | 'renderProjection'
+  | 'policyBinding'
+  | 'spawnMarker'
+  | 'faction';
+
+export type RuntimeSessionEcrpCapabilityState =
+  | {
+      readonly kind: 'transform';
+      readonly position: readonly [number, number, number];
+      readonly yawDegrees: number;
+      readonly pitchDegrees: number;
+      readonly stateHash: string;
+    }
+  | {
+      readonly kind: 'collisionBody';
+      readonly staticCollider: boolean;
+      readonly bounds: readonly [number, number, number];
+      readonly stateHash: string;
+    }
+  | {
+      readonly kind: 'controller';
+      readonly controller: 'player_input' | 'enemy_policy';
+      readonly stateHash: string;
+    }
+  | {
+      readonly kind: 'health';
+      readonly current: number;
+      readonly max: number;
+      readonly dead: boolean;
+      readonly stateHash: string;
+    }
+  | {
+      readonly kind: 'weaponMount';
+      readonly weaponId: string;
+      readonly stateHash: string;
+    }
+  | {
+      readonly kind: 'renderProjection';
+      readonly visible: boolean;
+      readonly projection: 'first_person_camera' | 'target_cube' | 'spawn_marker';
+      readonly stateHash: string;
+    }
+  | {
+      readonly kind: 'policyBinding';
+      readonly policyId: string;
+      readonly stateHash: string;
+    }
+  | {
+      readonly kind: 'spawnMarker';
+      readonly markerId: string;
+      readonly stateHash: string;
+    }
+  | {
+      readonly kind: 'faction';
+      readonly factionId: string;
+      readonly stateHash: string;
+    };
+
+export interface RuntimeSessionEcrpEntityEventReadout {
+  readonly kind: RuntimeSessionLifecycleEventKind | 'runtime_session.bootstrap_entity.v0';
+  readonly entity: number;
+  readonly tick: number;
+  readonly eventHash: string;
+}
+
+export interface RuntimeSessionEcrpEntityReadout {
+  readonly entity: number;
+  readonly lifecycle: 'active' | 'tombstoned';
+  readonly definitionStableId: string;
+  readonly displayName: string;
+  readonly source: {
+    readonly projectBundle: string;
+    readonly relativePath: string;
+  };
+  readonly capabilityKinds: readonly RuntimeSessionEcrpCapabilityKind[];
+  readonly capabilities: readonly RuntimeSessionEcrpCapabilityState[];
+  readonly recentEvents: readonly RuntimeSessionEcrpEntityEventReadout[];
+  readonly entityHash: string;
+}
+
+export interface RuntimeSessionEcrpReadout {
+  readonly kind: 'runtime_session.ecrp_readout.v0';
+  readonly sequenceId: number;
+  readonly tick: number;
+  readonly sessionHash: string;
+  readonly project: RuntimeSessionProjectIdentity;
+  readonly projectBundle: WorldLoadRequest;
+  readonly entities: readonly RuntimeSessionEcrpEntityReadout[];
+  readonly entityCount: number;
+  readonly hashes: {
+    readonly entityReadoutHash: string;
+    readonly capabilityStateHash: string;
+    readonly eventReadoutHash: string;
+  };
+  readonly nonClaims: readonly [
+    'not_raw_state_store',
+    'not_authoring_mode',
+    'not_demo_local_authority',
+  ];
+}
+
+export type RuntimeSessionEcrpProjectDiagnosticCode =
+  | 'duplicateEntityDefinition'
+  | 'duplicatePlacement'
+  | 'emptyEntityDefinitionList'
+  | 'invalidCapability'
+  | 'missingCapability'
+  | 'missingEntityDefinition'
+  | 'missingPlacement'
+  | 'missingProjectBundle'
+  | 'unknownEntityDefinition';
+
+export interface RuntimeSessionEcrpProjectDiagnostic {
+  readonly code: RuntimeSessionEcrpProjectDiagnosticCode;
+  readonly path: string;
+  readonly detail: string;
+}
+
+export type RuntimeSessionEcrpProjectCapabilityDefinition =
+  | {
+      readonly kind: 'transform';
+      readonly initial: {
+        readonly position: readonly [number, number, number];
+        readonly yawDegrees: number;
+        readonly pitchDegrees: number;
+      };
+    }
+  | {
+      readonly kind: 'collisionBody';
+      readonly halfExtents: readonly [number, number, number];
+      readonly staticCollider?: boolean;
+      readonly policy?: object;
+    }
+  | {
+      readonly kind: 'controller';
+      readonly controller: 'player_input' | 'enemy_policy';
+      readonly tuning?: object;
+    }
+  | {
+      readonly kind: 'health';
+      readonly current: number;
+      readonly max: number;
+    }
+  | {
+      readonly kind: 'weaponMount';
+      readonly weaponId: string;
+      readonly tuning?: object;
+    }
+  | {
+      readonly kind: 'renderProjection';
+      readonly projection: 'first_person_camera' | 'target_cube' | 'spawn_marker';
+      readonly visible?: boolean;
+    }
+  | {
+      readonly kind: 'policyBinding';
+      readonly policyId: string;
+      readonly policyLoopRef?: string;
+    }
+  | {
+      readonly kind: 'spawnMarker';
+      readonly markerId: string;
+    }
+  | {
+      readonly kind: 'faction';
+      readonly factionId: string;
+    };
+
+export interface RuntimeSessionEcrpEntityDefinition {
+  readonly kind: 'EntityDefinition';
+  readonly stableId: string;
+  readonly displayName: string;
+  readonly source: {
+    readonly projectBundle: string;
+    readonly relativePath: string;
+  };
+  readonly capabilities: readonly RuntimeSessionEcrpProjectCapabilityDefinition[];
+}
+
+export interface RuntimeSessionEcrpScenePlacement {
+  readonly entityDefinitionId: string;
+  readonly spawnMarkerId?: string;
+  readonly runtimeEntityId?: number;
+}
+
+export interface RuntimeSessionEcrpSceneDocument {
+  readonly kind: 'SceneDocument';
+  readonly sceneId: string;
+  readonly placements: readonly RuntimeSessionEcrpScenePlacement[];
+}
+
+export interface RuntimeSessionEcrpProjectLoadInput {
+  readonly kind: 'runtime_session.load_ecrp_project.v0';
+  readonly projectBundle: {
+    readonly kind: 'ProjectBundle';
+    readonly project: RuntimeSessionProjectIdentity;
+    readonly runtimeRequest: WorldLoadRequest;
+  };
+  readonly entityDefinitions: readonly RuntimeSessionEcrpEntityDefinition[];
+  readonly sceneDocument: RuntimeSessionEcrpSceneDocument;
+}
+
+export interface RuntimeSessionEcrpProjectLoadReceipt {
+  readonly kind: 'runtime_session.ecrp_project_load_receipt.v0';
+  readonly sequenceId: number;
+  readonly accepted: boolean;
+  readonly diagnostics: readonly RuntimeSessionEcrpProjectDiagnostic[];
+  readonly entityCount: number;
+  readonly bootstrapHash: string | null;
+  readonly sessionHashBefore: string;
+  readonly sessionHashAfter: string;
 }
 
 export interface RuntimeSessionRestartResult {
@@ -470,6 +689,7 @@ export interface RuntimeSessionGeneratedTunnelOperationReceipt extends Generated
 
 export interface RuntimeSessionFacade {
   initialize(input: RuntimeSessionInitializeInput): RuntimeSessionStateSummary;
+  loadEcrpProject(input: RuntimeSessionEcrpProjectLoadInput): RuntimeSessionEcrpProjectLoadReceipt;
   submitCommands(batch: CommandBatch): RuntimeSessionCommandReceipt;
   tick(input?: RuntimeSessionTickInput): RuntimeSessionTickResult;
   createCamera(request: CameraCreateRequest): RuntimeSessionCameraCreateReceipt;
@@ -496,6 +716,7 @@ export interface RuntimeSessionFacade {
   requestGeneratedTunnelOperation(
     request: GeneratedTunnelOperationRequest,
   ): RuntimeSessionGeneratedTunnelOperationReceipt;
+  readEcrpRuntimeReadout(): RuntimeSessionEcrpReadout;
   readCameraProjection(request: CameraProjectionRequest): RuntimeSessionCameraProjectionReadout;
   readProjection(): RuntimeSessionProjectionSummary;
   readTelemetry(): RuntimeSessionTelemetrySummary;
@@ -522,6 +743,18 @@ interface RuntimeSessionLifecycleState {
   readonly revision: number;
 }
 
+interface RuntimeSessionEcrpEntityState {
+  readonly entity: number;
+  readonly definition: RuntimeSessionEcrpEntityDefinition;
+  readonly role: RuntimeSessionLifecycleRole | 'neutral';
+}
+
+interface RuntimeSessionEcrpProjectState {
+  readonly input: RuntimeSessionEcrpProjectLoadInput;
+  readonly entities: readonly RuntimeSessionEcrpEntityState[];
+  readonly bootstrapHash: string;
+}
+
 export function createMockRuntimeSession(options: RuntimeSessionFacadeOptions = {}): RuntimeSessionFacade {
   return new ReferenceRuntimeSessionFacade(options.bridge ?? createMockRuntimeBridge());
 }
@@ -537,6 +770,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
   #restartCount = 0;
   #lifecycleState: RuntimeSessionLifecycleState = initialRuntimeSessionLifecycleState();
   #encounterState: EncounterDirectorState = initialEncounterDirectorState();
+  #ecrpProjectState: RuntimeSessionEcrpProjectState | null = null;
   #replayRecords: RuntimeSessionReplayRecord[] = [];
 
   constructor(bridge: RuntimeBridge) {
@@ -560,11 +794,54 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#tick = 0;
     this.#acceptedCommandCount = 0;
     this.#rejectedCommandCount = 0;
-    this.#lifecycleState = initialRuntimeSessionLifecycleState();
+    this.#ecrpProjectState = buildEcrpProjectState(defaultRuntimeSessionEcrpProjectLoadInput(input));
+    this.#lifecycleState = lifecycleStateFromEcrpProject(this.#ecrpProjectState);
     this.#encounterState = initialEncounterDirectorState();
     this.#replayRecords = [];
     this.#record('initialize');
     return this.#stateSummary(composition);
+  }
+
+  loadEcrpProject(input: RuntimeSessionEcrpProjectLoadInput): RuntimeSessionEcrpProjectLoadReceipt {
+    const identity = this.#requireInitialized('loadEcrpProject');
+    const before = this.#sessionHash();
+    const diagnostics = validateEcrpProjectLoadInput(input);
+    this.#sequenceId += 1;
+
+    if (diagnostics.length > 0) {
+      this.#record('loadEcrpProject');
+      return {
+        kind: 'runtime_session.ecrp_project_load_receipt.v0',
+        sequenceId: this.#sequenceId,
+        accepted: false,
+        diagnostics,
+        entityCount: 0,
+        bootstrapHash: null,
+        sessionHashBefore: before,
+        sessionHashAfter: this.#sessionHash(),
+      };
+    }
+
+    const state = buildEcrpProjectState(input);
+    this.#bridge.loadWorldBundle(input.projectBundle.runtimeRequest);
+    this.#identity = {
+      ...identity,
+      project: input.projectBundle.project,
+      projectBundle: input.projectBundle.runtimeRequest,
+    };
+    this.#ecrpProjectState = state;
+    this.#lifecycleState = lifecycleStateFromEcrpProject(state);
+    this.#record('loadEcrpProject');
+    return {
+      kind: 'runtime_session.ecrp_project_load_receipt.v0',
+      sequenceId: this.#sequenceId,
+      accepted: true,
+      diagnostics: [],
+      entityCount: state.entities.length,
+      bootstrapHash: state.bootstrapHash,
+      sessionHashBefore: before,
+      sessionHashAfter: this.#sessionHash(),
+    };
   }
 
   submitCommands(batch: CommandBatch): RuntimeSessionCommandReceipt {
@@ -660,7 +937,11 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#record('submitRuntimeActionIntent');
     const combatReadout =
       envelope.action === 'primary_fire' && envelope.phase === 'pressed'
-        ? GENERATED_TUNNEL_FIRE_HIT_READOUT
+        ? buildRuntimeSessionPrimaryFireReadout({
+            projectState: this.#ecrpProjectState,
+            lifecycleState: this.#lifecycleState,
+            tick: envelope.tick,
+          })
         : null;
     const accepted = combatReadout !== null || (envelope.action === 'primary_fire' && envelope.phase === 'released');
     if (combatReadout !== null) {
@@ -1022,6 +1303,18 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     };
   }
 
+  readEcrpRuntimeReadout(): RuntimeSessionEcrpReadout {
+    const identity = this.#requireInitialized('readEcrpRuntimeReadout');
+    return buildEcrpRuntimeReadout({
+      identity,
+      projectState: this.#ecrpProjectState,
+      lifecycleState: this.#lifecycleState,
+      sequenceId: this.#sequenceId,
+      tick: this.#tick,
+      sessionHash: this.#sessionHash(),
+    });
+  }
+
   readCameraProjection(request: CameraProjectionRequest): RuntimeSessionCameraProjectionReadout {
     this.#requireInitialized('readCameraProjection');
     const snapshot = this.#bridge.readCameraProjection(request);
@@ -1075,7 +1368,11 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#tick = 0;
     this.#acceptedCommandCount = 0;
     this.#rejectedCommandCount = 0;
-    this.#lifecycleState = initialRuntimeSessionLifecycleState();
+    if (this.#ecrpProjectState !== null) {
+      this.#lifecycleState = lifecycleStateFromEcrpProject(this.#ecrpProjectState);
+    } else {
+      this.#lifecycleState = initialRuntimeSessionLifecycleState();
+    }
     this.#encounterState = initialEncounterDirectorState();
     this.#restartCount += 1;
     this.#record('restart');
@@ -1118,7 +1415,12 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     if (defeated === undefined || this.#lifecycleState.enemy.dead) {
       return;
     }
-    const enemy = lifecycleHealth(defeated.entity, defeated.current, defeated.max, defeated.dead);
+    const enemy = lifecycleHealth(
+      this.#lifecycleState.enemy.entity,
+      defeated.current,
+      this.#lifecycleState.enemy.max,
+      defeated.dead,
+    );
     const event = lifecycleEvent('runtime_lifecycle.enemy_defeated.v0', enemy.entity, tick, 'combat_health_zero');
     this.#lifecycleState = {
       player: this.#lifecycleState.player,
@@ -1233,6 +1535,86 @@ function lifecycleHealth(
   return {
     ...healthRecord,
     healthHash: stableHash(healthRecord),
+  };
+}
+
+function buildRuntimeSessionPrimaryFireReadout(input: {
+  readonly projectState: RuntimeSessionEcrpProjectState | null;
+  readonly lifecycleState: RuntimeSessionLifecycleState;
+  readonly tick: number;
+}): CombatRuntimeReadout {
+  const shooter = input.lifecycleState.player.entity;
+  const targetBefore = input.lifecycleState.enemy;
+  const amount = targetBefore.current;
+  const targetAfter = lifecycleHealth(targetBefore.entity, 0, targetBefore.max, true);
+  if (
+    shooter === 10 &&
+    targetBefore.entity === 20 &&
+    targetBefore.current === 40 &&
+    targetBefore.max === 40 &&
+    input.tick === 7
+  ) {
+    return GENERATED_TUNNEL_FIRE_HIT_READOUT;
+  }
+
+  const health = [
+    {
+      entity: targetAfter.entity,
+      current: targetAfter.current,
+      max: targetAfter.max,
+      dead: targetAfter.dead,
+    },
+  ];
+  const events: CombatRuntimeReadout['events'] = [
+    {
+      kind: 'fire_hit',
+      shooter,
+      target: targetAfter.entity,
+      distance: 3.5,
+      tick: input.tick,
+    },
+    {
+      kind: 'damage_applied',
+      target: targetAfter.entity,
+      amount,
+      before: targetBefore.current,
+      after: targetAfter.current,
+    },
+    {
+      kind: 'entity_defeated',
+      target: targetAfter.entity,
+    },
+  ];
+  const weaponMount = input.projectState?.entities
+    .find((entity) => entity.role === 'player')
+    ?.definition.capabilities.find((capability) => capability.kind === 'weaponMount');
+  const combatRecord = {
+    scenario: 'runtime_session_loaded_project_fire_hit',
+    shooter,
+    target: targetAfter.entity,
+    weaponId: weaponMount?.kind === 'weaponMount' ? weaponMount.weaponId : null,
+    health,
+    events,
+  };
+  return {
+    scenario: 'runtime_session_loaded_project_fire_hit',
+    outcome: {
+      kind: 'hit',
+      target: targetAfter.entity,
+      distance: 3.5,
+      hitPosition: null,
+      defeated: true,
+    },
+    events,
+    health,
+    nextFireControl: {
+      ammo: 2,
+      cooldownTicksRemaining: 4,
+      cooldownTicksAfterFire: 4,
+    },
+    healthHash: stableHash(health),
+    replayHash: stableHash(combatRecord),
+    fixture: null,
   };
 }
 
@@ -1603,6 +1985,605 @@ function validateGeneratedTunnelOperationRequest(request: GeneratedTunnelOperati
     throw new RuntimeBridgeError('invalid_input', 'generated tunnel operation is unsupported');
   }
   validateGeneratedTunnelReadoutRequest(request);
+}
+
+function defaultRuntimeSessionEcrpProjectLoadInput(
+  input: RuntimeSessionInitializeInput,
+): RuntimeSessionEcrpProjectLoadInput {
+  return {
+    kind: 'runtime_session.load_ecrp_project.v0',
+    projectBundle: {
+      kind: 'ProjectBundle',
+      project: input.project,
+      runtimeRequest: input.projectBundle,
+    },
+    entityDefinitions: [
+      {
+        kind: 'EntityDefinition',
+        stableId: 'actor/demo-player',
+        displayName: 'Demo Player',
+        source: {
+          projectBundle: input.project.gameId,
+          relativePath: 'catalogs/actors/demo-player.entity.json',
+        },
+        capabilities: [
+          {
+            kind: 'transform',
+            initial: {
+              position: [0, 1.62, 0],
+              yawDegrees: 0,
+              pitchDegrees: 0,
+            },
+          },
+          {
+            kind: 'collisionBody',
+            halfExtents: [0.5, 1.4, 0.5],
+          },
+          {
+            kind: 'controller',
+            controller: 'player_input',
+          },
+          {
+            kind: 'health',
+            current: 100,
+            max: 100,
+          },
+          {
+            kind: 'weaponMount',
+            weaponId: 'weapon.demo.primary',
+          },
+          {
+            kind: 'renderProjection',
+            projection: 'first_person_camera',
+          },
+          {
+            kind: 'faction',
+            factionId: 'player',
+          },
+        ],
+      },
+      {
+        kind: 'EntityDefinition',
+        stableId: 'actor/generated-tunnel-enemy',
+        displayName: 'Generated Tunnel Enemy',
+        source: {
+          projectBundle: input.project.gameId,
+          relativePath: 'catalogs/actors/generated-tunnel-enemy.entity.json',
+        },
+        capabilities: [
+          {
+            kind: 'transform',
+            initial: {
+              position: [0, 1.1, -3.5],
+              yawDegrees: 180,
+              pitchDegrees: 0,
+            },
+          },
+          {
+            kind: 'collisionBody',
+            halfExtents: [0.7, 1.8, 0.7],
+          },
+          {
+            kind: 'health',
+            current: 40,
+            max: 40,
+          },
+          {
+            kind: 'renderProjection',
+            projection: 'target_cube',
+          },
+          {
+            kind: 'policyBinding',
+            policyId: 'policy.enemy.generated_tunnel.v0',
+          },
+          {
+            kind: 'spawnMarker',
+            markerId: 'spawn.enemy.primary',
+          },
+          {
+            kind: 'faction',
+            factionId: 'hostile',
+          },
+        ],
+      },
+    ],
+    sceneDocument: {
+      kind: 'SceneDocument',
+      sceneId: `compat.scene.${input.projectBundle.sceneId}`,
+      placements: [
+        {
+          entityDefinitionId: 'actor/demo-player',
+          runtimeEntityId: 10,
+          spawnMarkerId: 'spawn.player.start',
+        },
+        {
+          entityDefinitionId: 'actor/generated-tunnel-enemy',
+          runtimeEntityId: 20,
+          spawnMarkerId: 'spawn.enemy.primary',
+        },
+      ],
+    },
+  };
+}
+
+function validateEcrpProjectLoadInput(
+  input: RuntimeSessionEcrpProjectLoadInput,
+): readonly RuntimeSessionEcrpProjectDiagnostic[] {
+  const diagnostics: RuntimeSessionEcrpProjectDiagnostic[] = [];
+  if (input === null || typeof input !== 'object' || input.kind !== 'runtime_session.load_ecrp_project.v0') {
+    return [
+      {
+        code: 'missingProjectBundle',
+        path: 'input.kind',
+        detail: 'ECRP project load input kind must be runtime_session.load_ecrp_project.v0',
+      },
+    ];
+  }
+  if (input.projectBundle?.kind !== 'ProjectBundle') {
+    diagnostics.push({
+      code: 'missingProjectBundle',
+      path: 'projectBundle.kind',
+      detail: 'projectBundle.kind must be ProjectBundle',
+    });
+  }
+  if (!Array.isArray(input.entityDefinitions) || input.entityDefinitions.length === 0) {
+    diagnostics.push({
+      code: 'emptyEntityDefinitionList',
+      path: 'entityDefinitions',
+      detail: 'at least one EntityDefinition is required',
+    });
+  }
+  const definitions = new Map<string, RuntimeSessionEcrpEntityDefinition>();
+  input.entityDefinitions?.forEach((definition, index) => {
+    if (definition.kind !== 'EntityDefinition' || definition.stableId.trim().length === 0) {
+      diagnostics.push({
+        code: 'missingEntityDefinition',
+        path: `entityDefinitions.${index}.stableId`,
+        detail: 'EntityDefinition stableId is required',
+      });
+      return;
+    }
+    if (definitions.has(definition.stableId)) {
+      diagnostics.push({
+        code: 'duplicateEntityDefinition',
+        path: `entityDefinitions.${index}.stableId`,
+        detail: `duplicate EntityDefinition ${definition.stableId}`,
+      });
+    }
+    definitions.set(definition.stableId, definition);
+    validateEcrpCapabilities(definition, `entityDefinitions.${index}.capabilities`, diagnostics);
+  });
+  if (input.sceneDocument?.kind !== 'SceneDocument' || !Array.isArray(input.sceneDocument.placements)) {
+    diagnostics.push({
+      code: 'missingPlacement',
+      path: 'sceneDocument.placements',
+      detail: 'SceneDocument placements are required',
+    });
+    return diagnostics;
+  }
+  const placed = new Set<string>();
+  const runtimeIds = new Set<number>();
+  input.sceneDocument.placements.forEach((placement, index) => {
+    if (!definitions.has(placement.entityDefinitionId)) {
+      diagnostics.push({
+        code: 'unknownEntityDefinition',
+        path: `sceneDocument.placements.${index}.entityDefinitionId`,
+        detail: `placement references unknown EntityDefinition ${placement.entityDefinitionId}`,
+      });
+    }
+    if (placed.has(placement.entityDefinitionId)) {
+      diagnostics.push({
+        code: 'duplicatePlacement',
+        path: `sceneDocument.placements.${index}.entityDefinitionId`,
+        detail: `duplicate placement for EntityDefinition ${placement.entityDefinitionId}`,
+      });
+    }
+    placed.add(placement.entityDefinitionId);
+    if (placement.runtimeEntityId !== undefined) {
+      if (!Number.isSafeInteger(placement.runtimeEntityId) || placement.runtimeEntityId <= 0) {
+        diagnostics.push({
+          code: 'invalidCapability',
+          path: `sceneDocument.placements.${index}.runtimeEntityId`,
+          detail: 'runtimeEntityId must be a positive safe integer',
+        });
+      } else if (runtimeIds.has(placement.runtimeEntityId)) {
+        diagnostics.push({
+          code: 'duplicatePlacement',
+          path: `sceneDocument.placements.${index}.runtimeEntityId`,
+          detail: `duplicate runtimeEntityId ${placement.runtimeEntityId}`,
+        });
+      }
+      runtimeIds.add(placement.runtimeEntityId);
+    }
+  });
+  for (const definition of definitions.values()) {
+    if (!placed.has(definition.stableId)) {
+      diagnostics.push({
+        code: 'missingPlacement',
+        path: `sceneDocument.placements.${definition.stableId}`,
+        detail: `missing SceneDocument placement for ${definition.stableId}`,
+      });
+    }
+  }
+  return diagnostics;
+}
+
+function validateEcrpCapabilities(
+  definition: RuntimeSessionEcrpEntityDefinition,
+  path: string,
+  diagnostics: RuntimeSessionEcrpProjectDiagnostic[],
+): void {
+  const capabilityKinds = new Set<RuntimeSessionEcrpCapabilityKind>();
+  for (const capability of definition.capabilities ?? []) {
+    capabilityKinds.add(capability.kind);
+    if (capability.kind === 'transform' && !isVec3(capability.initial?.position)) {
+      diagnostics.push({
+        code: 'invalidCapability',
+        path: `${path}.transform.initial.position`,
+        detail: 'transform initial position must be a finite vec3',
+      });
+    }
+    if (capability.kind === 'collisionBody' && !isVec3(capability.halfExtents)) {
+      diagnostics.push({
+        code: 'invalidCapability',
+        path: `${path}.collisionBody.halfExtents`,
+        detail: 'collisionBody halfExtents must be a finite vec3',
+      });
+    }
+    if (capability.kind === 'health' && (!Number.isFinite(capability.current) || capability.current < 0 || !Number.isFinite(capability.max) || capability.max <= 0)) {
+      diagnostics.push({
+        code: 'invalidCapability',
+        path: `${path}.health`,
+        detail: 'health current/max must be finite and max must be positive',
+      });
+    }
+  }
+  for (const required of ['transform', 'health', 'renderProjection'] as const) {
+    if (!capabilityKinds.has(required)) {
+      diagnostics.push({
+        code: 'missingCapability',
+        path,
+        detail: `${definition.stableId} missing required ${required} capability`,
+      });
+    }
+  }
+}
+
+function isVec3(value: readonly number[] | undefined): value is readonly [number, number, number] {
+  return Array.isArray(value) && value.length === 3 && value.every((component) => Number.isFinite(component));
+}
+
+function buildEcrpProjectState(input: RuntimeSessionEcrpProjectLoadInput): RuntimeSessionEcrpProjectState {
+  const placements = new Map(
+    input.sceneDocument.placements.map((placement, index) => [placement.entityDefinitionId, { placement, index }]),
+  );
+  const entities = input.entityDefinitions.map((definition, index) => {
+    const placement = placements.get(definition.stableId)?.placement;
+    const entity = placement?.runtimeEntityId ?? inferredRuntimeEntityId(definition, index);
+    return {
+      entity,
+      definition,
+      role: inferRuntimeRole(definition),
+    };
+  });
+  return {
+    input,
+    entities,
+    bootstrapHash: stableHash({
+      project: {
+        gameId: input.projectBundle.project.gameId,
+        workspaceId: input.projectBundle.project.workspaceId,
+      },
+      runtimeRequest: projectBundleHashRecord(input.projectBundle.runtimeRequest),
+      sceneId: input.sceneDocument.sceneId,
+      entityIds: entities.map((entity) => entity.entity),
+      definitionIds: entities.map((entity) => entity.definition.stableId),
+      capabilityKinds: entities.map((entity) => entity.definition.capabilities.map((capability) => capability.kind)),
+    }),
+  };
+}
+
+function inferredRuntimeEntityId(definition: RuntimeSessionEcrpEntityDefinition, index: number): number {
+  const role = inferRuntimeRole(definition);
+  if (role === 'player') {
+    return 10;
+  }
+  if (role === 'enemy') {
+    return 20;
+  }
+  return 100 + index;
+}
+
+function inferRuntimeRole(definition: RuntimeSessionEcrpEntityDefinition): RuntimeSessionEcrpEntityState['role'] {
+  const faction = definition.capabilities.find((capability) => capability.kind === 'faction');
+  if (faction?.kind === 'faction') {
+    if (faction.factionId === 'player') {
+      return 'player';
+    }
+    if (faction.factionId === 'hostile') {
+      return 'enemy';
+    }
+  }
+  const controller = definition.capabilities.find((capability) => capability.kind === 'controller');
+  if (controller?.kind === 'controller' && controller.controller === 'player_input') {
+    return 'player';
+  }
+  if (definition.capabilities.some((capability) => capability.kind === 'policyBinding')) {
+    return 'enemy';
+  }
+  return 'neutral';
+}
+
+function lifecycleStateFromEcrpProject(state: RuntimeSessionEcrpProjectState): RuntimeSessionLifecycleState {
+  const player = state.entities.find((entity) => entity.role === 'player');
+  const enemy = state.entities.find((entity) => entity.role === 'enemy');
+  return {
+    player: lifecycleHealthFromEntity(player, 100),
+    enemy: lifecycleHealthFromEntity(enemy, 40),
+    terminalEvent: null,
+    revision: 0,
+  };
+}
+
+function lifecycleHealthFromEntity(
+  entity: RuntimeSessionEcrpEntityState | undefined,
+  fallbackMax: number,
+): RuntimeSessionLifecycleHealthReadout {
+  const health = entity?.definition.capabilities.find((capability) => capability.kind === 'health');
+  if (entity !== undefined && health?.kind === 'health') {
+    return lifecycleHealth(entity.entity, health.current, health.max, health.current <= 0);
+  }
+  return lifecycleHealth(entity?.entity ?? 0, fallbackMax, fallbackMax, false);
+}
+
+function ecrpCapabilitiesForEntity(
+  entity: RuntimeSessionEcrpEntityState,
+  lifecycleState: RuntimeSessionLifecycleState,
+): readonly RuntimeSessionEcrpCapabilityState[] {
+  return entity.definition.capabilities.map((capability) => ecrpCapabilityForDefinition(entity, capability, lifecycleState));
+}
+
+function ecrpCapabilityForDefinition(
+  entity: RuntimeSessionEcrpEntityState,
+  capability: RuntimeSessionEcrpProjectCapabilityDefinition,
+  lifecycleState: RuntimeSessionLifecycleState,
+): RuntimeSessionEcrpCapabilityState {
+  switch (capability.kind) {
+    case 'transform':
+      return ecrpTransform(capability.initial.position, capability.initial.yawDegrees, capability.initial.pitchDegrees);
+    case 'collisionBody':
+      return ecrpCollisionBody(capability.staticCollider ?? false, capability.halfExtents);
+    case 'controller':
+      return ecrpController(capability.controller);
+    case 'health':
+      return ecrpHealth(runtimeHealthForEntity(entity, capability, lifecycleState));
+    case 'weaponMount':
+      return ecrpWeaponMount(capability.weaponId);
+    case 'renderProjection':
+      return ecrpRenderProjection(renderVisibleForEntity(entity, capability, lifecycleState), capability.projection);
+    case 'policyBinding':
+      return ecrpPolicyBinding(capability.policyId);
+    case 'spawnMarker':
+      return ecrpSpawnMarker(capability.markerId);
+    case 'faction':
+      return ecrpFaction(capability.factionId);
+  }
+}
+
+function runtimeHealthForEntity(
+  entity: RuntimeSessionEcrpEntityState,
+  capability: Extract<RuntimeSessionEcrpProjectCapabilityDefinition, { readonly kind: 'health' }>,
+  lifecycleState: RuntimeSessionLifecycleState,
+): RuntimeSessionLifecycleHealthReadout {
+  if (entity.role === 'player') {
+    return lifecycleState.player;
+  }
+  if (entity.role === 'enemy') {
+    return lifecycleState.enemy;
+  }
+  return lifecycleHealth(entity.entity, capability.current, capability.max, capability.current <= 0);
+}
+
+function renderVisibleForEntity(
+  entity: RuntimeSessionEcrpEntityState,
+  capability: Extract<RuntimeSessionEcrpProjectCapabilityDefinition, { readonly kind: 'renderProjection' }>,
+  lifecycleState: RuntimeSessionLifecycleState,
+): boolean {
+  if (capability.visible !== undefined) {
+    return capability.visible;
+  }
+  if (entity.role === 'enemy') {
+    return !lifecycleState.enemy.dead;
+  }
+  if (entity.role === 'player') {
+    return !lifecycleState.player.dead;
+  }
+  return true;
+}
+
+function buildEcrpRuntimeReadout(input: {
+  readonly identity: RuntimeSessionIdentity;
+  readonly projectState: RuntimeSessionEcrpProjectState | null;
+  readonly lifecycleState: RuntimeSessionLifecycleState;
+  readonly sequenceId: number;
+  readonly tick: number;
+  readonly sessionHash: string;
+}): RuntimeSessionEcrpReadout {
+  const projectState =
+    input.projectState ?? buildEcrpProjectState(defaultRuntimeSessionEcrpProjectLoadInput({
+      sessionId: input.identity.sessionId,
+      seed: input.identity.seed,
+      project: input.identity.project,
+      projectBundle: input.identity.projectBundle,
+    }));
+  const entities = projectState.entities.map((entity) =>
+    ecrpEntityReadout({
+      entity: entity.entity,
+      definition: entity.definition,
+      capabilities: ecrpCapabilitiesForEntity(entity, input.lifecycleState),
+      events: ecrpEventsForEntity(input.lifecycleState, entity.entity),
+    }),
+  );
+  const capabilityStateHash = stableHash(
+    entities.map((entity) => entity.capabilities.map((capability) => capability.stateHash)),
+  );
+  const eventReadoutHash = stableHash(
+    entities.map((entity) => entity.recentEvents.map((event) => event.eventHash)),
+  );
+  const entityReadoutHash = stableHash({
+    entities: entities.map((entity) => entity.entityHash),
+    capabilityStateHash,
+    eventReadoutHash,
+  });
+
+  return {
+    kind: 'runtime_session.ecrp_readout.v0',
+    sequenceId: input.sequenceId,
+    tick: input.tick,
+    sessionHash: input.sessionHash,
+    project: input.identity.project,
+    projectBundle: input.identity.projectBundle,
+    entities,
+    entityCount: entities.length,
+    hashes: {
+      entityReadoutHash,
+      capabilityStateHash,
+      eventReadoutHash,
+    },
+    nonClaims: [
+      'not_raw_state_store',
+      'not_authoring_mode',
+      'not_demo_local_authority',
+    ],
+  };
+}
+
+function ecrpEntityReadout(input: {
+  readonly entity: number;
+  readonly definition: RuntimeSessionEcrpEntityDefinition;
+  readonly capabilities: readonly RuntimeSessionEcrpCapabilityState[];
+  readonly events: readonly RuntimeSessionEcrpEntityEventReadout[];
+}): RuntimeSessionEcrpEntityReadout {
+  const capabilityKinds = input.capabilities.map((capability) => capability.kind);
+  const entityHash = stableHash({
+    entity: input.entity,
+    definitionStableId: input.definition.stableId,
+    displayName: input.definition.displayName,
+    sourcePath: input.definition.source.relativePath,
+    capabilityKinds,
+    capabilityStateHashes: input.capabilities.map((capability) => capability.stateHash),
+    eventHashes: input.events.map((event) => event.eventHash),
+  });
+  return {
+    entity: input.entity,
+    lifecycle: 'active',
+    definitionStableId: input.definition.stableId,
+    displayName: input.definition.displayName,
+    source: {
+      projectBundle: input.definition.source.projectBundle,
+      relativePath: input.definition.source.relativePath,
+    },
+    capabilityKinds,
+    capabilities: input.capabilities,
+    recentEvents: input.events,
+    entityHash,
+  };
+}
+
+function ecrpEventsForEntity(
+  state: RuntimeSessionLifecycleState,
+  entity: number,
+): readonly RuntimeSessionEcrpEntityEventReadout[] {
+  const events: RuntimeSessionEcrpEntityEventReadout[] = [
+    {
+      kind: 'runtime_session.bootstrap_entity.v0',
+      entity,
+      tick: 0,
+      eventHash: stableHash({
+        kind: 'runtime_session.bootstrap_entity.v0',
+        entity,
+      }),
+    },
+  ];
+  if (state.terminalEvent !== null && state.terminalEvent.entity === entity) {
+    events.push({
+      kind: state.terminalEvent.kind,
+      entity,
+      tick: state.terminalEvent.tick,
+      eventHash: state.terminalEvent.eventHash,
+    });
+  }
+  return events;
+}
+
+function ecrpTransform(
+  position: readonly [number, number, number],
+  yawDegrees: number,
+  pitchDegrees: number,
+): RuntimeSessionEcrpCapabilityState {
+  const state = { kind: 'transform' as const, position, yawDegrees, pitchDegrees };
+  return { ...state, stateHash: stableHash(state) };
+}
+
+function ecrpCollisionBody(
+  staticCollider: boolean,
+  bounds: readonly [number, number, number],
+): RuntimeSessionEcrpCapabilityState {
+  const state = { kind: 'collisionBody' as const, staticCollider, bounds };
+  return { ...state, stateHash: stableHash(state) };
+}
+
+function ecrpController(
+  controller: Extract<RuntimeSessionEcrpCapabilityState, { readonly kind: 'controller' }>['controller'],
+): RuntimeSessionEcrpCapabilityState {
+  const state = { kind: 'controller' as const, controller };
+  return { ...state, stateHash: stableHash(state) };
+}
+
+function ecrpHealth(health: RuntimeSessionLifecycleHealthReadout): RuntimeSessionEcrpCapabilityState {
+  const state = {
+    kind: 'health' as const,
+    current: health.current,
+    max: health.max,
+    dead: health.dead,
+  };
+  return { ...state, stateHash: stableHash(state) };
+}
+
+function ecrpWeaponMount(
+  weaponId: Extract<RuntimeSessionEcrpCapabilityState, { readonly kind: 'weaponMount' }>['weaponId'],
+): RuntimeSessionEcrpCapabilityState {
+  const state = { kind: 'weaponMount' as const, weaponId };
+  return { ...state, stateHash: stableHash(state) };
+}
+
+function ecrpRenderProjection(
+  visible: boolean,
+  projection: Extract<RuntimeSessionEcrpCapabilityState, { readonly kind: 'renderProjection' }>['projection'],
+): RuntimeSessionEcrpCapabilityState {
+  const state = { kind: 'renderProjection' as const, visible, projection };
+  return { ...state, stateHash: stableHash(state) };
+}
+
+function ecrpPolicyBinding(
+  policyId: Extract<RuntimeSessionEcrpCapabilityState, { readonly kind: 'policyBinding' }>['policyId'],
+): RuntimeSessionEcrpCapabilityState {
+  const state = { kind: 'policyBinding' as const, policyId };
+  return { ...state, stateHash: stableHash(state) };
+}
+
+function ecrpSpawnMarker(
+  markerId: Extract<RuntimeSessionEcrpCapabilityState, { readonly kind: 'spawnMarker' }>['markerId'],
+): RuntimeSessionEcrpCapabilityState {
+  const state = { kind: 'spawnMarker' as const, markerId };
+  return { ...state, stateHash: stableHash(state) };
+}
+
+function ecrpFaction(
+  factionId: Extract<RuntimeSessionEcrpCapabilityState, { readonly kind: 'faction' }>['factionId'],
+): RuntimeSessionEcrpCapabilityState {
+  const state = { kind: 'faction' as const, factionId };
+  return { ...state, stateHash: stableHash(state) };
 }
 
 function validateNavPathQueryRequest(request: NavPathQueryRequest): void {

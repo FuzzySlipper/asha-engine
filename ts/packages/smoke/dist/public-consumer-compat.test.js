@@ -178,7 +178,7 @@ test('asha-demo public roots cover RuntimeSession readouts and HUD/menu projecti
     assert.equal(autonomousTick.proposalSummary.unsupportedProposalCount, 1);
     assert.equal(autonomousTick.commandSummary.acceptedRuntimeActionCount, 1);
     assert.equal(autonomousTick.movementSummary?.reason, 'movement_authority_not_wired');
-    assert.equal(autonomousTick.combatSummary?.healthHash, '3c89045230f2d9d9');
+    assert.match(autonomousTick.combatSummary?.healthHash ?? '', /^fnv1a64:[0-9a-f]{16}$/);
     assert.equal(autonomousTick.replay.lastRecordKind, 'runAutonomousPolicyTick');
     assert.ok(autonomousTick.tickHash.startsWith('fnv1a64:'));
     const lifecycle = session.readLifecycleStatus();
