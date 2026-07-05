@@ -4,7 +4,6 @@ export type { CameraCreateRequest, CameraProjectionRequest, CameraProjectionSnap
 export { decodeRenderDiff, decodeRenderFrameDiff, RenderDecodeError, RenderDiffStream, FrameMemory, } from './render-decode.js';
 export { RuntimeBridgeError, frameCursor } from './bridge.js';
 export type { CompositionStatus, EngineConfig, EngineHandle, FrameCursor, ReplayFixture, ReplaySessionHandle, ReplayStepReport, RuntimeBridge, RuntimeBridgeErrorKind, RuntimeBufferHandle, RuntimeBufferView, StepInputEnvelope, StepResult, VoxelMeshBoundsEvidence, VoxelMeshChunkEvidence, VoxelMeshEvidenceRequest, VoxelMeshEvidenceSnapshot, VoxelMeshStatsEvidence, WorldLoadRequest, WorldSaveSummary, } from './bridge.js';
-export * from './mock.js';
 export * from './browser-fps-input.js';
 export * from './combat-readout.js';
 export * from './generated-tunnel.js';

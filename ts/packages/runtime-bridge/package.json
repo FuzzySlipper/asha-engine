@@ -8,6 +8,7 @@
       "role": "runtime-facade",
       "allowedConsumers": ["asha-testing", "asha-demo", "asha-studio"],
       "rootExportOnly": true,
+      "allowedExportSubpaths": ["./reference"],
       "nativeTransportAccess": true,
       "nativeTransportRule": "@asha/runtime-bridge is the only public package allowed to import @asha/native-bridge; consumers must not import raw transports directly."
     },
@@ -26,6 +27,12 @@
       "browser": "./dist/browser.js",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./reference": {
+      "types": "./dist/reference.d.ts",
+      "browser": "./dist/reference.js",
+      "import": "./dist/reference.js",
+      "default": "./dist/reference.js"
     }
   },
   "scripts": {

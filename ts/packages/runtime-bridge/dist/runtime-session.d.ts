@@ -519,7 +519,28 @@ export interface RuntimeSessionFacade {
     restart(): RuntimeSessionRestartResult;
 }
 export interface RuntimeSessionFacadeOptions {
-    readonly bridge?: RuntimeBridge;
+    readonly bridge: RuntimeBridge;
 }
-export declare function createMockRuntimeSession(options?: RuntimeSessionFacadeOptions): RuntimeSessionFacade;
+export type RuntimeSessionHashPrimitive = string | number | boolean | null;
+export type RuntimeSessionHashValue = RuntimeSessionHashPrimitive | readonly RuntimeSessionHashValue[] | RuntimeSessionHashRecord;
+export interface RuntimeSessionHashRecord {
+    readonly [key: string]: RuntimeSessionHashValue | undefined;
+}
+export interface RuntimeSessionLifecycleState {
+    readonly player: RuntimeSessionLifecycleHealthReadout;
+    readonly enemy: RuntimeSessionLifecycleHealthReadout;
+    readonly terminalEvent: RuntimeSessionLifecycleEventReadout | null;
+    readonly revision: number;
+}
+export interface RuntimeSessionEcrpEntityState {
+    readonly entity: number;
+    readonly definition: RuntimeSessionEcrpEntityDefinition;
+    readonly role: RuntimeSessionLifecycleRole | 'neutral';
+}
+export interface RuntimeSessionEcrpProjectState {
+    readonly input: RuntimeSessionEcrpProjectLoadInput;
+    readonly entities: readonly RuntimeSessionEcrpEntityState[];
+    readonly bootstrapHash: string;
+}
+export declare function createRuntimeSessionFacade(options: RuntimeSessionFacadeOptions): RuntimeSessionFacade;
 //# sourceMappingURL=runtime-session.d.ts.map

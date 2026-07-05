@@ -32,7 +32,7 @@ function selectedContext(over: Partial<EditorContext> = {}): EditorContext {
 
 // ── camera ──────────────────────────────────────────────────────────────────
 
-test('camera transforms are deterministic and keep the target', () => {
+void test('camera transforms are deterministic and keep the target', () => {
   const cam = defaultCamera();
   const a = orbitYaw(cam, Math.PI / 2);
   const b = orbitYaw(cam, Math.PI / 2);
@@ -43,7 +43,7 @@ test('camera transforms are deterministic and keep the target', () => {
   assert.deepEqual(d.position, [4, 4, 4]);
 });
 
-test('camera collision clamps out of a solid using the injected query', () => {
+void test('camera collision clamps out of a solid using the injected query', () => {
   const cam = { position: [0, 0, 0] as Vec3, target: [-1, 0, 0] as Vec3, up: [0, 1, 0] as Vec3, fovDegrees: 60 };
   // Everything with x <= 2 is "solid"; the camera should be pushed to x > 2.
   const isSolid = (p: Vec3) => p[0] <= 2;
@@ -57,7 +57,7 @@ test('camera collision clamps out of a solid using the injected query', () => {
 
 // ── inspector (pure read model) ───────────────────────────────────────────────
 
-test('inspector is a pure function of editor context + diagnostics, holding no copy', () => {
+void test('inspector is a pure function of editor context + diagnostics, holding no copy', () => {
   const ctx = selectedContext({ brushShape: 'box', brushSize: 3, material: 9 });
   const readout = inspect(ctx, { residentChunks: 4, lastMeshQuads: 96 });
   assert.equal(readout.tool, 'place');
@@ -73,7 +73,7 @@ test('inspector is a pure function of editor context + diagnostics, holding no c
   assert.deepEqual(inspect(ctx, { residentChunks: 4, lastMeshQuads: 96 }), readout);
 });
 
-test('inspector reflects store changes without storing a voxel-state copy', () => {
+void test('inspector reflects store changes without storing a voxel-state copy', () => {
   const store = new EditorStore(selectedContext());
   const before = inspect(store.getState());
   store.dispatch({ type: 'setTool', tool: 'remove' });
@@ -89,7 +89,7 @@ test('inspector reflects store changes without storing a voxel-state copy', () =
 
 // ── debug overlay (non-authoritative) ─────────────────────────────────────────
 
-test('preview overlay emits debug-layer wireframe diffs, never scene/authority', () => {
+void test('preview overlay emits debug-layer wireframe diffs, never scene/authority', () => {
   const ctx = selectedContext({ brushSize: 1 });
   const diffs = previewOverlayDiffs(ctx);
   assert.equal(diffs.length, 1);
@@ -103,12 +103,12 @@ test('preview overlay emits debug-layer wireframe diffs, never scene/authority',
   }
 });
 
-test('preview overlay is empty when preview is disabled or nothing selected', () => {
+void test('preview overlay is empty when preview is disabled or nothing selected', () => {
   assert.deepEqual(previewOverlayDiffs(selectedContext({ preview: { enabled: false } })), []);
   assert.deepEqual(previewOverlayDiffs(initialEditorContext(0)), []); // no selection
 });
 
-test('cameraPointerRay: centre pointer casts from the camera toward its target', () => {
+void test('cameraPointerRay: centre pointer casts from the camera toward its target', () => {
   const cam = defaultCamera(); // position [8,8,8] looking at origin
   const ray = cameraPointerRay(cam, [0, 0], 1, 1);
   assert.equal(ray.grid, 1);
@@ -120,7 +120,7 @@ test('cameraPointerRay: centre pointer casts from the camera toward its target',
   }
 });
 
-test('cameraPointerRay: a right-of-centre pointer aims further along +x in world space', () => {
+void test('cameraPointerRay: a right-of-centre pointer aims further along +x in world space', () => {
   // Camera on +Z looking at origin, world up +Y: screen-right maps to world +X.
   const cam = { position: [0, 0, 10] as Vec3, target: [0, 0, 0] as Vec3, up: [0, 1, 0] as Vec3, fovDegrees: 60 };
   const centre = cameraPointerRay(cam, [0, 0], 1, 1);
@@ -133,7 +133,7 @@ test('cameraPointerRay: a right-of-centre pointer aims further along +x in world
 
 // ── material palette + accessible editor controls (#2438) ──────────────────────
 
-test('materialPalette is built from the loaded catalog ids, not a hardcoded palette', () => {
+void test('materialPalette is built from the loaded catalog ids, not a hardcoded palette', () => {
   // Ids come from the loaded fixture/catalog read model.
   assert.deepEqual(materialPalette([1, 2, 3]), [
     { id: 1, label: 'Material 1' },
@@ -150,7 +150,7 @@ const findControl = (controls: readonly EditorControl[], id: string): EditorCont
   return c;
 };
 
-test('buildEditorControls exposes accessible labels + roles for every control (agent-navigable)', () => {
+void test('buildEditorControls exposes accessible labels + roles for every control (agent-navigable)', () => {
   const ctx = { ...initialEditorContext(0), tool: 'paint' as const, material: 2 };
   const controls = buildEditorControls(ctx, materialPalette([1, 2, 3]));
   // Every control has a stable id, an ARIA role, and a non-empty accessible label.
@@ -173,7 +173,7 @@ test('buildEditorControls exposes accessible labels + roles for every control (a
   assert.equal(material.options?.find((o) => o.selected)?.value, '2');
 });
 
-test('control enablement: commit needs a proposal, cancel needs a selection, brush-size needs box', () => {
+void test('control enablement: commit needs a proposal, cancel needs a selection, brush-size needs box', () => {
   const palette = materialPalette([1, 2, 3]);
   // No selection → commit + cancel disabled; single shape → brush-size disabled.
   const empty = buildEditorControls(initialEditorContext(0), palette);
@@ -197,7 +197,7 @@ test('control enablement: commit needs a proposal, cancel needs a selection, bru
   assert.equal(size.max, MAX_BRUSH_SIZE);
 });
 
-test('controlToAction maps interactions to editor actions and round-trips through reduce', () => {
+void test('controlToAction maps interactions to editor actions and round-trips through reduce', () => {
   let ctx = initialEditorContext(0);
   const apply = (id: string, value: string): void => {
     const action = controlToAction(id, value);
@@ -223,7 +223,7 @@ test('controlToAction maps interactions to editor actions and round-trips throug
 
 // ── HUD/menu projection (#4043) ───────────────────────────────────────────────
 
-test('buildHudProjection exposes health, status, non-claims, and menu controls', () => {
+void test('buildHudProjection exposes health, status, non-claims, and menu controls', () => {
   const projection = buildHudProjection({
     health: { entity: 20, current: 24, max: 40, dead: false },
     status: [{ id: 'runtime', tone: 'info', text: 'Reference runtime' }],
@@ -252,7 +252,7 @@ test('buildHudProjection exposes health, status, non-claims, and menu controls',
   }
 });
 
-test('HUD menu controls map to typed intents only', () => {
+void test('HUD menu controls map to typed intents only', () => {
   assert.deepEqual(hudControlToIntent('hud-restart'), {
     kind: 'runtime.restart_session_intent',
     source: 'hud_menu',
@@ -278,7 +278,7 @@ test('HUD menu controls map to typed intents only', () => {
   assert.equal('submit' in restart, false);
 });
 
-test('HUD health projection validates invalid readout data and marks defeated state', () => {
+void test('HUD health projection validates invalid readout data and marks defeated state', () => {
   const defeated = buildHudProjection({
     health: { entity: 20, current: 0, max: 40, dead: true },
     status: [{ id: 'combat', tone: 'danger', text: 'Defeated' }],

@@ -49,7 +49,7 @@ export type _CompactionSectionPresent = AssertExact<
   CompactionSummary
 >;
 
-test('world DTO drift guard compiles (see type assertions above)', () => {
+void test('world DTO drift guard compiles (see type assertions above)', () => {
   // The real guard is the compile-time AssertExact<…> exports; this runtime body
   // exists so the file registers as a test and documents the intent.
   assert.ok(true);

@@ -24,15 +24,15 @@ function git(args) {
     }
 }
 function selectedMode() {
-    return process.env.ASHA_PERF_MODE === 'authority' ? 'authority' : 'reference';
+    return process.env['ASHA_PERF_MODE'] === 'authority' ? 'authority' : 'reference';
 }
 async function main() {
     const mode = selectedMode();
     const env = {
         ...process.env,
-        ASHA_PERF_COMMIT: process.env.ASHA_PERF_COMMIT ?? git(['rev-parse', '--short', 'HEAD']) ?? 'unknown',
-        ASHA_PERF_BRANCH: process.env.ASHA_PERF_BRANCH ?? git(['rev-parse', '--abbrev-ref', 'HEAD']) ?? 'unknown',
-        ASHA_PERF_HOST: process.env.ASHA_PERF_HOST ?? hostname(),
+        ASHA_PERF_COMMIT: process.env['ASHA_PERF_COMMIT'] ?? git(['rev-parse', '--short', 'HEAD']) ?? 'unknown',
+        ASHA_PERF_BRANCH: process.env['ASHA_PERF_BRANCH'] ?? git(['rev-parse', '--abbrev-ref', 'HEAD']) ?? 'unknown',
+        ASHA_PERF_HOST: process.env['ASHA_PERF_HOST'] ?? hostname(),
     };
     const result = await runGpuPerf({
         env,

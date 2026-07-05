@@ -623,7 +623,7 @@ function getStringArray(document, section, key, diagnostics) {
     return value;
 }
 function getBackendMode(document, diagnostics) {
-    const value = document.runtime?.['backend_mode'];
+    const value = document['runtime']?.['backend_mode'];
     if (value === 'reference' || value === 'native' || value === 'wasm') {
         return value;
     }

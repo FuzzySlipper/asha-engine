@@ -66,9 +66,13 @@ CapabilityState, health, render visibility, recent events, and hashes from the
 loaded runtime project state.
 
 Accepted primary-fire runtime action updates the loaded enemy lifecycle/health
-state, render visibility, recent event list, and readout hashes. The combat
-fixture still supplies the narrow primary-fire outcome in the reference bridge,
-but the state mutation is applied to the loaded enemy entity id.
+state, render visibility, recent event list, and readout hashes. The action
+receipt's combat readout is also derived from the same loaded player/enemy state:
+the target entity id, health before/after/max, damage amount, event entity ids,
+fixture marker, health hash, and replay hash agree with the ECRP readout. The
+older generated-tunnel fixture remains available through `readCombatReadout()`
+for committed golden/compatibility evidence, but it is no longer the source of
+truth for loaded-project primary-fire receipts.
 
 ## Non-Claims
 

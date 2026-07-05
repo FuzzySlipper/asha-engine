@@ -9,7 +9,7 @@
 
 #![forbid(unsafe_code)]
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Stable telemetry source strings in declaration order.
 pub const TELEMETRY_SOURCES: &[&str] = &["runtime", "policy", "renderer", "devtools", "replay"];
@@ -21,7 +21,7 @@ pub const TELEMETRY_LEVELS: &[&str] = &["debug", "info", "warning", "error"];
 pub const TELEMETRY_METRIC_KINDS: &[&str] = &["counter", "gauge", "durationMs"];
 
 /// Component that produced an observational telemetry event.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TelemetrySource {
     Runtime,
@@ -44,7 +44,7 @@ impl TelemetrySource {
 }
 
 /// Severity of an observational telemetry event.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TelemetryLevel {
     Debug,
@@ -65,7 +65,7 @@ impl TelemetryLevel {
 }
 
 /// Metric value category.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TelemetryMetricKind {
     Counter,
@@ -84,7 +84,7 @@ impl TelemetryMetricKind {
 }
 
 /// One numeric telemetry sample.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TelemetryMetric {
     pub name: String,
@@ -94,7 +94,7 @@ pub struct TelemetryMetric {
 }
 
 /// One observational telemetry event.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum TelemetryEvent {
     Metric {
@@ -122,7 +122,7 @@ impl TelemetryEvent {
 }
 
 /// A batch of telemetry events emitted for one observation point.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TelemetryEnvelope {
     pub protocol_version: u32,
@@ -150,5 +150,58 @@ mod tests {
             message: "ready".to_string(),
         };
         assert_eq!(event.kind(), "trace");
+    }
+
+    #[test]
+    fn telemetry_envelope_round_trips_with_camel_case_wire_shape() {
+        let envelope = TelemetryEnvelope {
+            protocol_version: 1,
+            emitted_at_tick: 77,
+            events: vec![
+                TelemetryEvent::Metric {
+                    source: TelemetrySource::Runtime,
+                    level: TelemetryLevel::Info,
+                    sequence: 10,
+                    metric: TelemetryMetric {
+                        name: "frame.step".to_string(),
+                        kind: TelemetryMetricKind::DurationMs,
+                        value: 1.25,
+                        unit: Some("ms".to_string()),
+                    },
+                },
+                TelemetryEvent::Trace {
+                    source: TelemetrySource::Policy,
+                    level: TelemetryLevel::Warning,
+                    sequence: 11,
+                    span: "policy.tick".to_string(),
+                    message: "proposal rejected".to_string(),
+                },
+            ],
+        };
+
+        let json = serde_json::to_string_pretty(&envelope).expect("telemetry serializes");
+        assert!(json.contains(r#""protocolVersion": 1"#));
+        assert!(json.contains(r#""emittedAtTick": 77"#));
+        assert!(json.contains(r#""kind": "durationMs""#));
+        assert!(json.contains(r#""source": "policy""#));
+
+        let decoded: TelemetryEnvelope =
+            serde_json::from_str(&json).expect("telemetry deserializes");
+        assert_eq!(decoded, envelope);
+        assert_eq!(decoded.events[0].kind(), "metric");
+        assert_eq!(decoded.events[1].kind(), "trace");
+    }
+
+    #[test]
+    fn telemetry_rejects_unknown_wire_vocabulary() {
+        let err = serde_json::from_str::<TelemetryEvent>(
+            r#"{"kind":"domainEvent","source":"runtime","level":"info","sequence":1}"#,
+        )
+        .expect_err("unknown telemetry event kind is rejected");
+        assert!(err.to_string().contains("unknown variant"));
+
+        let err = serde_json::from_str::<TelemetryMetricKind>(r#""histogram""#)
+            .expect_err("unknown telemetry metric kind is rejected");
+        assert!(err.to_string().contains("unknown variant"));
     }
 }

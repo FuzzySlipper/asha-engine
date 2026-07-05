@@ -67,7 +67,6 @@ export type {
   WorldLoadRequest,
   WorldSaveSummary,
 } from './bridge.js';
-export * from './mock.js';
 export * from './browser-fps-input.js';
 export * from './combat-readout.js';
 export * from './generated-tunnel.js';

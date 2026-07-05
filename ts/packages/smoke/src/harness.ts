@@ -18,13 +18,13 @@
 //     capability is classified honestly, never downgraded to mock success.
 
 import {
-  createMockRuntimeBridge,
   createNativeRuntimeBridge,
   frameCursor,
   RuntimeBridgeError,
   type RuntimeBridge,
   type RuntimeBufferHandle,
 } from '@asha/runtime-bridge';
+import { createMockRuntimeBridge } from '@asha/runtime-bridge/reference';
 import type { RenderDiff } from '@asha/contracts';
 import { renderHandle } from '@asha/contracts';
 import { ThreeRenderer } from '@asha/renderer-three';

@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { cameraHandle } from '@asha/contracts';
-import { RuntimeBridgeError, createMockRuntimeSession } from './index.js';
+import { RuntimeBridgeError } from './index.js';
+import { createMockRuntimeSession } from './reference.js';
 function sessionInput() {
     return {
         sessionId: 'runtime-session.asha-demo.reference',
@@ -140,7 +141,7 @@ function ecrpProjectLoadInput() {
         },
     };
 }
-test('RuntimeSession initializes, ticks, reads projection and telemetry, then restarts', () => {
+void test('RuntimeSession initializes, ticks, reads projection and telemetry, then restarts', () => {
     const session = createMockRuntimeSession();
     const initialized = session.initialize(sessionInput());
     assert.equal(initialized.identity.sessionId, 'runtime-session.asha-demo.reference');
@@ -178,7 +179,7 @@ test('RuntimeSession initializes, ticks, reads projection and telemetry, then re
     assert.equal(afterRestart.rejectedCommandCount, 0);
     assert.equal(afterRestart.replayRecords.at(-1)?.kind, 'restart');
 });
-test('RuntimeSession fails closed before initialize and on unsupported ProjectBundle', () => {
+void test('RuntimeSession fails closed before initialize and on unsupported ProjectBundle', () => {
     const session = createMockRuntimeSession();
     assert.throws(() => session.tick(), (error) => error instanceof RuntimeBridgeError && error.kind === 'not_initialized');
     assert.throws(() => session.initialize({
@@ -190,7 +191,7 @@ test('RuntimeSession fails closed before initialize and on unsupported ProjectBu
         },
     }), (error) => error instanceof RuntimeBridgeError && error.kind === 'invalid_input');
 });
-test('RuntimeSession exposes public ECRP entity and CapabilityState readouts', () => {
+void test('RuntimeSession exposes public ECRP entity and CapabilityState readouts', () => {
     const session = createMockRuntimeSession();
     assert.throws(() => session.readEcrpRuntimeReadout(), (error) => error instanceof RuntimeBridgeError && error.kind === 'not_initialized');
     session.initialize(sessionInput());
@@ -245,7 +246,7 @@ test('RuntimeSession exposes public ECRP entity and CapabilityState readouts', (
     assert.notEqual(afterFire.hashes.capabilityStateHash, initial.hashes.capabilityStateHash);
     assert.notEqual(afterFire.hashes.eventReadoutHash, initial.hashes.eventReadoutHash);
 });
-test('RuntimeSession loads ECRP ProjectBundle content into live readouts', () => {
+void test('RuntimeSession loads ECRP ProjectBundle content into live readouts', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
     const load = session.loadEcrpProject(ecrpProjectLoadInput());
@@ -305,7 +306,7 @@ test('RuntimeSession loads ECRP ProjectBundle content into live readouts', () =>
     assert.equal(defeatedRender?.visible, false);
     assert.ok(defeatedEnemy?.recentEvents.some((event) => event.kind === 'runtime_lifecycle.enemy_defeated.v0'));
 });
-test('RuntimeSession rejects invalid ECRP ProjectBundle content without replacing live state', () => {
+void test('RuntimeSession rejects invalid ECRP ProjectBundle content without replacing live state', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
     const before = session.readEcrpRuntimeReadout();
@@ -329,7 +330,7 @@ test('RuntimeSession rejects invalid ECRP ProjectBundle content without replacin
     const after = session.readEcrpRuntimeReadout();
     assert.deepEqual(after.entities.map((entity) => entity.definitionStableId), before.entities.map((entity) => entity.definitionStableId));
 });
-test('RuntimeSession applies collision-constrained camera input against the static room fixture', () => {
+void test('RuntimeSession applies collision-constrained camera input against the static room fixture', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
     const cameraRequest = {
@@ -398,7 +399,7 @@ test('RuntimeSession applies collision-constrained camera input against the stat
     const telemetry = session.readTelemetry();
     assert.equal(telemetry.replayRecords.at(-1)?.kind, 'applyCollisionConstrainedCameraInput');
 });
-test('collision-constrained camera movement is horizontal and target-obstacle constrained', () => {
+void test('collision-constrained camera movement is horizontal and target-obstacle constrained', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
     const collisionShape = { halfExtents: [0.25, 0.7, 0.25] };
@@ -476,7 +477,7 @@ test('collision-constrained camera movement is horizontal and target-obstacle co
     assert.ok(yawedForward.snapshot.after.pose.position[2] < 0);
     assert.ok(Math.abs(yawedForward.snapshot.after.pose.position[1] - 1.62) < 0.00001);
 });
-test('collision-constrained camera movement uses same-tick look deltas for forward movement', () => {
+void test('collision-constrained camera movement uses same-tick look deltas for forward movement', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
     const camera = session.createCamera({
@@ -517,7 +518,7 @@ test('collision-constrained camera movement uses same-tick look deltas for forwa
     assert.ok(moved.snapshot.after.pose.position[2] < 1.5);
     assert.ok(Math.abs(moved.snapshot.after.pose.position[1] - 1.62) < 0.00001);
 });
-test('RuntimeSession exposes the generated tunnel fixture readout and fail-closed operations', () => {
+void test('RuntimeSession exposes the generated tunnel fixture readout and fail-closed operations', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
     const readout = session.readGeneratedTunnelReadout({ presetId: 'tiny-enclosed', seed: 17 });
@@ -551,7 +552,7 @@ test('RuntimeSession exposes the generated tunnel fixture readout and fail-close
     assert.equal(session.readTelemetry().replayRecords.at(-1)?.kind, 'requestGeneratedTunnelOperation');
     assert.throws(() => session.readGeneratedTunnelReadout({ presetId: 'tiny-enclosed', seed: 18 }), (error) => error instanceof RuntimeBridgeError && error.kind === 'invalid_input');
 });
-test('RuntimeSession exposes fire combat health readouts from typed action intents', () => {
+void test('RuntimeSession exposes fire combat health readouts from typed action intents', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
     const camera = session.createCamera({
@@ -606,7 +607,7 @@ test('RuntimeSession exposes fire combat health readouts from typed action inten
     assert.equal(useReceipt.status, 'unsupported');
     assert.equal(useReceipt.rejection?.reason, 'combat_runtime_not_wired');
 });
-test('RuntimeSession exposes read-only nav projection, path, and policy view readouts', () => {
+void test('RuntimeSession exposes read-only nav projection, path, and policy view readouts', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
     const projection = session.readNavProjection();

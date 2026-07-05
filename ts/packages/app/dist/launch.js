@@ -8,7 +8,8 @@
 // loads the active fixture, projects authority through the facade, and returns the
 // deterministic `ShellReadout`. It never silently downgrades — an authority launch with
 // no native addon reports `unavailable`, not a faked mock success.
-import { createMockRuntimeBridge, createNativeRuntimeBridge, RuntimeBridgeError, } from '@asha/runtime-bridge';
+import { createNativeRuntimeBridge, RuntimeBridgeError, } from '@asha/runtime-bridge';
+import { createMockRuntimeBridge } from '@asha/runtime-bridge/reference';
 import { composeAppShell, threeRendererPort } from './shell.js';
 /** The documented dev/launch commands (referenced by the host READMEs and Den docs). */
 export const SHELL_LAUNCH_COMMAND = 'pnpm --filter @asha/app dev:asha-shell';

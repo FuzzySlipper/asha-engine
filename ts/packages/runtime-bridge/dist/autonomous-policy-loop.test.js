@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createMockRuntimeSession } from './index.js';
+import { createMockRuntimeSession } from './reference.js';
 function sessionInput() {
     return {
         sessionId: 'runtime-session.autonomous-policy.reference',
@@ -34,7 +34,7 @@ function cameraRequest() {
         },
     };
 }
-test('RuntimeSession runs deterministic autonomous enemy policy ticks through typed proposals', () => {
+void test('RuntimeSession runs deterministic autonomous enemy policy ticks through typed proposals', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
     const camera = session.createCamera(cameraRequest()).snapshot.camera;
@@ -87,7 +87,7 @@ test('RuntimeSession runs deterministic autonomous enemy policy ticks through ty
     assert.notEqual(second.tickHash, first.tickHash);
     assert.equal(session.readTelemetry().replayRecords.filter((record) => record.kind === 'runAutonomousPolicyTick').length, 2);
 });
-test('RuntimeSession rejects autonomous policy proposals when source references forbidden capabilities', () => {
+void test('RuntimeSession rejects autonomous policy proposals when source references forbidden capabilities', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
     const camera = session.createCamera(cameraRequest()).snapshot.camera;

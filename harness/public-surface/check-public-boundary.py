@@ -31,6 +31,13 @@ def package_dir_from_name(package_name: str) -> str:
     return package_name.removeprefix(prefix)
 
 
+def package_root_from_specifier(specifier: str) -> str:
+    parts = specifier.split("/")
+    if len(parts) < 2 or parts[0] != "@asha":
+        fail(f"public surface specifier is not an @asha package specifier: {specifier}")
+    return "/".join(parts[:2])
+
+
 def package_json(package_name: str) -> dict[str, Any]:
     return read_json(REPO_ROOT / "ts" / "packages" / package_dir_from_name(package_name) / "package.json")
 
@@ -45,13 +52,17 @@ def actual_package_names() -> set[str]:
     return names
 
 
-def require_root_only_export(pkg_name: str, pkg: dict[str, Any]) -> None:
+def require_root_only_export(pkg_name: str, pkg: dict[str, Any], record: dict[str, Any]) -> None:
     exports_value = pkg.get("exports")
     if not isinstance(exports_value, dict):
         fail(f"{pkg_name} must define package exports")
     exports: dict[str, Any] = cast(dict[str, Any], exports_value)
-    if sorted(exports.keys()) != ["."]:
-        fail(f"{pkg_name} must expose only the root export; got {sorted(exports.keys())}")
+    allowed_subpaths = record.get("allowedExportSubpaths", [])
+    if not isinstance(allowed_subpaths, list) or not all(isinstance(path, str) for path in allowed_subpaths):
+        fail(f"{pkg_name} allowedExportSubpaths must be a string array when present")
+    expected_exports = [".", *cast(list[str], allowed_subpaths)]
+    if sorted(exports.keys()) != sorted(expected_exports):
+        fail(f"{pkg_name} must expose only approved exports; got {sorted(exports.keys())}, expected {sorted(expected_exports)}")
 
 
 def github_anchor(heading: str) -> str:
@@ -165,10 +176,13 @@ def check_consumer_policies(manifest: dict[str, Any], records_by_package: dict[s
         seen_roles.add(role)
 
         approved = policy.get("approvedPackageRoots")
+        approved_subpaths = policy.get("approvedPackageSubpaths", [])
         forbidden = policy.get("forbiddenPackageRoots")
         patterns = policy.get("forbiddenSpecifierPatterns")
         if not isinstance(approved, list) or not all(isinstance(pkg, str) for pkg in approved):
             fail(f"{role} consumer policy approvedPackageRoots must be a string array")
+        if not isinstance(approved_subpaths, list) or not all(isinstance(pkg, str) for pkg in approved_subpaths):
+            fail(f"{role} consumer policy approvedPackageSubpaths must be a string array when present")
         if not isinstance(forbidden, list) or not all(isinstance(pkg, str) for pkg in forbidden):
             fail(f"{role} consumer policy forbiddenPackageRoots must be a string array")
         if not isinstance(patterns, list) or not all(isinstance(pattern, str) for pattern in patterns):
@@ -189,6 +203,22 @@ def check_consumer_policies(manifest: dict[str, Any], records_by_package: dict[s
             allowed_roles = record.get("allowedConsumerRoles")
             if not isinstance(allowed_roles, list) or role not in allowed_roles:
                 fail(f"{role} consumer policy approves {pkg_name}, but package manifest does not allow that role")
+
+        for specifier in cast(list[str], approved_subpaths):
+            root = package_root_from_specifier(specifier)
+            if root not in approved_set:
+                fail(f"{role} consumer policy approves subpath {specifier}, but does not approve package root {root}")
+            pkg = package_json(root)
+            allowed_export_subpaths = (
+                pkg.get("asha", {})
+                .get("publicSurface", {})
+                .get("allowedExportSubpaths", [])
+            )
+            if not isinstance(allowed_export_subpaths, list):
+                allowed_export_subpaths = []
+            expected_subpath = f"./{specifier.removeprefix(root + '/')}"
+            if expected_subpath not in allowed_export_subpaths:
+                fail(f"{role} consumer policy approves {specifier}, but {root} does not expose {expected_subpath}")
 
         for pkg_name, record in sorted(records_by_package.items()):
             allowed_roles = record.get("allowedConsumerRoles")
@@ -258,7 +288,7 @@ def check_manifest() -> None:
         pkg = package_json(pkg_name)
         if pkg.get("name") != pkg_name:
             fail(f"{pkg_name} package name drifted: {pkg.get('name')}")
-        require_root_only_export(pkg_name, pkg)
+        require_root_only_export(pkg_name, pkg, record)
 
         changelog = record.get("changelog")
         if status in {"public", "unstable"}:

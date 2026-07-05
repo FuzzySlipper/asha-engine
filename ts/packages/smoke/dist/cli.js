@@ -18,7 +18,7 @@ function artifactDir() {
     return resolve(here, '../../../../harness/smoke-out');
 }
 function selectedMode() {
-    return process.env.ASHA_SMOKE_MODE === 'authority' ? 'authority' : 'reference';
+    return process.env['ASHA_SMOKE_MODE'] === 'authority' ? 'authority' : 'reference';
 }
 function main() {
     const mode = selectedMode();

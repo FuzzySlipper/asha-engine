@@ -29,7 +29,7 @@ function git(args: string[]): string | null {
 }
 
 function selectedMode(): SmokeMode {
-  return process.env.ASHA_PERF_MODE === 'authority' ? 'authority' : 'reference';
+  return process.env['ASHA_PERF_MODE'] === 'authority' ? 'authority' : 'reference';
 }
 
 async function main(): Promise<void> {
@@ -37,10 +37,10 @@ async function main(): Promise<void> {
   const env = {
     ...process.env,
     ASHA_PERF_COMMIT:
-      process.env.ASHA_PERF_COMMIT ?? git(['rev-parse', '--short', 'HEAD']) ?? 'unknown',
+      process.env['ASHA_PERF_COMMIT'] ?? git(['rev-parse', '--short', 'HEAD']) ?? 'unknown',
     ASHA_PERF_BRANCH:
-      process.env.ASHA_PERF_BRANCH ?? git(['rev-parse', '--abbrev-ref', 'HEAD']) ?? 'unknown',
-    ASHA_PERF_HOST: process.env.ASHA_PERF_HOST ?? hostname(),
+      process.env['ASHA_PERF_BRANCH'] ?? git(['rev-parse', '--abbrev-ref', 'HEAD']) ?? 'unknown',
+    ASHA_PERF_HOST: process.env['ASHA_PERF_HOST'] ?? hostname(),
   };
 
   const result: GpuPerfResult = await runGpuPerf({

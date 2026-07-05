@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { initialEditorContext, type EditorContext } from '@asha/editor-tools';
 import { summarizeScene, inspectEditor, type SceneReportSummary } from './index.js';
 
-test('summarizeScene formats a projected report deterministically', () => {
+void test('summarizeScene formats a projected report deterministically', () => {
   const report: SceneReportSummary = {
     resident: 2, pending: 1, unloaded: 0, colliderChunks: 1, dirtyChunks: 0,
     queue: [{ kind: 'mesh', count: 1 }, { kind: 'collision-rebuild', count: 1 }, { kind: 'upload', count: 0 }],
@@ -17,7 +17,7 @@ test('summarizeScene formats a projected report deterministically', () => {
   ]);
 });
 
-test('inspectEditor is a pure read of the editor context (no authority copy)', () => {
+void test('inspectEditor is a pure read of the editor context (no authority copy)', () => {
   const ctx: EditorContext = {
     ...initialEditorContext(0),
     tool: 'place',

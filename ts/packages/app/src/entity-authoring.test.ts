@@ -19,7 +19,7 @@ function scriptedSink(outcome: EntityAuthoringOutcome): { sink: EntityAuthoringS
   return { sink, seen };
 }
 
-test('controller forwards the proposal to the sink and records the accepted outcome', () => {
+void test('controller forwards the proposal to the sink and records the accepted outcome', () => {
   const accepted: EntityAuthoringOutcome = { status: 'accepted', event: { kind: 'created', entity: eid(1) } };
   const { sink, seen } = scriptedSink(accepted);
   const controller = new EntityAuthoringController(sink);
@@ -38,7 +38,7 @@ test('controller forwards the proposal to the sink and records the accepted outc
   assert.deepEqual(seen, [command]); // forwarded verbatim, exactly once
 });
 
-test('a rejected outcome is recorded for display; the controller mutates nothing locally', () => {
+void test('a rejected outcome is recorded for display; the controller mutates nothing locally', () => {
   const rejected: EntityAuthoringOutcome = {
     status: 'rejected',
     rejection: { reason: 'notTransformEligible', entity: eid(3) },
@@ -51,7 +51,7 @@ test('a rejected outcome is recorded for display; the controller mutates nothing
   assert.deepEqual(controller.lastOutcome(), rejected);
 });
 
-test('the sink is the only mutation route — building a proposal does not submit it', () => {
+void test('the sink is the only mutation route — building a proposal does not submit it', () => {
   let calls = 0;
   const sink: EntityAuthoringSink = () => {
     calls += 1;

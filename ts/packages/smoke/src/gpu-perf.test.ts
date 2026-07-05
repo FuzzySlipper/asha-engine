@@ -50,7 +50,7 @@ function fakeBaseResult(): PerfResult {
   };
 }
 
-test('GPU perf run skips with a classified reason when no real GL context is enabled', async () => {
+void test('GPU perf run skips with a classified reason when no real GL context is enabled', async () => {
   const result = await runGpuPerf({
     runBasePerf: async () => fakeBaseResult(),
     env: {},
@@ -66,7 +66,7 @@ test('GPU perf run skips with a classified reason when no real GL context is ena
   assert.deepEqual(result.externalCalibrations, []);
 });
 
-test('GPU perf run records host/GPU metadata and omits WebGL calibration without failing', async () => {
+void test('GPU perf run records host/GPU metadata and omits WebGL calibration without failing', async () => {
   const result = await runGpuPerf({
     runBasePerf: async () => fakeBaseResult(),
     env: {
@@ -92,7 +92,7 @@ test('GPU perf run records host/GPU metadata and omits WebGL calibration without
   assert.equal(result.asha?.counters.leakedHandles, 0);
 });
 
-test('GPU perf run accepts contextual external WebGL calibration as non-gating data', async () => {
+void test('GPU perf run accepts contextual external WebGL calibration as non-gating data', async () => {
   const result = await runGpuPerf({
     runBasePerf: async () => fakeBaseResult(),
     env: {
@@ -110,7 +110,7 @@ test('GPU perf run accepts contextual external WebGL calibration as non-gating d
   assert.equal(result.externalCalibrations[0]?.name, 'MotionMark');
 });
 
-test('same-machine perf run remains independent of the GPU lane', async () => {
+void test('same-machine perf run remains independent of the GPU lane', async () => {
   const base = await runPerf({ editCycles: 1, clock: (() => {
     let t = 0;
     return () => t++;

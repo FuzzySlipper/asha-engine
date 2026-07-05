@@ -27,14 +27,14 @@ function spatial(id: number): PolicyEntityView {
 
 const view = makeWorldView({ entities: [spatial(1), spatial(2)] });
 
-test('a well-behaved policy runs cleanly with no violations', () => {
+void test('a well-behaved policy runs cleanly with no violations', () => {
   const policy = defineWorldPolicy('label-all', (v) => v.entities.map((e) => worldCommands.addLabel(e.id, tagId(9))));
   const result = runWorldPolicySandboxed(policy, view, makeEnv(1, 1));
   assert.equal(result.violations.length, 0);
   assert.equal(result.commands.length, 2);
 });
 
-test('an env-seeded policy produces identical proposals across runs with the same envelope', () => {
+void test('an env-seeded policy produces identical proposals across runs with the same envelope', () => {
   // The policy uses ONLY the deterministic envelope for its "random" choice.
   const policy: WorldPolicyWithEnv = (v, env) => {
     const pick = env.rng.nextInRange(0, v.entities.length);
@@ -50,7 +50,7 @@ test('an env-seeded policy produces identical proposals across runs with the sam
   assert.deepEqual(a.commands, c.commands);
 });
 
-test('a throwing policy is classified as policyThrew, never a silent failure', () => {
+void test('a throwing policy is classified as policyThrew, never a silent failure', () => {
   const policy = defineWorldPolicy('boom', () => {
     throw new Error('kaboom');
   });
@@ -61,25 +61,27 @@ test('a throwing policy is classified as policyThrew, never a silent failure', (
   assert.match(result.violations[0]!.detail, /kaboom/);
 });
 
-test('a policy touching a forbidden ambient global surfaces as a classified violation', () => {
+void test('a policy touching a forbidden ambient global surfaces as a classified violation', () => {
   // Simulates a policy that reached for an absent ambient capability at runtime
   // (the lint/depgraph block such code statically; the host still fails closed).
   const policy = defineWorldPolicy('ambient', () => {
-    // @ts-expect-error — intentionally touching an undefined ambient global.
-    return [worldCommands.noop(String(globalThis.__no_such_capability__.read()))];
+    const ambient = globalThis as typeof globalThis & {
+      readonly __no_such_capability__?: { read(): unknown };
+    };
+    return [worldCommands.noop(String(ambient.__no_such_capability__!.read()))];
   });
   const result = runWorldPolicySandboxed(policy, view, makeEnv(1, 1));
   assert.equal(result.violations[0]?.code, 'policyThrew');
 });
 
-test('a non-array result is classified as nonArrayResult', () => {
+void test('a non-array result is classified as nonArrayResult', () => {
   const policy = defineWorldPolicy('weird', () => ({ kind: 'requestDisable', entity: entityId(1) }) as unknown as readonly PolicyWorldCommand[]);
   const result = runWorldPolicySandboxed(policy, view, makeEnv(1, 1));
   assert.equal(result.commands.length, 0);
   assert.equal(result.violations[0]!.code, 'nonArrayResult');
 });
 
-test('malformed command elements are dropped and classified, well-formed ones kept', () => {
+void test('malformed command elements are dropped and classified, well-formed ones kept', () => {
   const policy = defineWorldPolicy('mixed', () =>
     [
       worldCommands.disable(entityId(1)),
@@ -93,7 +95,7 @@ test('malformed command elements are dropped and classified, well-formed ones ke
   assert.equal(result.violations.filter((v) => v.code === 'malformedCommand').length, 2);
 });
 
-test('isWellFormedCommand checks shape, not semantics', () => {
+void test('isWellFormedCommand checks shape, not semantics', () => {
   assert.equal(isWellFormedCommand(worldCommands.noop('x')), true);
   assert.equal(isWellFormedCommand({ kind: 'requestDisable', entity: entityId(1) }), true);
   assert.equal(isWellFormedCommand({ kind: 'nope' }), false);

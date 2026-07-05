@@ -27,7 +27,7 @@ function doc(nodes) {
         nodes,
     };
 }
-test('scene object snapshot projects flat scene document parent links and renderable provenance', () => {
+void test('scene object snapshot projects flat scene document parent links and renderable provenance', () => {
     const snapshot = buildSceneObjectSnapshot({
         document: doc([{ ...group(1, 'Root'), tags: ['studio-root'] }, group(2, 'Child', 1)]),
         renderableLinks: [{ sceneNodeId: sceneNodeId(2), renderableId: 'renderable-child' }],
@@ -43,7 +43,7 @@ test('scene object snapshot projects flat scene document parent links and render
     assert.equal(snapshot.objects[0]?.editability.transform, false);
     assert.equal(snapshot.objects[1]?.editability.transform, true);
 });
-test('scene object rename proposal targets scene metadata without mutating authority', () => {
+void test('scene object rename proposal targets scene metadata without mutating authority', () => {
     const snapshot = buildSceneObjectSnapshot({ document: doc([group(1, 'Root')]) });
     const result = proposeRenameSceneObject({
         snapshot,
@@ -56,7 +56,7 @@ test('scene object rename proposal targets scene metadata without mutating autho
         assert.equal(result.proposal.op === 'setMetadata' && result.proposal.label, 'Renamed Root');
     }
 });
-test('scene object reparent proposal rejects missing parents and cycles', () => {
+void test('scene object reparent proposal rejects missing parents and cycles', () => {
     const snapshot = buildSceneObjectSnapshot({
         document: doc([group(1, 'Root'), group(2, 'Child', 1), group(3, 'Grandchild', 2)]),
     });

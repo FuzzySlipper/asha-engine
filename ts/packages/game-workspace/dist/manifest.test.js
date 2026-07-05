@@ -7,7 +7,7 @@ const fixturesRoot = resolve(import.meta.dirname, '../src/fixtures');
 function fixture(name) {
     return readFileSync(resolve(fixturesRoot, name), 'utf8');
 }
-test('validates the golden asha.game.toml manifest', () => {
+void test('validates the golden asha.game.toml manifest', () => {
     const result = parseAshaGameManifestToml(fixture('asha.game.toml'));
     assert.equal(result.ok, true);
     if (!result.ok) {
@@ -26,7 +26,7 @@ test('validates the golden asha.game.toml manifest', () => {
     assert.equal(result.manifest.publishResourceProfile.archiveDir, 'dist/archive');
     assert.equal(result.manifest.publishResourceProfile.resolutionPolicy, 'locked');
 });
-test('fails closed when required workspace roots are missing', () => {
+void test('fails closed when required workspace roots are missing', () => {
     const result = parseAshaGameManifestToml(fixture('invalid-missing-roots.toml'));
     assert.equal(result.ok, false);
     if (result.ok) {
@@ -35,7 +35,7 @@ test('fails closed when required workspace roots are missing', () => {
     assert.equal(result.diagnostics.some((diagnostic) => diagnostic.code === 'missing_root' && diagnostic.path === 'workspace.scene_roots'), true);
     assert.equal(result.diagnostics.some((diagnostic) => diagnostic.code === 'invalid_write_scope'), true);
 });
-test('fails closed on disallowed Studio source-write roots', () => {
+void test('fails closed on disallowed Studio source-write roots', () => {
     const result = parseAshaGameManifestToml(fixture('invalid-source-write.toml'));
     assert.equal(result.ok, false);
     if (result.ok) {
@@ -44,7 +44,7 @@ test('fails closed on disallowed Studio source-write roots', () => {
     assert.equal(result.diagnostics.some((diagnostic) => diagnostic.code === 'invalid_path'), true);
     assert.equal(result.diagnostics.some((diagnostic) => diagnostic.code === 'invalid_write_scope'), true);
 });
-test('classifies bad versions and unsupported devtools endpoints', () => {
+void test('classifies bad versions and unsupported devtools endpoints', () => {
     const manifest = fixture('asha.game.toml')
         .replace('engine_version = "0.1.0"', 'engine_version = "latest"')
         .replace('devtools_endpoint = "ws://127.0.0.1:7391"', 'devtools_endpoint = "https://example.com/devtools"');
@@ -56,7 +56,7 @@ test('classifies bad versions and unsupported devtools endpoints', () => {
     assert.equal(result.diagnostics.some((diagnostic) => diagnostic.code === 'bad_version'), true);
     assert.equal(result.diagnostics.some((diagnostic) => diagnostic.code === 'unsupported_endpoint'), true);
 });
-test('manifest accepts selected native backend mode with public proof refs', () => {
+void test('manifest accepts selected native backend mode with public proof refs', () => {
     const manifest = fixture('asha.game.toml')
         .replace('backend_mode = "reference"', 'backend_mode = "native"')
         .replace('backend_profile = "reference"', 'backend_profile = "native.napi.launcher.v1"')
@@ -69,7 +69,7 @@ test('manifest accepts selected native backend mode with public proof refs', () 
     assert.equal(result.manifest.runtime.backendMode, 'native');
     assert.deepEqual(result.manifest.runtime.backendProofRefs, ['proof:dev-authority-smoke']);
 });
-test('manifest fails closed on unsupported or unproved backend modes', () => {
+void test('manifest fails closed on unsupported or unproved backend modes', () => {
     const wasm = parseAshaGameManifestToml(fixture('asha.game.toml').replace('backend_mode = "reference"', 'backend_mode = "wasm"'));
     assert.equal(wasm.ok, false);
     assert.equal(!wasm.ok && wasm.diagnostics.some((diagnostic) => diagnostic.code === 'unsupported_backend_mode' && diagnostic.path === 'runtime.backend_mode'), true);
@@ -79,7 +79,7 @@ test('manifest fails closed on unsupported or unproved backend modes', () => {
     assert.equal(nativeMissingProof.ok, false);
     assert.equal(!nativeMissingProof.ok && nativeMissingProof.diagnostics.some((diagnostic) => diagnostic.code === 'missing_backend_ref' && diagnostic.path === 'runtime.backend_proof_refs'), true);
 });
-test('manifest rejects private transport hints in backend selection', () => {
+void test('manifest rejects private transport hints in backend selection', () => {
     const manifest = fixture('asha.game.toml')
         .replace('wasm_or_native_entry = "dist/runtime/index.js"', 'wasm_or_native_entry = "@asha/native-bridge/native-bridge.node"')
         .replace('backend_profile = "reference"', 'backend_profile = "@asha/native-bridge"');
@@ -88,7 +88,7 @@ test('manifest rejects private transport hints in backend selection', () => {
     assert.equal(!result.ok && result.diagnostics.some((diagnostic) => diagnostic.code === 'private_transport_hint' && diagnostic.path === 'runtime.wasm_or_native_entry'), true);
     assert.equal(!result.ok && result.diagnostics.some((diagnostic) => diagnostic.code === 'private_transport_hint' && diagnostic.path === 'runtime.backend_profile'), true);
 });
-test('fails closed when the publish resource profile is missing', () => {
+void test('fails closed when the publish resource profile is missing', () => {
     const result = parseAshaGameManifestToml(fixture('invalid-missing-publish-profile.toml'));
     assert.equal(result.ok, false);
     if (result.ok) {
@@ -96,7 +96,7 @@ test('fails closed when the publish resource profile is missing', () => {
     }
     assert.equal(result.diagnostics.some((diagnostic) => diagnostic.code === 'missing_required_field' && diagnostic.path === 'publish_resource_profile'), true);
 });
-test('fails closed when publish resource paths point into dev-local roots', () => {
+void test('fails closed when publish resource paths point into dev-local roots', () => {
     const result = parseAshaGameManifestToml(fixture('invalid-dev-root-leakage.toml'));
     assert.equal(result.ok, false);
     if (result.ok) {
@@ -105,7 +105,7 @@ test('fails closed when publish resource paths point into dev-local roots', () =
     assert.equal(result.diagnostics.some((diagnostic) => diagnostic.code === 'invalid_resource_profile' && diagnostic.path === 'publish_resource_profile.output_dir'), true);
     assert.equal(result.diagnostics.some((diagnostic) => diagnostic.code === 'invalid_resource_profile' && diagnostic.path === 'publish_resource_profile.archive_dir'), true);
 });
-test('validates compatible ASHA consumer metadata against the manifest', () => {
+void test('validates compatible ASHA consumer metadata against the manifest', () => {
     const result = parseAshaGameManifestToml(fixture('asha.game.toml'));
     assert.equal(result.ok, true);
     if (!result.ok) {
@@ -118,7 +118,7 @@ test('validates compatible ASHA consumer metadata against the manifest', () => {
     }
     assert.equal(compatibility.metadata.runtimeBridge.compatibilityVersion, 'runtime-bridge.v0');
 });
-test('fails closed on incompatible consumer metadata versions', () => {
+void test('fails closed on incompatible consumer metadata versions', () => {
     const result = parseAshaGameManifestToml(fixture('asha.game.toml'));
     assert.equal(result.ok, true);
     if (!result.ok) {
@@ -134,7 +134,7 @@ test('fails closed on incompatible consumer metadata versions', () => {
     }
     assert.equal(compatibility.diagnostics.some((diagnostic) => diagnostic.code === 'incompatible_version' && diagnostic.path === 'asha.contracts_version'), true);
 });
-test('fails closed when compatibility metadata is missing', () => {
+void test('fails closed when compatibility metadata is missing', () => {
     const result = parseAshaGameManifestToml(fixture('asha.game.toml'));
     assert.equal(result.ok, true);
     if (!result.ok) {
@@ -149,7 +149,7 @@ test('fails closed when compatibility metadata is missing', () => {
     }
     assert.equal(compatibility.diagnostics.some((diagnostic) => diagnostic.code === 'missing_metadata' && diagnostic.path === 'runtimeBridge'), true);
 });
-test('authoring persistence contract exposes bounded public write scopes', () => {
+void test('authoring persistence contract exposes bounded public write scopes', () => {
     const manifest = validManifest();
     const contract = buildAshaAuthoringPersistenceContract(manifest);
     assert.equal(contract.contractVersion, 'authoring-persistence.v0');
@@ -167,7 +167,7 @@ test('authoring persistence contract exposes bounded public write scopes', () =>
     assert.ok(contract.nonClaims.includes('not_repo_crawler'));
     assert.equal(contract.diagnostics.some((diagnostic) => diagnostic.code === 'unsupported_operation'), true);
 });
-test('authoring write target resolver accepts normalized scene catalog and asset paths', () => {
+void test('authoring write target resolver accepts normalized scene catalog and asset paths', () => {
     const manifest = validManifest();
     const scene = resolveAshaAuthoringWriteTarget(manifest, {
         operationKind: 'authoring.scene.save_source',
@@ -197,7 +197,7 @@ test('authoring write target resolver accepts normalized scene catalog and asset
         throw new Error('asset authoring path should resolve');
     assert.equal(asset.format, 'inline-asset-json.v1');
 });
-test('authoring write target resolver fails closed on disallowed paths and hatches', () => {
+void test('authoring write target resolver fails closed on disallowed paths and hatches', () => {
     const manifest = validManifest();
     const generated = resolveAshaAuthoringWriteTarget(manifest, {
         operationKind: 'authoring.scene.save_source',
@@ -268,7 +268,7 @@ function validCatalog() {
         ],
     };
 }
-test('asset catalog validates and resolves a dev resource by catalog id', () => {
+void test('asset catalog validates and resolves a dev resource by catalog id', () => {
     const catalog = validCatalog();
     const existingFiles = new Set(catalog.entries.map((entry) => entry.source));
     const sourceHashes = new Map(catalog.entries.map((entry) => [entry.source, entry.importMetadata.sourceHash]));
@@ -296,7 +296,7 @@ test('asset catalog validates and resolves a dev resource by catalog id', () => 
         'texture.demo-checker',
     ]);
 });
-test('asset catalog reports stale import metadata in validation and dev resolution', () => {
+void test('asset catalog reports stale import metadata in validation and dev resolution', () => {
     const catalog = validCatalog();
     const validation = validateAshaGameAssetCatalog(catalog, validManifest(), () => true, { sourceHash: (path) => (path === 'assets/meshes/demo-cube.mesh.json' ? 'sha256:changed' : catalog.entries.find((entry) => entry.source === path)?.importMetadata?.sourceHash ?? null) });
     assert.equal(validation.ok, false);
@@ -308,7 +308,7 @@ test('asset catalog reports stale import metadata in validation and dev resoluti
     assert.equal(resolution?.sourceHash, 'sha256:changed');
     assert.equal(resolution?.importStatus, 'stale');
 });
-test('asset catalog fails closed for missing file, duplicate id, forbidden path, unsupported kind, and wrong kind profile', () => {
+void test('asset catalog fails closed for missing file, duplicate id, forbidden path, unsupported kind, and wrong kind profile', () => {
     const catalog = {
         schemaVersion: 1,
         entries: [
@@ -328,7 +328,7 @@ test('asset catalog fails closed for missing file, duplicate id, forbidden path,
     assert.equal(validation.diagnostics.some((diagnostic) => diagnostic.code === 'invalid_asset_entry' && diagnostic.path.endsWith('.importProfile')), true);
     assert.equal(validation.diagnostics.some((diagnostic) => diagnostic.code === 'invalid_asset_entry' && diagnostic.path.endsWith('.publish.outputKey')), true);
 });
-test('asset catalog dependency graph fails closed for missing dependency and cycles', () => {
+void test('asset catalog dependency graph fails closed for missing dependency and cycles', () => {
     const missing = {
         ...validCatalog(),
         entries: [

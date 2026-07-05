@@ -24,7 +24,7 @@ function loadCommand(name: string): PolicyCommand {
   ) as PolicyCommand;
 }
 
-test('threshold policy emits the accepted boundary command fixture', () => {
+void test('threshold policy emits the accepted boundary command fixture', () => {
   // Three entities tagged 1 -> threshold met -> propose defining signal 1.
   const view = makeView({
     entities: [
@@ -41,7 +41,7 @@ test('threshold policy emits the accepted boundary command fixture', () => {
   assert.deepEqual(result.commands[0], loadCommand('threshold-accepted'));
 });
 
-test('SDK can author the command Rust will reject (stale entity delete)', () => {
+void test('SDK can author the command Rust will reject (stale entity delete)', () => {
   // TypeScript can propose a structurally-valid command that the authority core
   // will reject against an empty state. Authoring it here proves the shared
   // fixture is exactly what the SDK produces; Rust owns the accept/reject call.

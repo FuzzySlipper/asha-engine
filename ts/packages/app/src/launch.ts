@@ -10,10 +10,10 @@
 // no native addon reports `unavailable`, not a faked mock success.
 
 import {
-  createMockRuntimeBridge,
   createNativeRuntimeBridge,
   RuntimeBridgeError,
 } from '@asha/runtime-bridge';
+import { createMockRuntimeBridge } from '@asha/runtime-bridge/reference';
 
 import { composeAppShell, threeRendererPort } from './shell.js';
 import type {

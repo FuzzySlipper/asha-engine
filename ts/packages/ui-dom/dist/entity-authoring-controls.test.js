@@ -22,7 +22,7 @@ function control(controls, id) {
     assert.ok(c, `missing control ${id}`);
     return c;
 }
-test('authoring controls gate transform/move by eligibility, with the reason in the label', () => {
+void test('authoring controls gate transform/move by eligibility, with the reason in the label', () => {
     const logical = buildEntityAuthoringControls(flags({})); // non-spatial
     assert.equal(control(logical, 'entity-set-transform').disabled, true);
     assert.match(control(logical, 'entity-set-transform').label, /notTransformEligible/);
@@ -34,14 +34,14 @@ test('authoring controls gate transform/move by eligibility, with the reason in 
     const immovable = buildEntityAuthoringControls(flags({ hasTransform: true, hasCollision: true, staticCollider: true }));
     assert.match(control(immovable, 'entity-set-transform').label, /immovable/);
 });
-test('destroy is disabled only for a tombstone; create is always offered', () => {
+void test('destroy is disabled only for a tombstone; create is always offered', () => {
     const tomb = buildEntityAuthoringControls(flags({ lifecycle: 'tombstoned' }));
     assert.equal(control(tomb, 'entity-destroy').disabled, true);
     assert.equal(control(tomb, 'entity-create').disabled, undefined);
     const live = buildEntityAuthoringControls(flags({}));
     assert.equal(control(live, 'entity-destroy').disabled, false);
 });
-test('every authoring control exposes a stable id and accessible label', () => {
+void test('every authoring control exposes a stable id and accessible label', () => {
     const controls = buildEntityAuthoringControls(flags({ hasTransform: true }));
     for (const c of controls) {
         assert.ok(c.id.startsWith('entity-'), c.id);
@@ -49,7 +49,7 @@ test('every authoring control exposes a stable id and accessible label', () => {
         assert.equal(c.role, 'button');
     }
 });
-test('control interactions map to typed proposal commands (or null when a param is missing)', () => {
+void test('control interactions map to typed proposal commands (or null when a param is missing)', () => {
     assert.deepEqual(entityAuthoringControlToCommand('entity-destroy', eid(2)), { kind: 'destroy', id: eid(2) });
     assert.equal(entityAuthoringControlToCommand('entity-set-transform', eid(2))?.kind, 'setTransform');
     assert.equal(entityAuthoringControlToCommand('entity-attach-render', eid(2))?.kind, 'attachCapability');

@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 
 import {
   GENERATED_TUNNEL_SMALL_ENCOUNTER_CONFIG,
-  createMockRuntimeSession,
   type CameraCreateRequest,
   type EncounterTransitionRequest,
 } from './index.js';
+import { createMockRuntimeSession } from './reference.js';
 
 function sessionInput() {
   return {
@@ -48,7 +48,7 @@ function syncLifecycleRequest(): EncounterTransitionRequest {
   };
 }
 
-test('RuntimeSession exposes deterministic encounter director pending and active readouts', () => {
+void test('RuntimeSession exposes deterministic encounter director pending and active readouts', () => {
   const session = createMockRuntimeSession();
   session.initialize(sessionInput());
 
@@ -100,7 +100,7 @@ test('RuntimeSession exposes deterministic encounter director pending and active
   assert.equal(session.readTelemetry().replayRecords.at(-1)?.kind, 'requestEncounterTransition');
 });
 
-test('RuntimeSession encounter director syncs lifecycle clear/fail and restart reset', () => {
+void test('RuntimeSession encounter director syncs lifecycle clear/fail and restart reset', () => {
   const session = createMockRuntimeSession();
   session.initialize(sessionInput());
   const camera = session.createCamera(cameraRequest()).snapshot.camera;
@@ -150,7 +150,7 @@ test('RuntimeSession encounter director syncs lifecycle clear/fail and restart r
   assert.equal(failed.hashes.transitionHash, 'a22e8945f928bea4');
 });
 
-test('RuntimeSession encounter transition fails closed with typed rejection receipts', () => {
+void test('RuntimeSession encounter transition fails closed with typed rejection receipts', () => {
   const session = createMockRuntimeSession();
   session.initialize(sessionInput());
   const rejected = session.requestEncounterTransition({

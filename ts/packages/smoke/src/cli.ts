@@ -22,7 +22,7 @@ function artifactDir(): string {
 }
 
 function selectedMode(): SmokeMode {
-  return process.env.ASHA_SMOKE_MODE === 'authority' ? 'authority' : 'reference';
+  return process.env['ASHA_SMOKE_MODE'] === 'authority' ? 'authority' : 'reference';
 }
 
 function main(): void {

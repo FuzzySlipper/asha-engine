@@ -49,7 +49,7 @@ export function mainWindowOptions(overrides = {}) {
  */
 export function createMainWindow(createWindow, options = mainWindowOptions()) {
     const window = createWindow(options);
-    window.loadFile(RENDERER_ENTRY);
+    void window.loadFile(RENDERER_ENTRY);
     return window;
 }
 //# sourceMappingURL=index.js.map

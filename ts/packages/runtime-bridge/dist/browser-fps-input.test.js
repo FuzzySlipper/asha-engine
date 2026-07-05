@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BrowserFpsInputCollector, createMockRuntimeSession } from './index.js';
+import { BrowserFpsInputCollector } from './index.js';
+import { createMockRuntimeSession } from './reference.js';
 function initializedSession() {
     const session = createMockRuntimeSession();
     session.initialize({
@@ -16,7 +17,7 @@ function initializedSession() {
     });
     return { session, camera: camera.snapshot.camera };
 }
-test('BrowserFpsInputCollector maps WASD and mouse deltas to a RuntimeSession camera command', () => {
+void test('BrowserFpsInputCollector maps WASD and mouse deltas to a RuntimeSession camera command', () => {
     const { session, camera } = initializedSession();
     const input = new BrowserFpsInputCollector({
         camera,
@@ -44,7 +45,7 @@ test('BrowserFpsInputCollector maps WASD and mouse deltas to a RuntimeSession ca
     assert.notDeepEqual(receipt.snapshot.pose, { position: [0, 1.6, 0], yawDegrees: 0, pitchDegrees: 0 });
     assert.deepEqual(input.readout().pendingMouseDelta, [0, 0]);
 });
-test('BrowserFpsInputCollector emits pointer lock request and Escape release readout', () => {
+void test('BrowserFpsInputCollector emits pointer lock request and Escape release readout', () => {
     const { camera } = initializedSession();
     const input = new BrowserFpsInputCollector({
         camera,
@@ -64,7 +65,7 @@ test('BrowserFpsInputCollector emits pointer lock request and Escape release rea
     ]);
     assert.deepEqual(input.drainFrame({ tick: 3, dtSeconds: 0 }).pointerLockIntents, []);
 });
-test('BrowserFpsInputCollector maps primary fire to a typed runtime action intent', () => {
+void test('BrowserFpsInputCollector maps primary fire to a typed runtime action intent', () => {
     const { session, camera } = initializedSession();
     const input = new BrowserFpsInputCollector({
         camera,

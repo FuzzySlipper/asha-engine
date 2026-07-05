@@ -21,7 +21,7 @@ cd ts && pnpm --filter @asha/smoke build
 node -e "
 const { runSmoke } = require('./packages/smoke/dist/harness.js');
 const { formatResult } = require('./packages/smoke/dist/result.js');
-const { createMockRuntimeBridge } = require('./packages/runtime-bridge/dist/index.js');
+const { createMockRuntimeBridge } = require('./packages/runtime-bridge/dist/reference.js');
 const boot = () => ({ bridge: createMockRuntimeBridge(), mode:'mock', intent:'reference', nativeAvailable:false });
 process.stdout.write(formatResult(runSmoke({ bootBridge: boot })));
 " > ../harness/fixtures/smoke/reference-smoke.txt

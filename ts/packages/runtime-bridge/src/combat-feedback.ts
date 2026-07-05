@@ -145,6 +145,10 @@ type CombatFeedbackHashValue =
   | readonly CombatFeedbackHashValue[]
   | object;
 
+interface CombatFeedbackHashRecord {
+  readonly [key: string]: CombatFeedbackHashValue | undefined;
+}
+
 export function buildCombatFeedbackProjectionFromReceipt(
   receipt: CombatFeedbackActionReceiptInput,
   camera: CameraProjectionSnapshot | null = null,
@@ -489,10 +493,11 @@ function stableStringify(value: CombatFeedbackHashValue | undefined): string {
   }
 
   if (Array.isArray(value)) {
-    return `[${value.map((entry) => stableStringify(entry)).join(',')}]`;
+    const entries = value as readonly CombatFeedbackHashValue[];
+    return `[${entries.map((entry) => stableStringify(entry)).join(',')}]`;
   }
 
-  const record = value as Record<string, CombatFeedbackHashValue | undefined>;
+  const record = value as CombatFeedbackHashRecord;
   return `{${Object.keys(record)
     .sort()
     .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)

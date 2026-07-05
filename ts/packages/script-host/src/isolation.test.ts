@@ -35,7 +35,7 @@ const G = globalThis as unknown as Record<string, unknown>;
 
 // ── View immutability ─────────────────────────────────────────────────────────
 
-test('a policy cannot mutate a top-level view field (frozen → classified throw)', () => {
+void test('a policy cannot mutate a top-level view field (frozen → classified throw)', () => {
   const view = makeWorldView({ entities: [spatial(1)] });
   const policy = defineWorldPolicy('mutate-tick', (v) => {
     (v as unknown as { tick: number }).tick = 999;
@@ -46,7 +46,7 @@ test('a policy cannot mutate a top-level view field (frozen → classified throw
   assert.equal(view.tick, 0, 'view is unchanged');
 });
 
-test('a policy cannot mutate a nested view value (deep freeze)', () => {
+void test('a policy cannot mutate a nested view value (deep freeze)', () => {
   const view = makeWorldView({ entities: [spatial(1)] });
   const policy = defineWorldPolicy('mutate-nested', (v) => {
     (v.entities[0]!.labels as unknown as TagPush).push(tagId(7));
@@ -58,7 +58,7 @@ test('a policy cannot mutate a nested view value (deep freeze)', () => {
   assert.equal(view.entities[0]!.labels.length, 0, 'nested array is unchanged');
 });
 
-test('one policy cannot contaminate the view observed by a later policy', () => {
+void test('one policy cannot contaminate the view observed by a later policy', () => {
   const view = makeWorldView({ entities: [spatial(1)] });
   const mutator = defineWorldPolicy('mutator', (v) => {
     // Hostile attempt to plant a label the next policy would observe.
@@ -81,7 +81,7 @@ test('one policy cannot contaminate the view observed by a later policy', () => 
 
 const view = makeWorldView({ entities: [spatial(1)] });
 
-test('process access is quarantined and classified', () => {
+void test('process access is quarantined and classified', () => {
   const policy = defineWorldPolicy('process-probe', () => {
     const proc = G['process'] as { platform: string };
     return [worldCommands.noop(String(proc.platform))];
@@ -91,7 +91,7 @@ test('process access is quarantined and classified', () => {
   assert.match(result.violations[0]!.detail, /process/);
 });
 
-test("Function('return process') escape is quarantined", () => {
+void test("Function('return process') escape is quarantined", () => {
   const policy = defineWorldPolicy('fn-escape', () => {
     const getProc = Function('return process') as () => { pid: number };
     return [worldCommands.noop(String(getProc().pid))];
@@ -100,7 +100,7 @@ test("Function('return process') escape is quarantined", () => {
   assert.equal(result.violations[0]?.code, 'policyThrew');
 });
 
-test('timers are quarantined and classified', () => {
+void test('timers are quarantined and classified', () => {
   const policy = defineWorldPolicy('timer', () => {
     (G['setTimeout'] as (cb: () => void, ms: number) => unknown)(() => undefined, 0);
     return [];
@@ -109,7 +109,7 @@ test('timers are quarantined and classified', () => {
   assert.equal(result.violations[0]?.code, 'policyThrew');
 });
 
-test('Math.random is quarantined (determinism)', () => {
+void test('Math.random is quarantined (determinism)', () => {
   const policy = defineWorldPolicy('rand', () => {
     const m = Math as unknown as Record<string, () => number>;
     return [worldCommands.noop(String(m['random']!()))];
@@ -120,7 +120,7 @@ test('Math.random is quarantined (determinism)', () => {
 
 // ── Restoration ───────────────────────────────────────────────────────────────
 
-test('quarantined globals are restored after the call, even on throw', () => {
+void test('quarantined globals are restored after the call, even on throw', () => {
   const before = G['process'];
   const ok = runWorldPolicySandboxed(
     defineWorldPolicy('noop', () => [] as readonly PolicyWorldCommand[]),
@@ -143,7 +143,7 @@ test('quarantined globals are restored after the call, even on throw', () => {
 
 // ── Unit-level checks ─────────────────────────────────────────────────────────
 
-test('runQuarantined surfaces PolicyCapabilityError for a quarantined global', () => {
+void test('runQuarantined surfaces PolicyCapabilityError for a quarantined global', () => {
   assert.throws(
     () =>
       runQuarantined(() => {
@@ -156,7 +156,7 @@ test('runQuarantined surfaces PolicyCapabilityError for a quarantined global', (
   assert.notEqual(G['process'], undefined);
 });
 
-test('deepFreeze freezes nested structures and is idempotent', () => {
+void test('deepFreeze freezes nested structures and is idempotent', () => {
   const obj = { a: { b: [1, 2] } };
   const frozen = deepFreeze(obj);
   assert.ok(Object.isFrozen(frozen));

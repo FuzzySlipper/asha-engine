@@ -13,7 +13,7 @@ import {
 
 const repoRoot = resolve(import.meta.dirname, '../../../..');
 
-test('static room frame projects and renders through the package-root path', () => {
+void test('static room frame projects and renders through the package-root path', () => {
   const result = renderProjectedFrame(createStaticRoomRenderFrame());
 
   assert.equal(result.projection.handleCount, 7);
@@ -25,8 +25,8 @@ test('static room frame projects and renders through the package-root path', () 
   assert.equal(result.renderer.fallbackMaterialCount, 0);
 });
 
-test('committed static-room fixture matches the public helper and golden snapshot', () => {
-  const fixture = JSON.parse(
+void test('committed static-room fixture matches the public helper and golden snapshot', () => {
+  const fixture: unknown = JSON.parse(
     readFileSync(
       resolve(repoRoot, 'harness/fixtures/render-diffs', `${STATIC_ROOM_FIXTURE_NAME}.json`),
       'utf8',

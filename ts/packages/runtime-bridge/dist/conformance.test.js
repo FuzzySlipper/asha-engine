@@ -36,8 +36,9 @@ const MODEL_MATERIAL_PREVIEW_REQUEST = {
     },
     instanceHandle: 7001,
 };
-import { MANIFEST_OPERATIONS, MockRuntimeBridge, RuntimeBridgeError, createNativeGameRuntimeLauncher, createMockRuntimeBridge, createNativeRuntimeBridge, createReferenceGameRuntimeLauncher, createSelectedBackendGameRuntimeLauncher, frameCursor, nativeBackendProfile, validateGameRuntimeBackendProfile, } from './index.js';
-test('facade exposes exactly the manifest operations (conformance)', () => {
+import { MANIFEST_OPERATIONS, RuntimeBridgeError, createNativeGameRuntimeLauncher, createNativeRuntimeBridge, createSelectedBackendGameRuntimeLauncher, frameCursor, nativeBackendProfile, validateGameRuntimeBackendProfile, } from './index.js';
+import { MockRuntimeBridge, createMockRuntimeBridge, createReferenceGameRuntimeLauncher, } from './reference.js';
+void test('facade exposes exactly the manifest operations (conformance)', () => {
     const bridge = createMockRuntimeBridge();
     const expected = MANIFEST_OPERATIONS.map((o) => o.facadeMethod).sort();
     const actual = MANIFEST_OPERATIONS.map((o) => o.facadeMethod)
@@ -49,7 +50,7 @@ test('facade exposes exactly the manifest operations (conformance)', () => {
     const known = new Set(MANIFEST_OPERATIONS.map((o) => o.facadeMethod));
     assert.deepEqual(proto.filter((n) => !known.has(n)), [], 'mock must not expose methods outside the manifest');
 });
-test('game runtime launcher public DTOs compile as package-root consumer fixtures', () => {
+void test('game runtime launcher public DTOs compile as package-root consumer fixtures', () => {
     const compatibility = {
         contractsPackageVersion: '0.1.0',
         runtimeBridgePackageVersion: '0.1.0',
@@ -139,7 +140,7 @@ function gameRuntimeConfig() {
         startedAtIso: '2026-06-28T00:00:00.000Z',
     };
 }
-test('reference game runtime launcher launches fixture and advances command projection', async () => {
+void test('reference game runtime launcher launches fixture and advances command projection', async () => {
     const launcher = createReferenceGameRuntimeLauncher();
     const config = gameRuntimeConfig();
     const session = await launcher.launch(config);
@@ -185,7 +186,7 @@ test('reference game runtime launcher launches fixture and advances command proj
     assert.ok(evidence.nonClaims.includes('not_hardware_gpu'));
     await session.shutdown();
 });
-test('reference game runtime launcher fails closed on unsupported world bundle', async () => {
+void test('reference game runtime launcher fails closed on unsupported world bundle', async () => {
     const launcher = createReferenceGameRuntimeLauncher();
     await assert.rejects(() => launcher.launch({
         gameId: 'asha-demo',
@@ -203,7 +204,7 @@ test('reference game runtime launcher fails closed on unsupported world bundle',
         world: { bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 7 },
     }), (e) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input');
 });
-test('backend profile validation gates native claims and private transports', () => {
+void test('backend profile validation gates native claims and private transports', () => {
     const config = gameRuntimeConfig();
     const native = nativeBackendProfile(config);
     assert.deepEqual(validateGameRuntimeBackendProfile(native), {
@@ -231,7 +232,7 @@ test('backend profile validation gates native claims and private transports', ()
     assert.equal(unsupported.ok, false);
     assert.equal(!unsupported.ok && unsupported.diagnostics.some((diagnostic) => diagnostic.code === 'private_transport_hint'), true);
 });
-test('selected backend launcher reports native mode through public facade', async () => {
+void test('selected backend launcher reports native mode through public facade', async () => {
     const config = gameRuntimeConfig();
     const launcher = createSelectedBackendGameRuntimeLauncher({
         profile: nativeBackendProfile(config),
@@ -247,11 +248,11 @@ test('selected backend launcher reports native mode through public facade', asyn
     assert.equal(telemetry.runtimeMode, 'native');
     await session.shutdown();
 });
-test('selected backend launcher fails closed when native dependency is missing', async () => {
+void test('selected backend launcher fails closed when native dependency is missing', async () => {
     const launcher = createNativeGameRuntimeLauncher({ nativeModulePath: './definitely-not-built.node' });
     await assert.rejects(() => launcher.launch(gameRuntimeConfig()), (e) => e instanceof RuntimeBridgeError && e.kind === 'native_unavailable');
 });
-test('selected backend launcher rejects non-native selected mode without fallback', async () => {
+void test('selected backend launcher rejects non-native selected mode without fallback', async () => {
     const config = gameRuntimeConfig();
     const profile = {
         ...nativeBackendProfile(config),
@@ -265,7 +266,7 @@ test('selected backend launcher rejects non-native selected mode without fallbac
     });
     await assert.rejects(() => launcher.launch(config), (e) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input');
 });
-test('manifest exposes public camera view operations', () => {
+void test('manifest exposes public camera view operations', () => {
     const cameraOps = MANIFEST_OPERATIONS.filter((op) => op.facadeMethod.includes('Camera'));
     assert.deepEqual(cameraOps.map((op) => [op.manifestName, op.facadeMethod, op.surface]), [
         ['apply_collision_constrained_camera_input', 'applyCollisionConstrainedCameraInput', 'stable'],
@@ -274,13 +275,13 @@ test('manifest exposes public camera view operations', () => {
         ['read_camera_projection', 'readCameraProjection', 'stable'],
     ]);
 });
-test('mock: init then step is deterministic', () => {
+void test('mock: init then step is deterministic', () => {
     const bridge = createMockRuntimeBridge();
     const handle = bridge.initializeEngine({ seed: 7 });
     assert.equal(handle, 7);
     assert.deepEqual(bridge.stepSimulation({ tick: 6 }), { tick: 6, diffCount: 2 });
 });
-test('mock: camera view operations produce deterministic public evidence', () => {
+void test('mock: camera view operations produce deterministic public evidence', () => {
     const bridge = createMockRuntimeBridge();
     bridge.initializeEngine({ seed: 1 });
     const create = {
@@ -313,7 +314,7 @@ test('mock: camera view operations produce deterministic public evidence', () =>
     assert.equal(snapshot.projectionMatrix.length, 16);
     assert.equal(snapshot.viewProjectionMatrix.length, 16);
 });
-test('mock: selectVoxel derives camera ray and edit anchor from generated view contracts', () => {
+void test('mock: selectVoxel derives camera ray and edit anchor from generated view contracts', () => {
     const bridge = createMockRuntimeBridge();
     bridge.initializeEngine({ seed: 1 });
     const camera = bridge.createCamera({
@@ -343,7 +344,7 @@ test('mock: selectVoxel derives camera ray and edit anchor from generated view c
     assert.equal(miss.outcome, 'miss');
     assert.equal(miss.selectedVoxel, null);
 });
-test('mock: camera-first-person-basic matches committed golden fixture', () => {
+void test('mock: camera-first-person-basic matches committed golden fixture', () => {
     const fixtureUrl = new URL('../../../../harness/camera/goldens/camera-first-person-basic.json', import.meta.url);
     const golden = JSON.parse(readFileSync(fixtureUrl, 'utf8'));
     const bridge = createMockRuntimeBridge();
@@ -370,11 +371,11 @@ test('mock: camera-first-person-basic matches committed golden fixture', () => {
     assert.deepEqual(moved, golden.expected.moved);
     assert.deepEqual(projection, golden.expected.projection);
 });
-test('mock: step before init throws a classified error', () => {
+void test('mock: step before init throws a classified error', () => {
     const bridge = createMockRuntimeBridge();
     assert.throws(() => bridge.stepSimulation({ tick: 1 }), (e) => e instanceof RuntimeBridgeError && e.kind === 'not_initialized');
 });
-test('mock: buffer round-trip and unknown handle classification', () => {
+void test('mock: buffer round-trip and unknown handle classification', () => {
     const bridge = createMockRuntimeBridge();
     bridge.initializeEngine({ seed: 0x01020304 });
     const view = bridge.getBuffer(0);
@@ -383,7 +384,7 @@ test('mock: buffer round-trip and unknown handle classification', () => {
     assert.deepEqual(view.bytes, expected);
     assert.throws(() => bridge.getBuffer(99), (e) => e instanceof RuntimeBridgeError && e.kind === 'unknown_handle');
 });
-test('mock: readModelMaterialPreview returns public render-diff evidence without renderer internals', () => {
+void test('mock: readModelMaterialPreview returns public render-diff evidence without renderer internals', () => {
     const bridge = createMockRuntimeBridge();
     bridge.initializeEngine({ seed: 1 });
     const snapshot = bridge.readModelMaterialPreview(MODEL_MATERIAL_PREVIEW_REQUEST);
@@ -393,7 +394,7 @@ test('mock: readModelMaterialPreview returns public render-diff evidence without
     assert.deepEqual(snapshot.previewDiff.ops.map((op) => op.op), ['defineMaterial', 'defineStaticMesh', 'createStaticMeshInstance']);
     assert.ok(snapshot.diagnostics.some((diagnostic) => diagnostic.includes('fail closed')));
 });
-test('mock: scene-object snapshot and apply command use typed public contracts', () => {
+void test('mock: scene-object snapshot and apply command use typed public contracts', () => {
     const bridge = createMockRuntimeBridge();
     bridge.initializeEngine({ seed: 1 });
     const snapshot = bridge.readSceneObjectSnapshot();
@@ -414,13 +415,13 @@ test('mock: scene-object snapshot and apply command use typed public contracts',
     assert.equal(stale.accepted, false);
     assert.equal(stale.rejection?.code, 'stale-scene-object-snapshot');
 });
-test('mock: readRenderDiffs returns a contract-shaped frame', () => {
+void test('mock: readRenderDiffs returns a contract-shaped frame', () => {
     const bridge = createMockRuntimeBridge();
     bridge.initializeEngine({ seed: 1 });
     const frame = bridge.readRenderDiffs(frameCursor(0));
     assert.deepEqual(frame, { ops: [] });
 });
-test('mock: world load → save → status → unload, with fail-closed save', () => {
+void test('mock: world load → save → status → unload, with fail-closed save', () => {
     const bridge = createMockRuntimeBridge();
     // Save before load fails closed.
     assert.throws(() => bridge.saveCurrentWorld(), (e) => e instanceof RuntimeBridgeError && e.kind === 'not_initialized');
@@ -440,14 +441,14 @@ test('mock: world load → save → status → unload, with fail-closed save', (
     bridge.unloadWorld();
     assert.equal(bridge.getCompositionStatus().loadedWorld, null);
 });
-test('mock: an unsupported bundle version fails closed without swapping the world', () => {
+void test('mock: an unsupported bundle version fails closed without swapping the world', () => {
     const bridge = createMockRuntimeBridge();
     bridge.loadWorldBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 7 });
     assert.throws(() => bridge.loadWorldBundle({ bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 8 }), (e) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input');
     // The prior world stays loaded (no partial swap).
     assert.equal(bridge.getCompositionStatus().loadedWorld, 7);
 });
-test('mock: submitCommands carries the generated VoxelCommand union (the launch path)', () => {
+void test('mock: submitCommands carries the generated VoxelCommand union (the launch path)', () => {
     const bridge = createMockRuntimeBridge();
     bridge.initializeEngine({ seed: 1 });
     // A real generated voxel command — the authority-owned union, not a `{ kind }` blob.
@@ -460,11 +461,11 @@ test('mock: submitCommands carries the generated VoxelCommand union (the launch 
     const result = bridge.submitCommands({ commands: [command] });
     assert.deepEqual(result, { accepted: 1, rejected: 0, rejections: [] });
 });
-test('mock: submitCommands before init fails closed', () => {
+void test('mock: submitCommands before init fails closed', () => {
     const bridge = createMockRuntimeBridge();
     assert.throws(() => bridge.submitCommands({ commands: [] }), (e) => e instanceof RuntimeBridgeError && e.kind === 'not_initialized');
 });
-test('an ad-hoc `{ kind }` command is NOT the launch path (compile-time guard)', () => {
+void test('an ad-hoc `{ kind }` command is NOT the launch path (compile-time guard)', () => {
     const bridge = createMockRuntimeBridge();
     bridge.initializeEngine({ seed: 1 });
     // The placeholder command shape the launch path used to accept must no longer
@@ -473,7 +474,7 @@ test('an ad-hoc `{ kind }` command is NOT the launch path (compile-time guard)',
     const bad = { commands: [{ kind: 'smoke-edit' }] };
     assert.equal(bad.commands.length, 1);
 });
-test('mock: pickVoxel carries a PickRay and returns a classified PickResult', () => {
+void test('mock: pickVoxel carries a PickRay and returns a classified PickResult', () => {
     const bridge = createMockRuntimeBridge();
     bridge.initializeEngine({ seed: 1 });
     const result = bridge.pickVoxel({
@@ -485,7 +486,7 @@ test('mock: pickVoxel carries a PickRay and returns a classified PickResult', ()
     // The mock hosts no geometry, so it classifies as a miss (Rust authority owns hits).
     assert.deepEqual(result, { outcome: 'miss', rejection: { reason: 'noHit' } });
 });
-test('mock: readVoxelMeshEvidence returns compact chunk evidence and fails closed', () => {
+void test('mock: readVoxelMeshEvidence returns compact chunk evidence and fails closed', () => {
     const bridge = createMockRuntimeBridge();
     assert.throws(() => bridge.readVoxelMeshEvidence({ grid: 1, chunks: [] }), (e) => e instanceof RuntimeBridgeError && e.kind === 'not_initialized');
     bridge.initializeEngine({ seed: 1 });
@@ -495,14 +496,14 @@ test('mock: readVoxelMeshEvidence returns compact chunk evidence and fails close
     assert.equal(snapshot.chunks.length, 1);
     assert.equal(snapshot.chunks[0]?.meshHash, 'fnv1a64:mock-mesh');
 });
-test('mock: pickVoxel before init fails closed', () => {
+void test('mock: pickVoxel before init fails closed', () => {
     const bridge = createMockRuntimeBridge();
     assert.throws(() => bridge.pickVoxel({ grid: 1, origin: [0, 0, 0], direction: [1, 0, 0], maxDistance: 10 }), (e) => e instanceof RuntimeBridgeError && e.kind === 'not_initialized');
 });
-test('native factory classifies a missing addon path', () => {
+void test('native factory classifies a missing addon path', () => {
     assert.throws(() => createNativeRuntimeBridge('./definitely-not-built.node'), (e) => e instanceof RuntimeBridgeError && e.kind === 'native_unavailable');
 });
-test('native bridge matches the mock when the addon is built (else skip)', (t) => {
+void test('native bridge matches the mock when the addon is built (else skip)', (t) => {
     let bridge;
     try {
         bridge = createNativeRuntimeBridge();

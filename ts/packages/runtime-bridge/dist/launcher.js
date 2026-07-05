@@ -1,6 +1,5 @@
 import { RuntimeBridgeError, frameCursor, } from './bridge.js';
 import { createMockRuntimeBridge } from './mock.js';
-import { createNativeRuntimeBridge } from './native.js';
 function requireNonEmpty(value, field) {
     if (value.trim().length === 0) {
         throw new RuntimeBridgeError('invalid_input', `${field} must be a non-empty string`);
@@ -386,7 +385,7 @@ export class SelectedBackendGameRuntimeLauncher {
         if (validation.profile.mode !== 'native') {
             throw new RuntimeBridgeError('invalid_input', 'selected backend launcher currently supports native mode only');
         }
-        const bridge = this.options.bridgeFactory?.() ?? createNativeRuntimeBridge(this.options.nativeModulePath);
+        const bridge = this.options.bridgeFactory?.() ?? await createNativeBridgeForSelectedBackend(this.options.nativeModulePath);
         bridge.initializeEngine({ seed: config.world.sceneId });
         const status = bridge.loadWorldBundle(config.world);
         if (status.blocksLoad || status.loadedWorld === null) {
@@ -400,5 +399,9 @@ export function createSelectedBackendGameRuntimeLauncher(options = {}) {
 }
 export function createNativeGameRuntimeLauncher(options = {}) {
     return createSelectedBackendGameRuntimeLauncher(options);
+}
+async function createNativeBridgeForSelectedBackend(nativeModulePath) {
+    const nativeModule = await import('./native.js');
+    return nativeModule.createNativeRuntimeBridge(nativeModulePath);
 }
 //# sourceMappingURL=launcher.js.map

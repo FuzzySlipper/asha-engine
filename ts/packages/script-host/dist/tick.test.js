@@ -26,7 +26,7 @@ function input(over = {}) {
         policies: over.policies ?? [labelAll, noop],
     };
 }
-test('the tick stage collects proposals from all policies in order with metadata', () => {
+void test('the tick stage collects proposals from all policies in order with metadata', () => {
     const result = runPolicyTickStage(input());
     assert.equal(result.tick, 1);
     // label-all proposes 2, noop proposes 1.
@@ -39,7 +39,7 @@ test('the tick stage collects proposals from all policies in order with metadata
     // Each policy got its own deterministic seed (seed + index).
     assert.deepEqual(result.executions.map((e) => e.seed), [100, 101]);
 });
-test('a crashing policy is isolated: others still run and the crash is classified', () => {
+void test('a crashing policy is isolated: others still run and the crash is classified', () => {
     const result = runPolicyTickStage(input({ policies: [crashes, labelAll] }));
     // label-all still produced its proposals despite the earlier crash.
     assert.equal(result.proposed.length, 2);
@@ -47,13 +47,13 @@ test('a crashing policy is isolated: others still run and the crash is classifie
     assert.equal(result.violations[0].code, 'policyThrew');
     assert.equal(result.violations[0].policy, 'boom');
 });
-test('the stage reproduces identical proposals across runs with the same input', () => {
+void test('the stage reproduces identical proposals across runs with the same input', () => {
     const a = runPolicyTickStage(input());
     const b = runPolicyTickStage(input());
     assert.deepEqual(a.proposed, b.proposed);
     assert.deepEqual(a.executions, b.executions);
 });
-test('the stage proposes only — it never mutates the projected view', () => {
+void test('the stage proposes only — it never mutates the projected view', () => {
     const view = makeWorldView({ entities: [spatial(1)] });
     const before = JSON.stringify(view);
     runPolicyTickStage(input({ view }));

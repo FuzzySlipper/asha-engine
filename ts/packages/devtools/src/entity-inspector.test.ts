@@ -39,7 +39,7 @@ function mixedRecords(): AuthoringEntityRecord[] {
   ];
 }
 
-test('inspector classifies every fixture vocabulary class and counts them', () => {
+void test('inspector classifies every fixture vocabulary class and counts them', () => {
   const view = buildEntityInspector(mixedRecords(), null);
   assert.equal(view.classCounts.spatialRendered, 2); // entities 1 and 5
   assert.equal(view.classCounts.spatialCollider, 1); // entity 2
@@ -48,7 +48,7 @@ test('inspector classifies every fixture vocabulary class and counts them', () =
   assert.equal(view.classCounts.attached, 1); // entity 5
 });
 
-test('inspector shows capabilities, relations, and eligibility distinctly', () => {
+void test('inspector shows capabilities, relations, and eligibility distinctly', () => {
   const view = buildEntityInspector(mixedRecords(), null);
   const collider = view.rows.find((r) => (r.id as number) === 2)!;
   assert.deepEqual(collider.capabilities, ['transform', 'collision(static)']);
@@ -63,7 +63,7 @@ test('inspector shows capabilities, relations, and eligibility distinctly', () =
   assert.deepEqual(logical.capabilities, []); // non-spatial: no fake render handle
 });
 
-test('inspector surfaces the last command result (accept and reject)', () => {
+void test('inspector surfaces the last command result (accept and reject)', () => {
   const accepted: EntityAuthoringOutcome = { status: 'accepted', event: { kind: 'created', entity: eid(9) } };
   const a = buildEntityInspector([], accepted);
   assert.deepEqual(a.lastResult, { accepted: true, detail: 'created', entity: eid(9) });
@@ -76,14 +76,14 @@ test('inspector surfaces the last command result (accept and reject)', () => {
   assert.deepEqual(r.lastResult, { accepted: false, detail: 'notTransformEligible', entity: eid(3) });
 });
 
-test('every row exposes a stable accessibility/automation control label', () => {
+void test('every row exposes a stable accessibility/automation control label', () => {
   const view = buildEntityInspector(mixedRecords(), null);
   for (const row of view.rows) {
     assert.equal(row.controlLabel, `entity-${row.id as number}-authoring-controls`);
   }
 });
 
-test('formatEntityInspector is deterministic and greppable', () => {
+void test('formatEntityInspector is deterministic and greppable', () => {
   const view = buildEntityInspector(mixedRecords(), {
     status: 'rejected',
     rejection: { reason: 'immovable', entity: eid(2) },

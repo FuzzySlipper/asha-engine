@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BrowserFpsInputCollector, RuntimeBridgeError, createMockRuntimeSession, } from '@asha/runtime-bridge';
+import { BrowserFpsInputCollector, RuntimeBridgeError, } from '@asha/runtime-bridge';
+import { createMockRuntimeSession } from '@asha/runtime-bridge/reference';
 import { readDefaultFpsGameplayPreset, readFpsGameplayPresetCatalog, } from '@asha/catalog-core';
 import { buildHudProjection, hudControlToIntent } from '@asha/ui-dom';
 function sessionInput() {
@@ -37,7 +38,7 @@ const cameraRequest = {
         height: 720,
     },
 };
-test('asha-demo public roots cover RuntimeSession readouts and HUD/menu projection', () => {
+void test('asha-demo public roots cover RuntimeSession readouts and HUD/menu projection', () => {
     const session = createMockRuntimeSession();
     const initialized = session.initialize(sessionInput());
     assert.equal(initialized.identity.mode, 'reference');
@@ -230,16 +231,19 @@ test('asha-demo public roots cover RuntimeSession readouts and HUD/menu projecti
     });
     assert.throws(() => session.queryNavPath({ maxVisited: 0 }), (error) => error instanceof RuntimeBridgeError && error.kind === 'invalid_input');
 });
-test('asha-demo browser condition imports runtime bridge without native-only exports', () => {
+void test('asha-demo browser condition imports runtime bridge without native-only exports', () => {
     const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
     const proof = `
     const surface = await import('@asha/runtime-bridge');
-    const required = ['createMockRuntimeSession', 'BrowserFpsInputCollector', 'RuntimeBridgeError'];
-    const forbidden = ['NativeRuntimeBridge', 'createNativeRuntimeBridge', 'NATIVE_WIRED_OPERATIONS'];
+    const reference = await import('@asha/runtime-bridge/reference');
+    const required = ['BrowserFpsInputCollector', 'RuntimeBridgeError'];
+    const referenceRequired = ['createMockRuntimeSession', 'createMockRuntimeBridge'];
+    const forbidden = ['NativeRuntimeBridge', 'createNativeRuntimeBridge', 'NATIVE_WIRED_OPERATIONS', 'createMockRuntimeSession', 'createMockRuntimeBridge'];
     const missing = required.filter((name) => !(name in surface));
+    const referenceMissing = referenceRequired.filter((name) => !(name in reference));
     const leaked = forbidden.filter((name) => name in surface);
-    if (missing.length > 0 || leaked.length > 0) {
-      throw new Error(JSON.stringify({ missing, leaked }));
+    if (missing.length > 0 || referenceMissing.length > 0 || leaked.length > 0) {
+      throw new Error(JSON.stringify({ missing, referenceMissing, leaked }));
     }
   `;
     execFileSync(process.execPath, ['--conditions=browser', '--input-type=module', '--eval', proof], {

@@ -24,9 +24,10 @@ Major durable surfaces include:
 - Rust authoritative state, commands, events, snapshots, replay, voxel data, voxel edit rules, world-bundle load/save, diagnostics, and render projection infrastructure.
 - Generated protocol contracts for TypeScript packages.
 - A transport-agnostic runtime bridge with native-addon, reference/mock, and WASM replay-related surfaces.
+- A semantic `RuntimeSession` facade for consumer repos: ProjectBundle-shaped ECRP bootstrap, Entity/CapabilityState readouts, collision-constrained camera input, primary-fire runtime action receipts, lifecycle/restart readouts, nav/policy proposal evidence, and deterministic telemetry/replay summaries.
 - Three.js retained renderer consuming render diffs.
 - Editor tools, DOM/devtools read models, smoke harnesses, fixtures, goldens, and CI governance checks.
-- Launchable voxel tooling docs describe commands and known limitations; active work is tracked in Den, not as README phases.
+- Launchable voxel tooling and FPS/ECRP demo substrate docs describe committed surfaces and known non-claims; active work is tracked in Den, not as README phases.
 
 For the full architecture, start with `docs/design.md` and live Den guidance (`get_agent_guidance(project_id="asha")`).
 
@@ -210,6 +211,10 @@ Check the relevant package scripts before adding new commands; this workspace in
 | `docs/determinism.md` | Determinism requirements and enforcement |
 | `docs/tunnel-generator-substrate.md` | Deterministic enclosed tunnel generator schema, import path, and projection evidence |
 | `docs/combat-authority-substrate.md` | Combat/health/fire-intent authority surface and replay evidence |
+| `docs/ecrp-runtime-session-readout.md` | RuntimeSession ProjectBundle-shaped ECRP load/readout surface and CapabilityState behavior |
+| `docs/ecrp-fps-object-model.md` | Public FPS object-model map from generated-tunnel roles to ECRP capabilities and runtime surfaces |
+| `docs/ecrp-capability-rule-ownership.md` | ECRP rule-owner matrix and current FPS RuntimeSession authority slice |
+| `docs/runtime-session-facade.md` | Current `RuntimeSessionFacade` methods, non-claims, and reference/native boundary |
 | `docs/nav-pathfinding-substrate.md` | Read-only voxel navigation projection and deterministic path query evidence |
 | `docs/policy-authoring.md` | Policy package authoring and testing |
 | `docs/voxel-coordinates.md` | Voxel/grid/chunk coordinate conventions |

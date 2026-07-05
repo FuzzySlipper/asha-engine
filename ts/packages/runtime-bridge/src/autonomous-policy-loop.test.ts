@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import type { CameraCreateRequest } from '@asha/contracts';
-import { createMockRuntimeSession } from './index.js';
+import { createMockRuntimeSession } from './reference.js';
 
 function sessionInput() {
   return {
@@ -39,7 +39,7 @@ function cameraRequest(): CameraCreateRequest {
   };
 }
 
-test('RuntimeSession runs deterministic autonomous enemy policy ticks through typed proposals', () => {
+void test('RuntimeSession runs deterministic autonomous enemy policy ticks through typed proposals', () => {
   const session = createMockRuntimeSession();
   session.initialize(sessionInput());
   const camera = session.createCamera(cameraRequest()).snapshot.camera;
@@ -106,7 +106,7 @@ test('RuntimeSession runs deterministic autonomous enemy policy ticks through ty
   );
 });
 
-test('RuntimeSession rejects autonomous policy proposals when source references forbidden capabilities', () => {
+void test('RuntimeSession rejects autonomous policy proposals when source references forbidden capabilities', () => {
   const session = createMockRuntimeSession();
   session.initialize(sessionInput());
   const camera = session.createCamera(cameraRequest()).snapshot.camera;

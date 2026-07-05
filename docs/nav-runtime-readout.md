@@ -8,9 +8,9 @@ Public import path:
 import {
   GENERATED_TUNNEL_NAV_POLICY_VIEW,
   GENERATED_TUNNEL_REACHABLE_PATH,
-  createMockRuntimeSession,
   type NavPathReadout,
 } from '@asha/runtime-bridge';
+import { createMockRuntimeSession } from '@asha/runtime-bridge/reference';
 ```
 
 `RuntimeSessionFacade.readNavProjection()` exposes the #4041 generated-tunnel
@@ -29,12 +29,15 @@ navigation projection:
   `a8c7f832281a39c5`
 
 `RuntimeSessionFacade.readNavPolicyView()` returns a read-only/proposal-only view
-shape for future policy fixtures. It exposes projection and latest path evidence
-only; it has no movement, mutation, or apply-path method.
+shape consumed by the current generated-tunnel enemy policy fixture. It exposes
+projection and latest path evidence only; it has no movement, mutation, or
+apply-path method. `runAutonomousPolicyTick()` may validate policy proposals and
+route primary-fire proposals through `submitRuntimeActionIntent()`, but movement
+authority remains intentionally unwired in this slice.
 
 Non-claims:
 
-- No enemy AI or policy behavior.
+- No full enemy AI or movement authority.
 - No movement authority.
 - No demo wiring.
 - No mutation through PolicyView.

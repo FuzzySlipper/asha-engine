@@ -337,7 +337,8 @@ function viewportStableStringify(value: ViewportHashValue | undefined): string {
     return JSON.stringify(value);
   }
   if (Array.isArray(value)) {
-    return `[${value.map((entry) => viewportStableStringify(entry)).join(',')}]`;
+    const entries = value as readonly ViewportHashValue[];
+    return `[${entries.map((entry) => viewportStableStringify(entry)).join(',')}]`;
   }
   const record = value as ViewportHashRecord;
   return `{${Object.keys(record)

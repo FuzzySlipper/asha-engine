@@ -23,13 +23,13 @@ import {
   invokePolicies,
 } from './index.js';
 
-test('host invokes the no-op policy and collects an empty command buffer', () => {
+void test('host invokes the no-op policy and collects an empty command buffer', () => {
   const result = invokePolicy(definePolicy('noop', noopPolicy), makeView());
   assert.deepEqual(result.commands, []);
   assert.deepEqual(result.diagnostics, []);
 });
 
-test('command collection preserves order across policies', () => {
+void test('command collection preserves order across policies', () => {
   const first: Policy = () => [commands.createEntity(entityId(1))];
   const second: Policy = () => [
     commands.addTag(entityId(1), tagId(2)),
@@ -49,7 +49,7 @@ test('command collection preserves order across policies', () => {
   ]);
 });
 
-test('a throwing policy yields a structured diagnostic, not a crash', () => {
+void test('a throwing policy yields a structured diagnostic, not a crash', () => {
   const ok: Policy = () => [commands.createEntity(entityId(1))];
   const boom: Policy = () => {
     throw new Error('policy exploded');
@@ -73,7 +73,7 @@ test('a throwing policy yields a structured diagnostic, not a crash', () => {
   });
 });
 
-test('collected() returns a defensive copy that cannot mutate the buffer', () => {
+void test('collected() returns a defensive copy that cannot mutate the buffer', () => {
   const buffer = new CommandBuffer();
   buffer.push(commands.createEntity(entityId(1)));
 

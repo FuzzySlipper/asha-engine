@@ -7,8 +7,8 @@ Public import path:
 ```ts
 import {
   BrowserFpsInputCollector,
-  createMockRuntimeSession,
 } from '@asha/runtime-bridge';
+import { createMockRuntimeSession } from '@asha/runtime-bridge/reference';
 ```
 
 Typed runtime command emitted per drain:

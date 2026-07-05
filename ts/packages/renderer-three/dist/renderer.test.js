@@ -21,7 +21,7 @@ function cubeNode(label = 'cube') {
 function createDiff(handle, node) {
     return { op: 'create', handle: renderHandle(handle), parent: null, node };
 }
-test('create places a node in the scene layer with its transform', () => {
+void test('create places a node in the scene layer with its transform', () => {
     const r = new ThreeRenderer();
     r.applyDiff(createDiff(1, cubeNode()));
     assert.equal(r.handleCount, 1);
@@ -31,7 +31,7 @@ test('create places a node in the scene layer with its transform', () => {
     assert.equal(obj.parent?.name, 'scene');
     assert.equal(obj.name, 'cube');
 });
-test('update mutates transform and visibility', () => {
+void test('update mutates transform and visibility', () => {
     const r = new ThreeRenderer();
     r.applyDiff(createDiff(1, cubeNode()));
     r.applyDiff({
@@ -47,14 +47,14 @@ test('update mutates transform and visibility', () => {
     assert.equal(obj.scale.x, 2);
     assert.equal(obj.visible, false);
 });
-test('destroy removes the node and frees the handle', () => {
+void test('destroy removes the node and frees the handle', () => {
     const r = new ThreeRenderer();
     r.applyDiff(createDiff(1, cubeNode()));
     r.applyDiff({ op: 'destroy', handle: renderHandle(1) });
     assert.equal(r.handleCount, 0);
     assert.ok(!r.has(renderHandle(1)));
 });
-test('duplicate create and stale/unknown handles throw', () => {
+void test('duplicate create and stale/unknown handles throw', () => {
     const r = new ThreeRenderer();
     r.applyDiff(createDiff(1, cubeNode()));
     assert.throws(() => r.applyDiff(createDiff(1, cubeNode())), RenderApplyError);
@@ -68,7 +68,7 @@ test('duplicate create and stale/unknown handles throw', () => {
     }), RenderApplyError);
     assert.throws(() => r.applyDiff({ op: 'destroy', handle: renderHandle(42) }), RenderApplyError);
 });
-test('debug-layer nodes land in the debug group', () => {
+void test('debug-layer nodes land in the debug group', () => {
     const r = new ThreeRenderer();
     const node = {
         ...cubeNode('#1'),
@@ -78,14 +78,14 @@ test('debug-layer nodes land in the debug group', () => {
     r.applyDiff(createDiff(1, node));
     assert.equal(r.objectFor(renderHandle(1))?.parent?.name, 'debug');
 });
-test('applyEncodedFrame decodes through runtime-bridge and sequences create→update→destroy', () => {
+void test('applyEncodedFrame decodes through runtime-bridge and sequences create→update→destroy', () => {
     const fixture = JSON.parse(readFileSync(resolve(import.meta.dirname, '../../../../harness/fixtures/render-diffs/sample-frame.json'), 'utf8'));
     const r = new ThreeRenderer();
     r.applyEncodedFrame(fixture);
     // The fixture creates handle 1, updates it, then destroys it.
     assert.equal(r.handleCount, 0);
 });
-test('applies the Rust render-bridge fixture sequence end-to-end', () => {
+void test('applies the Rust render-bridge fixture sequence end-to-end', () => {
     // Rust render bridge → fixture → runtime-bridge decode → renderer apply.
     // Frame 1 creates handles 1 & 2; frame 2 creates 3, updates 1, destroys 2.
     const frames = JSON.parse(readFileSync(resolve(import.meta.dirname, '../../../../harness/fixtures/render-diffs/bridge-sequence.json'), 'utf8'));
@@ -98,7 +98,7 @@ test('applies the Rust render-bridge fixture sequence end-to-end', () => {
     assert.ok(r.has(renderHandle(3)));
     assert.ok(!r.has(renderHandle(2)));
     // The update carried the new tag onto handle 1's scene object metadata.
-    assert.deepEqual(r.objectFor(renderHandle(1))?.userData.tags, [5]);
+    assert.deepEqual(r.objectFor(renderHandle(1))?.userData['tags'], [5]);
 });
 // ── mesh payload upload (ADR 0007 / #2263) ────────────────────────────────────
 import * as THREE from 'three';
@@ -138,7 +138,7 @@ function quadPayload() {
         provenance: 'voxelChunk',
     };
 }
-test('replaceMeshPayload uploads a BufferGeometry with groups and material slots', () => {
+void test('replaceMeshPayload uploads a BufferGeometry with groups and material slots', () => {
     const r = new ThreeRenderer();
     const h = renderHandle(1);
     r.applyDiff({ op: 'create', handle: h, parent: null, node: meshNode() });
@@ -154,7 +154,7 @@ test('replaceMeshPayload uploads a BufferGeometry with groups and material slots
     assert.ok(Array.isArray(mesh.material));
     assert.equal(mesh.material.length, 2);
 });
-test('pickMesh traces an uploaded mesh handle back to its authority provenance (#2437)', () => {
+void test('pickMesh traces an uploaded mesh handle back to its authority provenance (#2437)', () => {
     const r = new ThreeRenderer();
     const h = renderHandle(1);
     r.applyDiff({ op: 'create', handle: h, parent: null, node: meshNode() });
@@ -164,7 +164,7 @@ test('pickMesh traces an uploaded mesh handle back to its authority provenance (
     // Now it maps back to the authority source (the voxel chunk that produced it).
     assert.deepEqual(r.pickMesh(h), { handle: h, provenance: 'voxelChunk' });
 });
-test('pickMesh fails closed on a stale/missing handle (no invented source)', () => {
+void test('pickMesh fails closed on a stale/missing handle (no invented source)', () => {
     const r = new ThreeRenderer();
     const h = renderHandle(1);
     // Unknown handle → undefined.
@@ -175,7 +175,7 @@ test('pickMesh fails closed on a stale/missing handle (no invented source)', () 
     r.applyDiff({ op: 'destroy', handle: h });
     assert.equal(r.pickMesh(h), undefined);
 });
-test('registered slot colour maps to the group material; unregistered uses a fallback', () => {
+void test('registered slot colour maps to the group material; unregistered uses a fallback', () => {
     const r = new ThreeRenderer();
     r.registerSlotColor(1, 1, 0, 0); // slot 1 → red
     const h = renderHandle(1);
@@ -186,7 +186,7 @@ test('registered slot colour maps to the group material; unregistered uses a fal
     // Slot 2 was never registered → a deterministic non-red fallback colour.
     assert.notDeepEqual([mats[1].color.r, mats[1].color.g, mats[1].color.b], [1, 0, 0]);
 });
-test('replaceMeshPayload disposes the previous geometry and material', () => {
+void test('replaceMeshPayload disposes the previous geometry and material', () => {
     const r = new ThreeRenderer();
     const h = renderHandle(1);
     r.applyDiff({ op: 'create', handle: h, parent: null, node: meshNode() });
@@ -204,7 +204,7 @@ test('replaceMeshPayload disposes the previous geometry and material', () => {
     r.applyDiff({ op: 'replaceMeshPayload', handle: h, payload: quadPayload() });
     assert.ok(secondDisposed);
 });
-test('replaceMeshPayload on an unknown handle throws', () => {
+void test('replaceMeshPayload on an unknown handle throws', () => {
     const r = new ThreeRenderer();
     assert.throws(() => r.applyDiff({ op: 'replaceMeshPayload', handle: renderHandle(9), payload: quadPayload() }), RenderApplyError);
 });
@@ -286,7 +286,7 @@ class MapBufferSource {
         }
     }
 }
-test('inline and handle-backed sources produce equivalent geometry', () => {
+void test('inline and handle-backed sources produce equivalent geometry', () => {
     const inlineRenderer = new ThreeRenderer();
     const hi = renderHandle(1);
     inlineRenderer.applyDiff({ op: 'create', handle: hi, parent: null, node: meshNode() });
@@ -304,13 +304,13 @@ test('inline and handle-backed sources produce equivalent geometry', () => {
     assert.deepEqual(Array.from(handleGeo.getIndex().array), Array.from(inlineGeo.getIndex().array));
     assert.deepEqual(handleGeo.groups.map((g) => [g.start, g.count, g.materialIndex]), inlineGeo.groups.map((g) => [g.start, g.count, g.materialIndex]));
 });
-test('handle source with no buffer provider fails closed', () => {
+void test('handle source with no buffer provider fails closed', () => {
     const r = new ThreeRenderer();
     const h = renderHandle(1);
     r.applyDiff({ op: 'create', handle: h, parent: null, node: meshNode() });
     assert.throws(() => r.applyDiff({ op: 'replaceMeshPayload', handle: h, payload: quadHandlePayload(7) }), RenderApplyError);
 });
-test('unknown and stale buffer handles produce a classified error, not an empty mesh', () => {
+void test('unknown and stale buffer handles produce a classified error, not an empty mesh', () => {
     const source = new MapBufferSource();
     const r = new ThreeRenderer({ meshBufferSource: source });
     const h = renderHandle(1);
@@ -322,7 +322,7 @@ test('unknown and stale buffer handles produce a classified error, not an empty 
     source.expire(7);
     assert.throws(() => r.applyDiff({ op: 'replaceMeshPayload', handle: h, payload: quadHandlePayload(7) }), /unavailable \[buffer_expired\]/);
 });
-test('a buffer too small for the declared layout fails closed', () => {
+void test('a buffer too small for the declared layout fails closed', () => {
     const source = new MapBufferSource();
     source.set(7, quadHandleBytes().slice(0, 64)); // truncated: not enough for normals+indices
     const r = new ThreeRenderer({ meshBufferSource: source });
@@ -330,7 +330,7 @@ test('a buffer too small for the declared layout fails closed', () => {
     r.applyDiff({ op: 'create', handle: h, parent: null, node: meshNode() });
     assert.throws(() => r.applyDiff({ op: 'replaceMeshPayload', handle: h, payload: quadHandlePayload(7) }), /exceeds buffer/);
 });
-test('replaceMeshPayload releases the borrow on success (borrow → copy → release)', () => {
+void test('replaceMeshPayload releases the borrow on success (borrow → copy → release)', () => {
     const source = new MapBufferSource();
     source.set(7, quadHandleBytes());
     const r = new ThreeRenderer({ meshBufferSource: source });
@@ -346,7 +346,7 @@ test('replaceMeshPayload releases the borrow on success (borrow → copy → rel
 function handleCrateAsset(buffer) {
     return { ...crateAsset(), payload: { ...quadHandlePayload(buffer), provenance: 'staticAsset' } };
 }
-test('defineStaticMesh consumes a handle-backed payload and releases the borrow', () => {
+void test('defineStaticMesh consumes a handle-backed payload and releases the borrow', () => {
     const source = new MapBufferSource();
     source.set(7, quadHandleBytes());
     const r = new ThreeRenderer({ meshBufferSource: source });
@@ -374,7 +374,7 @@ test('defineStaticMesh consumes a handle-backed payload and releases the borrow'
     assert.deepEqual(Array.from(handleGeo.getAttribute('position').array), Array.from(inlineGeo.getAttribute('position').array));
     assert.deepEqual(Array.from(handleGeo.getIndex().array), Array.from(inlineGeo.getIndex().array));
 });
-test('defineStaticMesh with a handle payload but no provider fails closed', () => {
+void test('defineStaticMesh with a handle payload but no provider fails closed', () => {
     const r = new ThreeRenderer(); // no buffer source
     assert.throws(() => r.applyDiff({ op: 'defineStaticMesh', asset: handleCrateAsset(7) }), /defineStaticMesh: handle-source payload needs a runtime buffer provider/);
     // The asset was not defined (no empty geometry left behind).
@@ -385,14 +385,14 @@ test('defineStaticMesh with a handle payload but no provider fails closed', () =
         instance: crateInstance(),
     }), /undefined static mesh asset/);
 });
-test('defineStaticMesh with an unknown handle fails closed without leaking a borrow', () => {
+void test('defineStaticMesh with an unknown handle fails closed without leaking a borrow', () => {
     const source = new MapBufferSource(); // buffer 7 never set
     const r = new ThreeRenderer({ meshBufferSource: source });
     assert.throws(() => r.applyDiff({ op: 'defineStaticMesh', asset: handleCrateAsset(7) }), /defineStaticMesh: buffer 7 unavailable \[unknown_handle\]/);
     assert.equal(source.outstanding, 0, 'getBuffer threw, so no borrow to release');
     assert.deepEqual(source.released, []);
 });
-test('defineStaticMesh releases the borrow even when the copy fails (too small)', () => {
+void test('defineStaticMesh releases the borrow even when the copy fails (too small)', () => {
     const source = new MapBufferSource();
     source.set(7, quadHandleBytes().slice(0, 64)); // truncated
     const r = new ThreeRenderer({ meshBufferSource: source });
@@ -402,7 +402,7 @@ test('defineStaticMesh releases the borrow even when the copy fails (too small)'
     assert.deepEqual(source.released, [7]);
     assert.equal(source.outstanding, 0);
 });
-test('a release failure on the success path is classified, not swallowed', () => {
+void test('a release failure on the success path is classified, not swallowed', () => {
     const source = new MapBufferSource();
     source.set(7, quadHandleBytes());
     source.failReleaseOf(7);
@@ -425,7 +425,7 @@ function crateInstance(asset = 'mesh/crate', overrides = []) {
         metadata: { source: null, tags: [], label: asset },
     };
 }
-test('two instances share one BufferGeometry and the asset is reference-counted', () => {
+void test('two instances share one BufferGeometry and the asset is reference-counted', () => {
     const r = new ThreeRenderer();
     r.applyDiff({ op: 'defineStaticMesh', asset: crateAsset() });
     r.applyDiff({ op: 'createStaticMeshInstance', handle: renderHandle(1), parent: null, instance: crateInstance() });
@@ -435,7 +435,7 @@ test('two instances share one BufferGeometry and the asset is reference-counted'
     assert.equal(a.geometry, b.geometry, 'instances must share one geometry');
     assert.equal(r.instanceCountFor('mesh/crate'), 2);
 });
-test('destroying one instance does not dispose geometry still used by another', () => {
+void test('destroying one instance does not dispose geometry still used by another', () => {
     const r = new ThreeRenderer();
     r.applyDiff({ op: 'defineStaticMesh', asset: crateAsset() });
     r.applyDiff({ op: 'createStaticMeshInstance', handle: renderHandle(1), parent: null, instance: crateInstance() });
@@ -450,7 +450,7 @@ test('destroying one instance does not dispose geometry still used by another', 
     assert.ok(disposed, 'shared geometry is disposed when the last instance is gone');
     assert.equal(r.instanceCountFor('mesh/crate'), 0);
 });
-test('per-instance material overrides apply only to that instance', () => {
+void test('per-instance material overrides apply only to that instance', () => {
     const r = new ThreeRenderer();
     r.registerSlotColor(1, 0, 0, 1); // base slot 1 → blue
     r.applyDiff({ op: 'defineStaticMesh', asset: crateAsset() });
@@ -477,7 +477,7 @@ function woodMaterial() {
         uvStrategy: 'flat',
     };
 }
-test('defineMaterial maps a static-mesh slot to its catalog colour, not a placeholder', () => {
+void test('defineMaterial maps a static-mesh slot to its catalog colour, not a placeholder', () => {
     const r = new ThreeRenderer();
     r.applyDiff({ op: 'defineMaterial', material: woodMaterial() });
     assert.deepEqual(r.materialDescriptor('material/wood')?.color, [0.6, 0.4, 0.2, 1]);
@@ -502,7 +502,7 @@ test('defineMaterial maps a static-mesh slot to its catalog colour, not a placeh
     assert.ok(Math.abs(mat.color.r - 0.6) < 1e-6 && Math.abs(mat.color.b - 0.2) < 1e-6);
     assert.equal(r.fallbackMaterialCount, 0, 'a defined material is not a fallback');
 });
-test('a slot with no catalog descriptor falls back deterministically and is counted', () => {
+void test('a slot with no catalog descriptor falls back deterministically and is counted', () => {
     const r = new ThreeRenderer();
     r.applyDiff({ op: 'defineStaticMesh', asset: crateAsset() }); // two slots, no descriptors
     r.applyDiff({
@@ -513,7 +513,7 @@ test('a slot with no catalog descriptor falls back deterministically and is coun
     });
     assert.equal(r.fallbackMaterialCount, 2, 'both unresolved slots count as fallbacks');
 });
-test('two voxel materials project to distinct catalog render descriptors (#2375)', () => {
+void test('two voxel materials project to distinct catalog render descriptors (#2375)', () => {
     // The fixture is generated by render-bridge's project_voxel_materials from a
     // VoxelMaterialTable + catalog (compact u16 ids → catalog material assets).
     const fixture = JSON.parse(readFileSync(resolve(import.meta.dirname, '../../../../harness/fixtures/render-diffs/voxel-materials.json'), 'utf8'));
@@ -527,7 +527,7 @@ test('two voxel materials project to distinct catalog render descriptors (#2375)
     assert.ok(!('structuralClass' in stone) && !('collidable' in stone));
 });
 // ── material update lifecycle + fallback diagnostics (#2376) ───────────────────
-test('redefining a material live-replaces instance materials and disposes the old', () => {
+void test('redefining a material live-replaces instance materials and disposes the old', () => {
     const r = new ThreeRenderer();
     r.applyDiff({ op: 'defineMaterial', material: woodMaterial() });
     r.applyDiff({
@@ -560,7 +560,7 @@ test('redefining a material live-replaces instance materials and disposes the ol
     assert.ok(Math.abs(after.color.g - 0.8) < 1e-6, 'rendered colour updated live');
     assert.ok(disposed, 'the old material was disposed (leak-safe)');
 });
-test('fallback material use is visible in diagnostics with the material id', () => {
+void test('fallback material use is visible in diagnostics with the material id', () => {
     const r = new ThreeRenderer();
     // No defineMaterial for the crate's slots → both fall back.
     r.applyDiff({ op: 'defineStaticMesh', asset: crateAsset() });
@@ -612,9 +612,9 @@ function atlasSprite(frame = 0) {
     };
 }
 function spriteUv(r, handle) {
-    return r.objectFor(renderHandle(handle)).userData.uv.map((x) => Number(x.toFixed(4)));
+    return r.objectFor(renderHandle(handle)).userData['uv'].map((x) => Number(x.toFixed(4)));
 }
-test('a sprite frame maps to its atlas UV sub-rectangle deterministically', () => {
+void test('a sprite frame maps to its atlas UV sub-rectangle deterministically', () => {
     const r = new ThreeRenderer();
     r.applyDiff({ op: 'defineTexture', texture: sparkTexture() });
     r.applyDiff({ op: 'defineSpriteAtlas', atlas: sparkAtlas() });
@@ -627,7 +627,7 @@ test('a sprite frame maps to its atlas UV sub-rectangle deterministically', () =
     assert.deepEqual(spriteUv(r, 1), [0.5, 0, 1, 1], 'frame 3 → right half');
     assert.equal(r.spriteFallbackCount, 0, 'known frames are not fallbacks');
 });
-test('a sprite frame with no atlas frame falls back to full UVs and is counted', () => {
+void test('a sprite frame with no atlas frame falls back to full UVs and is counted', () => {
     const r = new ThreeRenderer();
     r.applyDiff({ op: 'defineTexture', texture: sparkTexture() });
     r.applyDiff({ op: 'defineSpriteAtlas', atlas: sparkAtlas() });
@@ -635,7 +635,7 @@ test('a sprite frame with no atlas frame falls back to full UVs and is counted',
     assert.deepEqual(spriteUv(r, 1), [0, 0, 1, 1], 'unknown frame → full UVs');
     assert.equal(r.spriteFallbackCount, 1);
 });
-test('instance of an undefined asset, and redefine while in use, are classified errors', () => {
+void test('instance of an undefined asset, and redefine while in use, are classified errors', () => {
     const r = new ThreeRenderer();
     assert.throws(() => r.applyDiff({ op: 'createStaticMeshInstance', handle: renderHandle(1), parent: null, instance: crateInstance() }), RenderApplyError);
     r.applyDiff({ op: 'defineStaticMesh', asset: crateAsset() });
@@ -661,7 +661,7 @@ function sparkSprite(over = {}) {
         ...over,
     };
 }
-test('createSprite builds a plane geometry (not THREE.Sprite) with render order + depth policy', () => {
+void test('createSprite builds a plane geometry (not THREE.Sprite) with render order + depth policy', () => {
     const r = new ThreeRenderer();
     r.applyDiff({ op: 'createSprite', handle: renderHandle(1), parent: null, sprite: sparkSprite({ renderOrder: 7, depth: 'depthTestOff' }) });
     const mesh = r.objectFor(renderHandle(1));
@@ -670,22 +670,22 @@ test('createSprite builds a plane geometry (not THREE.Sprite) with render order 
     assert.equal(mesh.renderOrder, 7);
     assert.equal(mesh.material.depthTest, false);
 });
-test('sprite frame/tint updates are deterministic and projection-driven', () => {
+void test('sprite frame/tint updates are deterministic and projection-driven', () => {
     const r = new ThreeRenderer();
     r.applyDiff({ op: 'createSprite', handle: renderHandle(1), parent: null, sprite: sparkSprite() });
     r.applyDiff({ op: 'updateSprite', handle: renderHandle(1), frame: 4, tint: [1, 0, 0, 1], renderOrder: 2, visible: false });
     const mesh = r.objectFor(renderHandle(1));
-    assert.equal(mesh.userData.frame, 4);
+    assert.equal(mesh.userData['frame'], 4);
     assert.equal(mesh.renderOrder, 2);
     assert.equal(mesh.visible, false);
     const c = mesh.material.color;
     assert.deepEqual([c.r, c.g, c.b], [1, 0, 0]);
 });
-test('reserved lit/shadow shading is accepted (renderer does not force unlit-only)', () => {
+void test('reserved lit/shadow shading is accepted (renderer does not force unlit-only)', () => {
     const r = new ThreeRenderer();
     assert.doesNotThrow(() => r.applyDiff({ op: 'createSprite', handle: renderHandle(1), parent: null, sprite: sparkSprite({ shading: 'lit' }) }));
 });
-test('pickSprite traces to source entity / scene node / asset, never a render handle as authority', () => {
+void test('pickSprite traces to source entity / scene node / asset, never a render handle as authority', () => {
     const r = new ThreeRenderer();
     r.applyDiff({
         op: 'createSprite',
@@ -762,7 +762,7 @@ function bigMeshPayload(buffer, vertexCount, indexCount) {
         provenance: 'voxelChunk',
     };
 }
-test('large handle-backed payload uploads with the declared counts', () => {
+void test('large handle-backed payload uploads with the declared counts', () => {
     const vertexCount = 4096;
     const streams = bigMeshStreams(vertexCount);
     const source = new MapBufferSource();
@@ -779,7 +779,7 @@ test('large handle-backed payload uploads with the declared counts', () => {
     assert.equal(geo.getAttribute('position').count, vertexCount);
     assert.equal(geo.getIndex().count, streams.indices.length);
 });
-test('create/replace/destroy/invalidate cycle leaves no leaked geometry and stable diagnostics', () => {
+void test('create/replace/destroy/invalidate cycle leaves no leaked geometry and stable diagnostics', () => {
     const source = new MapBufferSource();
     source.set(1, quadHandleBytes());
     source.set(2, quadHandleBytes());

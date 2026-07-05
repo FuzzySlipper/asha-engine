@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createMainWindow, electronHost, mainWindowOptions, RENDERER_ENTRY, SHARED_SHELL_LAUNCH_COMMAND, } from './index.js';
-test('electron host descriptor enables accessibility for the shared composition root', () => {
+void test('electron host descriptor enables accessibility for the shared composition root', () => {
     const host = electronHost();
     assert.equal(host.name, 'electron');
     assert.equal(host.accessibility, true);
 });
-test('main window options are accessible and keep the renderer sandboxed', () => {
+void test('main window options are accessible and keep the renderer sandboxed', () => {
     const opts = mainWindowOptions();
     assert.equal(opts.webPreferences.enableAccessibility, true);
     assert.equal(opts.webPreferences.sandbox, true);
@@ -14,7 +14,7 @@ test('main window options are accessible and keep the renderer sandboxed', () =>
     assert.equal(opts.webPreferences.contextIsolation, true);
     assert.ok(opts.accessibleTitle.length > 0);
 });
-test('createMainWindow loads the SHARED app shell entry, not an electron-only fork', () => {
+void test('createMainWindow loads the SHARED app shell entry, not an electron-only fork', () => {
     const loaded = [];
     const usedOptions = [];
     const fakeWindow = {

@@ -12,7 +12,7 @@ function read(env, key, fallback = 'unknown') {
     return value === undefined || value.trim() === '' ? fallback : value;
 }
 function selectedRenderContext(env) {
-    const value = env.ASHA_GPU_PERF_CONTEXT;
+    const value = env['ASHA_GPU_PERF_CONTEXT'];
     if (value === 'electron-webgl' || value === 'browser-webgl' || value === 'external-gl') {
         return value;
     }
@@ -57,13 +57,18 @@ function parseExternalCalibrations(raw) {
             return null;
         return parsed.map((entry) => {
             const record = entry;
-            const score = typeof record.score === 'number' && Number.isFinite(record.score) ? record.score : null;
+            const rawScore = record['score'];
+            const score = typeof rawScore === 'number' && Number.isFinite(rawScore) ? rawScore : null;
+            const rawName = record['name'];
+            const rawUnit = record['unit'];
+            const rawSource = record['source'];
+            const rawNotes = record['notes'];
             return {
-                name: typeof record.name === 'string' && record.name.trim() !== '' ? record.name : 'unnamed',
+                name: typeof rawName === 'string' && rawName.trim() !== '' ? rawName : 'unnamed',
                 score,
-                unit: typeof record.unit === 'string' && record.unit.trim() !== '' ? record.unit : 'score',
-                source: typeof record.source === 'string' && record.source.trim() !== '' ? record.source : 'manual',
-                notes: typeof record.notes === 'string' ? record.notes : '',
+                unit: typeof rawUnit === 'string' && rawUnit.trim() !== '' ? rawUnit : 'score',
+                source: typeof rawSource === 'string' && rawSource.trim() !== '' ? rawSource : 'manual',
+                notes: typeof rawNotes === 'string' ? rawNotes : '',
                 gating: 'non-gating',
             };
         });
@@ -80,7 +85,7 @@ export async function runGpuPerf(options = {}) {
     const env = options.env ?? process.env;
     const timestamp = options.timestamp ?? new Date().toISOString();
     const renderContext = selectedRenderContext(env);
-    if (env.ASHA_GPU_PERF_ENABLE !== '1' || renderContext === null) {
+    if (env['ASHA_GPU_PERF_ENABLE'] !== '1' || renderContext === null) {
         return {
             ok: true,
             status: 'skipped',
@@ -93,7 +98,7 @@ export async function runGpuPerf(options = {}) {
             externalCalibrations: [],
         };
     }
-    const calibrations = parseExternalCalibrations(env.ASHA_GPU_EXTERNAL_CALIBRATION);
+    const calibrations = parseExternalCalibrations(env['ASHA_GPU_EXTERNAL_CALIBRATION']);
     if (calibrations === null) {
         return {
             ok: false,

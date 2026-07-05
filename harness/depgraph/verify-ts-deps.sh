@@ -12,6 +12,7 @@ import sys, tomllib, pathlib, json, re
 repo = pathlib.Path(sys.argv[1])
 ownership_path = repo / "governance" / "ownership.toml"
 ts_packages = repo / "ts" / "packages"
+public_surface_manifest_path = repo / "harness" / "public-surface" / "ts-packages.json"
 
 with open(ownership_path, "rb") as f:
     ownership = tomllib.load(f)
@@ -52,6 +53,36 @@ def package_name_for_key(ownership_key: str) -> str:
 
 known_asha_packages = {name for name, _pkg_dir, _data in actual_packages.values()}
 known_asha_packages.update(package_name_for_key(key) for key in packages)
+
+
+def load_approved_export_subpaths() -> dict[str, set[str]]:
+    if not public_surface_manifest_path.exists():
+        return {}
+    manifest = json.loads(public_surface_manifest_path.read_text())
+    approved: dict[str, set[str]] = {}
+    for record in manifest.get("packages", []):
+        if not isinstance(record, dict):
+            continue
+        package_name = record.get("package")
+        if not isinstance(package_name, str):
+            continue
+        subpaths = set()
+        for subpath in record.get("allowedExportSubpaths", []):
+            if isinstance(subpath, str):
+                subpaths.add(subpath)
+        approved[package_name] = subpaths
+    return approved
+
+
+approved_export_subpaths = load_approved_export_subpaths()
+
+
+def approved_subpath_specifiers(package_name: str) -> set[str]:
+    specifiers = set()
+    for subpath in approved_export_subpaths.get(package_name, set()):
+        if subpath.startswith("./"):
+            specifiers.add(f"{package_name}/{subpath[2:]}")
+    return specifiers
 
 
 def collect_source_imports(pkg_dir: pathlib.Path, package_name: str) -> tuple[set[str], set[str]]:
@@ -116,7 +147,10 @@ for ownership_key, (package_name, pkg_dir, pkg_data) in actual_packages.items():
 
     if not has_root_export(pkg_data):
         failures.append(f"FAIL: {ownership_key} package.json must expose root package API via exports['.']")
-    extra_export_keys = non_root_export_keys(pkg_data)
+    extra_export_keys = [
+        key for key in non_root_export_keys(pkg_data)
+        if key not in approved_export_subpaths.get(package_name, set())
+    ]
     if extra_export_keys:
         failures.append(
             f"FAIL: {ownership_key} package.json exposes non-root export(s): "
@@ -129,6 +163,8 @@ for ownership_key, (package_name, pkg_dir, pkg_data) in actual_packages.items():
         failures.append(f"FAIL: {ownership_key} lists '{dep}' in both may_import and may_not_import.")
 
     for specifier in sorted(deep_imports_found):
+        if specifier in approved_subpath_specifiers(specifier.split("/", 2)[0] + "/" + specifier.split("/", 2)[1]):
+            continue
         failures.append(
             f"FAIL: {ownership_key} imports deep sibling package path '{specifier}'.\n"
             f"      Import the package root barrel instead (for example '@asha/name'), "

@@ -151,7 +151,8 @@ const generatedBoundaryConfigs = [
             },
             {
               "group": [
-                "@asha/runtime-bridge/*"
+                "@asha/runtime-bridge/*",
+                "!@asha/runtime-bridge/reference"
               ],
               "message": "ts/packages/app must import @asha/runtime-bridge through its root barrel. Do not import @asha/runtime-bridge/src, @asha/runtime-bridge/dist, generated internals, or other package-private files."
             },
@@ -1407,7 +1408,8 @@ const generatedBoundaryConfigs = [
             },
             {
               "group": [
-                "@asha/runtime-bridge/*"
+                "@asha/runtime-bridge/*",
+                "!@asha/runtime-bridge/reference"
               ],
               "message": "ts/packages/devtools must import @asha/runtime-bridge through its root barrel. Do not import @asha/runtime-bridge/src, @asha/runtime-bridge/dist, generated internals, or other package-private files."
             },
@@ -3079,7 +3081,8 @@ const generatedBoundaryConfigs = [
             },
             {
               "group": [
-                "@asha/runtime-bridge/*"
+                "@asha/runtime-bridge/*",
+                "!@asha/runtime-bridge/reference"
               ],
               "message": "ts/packages/renderer-three must import @asha/runtime-bridge through its root barrel. Do not import @asha/runtime-bridge/src, @asha/runtime-bridge/dist, generated internals, or other package-private files."
             },
@@ -3897,7 +3900,8 @@ const generatedBoundaryConfigs = [
             },
             {
               "group": [
-                "@asha/runtime-bridge/*"
+                "@asha/runtime-bridge/*",
+                "!@asha/runtime-bridge/reference"
               ],
               "message": "ts/packages/smoke must import @asha/runtime-bridge through its root barrel. Do not import @asha/runtime-bridge/src, @asha/runtime-bridge/dist, generated internals, or other package-private files."
             },
@@ -4101,7 +4105,8 @@ const generatedBoundaryConfigs = [
             },
             {
               "group": [
-                "@asha/runtime-bridge/*"
+                "@asha/runtime-bridge/*",
+                "!@asha/runtime-bridge/reference"
               ],
               "message": "ts/packages/ui-dom must import @asha/runtime-bridge through its root barrel. Do not import @asha/runtime-bridge/src, @asha/runtime-bridge/dist, generated internals, or other package-private files."
             },

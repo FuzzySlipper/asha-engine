@@ -295,7 +295,8 @@ function stableStringify(value) {
         return JSON.stringify(value);
     }
     if (Array.isArray(value)) {
-        return `[${value.map((entry) => stableStringify(entry)).join(',')}]`;
+        const entries = value;
+        return `[${entries.map((entry) => stableStringify(entry)).join(',')}]`;
     }
     const record = value;
     return `{${Object.keys(record)

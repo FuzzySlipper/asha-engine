@@ -52,7 +52,7 @@ function validCatalog(): Catalog {
   };
 }
 
-test('buildCatalogModel resolves entries and the dependency DAG of a valid catalog', () => {
+void test('buildCatalogModel resolves entries and the dependency DAG of a valid catalog', () => {
   const model = buildCatalogModel(validCatalog());
   assert.deepEqual(
     model.entries.map((e) => e.id),
@@ -66,7 +66,7 @@ test('buildCatalogModel resolves entries and the dependency DAG of a valid catal
   assert.equal(model.entries.find((e) => e.id === 'material:stone')?.hasMaterial, true);
 });
 
-test('buildCatalogModel records a missing dependency without dropping it', () => {
+void test('buildCatalogModel records a missing dependency without dropping it', () => {
   const catalog: Catalog = {
     entries: [entry({ id: 'mesh:wall', kind: 'mesh', dependencies: [ref('material:absent')] })],
   };
@@ -78,7 +78,7 @@ test('buildCatalogModel records a missing dependency without dropping it', () =>
   assert.deepEqual(model.dependencyEdges.get('mesh:wall'), []);
 });
 
-test('buildCatalogModel detects a dependency cycle over present assets', () => {
+void test('buildCatalogModel detects a dependency cycle over present assets', () => {
   const catalog: Catalog = {
     entries: [
       entry({ id: 'a', kind: 'mesh', dependencies: [ref('b')] }),
@@ -90,7 +90,7 @@ test('buildCatalogModel detects a dependency cycle over present assets', () => {
   assert.deepEqual([...model.cycles[0]!].sort(), ['a', 'b']);
 });
 
-test('buildCatalogModel surfaces classified structural issues from a generated report', () => {
+void test('buildCatalogModel surfaces classified structural issues from a generated report', () => {
   const report: CatalogValidationReport = {
     errors: [
       {
@@ -113,7 +113,7 @@ test('buildCatalogModel surfaces classified structural issues from a generated r
   assert.match(model.structuralIssues[0]!.detail, /expected material, found texture/);
 });
 
-test('buildLockDriftModel classifies drift and never silently relocks', () => {
+void test('buildLockDriftModel classifies drift and never silently relocks', () => {
   const report: LockValidationReport = {
     findings: [
       {
@@ -148,7 +148,7 @@ test('buildLockDriftModel classifies drift and never silently relocks', () => {
   assert.equal(model.findings.find((f) => f.id === 'mesh:new')?.severity, 'info');
 });
 
-test('a lock report with only new-in-catalog findings reports no drift', () => {
+void test('a lock report with only new-in-catalog findings reports no drift', () => {
   const report: LockValidationReport = {
     findings: [
       {
@@ -168,7 +168,7 @@ test('a lock report with only new-in-catalog findings reports no drift', () => {
   assert.equal(buildLockDriftModel(report).hasDrift, false);
 });
 
-test('inspectMaterial exposes render and collision as disjoint read views', () => {
+void test('inspectMaterial exposes render and collision as disjoint read views', () => {
   const view = inspectMaterial(entry({ id: 'material:stone', kind: 'material', material }))!;
   // The two projections are separate objects with no overlapping keys — they can
   // never be presented or edited as one mixed material.
@@ -182,11 +182,11 @@ test('inspectMaterial exposes render and collision as disjoint read views', () =
   assert.equal('solid' in view.render, false);
 });
 
-test('inspectMaterial returns null for a non-material asset', () => {
+void test('inspectMaterial returns null for a non-material asset', () => {
   assert.equal(inspectMaterial(entry({ id: 'mesh:wall', kind: 'mesh' })), null);
 });
 
-test('classifyFallback marks only the useFallback outcome as fallback-used', () => {
+void test('classifyFallback marks only the useFallback outcome as fallback-used', () => {
   const used: FallbackDecision = { outcome: 'useFallback', reason: 'missing', visual: 'magentaSquare' };
   const failed: FallbackDecision = { outcome: 'failClosed', reason: 'collision-critical' };
   assert.deepEqual(classifyFallback(used), {
@@ -199,14 +199,14 @@ test('classifyFallback marks only the useFallback outcome as fallback-used', () 
   assert.equal(classifyFallback(failed).visual, null);
 });
 
-test('impactOfChangedAsset reports transitive dependents', () => {
+void test('impactOfChangedAsset reports transitive dependents', () => {
   // texture:stone ← material:stone ← mesh:wall
   const report = impactOfChangedAsset(validCatalog(), 'texture:stone');
   assert.deepEqual(report.dependents, ['material:stone', 'mesh:wall']);
   assert.equal(report.unknownAsset, false);
 });
 
-test('impactOfChangedAsset flags an unknown asset and an asset with no dependents', () => {
+void test('impactOfChangedAsset flags an unknown asset and an asset with no dependents', () => {
   const unknown = impactOfChangedAsset(validCatalog(), 'mesh:absent');
   assert.equal(unknown.unknownAsset, true);
   assert.deepEqual(unknown.dependents, []);
@@ -232,7 +232,7 @@ function trace(over: Partial<AssetSourceTraceInput>): AssetSourceTraceInput {
   };
 }
 
-test('source trace surfaces a tracked GUID and clean status', () => {
+void test('source trace surfaces a tracked GUID and clean status', () => {
   const v = buildAssetSourceTrace(trace({}));
   assert.equal(v.tracked, true);
   assert.equal(v.needsReimport, false);
@@ -240,14 +240,14 @@ test('source trace surfaces a tracked GUID and clean status', () => {
   assert.equal(v.artifactCount, 1);
 });
 
-test('content change under a stable GUID flags a reimport, not re-init', () => {
+void test('content change under a stable GUID flags a reimport, not re-init', () => {
   const v = buildAssetSourceTrace(trace({ status: 'contentChanged' }));
   assert.equal(v.tracked, true);
   assert.equal(v.needsReimport, true);
   assert.equal(v.needsInit, false);
 });
 
-test('a missing sidecar / absent GUID flags init', () => {
+void test('a missing sidecar / absent GUID flags init', () => {
   const missing = buildAssetSourceTrace(trace({ status: 'missingSidecar' }));
   assert.equal(missing.needsInit, true);
   const guidless = buildAssetSourceTrace(trace({ guid: null }));
@@ -255,7 +255,7 @@ test('a missing sidecar / absent GUID flags init', () => {
   assert.equal(guidless.needsInit, true);
 });
 
-test('formatAssetSourceTrace is deterministic and greppable', () => {
+void test('formatAssetSourceTrace is deterministic and greppable', () => {
   const lines = formatAssetSourceTrace(buildAssetSourceTrace(trace({ status: 'movedFile' })));
   assert.ok(lines[0]!.includes('guid=28426a627e8870ba9fdefd6a0d998bfc'));
   assert.ok(lines[0]!.includes('status=movedFile'));

@@ -58,11 +58,97 @@ export class RenderDecodeError extends Error {
 
 // ── Primitive validators ──────────────────────────────────────────────────────
 
-function asObject(v: unknown, path: string): Record<string, unknown> {
+interface RenderPayloadRecord {
+  readonly [key: string]: unknown;
+  readonly a?: unknown;
+  readonly asset?: unknown;
+  readonly atlas?: unknown;
+  readonly attachment?: unknown;
+  readonly attachmentPoint?: unknown;
+  readonly attributes?: unknown;
+  readonly b?: unknown;
+  readonly billboard?: unknown;
+  readonly bounds?: unknown;
+  readonly buffer?: unknown;
+  readonly collision?: unknown;
+  readonly color?: unknown;
+  readonly components?: unknown;
+  readonly contentHash?: unknown;
+  readonly count?: unknown;
+  readonly depth?: unknown;
+  readonly emissive?: unknown;
+  readonly filter?: unknown;
+  readonly frame?: unknown;
+  readonly frames?: unknown;
+  readonly geometry?: unknown;
+  readonly groups?: unknown;
+  readonly handle?: unknown;
+  readonly height?: unknown;
+  readonly id?: unknown;
+  readonly indexCount?: unknown;
+  readonly indices?: unknown;
+  readonly indicesByteOffset?: unknown;
+  readonly indexWidth?: unknown;
+  readonly instance?: unknown;
+  readonly kind?: unknown;
+  readonly label?: unknown;
+  readonly layer?: unknown;
+  readonly layout?: unknown;
+  readonly material?: unknown;
+  readonly materialOverrides?: unknown;
+  readonly materialSlot?: unknown;
+  readonly materialSlots?: unknown;
+  readonly max?: unknown;
+  readonly metadata?: unknown;
+  readonly min?: unknown;
+  readonly name?: unknown;
+  readonly node?: unknown;
+  readonly normals?: unknown;
+  readonly normalsByteOffset?: unknown;
+  readonly op?: unknown;
+  readonly ops?: unknown;
+  readonly parent?: unknown;
+  readonly payload?: unknown;
+  readonly pivot?: unknown;
+  readonly positions?: unknown;
+  readonly positionsByteOffset?: unknown;
+  readonly provenance?: unknown;
+  readonly proxyAsset?: unknown;
+  readonly renderOrder?: unknown;
+  readonly rotation?: unknown;
+  readonly roughness?: unknown;
+  readonly scale?: unknown;
+  readonly shading?: unknown;
+  readonly shape?: unknown;
+  readonly size?: unknown;
+  readonly sizeMode?: unknown;
+  readonly slot?: unknown;
+  readonly source?: unknown;
+  readonly sourceEntity?: unknown;
+  readonly sourceSceneNode?: unknown;
+  readonly sprite?: unknown;
+  readonly start?: unknown;
+  readonly tags?: unknown;
+  readonly texture?: unknown;
+  readonly tint?: unknown;
+  readonly transform?: unknown;
+  readonly translation?: unknown;
+  readonly uvMax?: unknown;
+  readonly uvMin?: unknown;
+  readonly uvStrategy?: unknown;
+  readonly version?: unknown;
+  readonly vertexCount?: unknown;
+  readonly visible?: unknown;
+  readonly width?: unknown;
+  readonly wireframe?: unknown;
+  readonly wrap?: unknown;
+}
+
+function asObject(v: unknown, path: string): RenderPayloadRecord {
   if (typeof v !== 'object' || v === null || Array.isArray(v)) {
     throw new RenderDecodeError('expected an object', path);
   }
-  return v as Record<string, unknown>;
+  return v as RenderPayloadRecord;
 }
 
 function asNumber(v: unknown, path: string): number {

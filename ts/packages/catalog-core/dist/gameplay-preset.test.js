@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { GENERATED_TUNNEL_DEFAULT_FPS_PRESET, GENERATED_TUNNEL_FPS_ECRP_OBJECT_MODEL, findFpsEcrpObjectModelEntry, readDefaultFpsGameplayPreset, readFpsEcrpObjectModel, readFpsGameplayPresetCatalog, validateFpsGameplayPreset, } from './index.js';
-test('default FPS gameplay preset validates and exposes stable readout references', () => {
+void test('default FPS gameplay preset validates and exposes stable readout references', () => {
     const report = validateFpsGameplayPreset(GENERATED_TUNNEL_DEFAULT_FPS_PRESET);
     assert.equal(report.kind, 'fps_gameplay_preset_validation.v0');
     assert.equal(report.valid, true);
@@ -24,7 +24,7 @@ test('default FPS gameplay preset validates and exposes stable readout reference
     assert.equal(report.readout.hashes.tuningHash, 'fnv1a64:a9d279e7f8749a0f');
     assert.equal(report.readout.hashes.referenceHash, 'fnv1a64:16fe3b71072981e3');
 });
-test('FPS gameplay preset validator rejects invalid ranges and references deterministically', () => {
+void test('FPS gameplay preset validator rejects invalid ranges and references deterministically', () => {
     const invalid = {
         ...GENERATED_TUNNEL_DEFAULT_FPS_PRESET,
         playerController: {
@@ -53,7 +53,7 @@ test('FPS gameplay preset validator rejects invalid ranges and references determ
     assert.ok(diagnostics.includes('invalidIntegerRange:encounter.enemyCount'));
     assert.ok(diagnostics.includes('duplicateReference:encounter.spawnMarkerIds.1'));
 });
-test('FPS gameplay preset validator rejects arbitrary payload hatches and unexpected keys', () => {
+void test('FPS gameplay preset validator rejects arbitrary payload hatches and unexpected keys', () => {
     const withPayload = {
         ...GENERATED_TUNNEL_DEFAULT_FPS_PRESET,
         payload: { localConstants: true },
@@ -69,7 +69,7 @@ test('FPS gameplay preset validator rejects arbitrary payload hatches and unexpe
     assert.deepEqual(report.diagnostics.map((diagnostic) => diagnostic.path), ['preset.payload', 'weapon.payload']);
     assert.equal('payload' in readDefaultFpsGameplayPreset(), false);
 });
-test('FPS gameplay preset catalog readout lists consumer ownership and stable hashes', () => {
+void test('FPS gameplay preset catalog readout lists consumer ownership and stable hashes', () => {
     const catalog = readFpsGameplayPresetCatalog();
     assert.equal(catalog.kind, 'fps_gameplay_preset_catalog_readout.v0');
     assert.equal(catalog.catalog.kind, 'fps_gameplay_preset_catalog.v0');
@@ -95,7 +95,7 @@ test('FPS gameplay preset catalog readout lists consumer ownership and stable ha
     assert.equal(catalog.hashes.catalogHash, 'fnv1a64:51431466746a3fc4');
     assert.equal(catalog.hashes.defaultPresetHash, 'fnv1a64:c5a07d62670d6616');
 });
-test('FPS ECRP object model maps playable roles to public RuntimeSession surfaces', () => {
+void test('FPS ECRP object model maps playable roles to public RuntimeSession surfaces', () => {
     const readout = readFpsEcrpObjectModel();
     const player = findFpsEcrpObjectModelEntry('player');
     const enemy = findFpsEcrpObjectModelEntry('enemy');

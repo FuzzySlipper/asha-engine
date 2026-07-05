@@ -301,6 +301,10 @@ type GameplayHashValue =
   | readonly GameplayHashValue[]
   | object;
 
+interface GameplayHashRecord {
+  readonly [key: string]: GameplayHashValue | undefined;
+}
+
 const DEFAULT_OWNERSHIP: FpsGameplayOwnership = {
   gameOwned: [
     'displayName',
@@ -992,7 +996,7 @@ function validateStringRefs(
   path: string,
   diagnostics: FpsGameplayPresetDiagnostic[],
 ): void {
-  if (!Array.isArray(refs) || refs.length === 0) {
+  if (refs.length === 0) {
     diagnostics.push({
       code: 'emptyReference',
       path,
@@ -1038,9 +1042,10 @@ function stableStringify(value: GameplayHashValue | undefined): string {
     return JSON.stringify(value);
   }
   if (Array.isArray(value)) {
-    return `[${value.map((entry) => stableStringify(entry)).join(',')}]`;
+    const entries = value as readonly GameplayHashValue[];
+    return `[${entries.map((entry) => stableStringify(entry)).join(',')}]`;
   }
-  const record = value as Record<string, GameplayHashValue | undefined>;
+  const record = value as GameplayHashRecord;
   return `{${Object.keys(record)
     .sort()
     .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)

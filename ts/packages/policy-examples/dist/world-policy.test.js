@@ -18,24 +18,24 @@ function logical(id) {
 function disabledSpatial(id) {
     return { ...spatial(id), lifecycle: 'disabled' };
 }
-test('labelSpatialPolicy proposes a label only for active, spatial, unlabelled entities', () => {
+void test('labelSpatialPolicy proposes a label only for active, spatial, unlabelled entities', () => {
     const view = makeWorldView({ entities: [spatial(1), logical(2), disabledSpatial(3), spatial(4, [9])] });
     const proposed = labelSpatialEntities(view);
     // Entity 1 needs it; 2 is non-spatial; 3 is disabled; 4 already has it.
     assert.deepEqual(proposed, [worldCommands.addLabel(entityId(1), tagId(9))]);
 });
-test('labelSpatialPolicy proposes only — it never mutates the view', () => {
+void test('labelSpatialPolicy proposes only — it never mutates the view', () => {
     const view = makeWorldView({ entities: [spatial(1), spatial(2)] });
     const before = JSON.stringify(view);
     const proposed = labelSpatialEntities(view);
     assert.equal(proposed.length, 2);
     assert.equal(JSON.stringify(view), before); // proposing does not touch the view
 });
-test('labelSpatialPolicy is idempotent once every spatial entity is labelled', () => {
+void test('labelSpatialPolicy is idempotent once every spatial entity is labelled', () => {
     const labelled = makeWorldView({ entities: [spatial(1, [9]), spatial(2, [9])] });
     assert.deepEqual(labelSpatialEntities(labelled), []);
 });
-test('a differently-configured policy honors its own label deterministically', () => {
+void test('a differently-configured policy honors its own label deterministically', () => {
     const policy = labelSpatialPolicy({ label: tagId(3) });
     const view = makeWorldView({ entities: [spatial(1)] });
     assert.deepEqual(policy(view), [worldCommands.addLabel(entityId(1), tagId(3))]);

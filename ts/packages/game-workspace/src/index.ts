@@ -1009,7 +1009,7 @@ function getStringArray(document: TomlDocument, section: string, key: string, di
 }
 
 function getBackendMode(document: TomlDocument, diagnostics: AshaGameManifestDiagnostic[]): AshaGameRuntimeBackendMode {
-  const value = document.runtime?.['backend_mode'];
+  const value = document['runtime']?.['backend_mode'];
   if (value === 'reference' || value === 'native' || value === 'wasm') {
     return value;
   }

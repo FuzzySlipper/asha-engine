@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderHandle } from '@asha/contracts';
-import { createMockRuntimeBridge, frameCursor, RuntimeBridgeError, } from '@asha/runtime-bridge';
+import { frameCursor, RuntimeBridgeError, } from '@asha/runtime-bridge';
+import { createMockRuntimeBridge } from '@asha/runtime-bridge/reference';
 import { inspectEditor } from '@asha/devtools';
 import { composeAppShell, formatReadout, } from './shell.js';
 const FIXTURES = [
@@ -36,6 +37,10 @@ function countingRenderer() {
         },
     };
 }
+function bridgeProxyValue(target, prop, recv) {
+    const value = Reflect.get(target, prop, recv);
+    return typeof value === 'function' ? value.bind(target) : value;
+}
 /** Wrap a bridge so `readRenderDiffs` fails closed like an unwired native op. */
 function withProjectionGap(inner) {
     return new Proxy(inner, {
@@ -45,12 +50,11 @@ function withProjectionGap(inner) {
                     throw new RuntimeBridgeError('operation_unimplemented', 'authority projection not wired');
                 };
             }
-            const value = Reflect.get(target, prop, recv);
-            return typeof value === 'function' ? value.bind(target) : value;
+            return bridgeProxyValue(target, prop, recv);
         },
     });
 }
-test('reference composition: assembles runtime + UI + devtools off ONE editor store', () => {
+void test('reference composition: assembles runtime + UI + devtools off ONE editor store', () => {
     const renderer = countingRenderer();
     const shell = composeAppShell({
         host: { name: 'headless', accessibility: false },
@@ -72,7 +76,7 @@ test('reference composition: assembles runtime + UI + devtools off ONE editor st
     assert.equal(viaShell.tool, 'place');
     assert.equal(viaShell.material, 2);
 });
-test('runtime mode readout distinguishes reference / degraded / unavailable', () => {
+void test('runtime mode readout distinguishes reference / degraded / unavailable', () => {
     // reference
     assert.equal(composeAppShell({ host: { name: 'h', accessibility: false }, bootBridge: referenceBoot, fixtures: FIXTURES })
         .runtimeStatus().availability, 'reference');
@@ -108,7 +112,7 @@ test('runtime mode readout distinguishes reference / degraded / unavailable', ()
     assert.equal(uStatus.availability, 'unavailable');
     assert.equal(uStatus.error?.kind, 'native_unavailable');
 });
-test('fixture selection is runtime-selectable (data, not compile-time)', () => {
+void test('fixture selection is runtime-selectable (data, not compile-time)', () => {
     const shell = composeAppShell({
         host: { name: 'h', accessibility: false },
         bootBridge: referenceBoot,
@@ -129,7 +133,7 @@ test('fixture selection is runtime-selectable (data, not compile-time)', () => {
     assert.equal(world.composition?.loadedWorld, 1002);
     assert.throws(() => shell.selectFixture('nope'), /unknown fixture/);
 });
-test('controls are accessible and route through the ONE store / controller', () => {
+void test('controls are accessible and route through the ONE store / controller', () => {
     const shell = composeAppShell({
         host: { name: 'h', accessibility: false },
         bootBridge: referenceBoot,
@@ -151,7 +155,7 @@ test('controls are accessible and route through the ONE store / controller', () 
     shell.applyControl('commit', 'commit');
     assert.deepEqual(shell.readout().lastCommandResult, { accepted: 1, rejected: 0, rejections: [] });
 });
-test('projectAuthority reads through the facade and drives the renderer port', () => {
+void test('projectAuthority reads through the facade and drives the renderer port', () => {
     // A bridge that emits one create op through readRenderDiffs proves the projection path.
     const base = createMockRuntimeBridge();
     const frame = {
@@ -176,8 +180,7 @@ test('projectAuthority reads through the facade and drives the renderer port', (
             if (prop === 'readRenderDiffs') {
                 return () => frame;
             }
-            const value = Reflect.get(target, prop, recv);
-            return typeof value === 'function' ? value.bind(target) : value;
+            return bridgeProxyValue(target, prop, recv);
         },
     });
     const renderer = countingRenderer();
@@ -195,7 +198,7 @@ test('projectAuthority reads through the facade and drives the renderer port', (
     // Sanity: the bridge cursor read happened (no throw) and the readout is coherent.
     assert.doesNotThrow(() => bridge.readRenderDiffs(frameCursor(0)));
 });
-test('pick with no bridge clears selection and misses (fail closed)', () => {
+void test('pick with no bridge clears selection and misses (fail closed)', () => {
     const shell = composeAppShell({
         host: { name: 'h', accessibility: false },
         bootBridge: () => ({ bridge: null, mode: 'native', intent: 'authority', nativeAvailable: false }),
@@ -207,7 +210,7 @@ test('pick with no bridge clears selection and misses (fail closed)', () => {
     assert.equal(result.outcome, 'miss');
     assert.equal(shell.controller.store.getState().selection, null);
 });
-test('formatReadout renders a stable, navigable text report', () => {
+void test('formatReadout renders a stable, navigable text report', () => {
     const shell = composeAppShell({
         host: { name: 'headless', accessibility: false },
         bootBridge: referenceBoot,
@@ -222,7 +225,7 @@ test('formatReadout renders a stable, navigable text report', () => {
     assert.match(text, /renderer: present=true/);
     assert.match(text, /controls: tool\[radiogroup\]/);
 });
-test('empty fixture catalog is rejected at composition time', () => {
+void test('empty fixture catalog is rejected at composition time', () => {
     assert.throws(() => composeAppShell({ host: { name: 'h', accessibility: false }, bootBridge: referenceBoot, fixtures: [] }), /non-empty fixture catalog/);
 });
 //# sourceMappingURL=shell.test.js.map

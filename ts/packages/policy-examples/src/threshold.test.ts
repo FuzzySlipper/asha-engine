@@ -35,14 +35,14 @@ function loadOutput(name: string): readonly PolicyCommand[] {
   return JSON.parse(readFileSync(path, 'utf8')) as PolicyCommand[];
 }
 
-test('threshold not met returns no commands', () => {
+void test('threshold not met returns no commands', () => {
   const view = loadInput('threshold-below');
   const out = tagCountThreshold(view);
   assert.deepEqual(out, []);
   assert.deepEqual(out, loadOutput('threshold-below'));
 });
 
-test('threshold met returns a generated PolicyCommand union value', () => {
+void test('threshold met returns a generated PolicyCommand union value', () => {
   const view = loadInput('threshold-met');
   const out = tagCountThreshold(view);
 
@@ -54,7 +54,7 @@ test('threshold met returns a generated PolicyCommand union value', () => {
   assert.deepEqual(out, loadOutput('threshold-met'));
 });
 
-test('policy is idempotent once the signal is defined', () => {
+void test('policy is idempotent once the signal is defined', () => {
   const view = makeView({
     entities: [
       { id: entityId(1), tags: [tagId(1)] },
@@ -67,7 +67,7 @@ test('policy is idempotent once the signal is defined', () => {
   assert.deepEqual(tagCountThreshold(view), []);
 });
 
-test('a different threshold config is honored deterministically', () => {
+void test('a different threshold config is honored deterministically', () => {
   const strict = thresholdPolicy({
     watchTag: tagId(1),
     threshold: 2,
@@ -85,7 +85,7 @@ test('a different threshold config is honored deterministically', () => {
   ]);
 });
 
-test('script host invokes the threshold policy and collects the buffer in order', () => {
+void test('script host invokes the threshold policy and collects the buffer in order', () => {
   const view = loadInput('threshold-met');
   const result = invokePolicy(definePolicy('threshold', tagCountThreshold), view);
 

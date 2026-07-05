@@ -16,7 +16,8 @@
 //   - `authority`: the real loop. Reads render diffs *through the facade*
 //     (`bridge.readRenderDiffs`) and submits contract-shaped commands. A missing native
 //     capability is classified honestly, never downgraded to mock success.
-import { createMockRuntimeBridge, createNativeRuntimeBridge, frameCursor, RuntimeBridgeError, } from '@asha/runtime-bridge';
+import { createNativeRuntimeBridge, frameCursor, RuntimeBridgeError, } from '@asha/runtime-bridge';
+import { createMockRuntimeBridge } from '@asha/runtime-bridge/reference';
 import { renderHandle } from '@asha/contracts';
 import { ThreeRenderer } from '@asha/renderer-three';
 import { EditorStore } from '@asha/editor-tools';

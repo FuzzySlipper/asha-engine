@@ -12,7 +12,7 @@ import {
   type FpsGameplayPreset,
 } from './index.js';
 
-test('default FPS gameplay preset validates and exposes stable readout references', () => {
+void test('default FPS gameplay preset validates and exposes stable readout references', () => {
   const report = validateFpsGameplayPreset(GENERATED_TUNNEL_DEFAULT_FPS_PRESET);
 
   assert.equal(report.kind, 'fps_gameplay_preset_validation.v0');
@@ -37,7 +37,7 @@ test('default FPS gameplay preset validates and exposes stable readout reference
   assert.equal(report.readout.hashes.referenceHash, 'fnv1a64:16fe3b71072981e3');
 });
 
-test('FPS gameplay preset validator rejects invalid ranges and references deterministically', () => {
+void test('FPS gameplay preset validator rejects invalid ranges and references deterministically', () => {
   const invalid = {
     ...GENERATED_TUNNEL_DEFAULT_FPS_PRESET,
     playerController: {
@@ -69,7 +69,7 @@ test('FPS gameplay preset validator rejects invalid ranges and references determ
   assert.ok(diagnostics.includes('duplicateReference:encounter.spawnMarkerIds.1'));
 });
 
-test('FPS gameplay preset validator rejects arbitrary payload hatches and unexpected keys', () => {
+void test('FPS gameplay preset validator rejects arbitrary payload hatches and unexpected keys', () => {
   const withPayload = {
     ...GENERATED_TUNNEL_DEFAULT_FPS_PRESET,
     payload: { localConstants: true },
@@ -94,7 +94,7 @@ test('FPS gameplay preset validator rejects arbitrary payload hatches and unexpe
   assert.equal('payload' in (readDefaultFpsGameplayPreset() as object), false);
 });
 
-test('FPS gameplay preset catalog readout lists consumer ownership and stable hashes', () => {
+void test('FPS gameplay preset catalog readout lists consumer ownership and stable hashes', () => {
   const catalog = readFpsGameplayPresetCatalog();
 
   assert.equal(catalog.kind, 'fps_gameplay_preset_catalog_readout.v0');
@@ -122,7 +122,7 @@ test('FPS gameplay preset catalog readout lists consumer ownership and stable ha
   assert.equal(catalog.hashes.defaultPresetHash, 'fnv1a64:c5a07d62670d6616');
 });
 
-test('FPS ECRP object model maps playable roles to public RuntimeSession surfaces', () => {
+void test('FPS ECRP object model maps playable roles to public RuntimeSession surfaces', () => {
   const readout = readFpsEcrpObjectModel();
   const player = findFpsEcrpObjectModelEntry('player');
   const enemy = findFpsEcrpObjectModelEntry('enemy');

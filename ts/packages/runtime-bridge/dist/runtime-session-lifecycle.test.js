@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RuntimeBridgeError, createMockRuntimeSession } from './index.js';
+import { RuntimeBridgeError } from './index.js';
+import { createMockRuntimeSession } from './reference.js';
 function sessionInput() {
     return {
         sessionId: 'runtime-session.lifecycle.reference',
@@ -23,7 +24,7 @@ function cameraRequest() {
         viewport: { width: 1280, height: 720 },
     };
 }
-test('RuntimeSession lifecycle readout tracks enemy death from typed combat authority', () => {
+void test('RuntimeSession lifecycle readout tracks enemy death from typed combat authority', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
     const camera = session.createCamera(cameraRequest()).snapshot.camera;
@@ -72,7 +73,7 @@ test('RuntimeSession lifecycle readout tracks enemy death from typed combat auth
     assert.equal(defeated.hashes.enemyHealthHash, 'fnv1a64:380624a28ba625b3');
     assert.equal(session.readTelemetry().replayRecords.some((record) => record.kind === 'lifecycleDeath'), true);
 });
-test('RuntimeSession lifecycle exposes deterministic player defeat fixture', () => {
+void test('RuntimeSession lifecycle exposes deterministic player defeat fixture', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
     const playerDefeated = session.readLifecycleStatus({ scenario: 'generated_tunnel_player_defeated' });
@@ -86,7 +87,7 @@ test('RuntimeSession lifecycle exposes deterministic player defeat fixture', () 
     assert.equal(playerDefeated.hashes.lifecycleHash, 'fnv1a64:32322a108d4f2767');
     assert.equal(playerDefeated.hashes.playerHealthHash, 'fnv1a64:4c9316192318edb7');
 });
-test('RuntimeSession typed restart intent resets lifecycle deterministically after terminal state', () => {
+void test('RuntimeSession typed restart intent resets lifecycle deterministically after terminal state', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
     const camera = session.createCamera(cameraRequest()).snapshot.camera;
@@ -122,7 +123,7 @@ test('RuntimeSession typed restart intent resets lifecycle deterministically aft
     assert.equal(receipt.restart?.restartCount, 1);
     assert.equal(session.readTelemetry().replayRecords.at(-1)?.kind, 'restart');
 });
-test('RuntimeSession restart intent rejects stale session hashes and malformed inputs', () => {
+void test('RuntimeSession restart intent rejects stale session hashes and malformed inputs', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
     const receipt = session.requestSessionRestart({

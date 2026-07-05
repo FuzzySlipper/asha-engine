@@ -8,7 +8,7 @@ const fixturesRoot = resolve(import.meta.dirname, '../../../../harness/fixtures/
 function loadFixture(name) {
     return JSON.parse(readFileSync(resolve(fixturesRoot, `${name}.json`), 'utf8'));
 }
-test('decodes the Rust-shaped sample frame (create/update/destroy)', () => {
+void test('decodes the Rust-shaped sample frame (create/update/destroy)', () => {
     const frame = decodeRenderFrameDiff(loadFixture('sample-frame'));
     assert.equal(frame.ops.length, 3);
     const create = frame.ops[0];
@@ -30,7 +30,7 @@ test('decodes the Rust-shaped sample frame (create/update/destroy)', () => {
     }
     assert.equal(destroy.op, 'destroy');
 });
-test('decodes a line-geometry debug node', () => {
+void test('decodes a line-geometry debug node', () => {
     const diff = decodeRenderDiff({
         op: 'create',
         handle: 9,
@@ -50,10 +50,10 @@ test('decodes a line-geometry debug node', () => {
         assert.deepEqual(diff.node.geometry.b, [1, 1, 0]);
     }
 });
-test('rejects an unknown diff op', () => {
+void test('rejects an unknown diff op', () => {
     assert.throws(() => decodeRenderDiff({ op: 'teleport', handle: 1 }), (e) => e instanceof RenderDecodeError && /unknown render diff op/.test(e.message));
 });
-test('rejects an unknown geometry shape', () => {
+void test('rejects an unknown geometry shape', () => {
     assert.throws(() => decodeRenderDiff({
         op: 'create',
         handle: 1,
@@ -68,7 +68,7 @@ test('rejects an unknown geometry shape', () => {
         },
     }), (e) => e instanceof RenderDecodeError && /unknown geometry shape/.test(e.message));
 });
-test('rejects malformed payloads with a path-bearing error', () => {
+void test('rejects malformed payloads with a path-bearing error', () => {
     // Missing node.transform.
     assert.throws(() => decodeRenderDiff({
         op: 'create',
@@ -87,7 +87,7 @@ test('rejects malformed payloads with a path-bearing error', () => {
     // Not an object.
     assert.throws(() => decodeRenderFrameDiff(42), RenderDecodeError);
 });
-test('RenderDiffStream buffers and drains decoded frames in order', () => {
+void test('RenderDiffStream buffers and drains decoded frames in order', () => {
     const stream = new RenderDiffStream();
     assert.equal(stream.pending, 0);
     stream.push(loadFixture('sample-frame'));
@@ -99,7 +99,7 @@ test('RenderDiffStream buffers and drains decoded frames in order', () => {
     assert.equal(frames[1].ops.length, 0);
     assert.equal(stream.pending, 0);
 });
-test('decodes the Rust render-bridge fixture sequence', () => {
+void test('decodes the Rust render-bridge fixture sequence', () => {
     // The same fixture the Rust render bridge emits and the Three.js renderer
     // applies — proving the decode boundary on a real Rust-produced artifact.
     const frames = loadFixture('bridge-sequence');
@@ -110,7 +110,7 @@ test('decodes the Rust render-bridge fixture sequence', () => {
     assert.equal(decoded[0].ops[0].op, 'create');
     assert.equal(decoded[1].ops[2].op, 'destroy');
 });
-test('FrameMemory enforces its single-frame lifetime', () => {
+void test('FrameMemory enforces its single-frame lifetime', () => {
     const mem = new FrameMemory(new Uint8Array([1, 2, 3]));
     assert.ok(mem.valid);
     assert.deepEqual([...mem.bytes()], [1, 2, 3]);
@@ -141,7 +141,7 @@ function oneTriangleInline() {
         provenance: 'voxelChunk',
     };
 }
-test('decodes a valid inline mesh payload and the replaceMeshPayload diff', () => {
+void test('decodes a valid inline mesh payload and the replaceMeshPayload diff', () => {
     const d = decodeMeshPayloadDescriptor(oneTriangleInline());
     assert.equal(d.layout.vertexCount, 3);
     assert.equal(d.groups.length, 1);
@@ -149,13 +149,13 @@ test('decodes a valid inline mesh payload and the replaceMeshPayload diff', () =
     const diff = decodeRenderDiff({ op: 'replaceMeshPayload', handle: 5, payload: oneTriangleInline() });
     assert.equal(diff.op, 'replaceMeshPayload');
 });
-test('decodes a handle-source mesh payload', () => {
+void test('decodes a handle-source mesh payload', () => {
     const p = oneTriangleInline();
-    p.source = { kind: 'handle', buffer: 7, positionsByteOffset: 0, normalsByteOffset: 36, indicesByteOffset: 72 };
+    p['source'] = { kind: 'handle', buffer: 7, positionsByteOffset: 0, normalsByteOffset: 36, indicesByteOffset: 72 };
     const d = decodeMeshPayloadDescriptor(p);
     assert.equal(d.source.kind, 'handle');
 });
-test('rejects malformed mesh payloads with path-bearing errors', () => {
+void test('rejects malformed mesh payloads with path-bearing errors', () => {
     // wrong positions length
     const badPos = oneTriangleInline();
     badPos.source.positions = [0, 0, 0];
@@ -186,7 +186,7 @@ function crateAssetRaw() {
         collision: { kind: 'aabbFallback' },
     };
 }
-test('decodes a static mesh asset + instance diff, validating slot bindings', () => {
+void test('decodes a static mesh asset + instance diff, validating slot bindings', () => {
     const asset = decodeStaticMeshAsset(crateAssetRaw());
     assert.equal(asset.asset, 'mesh/crate');
     assert.equal(asset.collision.kind, 'aabbFallback');
@@ -203,7 +203,7 @@ test('decodes a static mesh asset + instance diff, validating slot bindings', ()
     });
     assert.equal(diff.op, 'createStaticMeshInstance');
 });
-test('decodes a defineMaterial diff (catalog material descriptor, visual only)', () => {
+void test('decodes a defineMaterial diff (catalog material descriptor, visual only)', () => {
     const diff = decodeRenderDiff({
         op: 'defineMaterial',
         material: {
@@ -224,7 +224,7 @@ test('decodes a defineMaterial diff (catalog material descriptor, visual only)',
         assert.ok(!('solid' in diff.material) && !('structuralClass' in diff.material));
     }
 });
-test('rejects a material descriptor with an unknown uv strategy', () => {
+void test('rejects a material descriptor with an unknown uv strategy', () => {
     assert.throws(() => decodeRenderDiff({
         op: 'defineMaterial',
         material: {
@@ -237,7 +237,7 @@ test('rejects a material descriptor with an unknown uv strategy', () => {
         },
     }), RenderDecodeError);
 });
-test('decodes defineTexture and defineSpriteAtlas, validating frame rects', () => {
+void test('decodes defineTexture and defineSpriteAtlas, validating frame rects', () => {
     const tex = decodeRenderDiff({
         op: 'defineTexture',
         texture: {
@@ -267,7 +267,7 @@ test('decodes defineTexture and defineSpriteAtlas, validating frame rects', () =
         assert.equal(atlas.atlas.frames.length, 2);
     }
 });
-test('rejects a zero-dimension texture and a degenerate/out-of-range atlas frame', () => {
+void test('rejects a zero-dimension texture and a degenerate/out-of-range atlas frame', () => {
     assert.throws(() => decodeRenderDiff({
         op: 'defineTexture',
         texture: { id: 'texture/x', width: 0, height: 8, filter: 'nearest', wrap: 'clamp', contentHash: null, version: 1 },
@@ -281,14 +281,14 @@ test('rejects a zero-dimension texture and a degenerate/out-of-range atlas frame
         },
     }), RenderDecodeError);
 });
-test('rejects a static mesh whose group references an unbound material slot', () => {
+void test('rejects a static mesh whose group references an unbound material slot', () => {
     const bad = crateAssetRaw();
-    bad.materialSlots = [{ slot: 9, material: 'material/wood' }]; // group uses slot 1
+    bad['materialSlots'] = [{ slot: 9, material: 'material/wood' }]; // group uses slot 1
     assert.throws(() => decodeStaticMeshAsset(bad), RenderDecodeError);
 });
-test('rejects a proxy collision policy with an empty proxy asset', () => {
+void test('rejects a proxy collision policy with an empty proxy asset', () => {
     const bad = crateAssetRaw();
-    bad.collision = { kind: 'proxy', proxyAsset: '' };
+    bad['collision'] = { kind: 'proxy', proxyAsset: '' };
     assert.throws(() => decodeStaticMeshAsset(bad), RenderDecodeError);
 });
 function sparkSpriteRaw() {
@@ -308,23 +308,23 @@ function sparkSpriteRaw() {
         metadata: { source: 7, tags: [], label: 'spark' },
     };
 }
-test('decodes a sprite instance + a deterministic updateSprite diff', () => {
+void test('decodes a sprite instance + a deterministic updateSprite diff', () => {
     const s = decodeSpriteInstance(sparkSpriteRaw());
     assert.equal(s.asset, 'sprite/spark');
     assert.equal(s.attachment.attachmentPoint, 'muzzle');
     const diff = decodeRenderDiff({ op: 'updateSprite', handle: 1, frame: 3, tint: null, renderOrder: null, visible: false });
     assert.equal(diff.op, 'updateSprite');
 });
-test('rejects a sprite with out-of-range pivot or non-positive size', () => {
+void test('rejects a sprite with out-of-range pivot or non-positive size', () => {
     const badPivot = sparkSpriteRaw();
-    badPivot.pivot = [1.5, 0];
+    badPivot['pivot'] = [1.5, 0];
     assert.throws(() => decodeSpriteInstance(badPivot), RenderDecodeError);
     const badSize = sparkSpriteRaw();
-    badSize.size = [0, 1];
+    badSize['size'] = [0, 1];
     assert.throws(() => decodeSpriteInstance(badSize), RenderDecodeError);
     // reserved lit shading is accepted (not rejected as unlit-only).
     const lit = sparkSpriteRaw();
-    lit.shading = 'lit';
+    lit['shading'] = 'lit';
     assert.equal(decodeSpriteInstance(lit).shading, 'lit');
 });
 //# sourceMappingURL=render-decode.test.js.map

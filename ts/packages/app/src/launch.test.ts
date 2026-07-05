@@ -11,7 +11,7 @@ import {
   runHeadlessLaunch,
 } from './launch.js';
 
-test('headless reference launch assembles a coherent, loaded shell readout', () => {
+void test('headless reference launch assembles a coherent, loaded shell readout', () => {
   const readout = runHeadlessLaunch({ mode: 'reference', renderer: null });
   assert.equal(readout.runtime.availability, 'reference');
   assert.equal(readout.host.name, 'headless');
@@ -22,13 +22,13 @@ test('headless reference launch assembles a coherent, loaded shell readout', () 
   assert.equal(readout.editor.tool, 'place');
 });
 
-test('default fixture catalog is runtime-selectable (more than one)', () => {
+void test('default fixture catalog is runtime-selectable (more than one)', () => {
   const fixtures = defaultFixtures();
   assert.ok(fixtures.length >= 2);
   assert.deepEqual(fixtures.map((f) => f.id), ['launch-grid', 'alt-grid']);
 });
 
-test('authority launch with no native addon is reported unavailable, never downgraded', () => {
+void test('authority launch with no native addon is reported unavailable, never downgraded', () => {
   // Exercise the closed-failure contract by injection so the test is stable whether the
   // local machine has the native addon built or not.
   const bootError = new RuntimeBridgeError('native_unavailable', 'addon unavailable in test');
@@ -47,13 +47,13 @@ test('authority launch with no native addon is reported unavailable, never downg
   assert.equal(readout.world.loaded, false);
 });
 
-test('bootForMode selects reference vs authority intent', () => {
+void test('bootForMode selects reference vs authority intent', () => {
   assert.equal(referenceBoot().intent, 'reference');
   assert.equal(bootForMode('reference').intent, 'reference');
   assert.equal(bootForMode('authority').intent, 'authority');
 });
 
-test('launchShell returns a live shell that can keep being driven', () => {
+void test('launchShell returns a live shell that can keep being driven', () => {
   const shell = launchShell({ mode: 'reference', renderer: null });
   shell.applyControl('tool', 'remove');
   assert.equal(shell.editorInspection().tool, 'remove');

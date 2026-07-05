@@ -13,10 +13,75 @@
         "@asha/command-registry",
         "@asha/ui-dom"
       ],
+      "approvedPackageSubpaths": [
+        "@asha/runtime-bridge/reference"
+      ],
       "forbiddenPackageRoots": [
         "@asha/app",
         "@asha/devtools",
         "@asha/native-bridge",
+        "@asha/wasm-replay-bridge",
+        "@asha/script-sdk",
+        "@asha/script-host",
+        "@asha/policy-core",
+        "@asha/policy-examples"
+      ],
+      "forbiddenSpecifierPatterns": [
+        "@asha/*/src/*",
+        "@asha/*/dist/generated/*",
+        "engine-rs/crates/*"
+      ]
+    },
+    {
+      "consumerRole": "asha-testing",
+      "approvedPackageRoots": [
+        "@asha/contracts",
+        "@asha/runtime-bridge",
+        "@asha/devtools",
+        "@asha/game-workspace",
+        "@asha/renderer-three",
+        "@asha/render-projection",
+        "@asha/catalog-core"
+      ],
+      "approvedPackageSubpaths": [
+        "@asha/runtime-bridge/reference"
+      ],
+      "forbiddenPackageRoots": [
+        "@asha/app",
+        "@asha/command-registry",
+        "@asha/editor-tools",
+        "@asha/native-bridge",
+        "@asha/ui-dom",
+        "@asha/wasm-replay-bridge",
+        "@asha/script-sdk",
+        "@asha/script-host",
+        "@asha/policy-core",
+        "@asha/policy-examples"
+      ],
+      "forbiddenSpecifierPatterns": [
+        "@asha/*/src/*",
+        "@asha/*/dist/generated/*",
+        "engine-rs/crates/*"
+      ]
+    },
+    {
+      "consumerRole": "asha-studio",
+      "approvedPackageRoots": [
+        "@asha/contracts",
+        "@asha/runtime-bridge",
+        "@asha/command-registry",
+        "@asha/devtools",
+        "@asha/editor-tools",
+        "@asha/game-workspace",
+        "@asha/render-projection",
+        "@asha/catalog-core",
+        "@asha/ui-dom"
+      ],
+      "approvedPackageSubpaths": [],
+      "forbiddenPackageRoots": [
+        "@asha/app",
+        "@asha/native-bridge",
+        "@asha/renderer-three",
         "@asha/wasm-replay-bridge",
         "@asha/script-sdk",
         "@asha/script-host",
@@ -46,6 +111,7 @@
       "ownershipKey": "ts/packages/runtime-bridge",
       "intendedConsumerRole": "Transport-neutral runtime facade; consumers never bypass it to raw transports.",
       "allowedConsumerRoles": ["asha-testing", "asha-demo", "asha-studio"],
+      "allowedExportSubpaths": ["./reference"],
       "compatibilityMarker": "runtime-bridge.v0",
       "changelog": "docs/consumer-compatibility.md#runtime-bridge-compatibility-log"
     },

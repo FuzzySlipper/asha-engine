@@ -304,3 +304,82 @@ pub fn get_composition_status(handle: i64) -> napi::Result<NativeCompositionStat
             .map_err(to_napi)
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const WIRED_NAPI_EXPORTS: &[&str] = &[
+        "getCompositionStatus",
+        "initializeEngine",
+        "loadWorldBundle",
+        "readRenderDiffs",
+        "saveCurrentWorld",
+        "stepSimulation",
+        "submitCommands",
+    ];
+
+    #[test]
+    fn wired_export_set_is_explicit_and_bounded() {
+        assert_eq!(
+            WIRED_NAPI_EXPORTS,
+            &[
+                "getCompositionStatus",
+                "initializeEngine",
+                "loadWorldBundle",
+                "readRenderDiffs",
+                "saveCurrentWorld",
+                "stepSimulation",
+                "submitCommands",
+            ]
+        );
+    }
+
+    #[test]
+    fn native_bridge_stateful_smoke_uses_bounded_operations() {
+        let handle = initialize_engine(7).expect("engine initializes");
+        assert!(handle > 0);
+
+        let loaded = load_world_bundle(handle, 1, 1, 1001).expect("world loads");
+        assert_eq!(loaded.loaded_world, Some(1001));
+        assert_eq!(loaded.fatal_count, 0);
+        assert_eq!(loaded.total_count, 0);
+        assert!(!loaded.blocks_load);
+
+        let result = submit_commands(
+            handle,
+            r#"[{"op":"setVoxel","grid":1,"coord":{"x":0,"y":0,"z":0},"value":{"kind":"solid","material":1}}]"#
+                .to_string(),
+        )
+        .expect("bounded command batch submits");
+        assert_eq!(result.accepted, 1);
+        assert_eq!(result.rejected, 0);
+        assert!(result.rejections.is_empty());
+
+        let diff_count = step_simulation(handle, 6).expect("simulation steps");
+        assert_eq!(diff_count, 2);
+
+        let frame = read_render_diffs(handle, 0).expect("render diff read is bounded");
+        assert!(frame.ops.is_empty());
+
+        let saved = save_current_world(handle).expect("world saves");
+        assert_eq!(saved.artifacts_written, 3);
+        assert_eq!(saved.compacted_edits, 0);
+        assert_eq!(saved.retained_edits, 0);
+
+        let status = get_composition_status(handle).expect("composition reads");
+        assert_eq!(status.loaded_world, Some(1001));
+        assert_eq!(status.fatal_count, 0);
+    }
+
+    #[test]
+    fn native_bridge_rejects_invalid_inputs_without_fallback() {
+        assert!(initialize_engine(-1).is_err());
+        assert!(get_composition_status(-99).is_err());
+
+        let handle = initialize_engine(11).expect("engine initializes");
+        assert!(load_world_bundle(handle, -1, 1, 1001).is_err());
+        assert!(step_simulation(handle, -1).is_err());
+        assert!(submit_commands(handle, r#"[{"op":"deleteEverything"}]"#.to_string()).is_err());
+    }
+}

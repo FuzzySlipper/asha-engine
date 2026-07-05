@@ -40,7 +40,7 @@ function git(args: string[]): string | null {
 }
 
 function selectedMode(): SmokeMode {
-  return process.env.ASHA_PERF_MODE === 'authority' ? 'authority' : 'reference';
+  return process.env['ASHA_PERF_MODE'] === 'authority' ? 'authority' : 'reference';
 }
 
 async function main(): Promise<void> {
@@ -48,12 +48,12 @@ async function main(): Promise<void> {
   const result: PerfResult = await runPerf({
     mode,
     meta: {
-      commit: process.env.ASHA_PERF_COMMIT ?? git(['rev-parse', '--short', 'HEAD']) ?? 'unknown',
+      commit: process.env['ASHA_PERF_COMMIT'] ?? git(['rev-parse', '--short', 'HEAD']) ?? 'unknown',
       branch:
-        process.env.ASHA_PERF_BRANCH ??
+        process.env['ASHA_PERF_BRANCH'] ??
         git(['rev-parse', '--abbrev-ref', 'HEAD']) ??
         'unknown',
-      hostLabel: process.env.ASHA_PERF_HOST ?? hostname(),
+      hostLabel: process.env['ASHA_PERF_HOST'] ?? hostname(),
     },
   });
 

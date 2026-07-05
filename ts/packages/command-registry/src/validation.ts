@@ -83,11 +83,131 @@ function hasField(value: object, fieldName: string): boolean {
   return Object.prototype.hasOwnProperty.call(value, fieldName);
 }
 
-function isPlainObject(value: unknown): value is { readonly [key: string]: unknown } {
+interface ParsedRecord {
+  readonly [key: string]: unknown;
+  readonly a?: unknown;
+  readonly accepted?: unknown;
+  readonly actualHash?: unknown;
+  readonly actualKind?: unknown;
+  readonly asset?: unknown;
+  readonly attributes?: unknown;
+  readonly authoringFormatVersion?: unknown;
+  readonly b?: unknown;
+  readonly bounds?: unknown;
+  readonly buffer?: unknown;
+  readonly camera?: unknown;
+  readonly cameraProjectionHash?: unknown;
+  readonly childOrder?: unknown;
+  readonly chunk?: unknown;
+  readonly code?: unknown;
+  readonly collidable?: unknown;
+  readonly collision?: unknown;
+  readonly color?: unknown;
+  readonly command?: unknown;
+  readonly components?: unknown;
+  readonly coord?: unknown;
+  readonly count?: unknown;
+  readonly cyclePath?: unknown;
+  readonly delta?: unknown;
+  readonly dependencies?: unknown;
+  readonly direction?: unknown;
+  readonly document?: unknown;
+  readonly documentHash?: unknown;
+  readonly editAnchor?: unknown;
+  readonly emissive?: unknown;
+  readonly expectedDocumentHash?: unknown;
+  readonly expectedHash?: unknown;
+  readonly expectedKind?: unknown;
+  readonly g?: unknown;
+  readonly generatorVersion?: unknown;
+  readonly grid?: unknown;
+  readonly groups?: unknown;
+  readonly handle?: unknown;
+  readonly hasRenderableAsset?: unknown;
+  readonly hash?: unknown;
+  readonly height?: unknown;
+  readonly id?: unknown;
+  readonly indexCount?: unknown;
+  readonly indices?: unknown;
+  readonly indicesByteOffset?: unknown;
+  readonly indexWidth?: unknown;
+  readonly instance?: unknown;
+  readonly kind?: unknown;
+  readonly label?: unknown;
+  readonly layout?: unknown;
+  readonly material?: unknown;
+  readonly materialOverrides?: unknown;
+  readonly materialSlot?: unknown;
+  readonly materialSlots?: unknown;
+  readonly max?: unknown;
+  readonly maxDistance?: unknown;
+  readonly metadata?: unknown;
+  readonly min?: unknown;
+  readonly name?: unknown;
+  readonly node?: unknown;
+  readonly nodes?: unknown;
+  readonly normals?: unknown;
+  readonly normalsByteOffset?: unknown;
+  readonly objects?: unknown;
+  readonly occludes?: unknown;
+  readonly op?: unknown;
+  readonly ops?: unknown;
+  readonly origin?: unknown;
+  readonly outcome?: unknown;
+  readonly parent?: unknown;
+  readonly payload?: unknown;
+  readonly pickRay?: unknown;
+  readonly positions?: unknown;
+  readonly positionsByteOffset?: unknown;
+  readonly provenance?: unknown;
+  readonly proxyAsset?: unknown;
+  readonly r?: unknown;
+  readonly rayHash?: unknown;
+  readonly record?: unknown;
+  readonly rejection?: unknown;
+  readonly render?: unknown;
+  readonly req?: unknown;
+  readonly rotation?: unknown;
+  readonly roughness?: unknown;
+  readonly scale?: unknown;
+  readonly schemaVersion?: unknown;
+  readonly screenPoint?: unknown;
+  readonly seed?: unknown;
+  readonly selected?: unknown;
+  readonly selectedFace?: unknown;
+  readonly selectedVoxel?: unknown;
+  readonly selectionHash?: unknown;
+  readonly slot?: unknown;
+  readonly snapshot?: unknown;
+  readonly solid?: unknown;
+  readonly source?: unknown;
+  readonly sourcePath?: unknown;
+  readonly space?: unknown;
+  readonly start?: unknown;
+  readonly structuralClass?: unknown;
+  readonly tags?: unknown;
+  readonly texture?: unknown;
+  readonly tick?: unknown;
+  readonly transform?: unknown;
+  readonly transformReason?: unknown;
+  readonly translation?: unknown;
+  readonly uvStrategy?: unknown;
+  readonly validationErrors?: unknown;
+  readonly value?: unknown;
+  readonly version?: unknown;
+  readonly vertexCount?: unknown;
+  readonly viewport?: unknown;
+  readonly width?: unknown;
+  readonly x?: unknown;
+  readonly y?: unknown;
+  readonly z?: unknown;
+}
+
+function isPlainObject(value: unknown): value is ParsedRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function hasExactKeys(value: { readonly [key: string]: unknown }, keys: readonly string[]): boolean {
+function hasExactKeys(value: ParsedRecord, keys: readonly string[]): boolean {
   const actual = Object.keys(value);
   return actual.length === keys.length && keys.every((key) => hasField(value, key));
 }

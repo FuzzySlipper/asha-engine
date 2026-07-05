@@ -17,18 +17,18 @@ function logical(id, lifecycle = 'active') {
 }
 const crate = { id: 'mesh/crate', kind: 'mesh', status: 'resolved' };
 const missing = { id: 'mesh/absent', kind: 'mesh', status: 'missing' };
-test('emptyWorldView has a derived, self-consistent summary', () => {
+void test('emptyWorldView has a derived, self-consistent summary', () => {
     const view = emptyWorldView(7);
     assert.equal(view.tick, 7);
     assert.deepEqual(view.summary, { tick: 7, activeEntities: 0, spatialEntities: 0, assetCount: 0, missingAssets: 0 });
 });
-test('makeWorldView derives the summary so it cannot disagree with contents', () => {
+void test('makeWorldView derives the summary so it cannot disagree with contents', () => {
     const view = makeWorldView({ tick: 3, entities: [spatial(1, 9), logical(2), logical(3, 'disabled')], assets: [crate, missing] });
     assert.deepEqual(view.summary, { tick: 3, activeEntities: 2, spatialEntities: 1, assetCount: 2, missingAssets: 1 });
     // deriveSummary is the same computation, exposed for fixtures.
     assert.deepEqual(deriveSummary(3, view.entities, view.assets), view.summary);
 });
-test('worldQuery reads entities, spatiality, labels, and asset status without mutating', () => {
+void test('worldQuery reads entities, spatiality, labels, and asset status without mutating', () => {
     const view = makeWorldView({ entities: [spatial(1, 9), logical(2)], assets: [crate] });
     const before = JSON.stringify(view);
     assert.equal(worldQuery.entity(view, entityId(1))?.id, entityId(1));

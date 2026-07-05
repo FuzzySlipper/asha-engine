@@ -24,7 +24,7 @@ function artifactDir(): string {
 }
 
 function selectedMode(): LaunchMode {
-  return process.env.ASHA_SHELL_MODE === 'authority' ? 'authority' : 'reference';
+  return process.env['ASHA_SHELL_MODE'] === 'authority' ? 'authority' : 'reference';
 }
 
 function main(): void {

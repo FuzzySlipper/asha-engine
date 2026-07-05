@@ -41,12 +41,33 @@ def load_actual_packages(repo: pathlib.Path) -> dict[str, tuple[str, pathlib.Pat
     return actual
 
 
+def load_approved_export_subpaths(repo: pathlib.Path) -> dict[str, set[str]]:
+    manifest_path = repo / "harness" / "public-surface" / "ts-packages.json"
+    if not manifest_path.exists():
+        return {}
+    manifest = load_json(manifest_path)
+    approved: dict[str, set[str]] = {}
+    for record in manifest.get("packages", []):
+        if not isinstance(record, dict):
+            continue
+        package_name = record.get("package")
+        if not isinstance(package_name, str):
+            continue
+        approved[package_name] = {
+            f"{package_name}/{subpath[2:]}"
+            for subpath in record.get("allowedExportSubpaths", [])
+            if isinstance(subpath, str) and subpath.startswith("./")
+        }
+    return approved
+
+
 def render_config(repo: pathlib.Path) -> str:
     ownership_path = repo / "governance" / "ownership.toml"
     ownership = tomllib.loads(ownership_path.read_text())
     packages: dict[str, dict] = ownership.get("package", {})
     actual_packages = load_actual_packages(repo)
     ownership_exempt = set(ownership.get("ownership_exempt", {}).get("packages", []))
+    approved_export_subpaths = load_approved_export_subpaths(repo)
 
     missing = [
         ownership_key
@@ -93,7 +114,10 @@ def render_config(repo: pathlib.Path) -> str:
                 "or other package-private files."
             )
             if target_name in allowed:
-                restricted_patterns.append({"group": [f"{target_name}/*"], "message": deep_message})
+                group = [f"{target_name}/*"]
+                for approved_subpath in sorted(approved_export_subpaths.get(target_name, set())):
+                    group.append(f"!{approved_subpath}")
+                restricted_patterns.append({"group": group, "message": deep_message})
                 continue
             target_short = target_name.split("/", 1)[-1]
             target_lane = packages.get(f"ts/packages/{target_short}", {}).get("lane", "?")

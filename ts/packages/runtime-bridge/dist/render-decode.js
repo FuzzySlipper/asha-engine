@@ -18,7 +18,6 @@ export class RenderDecodeError extends Error {
         this.name = 'RenderDecodeError';
     }
 }
-// ── Primitive validators ──────────────────────────────────────────────────────
 function asObject(v, path) {
     if (typeof v !== 'object' || v === null || Array.isArray(v)) {
         throw new RenderDecodeError('expected an object', path);

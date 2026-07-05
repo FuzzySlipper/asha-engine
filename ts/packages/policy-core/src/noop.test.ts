@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { makeView, runPolicy, entityId, tagId } from '@asha/script-sdk';
 import { noopPolicy } from './index.js';
 
-test('no-op policy receives a read-only view and returns an empty command list', () => {
+void test('no-op policy receives a read-only view and returns an empty command list', () => {
   const view = makeView({
     entities: [{ id: entityId(1), tags: [tagId(1)] }],
     tags: [tagId(1)],
@@ -16,7 +16,7 @@ test('no-op policy receives a read-only view and returns an empty command list',
   assert.deepEqual(out, []);
 });
 
-test('no-op policy does not mutate the view it is given', () => {
+void test('no-op policy does not mutate the view it is given', () => {
   const view = makeView({
     entities: [{ id: entityId(1), tags: [tagId(2)] }],
     tags: [tagId(2)],
@@ -28,7 +28,7 @@ test('no-op policy does not mutate the view it is given', () => {
   assert.equal(JSON.stringify(view), snapshot, 'view must be unchanged');
 });
 
-test('no-op policy is deterministic across the same and different views', () => {
+void test('no-op policy is deterministic across the same and different views', () => {
   assert.deepEqual(runPolicy(noopPolicy, makeView()), []);
   assert.deepEqual(
     runPolicy(noopPolicy, makeView({ entities: [{ id: entityId(9), tags: [] }] })),

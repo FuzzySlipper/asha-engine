@@ -16,6 +16,9 @@ cat > "$SMOKE_FILE" <<'TS'
 // Intentionally illegal app source — used only by the type-aware lint smoke.
 import { RuntimeBridge } from '@asha/runtime-bridge';
 
+const indexOnly: Record<string, string> = {};
+export const badIndexSignatureAccess: string | undefined = indexOnly.missing;
+
 export function missingBoundaryReturnType(bridge: RuntimeBridge) {
   return bridge.getCompositionStatus();
 }
@@ -32,6 +35,15 @@ export function misusesPromiseCallback(): void {
   acceptsVoidCallback(async () => {
     return Promise.resolve();
   });
+}
+
+export function floatsPromise(): void {
+  Promise.resolve('floating');
+}
+
+export function unsafeJsonAccess(payload: string): string {
+  const decoded = JSON.parse(payload);
+  return decoded.value.trim();
 }
 TS
 
@@ -51,8 +63,13 @@ fi
 for rule in \
   "@typescript-eslint/consistent-type-imports" \
   "@typescript-eslint/explicit-module-boundary-types" \
+  "@typescript-eslint/no-floating-promises" \
   "@typescript-eslint/no-explicit-any" \
-  "@typescript-eslint/no-misused-promises"
+  "@typescript-eslint/no-misused-promises" \
+  "@typescript-eslint/no-unsafe-assignment" \
+  "@typescript-eslint/no-unsafe-call" \
+  "@typescript-eslint/no-unsafe-member-access" \
+  "@typescript-eslint/no-unsafe-return"
 do
   if [[ "$output" != *"$rule"* ]]; then
     printf '%s\n' "$output"
@@ -60,6 +77,23 @@ do
   fi
 done
 echo "    eslint rejected all enforced type-aware rules (as required)"
+
+echo "==> typecheck must reject property access from index signatures"
+set +e
+typecheck_output="$(cd "$REPO_ROOT/ts" && pnpm --filter @asha/app typecheck 2>&1)"
+typecheck_status=$?
+set -e
+
+if [[ "$typecheck_status" -eq 0 ]]; then
+  printf '%s\n' "$typecheck_output"
+  fail "typecheck accepted property access from an index signature"
+fi
+
+if [[ "$typecheck_output" != *"TS4111"* && "$typecheck_output" != *"comes from an index signature"* ]]; then
+  printf '%s\n' "$typecheck_output"
+  fail "typecheck output did not mention noPropertyAccessFromIndexSignature"
+fi
+echo "    typecheck rejected property access from an index signature (as required)"
 
 cleanup
 

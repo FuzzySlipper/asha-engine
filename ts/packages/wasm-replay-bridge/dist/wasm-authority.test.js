@@ -26,7 +26,7 @@ function authorityOrSkip(t) {
         throw e;
     }
 }
-test('WASM authority: identical artifacts match', (t) => {
+void test('WASM authority: identical artifacts match', (t) => {
     const wasm = authorityOrSkip(t);
     if (!wasm)
         return;
@@ -36,7 +36,7 @@ test('WASM authority: identical artifacts match', (t) => {
         step: null,
     });
 });
-test('WASM authority: tampered post hash is classified at the step', (t) => {
+void test('WASM authority: tampered post hash is classified at the step', (t) => {
     const wasm = authorityOrSkip(t);
     if (!wasm)
         return;
@@ -46,13 +46,13 @@ test('WASM authority: tampered post hash is classified at the step', (t) => {
     assert.equal(d.class, 'hash-checkpoint-mismatch');
     assert.equal(d.step, 0);
 });
-test('WASM authority: malformed artifact is classified', (t) => {
+void test('WASM authority: malformed artifact is classified', (t) => {
     const wasm = authorityOrSkip(t);
     if (!wasm)
         return;
     assert.equal(wasm.classifyRecords(GOLDEN, 'garbage').class, 'malformed-artifact');
 });
-test('WASM authority: emits the expected class labels', (t) => {
+void test('WASM authority: emits the expected class labels', (t) => {
     const wasm = authorityOrSkip(t);
     if (!wasm)
         return;

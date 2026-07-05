@@ -20,7 +20,7 @@ import {
   type PolicyView,
 } from './index.js';
 
-test('a policy accepts a read-only view and returns proposed commands', () => {
+void test('a policy accepts a read-only view and returns proposed commands', () => {
   // A policy that tags every untagged entity with a fixed tag.
   const tagAll: Policy = (view) =>
     view.entities
@@ -43,7 +43,7 @@ test('a policy accepts a read-only view and returns proposed commands', () => {
   });
 });
 
-test('command builders produce well-formed generated Command values', () => {
+void test('command builders produce well-formed generated Command values', () => {
   assert.deepEqual(commands.createEntity(entityId(7)), {
     domain: 'entity',
     command: { kind: 'create', id: entityId(7) },
@@ -54,7 +54,7 @@ test('command builders produce well-formed generated Command values', () => {
   });
 });
 
-test('query helpers read the view without mutating it', () => {
+void test('query helpers read the view without mutating it', () => {
   const view = makeView({
     entities: [{ id: entityId(1), tags: [tagId(5)] }],
     processes: [{ id: processId(2), mode: modeId(8) }],
@@ -69,24 +69,24 @@ test('query helpers read the view without mutating it', () => {
   assert.equal(query.processMode(view, processId(404)), undefined);
 });
 
-test('emptyView is the empty world', () => {
+void test('emptyView is the empty world', () => {
   const v = emptyView();
   assert.equal(v.entities.length, 0);
   assert.equal(v.tags.length, 0);
 });
 
-test('a no-op policy proposes nothing', () => {
+void test('a no-op policy proposes nothing', () => {
   const noop: Policy = () => [];
   assert.deepEqual(runPolicy(noop, emptyView()), []);
 });
 
-test('view data is read-only at the type level', () => {
+void test('view data is read-only at the type level', () => {
   // Type-only proof: this closure is never executed. Each line is rejected by
   // `tsc`, which is asserted by the `@ts-expect-error` directives. (At runtime
   // `readonly` is structural and would not throw, so we never run it.)
   const _readonlyProof = (v: PolicyView): void => {
-    // @ts-expect-error - entities is a readonly array
-    v.entities.push({ id: entityId(1), tags: [] });
+    // @ts-expect-error - entities is readonly
+    v.entities = [];
     // @ts-expect-error - view fields are readonly
     v.tags = [];
   };

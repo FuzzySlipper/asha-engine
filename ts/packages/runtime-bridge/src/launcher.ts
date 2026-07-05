@@ -8,7 +8,6 @@ import {
   type WorldLoadRequest,
 } from './bridge.js';
 import { createMockRuntimeBridge } from './mock.js';
-import { createNativeRuntimeBridge } from './native.js';
 
 // ── Game runtime launcher facade types (#3653) ────────────────────────────────
 // Higher-level public types for game consumers. These describe launch/session
@@ -213,7 +212,25 @@ type GameRuntimeProfileValue =
   | number
   | undefined;
 
-type GameRuntimeProfileRecord = { readonly [key: string]: GameRuntimeProfileValue };
+interface GameRuntimeProfileRecord {
+  readonly [key: string]: GameRuntimeProfileValue;
+  readonly bridgeCompatibility?: GameRuntimeProfileValue;
+  readonly contractsPackageVersion?: GameRuntimeProfileValue;
+  readonly devtoolsProtocolVersion?: GameRuntimeProfileValue;
+  readonly evidenceRefs?: GameRuntimeProfileValue;
+  readonly id?: GameRuntimeProfileValue;
+  readonly kind?: GameRuntimeProfileValue;
+  readonly launcherName?: GameRuntimeProfileValue;
+  readonly mode?: GameRuntimeProfileValue;
+  readonly nonClaims?: GameRuntimeProfileValue;
+  readonly path?: GameRuntimeProfileValue;
+  readonly profileId?: GameRuntimeProfileValue;
+  readonly publishArtifactVersion?: GameRuntimeProfileValue;
+  readonly runtimeBridgePackageVersion?: GameRuntimeProfileValue;
+  readonly sequenceId?: GameRuntimeProfileValue;
+  readonly sha256?: GameRuntimeProfileValue;
+  readonly transport?: GameRuntimeProfileValue;
+}
 
 function requireNonEmpty(value: string, field: string): string {
   if (value.trim().length === 0) {
@@ -652,7 +669,7 @@ export class SelectedBackendGameRuntimeLauncher implements GameRuntimeLauncher {
       throw new RuntimeBridgeError('invalid_input', 'selected backend launcher currently supports native mode only');
     }
 
-    const bridge = this.options.bridgeFactory?.() ?? createNativeRuntimeBridge(this.options.nativeModulePath);
+    const bridge = this.options.bridgeFactory?.() ?? await createNativeBridgeForSelectedBackend(this.options.nativeModulePath);
     bridge.initializeEngine({ seed: config.world.sceneId });
     const status = bridge.loadWorldBundle(config.world);
     if (status.blocksLoad || status.loadedWorld === null) {
@@ -677,4 +694,9 @@ export function createNativeGameRuntimeLauncher(
   options: SelectedBackendLauncherOptions = {},
 ): GameRuntimeLauncher {
   return createSelectedBackendGameRuntimeLauncher(options);
+}
+
+async function createNativeBridgeForSelectedBackend(nativeModulePath?: string): Promise<RuntimeBridge> {
+  const nativeModule = await import('./native.js');
+  return nativeModule.createNativeRuntimeBridge(nativeModulePath);
 }

@@ -552,7 +552,7 @@ function validateVec3(value, path, diagnostics) {
     value.forEach((component, index) => requireFiniteRange(component, 0.001, 10, `${path}.${index}`, diagnostics));
 }
 function validateStringRefs(refs, path, diagnostics) {
-    if (!Array.isArray(refs) || refs.length === 0) {
+    if (refs.length === 0) {
         diagnostics.push({
             code: 'emptyReference',
             path,
@@ -595,7 +595,8 @@ function stableStringify(value) {
         return JSON.stringify(value);
     }
     if (Array.isArray(value)) {
-        return `[${value.map((entry) => stableStringify(entry)).join(',')}]`;
+        const entries = value;
+        return `[${entries.map((entry) => stableStringify(entry)).join(',')}]`;
     }
     const record = value;
     return `{${Object.keys(record)

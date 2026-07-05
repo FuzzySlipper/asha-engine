@@ -34,7 +34,7 @@ const EXPECTED_PHASES = [
   'edit-render-cycles',
 ];
 
-test('reference perf run is structurally sound and all invariants hold', async () => {
+void test('reference perf run is structurally sound and all invariants hold', async () => {
   const result = await runPerf({
     mode: 'reference',
     editCycles: 4,
@@ -73,7 +73,7 @@ test('reference perf run is structurally sound and all invariants hold', async (
   assert.equal(result.timings.find((t) => t.phase === 'edit-render-cycles')?.iterations, 4);
 });
 
-test('counters reflect a leak-free run with all commands accepted', async () => {
+void test('counters reflect a leak-free run with all commands accepted', async () => {
   const result = await runPerf({ mode: 'reference', editCycles: 5, clock: steppedClock() });
   const c = result.counters;
   assert.equal(c.leakedHandles, 0);
@@ -87,19 +87,19 @@ test('counters reflect a leak-free run with all commands accepted', async () => 
   assert.ok(c.renderOpsApplied >= 1);
 });
 
-test('edit-cycle count is configurable and folded into the aggregate timing', async () => {
+void test('edit-cycle count is configurable and folded into the aggregate timing', async () => {
   const result = await runPerf({ mode: 'reference', editCycles: 2, clock: steppedClock() });
   const cycles = result.timings.find((t) => t.phase === 'edit-render-cycles');
   assert.equal(cycles?.iterations, 2);
   assert.equal(result.counters.editCycles, 2);
 });
 
-test('default edit-cycle count is used when unspecified', async () => {
+void test('default edit-cycle count is used when unspecified', async () => {
   const result = await runPerf({ mode: 'reference', clock: steppedClock() });
   assert.equal(result.counters.editCycles, DEFAULT_EDIT_CYCLES);
 });
 
-test('a boot that fails closed is an honest structural failure, not a faked pass', async () => {
+void test('a boot that fails closed is an honest structural failure, not a faked pass', async () => {
   const failedBoot = (): BridgeBoot => ({
     bridge: null,
     mode: 'native',
@@ -115,7 +115,7 @@ test('a boot that fails closed is an honest structural failure, not a faked pass
   assert.match(boot?.detail ?? '', /addon not built/);
 });
 
-test('formatPerf renders a readable summary with status, timings, and invariants', async () => {
+void test('formatPerf renders a readable summary with status, timings, and invariants', async () => {
   const result = await runPerf({ mode: 'reference', editCycles: 2, clock: steppedClock() });
   const text = formatPerf(result);
   assert.match(text, /asha-perf OK/);
@@ -124,7 +124,7 @@ test('formatPerf renders a readable summary with status, timings, and invariants
   assert.match(text, /no-handle-leak/);
 });
 
-test('default boot bridge produces a reference run (smoke of the production wiring)', async () => {
+void test('default boot bridge produces a reference run (smoke of the production wiring)', async () => {
   const result = await runPerf({ bootBridge: defaultBootBridge, editCycles: 1, clock: steppedClock() });
   assert.equal(result.meta.runtimeMode, 'mock');
   assert.equal(result.ok, true);

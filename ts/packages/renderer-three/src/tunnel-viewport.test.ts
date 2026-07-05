@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createMockRuntimeSession } from '@asha/runtime-bridge';
+import { createMockRuntimeSession } from '@asha/runtime-bridge/reference';
 import {
   createAshaRendererBrowserSurfaceFrame,
   type FirstPersonTunnelViewportCollisionDebug,
@@ -30,7 +30,7 @@ function sessionInput() {
   };
 }
 
-test('first-person tunnel viewport renders generated tunnel frame from runtime camera projection', () => {
+void test('first-person tunnel viewport renders generated tunnel frame from runtime camera projection', () => {
   const session = createMockRuntimeSession();
   session.initialize(sessionInput());
   const tunnel = session.readGeneratedTunnelReadout({ presetId: 'tiny-enclosed', seed: 17 });
@@ -68,7 +68,7 @@ test('first-person tunnel viewport renders generated tunnel frame from runtime c
   assert.ok(result.summary.nonClaims.includes('not_pixel_golden'));
 });
 
-test('first-person tunnel viewport summary can carry optional collision debug hashes', () => {
+void test('first-person tunnel viewport summary can carry optional collision debug hashes', () => {
   const session = createMockRuntimeSession();
   session.initialize(sessionInput());
   const tunnel = session.readGeneratedTunnelReadout({ presetId: 'tiny-enclosed', seed: 17 });
@@ -102,7 +102,7 @@ test('first-person tunnel viewport summary can carry optional collision debug ha
   assert.equal(summaryOnly.scene.structuralHash, result.summary.scene.structuralHash);
 });
 
-test('renderer-three package root exposes tunnel viewport helpers under browser conditions', () => {
+void test('renderer-three package root exposes tunnel viewport helpers under browser conditions', () => {
   const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
   const proof = `
     const surface = await import('@asha/renderer-three');
@@ -126,7 +126,7 @@ test('renderer-three package root exposes tunnel viewport helpers under browser 
   });
 });
 
-test('browser surface frame is an ASHA render diff consumed by the retained renderer', () => {
+void test('browser surface frame is an ASHA render diff consumed by the retained renderer', () => {
   const frame = createAshaRendererBrowserSurfaceFrame();
   const result = renderProjectedFrame(frame);
 

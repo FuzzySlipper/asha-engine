@@ -203,6 +203,10 @@ type EncounterHashValue =
   | readonly EncounterHashValue[]
   | object;
 
+interface EncounterHashRecord {
+  readonly [key: string]: EncounterHashValue | undefined;
+}
+
 export interface EncounterTransitionResult {
   readonly accepted: boolean;
   readonly state: EncounterDirectorState;
@@ -602,10 +606,11 @@ function stableStringify(value: EncounterHashValue | undefined): string {
   }
 
   if (Array.isArray(value)) {
-    return `[${value.map((entry) => stableStringify(entry)).join(',')}]`;
+    const entries = value as readonly EncounterHashValue[];
+    return `[${entries.map((entry) => stableStringify(entry)).join(',')}]`;
   }
 
-  const record = value as Record<string, EncounterHashValue | undefined>;
+  const record = value as EncounterHashRecord;
   return `{${Object.keys(record)
     .sort()
     .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)

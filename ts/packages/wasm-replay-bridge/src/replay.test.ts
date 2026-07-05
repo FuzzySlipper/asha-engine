@@ -36,18 +36,18 @@ function fixture(hashes: readonly number[]): ReplayRecord {
   };
 }
 
-test('reference runner replays a fixture into per-step hashes', () => {
+void test('reference runner replays a fixture into per-step hashes', () => {
   const runner = new ReferenceReplayRunner();
   assert.deepEqual(runner.replayHashes(fixture([10, 20, 30])), [10, 20, 30]);
 });
 
-test('classifyDivergence: identical runs match', () => {
+void test('classifyDivergence: identical runs match', () => {
   const report = classifyDivergence([1, 2, 3], [1, 2, 3]);
   assert.equal(report.kind, 'match');
   assert.equal(report.firstDivergingStep, null);
 });
 
-test('classifyDivergence: single hash mismatch reports the step (WASM authoritative)', () => {
+void test('classifyDivergence: single hash mismatch reports the step (WASM authoritative)', () => {
   const report = classifyDivergence([1, 2, 3], [1, 99, 3]);
   assert.equal(report.kind, 'hash_divergence');
   assert.equal(report.firstDivergingStep as number, 1);
@@ -55,13 +55,13 @@ test('classifyDivergence: single hash mismatch reports the step (WASM authoritat
   assert.equal(report.wasmHash as number, 99);
 });
 
-test('classifyDivergence: differing lengths report length_divergence', () => {
+void test('classifyDivergence: differing lengths report length_divergence', () => {
   const report = classifyDivergence([1, 2], [1, 2, 3]);
   assert.equal(report.kind, 'length_divergence');
   assert.equal(report.firstDivergingStep as number, 2);
 });
 
-test('compareReplay: reference-vs-reference baseline matches', () => {
+void test('compareReplay: reference-vs-reference baseline matches', () => {
   const record = fixture([5, 6, 7]);
   const ref = new ReferenceReplayRunner();
   assert.equal(compareReplay(record, ref, ref).kind, 'match');

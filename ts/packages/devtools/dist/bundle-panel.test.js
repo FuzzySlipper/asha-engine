@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createMockRuntimeBridge, RuntimeBridgeError } from '@asha/runtime-bridge';
+import { RuntimeBridgeError } from '@asha/runtime-bridge';
+import { createMockRuntimeBridge } from '@asha/runtime-bridge/reference';
 import { sceneId, worldId, } from '@asha/contracts';
 import { buildDiagnosticsPanel, buildLoadPlanModel, buildLoadRequest, buildManifestModel, buildRegenReport, buildSavePlanModel, buildVoxelDurabilityModel, describeGeneratorMismatch, summarizeVoxelDurability, navigateSource, submitLoad, submitSave, } from './bundle-panel.js';
 function manifest() {
@@ -19,7 +20,7 @@ function manifest() {
         ],
     };
 }
-test('buildManifestModel classifies artifacts and counts by class', () => {
+void test('buildManifestModel classifies artifacts and counts by class', () => {
     const model = buildManifestModel(manifest());
     assert.equal(model.worldId, 7);
     assert.equal(model.sceneId, 1001);
@@ -28,7 +29,7 @@ test('buildManifestModel classifies artifacts and counts by class', () => {
     // Durable artifacts both have hashes; nothing flagged.
     assert.equal(model.artifacts.every((a) => !a.durableMissingHash), true);
 });
-test('buildManifestModel flags a durable artifact missing its content hash', () => {
+void test('buildManifestModel flags a durable artifact missing its content hash', () => {
     const m = manifest();
     const broken = {
         ...m,
@@ -37,7 +38,7 @@ test('buildManifestModel flags a durable artifact missing its content hash', () 
     const model = buildManifestModel(broken);
     assert.equal(model.artifacts[0].durableMissingHash, true);
 });
-test('buildLoadPlanModel renders an ordered, human-readable plan', () => {
+void test('buildLoadPlanModel renders an ordered, human-readable plan', () => {
     const plan = {
         steps: [
             { step: 'validateVersions', bundleSchemaVersion: 1, protocolVersion: 1 },
@@ -52,7 +53,7 @@ test('buildLoadPlanModel renders an ordered, human-readable plan', () => {
     assert.deepEqual(view.steps.map((s) => s.step), ['validateVersions', 'loadAssetLock', 'loadSceneDocument', 'bootstrapScene', 'validateFinalState']);
     assert.match(view.steps[3].summary, /bootstrap scene 1001 → world 7/);
 });
-test('buildSavePlanModel summarizes writes and compaction', () => {
+void test('buildSavePlanModel summarizes writes and compaction', () => {
     const summary = {
         writes: [
             { path: 'scene.json', class: 'durable', role: 'sceneDocument', contentHash: 'h1' },
@@ -66,14 +67,14 @@ test('buildSavePlanModel summarizes writes and compaction', () => {
     assert.equal(view.retainedEdits, 3);
     assert.equal(view.snapshotChunks, 2);
 });
-test('describeGeneratorMismatch surfaces a fail-closed version mismatch', () => {
+void test('describeGeneratorMismatch surfaces a fail-closed version mismatch', () => {
     const mismatch = { savedVersion: 2, currentVersion: 3 };
     const view = describeGeneratorMismatch(mismatch);
     assert.equal(view.savedVersion, 2);
     assert.equal(view.currentVersion, 3);
     assert.match(view.detail, /v2.*v3/);
 });
-test('buildRegenReport reports equivalence and conflicts', () => {
+void test('buildRegenReport reports equivalence and conflicts', () => {
     const clean = {
         savedVersion: 3,
         newVersion: 3,
@@ -102,7 +103,7 @@ test('buildRegenReport reports equivalence and conflicts', () => {
     assert.equal(view.equivalent, false);
     assert.equal(view.conflictCount, 1);
 });
-test('navigateSource resolves the most specific available locus', () => {
+void test('navigateSource resolves the most specific available locus', () => {
     assert.deepEqual(navigateSource({
         sceneNodeId: 5,
         runtimeEntityId: 9,
@@ -115,7 +116,7 @@ test('navigateSource resolves the most specific available locus', () => {
     assert.deepEqual(navigateSource({ sceneNodeId: null, runtimeEntityId: null, assetId: null, chunkCoord: null, renderHandle: null, bundlePath: 'b.json' }), { kind: 'bundlePath', path: 'b.json' });
     assert.deepEqual(navigateSource({ sceneNodeId: null, runtimeEntityId: null, assetId: null, chunkCoord: null, renderHandle: null, bundlePath: null }), { kind: 'none' });
 });
-test('buildDiagnosticsPanel carries severity, remedy, and navigation; only fatal blocks load', () => {
+void test('buildDiagnosticsPanel carries severity, remedy, and navigation; only fatal blocks load', () => {
     const set = {
         reports: [
             {
@@ -152,10 +153,10 @@ function loadedBridge() {
     bridge.initializeEngine({ seed: 1 });
     return bridge;
 }
-test('buildLoadRequest derives a typed facade request from the manifest', () => {
+void test('buildLoadRequest derives a typed facade request from the manifest', () => {
     assert.deepEqual(buildLoadRequest(manifest()), { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1001 });
 });
-test('submitLoad goes through the facade and returns the composition status', () => {
+void test('submitLoad goes through the facade and returns the composition status', () => {
     const bridge = loadedBridge();
     const result = submitLoad(bridge, buildLoadRequest(manifest()));
     assert.equal(result.ok, true);
@@ -164,7 +165,7 @@ test('submitLoad goes through the facade and returns the composition status', ()
         assert.equal(result.value.blocksLoad, false);
     }
 });
-test('submitLoad surfaces a fail-closed incompatible bundle with a recovery hint', () => {
+void test('submitLoad surfaces a fail-closed incompatible bundle with a recovery hint', () => {
     const bridge = loadedBridge();
     const result = submitLoad(bridge, { bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 1001 });
     assert.equal(result.ok, false);
@@ -173,7 +174,7 @@ test('submitLoad surfaces a fail-closed incompatible bundle with a recovery hint
         assert.match(result.recovery, /incompatible/);
     }
 });
-test('submitSave fails closed when no world is loaded, succeeds after a load', () => {
+void test('submitSave fails closed when no world is loaded, succeeds after a load', () => {
     const bridge = loadedBridge();
     const before = submitSave(bridge);
     assert.equal(before.ok, false);
@@ -187,7 +188,7 @@ test('submitSave fails closed when no world is loaded, succeeds after a load', (
         assert.equal(after.value.artifactsWritten, 3);
     }
 });
-test('submitLoad rethrows non-bridge errors unchanged', () => {
+void test('submitLoad rethrows non-bridge errors unchanged', () => {
     const exploding = {
         ...createMockRuntimeBridge(),
         loadWorldBundle() {
@@ -207,23 +208,23 @@ const DURABLE_EVIDENCE = {
     compactedEdits: 2,
     retainedEdits: 1,
 };
-test('buildVoxelDurabilityModel classifies a durable, genuinely-edited fixture', () => {
+void test('buildVoxelDurabilityModel classifies a durable, genuinely-edited fixture', () => {
     const view = buildVoxelDurabilityModel(DURABLE_EVIDENCE);
     assert.equal(view.durable, true, 'post-edit equals post-reload');
     assert.equal(view.editedWorld, true, 'post-load differs from post-edit');
     assert.equal(view.compactedEdits, 2);
     assert.equal(view.retainedEdits, 1);
 });
-test('buildVoxelDurabilityModel flags a non-durable reload (fingerprint divergence)', () => {
+void test('buildVoxelDurabilityModel flags a non-durable reload (fingerprint divergence)', () => {
     const view = buildVoxelDurabilityModel({ ...DURABLE_EVIDENCE, postReload: 'ffffffffffffffff' });
     assert.equal(view.durable, false, 'a reload that does not reproduce the edit is not durable');
     assert.equal(view.editedWorld, true);
 });
-test('buildVoxelDurabilityModel flags a no-op edit sequence', () => {
+void test('buildVoxelDurabilityModel flags a no-op edit sequence', () => {
     const view = buildVoxelDurabilityModel({ ...DURABLE_EVIDENCE, postEdit: DURABLE_EVIDENCE.postLoad });
     assert.equal(view.editedWorld, false, 'load == edit means the sequence changed nothing');
 });
-test('summarizeVoxelDurability renders deterministic display lines', () => {
+void test('summarizeVoxelDurability renders deterministic display lines', () => {
     const lines = summarizeVoxelDurability(buildVoxelDurabilityModel(DURABLE_EVIDENCE));
     assert.deepEqual(lines, [
         'fixture launch-sequence: durable=true edited=true',

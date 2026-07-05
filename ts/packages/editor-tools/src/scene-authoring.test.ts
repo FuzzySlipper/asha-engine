@@ -56,7 +56,7 @@ function baseScene(): FlatSceneDocument {
 
 // ── Proposal builders are pure DTO constructors ───────────────────────────────────
 
-test('proposeAddStaticMesh / Sprite / Group build typed addNode proposals', () => {
+void test('proposeAddStaticMesh / Sprite / Group build typed addNode proposals', () => {
   const mesh = proposeAddStaticMesh(sceneNodeId(10), ref('mesh/crate'), { parent: sceneNodeId(1), label: 'crate' });
   assert.equal(mesh.op, 'addNode');
   if (mesh.op === 'addNode') {
@@ -74,7 +74,7 @@ test('proposeAddStaticMesh / Sprite / Group build typed addNode proposals', () =
   assert.equal(group.op === 'addNode' && (group.node.childOrder as number), 3);
 });
 
-test('reparent / setTransform / setMetadata builders are typed proposals', () => {
+void test('reparent / setTransform / setMetadata builders are typed proposals', () => {
   assert.deepEqual(proposeReparent(sceneNodeId(2), sceneNodeId(1), 1), {
     op: 'reparent',
     node: sceneNodeId(2),
@@ -99,7 +99,7 @@ test('reparent / setTransform / setMetadata builders are typed proposals', () =>
 
 // ── Draft application is pure and never mutates authority ──────────────────────────
 
-test('applyProposalToDraft does not mutate the input document', () => {
+void test('applyProposalToDraft does not mutate the input document', () => {
   const doc = baseScene();
   const before = JSON.stringify(doc);
   const draft = applyProposalToDraft(doc, proposeAddGroup(sceneNodeId(3), { parent: sceneNodeId(1) }));
@@ -108,7 +108,7 @@ test('applyProposalToDraft does not mutate the input document', () => {
   assert.notEqual(draft, doc);
 });
 
-test('applyProposalToDraft applies add / reparent / setTransform / setMetadata', () => {
+void test('applyProposalToDraft applies add / reparent / setTransform / setMetadata', () => {
   let draft = applyProposalToDraft(baseScene(), proposeAddGroup(sceneNodeId(3), { parent: sceneNodeId(1), childOrder: 1 }));
   draft = applyProposalToDraft(draft, proposeReparent(sceneNodeId(2), sceneNodeId(3), 0));
   draft = applyProposalToDraft(draft, proposeSetTransform(sceneNodeId(2), { translation: [5, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }));
@@ -121,7 +121,7 @@ test('applyProposalToDraft applies add / reparent / setTransform / setMetadata',
   assert.deepEqual(n2.tags, ['x']);
 });
 
-test('applyProposalToDraft leaves an unknown-target proposal a no-op (authority rejects)', () => {
+void test('applyProposalToDraft leaves an unknown-target proposal a no-op (authority rejects)', () => {
   const draft = applyProposalToDraft(baseScene(), proposeReparent(sceneNodeId(404), sceneNodeId(1)));
   // The draft never invents node 404.
   assert.equal(draft.nodes.some((n) => (n.id as number) === 404), false);
@@ -179,33 +179,33 @@ function submitProposal(doc: FlatSceneDocument, proposal: SceneEditProposal) {
   return summarizeValidation(report);
 }
 
-test('a valid add-node proposal is accepted by authority validation', () => {
+void test('a valid add-node proposal is accepted by authority validation', () => {
   const feedback = submitProposal(baseScene(), proposeAddStaticMesh(sceneNodeId(3), ref('mesh/floor'), { parent: sceneNodeId(1) }));
   assert.equal(feedback.accepted, true);
   assert.equal(feedback.issues.length, 0);
 });
 
-test('a reparent that forms a cycle is rejected with a classified cycle issue', () => {
+void test('a reparent that forms a cycle is rejected with a classified cycle issue', () => {
   // Make the root (1) a child of its descendant (2): 1 → 2 → 1.
   const feedback = submitProposal(baseScene(), proposeReparent(sceneNodeId(1), sceneNodeId(2)));
   assert.equal(feedback.accepted, false);
   assert.ok(feedback.issues.some((i) => i.code === 'cycle'));
 });
 
-test('a wrong-kind static-mesh proposal is rejected with asset-kind-mismatch', () => {
+void test('a wrong-kind static-mesh proposal is rejected with asset-kind-mismatch', () => {
   const feedback = submitProposal(baseScene(), proposeAddStaticMesh(sceneNodeId(3), ref('material/concrete'), { parent: sceneNodeId(1) }));
   assert.equal(feedback.accepted, false);
   const issue = feedback.issues.find((i) => i.code === 'asset-kind-mismatch')!;
   assert.match(issue.detail, /expected mesh, found other/);
 });
 
-test('a reparent under an absent parent is rejected with unknown-parent', () => {
+void test('a reparent under an absent parent is rejected with unknown-parent', () => {
   const feedback = submitProposal(baseScene(), proposeReparent(sceneNodeId(2), sceneNodeId(99)));
   assert.equal(feedback.accepted, false);
   assert.ok(feedback.issues.some((i) => i.code === 'unknown-parent' && (i.node as number) === 2));
 });
 
-test('summarizeValidation maps every classified code to a readout', () => {
+void test('summarizeValidation maps every classified code to a readout', () => {
   const report: SceneValidationReport = {
     errors: [
       { code: 'duplicate-node-id', node: sceneNodeId(2), parent: null, expectedKind: null, actualKind: null, transformReason: null, cyclePath: [] },

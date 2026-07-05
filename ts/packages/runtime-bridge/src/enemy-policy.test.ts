@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 
 import {
   createGeneratedTunnelEnemyPolicyFixture,
-  createMockRuntimeSession,
   validateEnemyPolicySource,
 } from './index.js';
+import { createMockRuntimeSession } from './reference.js';
 
 function sessionInput() {
   return {
@@ -23,7 +23,7 @@ function sessionInput() {
   };
 }
 
-test('enemy policy fixture proposes movement and typed fire intent from read-only nav policy view', () => {
+void test('enemy policy fixture proposes movement and typed fire intent from read-only nav policy view', () => {
   const session = createMockRuntimeSession();
   session.initialize(sessionInput());
   const camera = session.createCamera({
@@ -78,7 +78,7 @@ test('enemy policy fixture proposes movement and typed fire intent from read-onl
   assert.equal('payload' in receipt, false);
 });
 
-test('enemy policy fixture records proposal diagnostics without mutating authority', () => {
+void test('enemy policy fixture records proposal diagnostics without mutating authority', () => {
   const session = createMockRuntimeSession();
   session.initialize(sessionInput());
   const camera = session.createCamera({
@@ -105,7 +105,7 @@ test('enemy policy fixture records proposal diagnostics without mutating authori
   assert.equal(session.readTelemetry().replayRecords.at(-1)?.kind, 'createCamera');
 });
 
-test('enemy policy source validator rejects forbidden capabilities', () => {
+void test('enemy policy source validator rejects forbidden capabilities', () => {
   const diagnostics = validateEnemyPolicySource(`
     const now = Date.now();
     const roll = Math.random();

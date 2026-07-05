@@ -19,10 +19,10 @@ that interface:
 
 ```ts
 import {
-  createReferenceGameRuntimeLauncher,
   type GameRuntimeLauncher,
   type GameRuntimeLaunchRequest,
 } from '@asha/runtime-bridge';
+import { createReferenceGameRuntimeLauncher } from '@asha/runtime-bridge/reference';
 ```
 
 The first implementation is a deterministic reference launcher. It may internally use
@@ -133,7 +133,7 @@ It should also add boundary coverage in `asha-testing` so direct proof-consumer 
 `createMockRuntimeBridge`, `MockRuntimeBridge`, `NativeRuntimeBridge`, raw transports, private
 source paths, and generic method/json tunnels fail.
 
-#3654 should implement `createReferenceGameRuntimeLauncher()` in `@asha/runtime-bridge` using
+#3654 should implement `createReferenceGameRuntimeLauncher()` in `@asha/runtime-bridge/reference` using
 existing public bridge operations internally. The implementation must report
 `runtimeMode: "reference"` and should include negative tests for missing world, unsupported
 runtime entry, and failed command/readback paths.

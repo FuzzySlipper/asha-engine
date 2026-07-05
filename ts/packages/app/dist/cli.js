@@ -20,7 +20,7 @@ function artifactDir() {
     return resolve(here, '../../../../harness/shell-out');
 }
 function selectedMode() {
-    return process.env.ASHA_SHELL_MODE === 'authority' ? 'authority' : 'reference';
+    return process.env['ASHA_SHELL_MODE'] === 'authority' ? 'authority' : 'reference';
 }
 function main() {
     const mode = selectedMode();

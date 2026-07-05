@@ -6,10 +6,10 @@ Public import path:
 
 ```ts
 import {
-  createMockRuntimeSession,
   TINY_GENERATED_TUNNEL_READOUT,
   type GeneratedTunnelReadout,
 } from '@asha/runtime-bridge';
+import { createMockRuntimeSession } from '@asha/runtime-bridge/reference';
 ```
 
 `RuntimeSessionFacade.readGeneratedTunnelReadout()` exposes the committed

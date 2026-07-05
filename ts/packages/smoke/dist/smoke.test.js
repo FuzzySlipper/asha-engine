@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createMockRuntimeBridge, RuntimeBridgeError, } from '@asha/runtime-bridge';
+import { RuntimeBridgeError, } from '@asha/runtime-bridge';
+import { createMockRuntimeBridge } from '@asha/runtime-bridge/reference';
 import { authorityBootBridge, runSmoke } from './harness.js';
 import { formatResult } from './result.js';
 import { FIXTURE_WORLD, fixtureEditUpdateFrame, fixtureRenderFrame, fixtureWorldHash, } from './fixtures.js';
@@ -30,7 +31,7 @@ function mockBoot() {
         nativeAvailable: false,
     };
 }
-test('mock run passes and reports trustworthy evidence', () => {
+void test('mock run passes and reports trustworthy evidence', () => {
     const result = runSmoke({ bootBridge: mockBoot });
     assert.equal(result.ok, true);
     assert.equal(result.runtimeMode, 'mock');
@@ -56,31 +57,31 @@ test('mock run passes and reports trustworthy evidence', () => {
     assert.ok(result.counters.peakHandles > 0, 'handles were actually created during the run');
     assert.ok(result.counters.debugNodes > 0, 'a preview overlay was drawn on the debug layer');
 });
-test('every required launchable stage is present and ordered', () => {
+void test('every required launchable stage is present and ordered', () => {
     const names = runSmoke({ bootBridge: mockBoot }).stages.map((s) => s.name);
     assert.deepEqual(names, STAGE_ORDER, '10-stage proof: boot→…→cleanup');
 });
-test('picking stage classifies the reference miss and clears selection (no swallowed error)', () => {
+void test('picking stage classifies the reference miss and clears selection (no swallowed error)', () => {
     const result = runSmoke({ bootBridge: mockBoot });
     const pick = result.stages.find((s) => s.name === 'pick');
     assert.ok(pick?.ok);
     assert.match(pick.detail, /classified miss/);
 });
-test('preview stage holds the remesh guardrail (debug overlay, scene untouched)', () => {
+void test('preview stage holds the remesh guardrail (debug overlay, scene untouched)', () => {
     const result = runSmoke({ bootBridge: mockBoot });
     const preview = result.stages.find((s) => s.name === 'preview');
     assert.ok(preview?.ok, 'preview must pass without remeshing authority');
     assert.match(preview.detail, /scene unchanged=true/);
     assert.ok(result.counters.debugNodes >= 1);
 });
-test('save/reload/replay stage proves durability through the facade', () => {
+void test('save/reload/replay stage proves durability through the facade', () => {
     const result = runSmoke({ bootBridge: mockBoot });
     const stage = result.stages.find((s) => s.name === 'save-reload-replay');
     assert.ok(stage?.ok);
     assert.match(stage.detail, /saved artifacts=\d+/);
     assert.match(stage.detail, /diverged=false/);
 });
-test('a thrown pick surfaces a classified pick_failure, not a generic internal error', () => {
+void test('a thrown pick surfaces a classified pick_failure, not a generic internal error', () => {
     const broken = bridgeWith({
         pickVoxel: () => {
             throw new RuntimeBridgeError('invalid_input', 'bad ray');
@@ -92,7 +93,7 @@ test('a thrown pick surfaces a classified pick_failure, not a generic internal e
     assert.equal(result.ok, false);
     assert.ok(result.failures.some((f) => f.category === 'pick_failure'));
 });
-test('a thrown replay surfaces a classified replay_failure', () => {
+void test('a thrown replay surfaces a classified replay_failure', () => {
     const broken = bridgeWith({
         runReplayStep: () => {
             throw new RuntimeBridgeError('internal', 'replay engine fault');
@@ -104,7 +105,7 @@ test('a thrown replay surfaces a classified replay_failure', () => {
     assert.equal(result.ok, false);
     assert.ok(result.failures.some((f) => f.category === 'replay_failure'));
 });
-test('formatResult is deterministic and lists every stage', () => {
+void test('formatResult is deterministic and lists every stage', () => {
     const a = formatResult(runSmoke({ bootBridge: mockBoot }));
     const b = formatResult(runSmoke({ bootBridge: mockBoot }));
     assert.equal(a, b);
@@ -114,7 +115,7 @@ test('formatResult is deterministic and lists every stage', () => {
     assert.match(a, /stage cleanup: ok/);
     assert.match(a, /counters: leakedHandles=0/);
 });
-test('reference smoke matches the committed golden snapshot', () => {
+void test('reference smoke matches the committed golden snapshot', () => {
     // dist/smoke.test.js → repo root is four levels up.
     const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
     const committed = readFileSync(resolve(root, 'harness/fixtures/smoke/reference-smoke.txt'), 'utf8');
@@ -151,7 +152,7 @@ function bridgeWith(overrides) {
         ...overrides,
     };
 }
-test('a failing world load is categorized to the load subsystem, not a blank success', () => {
+void test('a failing world load is categorized to the load subsystem, not a blank success', () => {
     const failing = bridgeWith({
         loadWorldBundle: () => ({ loadedWorld: null, fatalCount: 1, totalCount: 1, blocksLoad: true }),
     });
@@ -165,7 +166,7 @@ test('a failing world load is categorized to the load subsystem, not a blank suc
     assert.ok(loadFailure, 'expected a classified load_failure');
     assert.ok(loadFailure.nextStep.length > 0, 'failure carries an actionable next step');
 });
-test('a thrown bridge load surfaces a classified failure', () => {
+void test('a thrown bridge load surfaces a classified failure', () => {
     const throwing = bridgeWith({
         loadWorldBundle: () => {
             throw new RuntimeBridgeError('invalid_input', 'bad bundle');
@@ -187,7 +188,7 @@ function authorityBridge() {
         readRenderDiffs: (cursor) => (cursor === 0 ? fixtureRenderFrame() : fixtureEditUpdateFrame()),
     });
 }
-test('authority run reads diffs through the facade and earns native_authority_passed', () => {
+void test('authority run reads diffs through the facade and earns native_authority_passed', () => {
     const result = runSmoke({
         bootBridge: () => ({
             bridge: authorityBridge(),
@@ -207,7 +208,7 @@ test('authority run reads diffs through the facade and earns native_authority_pa
     assert.ok(render?.detail.includes('bridge.readRenderDiffs'));
     assert.ok(result.render.sceneNodes > 0);
 });
-test('authority run fails closed (not blank success) when readRenderDiffs is empty', () => {
+void test('authority run fails closed (not blank success) when readRenderDiffs is empty', () => {
     // A fail-closed native bridge (post-#2423) whose projection is not wired: the
     // mock returns an empty frame; authority intent must classify, not pass.
     const result = runSmoke({
@@ -222,7 +223,7 @@ test('authority run fails closed (not blank success) when readRenderDiffs is emp
     assert.equal(result.outcome, 'failed');
     assert.ok(result.failures.some((f) => f.category === 'missing_native_bridge'));
 });
-test('authority boot fails closed and honest when the native addon is unavailable', (t) => {
+void test('authority boot fails closed and honest when the native addon is unavailable', (t) => {
     // The real authority boot in offline CI: no native addon → classified failure,
     // never downgraded to a mock pass.
     const boot = authorityBootBridge();
@@ -238,7 +239,7 @@ test('authority boot fails closed and honest when the native addon is unavailabl
     assert.ok(result.failures.some((f) => f.category === 'missing_native_bridge'));
     assert.equal(result.capabilities.runtimeBridge, 'unavailable');
 });
-test('real native authority boot fails closed at an unwired op (no mock success)', (t) => {
+void test('real native authority boot fails closed at an unwired op (no mock success)', (t) => {
     // When the native addon IS built, the authority path still must not pass on
     // mock behaviour: post-#2423 the native facade fail-closes unwired ops, so the
     // load stage fails honestly rather than reporting a blank success.

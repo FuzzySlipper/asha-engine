@@ -76,7 +76,7 @@ function sprite(asset = 'sprite/ui', frame = 0) {
         metadata: { source: entityId(7), tags: [], label: 'sprite' },
     };
 }
-test('applies frame ops in order and exposes neutral instructions', () => {
+void test('applies frame ops in order and exposes neutral instructions', () => {
     const projection = new RenderProjection();
     const instructions = projection.applyFrame({
         ops: [
@@ -99,7 +99,7 @@ test('applies frame ops in order and exposes neutral instructions', () => {
     ]);
     assert.equal(projection.handleCount, 0);
 });
-test('keeps stable parent/child ids and removes descendants before parents', () => {
+void test('keeps stable parent/child ids and removes descendants before parents', () => {
     const projection = new RenderProjection();
     projection.applyFrame({ ops: [createPrimitive(10, 'parent'), createPrimitive(11, 'child', 10)] });
     assert.deepEqual(projection.node(renderHandle(10))?.children, [renderHandle(11)]);
@@ -111,7 +111,7 @@ test('keeps stable parent/child ids and removes descendants before parents', () 
     ]);
     assert.equal(projection.handleCount, 0);
 });
-test('tracks static mesh definitions and fails closed on in-use redefinition', () => {
+void test('tracks static mesh definitions and fails closed on in-use redefinition', () => {
     const projection = new RenderProjection();
     projection.applyDiff({ op: 'defineStaticMesh', asset: meshAsset() });
     projection.applyDiff({
@@ -135,7 +135,7 @@ test('tracks static mesh definitions and fails closed on in-use redefinition', (
     assert.equal(projection.staticMeshRefCount('mesh/crate'), 0);
     assert.doesNotThrow(() => projection.applyDiff({ op: 'defineStaticMesh', asset: meshAsset() }));
 });
-test('resolves sprite atlas frames and sprite pick hints without renderer types', () => {
+void test('resolves sprite atlas frames and sprite pick hints without renderer types', () => {
     const projection = new RenderProjection();
     projection.applyFrame({
         ops: [
@@ -174,7 +174,7 @@ test('resolves sprite atlas frames and sprite pick hints without renderer types'
         attachmentPoint: 'head',
     });
 });
-test('fails closed on unknown handles, unsupported ops, and malformed mesh payloads', () => {
+void test('fails closed on unknown handles, unsupported ops, and malformed mesh payloads', () => {
     const projection = new RenderProjection();
     assert.throws(() => projection.applyDiff({
         op: 'update',
@@ -202,7 +202,7 @@ test('fails closed on unknown handles, unsupported ops, and malformed mesh paylo
         payload: malformedPayload,
     }), RenderProjectionError);
 });
-test('retained projection fixture matches the committed before/after goldens', () => {
+void test('retained projection fixture matches the committed before/after goldens', () => {
     const frames = JSON.parse(readFileSync(fixturePath('retained-sequence.json'), 'utf8'));
     const before = JSON.parse(readFileSync(goldenPath('retained-sequence.before.json'), 'utf8'));
     const after = JSON.parse(readFileSync(goldenPath('retained-sequence.after.json'), 'utf8'));

@@ -35,7 +35,7 @@ function flags(over: Partial<EntityCapabilityFlags>): EntityCapabilityFlags {
   };
 }
 
-test('proposal builders produce typed, proposal-only commands', () => {
+void test('proposal builders produce typed, proposal-only commands', () => {
   const create = proposeCreateEntity(eid(1), { kind: 'runtimeCreated', by: null }, [tid(3)]);
   assert.equal(create.kind, 'create');
   assert.deepEqual(create.labels, [tid(3)]);
@@ -55,7 +55,7 @@ test('proposal builders produce typed, proposal-only commands', () => {
   assert.equal(byProc.kind, 'create');
 });
 
-test('summarizeAuthoringOutcome reflects authority accept/reject, never decides', () => {
+void test('summarizeAuthoringOutcome reflects authority accept/reject, never decides', () => {
   const accepted: EntityAuthoringOutcome = { status: 'accepted', event: { kind: 'created', entity: eid(1) } };
   assert.deepEqual(summarizeAuthoringOutcome(accepted), { accepted: true, detail: 'created', entity: eid(1) });
 
@@ -70,7 +70,7 @@ test('summarizeAuthoringOutcome reflects authority accept/reject, never decides'
   });
 });
 
-test('classifyEntity buckets each fixture vocabulary class', () => {
+void test('classifyEntity buckets each fixture vocabulary class', () => {
   assert.deepEqual(classifyEntity(flags({ hasTransform: true, hasRender: true })), ['spatialRendered']);
   assert.deepEqual(classifyEntity(flags({ hasTransform: true, hasCollision: true })), ['spatialCollider']);
   assert.deepEqual(classifyEntity(flags({})), ['nonSpatialLogical']);
@@ -82,7 +82,7 @@ test('classifyEntity buckets each fixture vocabulary class', () => {
   assert.deepEqual(classifyEntity(flags({ lifecycle: 'tombstoned', hasTransform: true })), ['tombstoned']);
 });
 
-test('eligibility mirrors capability discipline with a classified reason', () => {
+void test('eligibility mirrors capability discipline with a classified reason', () => {
   assert.deepEqual(transformEligibility(flags({})), { eligible: false, reason: 'notTransformEligible' });
   assert.deepEqual(transformEligibility(flags({ hasTransform: true })), { eligible: true, reason: null });
   assert.deepEqual(
@@ -101,7 +101,7 @@ test('eligibility mirrors capability discipline with a classified reason', () =>
   );
 });
 
-test('setTransform proposal carries the transform verbatim (no local mutation)', () => {
+void test('setTransform proposal carries the transform verbatim (no local mutation)', () => {
   const t = { translation: [3, 0, 0] as const, rotation: [0, 0, 0, 1] as const, scale: [1, 1, 1] as const };
   const proposal = proposeSetEntityTransform(eid(1), t);
   assert.equal(proposal.kind, 'setTransform');

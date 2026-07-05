@@ -96,7 +96,8 @@ function fakeAddon(calls: string[] = []): NativeAddon {
     },
     submitCommands: (_handle: number, commandsJson: string) => {
       calls.push(`submit:${commandsJson}`);
-      return { accepted: JSON.parse(commandsJson).length, rejected: 0, rejections: [] };
+      const commands: unknown = JSON.parse(commandsJson);
+      return { accepted: Array.isArray(commands) ? commands.length : 0, rejected: 0, rejections: [] };
     },
     stepSimulation: (_handle: number, tick: number) => {
       calls.push(`step:${tick}`);
@@ -180,13 +181,13 @@ const INVOKE = new Map<string, (b: RuntimeBridge) => unknown>([
   ['runReplayStep', (b) => b.runReplayStep(0 as ReplaySessionHandle)],
 ]);
 
-test('every manifest op has a native invocation in this test', () => {
+void test('every manifest op has a native invocation in this test', () => {
   for (const op of MANIFEST_OPERATIONS) {
     assert.ok(INVOKE.has(op.facadeMethod), `missing invocation for ${op.facadeMethod}`);
   }
 });
 
-test('unwired native ops fail closed with operation_unimplemented (no mock fallback)', () => {
+void test('unwired native ops fail closed with operation_unimplemented (no mock fallback)', () => {
   for (const op of MANIFEST_OPERATIONS) {
     if (NATIVE_WIRED_OPERATIONS.has(op.manifestName)) continue;
     const invoke = INVOKE.get(op.facadeMethod);
@@ -203,7 +204,7 @@ test('unwired native ops fail closed with operation_unimplemented (no mock fallb
   }
 });
 
-test('required native conformance operations are declared wired', () => {
+void test('required native conformance operations are declared wired', () => {
   for (const manifestName of REQUIRED_NATIVE_CONFORMANCE_OPS) {
     assert.ok(
       NATIVE_WIRED_OPERATIONS.has(manifestName),
@@ -212,7 +213,7 @@ test('required native conformance operations are declared wired', () => {
   }
 });
 
-test('native conformance sequence routes through the addon without mock fallback', () => {
+void test('native conformance sequence routes through the addon without mock fallback', () => {
   const calls: string[] = [];
   const bridge: RuntimeBridge = new NativeRuntimeBridge(fakeAddon(calls));
 
@@ -252,7 +253,7 @@ test('native conformance sequence routes through the addon without mock fallback
   ]);
 });
 
-test('native facade validates numeric inputs before addon casts can wrap', () => {
+void test('native facade validates numeric inputs before addon casts can wrap', () => {
   const calls: string[] = [];
   const bridge: RuntimeBridge = new NativeRuntimeBridge(fakeAddon(calls));
   bridge.initializeEngine({ seed: 1 });
@@ -276,7 +277,7 @@ test('native facade validates numeric inputs before addon casts can wrap', () =>
   assert.deepEqual(calls, ['initialize:1']);
 });
 
-test('native addon semantic errors are reclassified into RuntimeBridgeError', () => {
+void test('native addon semantic errors are reclassified into RuntimeBridgeError', () => {
   const addon = fakeAddon();
   addon.loadWorldBundle = () => {
     throw new Error('InvalidInput: unsupported bundle schema 99 / protocol 1');
@@ -293,7 +294,7 @@ test('native addon semantic errors are reclassified into RuntimeBridgeError', ()
   );
 });
 
-test('wired native ops route through the addon, not the mock', () => {
+void test('wired native ops route through the addon, not the mock', () => {
   const calls: string[] = [];
   const bridge = new NativeRuntimeBridge(fakeAddon(calls));
   // Mock would return the seed (7) and diffCount 2; the addon returns 107 / 9.
@@ -302,7 +303,7 @@ test('wired native ops route through the addon, not the mock', () => {
   assert.deepEqual(calls, ['initialize:7', 'step:6']);
 });
 
-test('native bridge does not extend MockRuntimeBridge (no inherited mock methods)', () => {
+void test('native bridge does not extend MockRuntimeBridge (no inherited mock methods)', () => {
   // Guards against re-introducing the `extends MockRuntimeBridge` seam: every
   // own/inherited facade method must be declared on NativeRuntimeBridge itself.
   const proto = NativeRuntimeBridge.prototype as unknown as Record<string, unknown>;
@@ -318,7 +319,7 @@ test('native bridge does not extend MockRuntimeBridge (no inherited mock methods
   }
 });
 
-test('native bridge step before init fails closed (not_initialized)', () => {
+void test('native bridge step before init fails closed (not_initialized)', () => {
   const bridge = new NativeRuntimeBridge(fakeAddon());
   assert.throws(
     () => bridge.stepSimulation({ tick: 1 }),
@@ -326,7 +327,7 @@ test('native bridge step before init fails closed (not_initialized)', () => {
   );
 });
 
-test('wired set names are real manifest operations', () => {
+void test('wired set names are real manifest operations', () => {
   const manifestNames = new Set(MANIFEST_OPERATIONS.map((o) => o.manifestName));
   for (const name of NATIVE_WIRED_OPERATIONS) {
     assert.ok(manifestNames.has(name), `${name} in NATIVE_WIRED_OPERATIONS is not a manifest op`);

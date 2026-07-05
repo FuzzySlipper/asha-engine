@@ -104,6 +104,13 @@ ASHA_PERF_HOST=<stable-host-label> pnpm --filter @asha/smoke dev:asha-perf
 
 See `docs/launchable-voxel.md` and `docs/perf-baseline.md` for command details, output paths, and known limitations.
 
+Current consumer-facing RuntimeSession docs live in:
+
+- `docs/runtime-session-facade.md` — current `RuntimeSessionFacade` API and non-claims.
+- `docs/ecrp-runtime-session-readout.md` — ProjectBundle-shaped ECRP load/readout behavior.
+- `docs/ecrp-fps-object-model.md` — FPS object-model capability map for the generated-tunnel loop.
+- `docs/ecrp-capability-rule-ownership.md` — rule-owner matrix and current FPS RuntimeSession authority slice.
+
 ## Agent Lane Quick Reference
 
 | Lane | Language | Crate/Package dir | May not |

@@ -8,7 +8,7 @@ function withSelection(over = {}) {
         ...over,
     };
 }
-test('store applies actions, validates, and notifies subscribers on change', () => {
+void test('store applies actions, validates, and notifies subscribers on change', () => {
     const store = new EditorStore();
     let notified = 0;
     store.subscribe(() => (notified += 1));
@@ -21,7 +21,7 @@ test('store applies actions, validates, and notifies subscribers on change', () 
     assert.equal(store.getState().brushSize, 3);
     assert.equal(notified, 3);
 });
-test('store reducer is pure and identity-stable for no-op', () => {
+void test('store reducer is pure and identity-stable for no-op', () => {
     const store = new EditorStore();
     const before = store.getState();
     // Setting a selection then reading is a new object; but unchanged primitive
@@ -29,7 +29,7 @@ test('store reducer is pure and identity-stable for no-op', () => {
     store.dispatch({ type: 'setSnapping', snapping: store.getState().snapping });
     assert.equal(store.getState().snapping, before.snapping);
 });
-test('faceNeighbor and brushBox are correct', () => {
+void test('faceNeighbor and brushBox are correct', () => {
     assert.deepEqual(faceNeighbor({ x: 5, y: 0, z: 0 }, 'negX'), { x: 4, y: 0, z: 0 });
     assert.deepEqual(faceNeighbor({ x: 5, y: 0, z: 0 }, 'posY'), { x: 5, y: 1, z: 0 });
     // size 1 → the single cell.
@@ -37,7 +37,7 @@ test('faceNeighbor and brushBox are correct', () => {
     // size 3 → centred 3³.
     assert.deepEqual(brushBox({ x: 2, y: 2, z: 2 }, 3), { min: { x: 1, y: 1, z: 1 }, max: { x: 4, y: 4, z: 4 } });
 });
-test('place tool proposes a setVoxel at the face-neighbour anchor', () => {
+void test('place tool proposes a setVoxel at the face-neighbour anchor', () => {
     const ctx = withSelection({ tool: 'place', material: 7 });
     assert.deepEqual(proposeCommand(ctx), {
         op: 'setVoxel',
@@ -46,7 +46,7 @@ test('place tool proposes a setVoxel at the face-neighbour anchor', () => {
         value: { kind: 'solid', material: 7 },
     });
 });
-test('remove tool proposes a setVoxel Empty at the selected voxel', () => {
+void test('remove tool proposes a setVoxel Empty at the selected voxel', () => {
     const ctx = withSelection({ tool: 'remove' });
     assert.deepEqual(proposeCommand(ctx), {
         op: 'setVoxel',
@@ -55,7 +55,7 @@ test('remove tool proposes a setVoxel Empty at the selected voxel', () => {
         value: { kind: 'empty' },
     });
 });
-test('paint tool proposes a setVoxel that recolours the selected voxel itself', () => {
+void test('paint tool proposes a setVoxel that recolours the selected voxel itself', () => {
     // Paint targets the struck voxel (not its face-neighbour) with the current
     // material — the same SetVoxel command, a different anchor (not a new variant).
     const ctx = withSelection({ tool: 'paint', material: 5 });
@@ -66,7 +66,7 @@ test('paint tool proposes a setVoxel that recolours the selected voxel itself', 
         value: { kind: 'solid', material: 5 },
     });
 });
-test('box shape proposes a fillRegion; single ignores brushSize', () => {
+void test('box shape proposes a fillRegion; single ignores brushSize', () => {
     const box = withSelection({ tool: 'place', brushShape: 'box', brushSize: 3, material: 2 });
     const cmd = proposeCommand(box);
     assert.equal(cmd?.op, 'fillRegion');
@@ -80,7 +80,7 @@ test('box shape proposes a fillRegion; single ignores brushSize', () => {
     const single = withSelection({ tool: 'place', brushShape: 'single', brushSize: 3 });
     assert.equal(proposeCommand(single)?.op, 'setVoxel');
 });
-test('box shape paint/remove fill the selected voxel region', () => {
+void test('box shape paint/remove fill the selected voxel region', () => {
     const remove = withSelection({ tool: 'remove', brushShape: 'box', brushSize: 3 });
     const cmd = proposeCommand(remove);
     assert.equal(cmd?.op, 'fillRegion');
@@ -90,19 +90,19 @@ test('box shape paint/remove fill the selected voxel region', () => {
         assert.deepEqual(cmd.value, { kind: 'empty' });
     }
 });
-test('select/inspect and no-selection propose nothing', () => {
+void test('select/inspect and no-selection propose nothing', () => {
     assert.equal(proposeCommand(withSelection({ tool: 'select' })), null);
     assert.equal(proposeCommand(withSelection({ tool: 'inspect' })), null);
     assert.equal(proposeCommand(initialEditorContext(0)), null); // no selection
 });
-test('previewTargets enumerates the affected cells without proposing/mutating', () => {
+void test('previewTargets enumerates the affected cells without proposing/mutating', () => {
     assert.deepEqual(previewTargets(withSelection({ tool: 'place', brushShape: 'single' })), [{ x: 4, y: 0, z: 0 }]);
     assert.equal(previewTargets(withSelection({ tool: 'place', brushShape: 'box', brushSize: 3 })).length, 27);
     assert.deepEqual(previewTargets(withSelection({ tool: 'paint' })), [{ x: 5, y: 0, z: 0 }]);
     assert.deepEqual(previewTargets(withSelection({ tool: 'select' })), []);
     assert.deepEqual(previewTargets(initialEditorContext(0)), []);
 });
-test('proposeCommand and previewTargets are pure: they never mutate the context', () => {
+void test('proposeCommand and previewTargets are pure: they never mutate the context', () => {
     const ctx = withSelection({ tool: 'place', brushShape: 'box', brushSize: 2, material: 3 });
     const snapshot = JSON.stringify(ctx);
     proposeCommand(ctx);

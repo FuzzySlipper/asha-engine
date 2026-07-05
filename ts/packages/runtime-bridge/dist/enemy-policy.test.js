@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createGeneratedTunnelEnemyPolicyFixture, createMockRuntimeSession, validateEnemyPolicySource, } from './index.js';
+import { createGeneratedTunnelEnemyPolicyFixture, validateEnemyPolicySource, } from './index.js';
+import { createMockRuntimeSession } from './reference.js';
 function sessionInput() {
     return {
         sessionId: 'runtime-session.enemy-policy.reference',
@@ -16,7 +17,7 @@ function sessionInput() {
         },
     };
 }
-test('enemy policy fixture proposes movement and typed fire intent from read-only nav policy view', () => {
+void test('enemy policy fixture proposes movement and typed fire intent from read-only nav policy view', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
     const camera = session.createCamera({
@@ -61,7 +62,7 @@ test('enemy policy fixture proposes movement and typed fire intent from read-onl
     assert.equal(receipt.combatReadout?.health[0]?.dead, true);
     assert.equal('payload' in receipt, false);
 });
-test('enemy policy fixture records proposal diagnostics without mutating authority', () => {
+void test('enemy policy fixture records proposal diagnostics without mutating authority', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
     const camera = session.createCamera({
@@ -82,7 +83,7 @@ test('enemy policy fixture records proposal diagnostics without mutating authori
     assert.deepEqual(fixture.frame.diagnostics.map((diagnostic) => diagnostic.code), ['blocked_nav_path', 'target_out_of_range']);
     assert.equal(session.readTelemetry().replayRecords.at(-1)?.kind, 'createCamera');
 });
-test('enemy policy source validator rejects forbidden capabilities', () => {
+void test('enemy policy source validator rejects forbidden capabilities', () => {
     const diagnostics = validateEnemyPolicySource(`
     const now = Date.now();
     const roll = Math.random();

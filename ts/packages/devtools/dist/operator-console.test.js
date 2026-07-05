@@ -62,7 +62,7 @@ function canonical() {
         ],
     };
 }
-test('classifyLane routes scope + code overrides to owning lanes', () => {
+void test('classifyLane routes scope + code overrides to owning lanes', () => {
     assert.equal(classifyLane(diag({ scope: 'scene' })), 'stateRules');
     assert.equal(classifyLane(diag({ scope: 'assetCatalog' })), 'assetCatalog');
     assert.equal(classifyLane(diag({ scope: 'renderProjection' })), 'renderProjection');
@@ -72,7 +72,7 @@ test('classifyLane routes scope + code overrides to owning lanes', () => {
     // Protocol mismatch overrides scope.
     assert.equal(classifyLane(diag({ scope: 'worldBundle', code: 'manifestProtocolMismatch' })), 'protocolContracts');
 });
-test('canonical fixture populates every section and reports ready', () => {
+void test('canonical fixture populates every section and reports ready', () => {
     const model = buildOperatorConsole(canonical());
     assert.equal(model.ready, true);
     assert.equal(model.runtime.mode, 'reference');
@@ -86,7 +86,7 @@ test('canonical fixture populates every section and reports ready', () => {
     assert.deepEqual(JSON.parse(json), model);
     assert.equal(toOperatorJson(buildOperatorConsole(canonical())), json); // deterministic
 });
-test('a failure case classifies by lane, marks not-ready, and flags broken traces + leak', () => {
+void test('a failure case classifies by lane, marks not-ready, and flags broken traces + leak', () => {
     const input = {
         ...canonical(),
         runtime: { ...canonical().runtime, mode: 'degraded' },

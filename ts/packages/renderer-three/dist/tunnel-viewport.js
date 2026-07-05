@@ -203,7 +203,8 @@ function viewportStableStringify(value) {
         return JSON.stringify(value);
     }
     if (Array.isArray(value)) {
-        return `[${value.map((entry) => viewportStableStringify(entry)).join(',')}]`;
+        const entries = value;
+        return `[${entries.map((entry) => viewportStableStringify(entry)).join(',')}]`;
     }
     const record = value;
     return `{${Object.keys(record)

@@ -52,7 +52,7 @@ function input(over = {}) {
         sourceTraces: over.sourceTraces ?? [],
     };
 }
-test('buildOutlinerModel builds a tree ordered by childOrder then id', () => {
+void test('buildOutlinerModel builds a tree ordered by childOrder then id', () => {
     const model = buildOutlinerModel(input());
     assert.equal(model.roots.length, 1);
     const root = model.roots[0];
@@ -62,7 +62,7 @@ test('buildOutlinerModel builds a tree ordered by childOrder then id', () => {
     // group-b has the leaf.
     assert.deepEqual(root.children[1].children.map((c) => c.node.id), [13]);
 });
-test('a scene node with a live source trace correlates as matched', () => {
+void test('a scene node with a live source trace correlates as matched', () => {
     const traces = [
         { sceneNodeId: sceneNodeId(11), runtimeEntityId: entityId(500) },
     ];
@@ -74,7 +74,7 @@ test('a scene node with a live source trace correlates as matched', () => {
     assert.deepEqual(mesh.correlation, { kind: 'matched', entityId: entityId(500), lifecycle: 'active' });
     assert.equal(model.diagnostics.length, 0);
 });
-test('a tombstoned scene-sourced entity is surfaced as destroyed, never hidden', () => {
+void test('a tombstoned scene-sourced entity is surfaced as destroyed, never hidden', () => {
     const traces = [
         { sceneNodeId: sceneNodeId(11), runtimeEntityId: entityId(500) },
     ];
@@ -86,7 +86,7 @@ test('a tombstoned scene-sourced entity is surfaced as destroyed, never hidden',
     assert.deepEqual(mesh.correlation, { kind: 'destroyed', entityId: entityId(500) });
     assert.deepEqual(model.diagnostics.map((d) => d.code), ['destroyedSceneEntity']);
 });
-test('a trace to an absent entity is reported as a dangling trace', () => {
+void test('a trace to an absent entity is reported as a dangling trace', () => {
     const traces = [
         { sceneNodeId: sceneNodeId(11), runtimeEntityId: entityId(999) },
     ];
@@ -95,7 +95,7 @@ test('a trace to an absent entity is reported as a dangling trace', () => {
     assert.deepEqual(mesh.correlation, { kind: 'danglingTrace', entityId: entityId(999) });
     assert.equal(model.diagnostics[0].code, 'danglingSourceTrace');
 });
-test('runtime-created entities (no scene source) are listed separately', () => {
+void test('runtime-created entities (no scene source) are listed separately', () => {
     const entities = [
         { entityId: entityId(700), lifecycle: 'active', transform: at(5, 5, 5), sourceNode: null },
         { entityId: entityId(701), lifecycle: 'disabled', transform: null, sourceNode: null },
@@ -106,7 +106,7 @@ test('runtime-created entities (no scene source) are listed separately', () => {
         { entityId: entityId(701), lifecycle: 'disabled', hasTransform: false },
     ]);
 });
-test('an orphaned node (absent parent) is shown explicitly with a diagnostic', () => {
+void test('an orphaned node (absent parent) is shown explicitly with a diagnostic', () => {
     const scene = fixtureScene();
     const withOrphan = {
         ...scene,
@@ -116,14 +116,14 @@ test('an orphaned node (absent parent) is shown explicitly with a diagnostic', (
     assert.deepEqual(model.orphans.map((o) => o.node.id), [20]);
     assert.ok(model.diagnostics.some((d) => d.code === 'orphanedNode' && d.sceneNode === 20));
 });
-test('an entity naming an absent source node yields danglingEntitySource', () => {
+void test('an entity naming an absent source node yields danglingEntitySource', () => {
     const entities = [
         { entityId: entityId(800), lifecycle: 'active', transform: null, sourceNode: sceneNodeId(99) },
     ];
     const model = buildOutlinerModel(input({ entities }));
     assert.ok(model.diagnostics.some((d) => d.code === 'danglingEntitySource' && d.entityId === 800));
 });
-test('inspectNode distinguishes authored transform from runtime override', () => {
+void test('inspectNode distinguishes authored transform from runtime override', () => {
     const traces = [
         { sceneNodeId: sceneNodeId(11), runtimeEntityId: entityId(500) },
     ];
@@ -138,7 +138,7 @@ test('inspectNode distinguishes authored transform from runtime override', () =>
     assert.equal(view.assetRefs.kindTag, 'staticMesh');
     assert.equal(view.assetRefs.asset?.id, 'mesh:crate');
 });
-test('inspectNode reports no divergence when transforms match, null runtime when none', () => {
+void test('inspectNode reports no divergence when transforms match, null runtime when none', () => {
     const matched = inspectNode(input({
         sourceTraces: [{ sceneNodeId: sceneNodeId(11), runtimeEntityId: entityId(500) }],
         entities: [{ entityId: entityId(500), lifecycle: 'active', transform: at(1, 0, 0), sourceNode: sceneNodeId(11) }],
@@ -149,11 +149,11 @@ test('inspectNode reports no divergence when transforms match, null runtime when
     assert.equal(noRuntime.transform.diverged, false);
     assert.deepEqual(noRuntime.correlation, { kind: 'authoredOnly' });
 });
-test('inspectNode/inspectEntity return null for unknown ids', () => {
+void test('inspectNode/inspectEntity return null for unknown ids', () => {
     assert.equal(inspectNode(input(), sceneNodeId(404)), null);
     assert.equal(inspectEntity(input(), entityId(404)), null);
 });
-test('inspectEntity resolves a scene source and flags a dangling source', () => {
+void test('inspectEntity resolves a scene source and flags a dangling source', () => {
     const resolved = inspectEntity(input({ entities: [{ entityId: entityId(500), lifecycle: 'active', transform: null, sourceNode: sceneNodeId(11) }] }), entityId(500));
     assert.equal(resolved.sourceNode?.id, 11);
     assert.equal(resolved.danglingSource, false);

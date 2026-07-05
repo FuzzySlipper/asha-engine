@@ -23,7 +23,7 @@ function run(over = {}) {
         ...over,
     };
 }
-test('summary counts proposed/accepted/rejected/violations and groups rejections', () => {
+void test('summary counts proposed/accepted/rejected/violations and groups rejections', () => {
     const s = buildPolicyRunSummary(run());
     assert.equal(s.policyCount, 2);
     assert.equal(s.totalProposed, 3);
@@ -36,21 +36,21 @@ test('summary counts proposed/accepted/rejected/violations and groups rejections
     ]);
     assert.equal(s.replayHandle, 'tick-7-abcd');
 });
-test('summary carries each policy id + version row', () => {
+void test('summary carries each policy id + version row', () => {
     const s = buildPolicyRunSummary(run());
     assert.deepEqual(s.rows[0], { policyId: 'labelSpatialEntities', version: 1, proposedCount: 2, violationCount: 0 });
     assert.deepEqual(s.rows[1], { policyId: 'thresholdSignal', version: 2, proposedCount: 1, violationCount: 1 });
 });
-test('build is deterministic — same input, same summary', () => {
+void test('build is deterministic — same input, same summary', () => {
     assert.deepEqual(buildPolicyRunSummary(run()), buildPolicyRunSummary(run()));
 });
-test('formatPolicyRunSummary is deterministic and greppable', () => {
+void test('formatPolicyRunSummary is deterministic and greppable', () => {
     const lines = formatPolicyRunSummary(buildPolicyRunSummary(run()));
     assert.ok(lines[0].includes('policyRun tick=7 policies=2 proposed=3 accepted=1 rejected=2'));
     assert.ok(lines.some((l) => l.includes('policy labelSpatialEntities v1')));
     assert.ok(lines.some((l) => l.includes('rejected notSpatial=1')));
 });
-test('an all-accepted run reports zero rejections and a stable replay handle', () => {
+void test('an all-accepted run reports zero rejections and a stable replay handle', () => {
     const s = buildPolicyRunSummary(run({ outcomes: [accepted(eid(1), tid(9)), accepted(eid(2), tid(9))], replayHandle: 'tick-7-clean' }));
     assert.equal(s.rejected, 0);
     assert.deepEqual(s.rejectionsByReason, []);

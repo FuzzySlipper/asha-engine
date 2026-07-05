@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCombatFeedbackProjectionFromReceipt, createMockRuntimeSession, } from './index.js';
+import { buildCombatFeedbackProjectionFromReceipt, } from './index.js';
+import { createMockRuntimeSession } from './reference.js';
 function sessionInput() {
     return {
         sessionId: 'runtime-session.combat-feedback.reference',
@@ -23,7 +24,7 @@ function cameraRequest() {
         viewport: { width: 1280, height: 720 },
     };
 }
-test('Combat feedback projection exposes hit marker, trace, HUD status, and death notices', () => {
+void test('Combat feedback projection exposes hit marker, trace, HUD status, and death notices', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
     const camera = session.createCamera(cameraRequest()).snapshot.camera;
@@ -63,7 +64,7 @@ test('Combat feedback projection exposes hit marker, trace, HUD status, and deat
     assert.ok(feedback.nonClaims.includes('not_combat_authority'));
     assert.ok(feedback.nonClaims.includes('not_ui_state'));
 });
-test('Combat feedback projection exposes blocked miss feedback without damage authority', () => {
+void test('Combat feedback projection exposes blocked miss feedback without damage authority', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
     const feedback = session.readCombatFeedbackProjection({
@@ -90,7 +91,7 @@ test('Combat feedback projection exposes blocked miss feedback without damage au
     assert.equal(feedback.hashes.notificationHash, 'fnv1a64:ecb4d2cfba72dc5f');
     assert.equal(feedback.hashes.projectionHash, 'fnv1a64:5bd66a99af374c64');
 });
-test('Combat feedback projection fails closed for unsupported action receipts', () => {
+void test('Combat feedback projection fails closed for unsupported action receipts', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
     const camera = session.createCamera(cameraRequest()).snapshot.camera;

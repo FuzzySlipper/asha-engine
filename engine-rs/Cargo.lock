@@ -430,6 +430,7 @@ version = "0.1.0"
 dependencies = [
  "core-ids",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -469,6 +470,7 @@ name = "protocol-telemetry"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -96,6 +96,6 @@ export function createMainWindow(
   options: MainWindowOptions = mainWindowOptions(),
 ): ElectronWindowLike {
   const window = createWindow(options);
-  window.loadFile(RENDERER_ENTRY);
+  void window.loadFile(RENDERER_ENTRY);
   return window;
 }
