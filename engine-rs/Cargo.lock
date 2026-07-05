@@ -553,6 +553,16 @@ dependencies = [
 [[package]]
 name = "rule-lifecycle"
 version = "0.1.0"
+dependencies = [
+ "core-entity",
+ "core-ids",
+ "core-space",
+ "protocol-entity-authoring",
+ "svc-collision",
+ "svc-combat",
+ "svc-entity-authoring",
+ "svc-levelgen",
+]
 
 [[package]]
 name = "rule-process"

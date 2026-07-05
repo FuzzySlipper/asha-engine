@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { cameraHandle } from '@asha/contracts';
 import { RuntimeBridgeError } from './index.js';
 import { createMockRuntimeSession } from './reference.js';
+import { RUNTIME_SESSION_RUST_FPS_AUTHORITY } from './runtime-session-rust-fps-authority.js';
+import { stableHash } from './runtime-session-hash.js';
 function sessionInput() {
     return {
         sessionId: 'runtime-session.asha-demo.reference',
@@ -294,6 +296,43 @@ void test('RuntimeSession loads ECRP ProjectBundle content into live readouts', 
         max: 55,
         dead: true,
     });
+    assert.equal(receipt.combatReadout?.replayHash, stableHash({
+        replayUnit: RUNTIME_SESSION_RUST_FPS_AUTHORITY.primaryFireReplayUnit,
+        ruleCrate: RUNTIME_SESSION_RUST_FPS_AUTHORITY.ruleCrate,
+        combatServiceCrate: RUNTIME_SESSION_RUST_FPS_AUTHORITY.combatServiceCrate,
+        scenario: 'runtime_session_loaded_project_fire_hit',
+        shooter: 101,
+        target: 202,
+        weaponId: 'weapon.custom.primary',
+        health: [
+            {
+                entity: 202,
+                current: 0,
+                max: 55,
+                dead: true,
+            },
+        ],
+        events: [
+            {
+                kind: 'fire_hit',
+                shooter: 101,
+                target: 202,
+                distance: 3.5,
+                tick: 9,
+            },
+            {
+                kind: 'damage_applied',
+                target: 202,
+                amount: 55,
+                before: 55,
+                after: 0,
+            },
+            {
+                kind: 'entity_defeated',
+                target: 202,
+            },
+        ],
+    }));
     assert.equal(receipt.combatReadout?.fixture, null);
     const afterFire = session.readEcrpRuntimeReadout();
     const defeatedEnemy = afterFire.entities.find((entity) => entity.entity === 202);

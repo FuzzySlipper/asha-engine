@@ -5,3 +5,15 @@ edition.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+core-entity               = { path = "../../state/core-entity" }
+core-ids                  = { path = "../../foundation/core-ids" }
+core-space                = { path = "../../foundation/core-space" }
+protocol-entity-authoring = { path = "../../protocol/protocol-entity-authoring" }
+svc-collision             = { path = "../../services/svc-collision" }
+svc-combat                = { path = "../../services/svc-combat" }
+svc-entity-authoring      = { path = "../../services/svc-entity-authoring" }
+
+[dev-dependencies]
+svc-levelgen = { path = "../../services/svc-levelgen" }

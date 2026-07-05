@@ -1,4 +1,4 @@
-import { type CombatRuntimeReadout } from './combat-readout.js';
+import type { CombatRuntimeReadout } from './combat-readout.js';
 import { type EncounterLifecycleInput } from './encounter-director.js';
 import type { EnemyPolicyProposal } from './enemy-policy.js';
 import type { GeneratedTunnelOperationRequest, GeneratedTunnelReadoutRequest } from './generated-tunnel.js';

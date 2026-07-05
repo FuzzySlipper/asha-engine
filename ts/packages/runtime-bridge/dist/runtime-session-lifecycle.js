@@ -1,7 +1,7 @@
 import { RuntimeBridgeError } from './bridge.js';
-import { GENERATED_TUNNEL_FIRE_HIT_READOUT } from './combat-readout.js';
 import { initialEncounterDirectorState } from './encounter-director.js';
 import { encounterStateHashRecord, lifecycleStateHashRecord, projectBundleHashRecord, stableHash, } from './runtime-session-hash.js';
+import { buildRustFpsAuthorityPrimaryFireReadout } from './runtime-session-rust-fps-authority.js';
 function runtimeSessionResetHash(identity) {
     return stableHash({
         seed: identity.seed,
@@ -49,76 +49,7 @@ export function lifecycleHealth(entity, current, max, dead) {
     };
 }
 export function buildRuntimeSessionPrimaryFireReadout(input) {
-    const shooter = input.lifecycleState.player.entity;
-    const targetBefore = input.lifecycleState.enemy;
-    const amount = targetBefore.current;
-    const targetAfter = lifecycleHealth(targetBefore.entity, 0, targetBefore.max, true);
-    if (shooter === 10 &&
-        targetBefore.entity === 20 &&
-        targetBefore.current === 40 &&
-        targetBefore.max === 40 &&
-        input.tick === 7) {
-        return GENERATED_TUNNEL_FIRE_HIT_READOUT;
-    }
-    const health = [
-        {
-            entity: targetAfter.entity,
-            current: targetAfter.current,
-            max: targetAfter.max,
-            dead: targetAfter.dead,
-        },
-    ];
-    const events = [
-        {
-            kind: 'fire_hit',
-            shooter,
-            target: targetAfter.entity,
-            distance: 3.5,
-            tick: input.tick,
-        },
-        {
-            kind: 'damage_applied',
-            target: targetAfter.entity,
-            amount,
-            before: targetBefore.current,
-            after: targetAfter.current,
-        },
-        {
-            kind: 'entity_defeated',
-            target: targetAfter.entity,
-        },
-    ];
-    const weaponMount = input.projectState?.entities
-        .find((entity) => entity.role === 'player')
-        ?.definition.capabilities.find((capability) => capability.kind === 'weaponMount');
-    const combatRecord = {
-        scenario: 'runtime_session_loaded_project_fire_hit',
-        shooter,
-        target: targetAfter.entity,
-        weaponId: weaponMount?.kind === 'weaponMount' ? weaponMount.weaponId : null,
-        health,
-        events,
-    };
-    return {
-        scenario: 'runtime_session_loaded_project_fire_hit',
-        outcome: {
-            kind: 'hit',
-            target: targetAfter.entity,
-            distance: 3.5,
-            hitPosition: null,
-            defeated: true,
-        },
-        events,
-        health,
-        nextFireControl: {
-            ammo: 2,
-            cooldownTicksRemaining: 4,
-            cooldownTicksAfterFire: 4,
-        },
-        healthHash: stableHash(health),
-        replayHash: stableHash(combatRecord),
-        fixture: null,
-    };
+    return buildRustFpsAuthorityPrimaryFireReadout(input);
 }
 export function lifecycleEvent(kind, entity, tick, reason) {
     return {

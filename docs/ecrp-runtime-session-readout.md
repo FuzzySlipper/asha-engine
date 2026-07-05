@@ -1,6 +1,6 @@
 # ECRP RuntimeSession Readout
 
-Status: public readout plus ProjectBundle-shaped load surface for #4163/#4189.
+Status: public readout plus ProjectBundle-shaped load surface for #4163/#4189/#4224.
 
 `@asha/runtime-bridge` exposes `RuntimeSessionFacade.readEcrpRuntimeReadout()`
 as the public, read-only ECRP inspection surface for consumers such as
@@ -66,13 +66,17 @@ CapabilityState, health, render visibility, recent events, and hashes from the
 loaded runtime project state.
 
 Accepted primary-fire runtime action updates the loaded enemy lifecycle/health
-state, render visibility, recent event list, and readout hashes. The action
-receipt's combat readout is also derived from the same loaded player/enemy state:
-the target entity id, health before/after/max, damage amount, event entity ids,
-fixture marker, health hash, and replay hash agree with the ECRP readout. The
-older generated-tunnel fixture remains available through `readCombatReadout()`
-for committed golden/compatibility evidence, but it is no longer the source of
-truth for loaded-project primary-fire receipts.
+state, render visibility, recent event list, and readout hashes. The Rust
+`rule-lifecycle` crate now owns the narrow FPS authority composition for this
+path: ProjectBundle EntityDefinitions bootstrap through `svc-entity-authoring`,
+health and hit resolution apply through `svc-combat`, and defeat drives lifecycle
+plus render-projection state. The action receipt's combat readout is derived from
+the same loaded player/enemy state: the target entity id, health
+before/after/max, damage amount, event entity ids, fixture marker, health hash,
+and replay hash agree with the ECRP readout. The older generated-tunnel fixture
+remains available through `readCombatReadout()` for committed
+golden/compatibility evidence, but it is no longer the source of truth for
+loaded-project primary-fire receipts.
 
 ## Non-Claims
 
@@ -81,6 +85,9 @@ and does not replace Studio Definition Authoring Mode. It is a live runtime
 inspection/control projection only.
 
 The reference TypeScript facade is still the browser/mock public RuntimeSession
-surface. The Rust `svc-entity-authoring` ProjectBundle bootstrap substrate
-exists separately; a future native/protocol integration can route this public
-load surface through the compiled runtime without changing downstream demo code.
+surface. For FPS primary-fire it now uses a Rust-semantic authority mirror named
+for `rule-lifecycle`, `svc-combat`, and the
+`runtime_session.fps.primary_fire.v0` replay unit rather than an independent
+TypeScript-only combat implementation. A future native/protocol integration can
+route this public load/action surface through the compiled runtime without
+changing downstream demo code.

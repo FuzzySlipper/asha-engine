@@ -276,8 +276,7 @@ may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 [crate."engine-rs/crates/rules/rule-lifecycle"]
 lane = "rust-rule"
-implementation_status = "reserved"
-may_depend_on = ["core-ids", "core-error", "core-state", "core-events", "core-commands"]
+may_depend_on = ["core-ids", "core-space", "core-entity", "protocol-entity-authoring", "svc-collision", "svc-combat", "svc-entity-authoring", "svc-levelgen"]
 may_not_depend_on = ["render-bridge", "wasm-api"]
 
 [crate."engine-rs/crates/rules/rule-process"]

@@ -1,6 +1,6 @@
 # ECRP Capability Rule Ownership
 
-Status: implementation note for #4162/#4190.
+Status: implementation note for #4162/#4190/#4224.
 
 ASHA's ECRP model uses typed Capabilities, not generic ECS components. Runtime
 authority still changes through explicit commands, validation, and accepted
@@ -37,27 +37,32 @@ through public RuntimeSession surfaces.
 
 ## FPS RuntimeSession Authority Slice
 
-The current generated-tunnel FPS loop has a reference RuntimeSession authority
-slice in `@asha/runtime-bridge`:
+The current generated-tunnel FPS loop has a narrow Rust-owned RuntimeSession
+authority slice in `rule-lifecycle`, composed over `svc-entity-authoring` and
+`svc-combat`:
 
-- `loadEcrpProject()` validates ProjectBundle-shaped EntityDefinitions and
-  SceneDocument placements before replacing live ECRP project state.
-- Health CapabilityState is derived from loaded EntityDefinitions and then
-  updated by accepted `runtime_action_intent.v0` primary-fire proposals.
+- `load_fps_project_bundle()` bootstraps ProjectBundle-shaped
+  EntityDefinitions through `svc-entity-authoring` before seeding FPS role,
+  health, weapon, policy-binding, and render-projection runtime state.
+- Health CapabilityState is seeded from loaded definitions and then updated by
+  accepted primary-fire proposals through `svc-combat::apply_fire_intent()`.
 - Enemy death updates lifecycle status, recent entity events, and render
-  projection visibility in `readEcrpRuntimeReadout()`.
+  projection visibility; the defeated entity is disabled and its render
+  projection is made invisible through the owning Rules.
 - WeaponMount, Controller, PolicyBinding, SpawnMarker, and Faction are loaded
   as typed CapabilityState/source refs and remain read-only in this slice unless
   routed through their specific RuntimeSession methods.
 
-This is not a generic ECS or browser-side authority store. It is the current
-public RuntimeSession reference authority for the human-facing FPS demo while
-the compiled Rust protocol grows the corresponding native capability records.
+`@asha/runtime-bridge` keeps the public browser/mock RuntimeSession facade stable
+and mirrors this Rust-semantic authority path for the current consumer tests.
+That mirror is explicitly labelled with `rule-lifecycle`, `svc-combat`, and the
+`runtime_session.fps.primary_fire.v0` replay unit; it is not an independent
+TypeScript combat implementation.
 
 ## Non-Claims
 
 This note does not introduce a scheduler, generic component registry, or
 framework ECS. The Rust `svc-entity-authoring` owner matrix still covers the
-generic entity/transform/render/collision/relation substrate; the FPS-specific
-RuntimeSession authority slice should be promoted into native protocol/state
-lanes through narrow follow-up work rather than by exposing raw store access.
+generic entity/transform/render/collision/relation substrate. The remaining
+transport work is to route the public RuntimeSession facade through the compiled
+runtime/native bridge instead of the current Rust-semantic TypeScript mirror.
