@@ -4,7 +4,7 @@ const IDENTITY_ROTATION = [0, 0, 0, 1];
 const DEFAULT_TUNNEL_VIEWPORT_MATERIALS = {
     wall: [0.42, 0.46, 0.5, 1],
     floor: [0.25, 0.32, 0.29, 1],
-    accent: [0.95, 0.62, 0.18, 1],
+    accent: [0.5, 0.55, 0.62, 1],
     playerMarker: [0.18, 0.68, 0.92, 1],
     exitMarker: [0.72, 0.5, 0.94, 1],
 };
@@ -22,46 +22,46 @@ export function createGeneratedTunnelViewportFrame(tunnel, materials = {}) {
             material('material/generated-tunnel-accent', palette.accent),
             material('material/generated-tunnel-player-marker', palette.playerMarker),
             material('material/generated-tunnel-exit-marker', palette.exitMarker),
-            { op: 'defineStaticMesh', asset: panelAsset('mesh/generated-tunnel-floor', 'material/generated-tunnel-floor') },
-            { op: 'defineStaticMesh', asset: panelAsset('mesh/generated-tunnel-wall', 'material/generated-tunnel-wall') },
-            { op: 'defineStaticMesh', asset: panelAsset('mesh/generated-tunnel-accent', 'material/generated-tunnel-accent') },
+            { op: 'defineStaticMesh', asset: cuboidAsset('mesh/generated-tunnel-floor', 'material/generated-tunnel-floor') },
+            { op: 'defineStaticMesh', asset: cuboidAsset('mesh/generated-tunnel-wall', 'material/generated-tunnel-wall') },
+            { op: 'defineStaticMesh', asset: cuboidAsset('mesh/generated-tunnel-accent', 'material/generated-tunnel-accent') },
             {
                 op: 'defineStaticMesh',
-                asset: panelAsset('mesh/generated-tunnel-player-marker', 'material/generated-tunnel-player-marker'),
+                asset: cuboidAsset('mesh/generated-tunnel-player-marker', 'material/generated-tunnel-player-marker'),
             },
             {
                 op: 'defineStaticMesh',
-                asset: panelAsset('mesh/generated-tunnel-exit-marker', 'material/generated-tunnel-exit-marker'),
+                asset: cuboidAsset('mesh/generated-tunnel-exit-marker', 'material/generated-tunnel-exit-marker'),
             },
-            instance(100, 'mesh/generated-tunnel-floor', 'generated-tunnel-floor', [center[0], 0, center[2]], [
+            instance(100, 'mesh/generated-tunnel-floor', 'generated-tunnel-floor', [center[0], -0.05, center[2]], [
                 width,
-                1,
+                0.1,
                 length,
             ]),
-            instance(101, 'mesh/generated-tunnel-wall', 'generated-tunnel-ceiling', [center[0], height, center[2]], [
+            instance(101, 'mesh/generated-tunnel-wall', 'generated-tunnel-ceiling', [center[0], height + 0.05, center[2]], [
                 width,
-                1,
+                0.1,
                 length,
             ]),
-            instance(102, 'mesh/generated-tunnel-wall', 'generated-tunnel-wall-west', [0, center[1], center[2]], [
-                1,
+            instance(102, 'mesh/generated-tunnel-wall', 'generated-tunnel-wall-west', [-0.05, center[1], center[2]], [
+                0.1,
                 height,
                 length,
             ]),
-            instance(103, 'mesh/generated-tunnel-wall', 'generated-tunnel-wall-east', [width, center[1], center[2]], [
-                1,
+            instance(103, 'mesh/generated-tunnel-wall', 'generated-tunnel-wall-east', [width + 0.05, center[1], center[2]], [
+                0.1,
                 height,
                 length,
             ]),
-            instance(104, 'mesh/generated-tunnel-accent', 'generated-tunnel-entrance-cap', [center[0], center[1], 0], [
+            instance(104, 'mesh/generated-tunnel-accent', 'generated-tunnel-entrance-cap', [center[0], center[1], -0.05], [
                 width,
                 height,
-                1,
+                0.1,
             ]),
-            instance(105, 'mesh/generated-tunnel-accent', 'generated-tunnel-exit-cap', [center[0], center[1], length], [
+            instance(105, 'mesh/generated-tunnel-accent', 'generated-tunnel-exit-cap', [center[0], center[1], length + 0.05], [
                 width,
                 height,
-                1,
+                0.1,
             ]),
             ...tunnel.spawnMarkers.map((marker, index) => instance(120 + index, marker.kind === 'player' ? 'mesh/generated-tunnel-player-marker' : 'mesh/generated-tunnel-exit-marker', `generated-tunnel-spawn-${marker.id}`, marker.world, [0.35, 0.35, 0.35])),
         ],
@@ -131,32 +131,53 @@ function material(id, color) {
         },
     };
 }
-function panelAsset(asset, materialId) {
+function cuboidAsset(asset, materialId) {
     return {
         asset,
-        payload: quadPayload(),
+        payload: cuboidPayload(),
         materialSlots: [{ slot: 0, material: materialId }],
         collision: { kind: 'aabbFallback' },
     };
 }
-function quadPayload() {
+function cuboidPayload() {
     return {
         layout: {
-            vertexCount: 4,
-            indexCount: 6,
+            vertexCount: 24,
+            indexCount: 36,
             indexWidth: 'u32',
             attributes: [
                 { name: 'position', components: 3, kind: 'f32' },
                 { name: 'normal', components: 3, kind: 'f32' },
             ],
         },
-        groups: [{ materialSlot: 0, start: 0, count: 6 }],
-        bounds: { min: [-0.5, -0.5, 0], max: [0.5, 0.5, 0] },
+        groups: [{ materialSlot: 0, start: 0, count: 36 }],
+        bounds: { min: [-0.5, -0.5, -0.5], max: [0.5, 0.5, 0.5] },
         source: {
             kind: 'inline',
-            positions: [-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0],
-            normals: [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],
-            indices: [0, 1, 2, 0, 2, 3],
+            positions: [
+                -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5,
+                0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5,
+                -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5, -0.5, 0.5, -0.5,
+                -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, -0.5, 0.5, -0.5, -0.5, 0.5,
+                0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5,
+                -0.5, -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5,
+            ],
+            normals: [
+                0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1,
+                0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1,
+                0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0,
+                0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0,
+                1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,
+                -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0,
+            ],
+            indices: [
+                0, 1, 2, 0, 2, 3,
+                4, 5, 6, 4, 6, 7,
+                8, 9, 10, 8, 10, 11,
+                12, 13, 14, 12, 14, 15,
+                16, 17, 18, 16, 18, 19,
+                20, 21, 22, 20, 22, 23,
+            ],
         },
         provenance: 'generated',
     };

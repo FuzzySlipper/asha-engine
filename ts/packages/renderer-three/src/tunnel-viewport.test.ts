@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
+import * as THREE from 'three';
 import { renderHandle } from '@asha/contracts';
 import { createMockRuntimeSession } from '@asha/runtime-bridge/reference';
 import {
@@ -59,13 +60,20 @@ void test('first-person tunnel viewport renders generated tunnel frame from runt
   assert.equal(result.summary.scene.opCount, 18);
   assert.equal(result.summary.scene.instanceCount, 8);
   assert.equal(result.summary.scene.frameHash, 'fnv1a64:db081afd570c2f30');
-  assert.equal(result.summary.scene.structuralHash, 'fnv1a64:35ad3bca1a9f1667');
+  assert.equal(result.summary.scene.structuralHash, 'fnv1a64:19a01ed0663548e8');
   assert.equal(result.projection.handleCount, 8);
   assert.equal(result.renderer.handleCount, 8);
   assert.equal(result.renderer.instanceCountFor('mesh/generated-tunnel-wall'), 3);
   assert.equal(result.renderer.fallbackMaterialCount, 0);
   assert.match(result.structuralSnapshot, /label "generated-tunnel-floor"/);
   assert.match(result.structuralSnapshot, /label "generated-tunnel-spawn-player_start"/);
+  const floor = result.renderer.objectFor(renderHandle(100));
+  const westWall = result.renderer.objectFor(renderHandle(102));
+  assert.ok(floor instanceof THREE.Mesh);
+  assert.ok(westWall instanceof THREE.Mesh);
+  assert.equal(floor.geometry.getAttribute('position').count, 24);
+  assert.deepEqual(floor.scale.toArray(), [5, 0.1, 9]);
+  assert.deepEqual(westWall.scale.toArray(), [0.1, 4, 9]);
   assert.ok(result.summary.nonClaims.includes('not_runtime_authority'));
   assert.ok(result.summary.nonClaims.includes('not_pixel_golden'));
 });
@@ -158,6 +166,9 @@ void test('generated tunnel browser surface frame carries combat target metadata
   assert.ok(frame.ops.length > createAshaRendererBrowserSurfaceFrame().ops.length / 2);
   assert.match(result.structuralSnapshot, /generated-tunnel-floor/);
   assert.match(result.structuralSnapshot, /generated-tunnel-enemy/);
+  assert.match(result.structuralSnapshot, /generated-tunnel-wall-rib-west-1/);
+  assert.match(result.structuralSnapshot, /generated-tunnel-low-cover-east/);
+  assert.match(result.structuralSnapshot, /generated-tunnel-ceiling-crossbeam/);
   const enemy = result.renderer.objectFor(renderHandle(4103901));
   assert.equal(enemy?.name, 'generated-tunnel-enemy');
 });

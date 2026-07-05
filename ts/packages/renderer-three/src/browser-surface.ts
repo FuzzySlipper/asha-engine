@@ -370,6 +370,7 @@ export function createAshaRendererGeneratedTunnelRoomSurfaceFrame(
   return {
     ops: [
       ...centeredBaseOps,
+      ...generatedTunnelRoomDepthCueOps(),
       {
         op: 'create',
         handle: renderHandle(4103901),
@@ -396,6 +397,81 @@ export function createAshaRendererGeneratedTunnelRoomSurfaceFrame(
       },
     ],
   };
+}
+
+function generatedTunnelRoomDepthCueOps(): RenderDiff[] {
+  const wallRibColor = [0.28, 0.32, 0.36, 1] as const;
+  const coverColor = [0.34, 0.38, 0.34, 1] as const;
+  const ceilingColor = [0.38, 0.42, 0.47, 1] as const;
+  const ribZ = [-3.55, -2.25, -0.95, 0.35] as const;
+  const ops: RenderDiff[] = [];
+  ribZ.forEach((z, index) => {
+    ops.push(
+      {
+        op: 'create',
+        handle: renderHandle(4103910 + index * 2),
+        parent: null,
+        node: primitiveNode(
+          `generated-tunnel-wall-rib-west-${index + 1}`,
+          'cube',
+          [-2.42, 1.45, z],
+          [0.18, 2.9, 0.18],
+          wallRibColor,
+        ),
+      },
+      {
+        op: 'create',
+        handle: renderHandle(4103911 + index * 2),
+        parent: null,
+        node: primitiveNode(
+          `generated-tunnel-wall-rib-east-${index + 1}`,
+          'cube',
+          [2.42, 1.45, z],
+          [0.18, 2.9, 0.18],
+          wallRibColor,
+        ),
+      },
+    );
+  });
+  return [
+    ...ops,
+    {
+      op: 'create',
+      handle: renderHandle(4103920),
+      parent: null,
+      node: primitiveNode(
+        'generated-tunnel-low-cover-west',
+        'cube',
+        [-1.25, 0.24, -1.65],
+        [0.72, 0.48, 0.7],
+        coverColor,
+      ),
+    },
+    {
+      op: 'create',
+      handle: renderHandle(4103921),
+      parent: null,
+      node: primitiveNode(
+        'generated-tunnel-low-cover-east',
+        'cube',
+        [1.25, 0.24, -3.05],
+        [0.72, 0.48, 0.7],
+        coverColor,
+      ),
+    },
+    {
+      op: 'create',
+      handle: renderHandle(4103922),
+      parent: null,
+      node: primitiveNode(
+        'generated-tunnel-ceiling-crossbeam',
+        'cube',
+        [0, 3.08, -2.55],
+        [4.75, 0.2, 0.24],
+        ceilingColor,
+      ),
+    },
+  ];
 }
 
 function offsetRenderOp(op: RenderDiff, offset: TunnelViewportVec3): RenderDiff {
