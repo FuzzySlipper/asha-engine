@@ -540,8 +540,8 @@ may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/native-br
 lane = "ts-shell"
 type = "lib"
 layer = "renderer"
-implementation_status = "reserved"
-may_import = ["@asha/contracts", "@asha/renderer-three"]
+implementation_status = "active"
+may_import = ["@asha/contracts"]
 may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-host", "@asha/native-bridge", "@asha/wasm-replay-bridge"]
 
 [package."ts/packages/devtools"]

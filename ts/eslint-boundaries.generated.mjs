@@ -1152,6 +1152,10 @@ const generatedBoundaryConfigs = [
               "message": "ts/packages/cosmetic (lane ts-shell) may not import @asha/renderer-host (lane ts-shell) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
             },
             {
+              "name": "@asha/renderer-three",
+              "message": "ts/packages/cosmetic (lane ts-shell) may not import @asha/renderer-three (lane ts-shell) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
+            },
+            {
               "name": "@asha/runtime-bridge",
               "message": "ts/packages/cosmetic (lane ts-shell) may not import @asha/runtime-bridge (lane ts-shell) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
             },
@@ -1263,10 +1267,9 @@ const generatedBoundaryConfigs = [
             },
             {
               "group": [
-                "@asha/renderer-three/*",
-                "!@asha/renderer-three/backend"
+                "@asha/renderer-three/*"
               ],
-              "message": "ts/packages/cosmetic must import @asha/renderer-three through its root barrel. Do not import @asha/renderer-three/src, @asha/renderer-three/dist, generated internals, or other package-private files."
+              "message": "ts/packages/cosmetic (lane ts-shell) may not import @asha/renderer-three (lane ts-shell) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
             },
             {
               "group": [

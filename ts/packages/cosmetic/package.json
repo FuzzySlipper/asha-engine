@@ -14,10 +14,9 @@
   "scripts": {
     "build":     "tsc --build",
     "typecheck": "tsc --noEmit",
-    "test":      "echo no tests yet"
+    "test":      "tsc --build && node --test 'dist/**/*.test.js'"
   },
   "dependencies": {
-    "@asha/contracts": "workspace:*",
-    "@asha/renderer-three": "workspace:*"
+    "@asha/contracts": "workspace:*"
   }
 }

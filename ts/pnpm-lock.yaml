@@ -76,9 +76,6 @@ importers:
       '@asha/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@asha/renderer-three':
-        specifier: workspace:*
-        version: link:../renderer-three
 
   packages/devtools:
     dependencies:
