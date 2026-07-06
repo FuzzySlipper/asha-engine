@@ -469,6 +469,16 @@ layer = "renderer"
 may_import = ["@asha/contracts", "@asha/runtime-bridge", "@asha/render-projection"]
 may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-host", "@asha/native-bridge", "@asha/wasm-replay-bridge"]
 
+# Browser/native render host facade. It may depend on the current Three.js
+# backend implementation, but its public API must stay backend-neutral.
+[package."ts/packages/renderer-host"]
+lane = "ts-shell"
+type = "lib"
+layer = "renderer"
+implementation_status = "active"
+may_import = ["@asha/contracts", "@asha/render-projection", "@asha/renderer-three"]
+may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-host", "@asha/native-bridge", "@asha/wasm-replay-bridge"]
+
 [package."ts/packages/render-projection"]
 lane = "ts-shell"
 type = "lib"

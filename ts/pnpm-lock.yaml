@@ -139,6 +139,18 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
+  packages/renderer-host:
+    dependencies:
+      '@asha/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@asha/render-projection':
+        specifier: workspace:*
+        version: link:../render-projection
+      '@asha/renderer-three':
+        specifier: workspace:*
+        version: link:../renderer-three
+
   packages/renderer-three:
     dependencies:
       '@asha/contracts':

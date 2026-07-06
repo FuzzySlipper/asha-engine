@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "surface": "@asha/renderer-host",
+  "compatibilityVersion": "renderer-host.v0",
+  "packageVersion": "0.1.0",
+  "sourceOfTruth": "ts/packages/renderer-host/src/index.ts plus @asha/render-projection and generated @asha/contracts render DTOs",
+  "changelog": "docs/consumer-compatibility.md#renderer-host-compatibility-log",
+  "migrationNoteTemplate": "docs/consumer-compatibility.md#migration-note-template",
+  "failClosedPolicy": "Consumers must fail closed if the renderer host compatibility marker is unknown or if the host cannot mount a backend-neutral ASHA render surface.",
+  "pinningGuidance": "Record ASHA git commit plus renderer-host.v0 in downstream demo compatibility artifacts.",
+  "breakingChangeRequires": [
+    "renderer-host compatibility log entry",
+    "consumer boundary review if allowed roles change",
+    "demo migration notes when backend package exposure changes"
+  ]
+}

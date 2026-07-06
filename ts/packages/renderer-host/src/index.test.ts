@@ -1,0 +1,59 @@
+import { readFileSync } from 'node:fs';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
+
+import { renderHandle, type RenderFrameDiff } from '@asha/contracts';
+import {
+  ASHA_RENDERER_HOST_COMPATIBILITY_VERSION,
+  createAshaRendererSurfaceProjection,
+  createAshaRendererDefaultSurfaceFrame,
+} from './index.js';
+
+test('renderer-host projects render frames through the neutral projection model', () => {
+  const frame: RenderFrameDiff = {
+    ops: [
+      {
+        op: 'create',
+        handle: renderHandle(4385001),
+        parent: null,
+        node: {
+          layer: 'scene',
+          geometry: { shape: 'cube' },
+          transform: {
+            translation: [0, 0, 0],
+            rotation: [0, 0, 0, 1],
+            scale: [1, 1, 1],
+          },
+          material: { color: [0.2, 0.4, 0.6, 1], wireframe: false },
+          visible: true,
+          metadata: { source: null, tags: [], label: 'renderer-host-neutral-cube' },
+        },
+      },
+    ],
+  };
+
+  const receipt = createAshaRendererSurfaceProjection(frame);
+
+  assert.equal(ASHA_RENDERER_HOST_COMPATIBILITY_VERSION, 'renderer-host.v0');
+  assert.equal(receipt.instructions.length, 1);
+  assert.equal(receipt.snapshot.nodes.length, 1);
+  assert.equal(receipt.snapshot.nodes[0]?.handle, 4385001);
+});
+
+test('renderer-host can create the default visible surface frame', () => {
+  const frame = createAshaRendererDefaultSurfaceFrame();
+
+  assert.ok(frame.ops.length > 0);
+  assert.ok(frame.ops.some((op) => op.op === 'create'));
+});
+
+test('renderer-host declarations do not expose concrete Three.js backend types', () => {
+  const declarationPath = fileURLToPath(new URL('./index.d.ts', import.meta.url));
+  const declarationText = readFileSync(declarationPath, 'utf8');
+
+  assert.doesNotMatch(declarationText, /@asha\/renderer-three/);
+  assert.doesNotMatch(declarationText, /ThreeRenderer/);
+  assert.doesNotMatch(declarationText, /WebGLRenderer/);
+  assert.doesNotMatch(declarationText, /from ['"]three['"]/);
+});

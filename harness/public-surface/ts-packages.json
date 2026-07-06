@@ -9,6 +9,7 @@
         "@asha/game-workspace",
         "@asha/catalog-core",
         "@asha/render-projection",
+        "@asha/renderer-host",
         "@asha/renderer-three",
         "@asha/command-registry",
         "@asha/ui-dom"
@@ -159,6 +160,15 @@
       "intendedConsumerRole": "Three.js render-diff implementation for engine smoke/testing and the approved asha-demo static-room renderer path; not the long-term public renderer contract.",
       "allowedConsumerRoles": ["asha-testing", "asha-demo"],
       "changelog": "docs/consumer-compatibility.md#renderer-three-unstable-status"
+    },
+    {
+      "package": "@asha/renderer-host",
+      "status": "unstable",
+      "ownershipKey": "ts/packages/renderer-host",
+      "intendedConsumerRole": "Backend-neutral browser render surface host for demos; concrete renderer packages stay behind this facade.",
+      "allowedConsumerRoles": ["asha-demo"],
+      "compatibilityMarker": "renderer-host.v0",
+      "changelog": "docs/consumer-compatibility.md#renderer-host-compatibility-log"
     },
     {
       "package": "@asha/render-projection",
