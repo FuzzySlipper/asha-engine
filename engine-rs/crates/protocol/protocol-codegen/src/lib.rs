@@ -153,6 +153,7 @@ mod tests {
                 format!("{OUTPUT_DIR}/render.ts"),
                 format!("{OUTPUT_DIR}/replay.ts"),
                 format!("{OUTPUT_DIR}/voxel.ts"),
+                format!("{OUTPUT_DIR}/voxelConversion.ts"),
                 format!("{OUTPUT_DIR}/scene.ts"),
                 format!("{OUTPUT_DIR}/worldBundle.ts"),
                 format!("{OUTPUT_DIR}/assets.ts"),
@@ -351,6 +352,47 @@ mod tests {
         assert!(d.contains("export interface SourceTrace {"));
         assert!(d.contains("export interface RendererResourceReport {"));
         assert!(d.contains("readonly chunkCoord: readonly [number, number, number] | null;"));
+    }
+
+    /// Focused behavior test for the `voxelConversion` family: stable mode,
+    /// fit, diagnostic, and evidence vocabularies are sourced from
+    /// `protocol-voxel-conversion`, while the plan/preview/apply/evidence DTOs
+    /// remain generated and publicly re-exported. Guard for #4282.
+    #[test]
+    fn voxel_conversion_family_emits_vocab_and_shapes() {
+        let vc = file("voxelConversion.ts");
+        for mode in protocol_voxel_conversion::VOXEL_CONVERSION_MODES {
+            assert!(vc.contains(&format!("'{mode}'")), "missing mode {mode}");
+        }
+        for policy in protocol_voxel_conversion::VOXEL_CONVERSION_FIT_POLICIES {
+            assert!(
+                vc.contains(&format!("'{policy}'")),
+                "missing fit policy {policy}"
+            );
+        }
+        for policy in protocol_voxel_conversion::VOXEL_CONVERSION_ORIGIN_POLICIES {
+            assert!(
+                vc.contains(&format!("'{policy}'")),
+                "missing origin policy {policy}"
+            );
+        }
+        for code in protocol_voxel_conversion::VOXEL_CONVERSION_DIAGNOSTIC_CODES {
+            assert!(vc.contains(&format!("'{code}'")), "missing code {code}");
+        }
+        for kind in protocol_voxel_conversion::VOXEL_CONVERSION_EVIDENCE_KINDS {
+            assert!(vc.contains(&format!("'{kind}'")), "missing evidence {kind}");
+        }
+
+        assert!(vc.contains("import type { DiagnosticSeverity } from './diagnostics.js';"));
+        assert!(vc.contains("import type { VoxelCoord } from './voxel.js';"));
+        assert!(vc.contains("export interface VoxelConversionPlanRequest {"));
+        assert!(vc.contains("export interface VoxelConversionPlan {"));
+        assert!(vc.contains("export interface VoxelConversionPreview {"));
+        assert!(vc.contains("export interface VoxelConversionApplyRequest {"));
+        assert!(vc.contains("export interface VoxelConversionReceipt {"));
+        assert!(vc.contains("export interface VoxelConversionEvidenceRef {"));
+        assert!(vc.contains("readonly transform: readonly [number, number, number, number"));
+        assert!(vc.contains("readonly defaultVoxelMaterial: number | null;"));
     }
 
     #[test]

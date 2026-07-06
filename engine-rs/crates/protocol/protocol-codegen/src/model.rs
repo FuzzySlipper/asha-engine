@@ -1055,6 +1055,229 @@ pub fn voxel_module() -> Module {
     }
 }
 
+// ── voxelConversion.ts — mesh/source asset to voxel conversion DTOs ───────────
+//
+// Mirrors the border-only `protocol-voxel-conversion` crate. Authority services
+// plan/validate/apply conversion; this generated surface only carries typed
+// requests, receipts, diagnostics, and evidence references across the TS border.
+
+pub fn voxel_conversion_module() -> Module {
+    let imports = vec![
+        import("./diagnostics.js", &["DiagnosticSeverity"]),
+        import("./voxel.js", &["VoxelCoord"]),
+    ];
+    let matrix4 = || {
+        TsType::Tuple(vec![
+            num(),
+            num(),
+            num(),
+            num(),
+            num(),
+            num(),
+            num(),
+            num(),
+            num(),
+            num(),
+            num(),
+            num(),
+            num(),
+            num(),
+            num(),
+            num(),
+        ])
+    };
+    let resolution3 = || TsType::Tuple(vec![num(), num(), num()]);
+
+    let items = vec![
+        string_enum(
+            "How source geometry is converted into occupied voxel cells.",
+            "VoxelConversionMode",
+            protocol_voxel_conversion::VOXEL_CONVERSION_MODES,
+        ),
+        string_enum(
+            "How source bounds fit into the requested target resolution.",
+            "VoxelConversionFitPolicy",
+            protocol_voxel_conversion::VOXEL_CONVERSION_FIT_POLICIES,
+        ),
+        string_enum(
+            "How converted voxel coordinates are anchored.",
+            "VoxelConversionOriginPolicy",
+            protocol_voxel_conversion::VOXEL_CONVERSION_ORIGIN_POLICIES,
+        ),
+        string_enum(
+            "Stable classified diagnostic/error code for voxel conversion.",
+            "VoxelConversionDiagnosticCode",
+            protocol_voxel_conversion::VOXEL_CONVERSION_DIAGNOSTIC_CODES,
+        ),
+        string_enum(
+            "Role of an exported conversion evidence artifact.",
+            "VoxelConversionEvidenceKind",
+            protocol_voxel_conversion::VOXEL_CONVERSION_EVIDENCE_KINDS,
+        ),
+        iface(
+            "Source asset and authority snapshot identity for conversion.",
+            "VoxelConversionSourceRef",
+            vec![
+                f("assetId", string()),
+                f("assetKind", string()),
+                f("assetVersion", num()),
+                f("sourceHash", string()),
+                f("meshPrimitive", TsType::nullable(string())),
+            ],
+        ),
+        iface(
+            "Target voxel grid/volume identity.",
+            "VoxelConversionTargetRef",
+            vec![
+                f("grid", num()),
+                f("volumeAssetId", TsType::nullable(string())),
+                f("origin", r("VoxelCoord")),
+            ],
+        ),
+        iface(
+            "Inclusive voxel-space bounds.",
+            "VoxelConversionBounds",
+            vec![f("min", r("VoxelCoord")), f("max", r("VoxelCoord"))],
+        ),
+        iface(
+            "One source material slot mapped into an Asha voxel material id.",
+            "VoxelConversionMaterialMapEntry",
+            vec![
+                f("sourceMaterialSlot", num()),
+                f("sourceMaterialId", TsType::nullable(string())),
+                f("voxelMaterial", num()),
+            ],
+        ),
+        iface(
+            "Material-map DTO. Default material is null when unmapped slots fail closed.",
+            "VoxelConversionMaterialMap",
+            vec![
+                f(
+                    "entries",
+                    TsType::array(r("VoxelConversionMaterialMapEntry")),
+                ),
+                f("defaultVoxelMaterial", TsType::nullable(num())),
+            ],
+        ),
+        iface(
+            "A conversion request's tunable settings.",
+            "VoxelConversionSettings",
+            vec![
+                f("mode", r("VoxelConversionMode")),
+                f("fitPolicy", r("VoxelConversionFitPolicy")),
+                f("originPolicy", r("VoxelConversionOriginPolicy")),
+                f("resolution", resolution3()),
+                f("voxelSize", num()),
+                f("maxOutputVoxels", num()),
+                f("transform", matrix4()),
+                f("materialMap", r("VoxelConversionMaterialMap")),
+            ],
+        ),
+        iface(
+            "One request to plan a conversion.",
+            "VoxelConversionPlanRequest",
+            vec![
+                f("source", r("VoxelConversionSourceRef")),
+                f("target", r("VoxelConversionTargetRef")),
+                f("settings", r("VoxelConversionSettings")),
+            ],
+        ),
+        iface(
+            "One classified diagnostic for a conversion operation.",
+            "VoxelConversionDiagnostic",
+            vec![
+                f("code", r("VoxelConversionDiagnosticCode")),
+                f("severity", r("DiagnosticSeverity")),
+                f("reference", string()),
+                f("message", string()),
+            ],
+        ),
+        iface(
+            "Reference to an inspectable artifact emitted by authority.",
+            "VoxelConversionEvidenceRef",
+            vec![
+                f("kind", r("VoxelConversionEvidenceKind")),
+                f("uri", string()),
+                f("contentHash", string()),
+            ],
+        ),
+        iface(
+            "Deterministic conversion plan produced by Rust authority.",
+            "VoxelConversionPlan",
+            vec![
+                f("planId", string()),
+                f("source", r("VoxelConversionSourceRef")),
+                f("target", r("VoxelConversionTargetRef")),
+                f("settings", r("VoxelConversionSettings")),
+                f("authorityVersion", string()),
+                f("expectedSourceHash", string()),
+                f("settingsHash", string()),
+                f("estimatedOutputVoxels", num()),
+                f(
+                    "estimatedBounds",
+                    TsType::nullable(r("VoxelConversionBounds")),
+                ),
+                f("diagnostics", TsType::array(r("VoxelConversionDiagnostic"))),
+                f("evidence", TsType::array(r("VoxelConversionEvidenceRef"))),
+            ],
+        ),
+        iface(
+            "Preview request for a previously produced plan.",
+            "VoxelConversionPreviewRequest",
+            vec![f("planId", string()), f("expectedPlanHash", string())],
+        ),
+        iface(
+            "One sampled/previewed output voxel.",
+            "VoxelConversionPreviewVoxel",
+            vec![f("coord", r("VoxelCoord")), f("material", num())],
+        ),
+        iface(
+            "Bounded preview of conversion output.",
+            "VoxelConversionPreview",
+            vec![
+                f("planId", string()),
+                f("outputHash", string()),
+                f("outputVoxelCount", num()),
+                f("outputBounds", TsType::nullable(r("VoxelConversionBounds"))),
+                f(
+                    "sampleVoxels",
+                    TsType::array(r("VoxelConversionPreviewVoxel")),
+                ),
+                f("diagnostics", TsType::array(r("VoxelConversionDiagnostic"))),
+                f("evidence", TsType::array(r("VoxelConversionEvidenceRef"))),
+            ],
+        ),
+        iface(
+            "Apply request for a planned conversion.",
+            "VoxelConversionApplyRequest",
+            vec![
+                f("planId", string()),
+                f("expectedPlanHash", string()),
+                f("expectedPreviewHash", TsType::nullable(string())),
+            ],
+        ),
+        iface(
+            "Final apply receipt. Rejected requests never pretend to have applied output.",
+            "VoxelConversionReceipt",
+            vec![
+                f("planId", string()),
+                f("applied", boolean()),
+                f("outputHash", TsType::nullable(string())),
+                f("outputVoxelCount", num()),
+                f("outputBounds", TsType::nullable(r("VoxelConversionBounds"))),
+                f("diagnostics", TsType::array(r("VoxelConversionDiagnostic"))),
+                f("evidence", TsType::array(r("VoxelConversionEvidenceRef"))),
+            ],
+        ),
+    ];
+
+    Module {
+        name: "voxelConversion",
+        imports,
+        items,
+    }
+}
+
 // ── diagnostics.ts — scene/asset/bundle/render diagnostic reports ─────────────
 //
 // Mirrors `protocol-diagnostics`. The string-enum members are sourced directly
@@ -2510,6 +2733,9 @@ pub fn index_module() -> Module {
                 from: "./voxel.js".to_string(),
             },
             Item::ReExport {
+                from: "./voxelConversion.js".to_string(),
+            },
+            Item::ReExport {
                 from: "./scene.js".to_string(),
             },
             Item::ReExport {
@@ -2545,6 +2771,7 @@ pub fn all_modules() -> Vec<Module> {
         render_module(),
         replay_module(),
         voxel_module(),
+        voxel_conversion_module(),
         scene_module(),
         world_bundle_module(),
         assets_module(),

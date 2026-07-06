@@ -29,13 +29,16 @@
 
 #![forbid(unsafe_code)]
 
+use serde::{Deserialize, Serialize};
+
 // ── Severity ──────────────────────────────────────────────────────────────────
 
 /// How serious a diagnostic is, and therefore which recovery path applies.
 ///
 /// Ordering (via [`DiagnosticSeverity::rank`]) is `Info < Warning < Error <
 /// Fatal`; only `Fatal` blocks a load.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum DiagnosticSeverity {
     /// Counts, stats, timings, trace summaries. Never blocks.
     Info,

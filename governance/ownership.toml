@@ -161,9 +161,17 @@ lane = "contract-steward"
 may_depend_on = ["core-ids"]
 may_not_depend_on = ["core-state", "core-entity", "core-scene", "sim-kernel", "protocol-render", "wasm-api", "render-bridge"]
 
+# Voxel conversion border (#4282): typed request/plan/preview/apply/evidence DTOs
+# plus stable conversion diagnostic vocabulary. Authority planning/apply stays in
+# Rust services/rules; this crate contains no voxelization logic.
+[crate."engine-rs/crates/protocol/protocol-voxel-conversion"]
+lane = "contract-steward"
+may_depend_on = ["protocol-diagnostics"]
+may_not_depend_on = ["core-state", "core-voxel", "core-scene", "sim-kernel", "protocol-render", "wasm-api", "render-bridge"]
+
 [crate."engine-rs/crates/protocol/protocol-codegen"]
 lane = "contract-steward"
-may_depend_on = ["core-ids", "protocol-ids", "protocol-script", "protocol-render", "protocol-replay", "protocol-telemetry", "protocol-diagnostics", "protocol-scene", "protocol-world-bundle", "protocol-assets", "protocol-policy-view", "protocol-entity-authoring", "protocol-view"]
+may_depend_on = ["core-ids", "protocol-ids", "protocol-script", "protocol-render", "protocol-replay", "protocol-telemetry", "protocol-diagnostics", "protocol-scene", "protocol-world-bundle", "protocol-assets", "protocol-policy-view", "protocol-entity-authoring", "protocol-voxel-conversion", "protocol-view"]
 
 # ─── Rust: Sim ───────────────────────────────────────────────────────────────
 

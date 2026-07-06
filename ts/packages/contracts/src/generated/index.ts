@@ -16,6 +16,8 @@ export * from './replay.js';
 
 export * from './voxel.js';
 
+export * from './voxelConversion.js';
+
 export * from './scene.js';
 
 export * from './worldBundle.js';

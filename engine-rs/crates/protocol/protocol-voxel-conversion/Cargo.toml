@@ -1,0 +1,16 @@
+[package]
+name = "protocol-voxel-conversion"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Border-only crate for Asha-owned mesh-to-voxel conversion. It carries DTO
+# shapes and stable vocabularies that protocol-codegen mirrors to TypeScript.
+# Planning, validation, rasterization, and apply authority live in downstream
+# Rust service/rule crates, not here and not in Studio.
+[dependencies]
+protocol-diagnostics = { path = "../protocol-diagnostics" }
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"

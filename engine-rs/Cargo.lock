@@ -398,6 +398,7 @@ dependencies = [
  "protocol-scene",
  "protocol-telemetry",
  "protocol-view",
+ "protocol-voxel-conversion",
  "protocol-world-bundle",
  "serde_json",
 ]
@@ -405,6 +406,9 @@ dependencies = [
 [[package]]
 name = "protocol-diagnostics"
 version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "protocol-dump"
@@ -478,6 +482,15 @@ name = "protocol-view"
 version = "0.1.0"
 dependencies = [
  "core-space",
+]
+
+[[package]]
+name = "protocol-voxel-conversion"
+version = "0.1.0"
+dependencies = [
+ "protocol-diagnostics",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
