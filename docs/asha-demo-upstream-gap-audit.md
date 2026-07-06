@@ -24,17 +24,18 @@ RuntimeSession state:
 These are the demo-visible behaviors still owned by TypeScript shell/demo glue
 because ASHA does not yet expose the durable upstream surface.
 
-1. Render target identity is label-based.
-   The demo derives enemy/player render targets from authored entity data and
-   local labels, then asks renderer-host to update objects by label. Runtime and
-   render projections should expose stable entity-to-renderable identity so
-   consumers do not invent label conventions.
+1. Render target identity has an upstream runtime identity.
+   #4399 added `runtime_session.ecrp_render_target.v0` identity metadata to
+   runtime `renderProjection` CapabilityState readouts and renderer-host accepts
+   that structural target identity. Retained renderer handles are still assigned
+   by the render-frame owner, not the runtime readout.
 
-2. Playable-loop HUD counters are local.
-   `asha-demo` tracks shots fired, hits, action ticks, restart count, paused
-   state, and some command gating locally. RuntimeSession owns combat,
-   lifecycle, restart, and telemetry, but there is not yet a single current
-   epoch readout for demo HUD counters and command availability.
+2. Playable-loop HUD counters have an upstream current-epoch readout.
+   #4400 added `readRuntimeSessionPlayableLoopState()` at the
+   `@asha/runtime-bridge` package root. `asha-demo` now reads current-loop
+   shots, hits, action ticks, restart count, health, target identity, and fire
+   gating from RuntimeSession lifecycle/ECRP/telemetry instead of carrying local
+   historical counters.
 
 3. Native runtime bootstrap is local.
    `asha-demo` defines `globalThis.ashaDemoRuntimeBridge`, checks

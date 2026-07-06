@@ -22,6 +22,7 @@ export * from './encounter-director.js';
 export * from './generated-tunnel.js';
 export * from './nav-readout.js';
 export * from './enemy-policy.js';
+export * from './playable-loop-state.js';
 export * from './runtime-action.js';
 export * from './runtime-session.js';
 //# sourceMappingURL=index.js.map

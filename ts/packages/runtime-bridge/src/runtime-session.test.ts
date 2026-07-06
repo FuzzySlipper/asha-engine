@@ -9,6 +9,7 @@ import type { CameraCreateRequest, CollisionConstrainedCameraInputEnvelope, Voxe
 import {
   RuntimeBridgeError,
   createRuntimeSessionFacade,
+  readRuntimeSessionPlayableLoopState,
   type EnemyDirectNavMovementRequest,
   type FpsEncounterDirectorSnapshot,
   type FpsEncounterLifecycleInput,
@@ -960,6 +961,90 @@ void test('RuntimeSession loads ECRP ProjectBundle content into live readouts', 
   assert.equal(defeatedRender?.kind, 'renderProjection');
   assert.equal(defeatedRender?.visible, false);
   assert.ok(defeatedEnemy?.recentEvents.some((event) => event.kind === 'runtime_lifecycle.enemy_defeated.v0'));
+});
+
+void test('RuntimeSession playable-loop state reports current epoch HUD counters and reset semantics', () => {
+  const session = createMockRuntimeSession();
+  session.initialize(sessionInput());
+  session.loadEcrpProject(ecrpProjectLoadInput());
+
+  const initial = readRuntimeSessionPlayableLoopState(session);
+  assert.equal(initial.kind, 'runtime_session.playable_loop_state.v0');
+  assert.equal(initial.status, 'runtime_authority');
+  assert.equal(initial.counters.shotsFired, 0);
+  assert.equal(initial.counters.hits, 0);
+  assert.equal(initial.counters.remainingTargets, 1);
+  assert.equal(initial.counters.totalTargets, 1);
+  assert.equal(initial.health.player.current, 88);
+  assert.equal(initial.health.enemy.current, 55);
+  assert.equal(initial.commands.canFire, true);
+  assert.equal(initial.target?.definitionStableId, 'actor/custom-enemy');
+  assert.equal(initial.target?.renderLabel, 'actor/custom-enemy');
+
+  const fire = session.submitRuntimeActionIntent({
+    kind: 'runtime_action_intent.v0',
+    action: 'primary_fire',
+    phase: 'pressed',
+    camera: cameraHandle(2),
+    tick: 9,
+    source: 'programmatic',
+    pressed: true,
+  });
+  assert.equal(fire.accepted, true);
+
+  const afterFire = readRuntimeSessionPlayableLoopState(session);
+  assert.equal(afterFire.counters.actionTick, 1);
+  assert.equal(afterFire.counters.shotsFired, 1);
+  assert.equal(afterFire.counters.hits, 1);
+  assert.equal(afterFire.counters.remainingTargets, 0);
+  assert.equal(afterFire.health.enemy.dead, true);
+  assert.equal(afterFire.commands.canFire, false);
+  assert.deepEqual(afterFire.commands.blockedReasons, ['target_defeated']);
+  assert.equal(afterFire.currentEpoch.restartCount, 0);
+
+  session.requestSessionRestart({
+    kind: 'runtime.restart_session_intent',
+    source: 'hud_menu',
+    requireTerminal: false,
+    expectedSessionHash: session.readLifecycleStatus().sessionHash,
+  });
+  const afterReset = readRuntimeSessionPlayableLoopState(session);
+  assert.equal(afterReset.currentEpoch.restartCount, 1);
+  assert.equal(afterReset.counters.actionTick, 0);
+  assert.equal(afterReset.counters.shotsFired, 0);
+  assert.equal(afterReset.counters.hits, 0);
+  assert.equal(afterReset.counters.remainingTargets, 1);
+  assert.equal(afterReset.health.enemy.current, 55);
+  assert.equal(afterReset.commands.canFire, true);
+  assert.ok(afterReset.currentEpoch.replayRecordStartIndex > 0);
+});
+
+void test('RuntimeSession playable-loop state reports shell pause, player defeat, and missing backend gates', () => {
+  const missing = readRuntimeSessionPlayableLoopState(null, {
+    unavailableReason: 'native runtime bridge not provided',
+  });
+  assert.equal(missing.status, 'missing_backend');
+  assert.equal(missing.commands.canFire, false);
+  assert.deepEqual(missing.commands.blockedReasons, ['missing_backend']);
+  assert.equal(missing.diagnostics[0]?.message, 'native runtime bridge not provided');
+
+  const session = createMockRuntimeSession();
+  session.initialize(sessionInput());
+  const paused = readRuntimeSessionPlayableLoopState(session, { shell: { paused: true, menuMode: 'paused' } });
+  assert.equal(paused.shell.paused, true);
+  assert.equal(paused.shell.menuMode, 'paused');
+  assert.equal(paused.commands.canFire, false);
+  assert.deepEqual(paused.commands.blockedReasons, ['paused']);
+
+  const playerDefeatedFacade = {
+    readEcrpRuntimeReadout: () => session.readEcrpRuntimeReadout(),
+    readTelemetry: () => session.readTelemetry(),
+    readLifecycleStatus: () => session.readLifecycleStatus({ scenario: 'generated_tunnel_player_defeated' }),
+  };
+  const defeated = readRuntimeSessionPlayableLoopState(playerDefeatedFacade);
+  assert.equal(defeated.health.player.dead, true);
+  assert.equal(defeated.commands.canFire, false);
+  assert.deepEqual(defeated.commands.blockedReasons, ['player_dead']);
 });
 
 void test('RuntimeSession rejects invalid ECRP ProjectBundle content without replacing live state', () => {

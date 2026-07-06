@@ -88,6 +88,12 @@ deterministic target hash. `renderHandle` is `null` until a concrete render-fram
 owner assigns retained renderer handles; consumers should use `renderLabel` and
 target identity rather than hard-coded demo label guesses.
 
+For playable demo HUDs, `readRuntimeSessionPlayableLoopState()` derives
+current-epoch counters and command gating from this ECRP readout, lifecycle, and
+telemetry. It is a read-only projection helper: combat, lifecycle, restart, and
+render visibility remain RuntimeSession authority, while consumers avoid local
+shot/hit/restart counters that can drift across reset epochs.
+
 ## Non-Claims
 
 This surface does not expose raw `EntityStore`, does not edit EntityDefinitions,

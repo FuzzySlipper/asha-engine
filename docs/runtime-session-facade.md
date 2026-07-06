@@ -54,6 +54,16 @@ Rust-capable bridge and `mode: 'rust'`; reference fixtures use
 - `readTelemetry()`: returns sequence/tick/composition/command/replay/hash summary.
 - `restart()`: unloads/reinitializes/reloads the same ProjectBundle input and resets tick/command counters and lifecycle state.
 
+Package-root helpers over the facade expose derived readouts without asking
+consumers to maintain parallel demo authority:
+
+- `readRuntimeSessionPlayableLoopState(session, request?)`: reads lifecycle,
+  telemetry, and ECRP state through public `RuntimeSessionFacade` methods and
+  returns current-epoch HUD counters, health summaries, target identity, command
+  gating, and missing-backend diagnostics. Replay history before the most recent
+  restart/request-restart record is excluded from `shotsFired`/`actionTick`, so
+  reset UI does not accidentally count historical command records.
+
 Lifecycle fixture hashes in the current reference slice:
 
 - initial reset hash: `fnv1a64:d0c05bd05488e8a5`
