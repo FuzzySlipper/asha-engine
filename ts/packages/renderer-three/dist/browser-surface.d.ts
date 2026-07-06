@@ -14,20 +14,10 @@ export interface FirstPersonTunnelViewportRenderResult extends ProjectedThreeRen
 }
 export interface AshaRendererBrowserSurfaceOptions {
     readonly autoStart?: boolean;
+    readonly camera?: AshaRendererBrowserSurfaceCameraOptions;
     readonly clearColor?: number;
-    readonly controls?: AshaRendererBrowserSurfaceControlsOptions;
     readonly frame?: RenderFrameDiff;
     readonly pixelRatio?: number;
-}
-export interface AshaRendererBrowserSurfaceControlsOptions {
-    readonly enabled?: boolean;
-    readonly eyeHeight?: number;
-    readonly initialPitchDegrees?: number;
-    readonly initialPosition?: readonly [number, number, number];
-    readonly initialYawDegrees?: number;
-    readonly mouseSensitivity?: number;
-    readonly movementAuthority?: AshaRendererBrowserSurfaceMovementAuthority;
-    readonly moveSpeed?: number;
 }
 export interface AshaRendererBrowserSurfaceCameraPose {
     readonly position: readonly [number, number, number];
@@ -35,51 +25,24 @@ export interface AshaRendererBrowserSurfaceCameraPose {
     readonly yawDegrees: number;
 }
 export type AshaRendererBrowserSurfaceCameraBasis = CameraBasis;
-export interface AshaRendererBrowserSurfaceMovementAuthorityInput {
-    readonly dtSeconds: number;
-    readonly moveForward: number;
-    readonly moveRight: number;
-    readonly moveSpeedUnitsPerSecond: number;
-    readonly moveUp: number;
-    readonly pitchDeltaDegrees: number;
-    readonly poseBefore: AshaRendererBrowserSurfaceCameraPose;
-    readonly tick: number;
-    readonly yawDeltaDegrees: number;
+export interface AshaRendererBrowserSurfaceCameraOptions {
+    readonly initialBasis?: AshaRendererBrowserSurfaceCameraBasis;
+    readonly initialPose?: AshaRendererBrowserSurfaceCameraPose;
 }
-export interface AshaRendererBrowserSurfaceMovementAuthorityResult {
-    readonly basis?: AshaRendererBrowserSurfaceCameraBasis;
-    readonly blockedAxes?: readonly string[];
-    readonly collided?: boolean;
-    readonly movementHash?: string | null;
-    readonly pose: AshaRendererBrowserSurfaceCameraPose;
-}
-export type AshaRendererBrowserSurfaceMovementAuthority = (input: AshaRendererBrowserSurfaceMovementAuthorityInput) => AshaRendererBrowserSurfaceMovementAuthorityResult;
-export interface AshaRendererBrowserSurfaceMovementState {
-    readonly authority: 'free_camera' | 'external_collision';
-    readonly blockedAxes: readonly string[];
-    readonly collided: boolean;
-    readonly movementHash: string | null;
-}
-export interface AshaRendererBrowserSurfaceFireResult {
-    readonly distance: number | null;
-    readonly hit: boolean;
-    readonly label: string | null;
-    readonly remainingTargets: number;
-    readonly shotsFired: number;
-    readonly targetHealth: number | null;
-}
-export interface AshaRendererBrowserSurfaceInteractionState {
-    readonly hits: number;
-    readonly lastEvent: string;
-    readonly remainingTargets: number;
-    readonly shotsFired: number;
-    readonly totalTargets: number;
-}
-export interface AshaRendererBrowserSurfaceTargetProjection {
+export interface AshaRendererBrowserSurfaceObjectProjection {
+    readonly color?: readonly [number, number, number, number];
+    readonly label: string;
     readonly lastEvent?: string;
     readonly position?: TunnelViewportVec3;
     readonly scale?: TunnelViewportVec3;
     readonly visible: boolean;
+}
+export interface AshaRendererBrowserSurfacePickRequest {
+    readonly labels: readonly string[];
+}
+export interface AshaRendererBrowserSurfacePickResult {
+    readonly distance: number;
+    readonly label: string;
 }
 export interface AshaRendererGeneratedTunnelRoomTarget {
     readonly label?: string;
@@ -97,15 +60,11 @@ export interface AshaRendererBrowserSurface {
     readonly renderer: ThreeRenderer;
     readonly frame: RenderFrameDiff;
     readonly cameraPose: () => AshaRendererBrowserSurfaceCameraPose;
-    readonly firePrimary: () => AshaRendererBrowserSurfaceFireResult;
-    readonly interactionState: () => AshaRendererBrowserSurfaceInteractionState;
-    readonly lockPointer: () => void;
-    readonly movementState: () => AshaRendererBrowserSurfaceMovementState;
-    readonly pointerLocked: () => boolean;
-    readonly projectTargetProjection: (projection: AshaRendererBrowserSurfaceTargetProjection) => void;
-    readonly reset: () => void;
+    readonly pickCenterObject: (request: AshaRendererBrowserSurfacePickRequest) => AshaRendererBrowserSurfacePickResult | null;
+    readonly projectObjectProjection: (projection: AshaRendererBrowserSurfaceObjectProjection) => void;
     readonly snapshot: () => string;
     readonly renderOnce: (timeMs?: number) => void;
+    readonly setCameraPose: (pose: AshaRendererBrowserSurfaceCameraPose, basis?: AshaRendererBrowserSurfaceCameraBasis) => void;
     readonly start: () => void;
     readonly stop: () => void;
     readonly dispose: () => void;

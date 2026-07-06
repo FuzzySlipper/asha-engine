@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
@@ -158,6 +159,18 @@ void test('browser surface frame is an ASHA render diff consumed by the retained
   assert.match(result.structuralSnapshot, /asha-renderer-collision-wall-north/);
   assert.match(result.structuralSnapshot, /asha-renderer-random-cube-01/);
   assert.match(result.structuralSnapshot, /asha-renderer-random-cube-28/);
+});
+
+void test('renderer-three backend declarations stay render-backend scoped', () => {
+  const declarationPath = fileURLToPath(new URL('../dist/browser-surface.d.ts', import.meta.url));
+  const declarationText = readFileSync(declarationPath, 'utf8');
+
+  assert.match(declarationText, /mountAshaRendererBrowserSurface/);
+  assert.match(declarationText, /pickCenterObject/);
+  assert.doesNotMatch(declarationText, /firePrimary/);
+  assert.doesNotMatch(declarationText, /lockPointer/);
+  assert.doesNotMatch(declarationText, /movementAuthority/);
+  assert.doesNotMatch(declarationText, /pointerLocked/);
 });
 
 void test('generated tunnel browser surface frame carries combat target metadata', () => {

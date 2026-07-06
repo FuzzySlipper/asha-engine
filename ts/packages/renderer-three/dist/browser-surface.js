@@ -49,10 +49,33 @@ export function mountAshaRendererBrowserSurface(canvas, options = {}) {
     webgl.setClearColor(options.clearColor ?? 0x101820, 1);
     webgl.setPixelRatio(options.pixelRatio ?? globalThis.devicePixelRatio ?? 1);
     const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
-    const controls = createBrowserSurfaceFirstPersonControls(canvas, camera, options.controls);
-    const interactions = createBrowserSurfaceInteractionController(renderer.scene, camera);
+    const raycaster = new THREE.Raycaster();
+    const center = new THREE.Vector2(0, 0);
+    const cameraLookTarget = new THREE.Vector3();
+    let currentCameraPose = options.camera?.initialPose ?? {
+        position: [0, 1.62, 8],
+        pitchDegrees: 0,
+        yawDegrees: 0,
+    };
+    let currentCameraBasis = options.camera?.initialBasis ?? null;
     let animationFrame = null;
     let lastRenderTimeMs = null;
+    const setCameraPose = (pose, basis) => {
+        currentCameraPose = pose;
+        currentCameraBasis = basis ?? null;
+        camera.position.set(pose.position[0], pose.position[1], pose.position[2]);
+        if (currentCameraBasis === null) {
+            camera.up.set(0, 1, 0);
+            camera.rotation.order = 'YXZ';
+            camera.rotation.x = degreesToRadians(pose.pitchDegrees);
+            camera.rotation.y = degreesToRadians(pose.yawDegrees);
+            camera.rotation.z = 0;
+            return;
+        }
+        camera.up.set(currentCameraBasis.up[0], currentCameraBasis.up[1], currentCameraBasis.up[2]);
+        cameraLookTarget.set(camera.position.x + currentCameraBasis.forward[0], camera.position.y + currentCameraBasis.forward[1], camera.position.z + currentCameraBasis.forward[2]);
+        camera.lookAt(cameraLookTarget);
+    };
     const resize = () => {
         const width = Math.max(1, canvas.clientWidth || canvas.width || 800);
         const height = Math.max(1, canvas.clientHeight || canvas.height || 450);
@@ -68,7 +91,7 @@ export function mountAshaRendererBrowserSurface(canvas, options = {}) {
             ? 0
             : Math.min(0.05, Math.max(0, (timeMs - lastRenderTimeMs) / 1000));
         lastRenderTimeMs = timeMs;
-        controls.update(deltaSeconds);
+        void deltaSeconds;
         webgl.render(renderer.scene, camera);
     };
     const tick = (timeMs) => {
@@ -90,15 +113,9 @@ export function mountAshaRendererBrowserSurface(canvas, options = {}) {
     };
     const dispose = () => {
         stop();
-        controls.dispose();
         webgl.dispose();
     };
-    const reset = () => {
-        controls.resetCamera();
-        interactions.reset();
-        lastRenderTimeMs = null;
-        renderOnce(0);
-    };
+    setCameraPose(currentCameraPose, currentCameraBasis ?? undefined);
     renderOnce(0);
     if (options.autoStart !== false) {
         start();
@@ -108,16 +125,12 @@ export function mountAshaRendererBrowserSurface(canvas, options = {}) {
         canvas,
         renderer,
         frame,
-        cameraPose: () => controls.cameraPose(),
-        firePrimary: () => interactions.firePrimary(),
-        interactionState: () => interactions.state(),
-        lockPointer: () => controls.lockPointer(),
-        movementState: () => controls.movementState(),
-        pointerLocked: () => controls.pointerLocked(),
-        projectTargetProjection: (projection) => interactions.projectTargetProjection(projection),
-        reset,
+        cameraPose: () => currentCameraPose,
+        pickCenterObject: (request) => pickCenterObject(renderer.scene, camera, raycaster, center, request),
+        projectObjectProjection: (projection) => projectObjectProjection(renderer.scene, projection),
         snapshot: () => renderer.snapshot(),
         renderOnce,
+        setCameraPose,
         start,
         stop,
         dispose,
@@ -290,345 +303,51 @@ function offsetTransform(transform, offset) {
         ],
     };
 }
-function createBrowserSurfaceFirstPersonControls(canvas, camera, options) {
-    const enabled = options?.enabled !== false;
-    const ownerDocument = canvas.ownerDocument;
-    const moveSpeed = options?.moveSpeed ?? 5.8;
-    const mouseSensitivity = options?.mouseSensitivity ?? 0.0021;
-    const eyeHeight = options?.eyeHeight ?? 1.62;
-    const initialPosition = options?.initialPosition ?? [0, eyeHeight, 8];
-    const movementAuthority = options?.movementAuthority;
-    const cameraForward = new THREE.Vector3();
-    const cameraLookTarget = new THREE.Vector3();
-    const cameraRight = new THREE.Vector3();
-    const movement = new THREE.Vector3();
-    const pressedKeys = new Set();
-    let controlTick = 0;
-    let lastMovementState = {
-        authority: movementAuthority === undefined ? 'free_camera' : 'external_collision',
-        blockedAxes: [],
-        collided: false,
-        movementHash: null,
-    };
-    let pendingPitchDeltaDegrees = 0;
-    let pendingYawDeltaDegrees = 0;
-    let pointerLocked = false;
-    let yawRadians = degreesToRadians(options?.initialYawDegrees ?? 0);
-    let pitchRadians = degreesToRadians(options?.initialPitchDegrees ?? 0);
-    let authorityBasis = null;
-    if (canvas.tabIndex < 0) {
-        canvas.tabIndex = 0;
+function pickCenterObject(scene, camera, raycaster, center, request) {
+    const requestedLabels = new Set(request.labels);
+    const meshes = collectLabeledMeshes(scene, requestedLabels);
+    if (meshes.length === 0) {
+        return null;
     }
-    canvas.style.touchAction = 'none';
-    camera.rotation.order = 'YXZ';
-    camera.position.set(initialPosition[0], initialPosition[1], initialPosition[2]);
-    const applyCameraRotation = () => {
-        camera.up.set(0, 1, 0);
-        camera.rotation.x = pitchRadians;
-        camera.rotation.y = yawRadians;
-        camera.rotation.z = 0;
-    };
-    const applyCameraBasis = (basis) => {
-        camera.up.set(basis.up[0], basis.up[1], basis.up[2]);
-        cameraLookTarget.set(camera.position.x + basis.forward[0], camera.position.y + basis.forward[1], camera.position.z + basis.forward[2]);
-        camera.lookAt(cameraLookTarget);
-    };
-    const applyCameraOrientation = () => {
-        if (authorityBasis === null) {
-            applyCameraRotation();
-            return;
-        }
-        applyCameraBasis(authorityBasis);
-    };
-    const focusCanvas = () => {
-        canvas.focus({ preventScroll: true });
-    };
-    const requestLock = (event) => {
-        if (!enabled) {
-            return;
-        }
-        event?.preventDefault();
-        focusCanvas();
-        if (ownerDocument.pointerLockElement !== canvas) {
-            void canvas.requestPointerLock();
-        }
-    };
-    const resetCamera = () => {
-        pressedKeys.clear();
-        pendingPitchDeltaDegrees = 0;
-        pendingYawDeltaDegrees = 0;
-        controlTick = 0;
-        lastMovementState = {
-            authority: movementAuthority === undefined ? 'free_camera' : 'external_collision',
-            blockedAxes: [],
-            collided: false,
-            movementHash: null,
-        };
-        yawRadians = degreesToRadians(options?.initialYawDegrees ?? 0);
-        pitchRadians = degreesToRadians(options?.initialPitchDegrees ?? 0);
-        authorityBasis = null;
-        camera.position.set(initialPosition[0], initialPosition[1], initialPosition[2]);
-        applyCameraOrientation();
-    };
-    const onPointerLockChange = () => {
-        pointerLocked = ownerDocument.pointerLockElement === canvas;
-        if (!pointerLocked) {
-            pressedKeys.clear();
-        }
-    };
-    const onPointerDown = (event) => {
-        if (event.button === 0) {
-            requestLock(event);
-        }
-    };
-    const onClick = (event) => {
-        requestLock(event);
-    };
-    const onMouseMove = (event) => {
-        if (!pointerLocked) {
-            return;
-        }
-        const yawDeltaRadians = event.movementX * mouseSensitivity;
-        const pitchDeltaRadians = -event.movementY * mouseSensitivity;
-        yawRadians += yawDeltaRadians;
-        pitchRadians += pitchDeltaRadians;
-        pitchRadians = clamp(pitchRadians, degreesToRadians(-85), degreesToRadians(85));
-        authorityBasis = null;
-        pendingYawDeltaDegrees += radiansToDegrees(yawDeltaRadians);
-        pendingPitchDeltaDegrees += radiansToDegrees(pitchDeltaRadians);
-        applyCameraOrientation();
-    };
-    const onKeyDown = (event) => {
-        if (event.key === 'Escape') {
-            ownerDocument.exitPointerLock();
-            pressedKeys.clear();
-            return;
-        }
-        if (!controlsHaveKeyboardFocus(canvas, pointerLocked) || !isFirstPersonMovementKey(event.code)) {
-            return;
-        }
-        event.preventDefault();
-        pressedKeys.add(event.code);
-    };
-    const onKeyUp = (event) => {
-        if (!isFirstPersonMovementKey(event.code)) {
-            return;
-        }
-        event.preventDefault();
-        pressedKeys.delete(event.code);
-    };
-    const update = (deltaSeconds) => {
-        applyCameraOrientation();
-        if (!enabled || !controlsHaveKeyboardFocus(canvas, pointerLocked)) {
-            return;
-        }
-        const forward = movementAxis(pressedKeys, 'KeyW', 'ArrowUp', 'KeyS', 'ArrowDown');
-        const strafe = movementAxis(pressedKeys, 'KeyD', 'ArrowRight', 'KeyA', 'ArrowLeft');
-        const hasLookDelta = pendingYawDeltaDegrees !== 0 || pendingPitchDeltaDegrees !== 0;
-        if (forward === 0 && strafe === 0 && !hasLookDelta) {
-            return;
-        }
-        if (movementAuthority !== undefined) {
-            controlTick += 1;
-            const authorityResult = movementAuthority({
-                dtSeconds: Math.max(0, deltaSeconds),
-                moveForward: forward,
-                moveRight: strafe,
-                moveSpeedUnitsPerSecond: moveSpeed,
-                moveUp: 0,
-                pitchDeltaDegrees: pendingPitchDeltaDegrees,
-                poseBefore: cameraPose(),
-                tick: controlTick,
-                yawDeltaDegrees: pendingYawDeltaDegrees,
-            });
-            applyAuthorityPose(authorityResult.pose, authorityResult.basis);
-            lastMovementState = {
-                authority: 'external_collision',
-                blockedAxes: authorityResult.blockedAxes ?? [],
-                collided: authorityResult.collided ?? false,
-                movementHash: authorityResult.movementHash ?? null,
-            };
-            pendingPitchDeltaDegrees = 0;
-            pendingYawDeltaDegrees = 0;
-            return;
-        }
-        pendingPitchDeltaDegrees = 0;
-        pendingYawDeltaDegrees = 0;
-        if (deltaSeconds <= 0) {
-            return;
-        }
-        camera.updateMatrixWorld(true);
-        camera.getWorldDirection(cameraForward);
-        cameraForward.y = 0;
-        if (cameraForward.lengthSq() > 0) {
-            cameraForward.normalize();
-        }
-        cameraRight.setFromMatrixColumn(camera.matrixWorld, 0);
-        cameraRight.y = 0;
-        if (cameraRight.lengthSq() > 0) {
-            cameraRight.normalize();
-        }
-        movement.set(0, 0, 0);
-        movement.addScaledVector(cameraForward, forward);
-        movement.addScaledVector(cameraRight, strafe);
-        if (movement.lengthSq() === 0) {
-            return;
-        }
-        movement.normalize();
-        const step = moveSpeed * deltaSeconds;
-        camera.position.addScaledVector(movement, step);
-        camera.position.y = eyeHeight;
-        lastMovementState = {
-            authority: 'free_camera',
-            blockedAxes: [],
-            collided: false,
-            movementHash: null,
-        };
-    };
-    const cameraPose = () => ({
-        position: [
-            Number(camera.position.x.toFixed(4)),
-            Number(camera.position.y.toFixed(4)),
-            Number(camera.position.z.toFixed(4)),
-        ],
-        pitchDegrees: Number(radiansToDegrees(pitchRadians).toFixed(2)),
-        yawDegrees: Number(radiansToDegrees(yawRadians).toFixed(2)),
-    });
-    const applyAuthorityPose = (pose, basis) => {
-        camera.position.set(pose.position[0], pose.position[1], pose.position[2]);
-        yawRadians = degreesToRadians(pose.yawDegrees);
-        pitchRadians = degreesToRadians(pose.pitchDegrees);
-        authorityBasis = basis ?? null;
-        applyCameraOrientation();
-    };
-    const dispose = () => {
-        canvas.removeEventListener('pointerdown', onPointerDown);
-        canvas.removeEventListener('click', onClick);
-        ownerDocument.removeEventListener('pointerlockchange', onPointerLockChange);
-        ownerDocument.removeEventListener('mousemove', onMouseMove);
-        ownerDocument.removeEventListener('keydown', onKeyDown);
-        ownerDocument.removeEventListener('keyup', onKeyUp);
-        if (ownerDocument.pointerLockElement === canvas) {
-            ownerDocument.exitPointerLock();
-        }
-    };
-    applyCameraOrientation();
-    canvas.addEventListener('pointerdown', onPointerDown);
-    canvas.addEventListener('click', onClick);
-    ownerDocument.addEventListener('pointerlockchange', onPointerLockChange);
-    ownerDocument.addEventListener('mousemove', onMouseMove);
-    ownerDocument.addEventListener('keydown', onKeyDown);
-    ownerDocument.addEventListener('keyup', onKeyUp);
+    scene.updateMatrixWorld(true);
+    raycaster.setFromCamera(center, camera);
+    const intersection = raycaster.intersectObjects(meshes.map((target) => target.mesh), false)[0];
+    if (intersection === undefined) {
+        return null;
+    }
+    const picked = meshes.find((candidate) => candidate.mesh === intersection.object);
+    if (picked === undefined) {
+        return null;
+    }
     return {
-        cameraPose,
-        dispose,
-        lockPointer: () => requestLock(),
-        movementState: () => lastMovementState,
-        pointerLocked: () => pointerLocked,
-        resetCamera,
-        update,
+        distance: Number(intersection.distance.toFixed(2)),
+        label: picked.label,
     };
 }
-function createBrowserSurfaceInteractionController(scene, camera) {
-    const raycaster = new THREE.Raycaster();
-    const targets = collectBrowserSurfaceTargets(scene);
-    let hits = 0;
-    let lastEvent = 'Ready';
-    let shotsFired = 0;
-    const state = () => ({
-        hits,
-        lastEvent,
-        remainingTargets: targets.filter((target) => target.health > 0).length,
-        shotsFired,
-        totalTargets: targets.length,
-    });
-    const firePrimary = () => {
-        shotsFired += 1;
-        scene.updateMatrixWorld(true);
-        raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-        const liveTargets = targets.filter((target) => target.health > 0);
-        const intersections = raycaster.intersectObjects(liveTargets.map((target) => target.mesh), false);
-        const intersection = intersections[0];
-        if (intersection === undefined) {
-            lastEvent = 'Miss';
-            return {
-                distance: null,
-                hit: false,
-                label: null,
-                remainingTargets: state().remainingTargets,
-                shotsFired,
-                targetHealth: null,
-            };
-        }
-        const target = liveTargets.find((candidate) => candidate.mesh === intersection.object);
-        if (target === undefined) {
-            lastEvent = 'Miss';
-            return {
-                distance: null,
-                hit: false,
-                label: null,
-                remainingTargets: state().remainingTargets,
-                shotsFired,
-                targetHealth: null,
-            };
-        }
-        target.health -= 1;
-        hits += 1;
-        if (target.health <= 0) {
-            target.mesh.visible = false;
-            lastEvent = `Destroyed ${target.label}`;
-        }
-        else {
-            target.material.color.setRGB(1, 0.28, 0.18);
-            lastEvent = `Hit ${target.label}`;
-        }
-        return {
-            distance: Number(intersection.distance.toFixed(2)),
-            hit: true,
-            label: target.label,
-            remainingTargets: state().remainingTargets,
-            shotsFired,
-            targetHealth: Math.max(0, target.health),
-        };
-    };
-    const reset = () => {
-        hits = 0;
-        lastEvent = 'Reset';
-        shotsFired = 0;
-        for (const target of targets) {
-            target.health = target.maxHealth;
-            target.mesh.visible = true;
-            target.material.color.copy(target.baseColor);
-        }
-    };
-    const projectTargetProjection = (projection) => {
-        lastEvent = projection.lastEvent ?? lastEvent;
-        for (const target of targets) {
-            target.mesh.visible = projection.visible;
-            target.health = projection.visible ? target.maxHealth : 0;
-            if (projection.position !== undefined) {
-                target.mesh.position.set(projection.position[0], projection.position[1], projection.position[2]);
-            }
-            if (projection.scale !== undefined) {
-                target.mesh.scale.set(projection.scale[0], projection.scale[1], projection.scale[2]);
-            }
-            if (projection.visible) {
-                target.material.color.copy(target.baseColor);
-            }
-        }
-    };
-    return {
-        firePrimary,
-        projectTargetProjection,
-        reset,
-        state,
-    };
+function projectObjectProjection(scene, projection) {
+    const [target] = collectLabeledMeshes(scene, new Set([projection.label]));
+    if (target === undefined) {
+        return;
+    }
+    target.mesh.visible = projection.visible;
+    if (projection.position !== undefined) {
+        target.mesh.position.set(projection.position[0], projection.position[1], projection.position[2]);
+    }
+    if (projection.scale !== undefined) {
+        target.mesh.scale.set(projection.scale[0], projection.scale[1], projection.scale[2]);
+    }
+    if (projection.color !== undefined) {
+        target.material.color.setRGB(projection.color[0], projection.color[1], projection.color[2]);
+        return;
+    }
+    if (projection.visible) {
+        target.material.color.copy(target.baseColor);
+    }
 }
-function collectBrowserSurfaceTargets(scene) {
+function collectLabeledMeshes(scene, labels) {
     const targets = [];
     scene.traverse((object) => {
-        const isCombatTarget = object.name.includes('generated-tunnel-enemy');
-        if (!isCombatTarget && !object.name.startsWith('asha-renderer-random-cube-')) {
+        if (!labels.has(object.name)) {
             return;
         }
         const mesh = object;
@@ -638,10 +357,8 @@ function collectBrowserSurfaceTargets(scene) {
         }
         targets.push({
             baseColor: material.color.clone(),
-            health: 2,
-            label: object.name.replace('asha-renderer-random-cube-', 'cube '),
+            label: object.name,
             material,
-            maxHealth: 2,
             mesh,
         });
     });

@@ -28,21 +28,10 @@ export interface FirstPersonTunnelViewportRenderResult extends ProjectedThreeRen
 
 export interface AshaRendererBrowserSurfaceOptions {
   readonly autoStart?: boolean;
+  readonly camera?: AshaRendererBrowserSurfaceCameraOptions;
   readonly clearColor?: number;
-  readonly controls?: AshaRendererBrowserSurfaceControlsOptions;
   readonly frame?: RenderFrameDiff;
   readonly pixelRatio?: number;
-}
-
-export interface AshaRendererBrowserSurfaceControlsOptions {
-  readonly enabled?: boolean;
-  readonly eyeHeight?: number;
-  readonly initialPitchDegrees?: number;
-  readonly initialPosition?: readonly [number, number, number];
-  readonly initialYawDegrees?: number;
-  readonly mouseSensitivity?: number;
-  readonly movementAuthority?: AshaRendererBrowserSurfaceMovementAuthority;
-  readonly moveSpeed?: number;
 }
 
 export interface AshaRendererBrowserSurfaceCameraPose {
@@ -53,59 +42,27 @@ export interface AshaRendererBrowserSurfaceCameraPose {
 
 export type AshaRendererBrowserSurfaceCameraBasis = CameraBasis;
 
-export interface AshaRendererBrowserSurfaceMovementAuthorityInput {
-  readonly dtSeconds: number;
-  readonly moveForward: number;
-  readonly moveRight: number;
-  readonly moveSpeedUnitsPerSecond: number;
-  readonly moveUp: number;
-  readonly pitchDeltaDegrees: number;
-  readonly poseBefore: AshaRendererBrowserSurfaceCameraPose;
-  readonly tick: number;
-  readonly yawDeltaDegrees: number;
+export interface AshaRendererBrowserSurfaceCameraOptions {
+  readonly initialBasis?: AshaRendererBrowserSurfaceCameraBasis;
+  readonly initialPose?: AshaRendererBrowserSurfaceCameraPose;
 }
 
-export interface AshaRendererBrowserSurfaceMovementAuthorityResult {
-  readonly basis?: AshaRendererBrowserSurfaceCameraBasis;
-  readonly blockedAxes?: readonly string[];
-  readonly collided?: boolean;
-  readonly movementHash?: string | null;
-  readonly pose: AshaRendererBrowserSurfaceCameraPose;
-}
-
-export type AshaRendererBrowserSurfaceMovementAuthority = (
-  input: AshaRendererBrowserSurfaceMovementAuthorityInput,
-) => AshaRendererBrowserSurfaceMovementAuthorityResult;
-
-export interface AshaRendererBrowserSurfaceMovementState {
-  readonly authority: 'free_camera' | 'external_collision';
-  readonly blockedAxes: readonly string[];
-  readonly collided: boolean;
-  readonly movementHash: string | null;
-}
-
-export interface AshaRendererBrowserSurfaceFireResult {
-  readonly distance: number | null;
-  readonly hit: boolean;
-  readonly label: string | null;
-  readonly remainingTargets: number;
-  readonly shotsFired: number;
-  readonly targetHealth: number | null;
-}
-
-export interface AshaRendererBrowserSurfaceInteractionState {
-  readonly hits: number;
-  readonly lastEvent: string;
-  readonly remainingTargets: number;
-  readonly shotsFired: number;
-  readonly totalTargets: number;
-}
-
-export interface AshaRendererBrowserSurfaceTargetProjection {
+export interface AshaRendererBrowserSurfaceObjectProjection {
+  readonly color?: readonly [number, number, number, number];
+  readonly label: string;
   readonly lastEvent?: string;
   readonly position?: TunnelViewportVec3;
   readonly scale?: TunnelViewportVec3;
   readonly visible: boolean;
+}
+
+export interface AshaRendererBrowserSurfacePickRequest {
+  readonly labels: readonly string[];
+}
+
+export interface AshaRendererBrowserSurfacePickResult {
+  readonly distance: number;
+  readonly label: string;
 }
 
 export interface AshaRendererGeneratedTunnelRoomTarget {
@@ -126,15 +83,14 @@ export interface AshaRendererBrowserSurface {
   readonly renderer: ThreeRenderer;
   readonly frame: RenderFrameDiff;
   readonly cameraPose: () => AshaRendererBrowserSurfaceCameraPose;
-  readonly firePrimary: () => AshaRendererBrowserSurfaceFireResult;
-  readonly interactionState: () => AshaRendererBrowserSurfaceInteractionState;
-  readonly lockPointer: () => void;
-  readonly movementState: () => AshaRendererBrowserSurfaceMovementState;
-  readonly pointerLocked: () => boolean;
-  readonly projectTargetProjection: (projection: AshaRendererBrowserSurfaceTargetProjection) => void;
-  readonly reset: () => void;
+  readonly pickCenterObject: (request: AshaRendererBrowserSurfacePickRequest) => AshaRendererBrowserSurfacePickResult | null;
+  readonly projectObjectProjection: (projection: AshaRendererBrowserSurfaceObjectProjection) => void;
   readonly snapshot: () => string;
   readonly renderOnce: (timeMs?: number) => void;
+  readonly setCameraPose: (
+    pose: AshaRendererBrowserSurfaceCameraPose,
+    basis?: AshaRendererBrowserSurfaceCameraBasis,
+  ) => void;
   readonly start: () => void;
   readonly stop: () => void;
   readonly dispose: () => void;
@@ -198,11 +154,43 @@ export function mountAshaRendererBrowserSurface(
   webgl.setPixelRatio(options.pixelRatio ?? globalThis.devicePixelRatio ?? 1);
 
   const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
-  const controls = createBrowserSurfaceFirstPersonControls(canvas, camera, options.controls);
-  const interactions = createBrowserSurfaceInteractionController(renderer.scene, camera);
+  const raycaster = new THREE.Raycaster();
+  const center = new THREE.Vector2(0, 0);
+  const cameraLookTarget = new THREE.Vector3();
+  let currentCameraPose: AshaRendererBrowserSurfaceCameraPose =
+    options.camera?.initialPose ?? {
+      position: [0, 1.62, 8],
+      pitchDegrees: 0,
+      yawDegrees: 0,
+    };
+  let currentCameraBasis = options.camera?.initialBasis ?? null;
 
   let animationFrame: number | null = null;
   let lastRenderTimeMs: number | null = null;
+
+  const setCameraPose = (
+    pose: AshaRendererBrowserSurfaceCameraPose,
+    basis?: AshaRendererBrowserSurfaceCameraBasis,
+  ): void => {
+    currentCameraPose = pose;
+    currentCameraBasis = basis ?? null;
+    camera.position.set(pose.position[0], pose.position[1], pose.position[2]);
+    if (currentCameraBasis === null) {
+      camera.up.set(0, 1, 0);
+      camera.rotation.order = 'YXZ';
+      camera.rotation.x = degreesToRadians(pose.pitchDegrees);
+      camera.rotation.y = degreesToRadians(pose.yawDegrees);
+      camera.rotation.z = 0;
+      return;
+    }
+    camera.up.set(currentCameraBasis.up[0], currentCameraBasis.up[1], currentCameraBasis.up[2]);
+    cameraLookTarget.set(
+      camera.position.x + currentCameraBasis.forward[0],
+      camera.position.y + currentCameraBasis.forward[1],
+      camera.position.z + currentCameraBasis.forward[2],
+    );
+    camera.lookAt(cameraLookTarget);
+  };
 
   const resize = (): void => {
     const width = Math.max(1, canvas.clientWidth || canvas.width || 800);
@@ -221,7 +209,7 @@ export function mountAshaRendererBrowserSurface(
         ? 0
         : Math.min(0.05, Math.max(0, (timeMs - lastRenderTimeMs) / 1000));
     lastRenderTimeMs = timeMs;
-    controls.update(deltaSeconds);
+    void deltaSeconds;
     webgl.render(renderer.scene, camera);
   };
 
@@ -247,17 +235,10 @@ export function mountAshaRendererBrowserSurface(
 
   const dispose = (): void => {
     stop();
-    controls.dispose();
     webgl.dispose();
   };
 
-  const reset = (): void => {
-    controls.resetCamera();
-    interactions.reset();
-    lastRenderTimeMs = null;
-    renderOnce(0);
-  };
-
+  setCameraPose(currentCameraPose, currentCameraBasis ?? undefined);
   renderOnce(0);
   if (options.autoStart !== false) {
     start();
@@ -268,16 +249,12 @@ export function mountAshaRendererBrowserSurface(
     canvas,
     renderer,
     frame,
-    cameraPose: () => controls.cameraPose(),
-    firePrimary: () => interactions.firePrimary(),
-    interactionState: () => interactions.state(),
-    lockPointer: () => controls.lockPointer(),
-    movementState: () => controls.movementState(),
-    pointerLocked: () => controls.pointerLocked(),
-    projectTargetProjection: (projection) => interactions.projectTargetProjection(projection),
-    reset,
+    cameraPose: () => currentCameraPose,
+    pickCenterObject: (request) => pickCenterObject(renderer.scene, camera, raycaster, center, request),
+    projectObjectProjection: (projection) => projectObjectProjection(renderer.scene, projection),
     snapshot: () => renderer.snapshot(),
     renderOnce,
+    setCameraPose,
     start,
     stop,
     dispose,
@@ -509,419 +486,72 @@ function offsetTransform(transform: Transform, offset: TunnelViewportVec3): Tran
   };
 }
 
-interface BrowserSurfaceFirstPersonControls {
-  readonly cameraPose: () => AshaRendererBrowserSurfaceCameraPose;
-  readonly dispose: () => void;
-  readonly lockPointer: () => void;
-  readonly movementState: () => AshaRendererBrowserSurfaceMovementState;
-  readonly pointerLocked: () => boolean;
-  readonly resetCamera: () => void;
-  readonly update: (deltaSeconds: number) => void;
-}
-
-function createBrowserSurfaceFirstPersonControls(
-  canvas: HTMLCanvasElement,
+function pickCenterObject(
+  scene: THREE.Scene,
   camera: THREE.PerspectiveCamera,
-  options: AshaRendererBrowserSurfaceControlsOptions | undefined,
-): BrowserSurfaceFirstPersonControls {
-  const enabled = options?.enabled !== false;
-  const ownerDocument = canvas.ownerDocument;
-  const moveSpeed = options?.moveSpeed ?? 5.8;
-  const mouseSensitivity = options?.mouseSensitivity ?? 0.0021;
-  const eyeHeight = options?.eyeHeight ?? 1.62;
-  const initialPosition = options?.initialPosition ?? [0, eyeHeight, 8];
-  const movementAuthority = options?.movementAuthority;
-  const cameraForward = new THREE.Vector3();
-  const cameraLookTarget = new THREE.Vector3();
-  const cameraRight = new THREE.Vector3();
-  const movement = new THREE.Vector3();
-  const pressedKeys = new Set<string>();
-  let controlTick = 0;
-  let lastMovementState: AshaRendererBrowserSurfaceMovementState = {
-    authority: movementAuthority === undefined ? 'free_camera' : 'external_collision',
-    blockedAxes: [],
-    collided: false,
-    movementHash: null,
-  };
-  let pendingPitchDeltaDegrees = 0;
-  let pendingYawDeltaDegrees = 0;
-  let pointerLocked = false;
-  let yawRadians = degreesToRadians(options?.initialYawDegrees ?? 0);
-  let pitchRadians = degreesToRadians(options?.initialPitchDegrees ?? 0);
-  let authorityBasis: AshaRendererBrowserSurfaceCameraBasis | null = null;
-
-  if (canvas.tabIndex < 0) {
-    canvas.tabIndex = 0;
+  raycaster: THREE.Raycaster,
+  center: THREE.Vector2,
+  request: AshaRendererBrowserSurfacePickRequest,
+): AshaRendererBrowserSurfacePickResult | null {
+  const requestedLabels = new Set(request.labels);
+  const meshes = collectLabeledMeshes(scene, requestedLabels);
+  if (meshes.length === 0) {
+    return null;
   }
-  canvas.style.touchAction = 'none';
-  camera.rotation.order = 'YXZ';
-  camera.position.set(initialPosition[0], initialPosition[1], initialPosition[2]);
-
-  const applyCameraRotation = (): void => {
-    camera.up.set(0, 1, 0);
-    camera.rotation.x = pitchRadians;
-    camera.rotation.y = yawRadians;
-    camera.rotation.z = 0;
-  };
-
-  const applyCameraBasis = (basis: AshaRendererBrowserSurfaceCameraBasis): void => {
-    camera.up.set(basis.up[0], basis.up[1], basis.up[2]);
-    cameraLookTarget.set(
-      camera.position.x + basis.forward[0],
-      camera.position.y + basis.forward[1],
-      camera.position.z + basis.forward[2],
-    );
-    camera.lookAt(cameraLookTarget);
-  };
-
-  const applyCameraOrientation = (): void => {
-    if (authorityBasis === null) {
-      applyCameraRotation();
-      return;
-    }
-    applyCameraBasis(authorityBasis);
-  };
-
-  const focusCanvas = (): void => {
-    canvas.focus({ preventScroll: true });
-  };
-
-  const requestLock = (event?: Event): void => {
-    if (!enabled) {
-      return;
-    }
-    event?.preventDefault();
-    focusCanvas();
-    if (ownerDocument.pointerLockElement !== canvas) {
-      void canvas.requestPointerLock();
-    }
-  };
-
-  const resetCamera = (): void => {
-    pressedKeys.clear();
-    pendingPitchDeltaDegrees = 0;
-    pendingYawDeltaDegrees = 0;
-    controlTick = 0;
-    lastMovementState = {
-      authority: movementAuthority === undefined ? 'free_camera' : 'external_collision',
-      blockedAxes: [],
-      collided: false,
-      movementHash: null,
-    };
-    yawRadians = degreesToRadians(options?.initialYawDegrees ?? 0);
-    pitchRadians = degreesToRadians(options?.initialPitchDegrees ?? 0);
-    authorityBasis = null;
-    camera.position.set(initialPosition[0], initialPosition[1], initialPosition[2]);
-    applyCameraOrientation();
-  };
-
-  const onPointerLockChange = (): void => {
-    pointerLocked = ownerDocument.pointerLockElement === canvas;
-    if (!pointerLocked) {
-      pressedKeys.clear();
-    }
-  };
-
-  const onPointerDown = (event: PointerEvent): void => {
-    if (event.button === 0) {
-      requestLock(event);
-    }
-  };
-
-  const onClick = (event: MouseEvent): void => {
-    requestLock(event);
-  };
-
-  const onMouseMove = (event: MouseEvent): void => {
-    if (!pointerLocked) {
-      return;
-    }
-    const yawDeltaRadians = event.movementX * mouseSensitivity;
-    const pitchDeltaRadians = -event.movementY * mouseSensitivity;
-    yawRadians += yawDeltaRadians;
-    pitchRadians += pitchDeltaRadians;
-    pitchRadians = clamp(pitchRadians, degreesToRadians(-85), degreesToRadians(85));
-    authorityBasis = null;
-    pendingYawDeltaDegrees += radiansToDegrees(yawDeltaRadians);
-    pendingPitchDeltaDegrees += radiansToDegrees(pitchDeltaRadians);
-    applyCameraOrientation();
-  };
-
-  const onKeyDown = (event: KeyboardEvent): void => {
-    if (event.key === 'Escape') {
-      ownerDocument.exitPointerLock();
-      pressedKeys.clear();
-      return;
-    }
-    if (!controlsHaveKeyboardFocus(canvas, pointerLocked) || !isFirstPersonMovementKey(event.code)) {
-      return;
-    }
-    event.preventDefault();
-    pressedKeys.add(event.code);
-  };
-
-  const onKeyUp = (event: KeyboardEvent): void => {
-    if (!isFirstPersonMovementKey(event.code)) {
-      return;
-    }
-    event.preventDefault();
-    pressedKeys.delete(event.code);
-  };
-
-  const update = (deltaSeconds: number): void => {
-    applyCameraOrientation();
-    if (!enabled || !controlsHaveKeyboardFocus(canvas, pointerLocked)) {
-      return;
-    }
-
-    const forward = movementAxis(pressedKeys, 'KeyW', 'ArrowUp', 'KeyS', 'ArrowDown');
-    const strafe = movementAxis(pressedKeys, 'KeyD', 'ArrowRight', 'KeyA', 'ArrowLeft');
-    const hasLookDelta = pendingYawDeltaDegrees !== 0 || pendingPitchDeltaDegrees !== 0;
-    if (forward === 0 && strafe === 0 && !hasLookDelta) {
-      return;
-    }
-
-    if (movementAuthority !== undefined) {
-      controlTick += 1;
-      const authorityResult = movementAuthority({
-        dtSeconds: Math.max(0, deltaSeconds),
-        moveForward: forward,
-        moveRight: strafe,
-        moveSpeedUnitsPerSecond: moveSpeed,
-        moveUp: 0,
-        pitchDeltaDegrees: pendingPitchDeltaDegrees,
-        poseBefore: cameraPose(),
-        tick: controlTick,
-        yawDeltaDegrees: pendingYawDeltaDegrees,
-      });
-      applyAuthorityPose(authorityResult.pose, authorityResult.basis);
-      lastMovementState = {
-        authority: 'external_collision',
-        blockedAxes: authorityResult.blockedAxes ?? [],
-        collided: authorityResult.collided ?? false,
-        movementHash: authorityResult.movementHash ?? null,
-      };
-      pendingPitchDeltaDegrees = 0;
-      pendingYawDeltaDegrees = 0;
-      return;
-    }
-
-    pendingPitchDeltaDegrees = 0;
-    pendingYawDeltaDegrees = 0;
-    if (deltaSeconds <= 0) {
-      return;
-    }
-
-    camera.updateMatrixWorld(true);
-    camera.getWorldDirection(cameraForward);
-    cameraForward.y = 0;
-    if (cameraForward.lengthSq() > 0) {
-      cameraForward.normalize();
-    }
-    cameraRight.setFromMatrixColumn(camera.matrixWorld, 0);
-    cameraRight.y = 0;
-    if (cameraRight.lengthSq() > 0) {
-      cameraRight.normalize();
-    }
-
-    movement.set(0, 0, 0);
-    movement.addScaledVector(cameraForward, forward);
-    movement.addScaledVector(cameraRight, strafe);
-    if (movement.lengthSq() === 0) {
-      return;
-    }
-    movement.normalize();
-    const step = moveSpeed * deltaSeconds;
-    camera.position.addScaledVector(movement, step);
-    camera.position.y = eyeHeight;
-    lastMovementState = {
-      authority: 'free_camera',
-      blockedAxes: [],
-      collided: false,
-      movementHash: null,
-    };
-  };
-
-  const cameraPose = (): AshaRendererBrowserSurfaceCameraPose => ({
-    position: [
-      Number(camera.position.x.toFixed(4)),
-      Number(camera.position.y.toFixed(4)),
-      Number(camera.position.z.toFixed(4)),
-    ],
-    pitchDegrees: Number(radiansToDegrees(pitchRadians).toFixed(2)),
-    yawDegrees: Number(radiansToDegrees(yawRadians).toFixed(2)),
-  });
-
-  const applyAuthorityPose = (
-    pose: AshaRendererBrowserSurfaceCameraPose,
-    basis?: AshaRendererBrowserSurfaceCameraBasis,
-  ): void => {
-    camera.position.set(pose.position[0], pose.position[1], pose.position[2]);
-    yawRadians = degreesToRadians(pose.yawDegrees);
-    pitchRadians = degreesToRadians(pose.pitchDegrees);
-    authorityBasis = basis ?? null;
-    applyCameraOrientation();
-  };
-
-  const dispose = (): void => {
-    canvas.removeEventListener('pointerdown', onPointerDown);
-    canvas.removeEventListener('click', onClick);
-    ownerDocument.removeEventListener('pointerlockchange', onPointerLockChange);
-    ownerDocument.removeEventListener('mousemove', onMouseMove);
-    ownerDocument.removeEventListener('keydown', onKeyDown);
-    ownerDocument.removeEventListener('keyup', onKeyUp);
-    if (ownerDocument.pointerLockElement === canvas) {
-      ownerDocument.exitPointerLock();
-    }
-  };
-
-  applyCameraOrientation();
-  canvas.addEventListener('pointerdown', onPointerDown);
-  canvas.addEventListener('click', onClick);
-  ownerDocument.addEventListener('pointerlockchange', onPointerLockChange);
-  ownerDocument.addEventListener('mousemove', onMouseMove);
-  ownerDocument.addEventListener('keydown', onKeyDown);
-  ownerDocument.addEventListener('keyup', onKeyUp);
-
+  scene.updateMatrixWorld(true);
+  raycaster.setFromCamera(center, camera);
+  const intersection = raycaster.intersectObjects(
+    meshes.map((target) => target.mesh),
+    false,
+  )[0];
+  if (intersection === undefined) {
+    return null;
+  }
+  const picked = meshes.find((candidate) => candidate.mesh === intersection.object);
+  if (picked === undefined) {
+    return null;
+  }
   return {
-    cameraPose,
-    dispose,
-    lockPointer: () => requestLock(),
-    movementState: () => lastMovementState,
-    pointerLocked: () => pointerLocked,
-    resetCamera,
-    update,
+    distance: Number(intersection.distance.toFixed(2)),
+    label: picked.label,
   };
 }
 
-interface BrowserSurfaceInteractionController {
-  readonly firePrimary: () => AshaRendererBrowserSurfaceFireResult;
-  readonly projectTargetProjection: (projection: AshaRendererBrowserSurfaceTargetProjection) => void;
-  readonly reset: () => void;
-  readonly state: () => AshaRendererBrowserSurfaceInteractionState;
+function projectObjectProjection(
+  scene: THREE.Scene,
+  projection: AshaRendererBrowserSurfaceObjectProjection,
+): void {
+  const [target] = collectLabeledMeshes(scene, new Set([projection.label]));
+  if (target === undefined) {
+    return;
+  }
+  target.mesh.visible = projection.visible;
+  if (projection.position !== undefined) {
+    target.mesh.position.set(projection.position[0], projection.position[1], projection.position[2]);
+  }
+  if (projection.scale !== undefined) {
+    target.mesh.scale.set(projection.scale[0], projection.scale[1], projection.scale[2]);
+  }
+  if (projection.color !== undefined) {
+    target.material.color.setRGB(projection.color[0], projection.color[1], projection.color[2]);
+    return;
+  }
+  if (projection.visible) {
+    target.material.color.copy(target.baseColor);
+  }
 }
 
-interface BrowserSurfaceTarget {
+interface LabeledMesh {
   readonly baseColor: THREE.Color;
   readonly label: string;
   readonly material: THREE.MeshBasicMaterial;
   readonly mesh: THREE.Mesh;
-  readonly maxHealth: number;
-  health: number;
 }
 
-function createBrowserSurfaceInteractionController(
-  scene: THREE.Scene,
-  camera: THREE.PerspectiveCamera,
-): BrowserSurfaceInteractionController {
-  const raycaster = new THREE.Raycaster();
-  const targets = collectBrowserSurfaceTargets(scene);
-  let hits = 0;
-  let lastEvent = 'Ready';
-  let shotsFired = 0;
-
-  const state = (): AshaRendererBrowserSurfaceInteractionState => ({
-    hits,
-    lastEvent,
-    remainingTargets: targets.filter((target) => target.health > 0).length,
-    shotsFired,
-    totalTargets: targets.length,
-  });
-
-  const firePrimary = (): AshaRendererBrowserSurfaceFireResult => {
-    shotsFired += 1;
-    scene.updateMatrixWorld(true);
-    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-    const liveTargets = targets.filter((target) => target.health > 0);
-    const intersections = raycaster.intersectObjects(liveTargets.map((target) => target.mesh), false);
-    const intersection = intersections[0];
-
-    if (intersection === undefined) {
-      lastEvent = 'Miss';
-      return {
-        distance: null,
-        hit: false,
-        label: null,
-        remainingTargets: state().remainingTargets,
-        shotsFired,
-        targetHealth: null,
-      };
-    }
-
-    const target = liveTargets.find((candidate) => candidate.mesh === intersection.object);
-    if (target === undefined) {
-      lastEvent = 'Miss';
-      return {
-        distance: null,
-        hit: false,
-        label: null,
-        remainingTargets: state().remainingTargets,
-        shotsFired,
-        targetHealth: null,
-      };
-    }
-
-    target.health -= 1;
-    hits += 1;
-    if (target.health <= 0) {
-      target.mesh.visible = false;
-      lastEvent = `Destroyed ${target.label}`;
-    } else {
-      target.material.color.setRGB(1, 0.28, 0.18);
-      lastEvent = `Hit ${target.label}`;
-    }
-
-    return {
-      distance: Number(intersection.distance.toFixed(2)),
-      hit: true,
-      label: target.label,
-      remainingTargets: state().remainingTargets,
-      shotsFired,
-      targetHealth: Math.max(0, target.health),
-    };
-  };
-
-  const reset = (): void => {
-    hits = 0;
-    lastEvent = 'Reset';
-    shotsFired = 0;
-    for (const target of targets) {
-      target.health = target.maxHealth;
-      target.mesh.visible = true;
-      target.material.color.copy(target.baseColor);
-    }
-  };
-
-  const projectTargetProjection = (projection: AshaRendererBrowserSurfaceTargetProjection): void => {
-    lastEvent = projection.lastEvent ?? lastEvent;
-    for (const target of targets) {
-      target.mesh.visible = projection.visible;
-      target.health = projection.visible ? target.maxHealth : 0;
-      if (projection.position !== undefined) {
-        target.mesh.position.set(projection.position[0], projection.position[1], projection.position[2]);
-      }
-      if (projection.scale !== undefined) {
-        target.mesh.scale.set(projection.scale[0], projection.scale[1], projection.scale[2]);
-      }
-      if (projection.visible) {
-        target.material.color.copy(target.baseColor);
-      }
-    }
-  };
-
-  return {
-    firePrimary,
-    projectTargetProjection,
-    reset,
-    state,
-  };
-}
-
-function collectBrowserSurfaceTargets(scene: THREE.Scene): BrowserSurfaceTarget[] {
-  const targets: BrowserSurfaceTarget[] = [];
+function collectLabeledMeshes(scene: THREE.Scene, labels: ReadonlySet<string>): LabeledMesh[] {
+  const targets: LabeledMesh[] = [];
   scene.traverse((object) => {
-    const isCombatTarget = object.name.includes('generated-tunnel-enemy');
-    if (!isCombatTarget && !object.name.startsWith('asha-renderer-random-cube-')) {
+    if (!labels.has(object.name)) {
       return;
     }
     const mesh = object as THREE.Mesh;
@@ -931,10 +561,8 @@ function collectBrowserSurfaceTargets(scene: THREE.Scene): BrowserSurfaceTarget[
     }
     targets.push({
       baseColor: material.color.clone(),
-      health: 2,
-      label: object.name.replace('asha-renderer-random-cube-', 'cube '),
+      label: object.name,
       material,
-      maxHealth: 2,
       mesh,
     });
   });
