@@ -902,6 +902,11 @@ dependencies = [
 [[package]]
 name = "svc-physics"
 version = "0.1.0"
+dependencies = [
+ "core-error",
+ "core-math",
+ "core-time",
+]
 
 [[package]]
 name = "svc-policy-view"

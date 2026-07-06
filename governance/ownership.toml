@@ -222,8 +222,8 @@ may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 [crate."engine-rs/crates/services/svc-physics"]
 lane = "rust-service"
-implementation_status = "reserved"
-may_depend_on = ["core-ids", "core-math", "core-error", "svc-spatial"]
+implementation_status = "active"
+may_depend_on = ["core-ids", "core-math", "core-time", "core-error", "svc-spatial"]
 may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 [crate."engine-rs/crates/services/svc-pathfinding"]
