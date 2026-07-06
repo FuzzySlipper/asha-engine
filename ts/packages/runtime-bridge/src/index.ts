@@ -58,6 +58,10 @@ export {
 export { RuntimeBridgeError, frameCursor } from './bridge.js';
 export type {
   CompositionStatus,
+  EnemyDirectNavAuthoritySource,
+  EnemyDirectNavAuthorityTransport,
+  EnemyDirectNavMovementRequest,
+  EnemyDirectNavMovementResult,
   EngineConfig,
   EngineHandle,
   FpsEncounterDirectorSnapshot,

@@ -1,7 +1,10 @@
 import { RuntimeBridgeError, frameCursor, } from './bridge.js';
+import { createGeneratedTunnelEnemyPolicyFixture, validateEnemyPolicySource, } from './enemy-policy.js';
 import { buildEncounterDirectorReadout, buildEncounterTransitionReceipt, validateEncounterDirectorReadoutRequest, validateEncounterTransitionRequest, } from './encounter-director.js';
+import { GENERATED_TUNNEL_NAV_POLICY_VIEW, GENERATED_TUNNEL_NO_PATH, GENERATED_TUNNEL_REACHABLE_PATH, } from './nav-readout.js';
+import { buildRuntimeSessionEnemyNavPath, ecrpActorPosition, ecrpEntityTransform, } from './runtime-session-enemy-authority.js';
 import { buildEcrpProjectState, buildEcrpRuntimeReadout, defaultRuntimeSessionEcrpProjectLoadInput, validateEcrpProjectLoadInput, } from './runtime-session-ecrp.js';
-import { lifecycleStatusReadout, lifecycleStatusToEncounterLifecycle, validateInitializeInput, validateLifecycleStatusRequest, validateRestartIntent, validateRuntimeActionIntentEnvelope, } from './runtime-session-lifecycle.js';
+import { acceptedAutonomousMovementReceipt, lifecycleStatusReadout, lifecycleStatusToEncounterLifecycle, rejectedAutonomousPolicyProposalReceipt, runtimeActionReceiptToAutonomousReceipt, validateAutonomousPolicyProposal, validateAutonomousPolicyTickInput, validateInitializeInput, validateLifecycleStatusRequest, validateRestartIntent, validateRuntimeActionIntentEnvelope, } from './runtime-session-lifecycle.js';
 import { compositionHashRecord, identityHashRecord, renderFrameHashRecord, stableHash, } from './runtime-session-hash.js';
 export class RustBackedRuntimeSessionFacade {
     #bridge;
@@ -205,10 +208,143 @@ export class RustBackedRuntimeSessionFacade {
             sessionHashAfter: this.#sessionHash(),
         };
     }
-    runAutonomousPolicyTick(_input) {
-        void _input;
+    runAutonomousPolicyTick(input) {
         this.#requireInitialized('runAutonomousPolicyTick');
-        throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed RuntimeSession policy tick authority is not wired on this facade slice.');
+        validateAutonomousPolicyTickInput(input);
+        const sequenceIdBefore = this.#sequenceId;
+        const sessionHashBefore = this.#sessionHash();
+        const step = this.tick(input.tick === undefined ? {} : { tick: input.tick });
+        const sourceDiagnostics = input.policySource === undefined ? [] : validateEnemyPolicySource(input.policySource);
+        const enemyPolicyPosition = input.enemy?.position ??
+            ecrpActorPosition({
+                projectState: this.#ecrpProjectState,
+                runtimeTransforms: this.#runtimeTransforms,
+                role: 'enemy',
+            }) ??
+            undefined;
+        const targetPolicyPosition = input.target?.position ??
+            ecrpActorPosition({
+                projectState: this.#ecrpProjectState,
+                runtimeTransforms: this.#runtimeTransforms,
+                role: 'player',
+            }) ??
+            undefined;
+        const navPath = buildRuntimeSessionEnemyNavPath({
+            ...(input.navScenario === undefined ? {} : { scenario: input.navScenario }),
+            ...(enemyPolicyPosition === undefined ? {} : { enemyPosition: enemyPolicyPosition }),
+            ...(targetPolicyPosition === undefined ? {} : { targetPosition: targetPolicyPosition }),
+            queryFixturePath: (scenario) => scenario === 'generated_tunnel_no_path'
+                ? GENERATED_TUNNEL_NO_PATH
+                : GENERATED_TUNNEL_REACHABLE_PATH,
+        });
+        const navPolicyView = {
+            ...GENERATED_TUNNEL_NAV_POLICY_VIEW,
+            latestPath: navPath,
+        };
+        const fixture = createGeneratedTunnelEnemyPolicyFixture({
+            tick: step.tick,
+            nav: navPolicyView,
+            target: {
+                ...(input.target ?? {}),
+                camera: input.targetCamera,
+            },
+            ...(input.enemy === undefined ? {} : { enemy: input.enemy }),
+            ...(input.combat === undefined ? {} : { combat: input.combat }),
+        });
+        const proposalValidationDiagnostics = [];
+        const proposalReceipts = [];
+        for (const proposal of fixture.frame.proposals) {
+            const validation = validateAutonomousPolicyProposal(proposal, step.tick);
+            if (validation !== null) {
+                proposalValidationDiagnostics.push(validation);
+                proposalReceipts.push(rejectedAutonomousPolicyProposalReceipt(proposal, validation));
+                continue;
+            }
+            if (sourceDiagnostics.length > 0) {
+                proposalReceipts.push(rejectedAutonomousPolicyProposalReceipt(proposal, {
+                    reason: 'policy_source_forbidden_capability',
+                    detail: `policy source referenced ${sourceDiagnostics.map((diagnostic) => diagnostic.token).join(', ')}`,
+                }));
+                continue;
+            }
+            if (proposal.kind === 'enemy_policy.move_toward_target.v0') {
+                const movement = this.#applyRustAutonomousMovementProposal(proposal, targetPolicyPosition);
+                proposalReceipts.push(acceptedAutonomousMovementReceipt(proposal, movement));
+                continue;
+            }
+            const actionReceipt = this.submitRuntimeActionIntent(proposal.intent);
+            proposalReceipts.push(runtimeActionReceiptToAutonomousReceipt(proposal, actionReceipt));
+        }
+        this.#sequenceId += 1;
+        const recordHashesBeforePolicyRecord = this.#replayRecords.map((record) => record.recordHash);
+        const movementSummary = proposalReceipts.find((receipt) => receipt.movement !== null)?.movement ?? null;
+        const combatSummary = proposalReceipts.find((receipt) => receipt.combat !== null)?.combat ?? null;
+        const authorityNavPathHash = movementSummary?.pathHash ?? navPath.pathHash;
+        const tickHash = stableHash({
+            loopId: 'generated_tunnel_enemy_policy_loop.v0',
+            authority: 'rust_bridge',
+            tick: step.tick,
+            proposalFrameHash: fixture.frame.proposalHash,
+            receiptStatuses: proposalReceipts.map((receipt) => receipt.status),
+            receiptRejections: proposalReceipts.map((receipt) => receipt.rejection?.reason ?? null),
+            navPathHash: authorityNavPathHash,
+            replayRecordHashes: recordHashesBeforePolicyRecord,
+            sequenceIdAfter: this.#sequenceId,
+            runtimeSnapshotReplayHash: this.#snapshot?.replayHash ?? null,
+        });
+        this.#record('runAutonomousPolicyTick', tickHash);
+        const telemetry = this.readTelemetry();
+        const acceptedRuntimeActionCount = proposalReceipts.filter((receipt) => receipt.actionReceipt?.accepted === true).length;
+        const rejectedRuntimeActionCount = proposalReceipts.filter((receipt) => receipt.actionReceipt !== null && receipt.actionReceipt.accepted === false).length;
+        return {
+            kind: 'runtime_session.autonomous_policy_tick.v0',
+            loopId: 'generated_tunnel_enemy_policy_loop.v0',
+            sequenceIdBefore,
+            sequenceIdAfter: telemetry.sequenceId,
+            sessionHashBefore,
+            sessionHashAfter: telemetry.sessionHash,
+            tick: step.tick,
+            step,
+            policy: {
+                fixtureKind: fixture.kind,
+                proposalFrame: fixture.frame,
+                sourceChecked: input.policySource !== undefined,
+                sourceDiagnostics,
+                proposalValidationDiagnostics,
+            },
+            nav: {
+                projectionHash: navPath.projection.projectionHash,
+                pathHash: authorityNavPathHash,
+                outcome: navPath.outcome,
+                visited: navPath.visited,
+                pathLength: navPath.path.length,
+            },
+            proposalReceipts,
+            proposalSummary: {
+                acceptedProposalCount: proposalReceipts.filter((receipt) => receipt.status === 'accepted').length,
+                rejectedProposalCount: proposalReceipts.filter((receipt) => receipt.status === 'rejected').length,
+                unsupportedProposalCount: proposalReceipts.filter((receipt) => receipt.status === 'unsupported').length,
+            },
+            commandSummary: {
+                acceptedCommandCount: telemetry.acceptedCommandCount,
+                rejectedCommandCount: telemetry.rejectedCommandCount,
+                acceptedRuntimeActionCount,
+                rejectedRuntimeActionCount,
+            },
+            movementSummary,
+            combatSummary,
+            replay: {
+                recordCount: telemetry.replayRecords.length,
+                lastRecordKind: telemetry.replayRecords.at(-1)?.kind ?? null,
+                recordHashes: telemetry.replayRecords.map((record) => record.recordHash),
+            },
+            tickHash,
+            nonClaims: [
+                'not_generic_event_bus',
+                'not_behavior_tree',
+                'not_demo_local_authority',
+            ],
+        };
     }
     readLifecycleStatus(request = {}) {
         const identity = this.#requireInitialized('readLifecycleStatus');
@@ -470,6 +606,31 @@ export class RustBackedRuntimeSessionFacade {
             sessionHashAfter: this.#sessionHash(),
             resetHash: statusAfter.hashes.replayHash,
         };
+    }
+    #applyRustAutonomousMovementProposal(proposal, targetPosition) {
+        const snapshot = this.#requireSnapshot();
+        if (proposal.nextWaypoint === null) {
+            throw new RuntimeBridgeError('invalid_input', 'enemy movement proposal cannot be applied without a next waypoint');
+        }
+        const movement = this.#bridge.applyEnemyDirectNavMovement({
+            entity: snapshot.enemyEntity,
+            seedPosition: proposal.from,
+            target: targetPosition ?? proposal.nextWaypoint,
+            maxStepUnits: 0.35,
+        });
+        const enemy = this.#ecrpProjectState?.entities.find((entity) => entity.entity === snapshot.enemyEntity);
+        const current = enemy === undefined
+            ? null
+            : ecrpEntityTransform({
+                entity: enemy,
+                runtimeTransforms: this.#runtimeTransforms,
+            });
+        this.#runtimeTransforms.set(snapshot.enemyEntity, {
+            position: movement.nextWaypoint,
+            yawDegrees: current?.yawDegrees ?? 0,
+            pitchDegrees: current?.pitchDegrees ?? 0,
+        });
+        return movement;
     }
     #encounterLifecycleFromScenario(scenario) {
         const lifecycleScenario = scenario === undefined || scenario === 'active' ? 'current_session' : scenario;

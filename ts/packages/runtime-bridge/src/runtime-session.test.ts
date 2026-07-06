@@ -9,6 +9,7 @@ import type { CameraCreateRequest, CollisionConstrainedCameraInputEnvelope, Voxe
 import {
   RuntimeBridgeError,
   createRuntimeSessionFacade,
+  type EnemyDirectNavMovementRequest,
   type FpsEncounterDirectorSnapshot,
   type FpsEncounterLifecycleInput,
   type FpsEncounterStateReadout,
@@ -262,6 +263,7 @@ function rustRuntimeSessionBridgeDouble(options: {
   readonly calls: {
     load: FpsRuntimeSessionLoadRequest[];
     fire: number[];
+    nav: EnemyDirectNavMovementRequest[];
     restart: FpsRuntimeSessionRestartRequest[];
     encounterTransitions: FpsEncounterTransitionRequest[];
   };
@@ -270,9 +272,10 @@ function rustRuntimeSessionBridgeDouble(options: {
   const calls: {
     load: FpsRuntimeSessionLoadRequest[];
     fire: number[];
+    nav: EnemyDirectNavMovementRequest[];
     restart: FpsRuntimeSessionRestartRequest[];
     encounterTransitions: FpsEncounterTransitionRequest[];
-  } = { load: [], fire: [], restart: [], encounterTransitions: [] };
+  } = { load: [], fire: [], nav: [], restart: [], encounterTransitions: [] };
   let player = 10;
   let enemy = 20;
   let epoch = 1;
@@ -330,6 +333,24 @@ function rustRuntimeSessionBridgeDouble(options: {
             entityHash: 'fnv1a64:00000000000000aa',
             healthHash: 'fnv1a64:00000000000000cc',
             replayHash: 'fnv1a64:0000000000000003',
+          };
+        };
+      }
+      if (property === 'applyEnemyDirectNavMovement') {
+        return (request: EnemyDirectNavMovementRequest) => {
+          calls.nav.push(request);
+          return {
+            entity: request.entity,
+            authoritySource: 'rust_entity_store' as const,
+            authorityTransport: 'native_rust' as const,
+            from: request.seedPosition,
+            target: request.target,
+            nextWaypoint: request.target,
+            distanceUnits: 0.35,
+            reached: true,
+            pathHash: testHash({ kind: 'direct-nav', request }),
+            transformHash: testHash({ kind: 'transform', entity: request.entity, next: request.target }),
+            projectionChanged: true,
           };
         };
       }
@@ -603,15 +624,43 @@ void test('Rust-backed ECRP load fails closed on authority rejection without rep
   assert.equal(calls.load.length, 1);
 });
 
-void test('Rust-backed RuntimeSession fails closed for unwired live policy helpers', () => {
-  const { bridge } = rustRuntimeSessionBridgeDouble();
+void test('Rust-backed RuntimeSession routes autonomous policy tick through bridge authority', () => {
+  const { bridge, calls } = rustRuntimeSessionBridgeDouble();
   const session = createRuntimeSessionFacade({ bridge, mode: 'rust' });
   session.initialize(sessionInput());
 
-  assert.throws(
-    () => session.runAutonomousPolicyTick({ targetCamera: cameraHandle(1), tick: 2 }),
-    (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'operation_unimplemented',
-  );
+  const tick = session.runAutonomousPolicyTick({
+    targetCamera: cameraHandle(1),
+    tick: 2,
+    enemy: { position: [3, 1, 7] },
+    target: { position: [1, 1, 1] },
+  });
+  assert.equal(tick.tick, 2);
+  assert.equal(tick.proposalSummary.acceptedProposalCount, 2);
+  assert.equal(tick.proposalSummary.rejectedProposalCount, 0);
+  assert.equal(tick.movementSummary?.authorityTransport, 'native_rust');
+  assert.equal(tick.movementSummary?.authoritySource, 'rust_entity_store');
+  assert.equal(tick.combatSummary?.status, 'accepted');
+  assert.equal(tick.combatSummary?.healthHash, 'fnv1a64:00000000000000cc');
+  assert.deepEqual(calls.nav.map((request) => request.entity), [20]);
+  assert.deepEqual(calls.fire, [2]);
+  assert.equal(tick.replay.lastRecordKind, 'runAutonomousPolicyTick');
+  assert.ok(tick.tickHash.startsWith('fnv1a64:'));
+
+  const rejected = session.runAutonomousPolicyTick({
+    targetCamera: cameraHandle(1),
+    tick: 3,
+    policySource: 'Date.now(); fetch("/forbidden");',
+    enemy: { position: [3, 1, 7] },
+    target: { position: [1, 1, 1] },
+  });
+  assert.equal(rejected.policy.sourceDiagnostics.length, 2);
+  assert.equal(rejected.proposalSummary.acceptedProposalCount, 0);
+  assert.equal(rejected.proposalSummary.rejectedProposalCount, 2);
+  assert.equal(rejected.proposalReceipts[0]?.rejection?.reason, 'policy_source_forbidden_capability');
+  assert.deepEqual(calls.nav.map((request) => request.entity), [20]);
+  assert.deepEqual(calls.fire, [2]);
+
   assert.throws(
     () => session.readNavProjection(),
     (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'operation_unimplemented',
