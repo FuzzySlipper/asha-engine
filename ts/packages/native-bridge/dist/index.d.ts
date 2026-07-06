@@ -16,6 +16,103 @@ interface NativeEnemyDirectNavMovementResult {
     readonly transformHash: string;
     readonly projectionChanged: boolean;
 }
+interface NativeFpsTransformCapability {
+    readonly translation: NativeVec3;
+    readonly rotation: readonly [number, number, number, number];
+    readonly scale: NativeVec3;
+}
+interface NativeFpsBoundsCapability {
+    readonly min: NativeVec3;
+    readonly max: NativeVec3;
+}
+interface NativeFpsHealth {
+    readonly current: number;
+    readonly max: number;
+}
+interface NativeFpsWeaponMount {
+    readonly weaponId: string;
+    readonly damage: number;
+    readonly rangeUnits: number;
+    readonly ammo: number;
+    readonly cooldownTicksAfterFire: number;
+}
+interface NativeFpsPolicyBinding {
+    readonly bindingId: string;
+    readonly policyId: string;
+    readonly viewKind: string;
+    readonly viewVersion: string;
+    readonly allowedIntents: readonly string[];
+    readonly runtimeMoment: string;
+}
+interface NativeFpsStoredEntityDefinition {
+    readonly entity: number;
+    readonly stableId: string;
+    readonly displayName: string;
+    readonly sourcePath: string;
+    readonly tags: readonly string[];
+    readonly role: string;
+    readonly transform: NativeFpsTransformCapability | null;
+    readonly bounds: NativeFpsBoundsCapability | null;
+    readonly renderVisible: boolean | null;
+    readonly staticCollider: boolean | null;
+    readonly health: NativeFpsHealth | null;
+    readonly weapon: NativeFpsWeaponMount | null;
+    readonly policyBinding: NativeFpsPolicyBinding | null;
+}
+interface NativeFpsRuntimeSessionSnapshot {
+    readonly backend: string;
+    readonly authoritySurface: string;
+    readonly projectBundle: string;
+    readonly sessionEpoch: number;
+    readonly lifecycleStatus: {
+        readonly state: string;
+        readonly entity?: number;
+        readonly tick?: number;
+    };
+    readonly playerEntity: number;
+    readonly enemyEntity: number;
+    readonly health: readonly {
+        readonly entity: number;
+        readonly current: number;
+        readonly max: number;
+    }[];
+    readonly policyBindings: readonly (NativeFpsPolicyBinding & {
+        readonly entity: number;
+    })[];
+    readonly replayRecords: readonly {
+        readonly replayUnit: string;
+        readonly entityHash: string;
+        readonly healthHash: string;
+        readonly recordHash: string;
+    }[];
+    readonly readSets: readonly {
+        readonly viewKind: string;
+        readonly owner: string;
+        readonly readSet: readonly string[];
+    }[];
+    readonly entityHash: string;
+    readonly healthHash: string;
+    readonly replayHash: string;
+}
+interface NativeFpsPrimaryFireResult {
+    readonly backend: string;
+    readonly authoritySurface: string;
+    readonly mutationOwner: string;
+    readonly workspaceTrace: readonly string[];
+    readonly shooter: number;
+    readonly target: number | null;
+    readonly targetHealthBefore: NativeFpsHealth | null;
+    readonly targetHealthAfter: NativeFpsHealth | null;
+    readonly lifecycleStatus: {
+        readonly state: string;
+        readonly entity?: number;
+        readonly tick?: number;
+    };
+    readonly targetRenderVisible: boolean | null;
+    readonly entityHash: string;
+    readonly healthHash: string;
+    readonly replayHash: string;
+}
 /**
  * The typed surface the compiled addon exports. Mirrors the `#[napi]` functions in
  * `native-bridge/src/lib.rs`. Kept in lockstep with the bridge manifest's stable
@@ -33,6 +130,10 @@ export interface NativeAddon {
     submitCommands(handle: number, commandsJson: string): CommandResult;
     stepSimulation(handle: number, tick: number): number;
     applyEnemyDirectNavMovement(handle: number, entity: number, seedPosition: NativeVec3, target: NativeVec3, maxStepUnits: number): NativeEnemyDirectNavMovementResult;
+    loadFpsRuntimeSession(handle: number, projectBundle: string, definitions: readonly NativeFpsStoredEntityDefinition[]): NativeFpsRuntimeSessionSnapshot;
+    readFpsRuntimeSession(handle: number): NativeFpsRuntimeSessionSnapshot;
+    applyFpsPrimaryFire(handle: number, tick: number, origin: NativeVec3, direction: NativeVec3): NativeFpsPrimaryFireResult;
+    restartFpsRuntimeSession(handle: number, expectedEpoch: number): NativeFpsRuntimeSessionSnapshot;
     readRenderDiffs(handle: number, cursor: number): RenderFrameDiff;
     saveCurrentWorld(handle: number): {
         artifactsWritten: number;

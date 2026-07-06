@@ -424,6 +424,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "protocol-entity-authoring"
+version = "0.1.0"
+dependencies = [
+ "core-ids",
+]
+
+[[package]]
 name = "protocol-view"
 version = "0.1.0"
 dependencies = [
@@ -486,6 +493,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "rule-lifecycle"
+version = "0.1.0"
+dependencies = [
+ "core-entity",
+ "core-ids",
+ "core-space",
+ "protocol-entity-authoring",
+ "svc-collision",
+ "svc-combat",
+ "svc-entity-authoring",
+]
+
+[[package]]
 name = "rule-voxel-edit"
 version = "0.1.0"
 dependencies = [
@@ -509,9 +529,12 @@ dependencies = [
  "core-math",
  "core-space",
  "core-voxel",
+ "protocol-entity-authoring",
  "protocol-view",
+ "rule-lifecycle",
  "rule-voxel-edit",
  "svc-collision",
+ "svc-combat",
  "svc-mesh",
  "svc-pathfinding",
  "svc-serialization",
@@ -628,6 +651,26 @@ dependencies = [
  "parry3d-f64",
  "svc-spatial",
  "svc-volume",
+]
+
+[[package]]
+name = "svc-combat"
+version = "0.1.0"
+dependencies = [
+ "core-ids",
+ "core-space",
+ "svc-collision",
+]
+
+[[package]]
+name = "svc-entity-authoring"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "core-entity",
+ "core-ids",
+ "core-math",
+ "protocol-entity-authoring",
 ]
 
 [[package]]

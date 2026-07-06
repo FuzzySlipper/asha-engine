@@ -1,6 +1,6 @@
 import type { CameraCollisionSnapshot, CameraProjectionSnapshot, CameraSnapshot, CommandBatch, CommandResult, ModelMaterialPreviewRequest, ModelMaterialPreviewSnapshot, PickResult, RenderFrameDiff, SceneObjectCommandResult, SceneObjectSnapshot, VoxelSelectionSnapshot } from '@asha/contracts';
 import { type NativeAddon } from '@asha/native-bridge';
-import { type CompositionStatus, type EnemyDirectNavMovementRequest, type EnemyDirectNavMovementResult, type EngineConfig, type EngineHandle, type FrameCursor, type ReplaySessionHandle, type ReplayStepReport, type RuntimeBridge, type RuntimeBufferView, type StepInputEnvelope, type StepResult, type VoxelMeshEvidenceSnapshot, type WorldLoadRequest, type WorldSaveSummary } from './bridge.js';
+import { type CompositionStatus, type EnemyDirectNavMovementRequest, type EnemyDirectNavMovementResult, type EngineConfig, type EngineHandle, type FrameCursor, type FpsPrimaryFireRequest, type FpsPrimaryFireResult, type FpsRuntimeSessionLoadRequest, type FpsRuntimeSessionRestartRequest, type FpsRuntimeSessionSnapshot, type ReplaySessionHandle, type ReplayStepReport, type RuntimeBridge, type RuntimeBufferView, type StepInputEnvelope, type StepResult, type VoxelMeshEvidenceSnapshot, type WorldLoadRequest, type WorldSaveSummary } from './bridge.js';
 /**
  * Manifest names of operations whose native (`#[napi]`) implementation is actually
  * wired. Everything else on {@link NativeRuntimeBridge} fail-closes with
@@ -17,6 +17,10 @@ export declare class NativeRuntimeBridge implements RuntimeBridge {
     submitCommands(batch: CommandBatch): CommandResult;
     stepSimulation(input: StepInputEnvelope): StepResult;
     applyEnemyDirectNavMovement(request: EnemyDirectNavMovementRequest): EnemyDirectNavMovementResult;
+    loadFpsRuntimeSession(request: FpsRuntimeSessionLoadRequest): FpsRuntimeSessionSnapshot;
+    readFpsRuntimeSession(): FpsRuntimeSessionSnapshot;
+    applyFpsPrimaryFire(request: FpsPrimaryFireRequest): FpsPrimaryFireResult;
+    restartFpsRuntimeSession(request: FpsRuntimeSessionRestartRequest): FpsRuntimeSessionSnapshot;
     readModelMaterialPreview(request: ModelMaterialPreviewRequest): ModelMaterialPreviewSnapshot;
     readSceneObjectSnapshot(): SceneObjectSnapshot;
     applySceneObjectCommand(): SceneObjectCommandResult;

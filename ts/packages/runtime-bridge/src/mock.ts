@@ -38,6 +38,11 @@ import {
   type EngineConfig,
   type EngineHandle,
   type FrameCursor,
+  type FpsPrimaryFireRequest,
+  type FpsPrimaryFireResult,
+  type FpsRuntimeSessionLoadRequest,
+  type FpsRuntimeSessionRestartRequest,
+  type FpsRuntimeSessionSnapshot,
   type ReplayFixture,
   type ReplaySessionHandle,
   type ReplayStepReport,
@@ -545,6 +550,9 @@ export class MockRuntimeBridge implements RuntimeBridge {
   #nextCamera = 1;
   #cameras = new Map<number, MutableCameraSnapshot>();
   #enemyTransforms = new Map<number, Vec3>();
+  #fpsSeed: FpsRuntimeSessionLoadRequest | null = null;
+  #fpsSnapshot: FpsRuntimeSessionSnapshot | null = null;
+  #fpsEpoch = 0;
 
   initializeEngine(config: EngineConfig): EngineHandle {
     if (!Number.isInteger(config.seed) || config.seed < 0) {
@@ -556,6 +564,9 @@ export class MockRuntimeBridge implements RuntimeBridge {
     const bytes = new Uint8Array(8);
     new DataView(bytes.buffer).setBigUint64(0, BigInt(config.seed), true);
     this.#buffer = bytes;
+    this.#fpsSeed = null;
+    this.#fpsSnapshot = null;
+    this.#fpsEpoch = 0;
     return handle;
   }
 
@@ -597,6 +608,124 @@ export class MockRuntimeBridge implements RuntimeBridge {
       transformHash: `fnv1a64:${fnv1a64(JSON.stringify({ entity, position: nextWaypoint }))}`,
       projectionChanged: false,
     };
+  }
+
+  loadFpsRuntimeSession(request: FpsRuntimeSessionLoadRequest): FpsRuntimeSessionSnapshot {
+    if (this.#engine === null) {
+      throw new RuntimeBridgeError('not_initialized', 'loadFpsRuntimeSession before initializeEngine');
+    }
+    if (request.projectBundle.trim() === '' || request.definitions.length === 0) {
+      throw new RuntimeBridgeError('invalid_input', 'FPS RuntimeSession ProjectBundle is invalid');
+    }
+    const player = request.definitions.find((definition) => definition.role === 'player');
+    const enemy = request.definitions.find((definition) => definition.role === 'enemy');
+    if (player === undefined || enemy === undefined) {
+      throw new RuntimeBridgeError('invalid_input', 'FPS RuntimeSession requires player and enemy definitions');
+    }
+    this.#fpsEpoch += 1;
+    this.#fpsSeed = request;
+    const health = request.definitions.flatMap((definition) =>
+      definition.health === null
+        ? []
+        : [{ entity: definition.entity, current: definition.health.current, max: definition.health.max }],
+    );
+    const policyBindings = request.definitions.flatMap((definition) =>
+      definition.policyBinding === null ? [] : [{ entity: definition.entity, ...definition.policyBinding }],
+    );
+    const entityHash = `fnv1a64:${fnv1a64(JSON.stringify({ projectBundle: request.projectBundle, definitions: request.definitions.map((d) => d.entity) }))}`;
+    const healthHash = `fnv1a64:${fnv1a64(JSON.stringify(health))}`;
+    const replayHash = `fnv1a64:${fnv1a64(`${entityHash}|${healthHash}|runtime_session.fps.bootstrap.v0`)}`;
+    this.#fpsSnapshot = {
+      backend: 'reference_bridge',
+      authoritySurface: 'runtime_session.fps.reference.v0',
+      projectBundle: request.projectBundle,
+      sessionEpoch: this.#fpsEpoch,
+      lifecycleStatus: { state: 'active' },
+      playerEntity: player.entity,
+      enemyEntity: enemy.entity,
+      health,
+      policyBindings,
+      replayRecords: [{ replayUnit: 'runtime_session.fps.bootstrap.reference.v0', entityHash, healthHash, recordHash: replayHash }],
+      readSets: [
+        { viewKind: 'runtime_session.lifecycle.v0', owner: 'reference-bridge', readSet: ['mock.lifecycle'] },
+        { viewKind: 'runtime_session.health.v0', owner: 'reference-bridge', readSet: ['mock.health'] },
+      ],
+      entityHash,
+      healthHash,
+      replayHash,
+    };
+    return this.#fpsSnapshot;
+  }
+
+  readFpsRuntimeSession(): FpsRuntimeSessionSnapshot {
+    if (this.#fpsSnapshot === null) {
+      throw new RuntimeBridgeError('not_initialized', 'readFpsRuntimeSession before loadFpsRuntimeSession');
+    }
+    return this.#fpsSnapshot;
+  }
+
+  applyFpsPrimaryFire(request: FpsPrimaryFireRequest): FpsPrimaryFireResult {
+    if (this.#fpsSnapshot === null || this.#fpsSeed === null) {
+      throw new RuntimeBridgeError('not_initialized', 'applyFpsPrimaryFire before loadFpsRuntimeSession');
+    }
+    const tick = nonNegativeSafeInteger(request.tick, 'tick');
+    validateVec3(request.origin, 'origin');
+    validateVec3(request.direction, 'direction');
+    const player = this.#fpsSeed.definitions.find((definition) => definition.role === 'player');
+    const enemy = this.#fpsSeed.definitions.find((definition) => definition.role === 'enemy');
+    if (player?.weapon === null || player?.weapon === undefined || enemy === undefined) {
+      throw new RuntimeBridgeError('invalid_input', 'FPS RuntimeSession is missing player weapon or enemy');
+    }
+    const before = this.#fpsSnapshot.health.find((health) => health.entity === enemy.entity) ?? null;
+    const after = before === null
+      ? null
+      : { ...before, current: Math.max(0, before.current - player.weapon.damage) };
+    const health = this.#fpsSnapshot.health.map((entry) => (entry.entity === enemy.entity && after !== null ? after : entry));
+    const lifecycleStatus = after !== null && after.current === 0
+      ? { state: 'enemy_defeated' as const, entity: enemy.entity, tick }
+      : this.#fpsSnapshot.lifecycleStatus;
+    const healthHash = `fnv1a64:${fnv1a64(JSON.stringify(health))}`;
+    const replayHash = `fnv1a64:${fnv1a64(`${this.#fpsSnapshot.entityHash}|${healthHash}|${tick}|runtime_session.fps.primary_fire.reference.v0`)}`;
+    const record = {
+      replayUnit: 'runtime_session.fps.primary_fire.reference.v0',
+      entityHash: this.#fpsSnapshot.entityHash,
+      healthHash,
+      recordHash: replayHash,
+    };
+    this.#fpsSnapshot = {
+      ...this.#fpsSnapshot,
+      lifecycleStatus,
+      health,
+      healthHash,
+      replayHash,
+      replayRecords: [...this.#fpsSnapshot.replayRecords, record],
+    };
+    return {
+      backend: 'reference_bridge',
+      authoritySurface: 'runtime_session.fps.reference_primary_fire.v0',
+      mutationOwner: 'reference-bridge',
+      workspaceTrace: ['reference fixture primary-fire receipt'],
+      shooter: player.entity,
+      target: enemy.entity,
+      targetHealthBefore: before,
+      targetHealthAfter: after,
+      lifecycleStatus,
+      targetRenderVisible: lifecycleStatus.state === 'enemy_defeated' ? false : true,
+      entityHash: this.#fpsSnapshot.entityHash,
+      healthHash,
+      replayHash,
+    };
+  }
+
+  restartFpsRuntimeSession(request: FpsRuntimeSessionRestartRequest): FpsRuntimeSessionSnapshot {
+    if (this.#fpsSeed === null) {
+      throw new RuntimeBridgeError('not_initialized', 'restartFpsRuntimeSession before loadFpsRuntimeSession');
+    }
+    const expectedEpoch = nonNegativeSafeInteger(request.expectedEpoch, 'expectedEpoch');
+    if (expectedEpoch !== this.#fpsEpoch) {
+      throw new RuntimeBridgeError('invalid_input', `restart expected epoch ${expectedEpoch} but current epoch is ${this.#fpsEpoch}`);
+    }
+    return this.loadFpsRuntimeSession(this.#fpsSeed);
   }
 
   submitCommands(batch: CommandBatch): CommandResult {

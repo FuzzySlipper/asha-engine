@@ -18,8 +18,11 @@ use std::sync::{Mutex, OnceLock};
 use napi_derive::napi;
 use runtime_bridge_api::{
     set_voxel_command, CommandBatch, EnemyDirectNavMovementRequest, EngineConfig,
-    ReferenceBridge, RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind,
-    StepInputEnvelope, WorldLoadRequest,
+    FpsBridgeBoundsCapability, FpsBridgeHealth, FpsBridgePolicyBinding, FpsBridgeRole,
+    FpsBridgeStoredEntityDefinition, FpsBridgeTransformCapability, FpsBridgeWeaponMount,
+    FpsPrimaryFireRequest, FpsPrimaryFireResult, FpsRuntimeSessionLoadRequest,
+    FpsRuntimeSessionRestartRequest, FpsRuntimeSessionSnapshot, ReferenceBridge, RuntimeBridge,
+    RuntimeBridgeError, RuntimeBridgeErrorKind, StepInputEnvelope, WorldLoadRequest,
 };
 use serde::Deserialize;
 
@@ -180,7 +183,11 @@ impl NativeVec3 {
                 format!("{field} must contain finite coordinates"),
             )));
         }
-        Ok(core_math::Vec3::new(self.x as f32, self.y as f32, self.z as f32))
+        Ok(core_math::Vec3::new(
+            self.x as f32,
+            self.y as f32,
+            self.z as f32,
+        ))
     }
 }
 
@@ -206,9 +213,7 @@ fn native_vec3(value: core_math::Vec3) -> NativeVec3 {
     }
 }
 
-impl From<runtime_bridge_api::EnemyDirectNavMovementResult>
-    for NativeEnemyDirectNavMovementResult
-{
+impl From<runtime_bridge_api::EnemyDirectNavMovementResult> for NativeEnemyDirectNavMovementResult {
     fn from(value: runtime_bridge_api::EnemyDirectNavMovementResult) -> Self {
         Self {
             entity: value.entity as i64,
@@ -221,6 +226,340 @@ impl From<runtime_bridge_api::EnemyDirectNavMovementResult>
             path_hash: format!("fnv1a64:{:016x}", value.path_hash),
             transform_hash: format!("fnv1a64:{:016x}", value.transform_hash),
             projection_changed: value.projection_changed,
+        }
+    }
+}
+
+#[napi(object)]
+pub struct NativeFpsTransformCapability {
+    pub translation: NativeVec3,
+    pub rotation: Vec<f64>,
+    pub scale: NativeVec3,
+}
+
+#[napi(object)]
+pub struct NativeFpsBoundsCapability {
+    pub min: NativeVec3,
+    pub max: NativeVec3,
+}
+
+#[napi(object)]
+pub struct NativeFpsHealth {
+    pub current: u32,
+    pub max: u32,
+}
+
+#[napi(object)]
+pub struct NativeFpsWeaponMount {
+    pub weapon_id: String,
+    pub damage: u32,
+    pub range_units: u32,
+    pub ammo: u32,
+    pub cooldown_ticks_after_fire: u32,
+}
+
+#[napi(object)]
+pub struct NativeFpsPolicyBinding {
+    pub binding_id: String,
+    pub policy_id: String,
+    pub view_kind: String,
+    pub view_version: String,
+    pub allowed_intents: Vec<String>,
+    pub runtime_moment: String,
+}
+
+#[napi(object)]
+pub struct NativeFpsStoredEntityDefinition {
+    pub entity: i64,
+    pub stable_id: String,
+    pub display_name: String,
+    pub source_path: String,
+    pub tags: Vec<String>,
+    pub role: String,
+    pub transform: Option<NativeFpsTransformCapability>,
+    pub bounds: Option<NativeFpsBoundsCapability>,
+    pub render_visible: Option<bool>,
+    pub static_collider: Option<bool>,
+    pub health: Option<NativeFpsHealth>,
+    pub weapon: Option<NativeFpsWeaponMount>,
+    pub policy_binding: Option<NativeFpsPolicyBinding>,
+}
+
+#[napi(object)]
+pub struct NativeFpsLifecycleStatus {
+    pub state: String,
+    pub entity: Option<i64>,
+    pub tick: Option<i64>,
+}
+
+#[napi(object)]
+pub struct NativeFpsEntityHealthReadout {
+    pub entity: i64,
+    pub current: u32,
+    pub max: u32,
+}
+
+#[napi(object)]
+pub struct NativeFpsPolicyBindingReadout {
+    pub entity: i64,
+    pub binding_id: String,
+    pub policy_id: String,
+    pub view_kind: String,
+    pub view_version: String,
+    pub allowed_intents: Vec<String>,
+    pub runtime_moment: String,
+}
+
+#[napi(object)]
+pub struct NativeFpsReplayEvidence {
+    pub replay_unit: String,
+    pub entity_hash: String,
+    pub health_hash: String,
+    pub record_hash: String,
+}
+
+#[napi(object)]
+pub struct NativeFpsReadSetEvidence {
+    pub view_kind: String,
+    pub owner: String,
+    pub read_set: Vec<String>,
+}
+
+#[napi(object)]
+pub struct NativeFpsRuntimeSessionSnapshot {
+    pub backend: String,
+    pub authority_surface: String,
+    pub project_bundle: String,
+    pub session_epoch: i64,
+    pub lifecycle_status: NativeFpsLifecycleStatus,
+    pub player_entity: i64,
+    pub enemy_entity: i64,
+    pub health: Vec<NativeFpsEntityHealthReadout>,
+    pub policy_bindings: Vec<NativeFpsPolicyBindingReadout>,
+    pub replay_records: Vec<NativeFpsReplayEvidence>,
+    pub read_sets: Vec<NativeFpsReadSetEvidence>,
+    pub entity_hash: String,
+    pub health_hash: String,
+    pub replay_hash: String,
+}
+
+#[napi(object)]
+pub struct NativeFpsPrimaryFireResult {
+    pub backend: String,
+    pub authority_surface: String,
+    pub mutation_owner: String,
+    pub workspace_trace: Vec<String>,
+    pub shooter: i64,
+    pub target: Option<i64>,
+    pub target_health_before: Option<NativeFpsHealth>,
+    pub target_health_after: Option<NativeFpsHealth>,
+    pub lifecycle_status: NativeFpsLifecycleStatus,
+    pub target_render_visible: Option<bool>,
+    pub entity_hash: String,
+    pub health_hash: String,
+    pub replay_hash: String,
+}
+
+fn native_hash(value: u64) -> String {
+    format!("fnv1a64:{value:016x}")
+}
+
+fn native_fps_role(value: &str) -> napi::Result<FpsBridgeRole> {
+    match value {
+        "player" => Ok(FpsBridgeRole::Player),
+        "enemy" => Ok(FpsBridgeRole::Enemy),
+        "neutral" => Ok(FpsBridgeRole::Neutral),
+        other => Err(to_napi(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::InvalidInput,
+            format!("unknown FPS role '{other}'"),
+        ))),
+    }
+}
+
+fn native_fps_lifecycle_status(
+    value: runtime_bridge_api::FpsBridgeLifecycleStatus,
+) -> NativeFpsLifecycleStatus {
+    match value {
+        runtime_bridge_api::FpsBridgeLifecycleStatus::Active => NativeFpsLifecycleStatus {
+            state: "active".into(),
+            entity: None,
+            tick: None,
+        },
+        runtime_bridge_api::FpsBridgeLifecycleStatus::EnemyDefeated { entity, tick } => {
+            NativeFpsLifecycleStatus {
+                state: "enemy_defeated".into(),
+                entity: Some(entity as i64),
+                tick: Some(tick as i64),
+            }
+        }
+    }
+}
+
+fn bridge_fps_transform(
+    value: NativeFpsTransformCapability,
+    field: &str,
+) -> napi::Result<FpsBridgeTransformCapability> {
+    if value.rotation.len() != 4 || value.rotation.iter().any(|v| !v.is_finite()) {
+        return Err(to_napi(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::InvalidInput,
+            format!("{field}.rotation must be a finite quaternion"),
+        )));
+    }
+    let translation = value.translation.to_vec3(&format!("{field}.translation"))?;
+    let scale = value.scale.to_vec3(&format!("{field}.scale"))?;
+    Ok(FpsBridgeTransformCapability {
+        translation: [translation.x, translation.y, translation.z],
+        rotation: [
+            value.rotation[0] as f32,
+            value.rotation[1] as f32,
+            value.rotation[2] as f32,
+            value.rotation[3] as f32,
+        ],
+        scale: [scale.x, scale.y, scale.z],
+    })
+}
+
+fn bridge_fps_bounds(
+    value: NativeFpsBoundsCapability,
+    field: &str,
+) -> napi::Result<FpsBridgeBoundsCapability> {
+    let min = value.min.to_vec3(&format!("{field}.min"))?;
+    let max = value.max.to_vec3(&format!("{field}.max"))?;
+    Ok(FpsBridgeBoundsCapability {
+        min: [min.x, min.y, min.z],
+        max: [max.x, max.y, max.z],
+    })
+}
+
+fn bridge_fps_definitions(
+    definitions: Vec<NativeFpsStoredEntityDefinition>,
+) -> napi::Result<Vec<FpsBridgeStoredEntityDefinition>> {
+    definitions
+        .into_iter()
+        .enumerate()
+        .map(|(index, value)| {
+            let field = format!("definitions[{index}]");
+            Ok(FpsBridgeStoredEntityDefinition {
+                entity: u64_input(value.entity, &format!("{field}.entity"))?,
+                stable_id: value.stable_id,
+                display_name: value.display_name,
+                source_path: value.source_path,
+                tags: value.tags,
+                role: native_fps_role(&value.role)?,
+                transform: value
+                    .transform
+                    .map(|transform| bridge_fps_transform(transform, &format!("{field}.transform")))
+                    .transpose()?,
+                bounds: value
+                    .bounds
+                    .map(|bounds| bridge_fps_bounds(bounds, &format!("{field}.bounds")))
+                    .transpose()?,
+                render_visible: value.render_visible,
+                static_collider: value.static_collider,
+                health: value.health.map(|health| FpsBridgeHealth {
+                    current: health.current,
+                    max: health.max,
+                }),
+                weapon: value.weapon.map(|weapon| FpsBridgeWeaponMount {
+                    weapon_id: weapon.weapon_id,
+                    damage: weapon.damage,
+                    range_units: weapon.range_units,
+                    ammo: weapon.ammo,
+                    cooldown_ticks_after_fire: weapon.cooldown_ticks_after_fire,
+                }),
+                policy_binding: value.policy_binding.map(|binding| FpsBridgePolicyBinding {
+                    binding_id: binding.binding_id,
+                    policy_id: binding.policy_id,
+                    view_kind: binding.view_kind,
+                    view_version: binding.view_version,
+                    allowed_intents: binding.allowed_intents,
+                    runtime_moment: binding.runtime_moment,
+                }),
+            })
+        })
+        .collect()
+}
+
+impl From<FpsRuntimeSessionSnapshot> for NativeFpsRuntimeSessionSnapshot {
+    fn from(value: FpsRuntimeSessionSnapshot) -> Self {
+        Self {
+            backend: value.backend,
+            authority_surface: value.authority_surface,
+            project_bundle: value.project_bundle,
+            session_epoch: value.session_epoch as i64,
+            lifecycle_status: native_fps_lifecycle_status(value.lifecycle_status),
+            player_entity: value.player_entity as i64,
+            enemy_entity: value.enemy_entity as i64,
+            health: value
+                .health
+                .into_iter()
+                .map(|health| NativeFpsEntityHealthReadout {
+                    entity: health.entity as i64,
+                    current: health.current,
+                    max: health.max,
+                })
+                .collect(),
+            policy_bindings: value
+                .policy_bindings
+                .into_iter()
+                .map(|binding| NativeFpsPolicyBindingReadout {
+                    entity: binding.entity as i64,
+                    binding_id: binding.binding_id,
+                    policy_id: binding.policy_id,
+                    view_kind: binding.view_kind,
+                    view_version: binding.view_version,
+                    allowed_intents: binding.allowed_intents,
+                    runtime_moment: binding.runtime_moment,
+                })
+                .collect(),
+            replay_records: value
+                .replay_records
+                .into_iter()
+                .map(|record| NativeFpsReplayEvidence {
+                    replay_unit: record.replay_unit,
+                    entity_hash: native_hash(record.entity_hash),
+                    health_hash: native_hash(record.health_hash),
+                    record_hash: native_hash(record.record_hash),
+                })
+                .collect(),
+            read_sets: value
+                .read_sets
+                .into_iter()
+                .map(|read_set| NativeFpsReadSetEvidence {
+                    view_kind: read_set.view_kind,
+                    owner: read_set.owner,
+                    read_set: read_set.read_set,
+                })
+                .collect(),
+            entity_hash: native_hash(value.entity_hash),
+            health_hash: native_hash(value.health_hash),
+            replay_hash: native_hash(value.replay_hash),
+        }
+    }
+}
+
+impl From<FpsPrimaryFireResult> for NativeFpsPrimaryFireResult {
+    fn from(value: FpsPrimaryFireResult) -> Self {
+        Self {
+            backend: value.backend,
+            authority_surface: value.authority_surface,
+            mutation_owner: value.mutation_owner,
+            workspace_trace: value.workspace_trace,
+            shooter: value.shooter as i64,
+            target: value.target.map(|target| target as i64),
+            target_health_before: value.target_health_before.map(|health| NativeFpsHealth {
+                current: health.current,
+                max: health.max,
+            }),
+            target_health_after: value.target_health_after.map(|health| NativeFpsHealth {
+                current: health.current,
+                max: health.max,
+            }),
+            lifecycle_status: native_fps_lifecycle_status(value.lifecycle_status),
+            target_render_visible: value.target_render_visible,
+            entity_hash: native_hash(value.entity_hash),
+            health_hash: native_hash(value.health_hash),
+            replay_hash: native_hash(value.replay_hash),
         }
     }
 }
@@ -370,6 +709,78 @@ pub fn apply_enemy_direct_nav_movement(
 }
 
 #[napi]
+pub fn load_fps_runtime_session(
+    handle: i64,
+    project_bundle: String,
+    definitions: Vec<NativeFpsStoredEntityDefinition>,
+) -> napi::Result<NativeFpsRuntimeSessionSnapshot> {
+    let definitions = bridge_fps_definitions(definitions)?;
+    with_bridge(handle, |bridge| {
+        bridge
+            .load_fps_runtime_session(FpsRuntimeSessionLoadRequest {
+                project_bundle,
+                definitions,
+            })
+            .map(NativeFpsRuntimeSessionSnapshot::from)
+            .map_err(to_napi)
+    })
+}
+
+#[napi]
+pub fn read_fps_runtime_session(handle: i64) -> napi::Result<NativeFpsRuntimeSessionSnapshot> {
+    with_bridge(handle, |bridge| {
+        bridge
+            .read_fps_runtime_session()
+            .map(NativeFpsRuntimeSessionSnapshot::from)
+            .map_err(to_napi)
+    })
+}
+
+#[napi]
+pub fn apply_fps_primary_fire(
+    handle: i64,
+    tick: i64,
+    origin: NativeVec3,
+    direction: NativeVec3,
+) -> napi::Result<NativeFpsPrimaryFireResult> {
+    let tick = u64_input(tick, "tick")?;
+    let origin = origin.to_vec3("origin")?;
+    let direction = direction.to_vec3("direction")?;
+    with_bridge(handle, |bridge| {
+        bridge
+            .apply_fps_primary_fire(FpsPrimaryFireRequest {
+                tick,
+                origin: [
+                    f64::from(origin.x),
+                    f64::from(origin.y),
+                    f64::from(origin.z),
+                ],
+                direction: [
+                    f64::from(direction.x),
+                    f64::from(direction.y),
+                    f64::from(direction.z),
+                ],
+            })
+            .map(NativeFpsPrimaryFireResult::from)
+            .map_err(to_napi)
+    })
+}
+
+#[napi]
+pub fn restart_fps_runtime_session(
+    handle: i64,
+    expected_epoch: i64,
+) -> napi::Result<NativeFpsRuntimeSessionSnapshot> {
+    let expected_epoch = u64_input(expected_epoch, "expected_epoch")?;
+    with_bridge(handle, |bridge| {
+        bridge
+            .restart_fps_runtime_session(FpsRuntimeSessionRestartRequest { expected_epoch })
+            .map(NativeFpsRuntimeSessionSnapshot::from)
+            .map_err(to_napi)
+    })
+}
+
+#[napi]
 pub fn read_render_diffs(handle: i64, _cursor: i64) -> napi::Result<NativeRenderFrameDiff> {
     with_bridge(handle, |_bridge| {
         Ok(NativeRenderFrameDiff { ops: Vec::new() })
@@ -402,10 +813,14 @@ mod tests {
 
     const WIRED_NAPI_EXPORTS: &[&str] = &[
         "applyEnemyDirectNavMovement",
+        "applyFpsPrimaryFire",
         "getCompositionStatus",
         "initializeEngine",
         "loadWorldBundle",
+        "loadFpsRuntimeSession",
         "readRenderDiffs",
+        "readFpsRuntimeSession",
+        "restartFpsRuntimeSession",
         "saveCurrentWorld",
         "stepSimulation",
         "submitCommands",
@@ -417,15 +832,119 @@ mod tests {
             WIRED_NAPI_EXPORTS,
             &[
                 "applyEnemyDirectNavMovement",
+                "applyFpsPrimaryFire",
                 "getCompositionStatus",
                 "initializeEngine",
                 "loadWorldBundle",
+                "loadFpsRuntimeSession",
                 "readRenderDiffs",
+                "readFpsRuntimeSession",
+                "restartFpsRuntimeSession",
                 "saveCurrentWorld",
                 "stepSimulation",
                 "submitCommands",
             ]
         );
+    }
+
+    fn native_fps_definitions(enemy_health: u32) -> Vec<NativeFpsStoredEntityDefinition> {
+        vec![
+            NativeFpsStoredEntityDefinition {
+                entity: 101,
+                stable_id: "actor/custom-player".into(),
+                display_name: "Custom Player".into(),
+                source_path: "catalogs/actors/player.entity.json".into(),
+                tags: vec!["player".into()],
+                role: "player".into(),
+                transform: Some(NativeFpsTransformCapability {
+                    translation: NativeVec3 {
+                        x: 0.0,
+                        y: 1.5,
+                        z: 0.0,
+                    },
+                    rotation: vec![0.0, 0.0, 0.0, 1.0],
+                    scale: NativeVec3 {
+                        x: 1.0,
+                        y: 1.0,
+                        z: 1.0,
+                    },
+                }),
+                bounds: Some(NativeFpsBoundsCapability {
+                    min: NativeVec3 {
+                        x: 2.2,
+                        y: 1.0,
+                        z: 1.0,
+                    },
+                    max: NativeVec3 {
+                        x: 2.8,
+                        y: 2.0,
+                        z: 2.0,
+                    },
+                }),
+                render_visible: Some(true),
+                static_collider: Some(false),
+                health: Some(NativeFpsHealth {
+                    current: 88,
+                    max: 88,
+                }),
+                weapon: Some(NativeFpsWeaponMount {
+                    weapon_id: "weapon.custom.primary".into(),
+                    damage: 75,
+                    range_units: 16,
+                    ammo: 3,
+                    cooldown_ticks_after_fire: 4,
+                }),
+                policy_binding: None,
+            },
+            NativeFpsStoredEntityDefinition {
+                entity: 777,
+                stable_id: "actor/custom-enemy".into(),
+                display_name: "Custom Enemy".into(),
+                source_path: "catalogs/actors/enemy.entity.json".into(),
+                tags: vec!["enemy".into()],
+                role: "enemy".into(),
+                transform: Some(NativeFpsTransformCapability {
+                    translation: NativeVec3 {
+                        x: 0.0,
+                        y: 1.5,
+                        z: 5.2,
+                    },
+                    rotation: vec![0.0, 0.0, 0.0, 1.0],
+                    scale: NativeVec3 {
+                        x: 1.0,
+                        y: 1.0,
+                        z: 1.0,
+                    },
+                }),
+                bounds: Some(NativeFpsBoundsCapability {
+                    min: NativeVec3 {
+                        x: 2.2,
+                        y: 1.0,
+                        z: 5.0,
+                    },
+                    max: NativeVec3 {
+                        x: 2.8,
+                        y: 2.0,
+                        z: 5.8,
+                    },
+                }),
+                render_visible: Some(true),
+                static_collider: Some(false),
+                health: Some(NativeFpsHealth {
+                    current: enemy_health,
+                    max: enemy_health,
+                }),
+                weapon: None,
+                policy_binding: Some(NativeFpsPolicyBinding {
+                    binding_id: "binding.enemy.custom.v0".into(),
+                    policy_id: "policy.enemy.custom.v0".into(),
+                    view_kind: "runtime_session.nav_policy_view.v0".into(),
+                    view_version: "v0".into(),
+                    allowed_intents: vec!["runtime.intent.primary_fire.v0".into()],
+                    runtime_moment: "runtime.tick.enemy_policy.v0".into(),
+                }),
+            },
+        ]
     }
 
     #[test]
@@ -474,6 +993,49 @@ mod tests {
         assert!((moved.next_waypoint.y - 0.598).abs() < 0.0005);
         assert_eq!(moved.path_hash, "fnv1a64:69ed74d692922db7");
         assert!(moved.transform_hash.starts_with("fnv1a64:"));
+
+        let fps_loaded =
+            load_fps_runtime_session(handle, "custom-demo".into(), native_fps_definitions(75))
+                .expect("fps runtime session loads");
+        assert_eq!(fps_loaded.backend, "reference_bridge_rust");
+        assert_eq!(fps_loaded.player_entity, 101);
+        assert_eq!(fps_loaded.enemy_entity, 777);
+        assert_eq!(fps_loaded.policy_bindings.len(), 1);
+        assert!(fps_loaded.replay_hash.starts_with("fnv1a64:"));
+
+        let fps_fire = apply_fps_primary_fire(
+            handle,
+            9,
+            NativeVec3 {
+                x: 2.5,
+                y: 1.5,
+                z: 1.5,
+            },
+            NativeVec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 1.0,
+            },
+        )
+        .expect("fps primary fire applies");
+        assert_eq!(fps_fire.target, Some(777));
+        assert_eq!(fps_fire.lifecycle_status.state, "enemy_defeated");
+        assert_eq!(
+            fps_fire
+                .target_health_after
+                .as_ref()
+                .map(|health| health.current),
+            Some(0)
+        );
+
+        let fps_read = read_fps_runtime_session(handle).expect("fps session reads");
+        assert_eq!(fps_read.replay_records.len(), 2);
+        assert_eq!(fps_read.replay_hash, fps_fire.replay_hash);
+
+        let fps_restarted = restart_fps_runtime_session(handle, fps_read.session_epoch)
+            .expect("fps session restarts");
+        assert_eq!(fps_restarted.session_epoch, fps_read.session_epoch + 1);
+        assert_eq!(fps_restarted.lifecycle_status.state, "active");
 
         let frame = read_render_diffs(handle, 0).expect("render diff read is bounded");
         assert!(frame.ops.is_empty());

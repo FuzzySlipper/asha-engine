@@ -24,6 +24,10 @@ export const NATIVE_WIRED_OPERATIONS = new Set([
     'submit_commands',
     'step_simulation',
     'apply_enemy_direct_nav_movement',
+    'load_fps_runtime_session',
+    'read_fps_runtime_session',
+    'apply_fps_primary_fire',
+    'restart_fps_runtime_session',
     'read_render_diffs',
     'save_current_world',
     'get_composition_status',
@@ -77,6 +81,111 @@ function nativeAuthoritySource(value) {
         return value;
     }
     throw new RuntimeBridgeError('internal', `unknown native enemy movement authority source '${value}'`);
+}
+function fpsBackend(value) {
+    if (value === 'native_rust' || value === 'reference_bridge') {
+        return value;
+    }
+    // The Rust reference bridge reports reference_bridge_rust internally; the TS
+    // native facade classifies the transport path as native_rust.
+    if (value === 'reference_bridge_rust') {
+        return 'native_rust';
+    }
+    throw new RuntimeBridgeError('internal', `unknown native FPS backend '${value}'`);
+}
+function fpsRole(value) {
+    if (value === 'player' || value === 'enemy' || value === 'neutral')
+        return value;
+    throw new RuntimeBridgeError('invalid_input', `unknown FPS role '${String(value)}'`);
+}
+function fpsLifecycleStatus(value) {
+    if (value.state === 'active')
+        return { state: 'active' };
+    if (value.state === 'enemy_defeated') {
+        return {
+            state: 'enemy_defeated',
+            entity: nonNegativeSafeInteger(value.entity ?? -1, 'lifecycleStatus.entity'),
+            tick: nonNegativeSafeInteger(value.tick ?? -1, 'lifecycleStatus.tick'),
+        };
+    }
+    throw new RuntimeBridgeError('internal', `unknown native FPS lifecycle status '${value.state}'`);
+}
+function hashString(value, field) {
+    if (!/^fnv1a64:[0-9a-f]{16}$/u.test(value)) {
+        throw new RuntimeBridgeError('internal', `native ${field} was not an fnv1a64 hash`);
+    }
+    return value;
+}
+function normalizeFpsSnapshot(value) {
+    return {
+        ...value,
+        backend: fpsBackend(value.backend),
+        lifecycleStatus: fpsLifecycleStatus(value.lifecycleStatus),
+        entityHash: hashString(value.entityHash, 'entityHash'),
+        healthHash: hashString(value.healthHash, 'healthHash'),
+        replayHash: hashString(value.replayHash, 'replayHash'),
+        replayRecords: value.replayRecords.map((record) => ({
+            ...record,
+            entityHash: hashString(record.entityHash, 'replayRecords.entityHash'),
+            healthHash: hashString(record.healthHash, 'replayRecords.healthHash'),
+            recordHash: hashString(record.recordHash, 'replayRecords.recordHash'),
+        })),
+    };
+}
+function nativeFpsLoadRequest(request) {
+    if (request.projectBundle.trim() === '') {
+        throw new RuntimeBridgeError('invalid_input', 'projectBundle is required');
+    }
+    if (request.definitions.length === 0) {
+        throw new RuntimeBridgeError('invalid_input', 'definitions must not be empty');
+    }
+    const definitions = request.definitions.map((definition, index) => {
+        nonNegativeSafeInteger(definition.entity, `definitions[${index}].entity`);
+        fpsRole(definition.role);
+        const transform = definition.transform === null
+            ? null
+            : {
+                translation: nativeVec3(definition.transform.translation, `definitions[${index}].transform.translation`),
+                rotation: definition.transform.rotation,
+                scale: nativeVec3(definition.transform.scale, `definitions[${index}].transform.scale`),
+            };
+        if (definition.transform !== null) {
+            if (definition.transform.rotation.length !== 4 || definition.transform.rotation.some((value) => !Number.isFinite(value))) {
+                throw new RuntimeBridgeError('invalid_input', `definitions[${index}].transform.rotation must be a finite quat`);
+            }
+        }
+        const bounds = definition.bounds === null
+            ? null
+            : {
+                min: nativeVec3(definition.bounds.min, `definitions[${index}].bounds.min`),
+                max: nativeVec3(definition.bounds.max, `definitions[${index}].bounds.max`),
+            };
+        if (definition.bounds !== null) {
+        }
+        if (definition.health !== null) {
+            u32(definition.health.current, `definitions[${index}].health.current`);
+            u32(definition.health.max, `definitions[${index}].health.max`);
+        }
+        if (definition.weapon !== null) {
+            u32(definition.weapon.damage, `definitions[${index}].weapon.damage`);
+            u32(definition.weapon.rangeUnits, `definitions[${index}].weapon.rangeUnits`);
+            u32(definition.weapon.ammo, `definitions[${index}].weapon.ammo`);
+            u32(definition.weapon.cooldownTicksAfterFire, `definitions[${index}].weapon.cooldownTicksAfterFire`);
+        }
+        return {
+            ...definition,
+            transform,
+            bounds,
+            tags: [...definition.tags],
+            policyBinding: definition.policyBinding === null
+                ? null
+                : {
+                    ...definition.policyBinding,
+                    allowedIntents: [...definition.policyBinding.allowedIntents],
+                },
+        };
+    });
+    return { projectBundle: request.projectBundle, definitions };
 }
 export class NativeRuntimeBridge {
     #addon;
@@ -145,6 +254,38 @@ export class NativeRuntimeBridge {
             transformHash: result.transformHash,
             projectionChanged: result.projectionChanged,
         };
+    }
+    loadFpsRuntimeSession(request) {
+        const handle = this.#requireHandle('loadFpsRuntimeSession');
+        const nativeRequest = nativeFpsLoadRequest(request);
+        const result = callNative(() => this.#addon.loadFpsRuntimeSession(handle, nativeRequest.projectBundle, nativeRequest.definitions));
+        return normalizeFpsSnapshot(result);
+    }
+    readFpsRuntimeSession() {
+        const handle = this.#requireHandle('readFpsRuntimeSession');
+        const result = callNative(() => this.#addon.readFpsRuntimeSession(handle));
+        return normalizeFpsSnapshot(result);
+    }
+    applyFpsPrimaryFire(request) {
+        const handle = this.#requireHandle('applyFpsPrimaryFire');
+        const tick = nonNegativeSafeInteger(request.tick, 'tick');
+        const origin = nativeVec3(request.origin, 'origin');
+        const direction = nativeVec3(request.direction, 'direction');
+        const result = callNative(() => this.#addon.applyFpsPrimaryFire(handle, tick, origin, direction));
+        return {
+            ...result,
+            backend: fpsBackend(result.backend),
+            lifecycleStatus: fpsLifecycleStatus(result.lifecycleStatus),
+            entityHash: hashString(result.entityHash, 'entityHash'),
+            healthHash: hashString(result.healthHash, 'healthHash'),
+            replayHash: hashString(result.replayHash, 'replayHash'),
+        };
+    }
+    restartFpsRuntimeSession(request) {
+        const handle = this.#requireHandle('restartFpsRuntimeSession');
+        const expectedEpoch = nonNegativeSafeInteger(request.expectedEpoch, 'expectedEpoch');
+        const result = callNative(() => this.#addon.restartFpsRuntimeSession(handle, expectedEpoch));
+        return normalizeFpsSnapshot(result);
     }
     readModelMaterialPreview(request) {
         void request;

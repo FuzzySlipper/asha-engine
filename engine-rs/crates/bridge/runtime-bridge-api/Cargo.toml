@@ -35,3 +35,8 @@ svc-pathfinding = { path = "../../services/svc-pathfinding" }
 # Authority voxel raycast for the pick verb (launchable-voxel picking, #2437).
 svc-collision   = { path = "../../services/svc-collision" }
 rule-voxel-edit = { path = "../../rules/rule-voxel-edit" }
+# FPS/ECRP RuntimeSession authority substrate. The bridge exposes typed verbs;
+# rule-lifecycle owns ProjectBundle bootstrap, combat/lifecycle, and replay hashes.
+protocol-entity-authoring = { path = "../../protocol/protocol-entity-authoring" }
+rule-lifecycle = { path = "../../rules/rule-lifecycle" }
+svc-combat = { path = "../../services/svc-combat" }

@@ -60,10 +60,61 @@ const REQUIRED_NATIVE_CONFORMANCE_OPS = [
     'submit_commands',
     'step_simulation',
     'apply_enemy_direct_nav_movement',
+    'load_fps_runtime_session',
+    'read_fps_runtime_session',
+    'apply_fps_primary_fire',
+    'restart_fps_runtime_session',
     'read_render_diffs',
     'save_current_world',
     'get_composition_status',
 ];
+const HASH_A = 'fnv1a64:00000000000000aa';
+const HASH_B = 'fnv1a64:00000000000000bb';
+const HASH_C = 'fnv1a64:00000000000000cc';
+function fpsLoadRequest() {
+    return {
+        projectBundle: 'custom-demo',
+        definitions: [
+            {
+                entity: 101,
+                stableId: 'actor/custom-player',
+                displayName: 'Custom Player',
+                sourcePath: 'catalogs/actors/player.entity.json',
+                tags: ['player'],
+                role: 'player',
+                transform: { translation: [0, 1.5, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+                bounds: { min: [2.2, 1, 1], max: [2.8, 2, 2] },
+                renderVisible: true,
+                staticCollider: false,
+                health: { current: 88, max: 88 },
+                weapon: { weaponId: 'weapon.custom.primary', damage: 75, rangeUnits: 16, ammo: 3, cooldownTicksAfterFire: 4 },
+                policyBinding: null,
+            },
+            {
+                entity: 777,
+                stableId: 'actor/custom-enemy',
+                displayName: 'Custom Enemy',
+                sourcePath: 'catalogs/actors/enemy.entity.json',
+                tags: ['enemy'],
+                role: 'enemy',
+                transform: { translation: [0, 1.5, 5.2], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+                bounds: { min: [2.2, 1, 5], max: [2.8, 2, 5.8] },
+                renderVisible: true,
+                staticCollider: false,
+                health: { current: 75, max: 75 },
+                weapon: null,
+                policyBinding: {
+                    bindingId: 'binding.enemy.custom.v0',
+                    policyId: 'policy.enemy.custom.v0',
+                    viewKind: 'runtime_session.nav_policy_view.v0',
+                    viewVersion: 'v0',
+                    allowedIntents: ['runtime.intent.primary_fire.v0'],
+                    runtimeMoment: 'runtime.tick.enemy_policy.v0',
+                },
+            },
+        ],
+    };
+}
 // A fake addon with sentinel return values distinct from MockRuntimeBridge, so a
 // silent mock fallback would be observable in the wired-op assertions below.
 function fakeAddon(calls = []) {
@@ -98,6 +149,89 @@ function fakeAddon(calls = []) {
                 pathHash: 'fnv1a64:sentinel-path',
                 transformHash: 'fnv1a64:sentinel-transform',
                 projectionChanged: true,
+            };
+        },
+        loadFpsRuntimeSession: (_handle, projectBundle, definitions) => {
+            calls.push(`fpsLoad:${projectBundle}:${definitions.length}`);
+            return {
+                backend: 'reference_bridge_rust',
+                authoritySurface: 'runtime_session.fps.authority.v0',
+                projectBundle,
+                sessionEpoch: 1,
+                lifecycleStatus: { state: 'active' },
+                playerEntity: 101,
+                enemyEntity: 777,
+                health: [{ entity: 777, current: 75, max: 75 }],
+                policyBindings: [{
+                        entity: 777,
+                        bindingId: 'binding.enemy.custom.v0',
+                        policyId: 'policy.enemy.custom.v0',
+                        viewKind: 'runtime_session.nav_policy_view.v0',
+                        viewVersion: 'v0',
+                        allowedIntents: ['runtime.intent.primary_fire.v0'],
+                        runtimeMoment: 'runtime.tick.enemy_policy.v0',
+                    }],
+                replayRecords: [{ replayUnit: 'runtime_session.fps.bootstrap.v0', entityHash: HASH_A, healthHash: HASH_B, recordHash: HASH_C }],
+                readSets: [{ viewKind: 'runtime_session.health.v0', owner: 'svc-combat', readSet: ['CombatState.health'] }],
+                entityHash: HASH_A,
+                healthHash: HASH_B,
+                replayHash: HASH_C,
+            };
+        },
+        readFpsRuntimeSession: (_handle) => {
+            calls.push('fpsRead');
+            return {
+                backend: 'reference_bridge_rust',
+                authoritySurface: 'runtime_session.fps.authority.v0',
+                projectBundle: 'custom-demo',
+                sessionEpoch: 1,
+                lifecycleStatus: { state: 'active' },
+                playerEntity: 101,
+                enemyEntity: 777,
+                health: [{ entity: 777, current: 75, max: 75 }],
+                policyBindings: [],
+                replayRecords: [{ replayUnit: 'runtime_session.fps.bootstrap.v0', entityHash: HASH_A, healthHash: HASH_B, recordHash: HASH_C }],
+                readSets: [],
+                entityHash: HASH_A,
+                healthHash: HASH_B,
+                replayHash: HASH_C,
+            };
+        },
+        applyFpsPrimaryFire: (_handle, tick, origin, direction) => {
+            calls.push(`fpsFire:${tick}:${origin.x},${origin.y},${origin.z}:${direction.x},${direction.y},${direction.z}`);
+            return {
+                backend: 'reference_bridge_rust',
+                authoritySurface: 'runtime_session.fps.primary_fire.v0',
+                mutationOwner: 'rule-lifecycle + svc-combat',
+                workspaceTrace: ['accepted'],
+                shooter: 101,
+                target: 777,
+                targetHealthBefore: { current: 75, max: 75 },
+                targetHealthAfter: { current: 0, max: 75 },
+                lifecycleStatus: { state: 'enemy_defeated', entity: 777, tick },
+                targetRenderVisible: false,
+                entityHash: HASH_A,
+                healthHash: HASH_B,
+                replayHash: HASH_C,
+            };
+        },
+        restartFpsRuntimeSession: (_handle, expectedEpoch) => {
+            calls.push(`fpsRestart:${expectedEpoch}`);
+            return {
+                backend: 'reference_bridge_rust',
+                authoritySurface: 'runtime_session.fps.authority.v0',
+                projectBundle: 'custom-demo',
+                sessionEpoch: expectedEpoch + 1,
+                lifecycleStatus: { state: 'active' },
+                playerEntity: 101,
+                enemyEntity: 777,
+                health: [{ entity: 777, current: 75, max: 75 }],
+                policyBindings: [],
+                replayRecords: [{ replayUnit: 'runtime_session.fps.bootstrap.v0', entityHash: HASH_A, healthHash: HASH_B, recordHash: HASH_C }],
+                readSets: [],
+                entityHash: HASH_A,
+                healthHash: HASH_B,
+                replayHash: HASH_C,
             };
         },
         readRenderDiffs: (_handle, cursor) => {
@@ -148,6 +282,10 @@ const INVOKE = new Map([
         }),
     ],
     ['readVoxelMeshEvidence', (b) => b.readVoxelMeshEvidence({ grid: 1, chunks: [] })],
+    ['loadFpsRuntimeSession', (b) => b.loadFpsRuntimeSession(fpsLoadRequest())],
+    ['readFpsRuntimeSession', (b) => b.readFpsRuntimeSession()],
+    ['applyFpsPrimaryFire', (b) => b.applyFpsPrimaryFire({ tick: 9, origin: [2.5, 1.5, 1.5], direction: [0, 0, 1] })],
+    ['restartFpsRuntimeSession', (b) => b.restartFpsRuntimeSession({ expectedEpoch: 1 })],
     ['readModelMaterialPreview', (b) => b.readModelMaterialPreview(MODEL_MATERIAL_PREVIEW_REQUEST)],
     ['readSceneObjectSnapshot', (b) => b.readSceneObjectSnapshot()],
     [
@@ -239,6 +377,17 @@ void test('native conformance sequence routes through the addon without mock fal
         transformHash: 'fnv1a64:sentinel-transform',
         projectionChanged: true,
     });
+    const loadedFps = bridge.loadFpsRuntimeSession(fpsLoadRequest());
+    assert.equal(loadedFps.backend, 'native_rust');
+    assert.equal(loadedFps.playerEntity, 101);
+    assert.equal(loadedFps.enemyEntity, 777);
+    assert.equal(loadedFps.replayHash, HASH_C);
+    const fired = bridge.applyFpsPrimaryFire({ tick: 9, origin: [2.5, 1.5, 1.5], direction: [0, 0, 1] });
+    assert.equal(fired.backend, 'native_rust');
+    assert.deepEqual(fired.lifecycleStatus, { state: 'enemy_defeated', entity: 777, tick: 9 });
+    assert.equal(fired.targetHealthAfter?.current, 0);
+    assert.equal(bridge.readFpsRuntimeSession().replayHash, HASH_C);
+    assert.equal(bridge.restartFpsRuntimeSession({ expectedEpoch: 1 }).sessionEpoch, 2);
     assert.deepEqual(bridge.readRenderDiffs(frameCursor(0)), { ops: [{ op: 'sentinel' }] });
     assert.deepEqual(bridge.saveCurrentWorld(), { artifactsWritten: 5, compactedEdits: 2, retainedEdits: 3 });
     assert.deepEqual(bridge.getCompositionStatus(), {
@@ -253,6 +402,10 @@ void test('native conformance sequence routes through the addon without mock fal
         'submit:[{"op":"setVoxel","grid":1,"coord":{"x":0,"y":0,"z":0},"value":{"kind":"solid","material":1}}]',
         'step:6',
         'enemyMove:777:0,0.5,-2.6:0,1.62,1.25:0.35',
+        'fpsLoad:custom-demo:2',
+        'fpsFire:9:2.5,1.5,1.5:0,0,1',
+        'fpsRead',
+        'fpsRestart:1',
         'render:0',
         'save',
         'status',

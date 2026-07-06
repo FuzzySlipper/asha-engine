@@ -53,6 +53,16 @@ pub struct FpsRenderProjectionState {
     pub visible: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsPolicyBinding {
+    pub binding_id: String,
+    pub policy_id: String,
+    pub view_kind: String,
+    pub view_version: String,
+    pub allowed_intents: Vec<String>,
+    pub runtime_moment: String,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct FpsStoredEntityDefinition {
     pub entity: EntityId,
@@ -61,7 +71,7 @@ pub struct FpsStoredEntityDefinition {
     pub health: Option<HealthState>,
     pub weapon: Option<FpsWeaponMount>,
     pub render_projection: Option<FpsRenderProjectionState>,
-    pub policy_binding_id: Option<String>,
+    pub policy_binding: Option<FpsPolicyBinding>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -93,6 +103,10 @@ pub enum FpsRuntimeError {
     },
     InvalidHealth {
         entity: EntityId,
+    },
+    InvalidPolicyBinding {
+        entity: EntityId,
+        field: &'static str,
     },
     Bootstrap(ProjectBundleEntityDefinitionBootstrapError),
     RuleMutationRejected {
@@ -399,12 +413,44 @@ fn validate_load_input(input: &FpsProjectBundleLoadInput) -> Result<(), FpsRunti
             }
             FpsRuntimeRole::Neutral => {}
         }
+        if let Some(binding) = &entry.policy_binding {
+            validate_policy_binding(entry.entity, binding)?;
+        }
     }
     if !has_player {
         return Err(FpsRuntimeError::MissingPlayer);
     }
     if !has_enemy {
         return Err(FpsRuntimeError::MissingEnemy);
+    }
+    Ok(())
+}
+
+fn validate_policy_binding(
+    entity: EntityId,
+    binding: &FpsPolicyBinding,
+) -> Result<(), FpsRuntimeError> {
+    for (field, value) in [
+        ("binding_id", binding.binding_id.as_str()),
+        ("policy_id", binding.policy_id.as_str()),
+        ("view_kind", binding.view_kind.as_str()),
+        ("view_version", binding.view_version.as_str()),
+        ("runtime_moment", binding.runtime_moment.as_str()),
+    ] {
+        if value.trim().is_empty() {
+            return Err(FpsRuntimeError::InvalidPolicyBinding { entity, field });
+        }
+    }
+    if binding
+        .allowed_intents
+        .iter()
+        .any(|intent| intent.trim().is_empty())
+        || binding.allowed_intents.is_empty()
+    {
+        return Err(FpsRuntimeError::InvalidPolicyBinding {
+            entity,
+            field: "allowed_intents",
+        });
     }
     Ok(())
 }
@@ -572,7 +618,7 @@ mod tests {
                         projection: "first_person_camera".into(),
                         visible: true,
                     }),
-                    policy_binding_id: None,
+                    policy_binding: None,
                 },
                 FpsStoredEntityDefinition {
                     entity: EntityId::new(777),
@@ -588,7 +634,17 @@ mod tests {
                         projection: "target_cube".into(),
                         visible: true,
                     }),
-                    policy_binding_id: Some("policy.enemy.custom.v0".into()),
+                    policy_binding: Some(FpsPolicyBinding {
+                        binding_id: "binding.enemy.custom.v0".into(),
+                        policy_id: "policy.enemy.custom.v0".into(),
+                        view_kind: "runtime_session.nav_policy_view.v0".into(),
+                        view_version: "v0".into(),
+                        allowed_intents: vec![
+                            "runtime.intent.move_direct_nav.v0".into(),
+                            "runtime.intent.primary_fire.v0".into(),
+                        ],
+                        runtime_moment: "runtime.tick.enemy_policy.v0".into(),
+                    }),
                 },
             ],
         })

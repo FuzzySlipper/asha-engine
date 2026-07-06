@@ -52,6 +52,120 @@ export interface EnemyDirectNavMovementResult {
     readonly transformHash: string;
     readonly projectionChanged: boolean;
 }
+export type FpsRuntimeRole = 'player' | 'enemy' | 'neutral';
+export type FpsRuntimeAuthorityTransport = 'native_rust' | 'reference_bridge';
+export interface FpsTransformCapability {
+    readonly translation: BridgeVec3;
+    readonly rotation: readonly [number, number, number, number];
+    readonly scale: BridgeVec3;
+}
+export interface FpsBoundsCapability {
+    readonly min: BridgeVec3;
+    readonly max: BridgeVec3;
+}
+export interface FpsHealth {
+    readonly current: number;
+    readonly max: number;
+}
+export interface FpsWeaponMount {
+    readonly weaponId: string;
+    readonly damage: number;
+    readonly rangeUnits: number;
+    readonly ammo: number;
+    readonly cooldownTicksAfterFire: number;
+}
+export interface FpsPolicyBinding {
+    readonly bindingId: string;
+    readonly policyId: string;
+    readonly viewKind: string;
+    readonly viewVersion: string;
+    readonly allowedIntents: readonly string[];
+    readonly runtimeMoment: string;
+}
+export interface FpsStoredEntityDefinition {
+    readonly entity: number;
+    readonly stableId: string;
+    readonly displayName: string;
+    readonly sourcePath: string;
+    readonly tags: readonly string[];
+    readonly role: FpsRuntimeRole;
+    readonly transform: FpsTransformCapability | null;
+    readonly bounds: FpsBoundsCapability | null;
+    readonly renderVisible: boolean | null;
+    readonly staticCollider: boolean | null;
+    readonly health: FpsHealth | null;
+    readonly weapon: FpsWeaponMount | null;
+    readonly policyBinding: FpsPolicyBinding | null;
+}
+export interface FpsRuntimeSessionLoadRequest {
+    readonly projectBundle: string;
+    readonly definitions: readonly FpsStoredEntityDefinition[];
+}
+export interface FpsRuntimeSessionRestartRequest {
+    readonly expectedEpoch: number;
+}
+export interface FpsPrimaryFireRequest {
+    readonly tick: number;
+    readonly origin: BridgeVec3;
+    readonly direction: BridgeVec3;
+}
+export type FpsLifecycleStatus = {
+    readonly state: 'active';
+} | {
+    readonly state: 'enemy_defeated';
+    readonly entity: number;
+    readonly tick: number;
+};
+export interface FpsReadSetEvidence {
+    readonly viewKind: string;
+    readonly owner: string;
+    readonly readSet: readonly string[];
+}
+export interface FpsReplayEvidence {
+    readonly replayUnit: string;
+    readonly entityHash: string;
+    readonly healthHash: string;
+    readonly recordHash: string;
+}
+export interface FpsEntityHealthReadout {
+    readonly entity: number;
+    readonly current: number;
+    readonly max: number;
+}
+export interface FpsPolicyBindingReadout extends FpsPolicyBinding {
+    readonly entity: number;
+}
+export interface FpsRuntimeSessionSnapshot {
+    readonly backend: FpsRuntimeAuthorityTransport;
+    readonly authoritySurface: string;
+    readonly projectBundle: string;
+    readonly sessionEpoch: number;
+    readonly lifecycleStatus: FpsLifecycleStatus;
+    readonly playerEntity: number;
+    readonly enemyEntity: number;
+    readonly health: readonly FpsEntityHealthReadout[];
+    readonly policyBindings: readonly FpsPolicyBindingReadout[];
+    readonly replayRecords: readonly FpsReplayEvidence[];
+    readonly readSets: readonly FpsReadSetEvidence[];
+    readonly entityHash: string;
+    readonly healthHash: string;
+    readonly replayHash: string;
+}
+export interface FpsPrimaryFireResult {
+    readonly backend: FpsRuntimeAuthorityTransport;
+    readonly authoritySurface: string;
+    readonly mutationOwner: string;
+    readonly workspaceTrace: readonly string[];
+    readonly shooter: number;
+    readonly target: number | null;
+    readonly targetHealthBefore: FpsHealth | null;
+    readonly targetHealthAfter: FpsHealth | null;
+    readonly lifecycleStatus: FpsLifecycleStatus;
+    readonly targetRenderVisible: boolean | null;
+    readonly entityHash: string;
+    readonly healthHash: string;
+    readonly replayHash: string;
+}
 /** Borrowed, read-only view over bridge-owned bytes (large payloads, e.g. mesh). */
 export interface RuntimeBufferView {
     readonly handle: RuntimeBufferHandle;
@@ -131,6 +245,10 @@ export interface RuntimeBridge {
     applyCollisionConstrainedCameraInput(input: CollisionConstrainedCameraInputEnvelope): CameraCollisionSnapshot;
     selectVoxel(request: ScreenPointToPickRayRequest): VoxelSelectionSnapshot;
     readVoxelMeshEvidence(request: VoxelMeshEvidenceRequest): VoxelMeshEvidenceSnapshot;
+    loadFpsRuntimeSession(request: FpsRuntimeSessionLoadRequest): FpsRuntimeSessionSnapshot;
+    readFpsRuntimeSession(): FpsRuntimeSessionSnapshot;
+    applyFpsPrimaryFire(request: FpsPrimaryFireRequest): FpsPrimaryFireResult;
+    restartFpsRuntimeSession(request: FpsRuntimeSessionRestartRequest): FpsRuntimeSessionSnapshot;
     readModelMaterialPreview(request: ModelMaterialPreviewRequest): ModelMaterialPreviewSnapshot;
     readSceneObjectSnapshot(): SceneObjectSnapshot;
     applySceneObjectCommand(request: SceneObjectCommandRequest): SceneObjectCommandResult;

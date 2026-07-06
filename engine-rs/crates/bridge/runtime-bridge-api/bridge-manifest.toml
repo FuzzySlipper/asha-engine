@@ -80,6 +80,38 @@ errors = "RuntimeBridgeError"
 summary = "Read compact deterministic voxel mesh/remesh evidence (world hash, per-chunk content/mesh hashes, stats, material slots) derived from Rust authority and svc-mesh; no renderer internals or inline geometry."
 
 [[operation]]
+name = "load_fps_runtime_session"
+surface = "stable"
+input = "protocol_runtime::FpsRuntimeSessionLoadRequest"
+output = "protocol_runtime::FpsRuntimeSessionSnapshot"
+errors = "RuntimeBridgeError"
+summary = "Load an FPS/ECRP ProjectBundle-shaped RuntimeSession through Rust rule-lifecycle authority; validates/bootstrap stored EntityDefinitions and PolicyBindings atomically."
+
+[[operation]]
+name = "read_fps_runtime_session"
+surface = "stable"
+input = "Unit"
+output = "protocol_runtime::FpsRuntimeSessionSnapshot"
+errors = "RuntimeBridgeError"
+summary = "Read typed FPS/ECRP RuntimeSession projection from Rust authority, including backend provenance, lifecycle/health/policy binding/read-set/replay evidence."
+
+[[operation]]
+name = "apply_fps_primary_fire"
+surface = "stable"
+input = "protocol_runtime::FpsPrimaryFireRequest"
+output = "protocol_runtime::FpsPrimaryFireResult"
+errors = "RuntimeBridgeError"
+summary = "Submit a primary-fire intent through Rust svc-combat plus rule-lifecycle authority; returns health/lifecycle/render/replay evidence."
+
+[[operation]]
+name = "restart_fps_runtime_session"
+surface = "stable"
+input = "protocol_runtime::FpsRuntimeSessionRestartRequest"
+output = "protocol_runtime::FpsRuntimeSessionSnapshot"
+errors = "RuntimeBridgeError"
+summary = "Restart the FPS/ECRP RuntimeSession by replaying the validated stored bundle through Rust authority, guarded by the current session epoch."
+
+[[operation]]
 name = "read_render_diffs"
 surface = "stable"
 input = "FrameCursor"

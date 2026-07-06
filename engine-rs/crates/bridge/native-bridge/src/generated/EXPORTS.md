@@ -14,6 +14,10 @@ operations are replay/devtools-only.
 | `apply_collision_constrained_camera_input` | stable | `protocol_view::CollisionConstrainedCameraInputEnvelope` | `protocol_view::CameraCollisionSnapshot` | `RuntimeBridgeError` |
 | `select_voxel` | stable | `protocol_view::ScreenPointToPickRayRequest` | `protocol_view::VoxelSelectionSnapshot` | `RuntimeBridgeError` |
 | `read_voxel_mesh_evidence` | stable | `protocol_render::VoxelMeshEvidenceRequest` | `protocol_render::VoxelMeshEvidenceSnapshot` | `RuntimeBridgeError` |
+| `load_fps_runtime_session` | stable | `protocol_runtime::FpsRuntimeSessionLoadRequest` | `protocol_runtime::FpsRuntimeSessionSnapshot` | `RuntimeBridgeError` |
+| `read_fps_runtime_session` | stable | `Unit` | `protocol_runtime::FpsRuntimeSessionSnapshot` | `RuntimeBridgeError` |
+| `apply_fps_primary_fire` | stable | `protocol_runtime::FpsPrimaryFireRequest` | `protocol_runtime::FpsPrimaryFireResult` | `RuntimeBridgeError` |
+| `restart_fps_runtime_session` | stable | `protocol_runtime::FpsRuntimeSessionRestartRequest` | `protocol_runtime::FpsRuntimeSessionSnapshot` | `RuntimeBridgeError` |
 | `read_render_diffs` | stable | `FrameCursor` | `protocol_render::RenderFrameDiffDescriptor` | `RuntimeBridgeError` |
 | `read_model_material_preview` | stable | `protocol_render::ModelMaterialPreviewRequest` | `protocol_render::ModelMaterialPreviewSnapshot` | `RuntimeBridgeError` |
 | `read_scene_object_snapshot` | stable | `Unit` | `protocol_scene::SceneObjectSnapshot` | `RuntimeBridgeError` |

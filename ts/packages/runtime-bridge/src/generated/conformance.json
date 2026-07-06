@@ -59,6 +59,38 @@
       "errors": "RuntimeBridgeError"
     },
     {
+      "manifestName": "load_fps_runtime_session",
+      "facadeMethod": "loadFpsRuntimeSession",
+      "surface": "stable",
+      "input": "protocol_runtime::FpsRuntimeSessionLoadRequest",
+      "output": "protocol_runtime::FpsRuntimeSessionSnapshot",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "read_fps_runtime_session",
+      "facadeMethod": "readFpsRuntimeSession",
+      "surface": "stable",
+      "input": "Unit",
+      "output": "protocol_runtime::FpsRuntimeSessionSnapshot",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "apply_fps_primary_fire",
+      "facadeMethod": "applyFpsPrimaryFire",
+      "surface": "stable",
+      "input": "protocol_runtime::FpsPrimaryFireRequest",
+      "output": "protocol_runtime::FpsPrimaryFireResult",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "restart_fps_runtime_session",
+      "facadeMethod": "restartFpsRuntimeSession",
+      "surface": "stable",
+      "input": "protocol_runtime::FpsRuntimeSessionRestartRequest",
+      "output": "protocol_runtime::FpsRuntimeSessionSnapshot",
+      "errors": "RuntimeBridgeError"
+    },
+    {
       "manifestName": "read_render_diffs",
       "facadeMethod": "readRenderDiffs",
       "surface": "stable",

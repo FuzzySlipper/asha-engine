@@ -583,11 +583,12 @@ may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-ho
 # Rust: bridge layer (between wasm and tools).
 [crate."engine-rs/crates/bridge/runtime-bridge-api"]
 lane = "rust-bridge"
-# Also depends on voxel authority/evidence crates: the facade routes submitted voxel
-# commands into rule-voxel-edit validation/apply (launchable-voxel, #2436),
-# raycasts picks against authority via svc-collision (picking, #2437), and reads
-# compact mesh/remesh evidence via svc-mesh + svc-serialization (#2646).
-may_depend_on = ["core-ids", "core-error", "core-math", "core-space", "core-voxel", "core-commands", "core-entity", "svc-spatial", "svc-volume", "svc-collision", "svc-mesh", "svc-serialization", "svc-pathfinding", "rule-voxel-edit", "protocol-view", "protocol-render", "protocol-script", "protocol-replay"]
+# Also depends on selected authority/evidence crates: the facade routes submitted
+# voxel commands into rule-voxel-edit validation/apply (launchable-voxel, #2436),
+# raycasts picks against authority via svc-collision (picking, #2437), reads
+# compact mesh/remesh evidence via svc-mesh + svc-serialization (#2646), and exposes
+# the narrow FPS/ECRP RuntimeSession bridge over rule-lifecycle/svc-combat (#4347).
+may_depend_on = ["core-ids", "core-error", "core-math", "core-space", "core-voxel", "core-commands", "core-entity", "svc-spatial", "svc-volume", "svc-collision", "svc-mesh", "svc-serialization", "svc-pathfinding", "svc-combat", "rule-voxel-edit", "rule-lifecycle", "protocol-view", "protocol-render", "protocol-script", "protocol-replay", "protocol-entity-authoring"]
 may_not_depend_on = ["napi", "wasm-bindgen"]
 
 [crate."engine-rs/crates/bridge/native-bridge"]

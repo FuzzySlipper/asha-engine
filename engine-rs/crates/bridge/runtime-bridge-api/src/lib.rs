@@ -32,6 +32,9 @@ use core_space::{
     ChunkCoord, ChunkDims, Direction6, Face, GridId, VoxelCoord, VoxelGridSpec, WorldPos, WorldVec,
 };
 use core_voxel::{MaterialCatalog, VoxelMaterialId, VoxelValue};
+use protocol_entity_authoring::{
+    AuthoringTransform, EntityDefinition, EntityDefinitionCapability, EntityDefinitionSourceTrace,
+};
 #[cfg(test)]
 use protocol_view::CameraCollisionPolicy;
 use protocol_view::{
@@ -42,8 +45,14 @@ use protocol_view::{
     FirstPersonCameraInputEnvelope, PickRaySnapshot, ScreenPoint, ScreenPointSpace,
     ScreenPointToPickRayRequest, ViewportSize, VoxelSelectionOutcome, VoxelSelectionSnapshot,
 };
+use rule_lifecycle::{
+    load_fps_project_bundle, FpsLifecycleStatus, FpsPolicyBinding, FpsPrimaryFireReceipt,
+    FpsProjectBundleLoadInput, FpsRenderProjectionState, FpsRuntimeError, FpsRuntimeRole,
+    FpsRuntimeSessionState, FpsStoredEntityDefinition, FpsWeaponMount,
+};
 use rule_voxel_edit::VoxelEditRejection;
 use svc_collision::{CollisionProjection, Ray};
+use svc_combat::HealthState;
 use svc_mesh::mesh_chunk_in_world;
 use svc_pathfinding::{
     propose_direct_nav_movement, DirectNavMovementError, DirectNavMovementRequest,
@@ -432,6 +441,177 @@ pub struct VoxelMeshEvidenceSnapshot {
     pub diagnostics: Vec<String>,
 }
 
+// ── FPS/ECRP RuntimeSession authority payloads (#4347) ───────────────────────
+//
+// These DTOs are the narrow public bridge shape for the FPS RuntimeSession
+// substrate. Stored definitions enter as typed data, Rust validates/bootstrap
+// them through rule-lifecycle/svc-entity-authoring, and readouts project typed
+// authority state. There is no generic ProjectBundle JSON tunnel here.
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum FpsBridgeRole {
+    Player,
+    Enemy,
+    Neutral,
+}
+
+impl FpsBridgeRole {
+    pub fn label(self) -> &'static str {
+        match self {
+            FpsBridgeRole::Player => "player",
+            FpsBridgeRole::Enemy => "enemy",
+            FpsBridgeRole::Neutral => "neutral",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FpsBridgeTransformCapability {
+    pub translation: [f32; 3],
+    pub rotation: [f32; 4],
+    pub scale: [f32; 3],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FpsBridgeBoundsCapability {
+    pub min: [f32; 3],
+    pub max: [f32; 3],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FpsBridgeHealth {
+    pub current: u32,
+    pub max: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsBridgeWeaponMount {
+    pub weapon_id: String,
+    pub damage: u32,
+    pub range_units: u32,
+    pub ammo: u32,
+    pub cooldown_ticks_after_fire: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsBridgePolicyBinding {
+    pub binding_id: String,
+    pub policy_id: String,
+    pub view_kind: String,
+    pub view_version: String,
+    pub allowed_intents: Vec<String>,
+    pub runtime_moment: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FpsBridgeStoredEntityDefinition {
+    pub entity: u64,
+    pub stable_id: String,
+    pub display_name: String,
+    pub source_path: String,
+    pub tags: Vec<String>,
+    pub role: FpsBridgeRole,
+    pub transform: Option<FpsBridgeTransformCapability>,
+    pub bounds: Option<FpsBridgeBoundsCapability>,
+    pub render_visible: Option<bool>,
+    pub static_collider: Option<bool>,
+    pub health: Option<FpsBridgeHealth>,
+    pub weapon: Option<FpsBridgeWeaponMount>,
+    pub policy_binding: Option<FpsBridgePolicyBinding>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FpsRuntimeSessionLoadRequest {
+    pub project_bundle: String,
+    pub definitions: Vec<FpsBridgeStoredEntityDefinition>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsRuntimeSessionRestartRequest {
+    pub expected_epoch: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FpsPrimaryFireRequest {
+    pub tick: u64,
+    pub origin: [f64; 3],
+    pub direction: [f64; 3],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsReadSetEvidence {
+    pub view_kind: String,
+    pub owner: String,
+    pub read_set: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsReplayEvidence {
+    pub replay_unit: String,
+    pub entity_hash: u64,
+    pub health_hash: u64,
+    pub record_hash: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsEntityHealthReadout {
+    pub entity: u64,
+    pub current: u32,
+    pub max: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsPolicyBindingReadout {
+    pub entity: u64,
+    pub binding_id: String,
+    pub policy_id: String,
+    pub view_kind: String,
+    pub view_version: String,
+    pub allowed_intents: Vec<String>,
+    pub runtime_moment: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FpsBridgeLifecycleStatus {
+    Active,
+    EnemyDefeated { entity: u64, tick: u64 },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsRuntimeSessionSnapshot {
+    pub backend: String,
+    pub authority_surface: String,
+    pub project_bundle: String,
+    pub session_epoch: u64,
+    pub lifecycle_status: FpsBridgeLifecycleStatus,
+    pub player_entity: u64,
+    pub enemy_entity: u64,
+    pub health: Vec<FpsEntityHealthReadout>,
+    pub policy_bindings: Vec<FpsPolicyBindingReadout>,
+    pub replay_records: Vec<FpsReplayEvidence>,
+    pub read_sets: Vec<FpsReadSetEvidence>,
+    pub entity_hash: u64,
+    pub health_hash: u64,
+    pub replay_hash: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FpsPrimaryFireResult {
+    pub backend: String,
+    pub authority_surface: String,
+    pub mutation_owner: String,
+    pub workspace_trace: Vec<String>,
+    pub shooter: u64,
+    pub target: Option<u64>,
+    pub target_health_before: Option<FpsBridgeHealth>,
+    pub target_health_after: Option<FpsBridgeHealth>,
+    pub lifecycle_status: FpsBridgeLifecycleStatus,
+    pub target_render_visible: Option<bool>,
+    pub entity_hash: u64,
+    pub health_hash: u64,
+    pub replay_hash: u64,
+}
+
 // ── The bridge surface ────────────────────────────────────────────────────────
 
 /// The bounded set of verbs every transport implements. There is no generic
@@ -466,6 +646,27 @@ pub trait RuntimeBridge {
         &self,
         request: VoxelMeshEvidenceRequest,
     ) -> BridgeResult<VoxelMeshEvidenceSnapshot>;
+    /// Load an FPS/ECRP ProjectBundle-shaped session through Rust authority.
+    /// Stored definitions are validated/bootstraped by rule-lifecycle and
+    /// svc-entity-authoring; failure leaves any prior FPS session untouched.
+    fn load_fps_runtime_session(
+        &mut self,
+        request: FpsRuntimeSessionLoadRequest,
+    ) -> BridgeResult<FpsRuntimeSessionSnapshot>;
+    /// Read typed FPS/ECRP RuntimeSession projection from Rust authority.
+    fn read_fps_runtime_session(&self) -> BridgeResult<FpsRuntimeSessionSnapshot>;
+    /// Submit a primary-fire intent. Rust owns combat, lifecycle, replay/hash,
+    /// and render-visibility effects; callers receive projection evidence only.
+    fn apply_fps_primary_fire(
+        &mut self,
+        request: FpsPrimaryFireRequest,
+    ) -> BridgeResult<FpsPrimaryFireResult>;
+    /// Restart the FPS/ECRP session by replaying the validated stored bundle into
+    /// a fresh authority session, guarded by the caller's current epoch.
+    fn restart_fps_runtime_session(
+        &mut self,
+        request: FpsRuntimeSessionRestartRequest,
+    ) -> BridgeResult<FpsRuntimeSessionSnapshot>;
     fn create_camera(&mut self, request: CameraCreateRequest) -> BridgeResult<CameraSnapshot>;
     fn apply_first_person_camera_input(
         &mut self,
@@ -526,6 +727,11 @@ pub struct ReferenceBridge {
     /// movement verbs. TypeScript may propose targets, but transform mutation is
     /// applied here through `core-entity`.
     entities: EntityStore,
+    /// FPS/ECRP RuntimeSession authority state. Stored definitions seed this
+    /// through rule-lifecycle; TS callers only receive typed readouts/receipts.
+    fps_session: Option<FpsRuntimeSessionState>,
+    fps_seed: Option<FpsRuntimeSessionLoadRequest>,
+    fps_epoch: u64,
 }
 
 /// The bundle schema / protocol versions this reference bridge understands.
@@ -682,6 +888,270 @@ impl ReferenceBridge {
             ));
         }
         Ok(())
+    }
+
+    fn fps_runtime_error(error: FpsRuntimeError) -> RuntimeBridgeError {
+        RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::InvalidInput,
+            format!("FPS RuntimeSession authority rejected request: {error:?}"),
+        )
+    }
+
+    fn fps_session(&self, op: &str) -> BridgeResult<&FpsRuntimeSessionState> {
+        self.fps_session.as_ref().ok_or_else(|| {
+            RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::NotInitialized,
+                format!("{op} called before load_fps_runtime_session"),
+            )
+        })
+    }
+
+    fn fps_session_mut(&mut self, op: &str) -> BridgeResult<&mut FpsRuntimeSessionState> {
+        self.fps_session.as_mut().ok_or_else(|| {
+            RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::NotInitialized,
+                format!("{op} called before load_fps_runtime_session"),
+            )
+        })
+    }
+
+    fn convert_fps_load_request(
+        request: &FpsRuntimeSessionLoadRequest,
+    ) -> BridgeResult<FpsProjectBundleLoadInput> {
+        let mut definitions = Vec::with_capacity(request.definitions.len());
+        for entry in &request.definitions {
+            let entity = EntityId::new(entry.entity);
+            let mut capabilities = Vec::new();
+            if let Some(transform) = &entry.transform {
+                capabilities.push(EntityDefinitionCapability::Transform {
+                    transform: AuthoringTransform {
+                        translation: transform.translation,
+                        rotation: transform.rotation,
+                        scale: transform.scale,
+                    },
+                });
+            }
+            if let Some(bounds) = entry.bounds {
+                capabilities.push(EntityDefinitionCapability::Bounds {
+                    min: bounds.min,
+                    max: bounds.max,
+                });
+            }
+            if let Some(visible) = entry.render_visible {
+                capabilities.push(EntityDefinitionCapability::Render { visible });
+            }
+            if let Some(static_collider) = entry.static_collider {
+                capabilities.push(EntityDefinitionCapability::Collision { static_collider });
+            }
+
+            definitions.push(FpsStoredEntityDefinition {
+                entity,
+                definition: EntityDefinition {
+                    stable_id: entry.stable_id.clone(),
+                    display_name: entry.display_name.clone(),
+                    source: EntityDefinitionSourceTrace {
+                        project_bundle: request.project_bundle.clone(),
+                        relative_path: entry.source_path.clone(),
+                    },
+                    tags: Vec::new(),
+                    metadata: Vec::new(),
+                    capabilities,
+                },
+                role: match entry.role {
+                    FpsBridgeRole::Player => FpsRuntimeRole::Player,
+                    FpsBridgeRole::Enemy => FpsRuntimeRole::Enemy,
+                    FpsBridgeRole::Neutral => FpsRuntimeRole::Neutral,
+                },
+                health: entry
+                    .health
+                    .map(|health| HealthState::new(health.current, health.max)),
+                weapon: entry.weapon.as_ref().map(|weapon| FpsWeaponMount {
+                    weapon_id: weapon.weapon_id.clone(),
+                    damage: weapon.damage,
+                    range_units: weapon.range_units,
+                    ammo: weapon.ammo,
+                    cooldown_ticks_after_fire: weapon.cooldown_ticks_after_fire,
+                }),
+                render_projection: entry
+                    .render_visible
+                    .map(|visible| FpsRenderProjectionState {
+                        projection: match entry.role {
+                            FpsBridgeRole::Player => "first_person_camera",
+                            FpsBridgeRole::Enemy => "target_actor",
+                            FpsBridgeRole::Neutral => "neutral_actor",
+                        }
+                        .to_string(),
+                        visible,
+                    }),
+                policy_binding: entry
+                    .policy_binding
+                    .as_ref()
+                    .map(|binding| FpsPolicyBinding {
+                        binding_id: binding.binding_id.clone(),
+                        policy_id: binding.policy_id.clone(),
+                        view_kind: binding.view_kind.clone(),
+                        view_version: binding.view_version.clone(),
+                        allowed_intents: binding.allowed_intents.clone(),
+                        runtime_moment: binding.runtime_moment.clone(),
+                    }),
+            });
+        }
+
+        Ok(FpsProjectBundleLoadInput {
+            project_bundle: request.project_bundle.clone(),
+            definitions,
+        })
+    }
+
+    fn fps_lifecycle_status(status: FpsLifecycleStatus) -> FpsBridgeLifecycleStatus {
+        match status {
+            FpsLifecycleStatus::Active => FpsBridgeLifecycleStatus::Active,
+            FpsLifecycleStatus::EnemyDefeated { entity, tick } => {
+                FpsBridgeLifecycleStatus::EnemyDefeated {
+                    entity: entity.raw(),
+                    tick,
+                }
+            }
+        }
+    }
+
+    fn fps_read_sets() -> Vec<FpsReadSetEvidence> {
+        vec![
+            FpsReadSetEvidence {
+                view_kind: "runtime_session.lifecycle.v0".to_string(),
+                owner: "rule-lifecycle".to_string(),
+                read_set: vec![
+                    "EntityStore.lifecycle".to_string(),
+                    "FpsRuntimeSessionState.lifecycle_status".to_string(),
+                ],
+            },
+            FpsReadSetEvidence {
+                view_kind: "runtime_session.health.v0".to_string(),
+                owner: "svc-combat".to_string(),
+                read_set: vec![
+                    "CombatState.health".to_string(),
+                    "CombatState.health_hash".to_string(),
+                ],
+            },
+            FpsReadSetEvidence {
+                view_kind: "runtime_session.policy_binding.v0".to_string(),
+                owner: "rule-lifecycle".to_string(),
+                read_set: vec!["FpsStoredEntityDefinition.policy_binding".to_string()],
+            },
+            FpsReadSetEvidence {
+                view_kind: "runtime_session.replay.v0".to_string(),
+                owner: "rule-lifecycle".to_string(),
+                read_set: vec!["FpsRuntimeSessionState.replay_records".to_string()],
+            },
+        ]
+    }
+
+    fn fps_snapshot(
+        session: &FpsRuntimeSessionState,
+        epoch: u64,
+    ) -> BridgeResult<FpsRuntimeSessionSnapshot> {
+        let player = session
+            .role_entity(FpsRuntimeRole::Player)
+            .map_err(Self::fps_runtime_error)?;
+        let enemy = session
+            .role_entity(FpsRuntimeRole::Enemy)
+            .map_err(Self::fps_runtime_error)?;
+        let mut health = Vec::new();
+        let mut policy_bindings = Vec::new();
+        for (entity, definition) in &session.definitions {
+            if let Some(state) = session.health(*entity) {
+                health.push(FpsEntityHealthReadout {
+                    entity: entity.raw(),
+                    current: state.current,
+                    max: state.max,
+                });
+            }
+            if let Some(binding) = &definition.policy_binding {
+                policy_bindings.push(FpsPolicyBindingReadout {
+                    entity: entity.raw(),
+                    binding_id: binding.binding_id.clone(),
+                    policy_id: binding.policy_id.clone(),
+                    view_kind: binding.view_kind.clone(),
+                    view_version: binding.view_version.clone(),
+                    allowed_intents: binding.allowed_intents.clone(),
+                    runtime_moment: binding.runtime_moment.clone(),
+                });
+            }
+        }
+        let replay_records = session
+            .replay_records
+            .iter()
+            .map(|record| FpsReplayEvidence {
+                replay_unit: record.kind.to_string(),
+                entity_hash: record.entity_hash,
+                health_hash: record.health_hash,
+                record_hash: record.record_hash,
+            })
+            .collect::<Vec<_>>();
+        let latest = session.replay_records.last();
+        Ok(FpsRuntimeSessionSnapshot {
+            backend: "reference_bridge_rust".to_string(),
+            authority_surface: "runtime_session.fps.authority.v0".to_string(),
+            project_bundle: session.project_bundle.clone(),
+            session_epoch: epoch,
+            lifecycle_status: Self::fps_lifecycle_status(session.lifecycle_status),
+            player_entity: player.raw(),
+            enemy_entity: enemy.raw(),
+            health,
+            policy_bindings,
+            replay_records,
+            read_sets: Self::fps_read_sets(),
+            entity_hash: session.entities.hash().0,
+            health_hash: session.combat.health_hash(),
+            replay_hash: latest.map(|record| record.record_hash).unwrap_or(0),
+        })
+    }
+
+    fn bridge_health(state: HealthState) -> FpsBridgeHealth {
+        FpsBridgeHealth {
+            current: state.current,
+            max: state.max,
+        }
+    }
+
+    fn primary_fire_result(receipt: FpsPrimaryFireReceipt) -> FpsPrimaryFireResult {
+        FpsPrimaryFireResult {
+            backend: "reference_bridge_rust".to_string(),
+            authority_surface: "runtime_session.fps.primary_fire.v0".to_string(),
+            mutation_owner: "rule-lifecycle + svc-combat".to_string(),
+            workspace_trace: vec![
+                "validated FireIntentCommand against svc-combat".to_string(),
+                "serialized accepted combat/lifecycle outcome into replay evidence".to_string(),
+            ],
+            shooter: receipt.shooter.raw(),
+            target: receipt.target.map(EntityId::raw),
+            target_health_before: receipt.target_health_before.map(Self::bridge_health),
+            target_health_after: receipt.target_health_after.map(Self::bridge_health),
+            lifecycle_status: Self::fps_lifecycle_status(receipt.lifecycle_status),
+            target_render_visible: receipt.target_render_visible,
+            entity_hash: receipt.entity_hash,
+            health_hash: receipt.health_hash,
+            replay_hash: receipt.replay_hash,
+        }
+    }
+
+    fn ray_from_primary_fire(request: FpsPrimaryFireRequest) -> BridgeResult<Ray> {
+        if !request.origin.iter().all(|value| value.is_finite())
+            || !request.direction.iter().all(|value| value.is_finite())
+        {
+            return Err(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                "primary fire origin/direction must be finite",
+            ));
+        }
+        Ok(Ray::new(
+            WorldPos::new(request.origin[0], request.origin[1], request.origin[2]),
+            WorldVec::new(
+                request.direction[0],
+                request.direction[1],
+                request.direction[2],
+            ),
+        ))
     }
 
     fn enemy_entity_id(raw: u64) -> BridgeResult<EntityId> {
@@ -1115,6 +1585,9 @@ impl RuntimeBridge for ReferenceBridge {
         self.materials = MaterialCatalog::new([1, 2, 3].into_iter().map(VoxelMaterialId::new));
         self.cameras.clear();
         self.next_camera = 1;
+        self.fps_session = None;
+        self.fps_seed = None;
+        self.fps_epoch = 0;
 
         Ok(handle)
     }
@@ -1407,6 +1880,81 @@ impl RuntimeBridge for ReferenceBridge {
             chunks,
             diagnostics,
         })
+    }
+
+    fn load_fps_runtime_session(
+        &mut self,
+        request: FpsRuntimeSessionLoadRequest,
+    ) -> BridgeResult<FpsRuntimeSessionSnapshot> {
+        self.require_initialized("load_fps_runtime_session")?;
+        let input = Self::convert_fps_load_request(&request)?;
+        let loaded = load_fps_project_bundle(input).map_err(Self::fps_runtime_error)?;
+        // Commit only after the full authority bootstrap succeeds.
+        self.fps_session = Some(loaded);
+        self.fps_seed = Some(request);
+        self.fps_epoch = self.fps_epoch.saturating_add(1);
+        Self::fps_snapshot(
+            self.fps_session.as_ref().expect("just committed"),
+            self.fps_epoch,
+        )
+    }
+
+    fn read_fps_runtime_session(&self) -> BridgeResult<FpsRuntimeSessionSnapshot> {
+        self.require_initialized("read_fps_runtime_session")?;
+        Self::fps_snapshot(
+            self.fps_session("read_fps_runtime_session")?,
+            self.fps_epoch,
+        )
+    }
+
+    fn apply_fps_primary_fire(
+        &mut self,
+        request: FpsPrimaryFireRequest,
+    ) -> BridgeResult<FpsPrimaryFireResult> {
+        self.require_initialized("apply_fps_primary_fire")?;
+        let ray = Self::ray_from_primary_fire(request)?;
+        let world = self.voxel.as_ref().ok_or_else(|| {
+            RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::NotInitialized,
+                "apply_fps_primary_fire called before initialize_engine",
+            )
+        })?;
+        let projection = CollisionProjection::build(world);
+        let receipt = self
+            .fps_session_mut("apply_fps_primary_fire")?
+            .apply_primary_fire(&projection, ray, request.tick)
+            .map_err(Self::fps_runtime_error)?;
+        Ok(Self::primary_fire_result(receipt))
+    }
+
+    fn restart_fps_runtime_session(
+        &mut self,
+        request: FpsRuntimeSessionRestartRequest,
+    ) -> BridgeResult<FpsRuntimeSessionSnapshot> {
+        self.require_initialized("restart_fps_runtime_session")?;
+        if request.expected_epoch != self.fps_epoch {
+            return Err(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                format!(
+                    "restart expected epoch {} but current epoch is {}",
+                    request.expected_epoch, self.fps_epoch
+                ),
+            ));
+        }
+        let seed = self.fps_seed.clone().ok_or_else(|| {
+            RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::NotInitialized,
+                "restart_fps_runtime_session called before load_fps_runtime_session",
+            )
+        })?;
+        let input = Self::convert_fps_load_request(&seed)?;
+        let loaded = load_fps_project_bundle(input).map_err(Self::fps_runtime_error)?;
+        self.fps_session = Some(loaded);
+        self.fps_epoch = self.fps_epoch.saturating_add(1);
+        Self::fps_snapshot(
+            self.fps_session.as_ref().expect("just restarted"),
+            self.fps_epoch,
+        )
     }
 
     fn step_simulation(&mut self, input: StepInputEnvelope) -> BridgeResult<StepResult> {
@@ -1854,6 +2402,230 @@ mod tests {
         let mut bridge = ReferenceBridge::new();
         bridge.initialize_engine(EngineConfig { seed: 1 }).unwrap();
         bridge
+    }
+
+    fn fps_load_request(enemy_health: u32) -> FpsRuntimeSessionLoadRequest {
+        FpsRuntimeSessionLoadRequest {
+            project_bundle: "custom-demo".to_string(),
+            definitions: vec![
+                FpsBridgeStoredEntityDefinition {
+                    entity: 101,
+                    stable_id: "actor/custom-player".to_string(),
+                    display_name: "Custom Player".to_string(),
+                    source_path: "catalogs/actors/player.entity.json".to_string(),
+                    tags: vec!["player".to_string()],
+                    role: FpsBridgeRole::Player,
+                    transform: Some(FpsBridgeTransformCapability {
+                        translation: [0.0, 1.5, 0.0],
+                        rotation: [0.0, 0.0, 0.0, 1.0],
+                        scale: [1.0, 1.0, 1.0],
+                    }),
+                    bounds: Some(FpsBridgeBoundsCapability {
+                        min: [2.2, 1.0, 1.0],
+                        max: [2.8, 2.0, 2.0],
+                    }),
+                    render_visible: Some(true),
+                    static_collider: Some(false),
+                    health: Some(FpsBridgeHealth {
+                        current: 88,
+                        max: 88,
+                    }),
+                    weapon: Some(FpsBridgeWeaponMount {
+                        weapon_id: "weapon.custom.primary".to_string(),
+                        damage: 75,
+                        range_units: 16,
+                        ammo: 3,
+                        cooldown_ticks_after_fire: 4,
+                    }),
+                    policy_binding: None,
+                },
+                FpsBridgeStoredEntityDefinition {
+                    entity: 777,
+                    stable_id: "actor/custom-enemy".to_string(),
+                    display_name: "Custom Enemy".to_string(),
+                    source_path: "catalogs/actors/enemy.entity.json".to_string(),
+                    tags: vec!["enemy".to_string()],
+                    role: FpsBridgeRole::Enemy,
+                    transform: Some(FpsBridgeTransformCapability {
+                        translation: [0.0, 1.5, 5.2],
+                        rotation: [0.0, 0.0, 0.0, 1.0],
+                        scale: [1.0, 1.0, 1.0],
+                    }),
+                    bounds: Some(FpsBridgeBoundsCapability {
+                        min: [2.2, 1.0, 5.0],
+                        max: [2.8, 2.0, 5.8],
+                    }),
+                    render_visible: Some(true),
+                    static_collider: Some(false),
+                    health: Some(FpsBridgeHealth {
+                        current: enemy_health,
+                        max: enemy_health,
+                    }),
+                    weapon: None,
+                    policy_binding: Some(FpsBridgePolicyBinding {
+                        binding_id: "binding.enemy.custom.v0".to_string(),
+                        policy_id: "policy.enemy.custom.v0".to_string(),
+                        view_kind: "runtime_session.nav_policy_view.v0".to_string(),
+                        view_version: "v0".to_string(),
+                        allowed_intents: vec![
+                            "runtime.intent.move_direct_nav.v0".to_string(),
+                            "runtime.intent.primary_fire.v0".to_string(),
+                        ],
+                        runtime_moment: "runtime.tick.enemy_policy.v0".to_string(),
+                    }),
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn fps_runtime_session_loads_project_bundle_through_rust_authority() {
+        let mut bridge = init_bridge();
+        let snapshot = bridge
+            .load_fps_runtime_session(fps_load_request(75))
+            .expect("fps session loads");
+
+        assert_eq!(snapshot.backend, "reference_bridge_rust");
+        assert_eq!(
+            snapshot.authority_surface,
+            "runtime_session.fps.authority.v0"
+        );
+        assert_eq!(snapshot.session_epoch, 1);
+        assert_eq!(snapshot.player_entity, 101);
+        assert_eq!(snapshot.enemy_entity, 777);
+        assert_eq!(
+            snapshot.health,
+            vec![
+                FpsEntityHealthReadout {
+                    entity: 101,
+                    current: 88,
+                    max: 88,
+                },
+                FpsEntityHealthReadout {
+                    entity: 777,
+                    current: 75,
+                    max: 75,
+                },
+            ]
+        );
+        assert_eq!(snapshot.policy_bindings.len(), 1);
+        assert_eq!(snapshot.policy_bindings[0].entity, 777);
+        assert_eq!(
+            snapshot.replay_records[0].replay_unit,
+            "runtime_session.fps.bootstrap.v0"
+        );
+        assert_ne!(snapshot.replay_hash, 0);
+        assert!(snapshot
+            .read_sets
+            .iter()
+            .any(|view| view.owner == "rule-lifecycle"));
+    }
+
+    #[test]
+    fn fps_primary_fire_receipt_comes_from_rust_combat_lifecycle_and_replay() {
+        let mut bridge = init_bridge();
+        bridge
+            .load_fps_runtime_session(fps_load_request(75))
+            .unwrap();
+        let receipt = bridge
+            .apply_fps_primary_fire(FpsPrimaryFireRequest {
+                tick: 9,
+                origin: [2.5, 1.5, 1.5],
+                direction: [0.0, 0.0, 1.0],
+            })
+            .expect("primary fire applies");
+
+        assert_eq!(receipt.backend, "reference_bridge_rust");
+        assert_eq!(receipt.mutation_owner, "rule-lifecycle + svc-combat");
+        assert_eq!(receipt.shooter, 101);
+        assert_eq!(receipt.target, Some(777));
+        assert_eq!(
+            receipt.target_health_before,
+            Some(FpsBridgeHealth {
+                current: 75,
+                max: 75,
+            })
+        );
+        assert_eq!(
+            receipt.target_health_after,
+            Some(FpsBridgeHealth {
+                current: 0,
+                max: 75,
+            })
+        );
+        assert_eq!(
+            receipt.lifecycle_status,
+            FpsBridgeLifecycleStatus::EnemyDefeated {
+                entity: 777,
+                tick: 9,
+            }
+        );
+        assert_eq!(receipt.target_render_visible, Some(false));
+        assert_ne!(receipt.replay_hash, 0);
+
+        let snapshot = bridge.read_fps_runtime_session().unwrap();
+        assert_eq!(snapshot.replay_records.len(), 2);
+        assert_eq!(snapshot.replay_hash, receipt.replay_hash);
+    }
+
+    #[test]
+    fn fps_runtime_session_restart_is_epoch_guarded_and_authority_owned() {
+        let mut bridge = init_bridge();
+        bridge
+            .load_fps_runtime_session(fps_load_request(75))
+            .unwrap();
+        bridge
+            .apply_fps_primary_fire(FpsPrimaryFireRequest {
+                tick: 9,
+                origin: [2.5, 1.5, 1.5],
+                direction: [0.0, 0.0, 1.0],
+            })
+            .unwrap();
+
+        let stale = bridge
+            .restart_fps_runtime_session(FpsRuntimeSessionRestartRequest { expected_epoch: 0 })
+            .unwrap_err();
+        assert_eq!(stale.kind, RuntimeBridgeErrorKind::InvalidInput);
+
+        let restarted = bridge
+            .restart_fps_runtime_session(FpsRuntimeSessionRestartRequest { expected_epoch: 1 })
+            .unwrap();
+        assert_eq!(restarted.session_epoch, 2);
+        assert_eq!(restarted.lifecycle_status, FpsBridgeLifecycleStatus::Active);
+        assert_eq!(
+            restarted
+                .health
+                .iter()
+                .find(|health| health.entity == 777)
+                .map(|health| (health.current, health.max)),
+            Some((75, 75))
+        );
+        assert_eq!(restarted.replay_records.len(), 1);
+    }
+
+    #[test]
+    fn invalid_fps_load_fails_closed_without_replacing_prior_session() {
+        let mut bridge = init_bridge();
+        bridge
+            .load_fps_runtime_session(fps_load_request(75))
+            .unwrap();
+        let before = bridge.read_fps_runtime_session().unwrap();
+        let mut invalid = fps_load_request(33);
+        invalid.definitions[1].policy_binding = Some(FpsBridgePolicyBinding {
+            binding_id: String::new(),
+            policy_id: "policy.enemy.custom.v0".to_string(),
+            view_kind: "runtime_session.nav_policy_view.v0".to_string(),
+            view_version: "v0".to_string(),
+            allowed_intents: vec!["runtime.intent.primary_fire.v0".to_string()],
+            runtime_moment: "runtime.tick.enemy_policy.v0".to_string(),
+        });
+
+        let err = bridge.load_fps_runtime_session(invalid).unwrap_err();
+        assert_eq!(err.kind, RuntimeBridgeErrorKind::InvalidInput);
+        let after = bridge.read_fps_runtime_session().unwrap();
+        assert_eq!(after.session_epoch, before.session_epoch);
+        assert_eq!(after.health, before.health);
+        assert_eq!(after.replay_hash, before.replay_hash);
     }
 
     fn set_voxel(coord: VoxelCoord, material: u16) -> VoxelCommand {
