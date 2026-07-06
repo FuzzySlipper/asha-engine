@@ -53,8 +53,8 @@ export class RustBackedRuntimeSessionFacade {
         const identity = this.#requireInitialized('loadEcrpProject');
         const before = this.#sessionHash();
         const diagnostics = validateEcrpProjectLoadInput(input);
-        this.#sequenceId += 1;
         if (diagnostics.length > 0) {
+            this.#sequenceId += 1;
             this.#record('loadEcrpProject');
             return {
                 kind: 'runtime_session.ecrp_project_load_receipt.v0',
@@ -67,8 +67,9 @@ export class RustBackedRuntimeSessionFacade {
                 sessionHashAfter: this.#sessionHash(),
             };
         }
-        const snapshot = this.#bridge.loadFpsRuntimeSession(fpsLoadRequestFromEcrpProject(input));
         this.#bridge.loadWorldBundle(input.projectBundle.runtimeRequest);
+        const snapshot = this.#bridge.loadFpsRuntimeSession(fpsLoadRequestFromEcrpProject(input));
+        this.#sequenceId += 1;
         this.#identity = {
             ...identity,
             project: input.projectBundle.project,

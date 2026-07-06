@@ -23,6 +23,8 @@ const REQUIRED_EXPORTS = [
     'readFpsRuntimeSession',
     'applyFpsPrimaryFire',
     'restartFpsRuntimeSession',
+    'readFpsEncounterDirector',
+    'applyFpsEncounterTransition',
     'readRenderDiffs',
     'saveCurrentWorld',
     'getCompositionStatus',

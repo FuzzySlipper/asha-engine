@@ -224,7 +224,7 @@ function rustEncounterSnapshot(state, lifecycle, replayHash = 'fnv1a64:000000000
 }
 function rustRuntimeSessionBridgeDouble(options = {}) {
     const base = createMockRuntimeBridge();
-    const calls = { load: [], fire: [], nav: [], restart: [], encounterTransitions: [] };
+    const calls = { load: [], world: [], fire: [], nav: [], restart: [], encounterTransitions: [] };
     let player = 10;
     let enemy = 20;
     let epoch = 1;
@@ -256,6 +256,15 @@ function rustRuntimeSessionBridgeDouble(options = {}) {
                     });
                     encounterState = rustEncounterState();
                     return snapshot;
+                };
+            }
+            if (property === 'loadWorldBundle') {
+                return (request) => {
+                    calls.world.push(request);
+                    if (request.sceneId === options.rejectWorldSceneId) {
+                        throw new RuntimeBridgeError('invalid_input', `authority rejected scene ${request.sceneId}`);
+                    }
+                    return target.loadWorldBundle(request);
                 };
             }
             if (property === 'applyFpsPrimaryFire') {
@@ -551,6 +560,28 @@ void test('Rust-backed ECRP load fails closed on authority rejection without rep
     assert.equal(after.projectBundle.sceneId, before.projectBundle.sceneId);
     assert.equal(after.authority.source, 'rust_bridge');
     assert.equal(calls.load.length, 1);
+});
+void test('Rust-backed ECRP load stages world authority before FPS runtime mutation', () => {
+    const { bridge, calls } = rustRuntimeSessionBridgeDouble({
+        rejectWorldSceneId: 77,
+    });
+    const session = createRuntimeSessionFacade({ bridge, mode: 'rust' });
+    session.initialize(sessionInput());
+    const beforeReadout = session.readEcrpRuntimeReadout();
+    const beforeTelemetry = session.readTelemetry();
+    assert.throws(() => session.loadEcrpProject(ecrpProjectLoadInput()), (error) => error instanceof RuntimeBridgeError && error.kind === 'invalid_input');
+    const afterReadout = session.readEcrpRuntimeReadout();
+    const afterTelemetry = session.readTelemetry();
+    assert.equal(calls.world.length, 2);
+    assert.equal(calls.world[0]?.sceneId, 42);
+    assert.equal(calls.world[1]?.sceneId, 77);
+    assert.equal(calls.load.length, 1);
+    assert.equal(afterReadout.project.gameId, beforeReadout.project.gameId);
+    assert.equal(afterReadout.projectBundle.sceneId, beforeReadout.projectBundle.sceneId);
+    assert.equal(afterReadout.authority.source, 'rust_bridge');
+    assert.equal(afterReadout.authority.surface, beforeReadout.authority.surface);
+    assert.equal(afterTelemetry.sequenceId, beforeTelemetry.sequenceId);
+    assert.deepEqual(afterTelemetry.replayRecords.map((record) => record.recordHash), beforeTelemetry.replayRecords.map((record) => record.recordHash));
 });
 void test('Rust-backed RuntimeSession routes autonomous policy tick through bridge authority', () => {
     const { bridge, calls } = rustRuntimeSessionBridgeDouble();

@@ -5,7 +5,9 @@
 //     errors and deterministic behaviour matching the Rust ReferenceBridge.
 // (3) Native unavailable: the native factory throws a classified bridge error when
 //     the addon is not built (the expected state in offline CI).
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 const MODEL_MATERIAL_PREVIEW_REQUEST = {
@@ -38,6 +40,25 @@ const MODEL_MATERIAL_PREVIEW_REQUEST = {
 };
 import { MANIFEST_OPERATIONS, RuntimeBridgeError, createNativeGameRuntimeLauncher, createNativeRuntimeBridge, createSelectedBackendGameRuntimeLauncher, frameCursor, nativeBackendProfile, validateGameRuntimeBackendProfile, } from './index.js';
 import { MockRuntimeBridge, REFERENCE_RUNTIME_BACKEND_PROFILE, createMockRuntimeBridge, createMockRuntimeSession, createReferenceGameRuntimeLauncher, referenceBackendProfile, } from './reference.js';
+function writeStaleNativeAddonModule() {
+    const dir = mkdtempSync(join(tmpdir(), 'asha-runtime-bridge-'));
+    const modulePath = join(dir, 'stale-native-addon.cjs');
+    writeFileSync(modulePath, `module.exports = {
+      initializeEngine() {},
+      loadWorldBundle() {},
+      submitCommands() {},
+      stepSimulation() {},
+      applyEnemyDirectNavMovement() {},
+      loadFpsRuntimeSession() {},
+      readFpsRuntimeSession() {},
+      applyFpsPrimaryFire() {},
+      restartFpsRuntimeSession() {},
+      readRenderDiffs() {},
+      saveCurrentWorld() {},
+      getCompositionStatus() {}
+    };`);
+    return modulePath;
+}
 void test('facade exposes exactly the manifest operations (conformance)', () => {
     const bridge = createMockRuntimeBridge();
     const expected = MANIFEST_OPERATIONS.map((o) => o.facadeMethod).sort();
@@ -559,6 +580,18 @@ void test('mock: pickVoxel before init fails closed', () => {
 });
 void test('native factory classifies a missing addon path', () => {
     assert.throws(() => createNativeRuntimeBridge('./definitely-not-built.node'), (e) => e instanceof RuntimeBridgeError && e.kind === 'native_unavailable');
+});
+void test('native factory rejects stale addons missing encounter authority exports', () => {
+    const modulePath = writeStaleNativeAddonModule();
+    try {
+        assert.throws(() => createNativeRuntimeBridge(modulePath), (e) => e instanceof RuntimeBridgeError &&
+            e.kind === 'native_unavailable' &&
+            e.message.includes('readFpsEncounterDirector') &&
+            e.message.includes('applyFpsEncounterTransition'));
+    }
+    finally {
+        rmSync(dirname(modulePath), { recursive: true, force: true });
+    }
 });
 void test('native bridge matches the mock when the addon is built (else skip)', (t) => {
     let bridge;

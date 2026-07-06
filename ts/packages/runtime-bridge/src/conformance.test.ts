@@ -6,7 +6,9 @@
 // (3) Native unavailable: the native factory throws a classified bridge error when
 //     the addon is not built (the expected state in offline CI).
 
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -73,6 +75,29 @@ import {
   createReferenceGameRuntimeLauncher,
   referenceBackendProfile,
 } from './reference.js';
+
+function writeStaleNativeAddonModule(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'asha-runtime-bridge-'));
+  const modulePath = join(dir, 'stale-native-addon.cjs');
+  writeFileSync(
+    modulePath,
+    `module.exports = {
+      initializeEngine() {},
+      loadWorldBundle() {},
+      submitCommands() {},
+      stepSimulation() {},
+      applyEnemyDirectNavMovement() {},
+      loadFpsRuntimeSession() {},
+      readFpsRuntimeSession() {},
+      applyFpsPrimaryFire() {},
+      restartFpsRuntimeSession() {},
+      readRenderDiffs() {},
+      saveCurrentWorld() {},
+      getCompositionStatus() {}
+    };`,
+  );
+  return modulePath;
+}
 
 void test('facade exposes exactly the manifest operations (conformance)', () => {
   const bridge = createMockRuntimeBridge();
@@ -714,6 +739,22 @@ void test('native factory classifies a missing addon path', () => {
     () => createNativeRuntimeBridge('./definitely-not-built.node'),
     (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'native_unavailable',
   );
+});
+
+void test('native factory rejects stale addons missing encounter authority exports', () => {
+  const modulePath = writeStaleNativeAddonModule();
+  try {
+    assert.throws(
+      () => createNativeRuntimeBridge(modulePath),
+      (e: unknown) =>
+        e instanceof RuntimeBridgeError &&
+        e.kind === 'native_unavailable' &&
+        e.message.includes('readFpsEncounterDirector') &&
+        e.message.includes('applyFpsEncounterTransition'),
+    );
+  } finally {
+    rmSync(dirname(modulePath), { recursive: true, force: true });
+  }
 });
 
 void test('native bridge matches the mock when the addon is built (else skip)', (t) => {
