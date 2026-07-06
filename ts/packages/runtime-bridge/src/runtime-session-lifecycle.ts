@@ -10,7 +10,9 @@ import {
   projectBundleHashRecord,
   stableHash,
 } from './runtime-session-hash.js';
-import { buildRustFpsAuthorityPrimaryFireReadout } from './runtime-session-rust-fps-authority.js';
+import {
+  buildRustFpsAuthorityPrimaryFireReadout as buildReferenceFpsPrimaryFireFixtureReadout,
+} from './runtime-session-rust-fps-authority.js';
 import type {
   RuntimeSessionActionIntentReceipt,
   RuntimeSessionAutonomousPolicyTickInput,
@@ -128,16 +130,19 @@ export function lifecycleHealth(
   };
 }
 
-export function buildRuntimeSessionPrimaryFireReadout(input: {
+// Reference-mode helpers in this file may format projections and maintain the
+// deterministic fixture lifecycle. Live RuntimeSession lifecycle/restart
+// authority is routed through runtime-session-rust-facade.ts and the Rust bridge.
+export function buildReferenceRuntimeSessionPrimaryFireReadout(input: {
   readonly projectState: RuntimeSessionEcrpProjectState | null;
   readonly lifecycleState: RuntimeSessionLifecycleState;
   readonly source: RuntimeActionIntentEnvelope['source'];
   readonly tick: number;
 }): CombatRuntimeReadout {
-  return buildRustFpsAuthorityPrimaryFireReadout(input);
+  return buildReferenceFpsPrimaryFireFixtureReadout(input);
 }
 
-export function applyCombatReadoutToLifecycleState(input: {
+export function applyReferenceCombatReadoutToLifecycleState(input: {
   readonly state: RuntimeSessionLifecycleState;
   readonly readout: CombatRuntimeReadout;
   readonly tick: number;

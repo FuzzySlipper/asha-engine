@@ -45,13 +45,13 @@ export declare function initialRuntimeSessionLifecycleState(): RuntimeSessionLif
 export declare function generatedTunnelEnemyDefeatedLifecycleState(): RuntimeSessionLifecycleState;
 export declare function generatedTunnelPlayerDefeatedLifecycleState(): RuntimeSessionLifecycleState;
 export declare function lifecycleHealth(entity: number, current: number, max: number, dead: boolean): RuntimeSessionLifecycleHealthReadout;
-export declare function buildRuntimeSessionPrimaryFireReadout(input: {
+export declare function buildReferenceRuntimeSessionPrimaryFireReadout(input: {
     readonly projectState: RuntimeSessionEcrpProjectState | null;
     readonly lifecycleState: RuntimeSessionLifecycleState;
     readonly source: RuntimeActionIntentEnvelope['source'];
     readonly tick: number;
 }): CombatRuntimeReadout;
-export declare function applyCombatReadoutToLifecycleState(input: {
+export declare function applyReferenceCombatReadoutToLifecycleState(input: {
     readonly state: RuntimeSessionLifecycleState;
     readonly readout: CombatRuntimeReadout;
     readonly tick: number;

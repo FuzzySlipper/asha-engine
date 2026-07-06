@@ -99,8 +99,8 @@ import {
 } from './runtime-session-ecrp.js';
 import {
   acceptedAutonomousMovementReceipt,
-  applyCombatReadoutToLifecycleState,
-  buildRuntimeSessionPrimaryFireReadout,
+  applyReferenceCombatReadoutToLifecycleState,
+  buildReferenceRuntimeSessionPrimaryFireReadout,
   combatReadoutTick,
   generatedTunnelEnemyDefeatedLifecycleState,
   generatedTunnelPlayerDefeatedLifecycleState,
@@ -964,7 +964,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#record('submitRuntimeActionIntent');
     const combatReadout =
       envelope.action === 'primary_fire' && envelope.phase === 'pressed'
-        ? buildRuntimeSessionPrimaryFireReadout({
+        ? buildReferenceRuntimeSessionPrimaryFireReadout({
             projectState: this.#ecrpProjectState,
             lifecycleState: this.#lifecycleState,
             source: envelope.source,
@@ -1489,7 +1489,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
   }
 
   #applyCombatLifecycleReadout(readout: CombatRuntimeReadout, tick: number): void {
-    const applied = applyCombatReadoutToLifecycleState({
+    const applied = applyReferenceCombatReadoutToLifecycleState({
       state: this.#lifecycleState,
       readout,
       tick,

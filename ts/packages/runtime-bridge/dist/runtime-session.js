@@ -8,7 +8,7 @@ import { buildEncounterDirectorReadout, buildEncounterTransitionReceipt, initial
 import { GENERATED_TUNNEL_NAV_POLICY_VIEW, GENERATED_TUNNEL_NAV_PROJECTION, GENERATED_TUNNEL_NO_PATH, GENERATED_TUNNEL_REACHABLE_PATH, } from './nav-readout.js';
 import { buildRuntimeSessionEnemyNavPath, ecrpActorPosition, ecrpEntityTransform, runtimeTransformHashRecord, } from './runtime-session-enemy-authority.js';
 import { buildEcrpProjectState, buildEcrpRuntimeReadout, defaultRuntimeSessionEcrpProjectLoadInput, lifecycleStateFromEcrpProject, validateEcrpProjectLoadInput, } from './runtime-session-ecrp.js';
-import { acceptedAutonomousMovementReceipt, applyCombatReadoutToLifecycleState, buildRuntimeSessionPrimaryFireReadout, combatReadoutTick, generatedTunnelEnemyDefeatedLifecycleState, generatedTunnelPlayerDefeatedLifecycleState, initialRuntimeSessionLifecycleState, lifecycleStatusReadout, lifecycleStatusToEncounterLifecycle, rejectedAutonomousPolicyProposalReceipt, runtimeActionReceiptToAutonomousReceipt, validateAutonomousPolicyProposal, validateAutonomousPolicyTickInput, validateGeneratedTunnelOperationRequest, validateGeneratedTunnelReadoutRequest, validateInitializeInput, validateLifecycleStatusRequest, validateRestartIntent, validateRuntimeActionIntentEnvelope, } from './runtime-session-lifecycle.js';
+import { acceptedAutonomousMovementReceipt, applyReferenceCombatReadoutToLifecycleState, buildReferenceRuntimeSessionPrimaryFireReadout, combatReadoutTick, generatedTunnelEnemyDefeatedLifecycleState, generatedTunnelPlayerDefeatedLifecycleState, initialRuntimeSessionLifecycleState, lifecycleStatusReadout, lifecycleStatusToEncounterLifecycle, rejectedAutonomousPolicyProposalReceipt, runtimeActionReceiptToAutonomousReceipt, validateAutonomousPolicyProposal, validateAutonomousPolicyTickInput, validateGeneratedTunnelOperationRequest, validateGeneratedTunnelReadoutRequest, validateInitializeInput, validateLifecycleStatusRequest, validateRestartIntent, validateRuntimeActionIntentEnvelope, } from './runtime-session-lifecycle.js';
 import { compositionHashRecord, encounterStateHashRecord, identityHashRecord, lifecycleStateHashRecord, referenceRuntimeSessionNonClaims, renderFrameHashRecord, stableHash, } from './runtime-session-hash.js';
 import { RustBackedRuntimeSessionFacade } from './runtime-session-rust-facade.js';
 export function createRuntimeSessionFacade(options) {
@@ -184,7 +184,7 @@ class ReferenceRuntimeSessionFacade {
         this.#sequenceId += 1;
         this.#record('submitRuntimeActionIntent');
         const combatReadout = envelope.action === 'primary_fire' && envelope.phase === 'pressed'
-            ? buildRuntimeSessionPrimaryFireReadout({
+            ? buildReferenceRuntimeSessionPrimaryFireReadout({
                 projectState: this.#ecrpProjectState,
                 lifecycleState: this.#lifecycleState,
                 source: envelope.source,
@@ -649,7 +649,7 @@ class ReferenceRuntimeSessionFacade {
         return movement;
     }
     #applyCombatLifecycleReadout(readout, tick) {
-        const applied = applyCombatReadoutToLifecycleState({
+        const applied = applyReferenceCombatReadoutToLifecycleState({
             state: this.#lifecycleState,
             readout,
             tick,

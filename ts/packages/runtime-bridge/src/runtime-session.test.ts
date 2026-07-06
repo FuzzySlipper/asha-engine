@@ -402,6 +402,15 @@ void test('Rust-backed RuntimeSession routes ECRP load, primary fire, and restar
   assert.equal(restart.accepted, true);
   assert.equal(restart.statusAfter.outcome.kind, 'in_progress');
   assert.deepEqual(calls.restart, [{ expectedEpoch: 1 }]);
+
+  const staleRestart = session.requestSessionRestart({
+    kind: 'runtime.restart_session_intent',
+    source: 'programmatic',
+    expectedSessionHash: receipt.sessionHashAfter,
+  });
+  assert.equal(staleRestart.accepted, false);
+  assert.equal(staleRestart.rejection?.reason, 'session_hash_mismatch');
+  assert.deepEqual(calls.restart, [{ expectedEpoch: 1 }]);
 });
 
 void test('Rust-backed RuntimeSession fails closed for unwired live policy helpers', () => {
@@ -416,6 +425,15 @@ void test('Rust-backed RuntimeSession fails closed for unwired live policy helpe
   assert.throws(
     () => session.readNavProjection(),
     (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'operation_unimplemented',
+  );
+  assert.throws(
+    () =>
+      session.requestSessionRestart({
+        kind: 'runtime.restart_session_intent',
+        source: 'programmatic',
+        expectedSessionHash: '',
+      }),
+    (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'invalid_input',
   );
 });
 
