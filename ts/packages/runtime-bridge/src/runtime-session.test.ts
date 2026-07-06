@@ -315,13 +315,13 @@ function rustRuntimeSessionBridgeDouble(options: {
           return snapshot;
         };
       }
-      if (property === 'loadWorldBundle') {
+      if (property === 'loadWorldBundle') { // vocab-allow: proxy intercepts the legacy bridge operation by name.
         return (request: WorldLoadRequest) => {
           calls.world.push(request);
           if (request.sceneId === options.rejectWorldSceneId) {
             throw new RuntimeBridgeError('invalid_input', `authority rejected scene ${request.sceneId}`);
           }
-          return target.loadWorldBundle(request);
+          return target.loadWorldBundle(request); // vocab-allow: test delegates to the legacy bridge operation under the RuntimeSession facade.
         };
       }
       if (property === 'applyFpsPrimaryFire') {

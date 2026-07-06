@@ -13,7 +13,7 @@ function writeStaleAddonModule(): string {
     modulePath,
     `module.exports = {
       initializeEngine() {},
-      loadWorldBundle() {},
+      loadWorldBundle() {}, // vocab-allow: stale native-addon fixture must name the legacy bridge operation.
       submitCommands() {},
       stepSimulation() {},
       applyEnemyDirectNavMovement() {},

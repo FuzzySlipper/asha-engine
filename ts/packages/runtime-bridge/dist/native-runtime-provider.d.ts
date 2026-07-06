@@ -28,9 +28,17 @@ export interface NativeRustRuntimeBridgeProvider {
     readonly createRuntimeBridge?: () => RuntimeBridge | Promise<RuntimeBridge>;
     readonly bridge?: RuntimeBridge | Promise<RuntimeBridge>;
 }
+export interface NativeRustRuntimeBridgeProviderCandidate {
+    readonly kind?: string;
+    readonly backend?: string;
+    readonly productAuthority?: boolean;
+    readonly referenceFallback?: boolean;
+    readonly createRuntimeBridge?: () => RuntimeBridge | Promise<RuntimeBridge>;
+    readonly bridge?: RuntimeBridge | Promise<RuntimeBridge> | null;
+}
 export interface ResolveNativeRustRuntimeBridgeProviderRequest {
-    readonly provider?: unknown;
-    readonly globalScope?: Record<string, unknown>;
+    readonly provider?: NativeRustRuntimeBridgeProviderCandidate | null;
+    readonly globalScope?: Record<string, NativeRustRuntimeBridgeProviderCandidate | null | undefined>;
     readonly providerGlobalNames?: readonly string[];
     readonly providerKinds?: readonly NativeRustRuntimeBridgeProviderKind[];
 }

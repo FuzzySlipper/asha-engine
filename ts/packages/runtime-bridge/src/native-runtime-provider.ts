@@ -13,7 +13,7 @@ export const NATIVE_RUST_RUNTIME_BRIDGE_PROVIDER_GLOBALS = [
 
 export const NATIVE_RUST_RUNTIME_BRIDGE_REQUIRED_METHODS = [
   'initializeEngine',
-  'loadWorldBundle',
+  'loadWorldBundle', // vocab-allow: provider compatibility check must require the legacy bridge operation.
   'getCompositionStatus',
   'createCamera',
   'applyCollisionConstrainedCameraInput',
@@ -62,11 +62,25 @@ export interface NativeRustRuntimeBridgeProvider {
   readonly bridge?: RuntimeBridge | Promise<RuntimeBridge>;
 }
 
+export interface NativeRustRuntimeBridgeProviderCandidate {
+  readonly kind?: string;
+  readonly backend?: string;
+  readonly productAuthority?: boolean;
+  readonly referenceFallback?: boolean;
+  readonly createRuntimeBridge?: () => RuntimeBridge | Promise<RuntimeBridge>;
+  readonly bridge?: RuntimeBridge | Promise<RuntimeBridge> | null;
+}
+
 export interface ResolveNativeRustRuntimeBridgeProviderRequest {
-  readonly provider?: unknown;
-  readonly globalScope?: Record<string, unknown>;
+  readonly provider?: NativeRustRuntimeBridgeProviderCandidate | null;
+  readonly globalScope?: Record<string, NativeRustRuntimeBridgeProviderCandidate | null | undefined>;
   readonly providerGlobalNames?: readonly string[];
   readonly providerKinds?: readonly NativeRustRuntimeBridgeProviderKind[];
+}
+
+interface NativeRustRuntimeBridgeProviderGlobalThis {
+  readonly ashaRuntimeBridge?: NativeRustRuntimeBridgeProviderCandidate | null;
+  readonly ashaDemoRuntimeBridge?: NativeRustRuntimeBridgeProviderCandidate | null;
 }
 
 export type NativeRustRuntimeBridgeProviderResolution =
@@ -198,13 +212,13 @@ export function assertNativeRustRuntimeBridgeAuthority(input: NativeRustRuntimeA
 }
 
 function readProviderCandidate(request: ResolveNativeRustRuntimeBridgeProviderRequest): {
-  readonly provider: unknown;
+  readonly provider: NativeRustRuntimeBridgeProviderCandidate | null;
   readonly providerGlobal: string | null;
 } {
   if (request.provider !== undefined) {
     return { provider: request.provider, providerGlobal: null };
   }
-  const scope = request.globalScope ?? (typeof globalThis === 'object' ? globalThis as Record<string, unknown> : {});
+  const scope = request.globalScope ?? defaultNativeRustRuntimeBridgeProviderGlobals();
   for (const name of request.providerGlobalNames ?? NATIVE_RUST_RUNTIME_BRIDGE_PROVIDER_GLOBALS) {
     if (scope[name] !== undefined && scope[name] !== null) {
       return { provider: scope[name], providerGlobal: `globalThis.${name}` };
@@ -213,22 +227,34 @@ function readProviderCandidate(request: ResolveNativeRustRuntimeBridgeProviderRe
   return { provider: null, providerGlobal: null };
 }
 
+function defaultNativeRustRuntimeBridgeProviderGlobals(): Record<string, NativeRustRuntimeBridgeProviderCandidate | null | undefined> {
+  const globals = globalThis as typeof globalThis & NativeRustRuntimeBridgeProviderGlobalThis;
+  return {
+    ashaRuntimeBridge: globals.ashaRuntimeBridge,
+    ashaDemoRuntimeBridge: globals.ashaDemoRuntimeBridge,
+  };
+}
+
 function isNativeRustRuntimeBridgeProvider(
-  value: unknown,
+  value: NativeRustRuntimeBridgeProviderCandidate | null,
   providerKinds: readonly NativeRustRuntimeBridgeProviderKind[],
 ): value is NativeRustRuntimeBridgeProvider {
   return value !== null
-    && (typeof value === 'object' || typeof value === 'function')
-    && providerKinds.includes((value as { readonly kind?: unknown }).kind as NativeRustRuntimeBridgeProviderKind)
-    && (value as { readonly backend?: unknown }).backend === 'native_rust'
-    && (value as { readonly productAuthority?: unknown }).productAuthority === true
-    && (value as { readonly referenceFallback?: unknown }).referenceFallback === false;
+    && isNativeRustRuntimeBridgeProviderKind(value.kind, providerKinds)
+    && value.backend === 'native_rust'
+    && value.productAuthority === true
+    && value.referenceFallback === false;
+}
+
+function isNativeRustRuntimeBridgeProviderKind(
+  value: string | undefined,
+  providerKinds: readonly NativeRustRuntimeBridgeProviderKind[],
+): value is NativeRustRuntimeBridgeProviderKind {
+  return value !== undefined && (providerKinds as readonly string[]).includes(value);
 }
 
 async function readProvidedRuntimeBridge(provider: NativeRustRuntimeBridgeProvider): Promise<RuntimeBridge> {
-  const candidate = typeof provider === 'function'
-    ? (provider as () => RuntimeBridge | Promise<RuntimeBridge>)()
-    : typeof provider.createRuntimeBridge === 'function'
+  const candidate = typeof provider.createRuntimeBridge === 'function'
       ? provider.createRuntimeBridge()
       : provider.bridge;
   const bridge = await candidate;

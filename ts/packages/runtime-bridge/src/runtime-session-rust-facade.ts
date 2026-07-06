@@ -152,7 +152,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   initialize(input: RuntimeSessionInitializeInput): RuntimeSessionStateSummary {
     validateInitializeInput(input);
     const engine = this.#bridge.initializeEngine({ seed: input.seed });
-    const composition = this.#bridge.loadWorldBundle(input.projectBundle);
+    const composition = this.#bridge.loadWorldBundle(input.projectBundle); // vocab-allow: RuntimeSession facade adapts the legacy bridge operation.
     const defaultProject = defaultRuntimeSessionEcrpProjectLoadInput(input);
     const snapshot = this.#bridge.loadFpsRuntimeSession(fpsLoadRequestFromEcrpProject(defaultProject));
     this.#engine = engine;
@@ -197,7 +197,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       };
     }
 
-    this.#bridge.loadWorldBundle(input.projectBundle.runtimeRequest);
+    this.#bridge.loadWorldBundle(input.projectBundle.runtimeRequest); // vocab-allow: RuntimeSession ECRP load adapts the legacy bridge operation.
     const snapshot = this.#bridge.loadFpsRuntimeSession(fpsLoadRequestFromEcrpProject(input));
     this.#sequenceId += 1;
     this.#identity = {

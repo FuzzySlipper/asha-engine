@@ -7,7 +7,7 @@ export const NATIVE_RUST_RUNTIME_BRIDGE_PROVIDER_GLOBALS = [
 ];
 export const NATIVE_RUST_RUNTIME_BRIDGE_REQUIRED_METHODS = [
     'initializeEngine',
-    'loadWorldBundle',
+    'loadWorldBundle', // vocab-allow: provider compatibility check must require the legacy bridge operation.
     'getCompositionStatus',
     'createCamera',
     'applyCollisionConstrainedCameraInput',
@@ -87,7 +87,7 @@ function readProviderCandidate(request) {
     if (request.provider !== undefined) {
         return { provider: request.provider, providerGlobal: null };
     }
-    const scope = request.globalScope ?? (typeof globalThis === 'object' ? globalThis : {});
+    const scope = request.globalScope ?? defaultNativeRustRuntimeBridgeProviderGlobals();
     for (const name of request.providerGlobalNames ?? NATIVE_RUST_RUNTIME_BRIDGE_PROVIDER_GLOBALS) {
         if (scope[name] !== undefined && scope[name] !== null) {
             return { provider: scope[name], providerGlobal: `globalThis.${name}` };
@@ -95,20 +95,27 @@ function readProviderCandidate(request) {
     }
     return { provider: null, providerGlobal: null };
 }
+function defaultNativeRustRuntimeBridgeProviderGlobals() {
+    const globals = globalThis;
+    return {
+        ashaRuntimeBridge: globals.ashaRuntimeBridge,
+        ashaDemoRuntimeBridge: globals.ashaDemoRuntimeBridge,
+    };
+}
 function isNativeRustRuntimeBridgeProvider(value, providerKinds) {
     return value !== null
-        && (typeof value === 'object' || typeof value === 'function')
-        && providerKinds.includes(value.kind)
+        && isNativeRustRuntimeBridgeProviderKind(value.kind, providerKinds)
         && value.backend === 'native_rust'
         && value.productAuthority === true
         && value.referenceFallback === false;
 }
+function isNativeRustRuntimeBridgeProviderKind(value, providerKinds) {
+    return value !== undefined && providerKinds.includes(value);
+}
 async function readProvidedRuntimeBridge(provider) {
-    const candidate = typeof provider === 'function'
-        ? provider()
-        : typeof provider.createRuntimeBridge === 'function'
-            ? provider.createRuntimeBridge()
-            : provider.bridge;
+    const candidate = typeof provider.createRuntimeBridge === 'function'
+        ? provider.createRuntimeBridge()
+        : provider.bridge;
     const bridge = await candidate;
     if (bridge === undefined || bridge === null || typeof bridge !== 'object') {
         throw new RuntimeBridgeError('invalid_input', 'RuntimeBridge provider did not return a bridge object');
