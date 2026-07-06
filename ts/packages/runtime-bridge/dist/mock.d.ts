@@ -1,5 +1,5 @@
 import type { CameraCollisionSnapshot, CameraCreateRequest, CameraProjectionRequest, CameraProjectionSnapshot, CameraSnapshot, CollisionConstrainedCameraInputEnvelope, CommandBatch, CommandResult, FirstPersonCameraInputEnvelope, ModelMaterialPreviewRequest, ModelMaterialPreviewSnapshot, PickRay, PickResult, RenderFrameDiff, SceneObjectCommandRequest, SceneObjectCommandResult, SceneObjectSnapshot, ScreenPointToPickRayRequest, VoxelSelectionSnapshot } from '@asha/contracts';
-import { type CompositionStatus, type EnemyDirectNavMovementRequest, type EnemyDirectNavMovementResult, type EngineConfig, type EngineHandle, type FrameCursor, type FpsPrimaryFireRequest, type FpsPrimaryFireResult, type FpsRuntimeSessionLoadRequest, type FpsRuntimeSessionRestartRequest, type FpsRuntimeSessionSnapshot, type ReplayFixture, type ReplaySessionHandle, type ReplayStepReport, type RuntimeBridge, type RuntimeBufferHandle, type RuntimeBufferView, type StepInputEnvelope, type StepResult, type VoxelMeshEvidenceRequest, type VoxelMeshEvidenceSnapshot, type WorldLoadRequest, type WorldSaveSummary } from './bridge.js';
+import { type CompositionStatus, type EnemyDirectNavMovementRequest, type EnemyDirectNavMovementResult, type EngineConfig, type EngineHandle, type FrameCursor, type FpsEncounterDirectorSnapshot, type FpsEncounterLifecycleInput, type FpsEncounterTransitionRequest, type FpsEncounterTransitionResult, type FpsPrimaryFireRequest, type FpsPrimaryFireResult, type FpsRuntimeSessionLoadRequest, type FpsRuntimeSessionRestartRequest, type FpsRuntimeSessionSnapshot, type ReplayFixture, type ReplaySessionHandle, type ReplayStepReport, type RuntimeBridge, type RuntimeBufferHandle, type RuntimeBufferView, type StepInputEnvelope, type StepResult, type VoxelMeshEvidenceRequest, type VoxelMeshEvidenceSnapshot, type WorldLoadRequest, type WorldSaveSummary } from './bridge.js';
 export declare class MockRuntimeBridge implements RuntimeBridge {
     #private;
     initializeEngine(config: EngineConfig): EngineHandle;
@@ -9,6 +9,8 @@ export declare class MockRuntimeBridge implements RuntimeBridge {
     readFpsRuntimeSession(): FpsRuntimeSessionSnapshot;
     applyFpsPrimaryFire(request: FpsPrimaryFireRequest): FpsPrimaryFireResult;
     restartFpsRuntimeSession(request: FpsRuntimeSessionRestartRequest): FpsRuntimeSessionSnapshot;
+    readFpsEncounterDirector(lifecycle: FpsEncounterLifecycleInput): FpsEncounterDirectorSnapshot;
+    applyFpsEncounterTransition(request: FpsEncounterTransitionRequest): FpsEncounterTransitionResult;
     submitCommands(batch: CommandBatch): CommandResult;
     pickVoxel(ray: PickRay): PickResult;
     applyCollisionConstrainedCameraInput(input: CollisionConstrainedCameraInputEnvelope): CameraCollisionSnapshot;

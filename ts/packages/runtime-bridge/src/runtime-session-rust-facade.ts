@@ -9,6 +9,10 @@ import {
   RuntimeBridgeError,
   frameCursor,
   type CompositionStatus,
+  type FpsEncounterDirectorSnapshot,
+  type FpsEncounterLifecycleInput,
+  type FpsEncounterStateReadout,
+  type FpsEncounterTransitionResult,
   type EngineHandle,
   type FpsPrimaryFireResult,
   type FpsRuntimeSessionLoadRequest,
@@ -27,8 +31,15 @@ import type {
 import type {
   EncounterDirectorReadout,
   EncounterDirectorReadoutRequest,
+  EncounterDirectorState,
   EncounterTransitionRequest,
   RuntimeSessionEncounterTransitionReceipt,
+} from './encounter-director.js';
+import {
+  buildEncounterDirectorReadout,
+  buildEncounterTransitionReceipt,
+  validateEncounterDirectorReadoutRequest,
+  validateEncounterTransitionRequest,
 } from './encounter-director.js';
 import type {
   NavPathQueryRequest,
@@ -45,6 +56,7 @@ import {
 } from './runtime-session-ecrp.js';
 import {
   lifecycleStatusReadout,
+  lifecycleStatusToEncounterLifecycle,
   validateInitializeInput,
   validateLifecycleStatusRequest,
   validateRestartIntent,
@@ -377,16 +389,85 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     };
   }
 
-  readEncounterDirector(_request: EncounterDirectorReadoutRequest = {}): EncounterDirectorReadout {
-    void _request;
-    this.#requireInitialized('readEncounterDirector');
-    throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed encounter director authority is not wired yet');
+  readEncounterDirector(request: EncounterDirectorReadoutRequest = {}): EncounterDirectorReadout {
+    const identity = this.#requireInitialized('readEncounterDirector');
+    validateEncounterDirectorReadoutRequest(request);
+    const lifecycle = this.#encounterLifecycleFromScenario(request.lifecycleScenario);
+    const snapshot = this.#bridge.readFpsEncounterDirector(fpsEncounterLifecycleInput(lifecycle));
+    return encounterReadoutFromFpsSnapshot({
+      snapshot,
+      sequenceId: this.#sequenceId,
+      tick: this.#tick,
+      sessionSeed: identity.seed,
+      sessionHash: this.#sessionHash(),
+    });
   }
 
-  requestEncounterTransition(_request: EncounterTransitionRequest): RuntimeSessionEncounterTransitionReceipt {
-    void _request;
-    this.#requireInitialized('requestEncounterTransition');
-    throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed encounter transition authority is not wired yet');
+  requestEncounterTransition(request: EncounterTransitionRequest): RuntimeSessionEncounterTransitionReceipt {
+    const identity = this.#requireInitialized('requestEncounterTransition');
+    const sessionHashBefore = this.#sessionHash();
+    const validationRejection = validateEncounterTransitionRequest(request);
+    const lifecycle = validationRejection === undefined
+      ? this.#encounterLifecycleFromScenario(request.lifecycleScenario)
+      : this.#encounterLifecycleFromScenario();
+    const beforeSnapshot = this.#bridge.readFpsEncounterDirector(fpsEncounterLifecycleInput(lifecycle));
+    const before = encounterReadoutFromFpsSnapshot({
+      snapshot: beforeSnapshot,
+      sequenceId: this.#sequenceId,
+      tick: this.#tick,
+      sessionSeed: identity.seed,
+      sessionHash: sessionHashBefore,
+    });
+    const result = validationRejection === undefined
+      ? this.#bridge.applyFpsEncounterTransition({
+          presetId: request.presetId,
+          action: request.action,
+          lifecycle: fpsEncounterLifecycleInput(lifecycle),
+        })
+      : null;
+
+    this.#sequenceId += 1;
+    if (result?.accepted) {
+      this.#record('requestEncounterTransition', result.replayHash);
+    } else {
+      this.#record('requestEncounterTransition');
+    }
+
+    const afterSnapshot = result === null
+      ? beforeSnapshot
+      : {
+          ...beforeSnapshot,
+          backend: result.backend,
+          authoritySurface: result.authoritySurface,
+          mutationOwner: result.mutationOwner,
+          workspaceTrace: result.workspaceTrace,
+          state: result.state,
+          lifecycle: result.lifecycle,
+          encounterHash: result.encounterHash,
+          replayHash: result.replayHash,
+        };
+    const after = encounterReadoutFromFpsSnapshot({
+      snapshot: afterSnapshot,
+      sequenceId: this.#sequenceId,
+      tick: this.#tick,
+      sessionSeed: identity.seed,
+      sessionHash: this.#sessionHash(),
+    });
+    return buildEncounterTransitionReceipt({
+      request,
+      sequenceId: this.#sequenceId,
+      before,
+      after,
+      result: result === null
+        ? {
+            accepted: false,
+            state: fpsEncounterStateToReadoutState(beforeSnapshot.state),
+            rejectionReason: validationRejection ?? 'invalid_encounter_transition',
+          }
+        : encounterTransitionResultForReceipt(result),
+      sessionHashBefore,
+      sessionHashAfter: this.#sessionHash(),
+    });
   }
 
   readCombatReadout(_request: RuntimeSessionCombatReadoutRequest = {}): CombatRuntimeReadout {
@@ -541,6 +622,13 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       sessionHashAfter: this.#sessionHash(),
       resetHash: statusAfter.hashes.replayHash,
     };
+  }
+
+  #encounterLifecycleFromScenario(
+    scenario?: EncounterDirectorReadoutRequest['lifecycleScenario'],
+  ): ReturnType<typeof lifecycleStatusToEncounterLifecycle> {
+    const lifecycleScenario = scenario === undefined || scenario === 'active' ? 'current_session' : scenario;
+    return lifecycleStatusToEncounterLifecycle(this.readLifecycleStatus({ scenario: lifecycleScenario }));
   }
 
   #requireInitialized(operation: string): RuntimeSessionIdentity {
@@ -806,4 +894,77 @@ function combatAuthorityFromFpsPrimaryFire(result: FpsPrimaryFireResult): Combat
     mutationOwner: result.mutationOwner,
     workspaceTrace: result.workspaceTrace,
   };
+}
+
+function fpsEncounterLifecycleInput(
+  lifecycle: ReturnType<typeof lifecycleStatusToEncounterLifecycle>,
+): FpsEncounterLifecycleInput {
+  return {
+    outcomeKind: lifecycle.outcomeKind,
+    terminal: lifecycle.terminal,
+    enemyDead: lifecycle.enemyDead,
+    playerDead: lifecycle.playerDead,
+    lifecycleHash: lifecycle.lifecycleHash,
+  };
+}
+
+function encounterReadoutFromFpsSnapshot(input: {
+  readonly snapshot: FpsEncounterDirectorSnapshot;
+  readonly sequenceId: number;
+  readonly tick: number;
+  readonly sessionSeed: number;
+  readonly sessionHash: string;
+}): EncounterDirectorReadout {
+  return buildEncounterDirectorReadout({
+    state: fpsEncounterStateToReadoutState(input.snapshot.state),
+    sequenceId: input.sequenceId,
+    tick: input.tick,
+    sessionSeed: input.sessionSeed,
+    sessionHash: input.sessionHash,
+    lifecycle: input.snapshot.lifecycle,
+    authority: {
+      source: input.snapshot.backend === 'native_rust' ? 'rust_bridge' : 'reference_bridge',
+      backend: input.snapshot.backend,
+      surface: input.snapshot.authoritySurface,
+      mutationOwner: input.snapshot.mutationOwner,
+      readSets: input.snapshot.readSets,
+      workspaceTrace: input.snapshot.workspaceTrace,
+    },
+  });
+}
+
+function fpsEncounterStateToReadoutState(state: FpsEncounterStateReadout): EncounterDirectorState {
+  return {
+    presetId: requireGeneratedTunnelEncounterPreset(state.presetId),
+    status: state.status,
+    spawnedEnemyIds: generatedTunnelEncounterIds(state.spawnedEnemyIds),
+    defeatedEnemyIds: generatedTunnelEncounterIds(state.defeatedEnemyIds),
+    revision: state.revision,
+    lastTransition: state.lastTransition,
+  };
+}
+
+function encounterTransitionResultForReceipt(result: FpsEncounterTransitionResult) {
+  return {
+    accepted: result.accepted,
+    state: fpsEncounterStateToReadoutState(result.state),
+    ...(result.eventKind === null ? {} : { eventKind: result.eventKind }),
+    ...(result.rejectionReason === null ? {} : { rejectionReason: result.rejectionReason }),
+  };
+}
+
+function requireGeneratedTunnelEncounterPreset(value: string): EncounterDirectorState['presetId'] {
+  if (value !== 'generated-tunnel-small-encounter') {
+    throw new RuntimeBridgeError('internal', `unsupported Rust encounter preset '${value}'`);
+  }
+  return value;
+}
+
+function generatedTunnelEncounterIds(ids: readonly string[]): EncounterDirectorState['spawnedEnemyIds'] {
+  return ids.map((id) => {
+    if (id !== 'encounter.generated_tunnel_small.wave_1.enemy_001') {
+      throw new RuntimeBridgeError('internal', `unsupported Rust encounter instance '${id}'`);
+    }
+    return id;
+  });
 }

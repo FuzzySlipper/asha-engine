@@ -145,6 +145,8 @@ function bridgeWith(overrides) {
         readFpsRuntimeSession: base.readFpsRuntimeSession.bind(base),
         applyFpsPrimaryFire: base.applyFpsPrimaryFire.bind(base),
         restartFpsRuntimeSession: base.restartFpsRuntimeSession.bind(base),
+        readFpsEncounterDirector: base.readFpsEncounterDirector.bind(base),
+        applyFpsEncounterTransition: base.applyFpsEncounterTransition.bind(base),
         readCameraProjection: base.readCameraProjection.bind(base),
         getBuffer: base.getBuffer.bind(base),
         releaseBuffer: base.releaseBuffer.bind(base),

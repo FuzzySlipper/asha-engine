@@ -46,9 +46,12 @@ use protocol_view::{
     ScreenPointToPickRayRequest, ViewportSize, VoxelSelectionOutcome, VoxelSelectionSnapshot,
 };
 use rule_lifecycle::{
-    load_fps_project_bundle, FpsLifecycleStatus, FpsPolicyBinding, FpsPrimaryFireReceipt,
-    FpsProjectBundleLoadInput, FpsRenderProjectionState, FpsRuntimeError, FpsRuntimeRole,
-    FpsRuntimeSessionState, FpsStoredEntityDefinition, FpsWeaponMount,
+    load_fps_project_bundle, FpsEncounterLastTransition,
+    FpsEncounterLifecycleInput as RuleFpsEncounterLifecycleInput, FpsEncounterState,
+    FpsEncounterStatus, FpsEncounterTransitionAction, FpsEncounterTransitionReceipt,
+    FpsLifecycleStatus, FpsPolicyBinding, FpsPrimaryFireReceipt, FpsProjectBundleLoadInput,
+    FpsRenderProjectionState, FpsRuntimeError, FpsRuntimeRole, FpsRuntimeSessionState,
+    FpsStoredEntityDefinition, FpsWeaponMount,
 };
 use rule_voxel_edit::VoxelEditRejection;
 use svc_collision::{CollisionProjection, Ray};
@@ -612,6 +615,60 @@ pub struct FpsPrimaryFireResult {
     pub replay_hash: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsEncounterLifecycleInput {
+    pub outcome_kind: String,
+    pub terminal: bool,
+    pub enemy_dead: bool,
+    pub player_dead: bool,
+    pub lifecycle_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsEncounterTransitionRequest {
+    pub preset_id: String,
+    pub action: String,
+    pub lifecycle: FpsEncounterLifecycleInput,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsEncounterStateReadout {
+    pub preset_id: String,
+    pub status: String,
+    pub spawned_enemy_ids: Vec<String>,
+    pub defeated_enemy_ids: Vec<String>,
+    pub revision: u64,
+    pub last_transition: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsEncounterDirectorSnapshot {
+    pub backend: String,
+    pub authority_surface: String,
+    pub mutation_owner: String,
+    pub workspace_trace: Vec<String>,
+    pub state: FpsEncounterStateReadout,
+    pub lifecycle: FpsEncounterLifecycleInput,
+    pub read_sets: Vec<FpsReadSetEvidence>,
+    pub encounter_hash: u64,
+    pub replay_hash: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsEncounterTransitionResult {
+    pub backend: String,
+    pub authority_surface: String,
+    pub mutation_owner: String,
+    pub workspace_trace: Vec<String>,
+    pub accepted: bool,
+    pub rejection_reason: Option<String>,
+    pub event_kind: Option<String>,
+    pub state: FpsEncounterStateReadout,
+    pub lifecycle: FpsEncounterLifecycleInput,
+    pub encounter_hash: u64,
+    pub replay_hash: u64,
+}
+
 // ── The bridge surface ────────────────────────────────────────────────────────
 
 /// The bounded set of verbs every transport implements. There is no generic
@@ -667,6 +724,18 @@ pub trait RuntimeBridge {
         &mut self,
         request: FpsRuntimeSessionRestartRequest,
     ) -> BridgeResult<FpsRuntimeSessionSnapshot>;
+    /// Read the Rust-owned encounter/spawn director projection for the loaded
+    /// FPS/ECRP RuntimeSession. Configuration is descriptive; transition state
+    /// and hashes come from rule-lifecycle authority.
+    fn read_fps_encounter_director(
+        &self,
+        lifecycle: FpsEncounterLifecycleInput,
+    ) -> BridgeResult<FpsEncounterDirectorSnapshot>;
+    /// Apply a Rust-owned encounter transition for the loaded FPS/ECRP session.
+    fn apply_fps_encounter_transition(
+        &mut self,
+        request: FpsEncounterTransitionRequest,
+    ) -> BridgeResult<FpsEncounterTransitionResult>;
     fn create_camera(&mut self, request: CameraCreateRequest) -> BridgeResult<CameraSnapshot>;
     fn apply_first_person_camera_input(
         &mut self,
@@ -1044,6 +1113,140 @@ impl ReferenceBridge {
                 read_set: vec!["FpsRuntimeSessionState.replay_records".to_string()],
             },
         ]
+    }
+
+    fn fps_encounter_read_sets() -> Vec<FpsReadSetEvidence> {
+        vec![
+            FpsReadSetEvidence {
+                view_kind: "runtime_session.encounter_director.v0".to_string(),
+                owner: "rule-lifecycle".to_string(),
+                read_set: vec![
+                    "FpsRuntimeSessionState.encounter".to_string(),
+                    "FpsRuntimeSessionState.lifecycle_status".to_string(),
+                ],
+            },
+            FpsReadSetEvidence {
+                view_kind: "runtime_session.encounter_replay.v0".to_string(),
+                owner: "rule-lifecycle".to_string(),
+                read_set: vec!["FpsRuntimeSessionState.replay_records".to_string()],
+            },
+        ]
+    }
+
+    fn bridge_encounter_lifecycle(
+        lifecycle: FpsEncounterLifecycleInput,
+    ) -> RuleFpsEncounterLifecycleInput {
+        RuleFpsEncounterLifecycleInput {
+            outcome_kind: lifecycle.outcome_kind,
+            terminal: lifecycle.terminal,
+            enemy_dead: lifecycle.enemy_dead,
+            player_dead: lifecycle.player_dead,
+            lifecycle_hash: lifecycle.lifecycle_hash,
+        }
+    }
+
+    fn bridge_encounter_state(state: &FpsEncounterState) -> FpsEncounterStateReadout {
+        FpsEncounterStateReadout {
+            preset_id: state.preset_id.clone(),
+            status: Self::encounter_status_label(state.status).to_string(),
+            spawned_enemy_ids: state.spawned_enemy_ids.clone(),
+            defeated_enemy_ids: state.defeated_enemy_ids.clone(),
+            revision: state.revision,
+            last_transition: Self::encounter_last_transition_label(state.last_transition)
+                .to_string(),
+        }
+    }
+
+    fn encounter_status_label(status: FpsEncounterStatus) -> &'static str {
+        match status {
+            FpsEncounterStatus::Pending => "pending",
+            FpsEncounterStatus::Active => "active",
+            FpsEncounterStatus::Cleared => "cleared",
+            FpsEncounterStatus::Failed => "failed",
+        }
+    }
+
+    fn encounter_last_transition_label(transition: FpsEncounterLastTransition) -> &'static str {
+        match transition {
+            FpsEncounterLastTransition::Initialized => "initialized",
+            FpsEncounterLastTransition::Activated => "activated",
+            FpsEncounterLastTransition::Cleared => "cleared",
+            FpsEncounterLastTransition::Failed => "failed",
+            FpsEncounterLastTransition::Reset => "reset",
+        }
+    }
+
+    fn encounter_action(action: &str) -> BridgeResult<FpsEncounterTransitionAction> {
+        match action {
+            "activate" => Ok(FpsEncounterTransitionAction::Activate),
+            "sync_lifecycle" => Ok(FpsEncounterTransitionAction::SyncLifecycle),
+            "reset" => Ok(FpsEncounterTransitionAction::Reset),
+            other => Err(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                format!("unknown FPS encounter transition action '{other}'"),
+            )),
+        }
+    }
+
+    fn encounter_hash(state: &FpsEncounterState, lifecycle: &FpsEncounterLifecycleInput) -> u64 {
+        let key = format!(
+            "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+            state.preset_id,
+            Self::encounter_status_label(state.status),
+            state.spawned_enemy_ids.join(","),
+            state.defeated_enemy_ids.join(","),
+            state.revision,
+            Self::encounter_last_transition_label(state.last_transition),
+            lifecycle.outcome_kind,
+            lifecycle.terminal,
+            lifecycle.enemy_dead,
+            lifecycle.player_dead,
+            lifecycle.lifecycle_hash
+        );
+        u64::from_str_radix(&Self::fnv1a64(&key), 16).expect("fnv1a64 emits hex")
+    }
+
+    fn encounter_snapshot(
+        session: &FpsRuntimeSessionState,
+        lifecycle: FpsEncounterLifecycleInput,
+    ) -> FpsEncounterDirectorSnapshot {
+        let latest = session.replay_records.last();
+        let encounter_hash = Self::encounter_hash(&session.encounter, &lifecycle);
+        FpsEncounterDirectorSnapshot {
+            backend: "reference_bridge_rust".to_string(),
+            authority_surface: "runtime_session.fps.encounter_director.v0".to_string(),
+            mutation_owner: "rule-lifecycle".to_string(),
+            workspace_trace: vec!["projected encounter state from rule-lifecycle".to_string()],
+            state: Self::bridge_encounter_state(&session.encounter),
+            lifecycle,
+            read_sets: Self::fps_encounter_read_sets(),
+            encounter_hash,
+            replay_hash: latest
+                .map(|record| record.record_hash)
+                .unwrap_or(encounter_hash),
+        }
+    }
+
+    fn encounter_transition_result(
+        receipt: FpsEncounterTransitionReceipt,
+        lifecycle: FpsEncounterLifecycleInput,
+    ) -> FpsEncounterTransitionResult {
+        FpsEncounterTransitionResult {
+            backend: "reference_bridge_rust".to_string(),
+            authority_surface: "runtime_session.fps.encounter_transition.v0".to_string(),
+            mutation_owner: "rule-lifecycle".to_string(),
+            workspace_trace: vec![
+                "validated encounter transition against rule-lifecycle".to_string(),
+                "serialized accepted encounter transition into replay evidence".to_string(),
+            ],
+            accepted: receipt.accepted,
+            rejection_reason: receipt.rejection_reason.map(str::to_string),
+            event_kind: receipt.event_kind.map(str::to_string),
+            state: Self::bridge_encounter_state(&receipt.state),
+            lifecycle,
+            encounter_hash: receipt.encounter_hash,
+            replay_hash: receipt.replay_hash,
+        }
     }
 
     fn fps_snapshot(
@@ -1957,6 +2160,32 @@ impl RuntimeBridge for ReferenceBridge {
         )
     }
 
+    fn read_fps_encounter_director(
+        &self,
+        lifecycle: FpsEncounterLifecycleInput,
+    ) -> BridgeResult<FpsEncounterDirectorSnapshot> {
+        self.require_initialized("read_fps_encounter_director")?;
+        Ok(Self::encounter_snapshot(
+            self.fps_session("read_fps_encounter_director")?,
+            lifecycle,
+        ))
+    }
+
+    fn apply_fps_encounter_transition(
+        &mut self,
+        request: FpsEncounterTransitionRequest,
+    ) -> BridgeResult<FpsEncounterTransitionResult> {
+        self.require_initialized("apply_fps_encounter_transition")?;
+        let action = Self::encounter_action(&request.action)?;
+        let lifecycle = request.lifecycle;
+        let rule_lifecycle = Self::bridge_encounter_lifecycle(lifecycle.clone());
+        let receipt = self
+            .fps_session_mut("apply_fps_encounter_transition")?
+            .apply_encounter_transition(&request.preset_id, action, &rule_lifecycle)
+            .map_err(Self::fps_runtime_error)?;
+        Ok(Self::encounter_transition_result(receipt, lifecycle))
+    }
+
     fn step_simulation(&mut self, input: StepInputEnvelope) -> BridgeResult<StepResult> {
         if self.engine.is_none() {
             return Err(RuntimeBridgeError::new(
@@ -2566,6 +2795,113 @@ mod tests {
         let snapshot = bridge.read_fps_runtime_session().unwrap();
         assert_eq!(snapshot.replay_records.len(), 2);
         assert_eq!(snapshot.replay_hash, receipt.replay_hash);
+    }
+
+    #[test]
+    fn fps_encounter_transition_is_rule_lifecycle_authority() {
+        let mut bridge = init_bridge();
+        bridge
+            .load_fps_runtime_session(fps_load_request(75))
+            .unwrap();
+        let active_lifecycle = FpsEncounterLifecycleInput {
+            outcome_kind: "in_progress".to_string(),
+            terminal: false,
+            enemy_dead: false,
+            player_dead: false,
+            lifecycle_hash: "fnv1a64:active".to_string(),
+        };
+        let pending = bridge
+            .read_fps_encounter_director(active_lifecycle.clone())
+            .unwrap();
+        assert_eq!(pending.backend, "reference_bridge_rust");
+        assert_eq!(
+            pending.authority_surface,
+            "runtime_session.fps.encounter_director.v0"
+        );
+        assert_eq!(pending.state.status, "pending");
+        assert_eq!(pending.read_sets[0].owner, "rule-lifecycle");
+
+        let activated = bridge
+            .apply_fps_encounter_transition(FpsEncounterTransitionRequest {
+                preset_id: "generated-tunnel-small-encounter".to_string(),
+                action: "activate".to_string(),
+                lifecycle: active_lifecycle,
+            })
+            .unwrap();
+        assert!(activated.accepted);
+        assert_eq!(
+            activated.event_kind.as_deref(),
+            Some("runtime_encounter.activated.v0")
+        );
+        assert_eq!(activated.state.status, "active");
+        assert_eq!(
+            activated.state.spawned_enemy_ids,
+            vec!["encounter.generated_tunnel_small.wave_1.enemy_001".to_string()]
+        );
+
+        bridge
+            .apply_fps_primary_fire(FpsPrimaryFireRequest {
+                tick: 9,
+                origin: [2.5, 1.5, 1.5],
+                direction: [0.0, 0.0, 1.0],
+            })
+            .unwrap();
+        let won_lifecycle = FpsEncounterLifecycleInput {
+            outcome_kind: "won".to_string(),
+            terminal: true,
+            enemy_dead: true,
+            player_dead: false,
+            lifecycle_hash: "fnv1a64:won".to_string(),
+        };
+        let cleared = bridge
+            .apply_fps_encounter_transition(FpsEncounterTransitionRequest {
+                preset_id: "generated-tunnel-small-encounter".to_string(),
+                action: "sync_lifecycle".to_string(),
+                lifecycle: won_lifecycle,
+            })
+            .unwrap();
+        assert!(cleared.accepted);
+        assert_eq!(cleared.state.status, "cleared");
+        assert_eq!(
+            cleared.state.defeated_enemy_ids,
+            vec!["encounter.generated_tunnel_small.wave_1.enemy_001".to_string()]
+        );
+        assert_ne!(cleared.replay_hash, 0);
+
+        let rejected = bridge
+            .apply_fps_encounter_transition(FpsEncounterTransitionRequest {
+                preset_id: "generated-tunnel-small-encounter".to_string(),
+                action: "activate".to_string(),
+                lifecycle: FpsEncounterLifecycleInput {
+                    outcome_kind: "in_progress".to_string(),
+                    terminal: false,
+                    enemy_dead: false,
+                    player_dead: false,
+                    lifecycle_hash: "fnv1a64:active-again".to_string(),
+                },
+            })
+            .unwrap();
+        assert!(!rejected.accepted);
+        assert_eq!(
+            rejected.rejection_reason.as_deref(),
+            Some("encounter_not_pending")
+        );
+
+        let restarted = bridge
+            .restart_fps_runtime_session(FpsRuntimeSessionRestartRequest { expected_epoch: 1 })
+            .unwrap();
+        assert_eq!(restarted.session_epoch, 2);
+        let reset = bridge
+            .read_fps_encounter_director(FpsEncounterLifecycleInput {
+                outcome_kind: "in_progress".to_string(),
+                terminal: false,
+                enemy_dead: false,
+                player_dead: false,
+                lifecycle_hash: "fnv1a64:reset".to_string(),
+            })
+            .unwrap();
+        assert_eq!(reset.state.status, "pending");
+        assert_eq!(reset.state.revision, 0);
     }
 
     #[test]

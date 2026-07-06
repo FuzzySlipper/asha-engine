@@ -24,6 +24,10 @@ import {
   type EngineConfig,
   type EngineHandle,
   type FrameCursor,
+  type FpsEncounterDirectorSnapshot,
+  type FpsEncounterLifecycleInput,
+  type FpsEncounterTransitionRequest,
+  type FpsEncounterTransitionResult,
   type FpsLifecycleStatus,
   type FpsPrimaryFireRequest,
   type FpsPrimaryFireResult,
@@ -72,6 +76,8 @@ export const NATIVE_WIRED_OPERATIONS: ReadonlySet<string> = new Set<string>([
   'read_fps_runtime_session',
   'apply_fps_primary_fire',
   'restart_fps_runtime_session',
+  'read_fps_encounter_director',
+  'apply_fps_encounter_transition',
   'read_render_diffs',
   'save_current_world',
   'get_composition_status',
@@ -187,6 +193,24 @@ function normalizeFpsSnapshot(value: FpsRuntimeSessionSnapshot): FpsRuntimeSessi
       healthHash: hashString(record.healthHash, 'replayRecords.healthHash'),
       recordHash: hashString(record.recordHash, 'replayRecords.recordHash'),
     })),
+  };
+}
+
+function normalizeEncounterSnapshot(value: FpsEncounterDirectorSnapshot): FpsEncounterDirectorSnapshot {
+  return {
+    ...value,
+    backend: fpsBackend(value.backend),
+    encounterHash: hashString(value.encounterHash, 'encounterHash'),
+    replayHash: hashString(value.replayHash, 'replayHash'),
+  };
+}
+
+function normalizeEncounterTransition(value: FpsEncounterTransitionResult): FpsEncounterTransitionResult {
+  return {
+    ...value,
+    backend: fpsBackend(value.backend),
+    encounterHash: hashString(value.encounterHash, 'encounterHash'),
+    replayHash: hashString(value.replayHash, 'replayHash'),
   };
 }
 
@@ -375,6 +399,21 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     return normalizeFpsSnapshot(result);
   }
 
+  readFpsEncounterDirector(lifecycle: FpsEncounterLifecycleInput): FpsEncounterDirectorSnapshot {
+    const handle = this.#requireHandle('readFpsEncounterDirector');
+    const result = callNative(() =>
+      this.#addon.readFpsEncounterDirector(handle, lifecycle) as FpsEncounterDirectorSnapshot,
+    );
+    return normalizeEncounterSnapshot(result);
+  }
+
+  applyFpsEncounterTransition(request: FpsEncounterTransitionRequest): FpsEncounterTransitionResult {
+    const handle = this.#requireHandle('applyFpsEncounterTransition');
+    const result = callNative(() =>
+      this.#addon.applyFpsEncounterTransition(handle, request) as FpsEncounterTransitionResult,
+    );
+    return normalizeEncounterTransition(result);
+  }
 
   readModelMaterialPreview(request: ModelMaterialPreviewRequest): ModelMaterialPreviewSnapshot {
     void request;

@@ -220,6 +220,57 @@ export interface FpsPrimaryFireResult {
   readonly healthHash: string;
   readonly replayHash: string;
 }
+export type FpsEncounterStatus = 'pending' | 'active' | 'cleared' | 'failed';
+export type FpsEncounterLastTransition = 'initialized' | 'activated' | 'cleared' | 'failed' | 'reset';
+export type FpsEncounterTransitionAction = 'activate' | 'sync_lifecycle' | 'reset';
+export interface FpsEncounterLifecycleInput {
+  readonly outcomeKind: 'in_progress' | 'won' | 'lost';
+  readonly terminal: boolean;
+  readonly enemyDead: boolean;
+  readonly playerDead: boolean;
+  readonly lifecycleHash: string;
+}
+export interface FpsEncounterTransitionRequest {
+  readonly presetId: string;
+  readonly action: FpsEncounterTransitionAction;
+  readonly lifecycle: FpsEncounterLifecycleInput;
+}
+export interface FpsEncounterStateReadout {
+  readonly presetId: string;
+  readonly status: FpsEncounterStatus;
+  readonly spawnedEnemyIds: readonly string[];
+  readonly defeatedEnemyIds: readonly string[];
+  readonly revision: number;
+  readonly lastTransition: FpsEncounterLastTransition;
+}
+export interface FpsEncounterDirectorSnapshot {
+  readonly backend: FpsRuntimeAuthorityTransport;
+  readonly authoritySurface: string;
+  readonly mutationOwner: string;
+  readonly workspaceTrace: readonly string[];
+  readonly state: FpsEncounterStateReadout;
+  readonly lifecycle: FpsEncounterLifecycleInput;
+  readonly readSets: readonly FpsReadSetEvidence[];
+  readonly encounterHash: string;
+  readonly replayHash: string;
+}
+export interface FpsEncounterTransitionResult {
+  readonly backend: FpsRuntimeAuthorityTransport;
+  readonly authoritySurface: string;
+  readonly mutationOwner: string;
+  readonly workspaceTrace: readonly string[];
+  readonly accepted: boolean;
+  readonly rejectionReason: 'encounter_not_pending' | 'invalid_encounter_transition' | 'unknown_encounter_preset' | null;
+  readonly eventKind:
+    | 'runtime_encounter.activated.v0'
+    | 'runtime_encounter.lifecycle_synced.v0'
+    | 'runtime_encounter.reset.v0'
+    | null;
+  readonly state: FpsEncounterStateReadout;
+  readonly lifecycle: FpsEncounterLifecycleInput;
+  readonly encounterHash: string;
+  readonly replayHash: string;
+}
 // `CommandBatch` / `CommandResult` are NOT prototype DTOs: they are the generated
 // voxel command border (imported from `@asha/contracts`). `submitCommands` carries
 // the real `VoxelCommand` union — there is no `{ kind: 'smoke-edit' }` placeholder
@@ -308,6 +359,8 @@ export interface RuntimeBridge {
   readFpsRuntimeSession(): FpsRuntimeSessionSnapshot;
   applyFpsPrimaryFire(request: FpsPrimaryFireRequest): FpsPrimaryFireResult;
   restartFpsRuntimeSession(request: FpsRuntimeSessionRestartRequest): FpsRuntimeSessionSnapshot;
+  readFpsEncounterDirector(lifecycle: FpsEncounterLifecycleInput): FpsEncounterDirectorSnapshot;
+  applyFpsEncounterTransition(request: FpsEncounterTransitionRequest): FpsEncounterTransitionResult;
   readModelMaterialPreview(request: ModelMaterialPreviewRequest): ModelMaterialPreviewSnapshot;
   readSceneObjectSnapshot(): SceneObjectSnapshot;
   applySceneObjectCommand(request: SceneObjectCommandRequest): SceneObjectCommandResult;

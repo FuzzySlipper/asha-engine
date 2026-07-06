@@ -113,6 +113,46 @@ interface NativeFpsPrimaryFireResult {
     readonly healthHash: string;
     readonly replayHash: string;
 }
+interface NativeFpsEncounterLifecycleInput {
+    readonly outcomeKind: 'in_progress' | 'won' | 'lost';
+    readonly terminal: boolean;
+    readonly enemyDead: boolean;
+    readonly playerDead: boolean;
+    readonly lifecycleHash: string;
+}
+interface NativeFpsEncounterTransitionRequest {
+    readonly presetId: string;
+    readonly action: 'activate' | 'sync_lifecycle' | 'reset';
+    readonly lifecycle: NativeFpsEncounterLifecycleInput;
+}
+interface NativeFpsEncounterStateReadout {
+    readonly presetId: string;
+    readonly status: 'pending' | 'active' | 'cleared' | 'failed';
+    readonly spawnedEnemyIds: readonly string[];
+    readonly defeatedEnemyIds: readonly string[];
+    readonly revision: number;
+    readonly lastTransition: 'initialized' | 'activated' | 'cleared' | 'failed' | 'reset';
+}
+interface NativeFpsEncounterDirectorSnapshot {
+    readonly backend: string;
+    readonly authoritySurface: string;
+    readonly mutationOwner: string;
+    readonly workspaceTrace: readonly string[];
+    readonly state: NativeFpsEncounterStateReadout;
+    readonly lifecycle: NativeFpsEncounterLifecycleInput;
+    readonly readSets: readonly {
+        readonly viewKind: string;
+        readonly owner: string;
+        readonly readSet: readonly string[];
+    }[];
+    readonly encounterHash: string;
+    readonly replayHash: string;
+}
+interface NativeFpsEncounterTransitionResult extends NativeFpsEncounterDirectorSnapshot {
+    readonly accepted: boolean;
+    readonly rejectionReason: 'encounter_not_pending' | 'invalid_encounter_transition' | 'unknown_encounter_preset' | null;
+    readonly eventKind: 'runtime_encounter.activated.v0' | 'runtime_encounter.lifecycle_synced.v0' | 'runtime_encounter.reset.v0' | null;
+}
 /**
  * The typed surface the compiled addon exports. Mirrors the `#[napi]` functions in
  * `native-bridge/src/lib.rs`. Kept in lockstep with the bridge manifest's stable
@@ -134,6 +174,8 @@ export interface NativeAddon {
     readFpsRuntimeSession(handle: number): NativeFpsRuntimeSessionSnapshot;
     applyFpsPrimaryFire(handle: number, tick: number, origin: NativeVec3, direction: NativeVec3): NativeFpsPrimaryFireResult;
     restartFpsRuntimeSession(handle: number, expectedEpoch: number): NativeFpsRuntimeSessionSnapshot;
+    readFpsEncounterDirector(handle: number, lifecycle: NativeFpsEncounterLifecycleInput): NativeFpsEncounterDirectorSnapshot;
+    applyFpsEncounterTransition(handle: number, request: NativeFpsEncounterTransitionRequest): NativeFpsEncounterTransitionResult;
     readRenderDiffs(handle: number, cursor: number): RenderFrameDiff;
     saveCurrentWorld(handle: number): {
         artifactsWritten: number;

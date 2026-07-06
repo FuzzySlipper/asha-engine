@@ -13,6 +13,8 @@ export const MANIFEST_OPERATIONS = [
     { manifestName: 'read_fps_runtime_session', facadeMethod: 'readFpsRuntimeSession', surface: 'stable' },
     { manifestName: 'apply_fps_primary_fire', facadeMethod: 'applyFpsPrimaryFire', surface: 'stable' },
     { manifestName: 'restart_fps_runtime_session', facadeMethod: 'restartFpsRuntimeSession', surface: 'stable' },
+    { manifestName: 'read_fps_encounter_director', facadeMethod: 'readFpsEncounterDirector', surface: 'stable' },
+    { manifestName: 'apply_fps_encounter_transition', facadeMethod: 'applyFpsEncounterTransition', surface: 'stable' },
     { manifestName: 'read_render_diffs', facadeMethod: 'readRenderDiffs', surface: 'stable' },
     { manifestName: 'read_model_material_preview', facadeMethod: 'readModelMaterialPreview', surface: 'stable' },
     { manifestName: 'read_scene_object_snapshot', facadeMethod: 'readSceneObjectSnapshot', surface: 'stable' },

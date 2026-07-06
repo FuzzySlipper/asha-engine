@@ -20,9 +20,11 @@ use runtime_bridge_api::{
     set_voxel_command, CommandBatch, EnemyDirectNavMovementRequest, EngineConfig,
     FpsBridgeBoundsCapability, FpsBridgeHealth, FpsBridgePolicyBinding, FpsBridgeRole,
     FpsBridgeStoredEntityDefinition, FpsBridgeTransformCapability, FpsBridgeWeaponMount,
-    FpsPrimaryFireRequest, FpsPrimaryFireResult, FpsRuntimeSessionLoadRequest,
-    FpsRuntimeSessionRestartRequest, FpsRuntimeSessionSnapshot, ReferenceBridge, RuntimeBridge,
-    RuntimeBridgeError, RuntimeBridgeErrorKind, StepInputEnvelope, WorldLoadRequest,
+    FpsEncounterDirectorSnapshot, FpsEncounterLifecycleInput, FpsEncounterStateReadout,
+    FpsEncounterTransitionRequest, FpsEncounterTransitionResult, FpsPrimaryFireRequest,
+    FpsPrimaryFireResult, FpsRuntimeSessionLoadRequest, FpsRuntimeSessionRestartRequest,
+    FpsRuntimeSessionSnapshot, ReferenceBridge, RuntimeBridge, RuntimeBridgeError,
+    RuntimeBridgeErrorKind, StepInputEnvelope, WorldLoadRequest,
 };
 use serde::Deserialize;
 
@@ -360,6 +362,60 @@ pub struct NativeFpsPrimaryFireResult {
     pub replay_hash: String,
 }
 
+#[napi(object)]
+pub struct NativeFpsEncounterLifecycleInput {
+    pub outcome_kind: String,
+    pub terminal: bool,
+    pub enemy_dead: bool,
+    pub player_dead: bool,
+    pub lifecycle_hash: String,
+}
+
+#[napi(object)]
+pub struct NativeFpsEncounterTransitionRequest {
+    pub preset_id: String,
+    pub action: String,
+    pub lifecycle: NativeFpsEncounterLifecycleInput,
+}
+
+#[napi(object)]
+pub struct NativeFpsEncounterStateReadout {
+    pub preset_id: String,
+    pub status: String,
+    pub spawned_enemy_ids: Vec<String>,
+    pub defeated_enemy_ids: Vec<String>,
+    pub revision: i64,
+    pub last_transition: String,
+}
+
+#[napi(object)]
+pub struct NativeFpsEncounterDirectorSnapshot {
+    pub backend: String,
+    pub authority_surface: String,
+    pub mutation_owner: String,
+    pub workspace_trace: Vec<String>,
+    pub state: NativeFpsEncounterStateReadout,
+    pub lifecycle: NativeFpsEncounterLifecycleInput,
+    pub read_sets: Vec<NativeFpsReadSetEvidence>,
+    pub encounter_hash: String,
+    pub replay_hash: String,
+}
+
+#[napi(object)]
+pub struct NativeFpsEncounterTransitionResult {
+    pub backend: String,
+    pub authority_surface: String,
+    pub mutation_owner: String,
+    pub workspace_trace: Vec<String>,
+    pub accepted: bool,
+    pub rejection_reason: Option<String>,
+    pub event_kind: Option<String>,
+    pub state: NativeFpsEncounterStateReadout,
+    pub lifecycle: NativeFpsEncounterLifecycleInput,
+    pub encounter_hash: String,
+    pub replay_hash: String,
+}
+
 fn native_hash(value: u64) -> String {
     format!("fnv1a64:{value:016x}")
 }
@@ -559,6 +615,88 @@ impl From<FpsPrimaryFireResult> for NativeFpsPrimaryFireResult {
             target_render_visible: value.target_render_visible,
             entity_hash: native_hash(value.entity_hash),
             health_hash: native_hash(value.health_hash),
+            replay_hash: native_hash(value.replay_hash),
+        }
+    }
+}
+
+impl From<NativeFpsEncounterLifecycleInput> for FpsEncounterLifecycleInput {
+    fn from(value: NativeFpsEncounterLifecycleInput) -> Self {
+        Self {
+            outcome_kind: value.outcome_kind,
+            terminal: value.terminal,
+            enemy_dead: value.enemy_dead,
+            player_dead: value.player_dead,
+            lifecycle_hash: value.lifecycle_hash,
+        }
+    }
+}
+
+impl From<FpsEncounterLifecycleInput> for NativeFpsEncounterLifecycleInput {
+    fn from(value: FpsEncounterLifecycleInput) -> Self {
+        Self {
+            outcome_kind: value.outcome_kind,
+            terminal: value.terminal,
+            enemy_dead: value.enemy_dead,
+            player_dead: value.player_dead,
+            lifecycle_hash: value.lifecycle_hash,
+        }
+    }
+}
+
+impl From<FpsEncounterStateReadout> for NativeFpsEncounterStateReadout {
+    fn from(value: FpsEncounterStateReadout) -> Self {
+        Self {
+            preset_id: value.preset_id,
+            status: value.status,
+            spawned_enemy_ids: value.spawned_enemy_ids,
+            defeated_enemy_ids: value.defeated_enemy_ids,
+            revision: value.revision as i64,
+            last_transition: value.last_transition,
+        }
+    }
+}
+
+fn native_fps_read_sets(read_sets: Vec<runtime_bridge_api::FpsReadSetEvidence>) -> Vec<NativeFpsReadSetEvidence> {
+    read_sets
+        .into_iter()
+        .map(|read_set| NativeFpsReadSetEvidence {
+            view_kind: read_set.view_kind,
+            owner: read_set.owner,
+            read_set: read_set.read_set,
+        })
+        .collect()
+}
+
+impl From<FpsEncounterDirectorSnapshot> for NativeFpsEncounterDirectorSnapshot {
+    fn from(value: FpsEncounterDirectorSnapshot) -> Self {
+        Self {
+            backend: value.backend,
+            authority_surface: value.authority_surface,
+            mutation_owner: value.mutation_owner,
+            workspace_trace: value.workspace_trace,
+            state: value.state.into(),
+            lifecycle: value.lifecycle.into(),
+            read_sets: native_fps_read_sets(value.read_sets),
+            encounter_hash: native_hash(value.encounter_hash),
+            replay_hash: native_hash(value.replay_hash),
+        }
+    }
+}
+
+impl From<FpsEncounterTransitionResult> for NativeFpsEncounterTransitionResult {
+    fn from(value: FpsEncounterTransitionResult) -> Self {
+        Self {
+            backend: value.backend,
+            authority_surface: value.authority_surface,
+            mutation_owner: value.mutation_owner,
+            workspace_trace: value.workspace_trace,
+            accepted: value.accepted,
+            rejection_reason: value.rejection_reason,
+            event_kind: value.event_kind,
+            state: value.state.into(),
+            lifecycle: value.lifecycle.into(),
+            encounter_hash: native_hash(value.encounter_hash),
             replay_hash: native_hash(value.replay_hash),
         }
     }
@@ -781,6 +919,36 @@ pub fn restart_fps_runtime_session(
 }
 
 #[napi]
+pub fn read_fps_encounter_director(
+    handle: i64,
+    lifecycle: NativeFpsEncounterLifecycleInput,
+) -> napi::Result<NativeFpsEncounterDirectorSnapshot> {
+    with_bridge(handle, |bridge| {
+        bridge
+            .read_fps_encounter_director(lifecycle.into())
+            .map(NativeFpsEncounterDirectorSnapshot::from)
+            .map_err(to_napi)
+    })
+}
+
+#[napi]
+pub fn apply_fps_encounter_transition(
+    handle: i64,
+    request: NativeFpsEncounterTransitionRequest,
+) -> napi::Result<NativeFpsEncounterTransitionResult> {
+    with_bridge(handle, |bridge| {
+        bridge
+            .apply_fps_encounter_transition(FpsEncounterTransitionRequest {
+                preset_id: request.preset_id,
+                action: request.action,
+                lifecycle: request.lifecycle.into(),
+            })
+            .map(NativeFpsEncounterTransitionResult::from)
+            .map_err(to_napi)
+    })
+}
+
+#[napi]
 pub fn read_render_diffs(handle: i64, _cursor: i64) -> napi::Result<NativeRenderFrameDiff> {
     with_bridge(handle, |_bridge| {
         Ok(NativeRenderFrameDiff { ops: Vec::new() })
@@ -813,11 +981,13 @@ mod tests {
 
     const WIRED_NAPI_EXPORTS: &[&str] = &[
         "applyEnemyDirectNavMovement",
+        "applyFpsEncounterTransition",
         "applyFpsPrimaryFire",
         "getCompositionStatus",
         "initializeEngine",
         "loadWorldBundle",
         "loadFpsRuntimeSession",
+        "readFpsEncounterDirector",
         "readRenderDiffs",
         "readFpsRuntimeSession",
         "restartFpsRuntimeSession",
@@ -832,11 +1002,13 @@ mod tests {
             WIRED_NAPI_EXPORTS,
             &[
                 "applyEnemyDirectNavMovement",
+                "applyFpsEncounterTransition",
                 "applyFpsPrimaryFire",
                 "getCompositionStatus",
                 "initializeEngine",
                 "loadWorldBundle",
                 "loadFpsRuntimeSession",
+                "readFpsEncounterDirector",
                 "readRenderDiffs",
                 "readFpsRuntimeSession",
                 "restartFpsRuntimeSession",

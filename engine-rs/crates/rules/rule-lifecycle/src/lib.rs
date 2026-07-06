@@ -114,12 +114,76 @@ pub enum FpsRuntimeError {
         command: &'static str,
     },
     CombatRejected(CombatRejectionReason),
+    UnknownEncounterPreset {
+        preset_id: String,
+    },
+    InvalidEncounterTransition {
+        action: String,
+    },
+    EncounterNotPending,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FpsLifecycleStatus {
     Active,
     EnemyDefeated { entity: EntityId, tick: u64 },
+}
+
+pub const FPS_GENERATED_TUNNEL_ENCOUNTER_PRESET: &str = "generated-tunnel-small-encounter";
+pub const FPS_GENERATED_TUNNEL_ENCOUNTER_INSTANCE: &str =
+    "encounter.generated_tunnel_small.wave_1.enemy_001";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FpsEncounterStatus {
+    Pending,
+    Active,
+    Cleared,
+    Failed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FpsEncounterLastTransition {
+    Initialized,
+    Activated,
+    Cleared,
+    Failed,
+    Reset,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FpsEncounterTransitionAction {
+    Activate,
+    SyncLifecycle,
+    Reset,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsEncounterState {
+    pub preset_id: String,
+    pub status: FpsEncounterStatus,
+    pub spawned_enemy_ids: Vec<String>,
+    pub defeated_enemy_ids: Vec<String>,
+    pub revision: u64,
+    pub last_transition: FpsEncounterLastTransition,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsEncounterLifecycleInput {
+    pub outcome_kind: String,
+    pub terminal: bool,
+    pub enemy_dead: bool,
+    pub player_dead: bool,
+    pub lifecycle_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsEncounterTransitionReceipt {
+    pub accepted: bool,
+    pub rejection_reason: Option<&'static str>,
+    pub event_kind: Option<&'static str>,
+    pub state: FpsEncounterState,
+    pub encounter_hash: u64,
+    pub replay_hash: u64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -132,6 +196,7 @@ pub struct FpsRuntimeSessionState {
     pub roles: BTreeMap<FpsRuntimeRole, EntityId>,
     pub render_projection: BTreeMap<EntityId, FpsRenderProjectionState>,
     pub lifecycle_status: FpsLifecycleStatus,
+    pub encounter: FpsEncounterState,
     pub replay_records: Vec<FpsReplayRecord>,
 }
 
@@ -218,11 +283,111 @@ pub fn load_fps_project_bundle(
         roles,
         render_projection,
         lifecycle_status: FpsLifecycleStatus::Active,
+        encounter: initial_fps_encounter_state(),
         replay_records: vec![bootstrap_record],
     })
 }
 
 impl FpsRuntimeSessionState {
+    pub fn apply_encounter_transition(
+        &mut self,
+        preset_id: &str,
+        action: FpsEncounterTransitionAction,
+        lifecycle: &FpsEncounterLifecycleInput,
+    ) -> Result<FpsEncounterTransitionReceipt, FpsRuntimeError> {
+        if preset_id != FPS_GENERATED_TUNNEL_ENCOUNTER_PRESET {
+            return Err(FpsRuntimeError::UnknownEncounterPreset {
+                preset_id: preset_id.to_string(),
+            });
+        }
+
+        let mut accepted = true;
+        let mut rejection_reason = None;
+        let mut event_kind = None;
+        let next = match action {
+            FpsEncounterTransitionAction::Reset => {
+                event_kind = Some("runtime_encounter.reset.v0");
+                FpsEncounterState {
+                    revision: self.encounter.revision.saturating_add(1),
+                    last_transition: FpsEncounterLastTransition::Reset,
+                    ..initial_fps_encounter_state()
+                }
+            }
+            FpsEncounterTransitionAction::Activate => {
+                if self.encounter.status != FpsEncounterStatus::Pending {
+                    accepted = false;
+                    rejection_reason = Some("encounter_not_pending");
+                    self.encounter.clone()
+                } else {
+                    event_kind = Some("runtime_encounter.activated.v0");
+                    FpsEncounterState {
+                        status: FpsEncounterStatus::Active,
+                        spawned_enemy_ids: vec![FPS_GENERATED_TUNNEL_ENCOUNTER_INSTANCE.to_string()],
+                        revision: self.encounter.revision.saturating_add(1),
+                        last_transition: FpsEncounterLastTransition::Activated,
+                        ..self.encounter.clone()
+                    }
+                }
+            }
+            FpsEncounterTransitionAction::SyncLifecycle => {
+                event_kind = Some("runtime_encounter.lifecycle_synced.v0");
+                if lifecycle.player_dead || lifecycle.outcome_kind == "lost" {
+                    FpsEncounterState {
+                        status: FpsEncounterStatus::Failed,
+                        revision: self.encounter.revision.saturating_add(1),
+                        last_transition: FpsEncounterLastTransition::Failed,
+                        ..self.encounter.clone()
+                    }
+                } else if lifecycle.enemy_dead || lifecycle.outcome_kind == "won" {
+                    FpsEncounterState {
+                        status: FpsEncounterStatus::Cleared,
+                        spawned_enemy_ids: vec![FPS_GENERATED_TUNNEL_ENCOUNTER_INSTANCE.to_string()],
+                        defeated_enemy_ids: vec![
+                            FPS_GENERATED_TUNNEL_ENCOUNTER_INSTANCE.to_string()
+                        ],
+                        revision: self.encounter.revision.saturating_add(1),
+                        last_transition: FpsEncounterLastTransition::Cleared,
+                        ..self.encounter.clone()
+                    }
+                } else {
+                    FpsEncounterState {
+                        revision: self.encounter.revision.saturating_add(1),
+                        ..self.encounter.clone()
+                    }
+                }
+            }
+        };
+
+        if accepted {
+            self.encounter = next;
+        }
+        let encounter_hash = hash_encounter_state(&self.encounter, lifecycle);
+        let replay_hash = hash_encounter_transition(
+            preset_id,
+            action,
+            accepted,
+            rejection_reason,
+            event_kind,
+            encounter_hash,
+        );
+        if accepted {
+            self.replay_records.push(FpsReplayRecord {
+                kind: event_kind.unwrap_or("runtime_session.fps.encounter_transition.v0"),
+                entity_hash: self.entities.hash().0,
+                health_hash: self.combat.health_hash(),
+                record_hash: replay_hash,
+            });
+        }
+        Ok(FpsEncounterTransitionReceipt {
+            accepted,
+            rejection_reason,
+            event_kind,
+            state: self.encounter.clone(),
+            encounter_hash,
+            replay_hash,
+        })
+    }
+
     pub fn apply_primary_fire(
         &mut self,
         projection: &CollisionProjection,
@@ -480,6 +645,17 @@ fn attach_render_projection(
     }
 }
 
+pub fn initial_fps_encounter_state() -> FpsEncounterState {
+    FpsEncounterState {
+        preset_id: FPS_GENERATED_TUNNEL_ENCOUNTER_PRESET.to_string(),
+        status: FpsEncounterStatus::Pending,
+        spawned_enemy_ids: Vec::new(),
+        defeated_enemy_ids: Vec::new(),
+        revision: 0,
+        last_transition: FpsEncounterLastTransition::Initialized,
+    }
+}
+
 fn hash_bootstrap(
     bootstrap: &ProjectBundleEntityDefinitionBootstrapRecord,
     health_hash: u64,
@@ -515,6 +691,73 @@ fn hash_primary_fire(
     h.finish()
 }
 
+fn hash_encounter_state(state: &FpsEncounterState, lifecycle: &FpsEncounterLifecycleInput) -> u64 {
+    let mut h = Fnv1a::new();
+    h.write_str("runtime_session.fps.encounter_state.v0");
+    h.write_str(&state.preset_id);
+    h.write_str(encounter_status_label(state.status));
+    for id in &state.spawned_enemy_ids {
+        h.write_str(id);
+    }
+    for id in &state.defeated_enemy_ids {
+        h.write_str(id);
+    }
+    h.write_u64(state.revision);
+    h.write_str(encounter_transition_label(state.last_transition));
+    h.write_str(&lifecycle.outcome_kind);
+    h.write_bool(lifecycle.terminal);
+    h.write_bool(lifecycle.enemy_dead);
+    h.write_bool(lifecycle.player_dead);
+    h.write_str(&lifecycle.lifecycle_hash);
+    h.finish()
+}
+
+fn hash_encounter_transition(
+    preset_id: &str,
+    action: FpsEncounterTransitionAction,
+    accepted: bool,
+    rejection_reason: Option<&str>,
+    event_kind: Option<&str>,
+    encounter_hash: u64,
+) -> u64 {
+    let mut h = Fnv1a::new();
+    h.write_str("runtime_session.fps.encounter_transition.v0");
+    h.write_str(preset_id);
+    h.write_str(encounter_action_label(action));
+    h.write_bool(accepted);
+    h.write_str(rejection_reason.unwrap_or("none"));
+    h.write_str(event_kind.unwrap_or("none"));
+    h.write_u64(encounter_hash);
+    h.finish()
+}
+
+fn encounter_action_label(action: FpsEncounterTransitionAction) -> &'static str {
+    match action {
+        FpsEncounterTransitionAction::Activate => "activate",
+        FpsEncounterTransitionAction::SyncLifecycle => "sync_lifecycle",
+        FpsEncounterTransitionAction::Reset => "reset",
+    }
+}
+
+fn encounter_status_label(status: FpsEncounterStatus) -> &'static str {
+    match status {
+        FpsEncounterStatus::Pending => "pending",
+        FpsEncounterStatus::Active => "active",
+        FpsEncounterStatus::Cleared => "cleared",
+        FpsEncounterStatus::Failed => "failed",
+    }
+}
+
+fn encounter_transition_label(transition: FpsEncounterLastTransition) -> &'static str {
+    match transition {
+        FpsEncounterLastTransition::Initialized => "initialized",
+        FpsEncounterLastTransition::Activated => "activated",
+        FpsEncounterLastTransition::Cleared => "cleared",
+        FpsEncounterLastTransition::Failed => "failed",
+        FpsEncounterLastTransition::Reset => "reset",
+    }
+}
+
 struct Fnv1a {
     value: u64,
 }
@@ -530,6 +773,10 @@ impl Fnv1a {
         for byte in value.to_le_bytes() {
             self.write_byte(byte);
         }
+    }
+
+    fn write_bool(&mut self, value: bool) {
+        self.write_byte(u8::from(value));
     }
 
     fn write_str(&mut self, value: &str) {

@@ -64,6 +64,8 @@ const REQUIRED_NATIVE_CONFORMANCE_OPS = [
     'read_fps_runtime_session',
     'apply_fps_primary_fire',
     'restart_fps_runtime_session',
+    'read_fps_encounter_director',
+    'apply_fps_encounter_transition',
     'read_render_diffs',
     'save_current_world',
     'get_composition_status',
@@ -235,6 +237,50 @@ function fakeAddon(calls = []) {
                 replayHash: HASH_C,
             };
         },
+        readFpsEncounterDirector: (_handle, lifecycle) => {
+            calls.push('fpsEncounterRead');
+            return {
+                backend: 'reference_bridge_rust',
+                authoritySurface: 'runtime_session.fps.encounter_director.v0',
+                mutationOwner: 'rule-lifecycle',
+                workspaceTrace: ['sentinel encounter read'],
+                state: {
+                    presetId: 'generated-tunnel-small-encounter',
+                    status: 'pending',
+                    spawnedEnemyIds: [],
+                    defeatedEnemyIds: [],
+                    revision: 0,
+                    lastTransition: 'initialized',
+                },
+                lifecycle,
+                readSets: [{ viewKind: 'runtime_session.encounter_director.v0', owner: 'rule-lifecycle', readSet: ['FpsRuntimeSessionState.encounter'] }],
+                encounterHash: 'fnv1a64:00000000000000dd',
+                replayHash: 'fnv1a64:00000000000000ee',
+            };
+        },
+        applyFpsEncounterTransition: (_handle, request) => {
+            calls.push('fpsEncounterTransition');
+            return {
+                backend: 'reference_bridge_rust',
+                authoritySurface: 'runtime_session.fps.encounter_transition.v0',
+                mutationOwner: 'rule-lifecycle',
+                workspaceTrace: ['sentinel encounter transition'],
+                accepted: true,
+                rejectionReason: null,
+                eventKind: 'runtime_encounter.activated.v0',
+                state: {
+                    presetId: 'generated-tunnel-small-encounter',
+                    status: 'active',
+                    spawnedEnemyIds: ['encounter.generated_tunnel_small.wave_1.enemy_001'],
+                    defeatedEnemyIds: [],
+                    revision: 1,
+                    lastTransition: 'activated',
+                },
+                lifecycle: request.lifecycle,
+                encounterHash: 'fnv1a64:00000000000000ef',
+                replayHash: 'fnv1a64:00000000000000f0',
+            };
+        },
         readRenderDiffs: (_handle, cursor) => {
             calls.push(`render:${cursor}`);
             return { ops: [{ op: 'sentinel' }] };
@@ -287,6 +333,24 @@ const INVOKE = new Map([
     ['readFpsRuntimeSession', (b) => b.readFpsRuntimeSession()],
     ['applyFpsPrimaryFire', (b) => b.applyFpsPrimaryFire({ tick: 9, origin: [2.5, 1.5, 1.5], direction: [0, 0, 1] })],
     ['restartFpsRuntimeSession', (b) => b.restartFpsRuntimeSession({ expectedEpoch: 1 })],
+    ['readFpsEncounterDirector', (b) => b.readFpsEncounterDirector({
+            outcomeKind: 'in_progress',
+            terminal: false,
+            enemyDead: false,
+            playerDead: false,
+            lifecycleHash: HASH_A,
+        })],
+    ['applyFpsEncounterTransition', (b) => b.applyFpsEncounterTransition({
+            presetId: 'generated-tunnel-small-encounter',
+            action: 'activate',
+            lifecycle: {
+                outcomeKind: 'in_progress',
+                terminal: false,
+                enemyDead: false,
+                playerDead: false,
+                lifecycleHash: HASH_A,
+            },
+        })],
     ['readModelMaterialPreview', (b) => b.readModelMaterialPreview(MODEL_MATERIAL_PREVIEW_REQUEST)],
     ['readSceneObjectSnapshot', (b) => b.readSceneObjectSnapshot()],
     [
@@ -389,6 +453,28 @@ void test('native conformance sequence routes through the addon without mock fal
     assert.equal(fired.targetHealthAfter?.current, 0);
     assert.equal(bridge.readFpsRuntimeSession().replayHash, HASH_C);
     assert.equal(bridge.restartFpsRuntimeSession({ expectedEpoch: 1 }).sessionEpoch, 2);
+    const encounter = bridge.readFpsEncounterDirector({
+        outcomeKind: 'in_progress',
+        terminal: false,
+        enemyDead: false,
+        playerDead: false,
+        lifecycleHash: HASH_A,
+    });
+    assert.equal(encounter.backend, 'native_rust');
+    assert.equal(encounter.encounterHash, 'fnv1a64:00000000000000dd');
+    const encounterTransition = bridge.applyFpsEncounterTransition({
+        presetId: 'generated-tunnel-small-encounter',
+        action: 'activate',
+        lifecycle: {
+            outcomeKind: 'in_progress',
+            terminal: false,
+            enemyDead: false,
+            playerDead: false,
+            lifecycleHash: HASH_A,
+        },
+    });
+    assert.equal(encounterTransition.accepted, true);
+    assert.equal(encounterTransition.replayHash, 'fnv1a64:00000000000000f0');
     assert.deepEqual(bridge.readRenderDiffs(frameCursor(0)), { ops: [{ op: 'sentinel' }] });
     assert.deepEqual(bridge.saveCurrentWorld(), { artifactsWritten: 5, compactedEdits: 2, retainedEdits: 3 });
     assert.deepEqual(bridge.getCompositionStatus(), {
@@ -407,6 +493,8 @@ void test('native conformance sequence routes through the addon without mock fal
         'fpsFire:9:2.5,1.5,1.5:0,0,1',
         'fpsRead',
         'fpsRestart:1',
+        'fpsEncounterRead',
+        'fpsEncounterTransition',
         'render:0',
         'save',
         'status',

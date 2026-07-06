@@ -112,6 +112,22 @@ errors = "RuntimeBridgeError"
 summary = "Restart the FPS/ECRP RuntimeSession by replaying the validated stored bundle through Rust authority, guarded by the current session epoch."
 
 [[operation]]
+name = "read_fps_encounter_director"
+surface = "stable"
+input = "protocol_runtime::FpsEncounterLifecycleInput"
+output = "protocol_runtime::FpsEncounterDirectorSnapshot"
+errors = "RuntimeBridgeError"
+summary = "Read the Rust-owned FPS/ECRP encounter director projection, including lifecycle, read-set, and replay provenance."
+
+[[operation]]
+name = "apply_fps_encounter_transition"
+surface = "stable"
+input = "protocol_runtime::FpsEncounterTransitionRequest"
+output = "protocol_runtime::FpsEncounterTransitionResult"
+errors = "RuntimeBridgeError"
+summary = "Apply an FPS/ECRP encounter transition through rule-lifecycle authority; accepted transitions update encounter state and replay evidence."
+
+[[operation]]
 name = "read_render_diffs"
 surface = "stable"
 input = "FrameCursor"

@@ -10,6 +10,9 @@ import { createMockRuntimeSession } from './reference.js';
 import { REFERENCE_FPS_COMBAT_FIXTURE_PROVENANCE } from './runtime-session-reference-fps-combat.js';
 import { stableHash } from './runtime-session-hash.js';
 const runtimeBridgeSourceDir = resolve(dirname(fileURLToPath(import.meta.url)), '../src');
+function testHash(value) {
+    return stableHash(value);
+}
 void test('RuntimeSession fixture helpers do not expose TS Rust authority module names', () => {
     assert.equal(existsSync(resolve(runtimeBridgeSourceDir, 'runtime-session-rust-fps-authority.ts')), false);
     assert.equal(existsSync(resolve(runtimeBridgeSourceDir, 'runtime-session-reference-fps-combat.ts')), true);
@@ -192,12 +195,40 @@ function rustFpsSnapshot(input) {
         replayHash: input.replayHash,
     };
 }
+function rustEncounterState() {
+    return {
+        presetId: 'generated-tunnel-small-encounter',
+        status: 'pending',
+        spawnedEnemyIds: [],
+        defeatedEnemyIds: [],
+        revision: 0,
+        lastTransition: 'initialized',
+    };
+}
+function rustEncounterSnapshot(state, lifecycle, replayHash = 'fnv1a64:00000000000000e1') {
+    return {
+        backend: 'native_rust',
+        authoritySurface: 'runtime_session.fps.encounter_director.v0',
+        mutationOwner: 'rule-lifecycle',
+        workspaceTrace: ['test bridge encounter readout'],
+        state,
+        lifecycle,
+        readSets: [{
+                viewKind: 'runtime_session.encounter_director.v0',
+                owner: 'rule-lifecycle',
+                readSet: ['FpsRuntimeSessionState.encounter'],
+            }],
+        encounterHash: testHash({ state, lifecycle }),
+        replayHash,
+    };
+}
 function rustRuntimeSessionBridgeDouble(options = {}) {
     const base = createMockRuntimeBridge();
-    const calls = { load: [], fire: [], restart: [] };
+    const calls = { load: [], fire: [], restart: [], encounterTransitions: [] };
     let player = 10;
     let enemy = 20;
     let epoch = 1;
+    let encounterState = rustEncounterState();
     let snapshot = rustFpsSnapshot({
         epoch,
         player,
@@ -223,6 +254,7 @@ function rustRuntimeSessionBridgeDouble(options = {}) {
                         enemyHealth: enemyDefinition?.health?.current ?? 40,
                         replayHash: 'fnv1a64:0000000000000002',
                     });
+                    encounterState = rustEncounterState();
                     return snapshot;
                 };
             }
@@ -261,6 +293,7 @@ function rustRuntimeSessionBridgeDouble(options = {}) {
                     calls.restart.push(request);
                     assert.equal(request.expectedEpoch, epoch);
                     epoch += 1;
+                    encounterState = rustEncounterState();
                     snapshot = rustFpsSnapshot({
                         epoch,
                         player,
@@ -269,6 +302,79 @@ function rustRuntimeSessionBridgeDouble(options = {}) {
                         replayHash: 'fnv1a64:0000000000000004',
                     });
                     return snapshot;
+                };
+            }
+            if (property === 'readFpsEncounterDirector') {
+                return (lifecycle) => rustEncounterSnapshot(encounterState, lifecycle);
+            }
+            if (property === 'applyFpsEncounterTransition') {
+                return (request) => {
+                    calls.encounterTransitions.push(request);
+                    let accepted = true;
+                    let rejectionReason = null;
+                    let eventKind = null;
+                    if (request.presetId !== 'generated-tunnel-small-encounter') {
+                        accepted = false;
+                        rejectionReason = 'unknown_encounter_preset';
+                    }
+                    else if (request.action === 'activate') {
+                        if (encounterState.status !== 'pending') {
+                            accepted = false;
+                            rejectionReason = 'encounter_not_pending';
+                        }
+                        else {
+                            eventKind = 'runtime_encounter.activated.v0';
+                            encounterState = {
+                                ...encounterState,
+                                status: 'active',
+                                spawnedEnemyIds: ['encounter.generated_tunnel_small.wave_1.enemy_001'],
+                                revision: encounterState.revision + 1,
+                                lastTransition: 'activated',
+                            };
+                        }
+                    }
+                    else if (request.action === 'sync_lifecycle') {
+                        eventKind = 'runtime_encounter.lifecycle_synced.v0';
+                        if (request.lifecycle.enemyDead || request.lifecycle.outcomeKind === 'won') {
+                            encounterState = {
+                                ...encounterState,
+                                status: 'cleared',
+                                spawnedEnemyIds: ['encounter.generated_tunnel_small.wave_1.enemy_001'],
+                                defeatedEnemyIds: ['encounter.generated_tunnel_small.wave_1.enemy_001'],
+                                revision: encounterState.revision + 1,
+                                lastTransition: 'cleared',
+                            };
+                        }
+                        else if (request.lifecycle.playerDead || request.lifecycle.outcomeKind === 'lost') {
+                            encounterState = {
+                                ...encounterState,
+                                status: 'failed',
+                                revision: encounterState.revision + 1,
+                                lastTransition: 'failed',
+                            };
+                        }
+                        else {
+                            encounterState = { ...encounterState, revision: encounterState.revision + 1 };
+                        }
+                    }
+                    else {
+                        eventKind = 'runtime_encounter.reset.v0';
+                        encounterState = { ...rustEncounterState(), revision: encounterState.revision + 1, lastTransition: 'reset' };
+                    }
+                    const replayHash = testHash({ request, accepted, rejectionReason, eventKind, encounterState });
+                    return {
+                        backend: 'native_rust',
+                        authoritySurface: 'runtime_session.fps.encounter_transition.v0',
+                        mutationOwner: 'rule-lifecycle',
+                        workspaceTrace: ['test bridge encounter transition'],
+                        accepted,
+                        rejectionReason,
+                        eventKind,
+                        state: encounterState,
+                        lifecycle: request.lifecycle,
+                        encounterHash: testHash({ state: encounterState, lifecycle: request.lifecycle }),
+                        replayHash,
+                    };
                 };
             }
             void receiver;
@@ -364,15 +470,47 @@ void test('Rust-backed RuntimeSession routes ECRP load, primary fire, and restar
     assert.equal(lifecycle.outcome.kind, 'won');
     assert.equal(lifecycle.enemy.health.entity, 202);
     assert.equal(lifecycle.enemy.health.dead, true);
+    const pendingEncounter = session.readEncounterDirector();
+    assert.equal(pendingEncounter.authority.source, 'rust_bridge');
+    assert.equal(pendingEncounter.authority.surface, 'runtime_session.fps.encounter_director.v0');
+    assert.equal(pendingEncounter.state.status, 'pending');
+    const activatedEncounter = session.requestEncounterTransition({
+        kind: 'runtime_session.encounter_transition_request.v0',
+        presetId: 'generated-tunnel-small-encounter',
+        action: 'activate',
+    });
+    assert.equal(activatedEncounter.accepted, true);
+    assert.equal(activatedEncounter.after.authority.source, 'rust_bridge');
+    assert.equal(activatedEncounter.after.state.status, 'active');
+    assert.equal(calls.encounterTransitions[0]?.action, 'activate');
+    const clearedEncounter = session.requestEncounterTransition({
+        kind: 'runtime_session.encounter_transition_request.v0',
+        presetId: 'generated-tunnel-small-encounter',
+        action: 'sync_lifecycle',
+    });
+    assert.equal(clearedEncounter.accepted, true);
+    assert.equal(clearedEncounter.after.state.status, 'cleared');
+    assert.equal(clearedEncounter.after.state.clearedReason, 'all_enemies_defeated');
+    assert.equal(calls.encounterTransitions[1]?.lifecycle.outcomeKind, 'won');
+    const rejectedEncounter = session.requestEncounterTransition({
+        kind: 'runtime_session.encounter_transition_request.v0',
+        presetId: 'generated-tunnel-small-encounter',
+        action: 'activate',
+    });
+    assert.equal(rejectedEncounter.accepted, false);
+    assert.equal(rejectedEncounter.rejectionReason, 'encounter_not_pending');
     const restart = session.requestSessionRestart({
         kind: 'runtime.restart_session_intent',
         source: 'programmatic',
         requireTerminal: true,
-        expectedSessionHash: receipt.sessionHashAfter,
+        expectedSessionHash: rejectedEncounter.hashes.sessionHashAfter,
     });
     assert.equal(restart.accepted, true);
     assert.equal(restart.statusAfter.outcome.kind, 'in_progress');
     assert.deepEqual(calls.restart, [{ expectedEpoch: 1 }]);
+    const resetEncounter = session.readEncounterDirector();
+    assert.equal(resetEncounter.state.status, 'pending');
+    assert.equal(resetEncounter.state.revision, 0);
     const staleRestart = session.requestSessionRestart({
         kind: 'runtime.restart_session_intent',
         source: 'programmatic',

@@ -91,6 +91,18 @@ export interface EncounterLifecycleReadout {
     readonly playerDead: boolean;
     readonly lifecycleHash: string;
 }
+export interface EncounterDirectorAuthorityReadout {
+    readonly source: 'rust_bridge' | 'reference_bridge' | 'reference_fixture';
+    readonly backend: 'native_rust' | 'reference_bridge' | null;
+    readonly surface: string;
+    readonly mutationOwner: string;
+    readonly readSets: readonly {
+        readonly viewKind: string;
+        readonly owner: string;
+        readonly readSet: readonly string[];
+    }[];
+    readonly workspaceTrace: readonly string[];
+}
 export interface EncounterDirectorReadout {
     readonly kind: EncounterDirectorReadoutKind;
     readonly sequenceId: number;
@@ -101,6 +113,7 @@ export interface EncounterDirectorReadout {
     readonly state: EncounterDirectorStateReadout;
     readonly spawns: readonly EncounterSpawnInstanceReadout[];
     readonly lifecycle: EncounterLifecycleReadout;
+    readonly authority: EncounterDirectorAuthorityReadout;
     readonly hashes: {
         readonly encounterHash: string;
         readonly spawnOrderHash: string;
@@ -174,6 +187,7 @@ export declare function buildEncounterDirectorReadout(input: {
     readonly sessionSeed: number;
     readonly sessionHash: string;
     readonly lifecycle: EncounterLifecycleInput;
+    readonly authority?: EncounterDirectorAuthorityReadout;
 }): EncounterDirectorReadout;
 export declare function buildEncounterTransitionReceipt(input: {
     readonly request: EncounterTransitionRequest;

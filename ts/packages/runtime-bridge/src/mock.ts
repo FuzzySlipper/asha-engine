@@ -38,6 +38,11 @@ import {
   type EngineConfig,
   type EngineHandle,
   type FrameCursor,
+  type FpsEncounterDirectorSnapshot,
+  type FpsEncounterLifecycleInput,
+  type FpsEncounterStateReadout,
+  type FpsEncounterTransitionRequest,
+  type FpsEncounterTransitionResult,
   type FpsPrimaryFireRequest,
   type FpsPrimaryFireResult,
   type FpsRuntimeSessionLoadRequest,
@@ -552,6 +557,7 @@ export class MockRuntimeBridge implements RuntimeBridge {
   #enemyTransforms = new Map<number, Vec3>();
   #fpsSeed: FpsRuntimeSessionLoadRequest | null = null;
   #fpsSnapshot: FpsRuntimeSessionSnapshot | null = null;
+  #fpsEncounter: FpsEncounterStateReadout = initialFpsEncounterState();
   #fpsEpoch = 0;
 
   initializeEngine(config: EngineConfig): EngineHandle {
@@ -566,6 +572,7 @@ export class MockRuntimeBridge implements RuntimeBridge {
     this.#buffer = bytes;
     this.#fpsSeed = null;
     this.#fpsSnapshot = null;
+    this.#fpsEncounter = initialFpsEncounterState();
     this.#fpsEpoch = 0;
     return handle;
   }
@@ -624,6 +631,7 @@ export class MockRuntimeBridge implements RuntimeBridge {
     }
     this.#fpsEpoch += 1;
     this.#fpsSeed = request;
+    this.#fpsEncounter = initialFpsEncounterState();
     const health = request.definitions.flatMap((definition) =>
       definition.health === null
         ? []
@@ -726,6 +734,127 @@ export class MockRuntimeBridge implements RuntimeBridge {
       throw new RuntimeBridgeError('invalid_input', `restart expected epoch ${expectedEpoch} but current epoch is ${this.#fpsEpoch}`);
     }
     return this.loadFpsRuntimeSession(this.#fpsSeed);
+  }
+
+  readFpsEncounterDirector(lifecycle: FpsEncounterLifecycleInput): FpsEncounterDirectorSnapshot {
+    if (this.#fpsSnapshot === null) {
+      throw new RuntimeBridgeError('not_initialized', 'readFpsEncounterDirector before loadFpsRuntimeSession');
+    }
+    return this.#fpsEncounterSnapshot(lifecycle);
+  }
+
+  applyFpsEncounterTransition(request: FpsEncounterTransitionRequest): FpsEncounterTransitionResult {
+    if (this.#fpsSnapshot === null) {
+      throw new RuntimeBridgeError('not_initialized', 'applyFpsEncounterTransition before loadFpsRuntimeSession');
+    }
+    let accepted = true;
+    let rejectionReason: FpsEncounterTransitionResult['rejectionReason'] = null;
+    let eventKind: FpsEncounterTransitionResult['eventKind'] = null;
+    if (request.presetId !== 'generated-tunnel-small-encounter') {
+      accepted = false;
+      rejectionReason = 'unknown_encounter_preset';
+    } else if (request.action === 'reset') {
+      eventKind = 'runtime_encounter.reset.v0';
+      this.#fpsEncounter = { ...initialFpsEncounterState(), revision: this.#fpsEncounter.revision + 1, lastTransition: 'reset' };
+    } else if (request.action === 'activate') {
+      if (this.#fpsEncounter.status !== 'pending') {
+        accepted = false;
+        rejectionReason = 'encounter_not_pending';
+      } else {
+        eventKind = 'runtime_encounter.activated.v0';
+        this.#fpsEncounter = {
+          ...this.#fpsEncounter,
+          status: 'active',
+          spawnedEnemyIds: ['encounter.generated_tunnel_small.wave_1.enemy_001'],
+          revision: this.#fpsEncounter.revision + 1,
+          lastTransition: 'activated',
+        };
+      }
+    } else if (request.action === 'sync_lifecycle') {
+      eventKind = 'runtime_encounter.lifecycle_synced.v0';
+      if (request.lifecycle.playerDead || request.lifecycle.outcomeKind === 'lost') {
+        this.#fpsEncounter = {
+          ...this.#fpsEncounter,
+          status: 'failed',
+          revision: this.#fpsEncounter.revision + 1,
+          lastTransition: 'failed',
+        };
+      } else if (request.lifecycle.enemyDead || request.lifecycle.outcomeKind === 'won') {
+        this.#fpsEncounter = {
+          ...this.#fpsEncounter,
+          status: 'cleared',
+          spawnedEnemyIds: ['encounter.generated_tunnel_small.wave_1.enemy_001'],
+          defeatedEnemyIds: ['encounter.generated_tunnel_small.wave_1.enemy_001'],
+          revision: this.#fpsEncounter.revision + 1,
+          lastTransition: 'cleared',
+        };
+      } else {
+        this.#fpsEncounter = {
+          ...this.#fpsEncounter,
+          revision: this.#fpsEncounter.revision + 1,
+        };
+      }
+    } else {
+      accepted = false;
+      rejectionReason = 'invalid_encounter_transition';
+    }
+    const encounterHash = fpsEncounterHash(this.#fpsEncounter, request.lifecycle);
+    const replayHash = `fnv1a64:${fnv1a64(JSON.stringify({
+      presetId: request.presetId,
+      action: request.action,
+      accepted,
+      rejectionReason,
+      eventKind,
+      encounterHash,
+    }))}`;
+    if (accepted) {
+      this.#fpsSnapshot = {
+        ...this.#fpsSnapshot,
+        replayHash,
+        replayRecords: [
+          ...this.#fpsSnapshot.replayRecords,
+          {
+            replayUnit: eventKind ?? 'runtime_session.fps.encounter_transition.reference.v0',
+            entityHash: this.#fpsSnapshot.entityHash,
+            healthHash: this.#fpsSnapshot.healthHash,
+            recordHash: replayHash,
+          },
+        ],
+      };
+    }
+    return {
+      backend: 'reference_bridge',
+      authoritySurface: 'runtime_session.fps.reference_encounter_transition.v0',
+      mutationOwner: 'reference-bridge',
+      workspaceTrace: ['reference fixture encounter transition'],
+      accepted,
+      rejectionReason,
+      eventKind,
+      state: this.#fpsEncounter,
+      lifecycle: request.lifecycle,
+      encounterHash,
+      replayHash,
+    };
+  }
+
+  #fpsEncounterSnapshot(lifecycle: FpsEncounterLifecycleInput): FpsEncounterDirectorSnapshot {
+    if (this.#fpsSnapshot === null) {
+      throw new RuntimeBridgeError('not_initialized', 'readFpsEncounterDirector before loadFpsRuntimeSession');
+    }
+    const encounterHash = fpsEncounterHash(this.#fpsEncounter, lifecycle);
+    return {
+      backend: 'reference_bridge',
+      authoritySurface: 'runtime_session.fps.reference_encounter_director.v0',
+      mutationOwner: 'reference-bridge',
+      workspaceTrace: ['reference fixture encounter readout'],
+      state: this.#fpsEncounter,
+      lifecycle,
+      readSets: [
+        { viewKind: 'runtime_session.encounter_director.v0', owner: 'reference-bridge', readSet: ['mock.encounter'] },
+      ],
+      encounterHash,
+      replayHash: this.#fpsSnapshot.replayHash,
+    };
   }
 
   submitCommands(batch: CommandBatch): CommandResult {
@@ -1217,6 +1346,24 @@ export class MockRuntimeBridge implements RuntimeBridge {
     this.#replaySteps = Math.max(0, this.#replaySteps - 1);
     return { step, hash: `mock-${session}-${step}`, diverged: false };
   }
+}
+
+function initialFpsEncounterState(): FpsEncounterStateReadout {
+  return {
+    presetId: 'generated-tunnel-small-encounter',
+    status: 'pending',
+    spawnedEnemyIds: [],
+    defeatedEnemyIds: [],
+    revision: 0,
+    lastTransition: 'initialized',
+  };
+}
+
+function fpsEncounterHash(
+  state: FpsEncounterStateReadout,
+  lifecycle: FpsEncounterLifecycleInput,
+): string {
+  return `fnv1a64:${fnv1a64(JSON.stringify({ state, lifecycle }))}`;
 }
 
 /** Construct the default mock bridge. */

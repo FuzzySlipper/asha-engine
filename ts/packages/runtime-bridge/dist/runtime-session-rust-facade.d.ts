@@ -21,8 +21,8 @@ export declare class RustBackedRuntimeSessionFacade implements RuntimeSessionFac
     runAutonomousPolicyTick(_input: RuntimeSessionAutonomousPolicyTickInput): RuntimeSessionAutonomousPolicyTickReadout;
     readLifecycleStatus(request?: RuntimeSessionLifecycleStatusRequest): RuntimeSessionLifecycleStatusReadout;
     requestSessionRestart(intent: RuntimeSessionRestartIntent): RuntimeSessionLifecycleRestartReceipt;
-    readEncounterDirector(_request?: EncounterDirectorReadoutRequest): EncounterDirectorReadout;
-    requestEncounterTransition(_request: EncounterTransitionRequest): RuntimeSessionEncounterTransitionReceipt;
+    readEncounterDirector(request?: EncounterDirectorReadoutRequest): EncounterDirectorReadout;
+    requestEncounterTransition(request: EncounterTransitionRequest): RuntimeSessionEncounterTransitionReceipt;
     readCombatReadout(_request?: RuntimeSessionCombatReadoutRequest): CombatRuntimeReadout;
     readCombatFeedbackProjection(_request?: RuntimeSessionCombatFeedbackProjectionRequest): CombatFeedbackProjection;
     readGeneratedTunnelReadout(_request?: GeneratedTunnelReadoutRequest): GeneratedTunnelReadout;

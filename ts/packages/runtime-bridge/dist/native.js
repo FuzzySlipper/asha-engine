@@ -28,6 +28,8 @@ export const NATIVE_WIRED_OPERATIONS = new Set([
     'read_fps_runtime_session',
     'apply_fps_primary_fire',
     'restart_fps_runtime_session',
+    'read_fps_encounter_director',
+    'apply_fps_encounter_transition',
     'read_render_diffs',
     'save_current_world',
     'get_composition_status',
@@ -130,6 +132,22 @@ function normalizeFpsSnapshot(value) {
             healthHash: hashString(record.healthHash, 'replayRecords.healthHash'),
             recordHash: hashString(record.recordHash, 'replayRecords.recordHash'),
         })),
+    };
+}
+function normalizeEncounterSnapshot(value) {
+    return {
+        ...value,
+        backend: fpsBackend(value.backend),
+        encounterHash: hashString(value.encounterHash, 'encounterHash'),
+        replayHash: hashString(value.replayHash, 'replayHash'),
+    };
+}
+function normalizeEncounterTransition(value) {
+    return {
+        ...value,
+        backend: fpsBackend(value.backend),
+        encounterHash: hashString(value.encounterHash, 'encounterHash'),
+        replayHash: hashString(value.replayHash, 'replayHash'),
     };
 }
 function nativeFpsLoadRequest(request) {
@@ -286,6 +304,16 @@ export class NativeRuntimeBridge {
         const expectedEpoch = nonNegativeSafeInteger(request.expectedEpoch, 'expectedEpoch');
         const result = callNative(() => this.#addon.restartFpsRuntimeSession(handle, expectedEpoch));
         return normalizeFpsSnapshot(result);
+    }
+    readFpsEncounterDirector(lifecycle) {
+        const handle = this.#requireHandle('readFpsEncounterDirector');
+        const result = callNative(() => this.#addon.readFpsEncounterDirector(handle, lifecycle));
+        return normalizeEncounterSnapshot(result);
+    }
+    applyFpsEncounterTransition(request) {
+        const handle = this.#requireHandle('applyFpsEncounterTransition');
+        const result = callNative(() => this.#addon.applyFpsEncounterTransition(handle, request));
+        return normalizeEncounterTransition(result);
     }
     readModelMaterialPreview(request) {
         void request;

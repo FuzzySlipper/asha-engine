@@ -91,6 +91,22 @@
       "errors": "RuntimeBridgeError"
     },
     {
+      "manifestName": "read_fps_encounter_director",
+      "facadeMethod": "readFpsEncounterDirector",
+      "surface": "stable",
+      "input": "protocol_runtime::FpsEncounterLifecycleInput",
+      "output": "protocol_runtime::FpsEncounterDirectorSnapshot",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "apply_fps_encounter_transition",
+      "facadeMethod": "applyFpsEncounterTransition",
+      "surface": "stable",
+      "input": "protocol_runtime::FpsEncounterTransitionRequest",
+      "output": "protocol_runtime::FpsEncounterTransitionResult",
+      "errors": "RuntimeBridgeError"
+    },
+    {
       "manifestName": "read_render_diffs",
       "facadeMethod": "readRenderDiffs",
       "surface": "stable",

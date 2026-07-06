@@ -18,6 +18,8 @@ operations are replay/devtools-only.
 | `read_fps_runtime_session` | stable | `Unit` | `protocol_runtime::FpsRuntimeSessionSnapshot` | `RuntimeBridgeError` |
 | `apply_fps_primary_fire` | stable | `protocol_runtime::FpsPrimaryFireRequest` | `protocol_runtime::FpsPrimaryFireResult` | `RuntimeBridgeError` |
 | `restart_fps_runtime_session` | stable | `protocol_runtime::FpsRuntimeSessionRestartRequest` | `protocol_runtime::FpsRuntimeSessionSnapshot` | `RuntimeBridgeError` |
+| `read_fps_encounter_director` | stable | `protocol_runtime::FpsEncounterLifecycleInput` | `protocol_runtime::FpsEncounterDirectorSnapshot` | `RuntimeBridgeError` |
+| `apply_fps_encounter_transition` | stable | `protocol_runtime::FpsEncounterTransitionRequest` | `protocol_runtime::FpsEncounterTransitionResult` | `RuntimeBridgeError` |
 | `read_render_diffs` | stable | `FrameCursor` | `protocol_render::RenderFrameDiffDescriptor` | `RuntimeBridgeError` |
 | `read_model_material_preview` | stable | `protocol_render::ModelMaterialPreviewRequest` | `protocol_render::ModelMaterialPreviewSnapshot` | `RuntimeBridgeError` |
 | `read_scene_object_snapshot` | stable | `Unit` | `protocol_scene::SceneObjectSnapshot` | `RuntimeBridgeError` |

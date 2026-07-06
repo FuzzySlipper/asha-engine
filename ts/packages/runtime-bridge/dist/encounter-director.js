@@ -207,6 +207,18 @@ export function buildEncounterDirectorReadout(input) {
             playerDead: input.lifecycle.playerDead,
             lifecycleHash: input.lifecycle.lifecycleHash,
         },
+        authority: input.authority ?? {
+            source: 'reference_fixture',
+            backend: null,
+            surface: 'runtime_session.reference_fixture.encounter_director.v0',
+            mutationOwner: 'reference-runtime-session',
+            readSets: [{
+                    viewKind: 'runtime_session.encounter_director.v0',
+                    owner: 'reference-runtime-session',
+                    readSet: ['reference.encounterState'],
+                }],
+            workspaceTrace: ['reference RuntimeSession encounter fixture'],
+        },
         hashes: {
             encounterHash,
             spawnOrderHash: GENERATED_TUNNEL_SMALL_ENCOUNTER_CONFIG.spawnOrderHash,
