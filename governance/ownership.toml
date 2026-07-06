@@ -404,7 +404,7 @@ may_not_depend_on = ["render-bridge", "wasm-api"]
 
 [crate."engine-rs/crates/tools/protocol-dump"]
 lane = "rust-tools"
-may_depend_on = ["protocol-ids", "protocol-script", "protocol-render", "protocol-replay"]
+may_depend_on = ["protocol-ids", "protocol-script", "protocol-render", "protocol-replay", "protocol-codegen"]
 may_not_depend_on = ["render-bridge", "wasm-api"]
 
 [crate."engine-rs/crates/tools/state-inspector"]

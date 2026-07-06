@@ -413,6 +413,9 @@ dependencies = [
 [[package]]
 name = "protocol-dump"
 version = "0.1.0"
+dependencies = [
+ "protocol-codegen",
+]
 
 [[package]]
 name = "protocol-entity-authoring"

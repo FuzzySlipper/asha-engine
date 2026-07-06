@@ -7,5 +7,8 @@ edition.workspace = true
 name = "protocol-dump"
 path = "src/main.rs"
 
+[dependencies]
+protocol-codegen = { path = "../../protocol/protocol-codegen" }
+
 [lints]
 workspace = true
