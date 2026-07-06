@@ -7,14 +7,16 @@ import assert from 'node:assert/strict';
 import { renderHandle, type RenderDiff } from '@asha/contracts';
 import { createMockRuntimeSession } from '@asha/runtime-bridge/reference';
 import {
-  createAshaRendererBrowserSurfaceFrame,
-  createAshaRendererGeneratedTunnelRoomSurfaceFrame,
   type FirstPersonTunnelViewportCollisionDebug,
   FIRST_PERSON_TUNNEL_VIEWPORT_FIXTURE_NAME,
-  renderProjectedFrame,
-  renderFirstPersonTunnelViewport,
   summarizeFirstPersonTunnelViewport,
 } from './index.js';
+import {
+  createAshaRendererBrowserSurfaceFrame,
+  createAshaRendererGeneratedTunnelRoomSurfaceFrame,
+  renderFirstPersonTunnelViewport,
+  renderProjectedFrame,
+} from './backend.js';
 
 function sessionInput() {
   return {
@@ -116,18 +118,23 @@ void test('first-person tunnel viewport summary can carry optional collision deb
   assert.equal(summaryOnly.scene.structuralHash, result.summary.scene.structuralHash);
 });
 
-void test('renderer-three package root exposes tunnel viewport helpers under browser conditions', () => {
+void test('renderer-three package root exposes renderer-neutral tunnel helpers under browser conditions', () => {
   const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
   const proof = `
     const surface = await import('@asha/renderer-three');
     const required = [
-      'createAshaRendererBrowserSurfaceFrame',
-      'mountAshaRendererBrowserSurface',
       'createGeneratedTunnelViewportFrame',
-      'renderFirstPersonTunnelViewport',
       'summarizeFirstPersonTunnelViewport'
     ];
-    const forbidden = ['NativeRuntimeBridge', 'createNativeRuntimeBridge', 'NATIVE_WIRED_OPERATIONS'];
+    const forbidden = [
+      'NativeRuntimeBridge',
+      'createNativeRuntimeBridge',
+      'NATIVE_WIRED_OPERATIONS',
+      'ThreeRenderer',
+      'mountAshaRendererBrowserSurface',
+      'createAshaRendererBrowserSurfaceFrame',
+      'renderFirstPersonTunnelViewport'
+    ];
     const missing = required.filter((name) => !(name in surface));
     const leaked = forbidden.filter((name) => name in surface);
     if (missing.length > 0 || leaked.length > 0) {

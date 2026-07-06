@@ -2,7 +2,7 @@ import type { PickRay, PickResult, RenderFrameDiff } from '@asha/contracts';
 import { RuntimeBridgeError, type CompositionStatus, type RuntimeBridge, type WorldLoadRequest } from '@asha/runtime-bridge';
 import { type EditorControl, type MaterialOption } from '@asha/ui-dom';
 import { type EditorInspection } from '@asha/devtools';
-import { ThreeRenderer } from '@asha/renderer-three';
+import { ThreeRenderer } from '@asha/renderer-three/backend';
 import { VoxelEditController, type CommandResultHandler } from './index.js';
 import type { CommandResult } from '@asha/runtime-bridge';
 /**

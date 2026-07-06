@@ -13,6 +13,9 @@
     },
     {
       "path": "../editor-tools"
+    },
+    {
+      "path": "../renderer-three"
     }
   ]
 }

@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { renderHandle, entityId } from '@asha/contracts';
 import { RuntimeBridgeError, } from '@asha/runtime-bridge';
-import { ThreeRenderer, RenderApplyError } from './index.js';
+import { RenderApplyError, ThreeRenderer } from './backend.js';
 function cubeNode(label = 'cube') {
     return {
         geometry: { shape: 'cube' },

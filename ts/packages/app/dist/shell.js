@@ -15,7 +15,7 @@
 import { frameCursor, RuntimeBridgeError, } from '@asha/runtime-bridge';
 import { buildEditorControls, controlToAction, materialPalette, } from '@asha/ui-dom';
 import { inspectEditor } from '@asha/devtools';
-import { ThreeRenderer } from '@asha/renderer-three';
+import { ThreeRenderer } from '@asha/renderer-three/backend';
 import { VoxelEditController, bridgeCommandSink, bridgePicker, pickAndSelect, } from './index.js';
 /** Adapt the real `@asha/renderer-three` renderer to the {@link RendererPort} seam. */
 export function threeRendererPort(renderer = new ThreeRenderer()) {

@@ -1,6 +1,6 @@
 // Backend-neutral browser render surface host.
 import { RenderProjection, } from '@asha/render-projection';
-import { createAshaRendererBrowserSurfaceFrame as createBackendBrowserSurfaceFrame, createAshaRendererGeneratedTunnelRoomSurfaceFrame as createBackendGeneratedTunnelRoomSurfaceFrame, mountAshaRendererBrowserSurface as mountThreeBackedBrowserSurface, } from '@asha/renderer-three';
+import { createAshaRendererBrowserSurfaceFrame as createBackendBrowserSurfaceFrame, createAshaRendererGeneratedTunnelRoomSurfaceFrame as createBackendGeneratedTunnelRoomSurfaceFrame, mountAshaRendererBrowserSurface as mountThreeBackedBrowserSurface, } from '@asha/renderer-three/backend';
 export const ASHA_RENDERER_HOST_COMPATIBILITY_VERSION = 'renderer-host.v0';
 const THREE_BACKEND_DIAGNOSTICS = {
     family: 'threejs',

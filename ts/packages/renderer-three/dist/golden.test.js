@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { ThreeRenderer } from './index.js';
+import { ThreeRenderer } from './backend.js';
 const repoRoot = resolve(import.meta.dirname, '../../../..');
 function loadFixture(name) {
     return JSON.parse(readFileSync(resolve(repoRoot, 'harness/fixtures/render-diffs', `${name}.json`), 'utf8'));

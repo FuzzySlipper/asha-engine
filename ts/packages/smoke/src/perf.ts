@@ -18,7 +18,7 @@
 import type { RenderDiff, VoxelCommand } from '@asha/contracts';
 import { renderHandle } from '@asha/contracts';
 import { EditorStore } from '@asha/editor-tools';
-import { ThreeRenderer } from '@asha/renderer-three';
+import { ThreeRenderer } from '@asha/renderer-three/backend';
 import {
   frameCursor,
   RuntimeBridgeError,

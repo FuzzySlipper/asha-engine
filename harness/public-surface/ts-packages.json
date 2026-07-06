@@ -10,7 +10,6 @@
         "@asha/catalog-core",
         "@asha/render-projection",
         "@asha/renderer-host",
-        "@asha/renderer-three",
         "@asha/command-registry",
         "@asha/ui-dom"
       ],
@@ -21,6 +20,7 @@
         "@asha/app",
         "@asha/devtools",
         "@asha/native-bridge",
+        "@asha/renderer-three",
         "@asha/wasm-replay-bridge",
         "@asha/script-sdk",
         "@asha/script-host",
@@ -157,8 +157,9 @@
       "package": "@asha/renderer-three",
       "status": "unstable",
       "ownershipKey": "ts/packages/renderer-three",
-      "intendedConsumerRole": "Three.js render-diff implementation for engine smoke/testing and the approved asha-demo static-room renderer path; not the long-term public renderer contract.",
-      "allowedConsumerRoles": ["asha-testing", "asha-demo"],
+      "intendedConsumerRole": "Three.js render-diff backend implementation for engine smoke/testing; demos should use @asha/renderer-host.",
+      "allowedConsumerRoles": ["asha-testing"],
+      "allowedExportSubpaths": ["./backend"],
       "changelog": "docs/consumer-compatibility.md#renderer-three-unstable-status"
     },
     {

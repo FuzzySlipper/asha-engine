@@ -10,11 +10,11 @@ import {
   createAshaRendererBrowserSurfaceFrame as createBackendBrowserSurfaceFrame,
   createAshaRendererGeneratedTunnelRoomSurfaceFrame as createBackendGeneratedTunnelRoomSurfaceFrame,
   mountAshaRendererBrowserSurface as mountThreeBackedBrowserSurface,
-} from '@asha/renderer-three';
+} from '@asha/renderer-three/backend';
 import type {
   AshaRendererBrowserSurfaceControlsOptions as BackendControlsOptions,
   AshaRendererGeneratedTunnelRoomSurfaceInput as BackendGeneratedTunnelRoomSurfaceInput,
-} from '@asha/renderer-three';
+} from '@asha/renderer-three/backend';
 
 export const ASHA_RENDERER_HOST_COMPATIBILITY_VERSION = 'renderer-host.v0';
 

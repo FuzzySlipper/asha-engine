@@ -27,7 +27,7 @@ import {
 import { createMockRuntimeBridge } from '@asha/runtime-bridge/reference';
 import type { RenderDiff } from '@asha/contracts';
 import { renderHandle } from '@asha/contracts';
-import { ThreeRenderer } from '@asha/renderer-three';
+import { ThreeRenderer } from '@asha/renderer-three/backend';
 import { EditorStore } from '@asha/editor-tools';
 import { bridgePicker, pickAndSelect } from '@asha/app';
 import { previewOverlayDiffs, OVERLAY_HANDLE_BASE } from '@asha/ui-dom';

@@ -32,6 +32,7 @@ valid_package_layers = {
     "tool",
 }
 valid_implementation_statuses = {"active", "reserved"}
+approved_bare_three_packages = {"ts/packages/renderer-three"}
 
 actual_packages: dict[str, tuple[str, pathlib.Path, dict]] = {}
 for pkg_dir in sorted(ts_packages.iterdir()):
@@ -121,6 +122,28 @@ def collect_manifest_imports(pkg_dir: pathlib.Path, package_name: str) -> set[st
     return imports_found
 
 
+def collect_bare_three_references(pkg_dir: pathlib.Path, pkg_data: dict) -> list[str]:
+    references: list[str] = []
+    for section in ("dependencies", "devDependencies", "peerDependencies"):
+        for dep in pkg_data.get(section, {}):
+            if dep in {"three", "@types/three"}:
+                references.append(f"package.json {section}.{dep}")
+
+    src_dir = pkg_dir / "src"
+    if not src_dir.exists():
+        return references
+    import_re = re.compile(r"(?:from\s+|import\s+(?:type\s+)?|import\s*\(\s*)[\"']three(?:/[^\"']*)?[\"']")
+    concrete_api_re = re.compile(r"\bTHREE\.|\bnew\s+WebGLRenderer\b")
+    for src_file in src_dir.rglob("*.ts"):
+        text = src_file.read_text()
+        rel = src_file.relative_to(repo).as_posix()
+        if import_re.search(text):
+            references.append(f"{rel} imports bare three")
+        if concrete_api_re.search(text):
+            references.append(f"{rel} references concrete Three.js API")
+    return references
+
+
 def has_root_export(pkg_data: dict) -> bool:
     exports = pkg_data.get("exports")
     return isinstance(exports, dict) and "." in exports
@@ -144,6 +167,7 @@ for ownership_key, (package_name, pkg_dir, pkg_data) in actual_packages.items():
     forbidden = set(pkg_meta.get("may_not_import", []))
     imports_found, deep_imports_found = collect_source_imports(pkg_dir, package_name)
     imports_found.update(collect_manifest_imports(pkg_dir, package_name))
+    bare_three_references = collect_bare_three_references(pkg_dir, pkg_data)
 
     if not has_root_export(pkg_data):
         failures.append(f"FAIL: {ownership_key} package.json must expose root package API via exports['.']")
@@ -158,6 +182,12 @@ for ownership_key, (package_name, pkg_dir, pkg_data) in actual_packages.items():
         )
     if not (pkg_dir / "src" / "index.ts").exists():
         failures.append(f"FAIL: {ownership_key} must expose its source root barrel at src/index.ts")
+
+    if bare_three_references and ownership_key not in approved_bare_three_packages:
+        failures.append(
+            f"FAIL: {ownership_key} references bare Three.js backend APIs outside an approved renderer backend package:\n"
+            + "\n".join(f"      - {reference}" for reference in bare_three_references)
+        )
 
     for dep in sorted(allowed & forbidden):
         failures.append(f"FAIL: {ownership_key} lists '{dep}' in both may_import and may_not_import.")

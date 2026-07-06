@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { renderHandle } from '@asha/contracts';
-import { createStaticRoomRenderFrame, renderProjectedFrame, STATIC_ROOM_FIXTURE_NAME, ThreeRenderer, } from './index.js';
+import { createStaticRoomRenderFrame, STATIC_ROOM_FIXTURE_NAME, } from './index.js';
+import { renderProjectedFrame, ThreeRenderer, } from './backend.js';
 const repoRoot = resolve(import.meta.dirname, '../../../..');
 void test('static room frame projects and renders through the package-root path', () => {
     const result = renderProjectedFrame(createStaticRoomRenderFrame());

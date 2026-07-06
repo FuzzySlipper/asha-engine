@@ -29,7 +29,7 @@ import {
   type MaterialOption,
 } from '@asha/ui-dom';
 import { inspectEditor, type EditorInspection } from '@asha/devtools';
-import { ThreeRenderer } from '@asha/renderer-three';
+import { ThreeRenderer } from '@asha/renderer-three/backend';
 
 import {
   VoxelEditController,

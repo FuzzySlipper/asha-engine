@@ -6,10 +6,12 @@ import { resolve } from 'node:path';
 import { renderHandle } from '@asha/contracts';
 import {
   createStaticRoomRenderFrame,
-  renderProjectedFrame,
   STATIC_ROOM_FIXTURE_NAME,
-  ThreeRenderer,
 } from './index.js';
+import {
+  renderProjectedFrame,
+  ThreeRenderer,
+} from './backend.js';
 
 const repoRoot = resolve(import.meta.dirname, '../../../..');
 

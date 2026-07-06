@@ -13,7 +13,7 @@ import {
   type RuntimeBufferHandle,
   type RuntimeBufferView,
 } from '@asha/runtime-bridge';
-import { ThreeRenderer, RenderApplyError, type MeshBufferSource } from './index.js';
+import { RenderApplyError, ThreeRenderer, type MeshBufferSource } from './backend.js';
 
 function cubeNode(label = 'cube'): RenderNode {
   return {

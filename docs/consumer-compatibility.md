@@ -49,7 +49,7 @@ Additional unstable package statuses:
 - `@asha/catalog-core` is an unstable gameplay preset/catalog validation package. It may expose root-level typed tuning schemas and readouts for consumer-owned data, but it does not execute runtime authority, own generated contracts, or validate commands.
 - `@asha/editor-tools` is an unstable Studio/editor helper package. It is editor-local state only, not authority.
 - `@asha/renderer-host` is the unstable browser render surface host for human-facing demos. It exposes backend-neutral mount/lifecycle/projection handles and may use `@asha/renderer-three` internally while that remains the selected browser backend.
-- `@asha/renderer-three` is an unstable Three.js implementation package for engine smoke/testing and the approved migration window only. It is not the long-term public renderer contract; consumers should prefer `@asha/renderer-host` for browser mounting and `@asha/render-projection` for renderer-neutral retained semantics unless a task explicitly approves the root package binding.
+- `@asha/renderer-three` is an unstable Three.js implementation package for engine smoke/testing only. It is not the long-term public renderer contract; human-facing demos should use `@asha/renderer-host` for browser mounting and `@asha/render-projection` for renderer-neutral retained semantics.
 - `@asha/ui-dom` is an unstable render-agnostic UI projection/control descriptor package. It can expose root-level HUD/menu projection helpers, but it does not execute runtime commands or own DOM framework state.
 
 Internal packages, including `@asha/native-bridge`, `@asha/wasm-replay-bridge`, `@asha/app`, `@asha/electron-main`, internal policy packages, `@asha/catalog-examples`, and `@asha/smoke`, are not downstream public surfaces.
@@ -93,7 +93,6 @@ The first `asha-demo` skeleton may depend on only these ASHA package roots:
 | `@asha/game-workspace` | `unstable` | Allowed for manifest/workspace validation | The current typed ASHA Game Project manifest/workspace surface. This is the preferred first skeleton dependency. |
 | `@asha/render-projection` | `unstable` | Allowed for renderer-neutral projection state only | Consumers may use retained render-diff projection semantics through the root package. This is not permission to mutate authority or decode arbitrary JSON. |
 | `@asha/renderer-host` | `unstable` | Preferred browser renderer mount path | Demo code mounts visible ASHA render surfaces through backend-neutral lifecycle/status handles. Three.js remains an engine-owned backend detail behind this host. |
-| `@asha/renderer-three` | `unstable` | Allowed for the static-room renderer path approved in #4029 and the first-person generated-tunnel viewport path approved in #4067 | Consumers may import only from the package root and must treat it as an implementation binding over public render diffs/projection state, not as authority or a stable renderer contract. |
 | `@asha/command-registry` | `unstable` | Optional, only for declared command/readout metadata | Useful for Studio-compatible typed command/evidence metadata. The skeleton should not require it unless it has a concrete manifest/readout need. |
 | `@asha/ui-dom` | `unstable` | Optional, only for typed HUD/menu projection/control descriptors approved in #4043 | Useful for render-agnostic health/status/menu readouts and typed UI intents. It must not execute runtime authority commands. |
 
@@ -102,6 +101,7 @@ The first skeleton must not import these ASHA surfaces directly:
 | Forbidden surface | Decision |
 |---|---|
 | `@asha/devtools` | Remains Studio/testing-only. Studio owns live/runtime readouts; `asha-demo` should not make devtools a direct product dependency. |
+| `@asha/renderer-three` | Backend implementation package. `asha-demo` mounts render surfaces through `@asha/renderer-host`; any Three.js backend wiring stays behind that host. |
 | `@asha/script-sdk`, `@asha/script-host`, `@asha/policy-core`, `@asha/policy-examples` | Remain internal. Demo-owned policy packs are deferred until ASHA main exposes a public policy-authoring/packaging surface. `@asha/game-workspace` already classifies policy source authoring as reserved/deferred. |
 | `@asha/native-bridge`, `@asha/wasm-replay-bridge` | Remain internal. Runtime access goes through `@asha/runtime-bridge`; replay/WASM proof paths stay engine/testing-owned. |
 | ASHA package `src/*` or `dist/generated/*` paths | Forbidden. Consumers use package roots only. |
@@ -110,10 +110,10 @@ The first skeleton must not import these ASHA surfaces directly:
 Renderer decision for this gate: task #4385 adds `@asha/renderer-host` as the
 preferred browser render surface path. Demo code should mount browser render
 surfaces through the host and feed it public render frames / `@asha/render-projection`
-semantics. Task #4029 and #4067 previously approved a narrow package-root
-`@asha/renderer-three` binding for static-room and generated-tunnel projection
-work; that remains a migration allowance only and does not promote
-`@asha/renderer-three` to the long-term renderer contract.
+semantics. Task #4387 removes the old `asha-demo` renderer-three allowance from
+the engine manifest. Static-room and generated-tunnel projection work that needs
+the concrete backend now belongs to engine-owned smoke/testing or the
+`@asha/renderer-host` implementation path, not demo app code.
 
 Policy decision for this gate: no demo-owned TypeScript policy package is
 allowed yet. Catalog or policy directories may exist as documented placeholders
@@ -303,12 +303,13 @@ Consumer behavior:
 
 ## Renderer Three unstable status
 
-`@asha/renderer-three` is explicit but unstable. It is an engine-owned Three.js implementation package for smoke/testing and should not be treated as the cross-repo renderer contract. Studio and demos should prefer `@asha/render-projection` for renderer-neutral ASHA semantics and keep Three.js code as a local binding.
+`@asha/renderer-three` is explicit but unstable. It is an engine-owned Three.js implementation package for smoke/testing and the internal backend used by `@asha/renderer-host`; it should not be treated as the cross-repo renderer contract. Studio and demos should prefer `@asha/render-projection` for renderer-neutral ASHA semantics and `@asha/renderer-host` when they need a browser render surface.
 
 Additive notes under this unstable status:
 
-- #4029 widens the engine manifest so `asha-demo` may import the package root for the static-room render path only. The public helper `createStaticRoomRenderFrame` emits a synthetic `RenderFrameDiff`; `renderProjectedFrame` applies that frame through `@asha/render-projection` and the retained `ThreeRenderer`. Evidence lives in `harness/fixtures/render-diffs/static-room.json` and `harness/goldens/render-diffs/static-room.snapshot`. This is structural render evidence only: no gameplay loop, runtime attachment, authority mutation, collision simulation, or browser screenshot is claimed.
-- #4067 adds the first-person generated-tunnel viewport adapter at the `@asha/renderer-three` package root: `createGeneratedTunnelViewportFrame`, `renderFirstPersonTunnelViewport`, and `summarizeFirstPersonTunnelViewport`. The adapter consumes `GeneratedTunnelReadout` plus `CameraProjectionSnapshot`, creates a deterministic tunnel shell/spawn-marker `RenderFrameDiff`, applies it through `RenderProjection` and `ThreeRenderer`, and reports `first_person_tunnel_viewport.v0` summary evidence. Current fixture hashes are viewport frame `fnv1a64:db081afd570c2f30` and structural snapshot `fnv1a64:35ad3bca1a9f1667`; generated tunnel projection hashes remain render `fnv1a64:21eb8696f6f3b5c4` and collision `fnv1a64:78b242163cf67524`. This is still projection-only: no runtime authority, collision authority, local generation, animation system, or pixel golden is claimed.
+- #4029 historically widened the engine manifest so `asha-demo` could import the package root for the static-room render path only. The public helper `createStaticRoomRenderFrame` emits a synthetic `RenderFrameDiff`; backend rendering is now engine-owned behind `@asha/renderer-host` or `@asha/renderer-three/backend`. Evidence lives in `harness/fixtures/render-diffs/static-room.json` and `harness/goldens/render-diffs/static-room.snapshot`. This is structural render evidence only: no gameplay loop, runtime attachment, authority mutation, collision simulation, or browser screenshot is claimed.
+- #4067 historically added the first-person generated-tunnel viewport adapter at the `@asha/renderer-three` package root. The package root now keeps renderer-neutral helpers such as `createGeneratedTunnelViewportFrame` and `summarizeFirstPersonTunnelViewport`; concrete browser rendering moved behind `@asha/renderer-three/backend` for engine-owned smoke/testing and behind `@asha/renderer-host` for demos. The adapter consumes `GeneratedTunnelReadout` plus `CameraProjectionSnapshot` and creates a deterministic tunnel shell/spawn-marker `RenderFrameDiff`. Current fixture hashes are viewport frame `fnv1a64:db081afd570c2f30` and structural snapshot `fnv1a64:35ad3bca1a9f1667`; generated tunnel projection hashes remain render `fnv1a64:21eb8696f6f3b5c4` and collision `fnv1a64:78b242163cf67524`. This is still projection-only: no runtime authority, collision authority, local generation, animation system, or pixel golden is claimed.
+- #4387 narrows `@asha/renderer-three`: `asha-demo` is no longer an allowed consumer role, concrete renderer/browser-surface helpers moved behind the approved `./backend` export, and the depgraph check now rejects bare `three`/`@types/three` use outside approved renderer backend packages.
 
 ## Editor Tools unstable status
 
