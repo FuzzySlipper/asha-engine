@@ -77,7 +77,9 @@
         "@asha/catalog-core",
         "@asha/ui-dom"
       ],
-      "approvedPackageSubpaths": [],
+      "approvedPackageSubpaths": [
+        "@asha/runtime-bridge/reference"
+      ],
       "forbiddenPackageRoots": [
         "@asha/app",
         "@asha/native-bridge",

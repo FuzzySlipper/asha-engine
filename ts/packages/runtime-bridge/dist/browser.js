@@ -5,7 +5,6 @@
 // native transport module or its Node-only dependency chain.
 export { MANIFEST_OPERATIONS } from './generated/operations.js';
 export { decodeRenderDiff, decodeRenderFrameDiff, RenderDecodeError, RenderDiffStream, FrameMemory, } from './render-decode.js';
-export { createMockRuntimeSession, } from './mock-session.js';
 export { RuntimeBridgeError, frameCursor } from './bridge.js';
 export * from './browser-fps-input.js';
 export * from './combat-readout.js';

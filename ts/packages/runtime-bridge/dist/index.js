@@ -12,7 +12,6 @@ export { MANIFEST_OPERATIONS } from './generated/operations.js';
 // Render-diff decode (moved from the former @asha/wasm-bridge). Transport-neutral
 // payload -> contract types; backs `readRenderDiffs`. See render-decode.ts.
 export { decodeRenderDiff, decodeRenderFrameDiff, RenderDecodeError, RenderDiffStream, FrameMemory, } from './render-decode.js';
-export { createMockRuntimeSession, } from './mock-session.js';
 export { RuntimeBridgeError, frameCursor } from './bridge.js';
 export { SelectedBackendGameRuntimeLauncher, createNativeGameRuntimeLauncher, createSelectedBackendGameRuntimeLauncher, nativeBackendProfile, validateGameRuntimeBackendProfile, } from './launcher.js';
 export * from './native.js';

@@ -30,7 +30,7 @@
     },
     "./reference": {
       "types": "./dist/reference.d.ts",
-      "browser": "./dist/reference.js",
+      "browser": "./dist/reference-browser.js",
       "import": "./dist/reference.js",
       "default": "./dist/reference.js"
     }

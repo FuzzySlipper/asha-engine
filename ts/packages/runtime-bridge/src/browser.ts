@@ -44,10 +44,6 @@ export {
   FrameMemory,
 } from './render-decode.js';
 
-export {
-  createMockRuntimeSession,
-  type MockRuntimeSessionOptions,
-} from './mock-session.js';
 export { RuntimeBridgeError, frameCursor } from './bridge.js';
 export type {
   CompositionStatus,
