@@ -28,7 +28,7 @@ export interface RuntimeSessionIdentity {
     readonly projectBundle: WorldLoadRequest;
     readonly nonClaims: readonly RuntimeSessionNonClaim[];
 }
-export type RuntimeSessionNonClaim = 'not_native_runtime' | 'not_raw_state_store' | 'not_arbitrary_json_bridge' | 'not_gameplay_loop' | 'not_renderer';
+export type RuntimeSessionNonClaim = 'not_native_runtime' | 'not_raw_state_store' | 'not_arbitrary_json_bridge' | 'not_product_authority' | 'not_gameplay_loop' | 'not_renderer';
 export interface RuntimeSessionStateSummary {
     readonly identity: RuntimeSessionIdentity;
     readonly engine: EngineHandle;

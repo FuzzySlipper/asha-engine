@@ -1,17 +1,21 @@
 # RuntimeSession Facade Status
 
-Status: current public semantic facade, including the FPS/ECRP reference authority slice used by `asha-demo` and Studio compatibility proofs.
+Status: current public semantic facade. Rust-backed RuntimeSession authority is the product/live path; the explicit reference helper remains a fixture and compatibility surface only.
 
 ## Public Import Path
 
-Consumers import facade types from the package root and reference/mock helpers from the explicit reference entrypoint:
+Consumers import facade types and product/live launcher types from the package root. Reference/mock helpers live behind the explicit reference entrypoint and carry a fixture-only backend profile:
 
 ```ts
 import { type RuntimeSessionFacade } from '@asha/runtime-bridge';
-import { createMockRuntimeSession } from '@asha/runtime-bridge/reference';
+import {
+  REFERENCE_RUNTIME_BACKEND_PROFILE,
+  createMockRuntimeSession,
+} from '@asha/runtime-bridge/reference';
 ```
 
 No consumer should import package internals, raw native transports, generated file paths, or Rust crate paths.
+Demo and Studio live/default flows should not treat `@asha/runtime-bridge/reference` as product authority. Its `REFERENCE_RUNTIME_BACKEND_PROFILE.productAuthority` value is `false`, and reference RuntimeSession identities include `not_product_authority`.
 
 The cross-surface consumer proof for #4053 lives in
 `ts/packages/smoke/src/public-consumer-compat.test.ts`. It intentionally imports
@@ -51,7 +55,7 @@ Lifecycle fixture hashes in the current reference slice:
 - enemy defeated lifecycle hash: `fnv1a64:5fbf190733451da1`
 - player defeated fixture lifecycle hash: `fnv1a64:32322a108d4f2767`
 
-The current reference helper is `createMockRuntimeSession`, a facade over the existing `RuntimeBridge` mock exposed only from `@asha/runtime-bridge/reference`. It is sufficient for downstream boot/readout tests, `asha-demo`, and Studio contract work. For collision-constrained camera input, the reference facade hosts the upstream static-room collision fixture so consumers can prove wall-stop/open-space behavior without importing demo-local physics. For ECRP content, the reference RuntimeSession owns a loaded project-state projection seeded by `loadEcrpProject`; primary-fire receipts, lifecycle updates, entity events, health state, and render visibility apply to the loaded enemy entity. It does not claim native runtime attach or renderer ownership.
+The current reference helper is `createMockRuntimeSession`, a facade over the existing `RuntimeBridge` mock exposed only from `@asha/runtime-bridge/reference`. It is useful for unit tests, compatibility fixtures, and offline smoke baselines. It is not the product/live authority path for demo or Studio, and selected/native backend launchers must fail closed rather than falling back to this helper. For collision-constrained camera input, the reference facade hosts the upstream static-room collision fixture so consumers can prove wall-stop/open-space behavior without importing demo-local physics. For ECRP content, the reference RuntimeSession owns a loaded project-state projection seeded by `loadEcrpProject`; primary-fire receipts, lifecycle updates, entity events, health state, and render visibility apply to the loaded enemy entity in reference mode. It does not claim native runtime attach, product authority, raw state-store access, or renderer ownership.
 
 ## Runtime Vocabulary
 
@@ -64,8 +68,7 @@ The reference RuntimeSession reports explicit non-claims. Current examples inclu
 - `not_native_runtime`
 - `not_raw_state_store`
 - `not_arbitrary_json_bridge`
+- `not_product_authority`
 - `not_renderer`
-- `not_authoring_mode`
-- `not_demo_local_authority`
 
-These non-claims mean the reference facade is still not native runtime attach, raw state-store access, Studio definition-authoring mode, or renderer ownership. They no longer mean the FPS demo owns local combat/health/target authority; that state now comes through RuntimeSession ECRP/lifecycle/action readouts.
+These non-claims mean the reference facade is still not native runtime attach, raw state-store access, product authority, or renderer ownership. They no longer mean the FPS demo owns local combat/health/target authority; that state now comes through RuntimeSession ECRP/lifecycle/action readouts, with Rust-backed sessions carrying Rust bridge provenance where wired.

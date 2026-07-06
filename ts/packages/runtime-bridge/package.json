@@ -9,6 +9,14 @@
       "allowedConsumers": ["asha-testing", "asha-demo", "asha-studio"],
       "rootExportOnly": true,
       "allowedExportSubpaths": ["./reference"],
+      "referenceSubpathPolicy": {
+        "./reference": {
+          "classification": "fixture-reference",
+          "productAuthority": false,
+          "allowedUse": ["tests", "compatibility-fixtures", "offline-smoke"],
+          "disallowedUse": ["product-authority", "live-demo-default", "studio-live-attach"]
+        }
+      },
       "nativeTransportAccess": true,
       "nativeTransportRule": "@asha/runtime-bridge is the only public package allowed to import @asha/native-bridge; consumers must not import raw transports directly."
     },

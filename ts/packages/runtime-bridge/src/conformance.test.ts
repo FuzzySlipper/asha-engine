@@ -67,8 +67,11 @@ import {
 } from './index.js';
 import {
   MockRuntimeBridge,
+  REFERENCE_RUNTIME_BACKEND_PROFILE,
   createMockRuntimeBridge,
+  createMockRuntimeSession,
   createReferenceGameRuntimeLauncher,
+  referenceBackendProfile,
 } from './reference.js';
 
 void test('facade exposes exactly the manifest operations (conformance)', () => {
@@ -119,7 +122,7 @@ void test('game runtime launcher public DTOs compile as package-root consumer fi
     runtimeMode: 'reference',
     launcherName: 'reference-game-runtime-launcher',
     bridgeCompatibility: compatibility,
-    nonClaims: ['not_native_runtime', 'not_hardware_gpu', 'not_performance_evidence', 'not_publish_artifact'],
+    nonClaims: ['not_native_runtime', 'not_hardware_gpu', 'not_performance_evidence', 'not_publish_artifact', 'not_product_authority'],
   };
   const projection: GameRuntimeProjectionSummary = {
     sequenceId: 0,
@@ -192,6 +195,7 @@ void test('reference game runtime launcher launches fixture and advances command
   assert.equal(launcher.mode, 'reference');
   assert.equal(session.identity.runtimeMode, 'reference');
   assert.ok(session.identity.nonClaims.includes('not_native_runtime'));
+  assert.ok(session.identity.nonClaims.includes('not_product_authority'));
   assert.ok(!session.identity.nonClaims.includes('not_publish_artifact') || session.identity.runtimeMode === 'reference');
 
   const before = await session.pullProjection();
@@ -237,6 +241,35 @@ void test('reference game runtime launcher launches fixture and advances command
   await session.shutdown();
 });
 
+void test('reference RuntimeSession helper is explicitly fixture-only', () => {
+  assert.equal(REFERENCE_RUNTIME_BACKEND_PROFILE.entrypoint, '@asha/runtime-bridge/reference');
+  assert.equal(REFERENCE_RUNTIME_BACKEND_PROFILE.productAuthority, false);
+  assert.deepEqual(REFERENCE_RUNTIME_BACKEND_PROFILE.disallowedUse, [
+    'product-authority',
+    'live-demo-default',
+    'studio-live-attach',
+  ]);
+  assert.ok(REFERENCE_RUNTIME_BACKEND_PROFILE.nonClaims.includes('not_product_authority'));
+
+  const session = createMockRuntimeSession();
+  const initialized = session.initialize({
+    sessionId: 'runtime-session.reference-quarantine',
+    seed: 11,
+    project: {
+      gameId: 'fixture-demo',
+      workspaceId: 'workspace.fixture',
+    },
+    projectBundle: {
+      bundleSchemaVersion: 1,
+      protocolVersion: 1,
+      sceneId: 11,
+    },
+  });
+  assert.equal(initialized.identity.mode, 'reference');
+  assert.ok(initialized.identity.nonClaims.includes('not_native_runtime'));
+  assert.ok(initialized.identity.nonClaims.includes('not_product_authority'));
+});
+
 void test('reference game runtime launcher fails closed on unsupported world bundle', async () => {
   const launcher = createReferenceGameRuntimeLauncher();
   await assert.rejects(
@@ -268,6 +301,25 @@ void test('backend profile validation gates native claims and private transports
     profile: native,
     diagnostics: [],
   });
+
+  const reference = referenceBackendProfile(config);
+  assert.deepEqual(validateGameRuntimeBackendProfile(reference), {
+    ok: true,
+    profile: reference,
+    diagnostics: [],
+  });
+  assert.ok(reference.nonClaims.includes('not_product_authority'));
+
+  const referenceClaimingProductAuthority = validateGameRuntimeBackendProfile({
+    ...reference,
+    nonClaims: reference.nonClaims.filter((claim) => claim !== 'not_product_authority'),
+  });
+  assert.equal(referenceClaimingProductAuthority.ok, false);
+  assert.equal(
+    !referenceClaimingProductAuthority.ok
+      && referenceClaimingProductAuthority.diagnostics.some((diagnostic) => diagnostic.code === 'backend_claim_mismatch'),
+    true,
+  );
 
   const missingEvidence = validateGameRuntimeBackendProfile({
     ...native,
@@ -343,6 +395,25 @@ void test('selected backend launcher rejects non-native selected mode without fa
     () => launcher.launch(config),
     (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input',
   );
+});
+
+void test('selected backend launcher rejects reference profile before bridge creation', async () => {
+  const config = gameRuntimeConfig();
+  let bridgeFactoryCalls = 0;
+  const launcher = createSelectedBackendGameRuntimeLauncher({
+    profile: referenceBackendProfile(config),
+    bridgeFactory: () => {
+      bridgeFactoryCalls += 1;
+      return createMockRuntimeBridge();
+    },
+  });
+  await assert.rejects(
+    () => launcher.launch(config),
+    (e: unknown) => e instanceof RuntimeBridgeError
+      && e.kind === 'invalid_input'
+      && e.message.includes('reference_mock'),
+  );
+  assert.equal(bridgeFactoryCalls, 0);
 });
 
 void test('manifest exposes public camera view operations', () => {

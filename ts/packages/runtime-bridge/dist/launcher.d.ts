@@ -3,7 +3,7 @@ import { type FrameCursor, type RuntimeBridge, type WorldLoadRequest } from './b
 export type GameRuntimeMode = 'reference' | 'native' | 'wasm' | 'degraded';
 export type GameRuntimeBackendMode = 'reference' | 'native' | 'wasm';
 export type GameRuntimeBackendTransport = 'reference_mock' | 'napi_native' | 'wasm_module';
-export type GameRuntimeNonClaim = 'not_native_runtime' | 'not_hardware_gpu' | 'not_performance_evidence' | 'not_publish_artifact' | 'not_wasm_authority';
+export type GameRuntimeNonClaim = 'not_native_runtime' | 'not_hardware_gpu' | 'not_performance_evidence' | 'not_publish_artifact' | 'not_product_authority' | 'not_wasm_authority';
 export type GameRuntimeDiagnosticCode = 'missing_compatibility' | 'missing_world_bundle' | 'unsupported_runtime_entry' | 'unsupported_backend_mode' | 'missing_backend_evidence' | 'private_transport_hint' | 'backend_claim_mismatch' | 'runtime_unavailable' | 'operation_unimplemented' | 'command_rejected' | 'stale_sequence' | 'stale_readback' | 'internal';
 export interface GameRuntimeDiagnostic {
     readonly code: GameRuntimeDiagnosticCode;

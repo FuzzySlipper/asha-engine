@@ -24,6 +24,7 @@ export type GameRuntimeNonClaim =
   | 'not_hardware_gpu'
   | 'not_performance_evidence'
   | 'not_publish_artifact'
+  | 'not_product_authority'
   | 'not_wasm_authority';
 
 export type GameRuntimeDiagnosticCode =
@@ -240,7 +241,14 @@ function requireNonEmpty(value: string, field: string): string {
 }
 
 function referenceNonClaims(): readonly GameRuntimeNonClaim[] {
-  return ['not_native_runtime', 'not_hardware_gpu', 'not_performance_evidence', 'not_publish_artifact', 'not_wasm_authority'];
+  return [
+    'not_native_runtime',
+    'not_hardware_gpu',
+    'not_performance_evidence',
+    'not_publish_artifact',
+    'not_product_authority',
+    'not_wasm_authority',
+  ];
 }
 
 function selectedNativeNonClaims(): readonly GameRuntimeNonClaim[] {
@@ -307,6 +315,7 @@ function isGameRuntimeNonClaim(value: GameRuntimeProfileValue): value is GameRun
     || value === 'not_hardware_gpu'
     || value === 'not_performance_evidence'
     || value === 'not_publish_artifact'
+    || value === 'not_product_authority'
     || value === 'not_wasm_authority';
 }
 
@@ -367,8 +376,12 @@ export function validateGameRuntimeBackendProfile(
     if (transport !== 'reference_mock') {
       diagnostics.push(backendProfileDiagnostic('backend_claim_mismatch', 'reference mode must use reference_mock transport'));
     }
-    if (!nonClaims.includes('not_native_runtime') || !nonClaims.includes('not_wasm_authority')) {
-      diagnostics.push(backendProfileDiagnostic('backend_claim_mismatch', 'reference mode must preserve native/WASM non-claims'));
+    if (
+      !nonClaims.includes('not_native_runtime')
+      || !nonClaims.includes('not_product_authority')
+      || !nonClaims.includes('not_wasm_authority')
+    ) {
+      diagnostics.push(backendProfileDiagnostic('backend_claim_mismatch', 'reference mode must preserve native/product/WASM non-claims'));
     }
   }
   if (mode === 'native') {
@@ -380,6 +393,9 @@ export function validateGameRuntimeBackendProfile(
     }
     if (nonClaims.includes('not_native_runtime')) {
       diagnostics.push(backendProfileDiagnostic('backend_claim_mismatch', 'native mode cannot carry not_native_runtime'));
+    }
+    if (nonClaims.includes('not_product_authority')) {
+      diagnostics.push(backendProfileDiagnostic('backend_claim_mismatch', 'native mode cannot carry not_product_authority'));
     }
   }
   if (mode === 'wasm') {
@@ -664,6 +680,9 @@ export class SelectedBackendGameRuntimeLauncher implements GameRuntimeLauncher {
     const validation = validateGameRuntimeBackendProfile(profile);
     if (!validation.ok) {
       throw new RuntimeBridgeError('invalid_input', validation.diagnostics.map((diagnostic) => diagnostic.message).join('; '));
+    }
+    if (validation.profile.mode === 'reference') {
+      throw new RuntimeBridgeError('invalid_input', 'selected backend launcher cannot use reference_mock as product authority');
     }
     if (validation.profile.mode !== 'native') {
       throw new RuntimeBridgeError('invalid_input', 'selected backend launcher currently supports native mode only');

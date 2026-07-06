@@ -5,6 +5,7 @@ export function referenceRuntimeSessionNonClaims() {
         'not_native_runtime',
         'not_raw_state_store',
         'not_arbitrary_json_bridge',
+        'not_product_authority',
         'not_gameplay_loop',
         'not_renderer',
     ];

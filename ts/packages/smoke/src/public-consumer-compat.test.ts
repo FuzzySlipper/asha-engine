@@ -10,7 +10,10 @@ import {
   type CameraCreateRequest,
   type CollisionConstrainedCameraInputEnvelope,
 } from '@asha/runtime-bridge';
-import { createMockRuntimeSession } from '@asha/runtime-bridge/reference';
+import {
+  REFERENCE_RUNTIME_BACKEND_PROFILE,
+  createMockRuntimeSession,
+} from '@asha/runtime-bridge/reference';
 import {
   readDefaultFpsGameplayPreset,
   readFpsGameplayPresetCatalog,
@@ -54,7 +57,10 @@ void test('asha-demo public roots cover RuntimeSession readouts and HUD/menu pro
   const session = createMockRuntimeSession();
   const initialized = session.initialize(sessionInput());
   assert.equal(initialized.identity.mode, 'reference');
+  assert.equal(REFERENCE_RUNTIME_BACKEND_PROFILE.productAuthority, false);
+  assert.ok(REFERENCE_RUNTIME_BACKEND_PROFILE.nonClaims.includes('not_product_authority'));
   assert.ok(initialized.identity.nonClaims.includes('not_arbitrary_json_bridge'));
+  assert.ok(initialized.identity.nonClaims.includes('not_product_authority'));
 
   const gameplayPreset = readDefaultFpsGameplayPreset();
   assert.equal(gameplayPreset.kind, 'fps_gameplay_preset_readout.v0');
@@ -280,7 +286,7 @@ void test('asha-demo browser condition imports runtime bridge without native-onl
     const surface = await import('@asha/runtime-bridge');
     const reference = await import('@asha/runtime-bridge/reference');
     const required = ['BrowserFpsInputCollector', 'RuntimeBridgeError'];
-    const referenceRequired = ['createMockRuntimeSession', 'createMockRuntimeBridge'];
+    const referenceRequired = ['createMockRuntimeSession', 'createMockRuntimeBridge', 'REFERENCE_RUNTIME_BACKEND_PROFILE'];
     const forbidden = ['NativeRuntimeBridge', 'createNativeRuntimeBridge', 'NATIVE_WIRED_OPERATIONS', 'createMockRuntimeSession', 'createMockRuntimeBridge'];
     const missing = required.filter((name) => !(name in surface));
     const referenceMissing = referenceRequired.filter((name) => !(name in reference));

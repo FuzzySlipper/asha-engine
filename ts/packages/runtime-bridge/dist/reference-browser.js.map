@@ -1,1 +1,1 @@
-{"version":3,"file":"reference-browser.js","sourceRoot":"","sources":["../src/reference-browser.ts"],"names":[],"mappings":"AAAA,cAAc,WAAW,CAAC;AAC1B,OAAO,EACL,wBAAwB,GAEzB,MAAM,mBAAmB,CAAC"}
+{"version":3,"file":"reference-browser.js","sourceRoot":"","sources":["../src/reference-browser.ts"],"names":[],"mappings":"AAAA,cAAc,WAAW,CAAC;AAC1B,OAAO,EACL,wBAAwB,EACxB,iCAAiC,GAGlC,MAAM,mBAAmB,CAAC"}

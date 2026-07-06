@@ -79,7 +79,7 @@ void test('RuntimeSession exposes deterministic encounter director pending and a
     assert.equal(activated.after.state.activeEnemyCount, 1);
     assert.equal(activated.after.state.pendingEnemyCount, 0);
     assert.equal(activated.after.spawns[0]?.status, 'spawned');
-    assert.equal(activated.hashes.transitionHash, '56912b8bc4a222ef');
+    assert.equal(activated.hashes.transitionHash, '1bb5d414738dadec');
     assert.notEqual(activated.hashes.sessionHashAfter, activated.hashes.sessionHashBefore);
     assert.equal(session.readTelemetry().replayRecords.at(-1)?.kind, 'requestEncounterTransition');
 });
@@ -106,7 +106,7 @@ void test('RuntimeSession encounter director syncs lifecycle clear/fail and rest
     assert.equal(cleared.after.spawns[0]?.status, 'defeated');
     assert.equal(cleared.after.lifecycle.outcomeKind, 'won');
     assert.equal(cleared.after.lifecycle.enemyDead, true);
-    assert.equal(cleared.hashes.transitionHash, '34bb4206bfe3b988');
+    assert.equal(cleared.hashes.transitionHash, 'cf18fbfe3555f46c');
     session.restart();
     const reset = session.readEncounterDirector();
     assert.equal(reset.state.status, 'pending');
@@ -126,7 +126,7 @@ void test('RuntimeSession encounter director syncs lifecycle clear/fail and rest
     assert.equal(failed.after.state.failedReason, 'player_defeated');
     assert.equal(failed.after.lifecycle.outcomeKind, 'lost');
     assert.equal(failed.after.lifecycle.playerDead, true);
-    assert.equal(failed.hashes.transitionHash, 'a22e8945f928bea4');
+    assert.equal(failed.hashes.transitionHash, '679f140c34e925e5');
 });
 void test('RuntimeSession encounter transition fails closed with typed rejection receipts', () => {
     const session = createMockRuntimeSession();
