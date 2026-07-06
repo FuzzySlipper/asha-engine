@@ -20,6 +20,13 @@ export const GENERATED_TUNNEL_FIRE_HIT_READOUT = {
     },
     healthHash: '3c89045230f2d9d9',
     replayHash: '6b133026c511b0f5',
+    authority: {
+        source: 'reference_fixture',
+        backend: null,
+        surface: 'runtime_session.reference_fixture.generated_tunnel_combat.v0',
+        mutationOwner: 'reference-runtime-session',
+        workspaceTrace: ['generated tunnel combat fixture'],
+    },
     fixture: 'harness/fixtures/combat/generated-tunnel-fire.snapshot.txt',
 };
 export const GENERATED_TUNNEL_FIRE_MISS_READOUT = {
@@ -37,6 +44,13 @@ export const GENERATED_TUNNEL_FIRE_MISS_READOUT = {
     },
     healthHash: '56b1331c0f202ff1',
     replayHash: '3b1e1a9897571bc4',
+    authority: {
+        source: 'reference_fixture',
+        backend: null,
+        surface: 'runtime_session.reference_fixture.generated_tunnel_combat.v0',
+        mutationOwner: 'reference-runtime-session',
+        workspaceTrace: ['generated tunnel combat fixture'],
+    },
     fixture: null,
 };
 //# sourceMappingURL=combat-readout.js.map

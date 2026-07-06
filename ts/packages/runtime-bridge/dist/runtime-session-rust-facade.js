@@ -591,6 +591,7 @@ function combatReadoutFromFpsPrimaryFire(result, tick) {
             },
             healthHash: result.healthHash,
             replayHash: result.replayHash,
+            authority: combatAuthorityFromFpsPrimaryFire(result),
             fixture: null,
         };
     }
@@ -628,7 +629,17 @@ function combatReadoutFromFpsPrimaryFire(result, tick) {
         },
         healthHash: result.healthHash,
         replayHash: result.replayHash,
+        authority: combatAuthorityFromFpsPrimaryFire(result),
         fixture: null,
+    };
+}
+function combatAuthorityFromFpsPrimaryFire(result) {
+    return {
+        source: result.backend === 'native_rust' ? 'rust_bridge' : 'reference_bridge',
+        backend: result.backend,
+        surface: result.authoritySurface,
+        mutationOwner: result.mutationOwner,
+        workspaceTrace: result.workspaceTrace,
     };
 }
 //# sourceMappingURL=runtime-session-rust-facade.js.map

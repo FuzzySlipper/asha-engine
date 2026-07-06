@@ -41,6 +41,14 @@ export interface CombatFireControlReadout {
     readonly cooldownTicksRemaining: 4;
     readonly cooldownTicksAfterFire: 4;
 }
+export type CombatRuntimeAuthoritySource = 'rust_bridge' | 'reference_bridge' | 'reference_fixture';
+export interface CombatRuntimeAuthorityReadout {
+    readonly source: CombatRuntimeAuthoritySource;
+    readonly backend: 'native_rust' | 'reference_bridge' | null;
+    readonly surface: string;
+    readonly mutationOwner: string | null;
+    readonly workspaceTrace: readonly string[];
+}
 export interface CombatRuntimeReadout {
     readonly scenario: CombatReadoutScenario;
     readonly outcome: CombatFireOutcomeReadout;
@@ -49,6 +57,7 @@ export interface CombatRuntimeReadout {
     readonly nextFireControl: CombatFireControlReadout;
     readonly healthHash: string;
     readonly replayHash: string;
+    readonly authority: CombatRuntimeAuthorityReadout;
     readonly fixture: 'harness/fixtures/combat/generated-tunnel-fire.snapshot.txt' | null;
 }
 export declare const GENERATED_TUNNEL_FIRE_HIT_READOUT: CombatRuntimeReadout;

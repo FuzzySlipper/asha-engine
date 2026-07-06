@@ -754,6 +754,7 @@ function combatReadoutFromFpsPrimaryFire(
       },
       healthHash: result.healthHash,
       replayHash: result.replayHash,
+      authority: combatAuthorityFromFpsPrimaryFire(result),
       fixture: null,
     };
   }
@@ -792,6 +793,17 @@ function combatReadoutFromFpsPrimaryFire(
     },
     healthHash: result.healthHash,
     replayHash: result.replayHash,
+    authority: combatAuthorityFromFpsPrimaryFire(result),
     fixture: null,
+  };
+}
+
+function combatAuthorityFromFpsPrimaryFire(result: FpsPrimaryFireResult): CombatRuntimeReadout['authority'] {
+  return {
+    source: result.backend === 'native_rust' ? 'rust_bridge' : 'reference_bridge',
+    backend: result.backend,
+    surface: result.authoritySurface,
+    mutationOwner: result.mutationOwner,
+    workspaceTrace: result.workspaceTrace,
   };
 }

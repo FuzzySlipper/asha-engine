@@ -1,3 +1,5 @@
+// These hashes are deterministic TypeScript readout/projection fingerprints.
+// Live Rust-backed authority hashes must come from bridge snapshots/results.
 export function referenceRuntimeSessionNonClaims() {
     return [
         'not_native_runtime',

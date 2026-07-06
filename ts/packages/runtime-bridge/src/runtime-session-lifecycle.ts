@@ -11,8 +11,8 @@ import {
   stableHash,
 } from './runtime-session-hash.js';
 import {
-  buildRustFpsAuthorityPrimaryFireReadout as buildReferenceFpsPrimaryFireFixtureReadout,
-} from './runtime-session-rust-fps-authority.js';
+  buildReferenceFpsCombatFixturePrimaryFireReadout,
+} from './runtime-session-reference-fps-combat.js';
 import type {
   RuntimeSessionActionIntentReceipt,
   RuntimeSessionAutonomousPolicyTickInput,
@@ -139,7 +139,7 @@ export function buildReferenceRuntimeSessionPrimaryFireReadout(input: {
   readonly source: RuntimeActionIntentEnvelope['source'];
   readonly tick: number;
 }): CombatRuntimeReadout {
-  return buildReferenceFpsPrimaryFireFixtureReadout(input);
+  return buildReferenceFpsCombatFixturePrimaryFireReadout(input);
 }
 
 export function applyReferenceCombatReadoutToLifecycleState(input: {

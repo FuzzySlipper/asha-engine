@@ -1,7 +1,7 @@
 import { RuntimeBridgeError } from './bridge.js';
 import { initialEncounterDirectorState } from './encounter-director.js';
 import { encounterStateHashRecord, lifecycleStateHashRecord, projectBundleHashRecord, stableHash, } from './runtime-session-hash.js';
-import { buildRustFpsAuthorityPrimaryFireReadout as buildReferenceFpsPrimaryFireFixtureReadout, } from './runtime-session-rust-fps-authority.js';
+import { buildReferenceFpsCombatFixturePrimaryFireReadout, } from './runtime-session-reference-fps-combat.js';
 function runtimeSessionResetHash(identity) {
     return stableHash({
         seed: identity.seed,
@@ -52,7 +52,7 @@ export function lifecycleHealth(entity, current, max, dead) {
 // deterministic fixture lifecycle. Live RuntimeSession lifecycle/restart
 // authority is routed through runtime-session-rust-facade.ts and the Rust bridge.
 export function buildReferenceRuntimeSessionPrimaryFireReadout(input) {
-    return buildReferenceFpsPrimaryFireFixtureReadout(input);
+    return buildReferenceFpsCombatFixturePrimaryFireReadout(input);
 }
 export function applyReferenceCombatReadoutToLifecycleState(input) {
     const playerHealth = input.readout.health.find((health) => health.entity === input.state.player.entity);

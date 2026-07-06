@@ -1,11 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { cameraHandle } from '@asha/contracts';
 import { RuntimeBridgeError, createRuntimeSessionFacade, } from './index.js';
 import { createMockRuntimeBridge } from './mock.js';
 import { createMockRuntimeSession } from './reference.js';
-import { RUNTIME_SESSION_RUST_FPS_AUTHORITY } from './runtime-session-rust-fps-authority.js';
+import { REFERENCE_FPS_COMBAT_FIXTURE_PROVENANCE } from './runtime-session-reference-fps-combat.js';
 import { stableHash } from './runtime-session-hash.js';
+const runtimeBridgeSourceDir = resolve(dirname(fileURLToPath(import.meta.url)), '../src');
+void test('RuntimeSession fixture helpers do not expose TS Rust authority module names', () => {
+    assert.equal(existsSync(resolve(runtimeBridgeSourceDir, 'runtime-session-rust-fps-authority.ts')), false);
+    assert.equal(existsSync(resolve(runtimeBridgeSourceDir, 'runtime-session-reference-fps-combat.ts')), true);
+});
 function sessionInput() {
     return {
         sessionId: 'runtime-session.asha-demo.reference',
@@ -230,7 +238,7 @@ function rustRuntimeSessionBridgeDouble(options = {}) {
                     });
                     return {
                         backend: 'native_rust',
-                        authoritySurface: 'runtime_session.fps.reference.v0',
+                        authoritySurface: 'runtime_session.fps.primary_fire.v0',
                         mutationOwner: 'svc-combat',
                         workspaceTrace: ['workspace.primary_fire', 'svc-combat.apply_damage', 'rule-lifecycle.enemy_defeated'],
                         shooter: player,
@@ -347,6 +355,9 @@ void test('Rust-backed RuntimeSession routes ECRP load, primary fire, and restar
     assert.equal(receipt.combatReadout?.outcome.kind === 'hit' ? receipt.combatReadout.outcome.target : null, 202);
     assert.equal(receipt.combatReadout?.health[0]?.current, 0);
     assert.equal(receipt.combatReadout?.healthHash, 'fnv1a64:00000000000000cc');
+    assert.equal(receipt.combatReadout?.authority.source, 'rust_bridge');
+    assert.equal(receipt.combatReadout?.authority.backend, 'native_rust');
+    assert.equal(receipt.combatReadout?.authority.surface, 'runtime_session.fps.primary_fire.v0');
     assert.deepEqual(calls.fire, [7]);
     const lifecycle = session.readLifecycleStatus();
     assert.equal(lifecycle.restart.reason, 'rust_epoch_restart');
@@ -454,6 +465,7 @@ void test('RuntimeSession exposes public ECRP entity and CapabilityState readout
     assert.equal(receipt.combatReadout?.scenario, 'generated_tunnel_fire_hit');
     assert.equal(receipt.combatReadout?.outcome.kind, 'hit');
     assert.equal(receipt.combatReadout?.outcome.kind === 'hit' ? receipt.combatReadout.outcome.target : null, 20);
+    assert.equal(receipt.combatReadout?.authority.source, 'reference_fixture');
     const afterFire = session.readEcrpRuntimeReadout();
     const defeatedEnemy = afterFire.entities.find((entity) => entity.entity === 20);
     const defeatedHealth = defeatedEnemy?.capabilities.find((capability) => capability.kind === 'health');
@@ -516,9 +528,9 @@ void test('RuntimeSession loads ECRP ProjectBundle content into live readouts', 
         dead: true,
     });
     assert.equal(receipt.combatReadout?.replayHash, stableHash({
-        replayUnit: RUNTIME_SESSION_RUST_FPS_AUTHORITY.primaryFireReplayUnit,
-        ruleCrate: RUNTIME_SESSION_RUST_FPS_AUTHORITY.ruleCrate,
-        combatServiceCrate: RUNTIME_SESSION_RUST_FPS_AUTHORITY.combatServiceCrate,
+        replayUnit: REFERENCE_FPS_COMBAT_FIXTURE_PROVENANCE.primaryFireReplayUnit,
+        ruleCrate: REFERENCE_FPS_COMBAT_FIXTURE_PROVENANCE.ruleCrate,
+        combatServiceCrate: REFERENCE_FPS_COMBAT_FIXTURE_PROVENANCE.combatServiceCrate,
         scenario: 'runtime_session_loaded_project_fire_hit',
         shooter: 101,
         target: 202,
@@ -843,9 +855,11 @@ void test('RuntimeSession exposes fire combat health readouts from typed action 
     ]);
     assert.equal(receipt.combatReadout?.healthHash, '3c89045230f2d9d9');
     assert.equal(receipt.combatReadout?.replayHash, '6b133026c511b0f5');
+    assert.equal(receipt.combatReadout?.authority.source, 'reference_fixture');
     assert.equal('payload' in receipt, false);
     const miss = session.readCombatReadout({ scenario: 'generated_tunnel_geometry_blocked_miss' });
     assert.equal(miss.outcome.kind, 'miss');
+    assert.equal(miss.authority.source, 'reference_fixture');
     assert.equal(miss.outcome.kind === 'miss' ? miss.outcome.reason : null, 'geometryBlocked');
     assert.deepEqual(miss.events.map((event) => event.kind), ['fire_missed']);
     assert.equal(miss.health[0]?.current, 100);

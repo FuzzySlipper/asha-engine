@@ -10,6 +10,9 @@ import type {
   RuntimeSessionNonClaim,
 } from './runtime-session.js';
 
+// These hashes are deterministic TypeScript readout/projection fingerprints.
+// Live Rust-backed authority hashes must come from bridge snapshots/results.
+
 export function referenceRuntimeSessionNonClaims(): readonly RuntimeSessionNonClaim[] {
   return [
     'not_native_runtime',

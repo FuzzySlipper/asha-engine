@@ -1,12 +1,12 @@
 import { GENERATED_TUNNEL_FIRE_HIT_READOUT, } from './combat-readout.js';
 import { stableHash } from './runtime-session-hash.js';
-export const RUNTIME_SESSION_RUST_FPS_AUTHORITY = {
+export const REFERENCE_FPS_COMBAT_FIXTURE_PROVENANCE = {
     ruleCrate: 'rule-lifecycle',
     combatServiceCrate: 'svc-combat',
     entityBootstrapServiceCrate: 'svc-entity-authoring',
     primaryFireReplayUnit: 'runtime_session.fps.primary_fire.v0',
 };
-export function buildRustFpsAuthorityPrimaryFireReadout(input) {
+export function buildReferenceFpsCombatFixturePrimaryFireReadout(input) {
     if (input.source === 'enemy_policy') {
         return buildPrimaryFireHitReadout({
             projectState: input.projectState,
@@ -72,9 +72,9 @@ function buildPrimaryFireHitReadout(input) {
         .find((entity) => entity.role === input.weaponOwnerRole)
         ?.definition.capabilities.find((capability) => capability.kind === 'weaponMount');
     const combatRecord = {
-        replayUnit: RUNTIME_SESSION_RUST_FPS_AUTHORITY.primaryFireReplayUnit,
-        ruleCrate: RUNTIME_SESSION_RUST_FPS_AUTHORITY.ruleCrate,
-        combatServiceCrate: RUNTIME_SESSION_RUST_FPS_AUTHORITY.combatServiceCrate,
+        replayUnit: REFERENCE_FPS_COMBAT_FIXTURE_PROVENANCE.primaryFireReplayUnit,
+        ruleCrate: REFERENCE_FPS_COMBAT_FIXTURE_PROVENANCE.ruleCrate,
+        combatServiceCrate: REFERENCE_FPS_COMBAT_FIXTURE_PROVENANCE.combatServiceCrate,
         scenario: 'runtime_session_loaded_project_fire_hit',
         shooter: input.shooter,
         target: targetAfter.entity,
@@ -100,7 +100,14 @@ function buildPrimaryFireHitReadout(input) {
         },
         healthHash: stableHash(health),
         replayHash: stableHash(combatRecord),
+        authority: {
+            source: 'reference_fixture',
+            backend: null,
+            surface: 'runtime_session.reference_fixture.fps_combat.v0',
+            mutationOwner: 'reference-runtime-session',
+            workspaceTrace: ['reference RuntimeSession FPS combat fixture'],
+        },
         fixture: null,
     };
 }
-//# sourceMappingURL=runtime-session-rust-fps-authority.js.map
+//# sourceMappingURL=runtime-session-reference-fps-combat.js.map
