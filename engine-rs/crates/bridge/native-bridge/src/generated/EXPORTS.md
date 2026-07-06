@@ -20,6 +20,7 @@ operations are replay/devtools-only.
 | `apply_scene_object_command` | stable | `protocol_scene::SceneObjectCommandRequest` | `protocol_scene::SceneObjectCommandResult` | `RuntimeBridgeError` |
 | `create_camera` | stable | `protocol_view::CameraCreateRequest` | `protocol_view::CameraSnapshot` | `RuntimeBridgeError` |
 | `apply_first_person_camera_input` | stable | `protocol_view::FirstPersonCameraInputEnvelope` | `protocol_view::CameraSnapshot` | `RuntimeBridgeError` |
+| `apply_enemy_direct_nav_movement` | stable | `protocol_runtime::EnemyDirectNavMovementRequest` | `protocol_runtime::EnemyDirectNavMovementResult` | `RuntimeBridgeError` |
 | `read_camera_projection` | stable | `protocol_view::CameraProjectionRequest` | `protocol_view::CameraProjectionSnapshot` | `RuntimeBridgeError` |
 | `get_buffer` | stable | `RuntimeBufferHandle` | `RuntimeBufferView` | `RuntimeBridgeError` |
 | `release_buffer` | stable | `RuntimeBufferHandle` | `Unit` | `RuntimeBridgeError` |

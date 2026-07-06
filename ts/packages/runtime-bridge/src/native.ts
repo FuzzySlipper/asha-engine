@@ -19,6 +19,8 @@ import {
   nonNegativeSafeInteger,
   u32,
   type CompositionStatus,
+  type EnemyDirectNavMovementRequest,
+  type EnemyDirectNavMovementResult,
   type EngineConfig,
   type EngineHandle,
   type FrameCursor,
@@ -57,6 +59,7 @@ export const NATIVE_WIRED_OPERATIONS: ReadonlySet<string> = new Set<string>([
   'load_world_bundle',
   'submit_commands',
   'step_simulation',
+  'apply_enemy_direct_nav_movement',
   'read_render_diffs',
   'save_current_world',
   'get_composition_status',
@@ -96,6 +99,30 @@ function callNative<T>(body: () => T): T {
   } catch (cause) {
     throw classifyNativeAddonError(cause as RuntimeBridgeError | Error | string | object);
   }
+}
+
+function nativeVec3(value: readonly [number, number, number], field: string): { readonly x: number; readonly y: number; readonly z: number } {
+  if (value.length !== 3 || value.some((component) => !Number.isFinite(component))) {
+    throw new RuntimeBridgeError('invalid_input', `${field} must be a finite vec3`);
+  }
+  return { x: value[0], y: value[1], z: value[2] };
+}
+
+function bridgeVec3(
+  value: { readonly x: number; readonly y: number; readonly z: number },
+  field: string,
+): readonly [number, number, number] {
+  if (!Number.isFinite(value.x) || !Number.isFinite(value.y) || !Number.isFinite(value.z)) {
+    throw new RuntimeBridgeError('internal', `native ${field} was not a finite vec3`);
+  }
+  return [value.x, value.y, value.z];
+}
+
+function nativeAuthoritySource(value: string): 'seeded_from_request' | 'rust_entity_store' {
+  if (value === 'seeded_from_request' || value === 'rust_entity_store') {
+    return value;
+  }
+  throw new RuntimeBridgeError('internal', `unknown native enemy movement authority source '${value}'`);
 }
 
 export class NativeRuntimeBridge implements RuntimeBridge {
@@ -148,6 +175,41 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     const tick = nonNegativeSafeInteger(input.tick, 'tick');
     const diffCount = callNative(() => this.#addon.stepSimulation(handle, tick));
     return { tick, diffCount };
+  }
+
+  applyEnemyDirectNavMovement(request: EnemyDirectNavMovementRequest): EnemyDirectNavMovementResult {
+    const handle = this.#requireHandle('applyEnemyDirectNavMovement');
+    const entity = nonNegativeSafeInteger(request.entity, 'entity');
+    if (entity === 0) {
+      throw new RuntimeBridgeError('invalid_input', 'entity must be positive');
+    }
+    const seedPosition = nativeVec3(request.seedPosition, 'seedPosition');
+    const target = nativeVec3(request.target, 'target');
+    if (!Number.isFinite(request.maxStepUnits) || request.maxStepUnits <= 0) {
+      throw new RuntimeBridgeError('invalid_input', 'maxStepUnits must be finite and positive');
+    }
+    const result = callNative(() =>
+      this.#addon.applyEnemyDirectNavMovement(
+        handle,
+        entity,
+        seedPosition,
+        target,
+        request.maxStepUnits,
+      ),
+    );
+    return {
+      entity: result.entity,
+      authoritySource: nativeAuthoritySource(result.authoritySource),
+      authorityTransport: 'native_rust',
+      from: bridgeVec3(result.from, 'from'),
+      target: bridgeVec3(result.target, 'target'),
+      nextWaypoint: bridgeVec3(result.nextWaypoint, 'nextWaypoint'),
+      distanceUnits: result.distanceUnits,
+      reached: result.reached,
+      pathHash: result.pathHash,
+      transformHash: result.transformHash,
+      projectionChanged: result.projectionChanged,
+    };
   }
 
 

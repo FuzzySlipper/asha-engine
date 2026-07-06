@@ -17,6 +17,7 @@ import {
   RuntimeBridgeError,
   frameCursor,
   type CompositionStatus,
+  type EnemyDirectNavMovementResult,
   type EngineHandle,
   type FrameCursor,
   type RuntimeBridge,
@@ -86,8 +87,8 @@ import type {
 import {
   buildRuntimeSessionEnemyNavPath,
   ecrpActorPosition,
+  ecrpEntityTransform,
   runtimeTransformHashRecord,
-  transformForAutonomousMovementProposal,
 } from './runtime-session-enemy-authority.js';
 import {
   buildEcrpProjectState,
@@ -108,6 +109,10 @@ import {
   lifecycleStatusToEncounterLifecycle,
   rejectedAutonomousPolicyProposalReceipt,
   runtimeActionReceiptToAutonomousReceipt,
+  type RuntimeSessionAutonomousPolicyCombatSummary,
+  type RuntimeSessionAutonomousPolicyMovementSummary,
+  type RuntimeSessionAutonomousPolicyProposalReceipt,
+  type RuntimeSessionAutonomousPolicyProposalRejection,
   validateAutonomousPolicyProposal,
   validateAutonomousPolicyTickInput,
   validateGeneratedTunnelOperationRequest,
@@ -127,6 +132,14 @@ import {
   stableHash,
 } from './runtime-session-hash.js';
 
+export type {
+  RuntimeSessionAutonomousPolicyCombatSummary,
+  RuntimeSessionAutonomousPolicyMovementSummary,
+  RuntimeSessionAutonomousPolicyProposalReceipt,
+  RuntimeSessionAutonomousPolicyProposalRejection,
+  RuntimeSessionAutonomousPolicyProposalRejectionReason,
+  RuntimeSessionAutonomousPolicyProposalStatus,
+} from './runtime-session-lifecycle.js';
 
 export type RuntimeSessionMode = 'reference';
 
@@ -621,48 +634,6 @@ export interface RuntimeSessionAutonomousPolicyTickInput {
   readonly combat?: Partial<EnemyPolicyCombatView>;
 }
 
-export type RuntimeSessionAutonomousPolicyProposalStatus = 'accepted' | 'unsupported' | 'rejected';
-export type RuntimeSessionAutonomousPolicyProposalRejectionReason =
-  | 'movement_authority_not_wired'
-  | 'policy_source_forbidden_capability'
-  | 'invalid_policy_proposal'
-  | 'runtime_action_rejected';
-
-export interface RuntimeSessionAutonomousPolicyProposalRejection {
-  readonly reason: RuntimeSessionAutonomousPolicyProposalRejectionReason;
-  readonly detail: string;
-}
-
-export interface RuntimeSessionAutonomousPolicyMovementSummary {
-  readonly status: RuntimeSessionAutonomousPolicyProposalStatus;
-  readonly actor: string;
-  readonly target: string;
-  readonly from: EnemyPolicyVec3;
-  readonly nextWaypoint: EnemyPolicyVec3 | null;
-  readonly pathHash: string;
-  readonly reason: RuntimeSessionAutonomousPolicyProposalRejectionReason | null;
-}
-
-export interface RuntimeSessionAutonomousPolicyCombatSummary {
-  readonly status: RuntimeSessionAutonomousPolicyProposalStatus;
-  readonly action: RuntimeActionIntentEnvelope['action'];
-  readonly outcome: CombatRuntimeReadout['outcome'] | null;
-  readonly healthHash: string | null;
-  readonly replayHash: string | null;
-}
-
-export interface RuntimeSessionAutonomousPolicyProposalReceipt {
-  readonly proposalKind: EnemyPolicyProposal['kind'];
-  readonly actor: string;
-  readonly target: string;
-  readonly accepted: boolean;
-  readonly status: RuntimeSessionAutonomousPolicyProposalStatus;
-  readonly rejection: RuntimeSessionAutonomousPolicyProposalRejection | null;
-  readonly movement: RuntimeSessionAutonomousPolicyMovementSummary | null;
-  readonly actionReceipt: RuntimeSessionActionIntentReceipt | null;
-  readonly combat: RuntimeSessionAutonomousPolicyCombatSummary | null;
-}
-
 export interface RuntimeSessionAutonomousPolicyTickReadout {
   readonly kind: 'runtime_session.autonomous_policy_tick.v0';
   readonly loopId: 'generated_tunnel_enemy_policy_loop.v0';
@@ -1084,8 +1055,8 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
       }
 
       if (proposal.kind === 'enemy_policy.move_toward_target.v0') {
-        this.#applyAutonomousMovementProposal(proposal);
-        proposalReceipts.push(acceptedAutonomousMovementReceipt(proposal));
+        const movement = this.#applyAutonomousMovementProposal(proposal, targetPolicyPosition);
+        proposalReceipts.push(acceptedAutonomousMovementReceipt(proposal, movement));
         continue;
       }
 
@@ -1488,17 +1459,28 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
 
   #applyAutonomousMovementProposal(
     proposal: Extract<EnemyPolicyProposal, { readonly kind: 'enemy_policy.move_toward_target.v0' }>,
-  ): void {
-    const movement = transformForAutonomousMovementProposal({
-      projectState: this.#ecrpProjectState,
-      proposal,
-      runtimeTransforms: this.#runtimeTransforms,
-      enemyDead: this.#lifecycleState.enemy.dead,
-    });
-    if (movement === null) {
-      return;
+    targetPosition: EnemyPolicyVec3 | undefined,
+  ): EnemyDirectNavMovementResult {
+    const enemy = this.#ecrpProjectState?.entities.find((entity) => entity.role === 'enemy');
+    if (enemy === undefined || proposal.nextWaypoint === null || this.#lifecycleState.enemy.dead) {
+      throw new RuntimeBridgeError('invalid_input', 'enemy movement proposal cannot be applied without a live ECRP enemy');
     }
-    this.#runtimeTransforms.set(movement.entity, movement.transform);
+    const movement = this.#bridge.applyEnemyDirectNavMovement({
+      entity: enemy.entity,
+      seedPosition: proposal.from,
+      target: targetPosition ?? proposal.nextWaypoint,
+      maxStepUnits: 0.35,
+    });
+    const current = ecrpEntityTransform({
+      entity: enemy,
+      runtimeTransforms: this.#runtimeTransforms,
+    });
+    this.#runtimeTransforms.set(enemy.entity, {
+      position: movement.nextWaypoint,
+      yawDegrees: current?.yawDegrees ?? 0,
+      pitchDegrees: current?.pitchDegrees ?? 0,
+    });
+    return movement;
   }
 
   #applyCombatLifecycleReadout(readout: CombatRuntimeReadout, tick: number): void {

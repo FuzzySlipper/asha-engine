@@ -3,10 +3,12 @@ import { type CompositionStatus, type EngineHandle, type FrameCursor, type Runti
 import { type CombatReadoutScenario, type CombatRuntimeReadout } from './combat-readout.js';
 import { type CombatFeedbackProjection } from './combat-feedback.js';
 import { type GeneratedTunnelOperationReceipt, type GeneratedTunnelOperationRequest, type GeneratedTunnelReadout, type GeneratedTunnelReadoutRequest } from './generated-tunnel.js';
-import { type EnemyPolicyActorView, type EnemyPolicyCombatView, type EnemyPolicyProposal, type EnemyPolicyProposalFrame, type EnemyPolicySourceDiagnostic, type EnemyPolicyTargetView, type EnemyPolicyVec3 } from './enemy-policy.js';
+import { type EnemyPolicyActorView, type EnemyPolicyCombatView, type EnemyPolicyProposalFrame, type EnemyPolicySourceDiagnostic, type EnemyPolicyTargetView } from './enemy-policy.js';
 import { type EncounterDirectorReadout, type EncounterDirectorReadoutRequest, type EncounterTransitionRequest, type RuntimeSessionEncounterTransitionReceipt } from './encounter-director.js';
 import { type NavPathQueryRequest, type NavPathReadout, type NavPathScenario, type NavPolicyViewReadout, type NavProjectionReadout } from './nav-readout.js';
 import type { RuntimeActionIntentEnvelope, RuntimeActionIntentRejection, RuntimeActionIntentStatus } from './runtime-action.js';
+import { type RuntimeSessionAutonomousPolicyCombatSummary, type RuntimeSessionAutonomousPolicyMovementSummary, type RuntimeSessionAutonomousPolicyProposalReceipt, type RuntimeSessionAutonomousPolicyProposalRejection } from './runtime-session-lifecycle.js';
+export type { RuntimeSessionAutonomousPolicyCombatSummary, RuntimeSessionAutonomousPolicyMovementSummary, RuntimeSessionAutonomousPolicyProposalReceipt, RuntimeSessionAutonomousPolicyProposalRejection, RuntimeSessionAutonomousPolicyProposalRejectionReason, RuntimeSessionAutonomousPolicyProposalStatus, } from './runtime-session-lifecycle.js';
 export type RuntimeSessionMode = 'reference';
 export interface RuntimeSessionProjectIdentity {
     readonly gameId: string;
@@ -394,39 +396,6 @@ export interface RuntimeSessionAutonomousPolicyTickInput {
     readonly enemy?: Partial<EnemyPolicyActorView>;
     readonly target?: Omit<Partial<EnemyPolicyTargetView>, 'camera'>;
     readonly combat?: Partial<EnemyPolicyCombatView>;
-}
-export type RuntimeSessionAutonomousPolicyProposalStatus = 'accepted' | 'unsupported' | 'rejected';
-export type RuntimeSessionAutonomousPolicyProposalRejectionReason = 'movement_authority_not_wired' | 'policy_source_forbidden_capability' | 'invalid_policy_proposal' | 'runtime_action_rejected';
-export interface RuntimeSessionAutonomousPolicyProposalRejection {
-    readonly reason: RuntimeSessionAutonomousPolicyProposalRejectionReason;
-    readonly detail: string;
-}
-export interface RuntimeSessionAutonomousPolicyMovementSummary {
-    readonly status: RuntimeSessionAutonomousPolicyProposalStatus;
-    readonly actor: string;
-    readonly target: string;
-    readonly from: EnemyPolicyVec3;
-    readonly nextWaypoint: EnemyPolicyVec3 | null;
-    readonly pathHash: string;
-    readonly reason: RuntimeSessionAutonomousPolicyProposalRejectionReason | null;
-}
-export interface RuntimeSessionAutonomousPolicyCombatSummary {
-    readonly status: RuntimeSessionAutonomousPolicyProposalStatus;
-    readonly action: RuntimeActionIntentEnvelope['action'];
-    readonly outcome: CombatRuntimeReadout['outcome'] | null;
-    readonly healthHash: string | null;
-    readonly replayHash: string | null;
-}
-export interface RuntimeSessionAutonomousPolicyProposalReceipt {
-    readonly proposalKind: EnemyPolicyProposal['kind'];
-    readonly actor: string;
-    readonly target: string;
-    readonly accepted: boolean;
-    readonly status: RuntimeSessionAutonomousPolicyProposalStatus;
-    readonly rejection: RuntimeSessionAutonomousPolicyProposalRejection | null;
-    readonly movement: RuntimeSessionAutonomousPolicyMovementSummary | null;
-    readonly actionReceipt: RuntimeSessionActionIntentReceipt | null;
-    readonly combat: RuntimeSessionAutonomousPolicyCombatSummary | null;
 }
 export interface RuntimeSessionAutonomousPolicyTickReadout {
     readonly kind: 'runtime_session.autonomous_policy_tick.v0';

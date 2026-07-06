@@ -27,6 +27,7 @@ export const MANIFEST_OPERATIONS: readonly BridgeOperation[] = [
   { manifestName: 'apply_scene_object_command', facadeMethod: 'applySceneObjectCommand', surface: 'stable' },
   { manifestName: 'create_camera', facadeMethod: 'createCamera', surface: 'stable' },
   { manifestName: 'apply_first_person_camera_input', facadeMethod: 'applyFirstPersonCameraInput', surface: 'stable' },
+  { manifestName: 'apply_enemy_direct_nav_movement', facadeMethod: 'applyEnemyDirectNavMovement', surface: 'stable' },
   { manifestName: 'read_camera_projection', facadeMethod: 'readCameraProjection', surface: 'stable' },
   { manifestName: 'get_buffer', facadeMethod: 'getBuffer', surface: 'stable' },
   { manifestName: 'release_buffer', facadeMethod: 'releaseBuffer', surface: 'stable' },

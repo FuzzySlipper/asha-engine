@@ -587,10 +587,10 @@ lane = "rust-bridge"
 # commands into rule-voxel-edit validation/apply (launchable-voxel, #2436),
 # raycasts picks against authority via svc-collision (picking, #2437), and reads
 # compact mesh/remesh evidence via svc-mesh + svc-serialization (#2646).
-may_depend_on = ["core-ids", "core-error", "core-space", "core-voxel", "core-commands", "svc-spatial", "svc-volume", "svc-collision", "svc-mesh", "svc-serialization", "rule-voxel-edit", "protocol-view", "protocol-render", "protocol-script", "protocol-replay"]
+may_depend_on = ["core-ids", "core-error", "core-math", "core-space", "core-voxel", "core-commands", "core-entity", "svc-spatial", "svc-volume", "svc-collision", "svc-mesh", "svc-serialization", "svc-pathfinding", "rule-voxel-edit", "protocol-view", "protocol-render", "protocol-script", "protocol-replay"]
 may_not_depend_on = ["napi", "wasm-bindgen"]
 
 [crate."engine-rs/crates/bridge/native-bridge"]
 lane = "rust-bridge"
-may_depend_on = ["runtime-bridge-api", "protocol-render", "protocol-script", "protocol-replay", "sim-runner", "render-bridge", "napi", "napi-derive"]
+may_depend_on = ["runtime-bridge-api", "core-math", "protocol-render", "protocol-script", "protocol-replay", "sim-runner", "render-bridge", "napi", "napi-derive"]
 may_not_depend_on = ["wasm-bindgen", "core-state"]

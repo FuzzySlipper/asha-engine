@@ -66,6 +66,33 @@ function fnv1a64(text) {
     }
     return hash.toString(16).padStart(16, '0');
 }
+function validateVec3(value, field) {
+    if (value.length !== 3 || value.some((component) => !Number.isFinite(component))) {
+        throw new RuntimeBridgeError('invalid_input', `${field} must be a finite vec3`);
+    }
+}
+function vec3Distance(from, to) {
+    const dx = to[0] - from[0];
+    const dy = to[1] - from[1];
+    const dz = to[2] - from[2];
+    return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+function directNavNextWaypoint(from, target, maxStepUnits) {
+    const distance = vec3Distance(from, target);
+    if (distance <= maxStepUnits) {
+        return [
+            Number(target[0].toFixed(3)),
+            Number(target[1].toFixed(3)),
+            Number(target[2].toFixed(3)),
+        ];
+    }
+    const ratio = maxStepUnits / distance;
+    return [
+        Number((from[0] + (target[0] - from[0]) * ratio).toFixed(3)),
+        Number((from[1] + (target[1] - from[1]) * ratio).toFixed(3)),
+        Number((from[2] + (target[2] - from[2]) * ratio).toFixed(3)),
+    ];
+}
 const STATIC_ROOM_COLLIDERS = [
     { id: 'static-room.wall.north', min: [-3, -1, -3], max: [3, 2, -2] },
     { id: 'static-room.wall.south', min: [-3, -1, 2], max: [3, 2, 3] },
@@ -392,6 +419,7 @@ export class MockRuntimeBridge {
     #sceneDocument = initialMockSceneDocument();
     #nextCamera = 1;
     #cameras = new Map();
+    #enemyTransforms = new Map();
     initializeEngine(config) {
         if (!Number.isInteger(config.seed) || config.seed < 0) {
             throw new RuntimeBridgeError('invalid_input', `seed must be a non-negative integer`);
@@ -410,6 +438,37 @@ export class MockRuntimeBridge {
         }
         const tick = nonNegativeSafeInteger(input.tick, 'tick');
         return { tick, diffCount: tick % 4 };
+    }
+    applyEnemyDirectNavMovement(request) {
+        if (this.#engine === null) {
+            throw new RuntimeBridgeError('not_initialized', 'applyEnemyDirectNavMovement before initializeEngine');
+        }
+        const entity = nonNegativeSafeInteger(request.entity, 'entity');
+        if (entity === 0) {
+            throw new RuntimeBridgeError('invalid_input', 'entity must be positive');
+        }
+        validateVec3(request.seedPosition, 'seedPosition');
+        validateVec3(request.target, 'target');
+        if (!Number.isFinite(request.maxStepUnits) || request.maxStepUnits <= 0) {
+            throw new RuntimeBridgeError('invalid_input', 'maxStepUnits must be finite and positive');
+        }
+        const existing = this.#enemyTransforms.get(entity);
+        const from = existing ?? request.seedPosition;
+        const nextWaypoint = directNavNextWaypoint(from, request.target, request.maxStepUnits);
+        this.#enemyTransforms.set(entity, nextWaypoint);
+        return {
+            entity,
+            authoritySource: existing === undefined ? 'seeded_from_request' : 'rust_entity_store',
+            authorityTransport: 'reference_bridge',
+            from,
+            target: request.target,
+            nextWaypoint,
+            distanceUnits: Number(vec3Distance(from, request.target).toFixed(3)),
+            reached: vec3Distance(from, request.target) <= request.maxStepUnits,
+            pathHash: `fnv1a64:${fnv1a64(JSON.stringify({ entity, from, target: request.target, nextWaypoint }))}`,
+            transformHash: `fnv1a64:${fnv1a64(JSON.stringify({ entity, position: nextWaypoint }))}`,
+            projectionChanged: false,
+        };
     }
     submitCommands(batch) {
         if (this.#engine === null) {

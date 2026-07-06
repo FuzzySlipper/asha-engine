@@ -65,6 +65,13 @@ export function ecrpActorPosition(input: {
   return entity === undefined ? null : ecrpRuntimeTransformForEntity(entity, input.runtimeTransforms)?.position ?? null;
 }
 
+export function ecrpEntityTransform(input: {
+  readonly entity: RuntimeSessionEcrpEntityState;
+  readonly runtimeTransforms: ReadonlyMap<number, RuntimeSessionEcrpTransformState>;
+}): RuntimeSessionEcrpTransformState | null {
+  return ecrpRuntimeTransformForEntity(input.entity, input.runtimeTransforms);
+}
+
 export function runtimeTransformHashRecord(
   transforms: ReadonlyMap<number, RuntimeSessionEcrpTransformState>,
 ): RuntimeSessionHashValue {

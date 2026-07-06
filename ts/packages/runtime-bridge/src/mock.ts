@@ -33,6 +33,8 @@ import {
   nonNegativeSafeInteger,
   u32,
   type CompositionStatus,
+  type EnemyDirectNavMovementRequest,
+  type EnemyDirectNavMovementResult,
   type EngineConfig,
   type EngineHandle,
   type FrameCursor,
@@ -137,6 +139,36 @@ function fnv1a64(text: string): string {
     hash = (hash * prime) & mask;
   }
   return hash.toString(16).padStart(16, '0');
+}
+
+function validateVec3(value: Vec3, field: string): void {
+  if (value.length !== 3 || value.some((component) => !Number.isFinite(component))) {
+    throw new RuntimeBridgeError('invalid_input', `${field} must be a finite vec3`);
+  }
+}
+
+function vec3Distance(from: Vec3, to: Vec3): number {
+  const dx = to[0] - from[0];
+  const dy = to[1] - from[1];
+  const dz = to[2] - from[2];
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+function directNavNextWaypoint(from: Vec3, target: Vec3, maxStepUnits: number): Vec3 {
+  const distance = vec3Distance(from, target);
+  if (distance <= maxStepUnits) {
+    return [
+      Number(target[0].toFixed(3)),
+      Number(target[1].toFixed(3)),
+      Number(target[2].toFixed(3)),
+    ];
+  }
+  const ratio = maxStepUnits / distance;
+  return [
+    Number((from[0] + (target[0] - from[0]) * ratio).toFixed(3)),
+    Number((from[1] + (target[1] - from[1]) * ratio).toFixed(3)),
+    Number((from[2] + (target[2] - from[2]) * ratio).toFixed(3)),
+  ];
 }
 
 const STATIC_ROOM_COLLIDERS: readonly StaticRoomCollider[] = [
@@ -512,6 +544,7 @@ export class MockRuntimeBridge implements RuntimeBridge {
   #sceneDocument = initialMockSceneDocument();
   #nextCamera = 1;
   #cameras = new Map<number, MutableCameraSnapshot>();
+  #enemyTransforms = new Map<number, Vec3>();
 
   initializeEngine(config: EngineConfig): EngineHandle {
     if (!Number.isInteger(config.seed) || config.seed < 0) {
@@ -532,6 +565,38 @@ export class MockRuntimeBridge implements RuntimeBridge {
     }
     const tick = nonNegativeSafeInteger(input.tick, 'tick');
     return { tick, diffCount: tick % 4 };
+  }
+
+  applyEnemyDirectNavMovement(request: EnemyDirectNavMovementRequest): EnemyDirectNavMovementResult {
+    if (this.#engine === null) {
+      throw new RuntimeBridgeError('not_initialized', 'applyEnemyDirectNavMovement before initializeEngine');
+    }
+    const entity = nonNegativeSafeInteger(request.entity, 'entity');
+    if (entity === 0) {
+      throw new RuntimeBridgeError('invalid_input', 'entity must be positive');
+    }
+    validateVec3(request.seedPosition, 'seedPosition');
+    validateVec3(request.target, 'target');
+    if (!Number.isFinite(request.maxStepUnits) || request.maxStepUnits <= 0) {
+      throw new RuntimeBridgeError('invalid_input', 'maxStepUnits must be finite and positive');
+    }
+    const existing = this.#enemyTransforms.get(entity);
+    const from = existing ?? request.seedPosition;
+    const nextWaypoint = directNavNextWaypoint(from, request.target, request.maxStepUnits);
+    this.#enemyTransforms.set(entity, nextWaypoint);
+    return {
+      entity,
+      authoritySource: existing === undefined ? 'seeded_from_request' : 'rust_entity_store',
+      authorityTransport: 'reference_bridge',
+      from,
+      target: request.target,
+      nextWaypoint,
+      distanceUnits: Number(vec3Distance(from, request.target).toFixed(3)),
+      reached: vec3Distance(from, request.target) <= request.maxStepUnits,
+      pathHash: `fnv1a64:${fnv1a64(JSON.stringify({ entity, from, target: request.target, nextWaypoint }))}`,
+      transformHash: `fnv1a64:${fnv1a64(JSON.stringify({ entity, position: nextWaypoint }))}`,
+      projectionChanged: false,
+    };
   }
 
   submitCommands(batch: CommandBatch): CommandResult {

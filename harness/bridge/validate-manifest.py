@@ -29,6 +29,8 @@ NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 # nonexistent generated DTOs.
 KNOWN_TRANSITIONAL_PROTOCOL_REFS = {
     "protocol_runtime::EngineConfig",
+    "protocol_runtime::EnemyDirectNavMovementRequest",
+    "protocol_runtime::EnemyDirectNavMovementResult",
     "protocol_runtime::StepInputEnvelope",
     "protocol_runtime::StepResult",
     "protocol_render::RenderFrameDiffDescriptor",

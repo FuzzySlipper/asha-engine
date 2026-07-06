@@ -21,7 +21,13 @@
 use std::collections::BTreeMap;
 
 use core_commands::VoxelCommand;
+use core_entity::{
+    EntityLifecycleCommand, EntitySource, EntityStore, EntityTransform, TransformCommand,
+    TransformError,
+};
 use core_error::ErrorCategory;
+use core_ids::EntityId;
+use core_math::Vec3;
 use core_space::{
     ChunkCoord, ChunkDims, Direction6, Face, GridId, VoxelCoord, VoxelGridSpec, WorldPos, WorldVec,
 };
@@ -39,6 +45,9 @@ use protocol_view::{
 use rule_voxel_edit::VoxelEditRejection;
 use svc_collision::{CollisionProjection, Ray};
 use svc_mesh::mesh_chunk_in_world;
+use svc_pathfinding::{
+    propose_direct_nav_movement, DirectNavMovementError, DirectNavMovementRequest,
+};
 use svc_serialization::BundleHash;
 use svc_spatial::VoxelWorld;
 use svc_volume::VoxelChunk;
@@ -169,6 +178,68 @@ pub struct StepResult {
     pub tick: u64,
     /// Number of render diffs produced this tick (real impl returns a descriptor).
     pub diff_count: u32,
+}
+
+/// Bounded request to apply an enemy direct-nav movement transaction.
+///
+/// `seed_position` is used only when this bridge session has not yet seen the
+/// entity. Once seeded, Rust authority reads the current transform from its
+/// [`EntityStore`] and ignores any stale caller-side position.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EnemyDirectNavMovementRequest {
+    pub entity: u64,
+    pub seed_position: Vec3,
+    pub target: Vec3,
+    pub max_step_units: f32,
+}
+
+/// Where the movement transaction read the starting transform from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnemyDirectNavAuthoritySource {
+    SeededFromRequest,
+    RustEntityStore,
+}
+
+impl EnemyDirectNavAuthoritySource {
+    pub fn label(self) -> &'static str {
+        match self {
+            EnemyDirectNavAuthoritySource::SeededFromRequest => "seeded_from_request",
+            EnemyDirectNavAuthoritySource::RustEntityStore => "rust_entity_store",
+        }
+    }
+}
+
+/// Result of a Rust-owned enemy direct-nav movement application.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EnemyDirectNavMovementResult {
+    pub entity: u64,
+    pub authority_source: EnemyDirectNavAuthoritySource,
+    pub from: Vec3,
+    pub target: Vec3,
+    pub next_waypoint: Vec3,
+    pub distance_units: f32,
+    pub reached: bool,
+    pub path_hash: u64,
+    pub transform_hash: u64,
+    pub projection_changed: bool,
+}
+
+/// Why an enemy direct-nav movement transaction was rejected.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnemyDirectNavMovementError {
+    InvalidEntity,
+    Navigation(DirectNavMovementError),
+    Transform(TransformError),
+}
+
+impl EnemyDirectNavMovementError {
+    pub fn label(self) -> &'static str {
+        match self {
+            EnemyDirectNavMovementError::InvalidEntity => "invalidEntity",
+            EnemyDirectNavMovementError::Navigation(error) => error.label(),
+            EnemyDirectNavMovementError::Transform(error) => error.label(),
+        }
+    }
 }
 
 /// A borrowed, read-only view over bridge-owned bytes. Valid until the owning
@@ -400,6 +471,14 @@ pub trait RuntimeBridge {
         &mut self,
         input: FirstPersonCameraInputEnvelope,
     ) -> BridgeResult<CameraSnapshot>;
+    /// Apply a Rust-owned enemy direct-nav movement transaction. The operation
+    /// combines the `svc-pathfinding` direct-nav proposal with `core-entity`
+    /// transform authority so callers receive projection evidence instead of
+    /// mutating runtime transforms themselves.
+    fn apply_enemy_direct_nav_movement(
+        &mut self,
+        request: EnemyDirectNavMovementRequest,
+    ) -> BridgeResult<EnemyDirectNavMovementResult>;
     fn read_camera_projection(
         &self,
         request: CameraProjectionRequest,
@@ -443,6 +522,10 @@ pub struct ReferenceBridge {
     /// Bridge-owned runtime view cameras (view/projection evidence, not gameplay authority).
     cameras: BTreeMap<u64, CameraSnapshot>,
     next_camera: u64,
+    /// Minimal authority-owned runtime entity state for bridge-level actor
+    /// movement verbs. TypeScript may propose targets, but transform mutation is
+    /// applied here through `core-entity`.
+    entities: EntityStore,
 }
 
 /// The bundle schema / protocol versions this reference bridge understands.
@@ -599,6 +682,63 @@ impl ReferenceBridge {
             ));
         }
         Ok(())
+    }
+
+    fn enemy_entity_id(raw: u64) -> BridgeResult<EntityId> {
+        if raw == 0 {
+            return Err(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                EnemyDirectNavMovementError::InvalidEntity.label(),
+            ));
+        }
+        Ok(EntityId::new(raw))
+    }
+
+    fn seed_or_read_enemy_transform(
+        entities: &mut EntityStore,
+        entity: EntityId,
+        seed_position: Vec3,
+    ) -> BridgeResult<(EnemyDirectNavAuthoritySource, EntityTransform)> {
+        if let Some(transform) = entities.transform(entity) {
+            return Ok((
+                EnemyDirectNavAuthoritySource::RustEntityStore,
+                transform.transform,
+            ));
+        }
+        entities
+            .apply(EntityLifecycleCommand::Create {
+                id: entity,
+                source: EntitySource::RuntimeCreated { by: None },
+                labels: Vec::new(),
+            })
+            .map_err(|err| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::InvalidInput,
+                    format!("enemy direct-nav entity seed rejected: {err}"),
+                )
+            })?;
+        let transform = EntityTransform::at(seed_position);
+        let attached = entities.attach_transform(entity, transform);
+        debug_assert!(attached);
+        Ok((EnemyDirectNavAuthoritySource::SeededFromRequest, transform))
+    }
+
+    fn transform_hash(entity: EntityId, transform: EntityTransform) -> u64 {
+        let key = format!(
+            "{}|{:.3},{:.3},{:.3}|{:.3},{:.3},{:.3},{:.3}|{:.3},{:.3},{:.3}",
+            entity.raw(),
+            transform.translation.x,
+            transform.translation.y,
+            transform.translation.z,
+            transform.rotation.x,
+            transform.rotation.y,
+            transform.rotation.z,
+            transform.rotation.w,
+            transform.scale.x,
+            transform.scale.y,
+            transform.scale.z
+        );
+        u64::from_str_radix(&Self::fnv1a64(&key), 16).expect("fnv1a64 emits hex")
     }
 
     fn basis_from_pose(pose: protocol_view::CameraPose) -> protocol_view::CameraBasis {
@@ -1317,6 +1457,62 @@ impl RuntimeBridge for ReferenceBridge {
         Ok(snapshot)
     }
 
+    fn apply_enemy_direct_nav_movement(
+        &mut self,
+        request: EnemyDirectNavMovementRequest,
+    ) -> BridgeResult<EnemyDirectNavMovementResult> {
+        self.require_initialized("apply_enemy_direct_nav_movement")?;
+        let entity = Self::enemy_entity_id(request.entity)?;
+        let (authority_source, current_transform) =
+            Self::seed_or_read_enemy_transform(&mut self.entities, entity, request.seed_position)?;
+        let from = current_transform.translation;
+        let nav = propose_direct_nav_movement(DirectNavMovementRequest {
+            from,
+            target: request.target,
+            max_step_units: request.max_step_units,
+        })
+        .map_err(|err| {
+            RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                format!(
+                    "enemy direct-nav movement rejected by svc-pathfinding: {}",
+                    EnemyDirectNavMovementError::Navigation(err).label()
+                ),
+            )
+        })?;
+        let next_transform = EntityTransform {
+            translation: nav.next_waypoint,
+            ..current_transform
+        };
+        let transform_event = self
+            .entities
+            .apply_transform(TransformCommand::Set {
+                id: entity,
+                transform: next_transform,
+            })
+            .map_err(|err| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::InvalidInput,
+                    format!(
+                        "enemy direct-nav movement rejected by core-entity: {}",
+                        EnemyDirectNavMovementError::Transform(err).label()
+                    ),
+                )
+            })?;
+        Ok(EnemyDirectNavMovementResult {
+            entity: entity.raw(),
+            authority_source,
+            from,
+            target: nav.target,
+            next_waypoint: nav.next_waypoint,
+            distance_units: nav.distance_units,
+            reached: nav.reached,
+            path_hash: nav.path_hash,
+            transform_hash: Self::transform_hash(entity, transform_event.transform),
+            projection_changed: transform_event.projection_changed,
+        })
+    }
+
     fn read_camera_projection(
         &self,
         request: CameraProjectionRequest,
@@ -1411,6 +1607,82 @@ mod tests {
         assert_eq!(err.kind, RuntimeBridgeErrorKind::NotInitialized);
         // And status reflects no loaded world.
         assert_eq!(bridge.get_composition_status().unwrap().loaded_world, None);
+    }
+
+    #[test]
+    fn enemy_direct_nav_movement_routes_through_rust_entity_authority() {
+        let mut bridge = ReferenceBridge::new();
+        bridge.initialize_engine(EngineConfig { seed: 7 }).unwrap();
+
+        let first = bridge
+            .apply_enemy_direct_nav_movement(EnemyDirectNavMovementRequest {
+                entity: 777,
+                seed_position: Vec3::new(0.0, 0.5, -2.6),
+                target: Vec3::new(0.0, 1.62, 1.25),
+                max_step_units: 0.35,
+            })
+            .unwrap();
+        assert_eq!(
+            first.authority_source,
+            EnemyDirectNavAuthoritySource::SeededFromRequest
+        );
+        assert_eq!(first.from, Vec3::new(0.0, 0.5, -2.6));
+        assert_eq!(first.next_waypoint, Vec3::new(0.0, 0.598, -2.264));
+        assert_eq!(first.path_hash, 0x69ed_74d6_9292_2db7);
+        assert_ne!(first.transform_hash, 0);
+
+        let second = bridge
+            .apply_enemy_direct_nav_movement(EnemyDirectNavMovementRequest {
+                entity: 777,
+                seed_position: Vec3::new(99.0, 99.0, 99.0),
+                target: Vec3::new(0.0, 1.62, 1.25),
+                max_step_units: 0.35,
+            })
+            .unwrap();
+        assert_eq!(
+            second.authority_source,
+            EnemyDirectNavAuthoritySource::RustEntityStore
+        );
+        assert_eq!(
+            second.from, first.next_waypoint,
+            "Rust store, not a stale TS seed, owns the next starting transform"
+        );
+        assert_ne!(second.next_waypoint, first.next_waypoint);
+    }
+
+    #[test]
+    fn enemy_direct_nav_movement_fails_closed_on_invalid_request() {
+        let mut bridge = ReferenceBridge::new();
+        let before_init = bridge
+            .apply_enemy_direct_nav_movement(EnemyDirectNavMovementRequest {
+                entity: 1,
+                seed_position: Vec3::ZERO,
+                target: Vec3::ZERO,
+                max_step_units: 0.35,
+            })
+            .unwrap_err();
+        assert_eq!(before_init.kind, RuntimeBridgeErrorKind::NotInitialized);
+
+        bridge.initialize_engine(EngineConfig { seed: 7 }).unwrap();
+        let invalid_entity = bridge
+            .apply_enemy_direct_nav_movement(EnemyDirectNavMovementRequest {
+                entity: 0,
+                seed_position: Vec3::ZERO,
+                target: Vec3::ZERO,
+                max_step_units: 0.35,
+            })
+            .unwrap_err();
+        assert_eq!(invalid_entity.kind, RuntimeBridgeErrorKind::InvalidInput);
+
+        let invalid_step = bridge
+            .apply_enemy_direct_nav_movement(EnemyDirectNavMovementRequest {
+                entity: 1,
+                seed_position: Vec3::ZERO,
+                target: Vec3::new(1.0, 0.0, 0.0),
+                max_step_units: 0.0,
+            })
+            .unwrap_err();
+        assert_eq!(invalid_step.kind, RuntimeBridgeErrorKind::InvalidInput);
     }
 
     #[test]

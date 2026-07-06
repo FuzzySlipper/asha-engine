@@ -77,6 +77,7 @@ const REQUIRED_NATIVE_CONFORMANCE_OPS = [
   'load_world_bundle',
   'submit_commands',
   'step_simulation',
+  'apply_enemy_direct_nav_movement',
   'read_render_diffs',
   'save_current_world',
   'get_composition_status',
@@ -102,6 +103,27 @@ function fakeAddon(calls: string[] = []): NativeAddon {
     stepSimulation: (_handle: number, tick: number) => {
       calls.push(`step:${tick}`);
       return 9;
+    },
+    applyEnemyDirectNavMovement: (
+      _handle: number,
+      entity: number,
+      seedPosition: { readonly x: number; readonly y: number; readonly z: number },
+      target: { readonly x: number; readonly y: number; readonly z: number },
+      maxStepUnits: number,
+    ) => {
+      calls.push(`enemyMove:${entity}:${seedPosition.x},${seedPosition.y},${seedPosition.z}:${target.x},${target.y},${target.z}:${maxStepUnits}`);
+      return {
+        entity,
+        authoritySource: 'rust_entity_store',
+        from: seedPosition,
+        target,
+        nextWaypoint: { x: 2, y: 1, z: 7 },
+        distanceUnits: 4.01,
+        reached: false,
+        pathHash: 'fnv1a64:sentinel-path',
+        transformHash: 'fnv1a64:sentinel-transform',
+        projectionChanged: true,
+      };
     },
     readRenderDiffs: (_handle: number, cursor: number) => {
       calls.push(`render:${cursor}`);
@@ -167,6 +189,16 @@ const INVOKE = new Map<string, (b: RuntimeBridge) => unknown>([
   ['readRenderDiffs', (b) => b.readRenderDiffs(frameCursor(0))],
   ['createCamera', (b) => b.createCamera(CAMERA_CREATE_REQUEST)],
   ['applyFirstPersonCameraInput', (b) => b.applyFirstPersonCameraInput(CAMERA_INPUT)],
+  [
+    'applyEnemyDirectNavMovement',
+    (b) =>
+      b.applyEnemyDirectNavMovement({
+        entity: 777,
+        seedPosition: [0, 0.5, -2.6],
+        target: [0, 1.62, 1.25],
+        maxStepUnits: 0.35,
+      }),
+  ],
   ['readCameraProjection', (b) => b.readCameraProjection({ camera: CAMERA_INPUT.camera, viewport: null })],
   ['getBuffer', (b) => b.getBuffer(0 as RuntimeBufferHandle)],
   ['releaseBuffer', (b) => b.releaseBuffer(0 as RuntimeBufferHandle)],
@@ -233,6 +265,24 @@ void test('native conformance sequence routes through the addon without mock fal
     { accepted: 1, rejected: 0, rejections: [] },
   );
   assert.deepEqual(bridge.stepSimulation({ tick: 6 }), { tick: 6, diffCount: 9 });
+  assert.deepEqual(bridge.applyEnemyDirectNavMovement({
+    entity: 777,
+    seedPosition: [0, 0.5, -2.6],
+    target: [0, 1.62, 1.25],
+    maxStepUnits: 0.35,
+  }), {
+    entity: 777,
+    authoritySource: 'rust_entity_store',
+    authorityTransport: 'native_rust',
+    from: [0, 0.5, -2.6],
+    target: [0, 1.62, 1.25],
+    nextWaypoint: [2, 1, 7],
+    distanceUnits: 4.01,
+    reached: false,
+    pathHash: 'fnv1a64:sentinel-path',
+    transformHash: 'fnv1a64:sentinel-transform',
+    projectionChanged: true,
+  });
   assert.deepEqual(bridge.readRenderDiffs(frameCursor(0)), { ops: [{ op: 'sentinel' }] });
   assert.deepEqual(bridge.saveCurrentWorld(), { artifactsWritten: 5, compactedEdits: 2, retainedEdits: 3 });
   assert.deepEqual(bridge.getCompositionStatus(), {
@@ -247,6 +297,7 @@ void test('native conformance sequence routes through the addon without mock fal
     'load:1:1:1001',
     'submit:[{"op":"setVoxel","grid":1,"coord":{"x":0,"y":0,"z":0},"value":{"kind":"solid","material":1}}]',
     'step:6',
+    'enemyMove:777:0,0.5,-2.6:0,1.62,1.25:0.35',
     'render:0',
     'save',
     'status',

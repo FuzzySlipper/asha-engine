@@ -31,6 +31,9 @@ export function ecrpActorPosition(input) {
     const entity = input.projectState?.entities.find((candidate) => candidate.role === input.role);
     return entity === undefined ? null : ecrpRuntimeTransformForEntity(entity, input.runtimeTransforms)?.position ?? null;
 }
+export function ecrpEntityTransform(input) {
+    return ecrpRuntimeTransformForEntity(input.entity, input.runtimeTransforms);
+}
 export function runtimeTransformHashRecord(transforms) {
     return [...transforms.entries()]
         .sort(([left], [right]) => left - right)

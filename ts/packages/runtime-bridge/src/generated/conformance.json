@@ -107,6 +107,14 @@
       "errors": "RuntimeBridgeError"
     },
     {
+      "manifestName": "apply_enemy_direct_nav_movement",
+      "facadeMethod": "applyEnemyDirectNavMovement",
+      "surface": "stable",
+      "input": "protocol_runtime::EnemyDirectNavMovementRequest",
+      "output": "protocol_runtime::EnemyDirectNavMovementResult",
+      "errors": "RuntimeBridgeError"
+    },
+    {
       "manifestName": "read_camera_projection",
       "facadeMethod": "readCameraProjection",
       "surface": "stable",

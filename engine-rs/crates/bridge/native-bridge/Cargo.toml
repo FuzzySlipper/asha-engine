@@ -19,6 +19,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 runtime-bridge-api = { path = "../runtime-bridge-api" }
+core-math = { path = "../../foundation/core-math" }
 # napi pulled only here — the only crate in the repo allowed to depend on it
 # (enforced by governance/ownership.toml `may_not_depend_on`).
 napi        = { version = "2", default-features = false, features = ["napi8"] }

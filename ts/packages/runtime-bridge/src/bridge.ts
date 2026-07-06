@@ -88,6 +88,28 @@ export interface StepResult {
   readonly tick: number;
   readonly diffCount: number;
 }
+export type BridgeVec3 = readonly [number, number, number];
+export type EnemyDirectNavAuthoritySource = 'seeded_from_request' | 'rust_entity_store';
+export type EnemyDirectNavAuthorityTransport = 'native_rust' | 'reference_bridge';
+export interface EnemyDirectNavMovementRequest {
+  readonly entity: number;
+  readonly seedPosition: BridgeVec3;
+  readonly target: BridgeVec3;
+  readonly maxStepUnits: number;
+}
+export interface EnemyDirectNavMovementResult {
+  readonly entity: number;
+  readonly authoritySource: EnemyDirectNavAuthoritySource;
+  readonly authorityTransport: EnemyDirectNavAuthorityTransport;
+  readonly from: BridgeVec3;
+  readonly target: BridgeVec3;
+  readonly nextWaypoint: BridgeVec3;
+  readonly distanceUnits: number;
+  readonly reached: boolean;
+  readonly pathHash: string;
+  readonly transformHash: string;
+  readonly projectionChanged: boolean;
+}
 // `CommandBatch` / `CommandResult` are NOT prototype DTOs: they are the generated
 // voxel command border (imported from `@asha/contracts`). `submitCommands` carries
 // the real `VoxelCommand` union — there is no `{ kind: 'smoke-edit' }` placeholder
@@ -178,6 +200,7 @@ export interface RuntimeBridge {
   readRenderDiffs(cursor: FrameCursor): RenderFrameDiff;
   createCamera(request: CameraCreateRequest): CameraSnapshot;
   applyFirstPersonCameraInput(input: FirstPersonCameraInputEnvelope): CameraSnapshot;
+  applyEnemyDirectNavMovement(request: EnemyDirectNavMovementRequest): EnemyDirectNavMovementResult;
   readCameraProjection(request: CameraProjectionRequest): CameraProjectionSnapshot;
   getBuffer(handle: RuntimeBufferHandle): RuntimeBufferView;
   releaseBuffer(handle: RuntimeBufferHandle): void;

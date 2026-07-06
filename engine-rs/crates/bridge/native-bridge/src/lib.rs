@@ -17,8 +17,9 @@ use std::sync::{Mutex, OnceLock};
 
 use napi_derive::napi;
 use runtime_bridge_api::{
-    set_voxel_command, CommandBatch, EngineConfig, ReferenceBridge, RuntimeBridge,
-    RuntimeBridgeError, RuntimeBridgeErrorKind, StepInputEnvelope, WorldLoadRequest,
+    set_voxel_command, CommandBatch, EnemyDirectNavMovementRequest, EngineConfig,
+    ReferenceBridge, RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind,
+    StepInputEnvelope, WorldLoadRequest,
 };
 use serde::Deserialize;
 
@@ -164,6 +165,66 @@ impl From<runtime_bridge_api::WorldSaveSummary> for NativeWorldSaveSummary {
     }
 }
 
+#[napi(object)]
+pub struct NativeVec3 {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+}
+
+impl NativeVec3 {
+    fn to_vec3(&self, field: &str) -> napi::Result<core_math::Vec3> {
+        if !self.x.is_finite() || !self.y.is_finite() || !self.z.is_finite() {
+            return Err(to_napi(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                format!("{field} must contain finite coordinates"),
+            )));
+        }
+        Ok(core_math::Vec3::new(self.x as f32, self.y as f32, self.z as f32))
+    }
+}
+
+#[napi(object)]
+pub struct NativeEnemyDirectNavMovementResult {
+    pub entity: i64,
+    pub authority_source: String,
+    pub from: NativeVec3,
+    pub target: NativeVec3,
+    pub next_waypoint: NativeVec3,
+    pub distance_units: f64,
+    pub reached: bool,
+    pub path_hash: String,
+    pub transform_hash: String,
+    pub projection_changed: bool,
+}
+
+fn native_vec3(value: core_math::Vec3) -> NativeVec3 {
+    NativeVec3 {
+        x: f64::from(value.x),
+        y: f64::from(value.y),
+        z: f64::from(value.z),
+    }
+}
+
+impl From<runtime_bridge_api::EnemyDirectNavMovementResult>
+    for NativeEnemyDirectNavMovementResult
+{
+    fn from(value: runtime_bridge_api::EnemyDirectNavMovementResult) -> Self {
+        Self {
+            entity: value.entity as i64,
+            authority_source: value.authority_source.label().to_string(),
+            from: native_vec3(value.from),
+            target: native_vec3(value.target),
+            next_waypoint: native_vec3(value.next_waypoint),
+            distance_units: f64::from(value.distance_units),
+            reached: value.reached,
+            path_hash: format!("fnv1a64:{:016x}", value.path_hash),
+            transform_hash: format!("fnv1a64:{:016x}", value.transform_hash),
+            projection_changed: value.projection_changed,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "op")]
 enum NativeCommandInput {
@@ -279,6 +340,36 @@ pub fn step_simulation(handle: i64, tick: i64) -> napi::Result<u32> {
 }
 
 #[napi]
+pub fn apply_enemy_direct_nav_movement(
+    handle: i64,
+    entity: i64,
+    seed_position: NativeVec3,
+    target: NativeVec3,
+    max_step_units: f64,
+) -> napi::Result<NativeEnemyDirectNavMovementResult> {
+    let entity = u64_input(entity, "entity")?;
+    if !max_step_units.is_finite() {
+        return Err(to_napi(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::InvalidInput,
+            "max_step_units must be finite",
+        )));
+    }
+    let seed_position = seed_position.to_vec3("seed_position")?;
+    let target = target.to_vec3("target")?;
+    with_bridge(handle, |bridge| {
+        bridge
+            .apply_enemy_direct_nav_movement(EnemyDirectNavMovementRequest {
+                entity,
+                seed_position,
+                target,
+                max_step_units: max_step_units as f32,
+            })
+            .map(NativeEnemyDirectNavMovementResult::from)
+            .map_err(to_napi)
+    })
+}
+
+#[napi]
 pub fn read_render_diffs(handle: i64, _cursor: i64) -> napi::Result<NativeRenderFrameDiff> {
     with_bridge(handle, |_bridge| {
         Ok(NativeRenderFrameDiff { ops: Vec::new() })
@@ -310,6 +401,7 @@ mod tests {
     use super::*;
 
     const WIRED_NAPI_EXPORTS: &[&str] = &[
+        "applyEnemyDirectNavMovement",
         "getCompositionStatus",
         "initializeEngine",
         "loadWorldBundle",
@@ -324,6 +416,7 @@ mod tests {
         assert_eq!(
             WIRED_NAPI_EXPORTS,
             &[
+                "applyEnemyDirectNavMovement",
                 "getCompositionStatus",
                 "initializeEngine",
                 "loadWorldBundle",
@@ -358,6 +451,29 @@ mod tests {
 
         let diff_count = step_simulation(handle, 6).expect("simulation steps");
         assert_eq!(diff_count, 2);
+
+        let moved = apply_enemy_direct_nav_movement(
+            handle,
+            777,
+            NativeVec3 {
+                x: 0.0,
+                y: 0.5,
+                z: -2.6,
+            },
+            NativeVec3 {
+                x: 0.0,
+                y: 1.62,
+                z: 1.25,
+            },
+            0.35,
+        )
+        .expect("enemy direct-nav movement applies");
+        assert_eq!(moved.entity, 777);
+        assert_eq!(moved.authority_source, "seeded_from_request");
+        assert_eq!(moved.next_waypoint.x, 0.0);
+        assert!((moved.next_waypoint.y - 0.598).abs() < 0.0005);
+        assert_eq!(moved.path_hash, "fnv1a64:69ed74d692922db7");
+        assert!(moved.transform_hash.starts_with("fnv1a64:"));
 
         let frame = read_render_diffs(handle, 0).expect("render diff read is bounded");
         assert!(frame.ops.is_empty());

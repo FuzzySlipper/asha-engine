@@ -1,4 +1,21 @@
 import type { CommandResult, RenderFrameDiff } from '@asha/contracts';
+interface NativeVec3 {
+    readonly x: number;
+    readonly y: number;
+    readonly z: number;
+}
+interface NativeEnemyDirectNavMovementResult {
+    readonly entity: number;
+    readonly authoritySource: string;
+    readonly from: NativeVec3;
+    readonly target: NativeVec3;
+    readonly nextWaypoint: NativeVec3;
+    readonly distanceUnits: number;
+    readonly reached: boolean;
+    readonly pathHash: string;
+    readonly transformHash: string;
+    readonly projectionChanged: boolean;
+}
 /**
  * The typed surface the compiled addon exports. Mirrors the `#[napi]` functions in
  * `native-bridge/src/lib.rs`. Kept in lockstep with the bridge manifest's stable
@@ -15,6 +32,7 @@ export interface NativeAddon {
     };
     submitCommands(handle: number, commandsJson: string): CommandResult;
     stepSimulation(handle: number, tick: number): number;
+    applyEnemyDirectNavMovement(handle: number, entity: number, seedPosition: NativeVec3, target: NativeVec3, maxStepUnits: number): NativeEnemyDirectNavMovementResult;
     readRenderDiffs(handle: number, cursor: number): RenderFrameDiff;
     saveCurrentWorld(handle: number): {
         artifactsWritten: number;
@@ -40,4 +58,5 @@ export declare class NativeAddonUnavailable extends Error {
  * Build the addon with `napi build --platform --release` in the native-bridge crate.
  */
 export declare function loadNativeAddon(modulePath?: string): NativeAddon;
+export {};
 //# sourceMappingURL=index.d.ts.map

@@ -6,7 +6,7 @@ import { TINY_GENERATED_TUNNEL_READOUT, } from './generated-tunnel.js';
 import { createGeneratedTunnelEnemyPolicyFixture, validateEnemyPolicySource, } from './enemy-policy.js';
 import { buildEncounterDirectorReadout, buildEncounterTransitionReceipt, initialEncounterDirectorState, transitionEncounterDirectorState, validateEncounterDirectorReadoutRequest, validateEncounterTransitionRequest, } from './encounter-director.js';
 import { GENERATED_TUNNEL_NAV_POLICY_VIEW, GENERATED_TUNNEL_NAV_PROJECTION, GENERATED_TUNNEL_NO_PATH, GENERATED_TUNNEL_REACHABLE_PATH, } from './nav-readout.js';
-import { buildRuntimeSessionEnemyNavPath, ecrpActorPosition, runtimeTransformHashRecord, transformForAutonomousMovementProposal, } from './runtime-session-enemy-authority.js';
+import { buildRuntimeSessionEnemyNavPath, ecrpActorPosition, ecrpEntityTransform, runtimeTransformHashRecord, } from './runtime-session-enemy-authority.js';
 import { buildEcrpProjectState, buildEcrpRuntimeReadout, defaultRuntimeSessionEcrpProjectLoadInput, lifecycleStateFromEcrpProject, validateEcrpProjectLoadInput, } from './runtime-session-ecrp.js';
 import { acceptedAutonomousMovementReceipt, applyCombatReadoutToLifecycleState, buildRuntimeSessionPrimaryFireReadout, combatReadoutTick, generatedTunnelEnemyDefeatedLifecycleState, generatedTunnelPlayerDefeatedLifecycleState, initialRuntimeSessionLifecycleState, lifecycleStatusReadout, lifecycleStatusToEncounterLifecycle, rejectedAutonomousPolicyProposalReceipt, runtimeActionReceiptToAutonomousReceipt, validateAutonomousPolicyProposal, validateAutonomousPolicyTickInput, validateGeneratedTunnelOperationRequest, validateGeneratedTunnelReadoutRequest, validateInitializeInput, validateLifecycleStatusRequest, validateRestartIntent, validateRuntimeActionIntentEnvelope, } from './runtime-session-lifecycle.js';
 import { compositionHashRecord, encounterStateHashRecord, identityHashRecord, lifecycleStateHashRecord, referenceRuntimeSessionNonClaims, renderFrameHashRecord, stableHash, } from './runtime-session-hash.js';
@@ -266,8 +266,8 @@ class ReferenceRuntimeSessionFacade {
                 continue;
             }
             if (proposal.kind === 'enemy_policy.move_toward_target.v0') {
-                this.#applyAutonomousMovementProposal(proposal);
-                proposalReceipts.push(acceptedAutonomousMovementReceipt(proposal));
+                const movement = this.#applyAutonomousMovementProposal(proposal, targetPolicyPosition);
+                proposalReceipts.push(acceptedAutonomousMovementReceipt(proposal, movement));
                 continue;
             }
             const actionReceipt = this.submitRuntimeActionIntent(proposal.intent);
@@ -622,17 +622,27 @@ class ReferenceRuntimeSessionFacade {
             resetHash: statusAfter.fixture.resetHash,
         };
     }
-    #applyAutonomousMovementProposal(proposal) {
-        const movement = transformForAutonomousMovementProposal({
-            projectState: this.#ecrpProjectState,
-            proposal,
-            runtimeTransforms: this.#runtimeTransforms,
-            enemyDead: this.#lifecycleState.enemy.dead,
-        });
-        if (movement === null) {
-            return;
+    #applyAutonomousMovementProposal(proposal, targetPosition) {
+        const enemy = this.#ecrpProjectState?.entities.find((entity) => entity.role === 'enemy');
+        if (enemy === undefined || proposal.nextWaypoint === null || this.#lifecycleState.enemy.dead) {
+            throw new RuntimeBridgeError('invalid_input', 'enemy movement proposal cannot be applied without a live ECRP enemy');
         }
-        this.#runtimeTransforms.set(movement.entity, movement.transform);
+        const movement = this.#bridge.applyEnemyDirectNavMovement({
+            entity: enemy.entity,
+            seedPosition: proposal.from,
+            target: targetPosition ?? proposal.nextWaypoint,
+            maxStepUnits: 0.35,
+        });
+        const current = ecrpEntityTransform({
+            entity: enemy,
+            runtimeTransforms: this.#runtimeTransforms,
+        });
+        this.#runtimeTransforms.set(enemy.entity, {
+            position: movement.nextWaypoint,
+            yawDegrees: current?.yawDegrees ?? 0,
+            pitchDegrees: current?.pitchDegrees ?? 0,
+        });
+        return movement;
     }
     #applyCombatLifecycleReadout(readout, tick) {
         const applied = applyCombatReadoutToLifecycleState({

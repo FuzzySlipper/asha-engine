@@ -19,16 +19,19 @@ workspace = true
 [dependencies]
 core-ids   = { path = "../../foundation/core-ids" }
 core-error = { path = "../../foundation/core-error" }
+core-math  = { path = "../../foundation/core-math" }
 protocol-view = { path = "../../protocol/protocol-view" }
 # Voxel command submission → Rust authority validation/apply (launchable-voxel, #2436).
 core-space      = { path = "../../foundation/core-space" }
 core-voxel      = { path = "../../state/core-voxel" }
 core-commands   = { path = "../../state/core-commands" }
+core-entity     = { path = "../../state/core-entity" }
 svc-spatial     = { path = "../../services/svc-spatial" }
 svc-volume      = { path = "../../services/svc-volume" }
 # Runtime evidence over authority state (mesh summaries/hashes, world hashes).
 svc-mesh        = { path = "../../services/svc-mesh" }
 svc-serialization = { path = "../../services/svc-serialization" }
+svc-pathfinding = { path = "../../services/svc-pathfinding" }
 # Authority voxel raycast for the pick verb (launchable-voxel picking, #2437).
 svc-collision   = { path = "../../services/svc-collision" }
 rule-voxel-edit = { path = "../../rules/rule-voxel-edit" }

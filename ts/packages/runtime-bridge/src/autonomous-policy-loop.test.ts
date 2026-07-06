@@ -71,7 +71,10 @@ void test('RuntimeSession runs deterministic autonomous enemy policy ticks throu
   assert.equal(first.commandSummary.rejectedCommandCount, 0);
   assert.equal(first.movementSummary?.status, 'accepted');
   assert.equal(first.movementSummary?.reason, null);
-  assert.deepEqual(first.movementSummary?.nextWaypoint, [2, 1, 7]);
+  assert.equal(first.movementSummary?.authoritySource, 'seeded_from_request');
+  assert.equal(first.movementSummary?.authorityTransport, 'reference_bridge');
+  assert.match(first.movementSummary?.transformHash ?? '', /^fnv1a64:[0-9a-f]{16}$/);
+  assert.deepEqual(first.movementSummary?.nextWaypoint, [2.863, 1.028, 6.679]);
   assert.equal(first.combatSummary?.status, 'accepted');
   assert.equal(first.combatSummary?.outcome?.kind, 'hit');
   assert.match(first.combatSummary?.healthHash ?? '', /^fnv1a64:[0-9a-f]{16}$/);
@@ -101,13 +104,15 @@ void test('RuntimeSession runs deterministic autonomous enemy policy ticks throu
   );
   const movedEnemyTransform = movedEnemy?.capabilities.find((capability) => capability.kind === 'transform');
   assert.equal(movedEnemyTransform?.kind, 'transform');
-  assert.deepEqual(movedEnemyTransform?.position, [2, 1, 7]);
+  assert.deepEqual(movedEnemyTransform?.position, [2.863, 1.028, 6.679]);
   assert.match(movedEnemyTransform?.stateHash ?? '', /^fnv1a64:[0-9a-f]{16}$/);
 
   const second = session.runAutonomousPolicyTick({ targetCamera: camera });
 
   assert.equal(second.tick, 2);
   assert.equal(second.policy.sourceChecked, false);
+  assert.equal(second.movementSummary?.authoritySource, 'rust_entity_store');
+  assert.equal(second.movementSummary?.authorityTransport, 'reference_bridge');
   assert.equal(second.replay.lastRecordKind, 'runAutonomousPolicyTick');
   assert.ok(second.replay.recordCount > first.replay.recordCount);
   assert.notEqual(second.tickHash, first.tickHash);

@@ -133,6 +133,14 @@ errors = "RuntimeBridgeError"
 summary = "Apply bounded deterministic first-person view input to a CameraHandle and return the post-input snapshot."
 
 [[operation]]
+name = "apply_enemy_direct_nav_movement"
+surface = "stable"
+input = "protocol_runtime::EnemyDirectNavMovementRequest"
+output = "protocol_runtime::EnemyDirectNavMovementResult"
+errors = "RuntimeBridgeError"
+summary = "Apply one enemy direct-navigation movement transaction through Rust svc-pathfinding plus core-entity transform authority; returns movement and transform evidence without TypeScript-owned mutation."
+
+[[operation]]
 name = "read_camera_projection"
 surface = "stable"
 input = "protocol_view::CameraProjectionRequest"

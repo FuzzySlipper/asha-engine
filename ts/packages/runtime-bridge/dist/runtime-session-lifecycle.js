@@ -308,13 +308,16 @@ export function unsupportedAutonomousMovementReceipt(proposal) {
             from: proposal.from,
             nextWaypoint: proposal.nextWaypoint,
             pathHash: proposal.pathHash,
+            transformHash: null,
+            authoritySource: null,
+            authorityTransport: null,
             reason: 'movement_authority_not_wired',
         },
         actionReceipt: null,
         combat: null,
     };
 }
-export function acceptedAutonomousMovementReceipt(proposal) {
+export function acceptedAutonomousMovementReceipt(proposal, movement) {
     return {
         proposalKind: proposal.kind,
         actor: proposal.actor,
@@ -326,9 +329,12 @@ export function acceptedAutonomousMovementReceipt(proposal) {
             status: 'accepted',
             actor: proposal.actor,
             target: proposal.target,
-            from: proposal.from,
-            nextWaypoint: proposal.nextWaypoint,
-            pathHash: proposal.pathHash,
+            from: movement.from,
+            nextWaypoint: movement.nextWaypoint,
+            pathHash: movement.pathHash,
+            transformHash: movement.transformHash,
+            authoritySource: movement.authoritySource,
+            authorityTransport: movement.authorityTransport,
             reason: null,
         },
         actionReceipt: null,

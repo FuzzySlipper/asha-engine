@@ -1,6 +1,6 @@
 import type { EnemyPolicyProposal, EnemyPolicyVec3 } from './enemy-policy.js';
 import { type NavPathReadout, type NavPathScenario } from './nav-readout.js';
-import type { RuntimeSessionEcrpProjectState, RuntimeSessionEcrpTransformState, RuntimeSessionHashValue, RuntimeSessionLifecycleRole } from './runtime-session.js';
+import type { RuntimeSessionEcrpEntityState, RuntimeSessionEcrpProjectState, RuntimeSessionEcrpTransformState, RuntimeSessionHashValue, RuntimeSessionLifecycleRole } from './runtime-session.js';
 export declare const RUNTIME_SESSION_ENEMY_MOVEMENT_AUTHORITY: {
     readonly navServiceCrate: "svc-pathfinding";
     readonly runtimeTransformAuthorityCrate: "core-scene";
@@ -29,5 +29,9 @@ export declare function ecrpActorPosition(input: {
     readonly runtimeTransforms: ReadonlyMap<number, RuntimeSessionEcrpTransformState>;
     readonly role: RuntimeSessionLifecycleRole;
 }): EnemyPolicyVec3 | null;
+export declare function ecrpEntityTransform(input: {
+    readonly entity: RuntimeSessionEcrpEntityState;
+    readonly runtimeTransforms: ReadonlyMap<number, RuntimeSessionEcrpTransformState>;
+}): RuntimeSessionEcrpTransformState | null;
 export declare function runtimeTransformHashRecord(transforms: ReadonlyMap<number, RuntimeSessionEcrpTransformState>): RuntimeSessionHashValue;
 //# sourceMappingURL=runtime-session-enemy-authority.d.ts.map

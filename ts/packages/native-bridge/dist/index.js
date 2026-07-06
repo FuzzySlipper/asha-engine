@@ -18,6 +18,7 @@ const REQUIRED_EXPORTS = [
     'loadWorldBundle',
     'submitCommands',
     'stepSimulation',
+    'applyEnemyDirectNavMovement',
     'readRenderDiffs',
     'saveCurrentWorld',
     'getCompositionStatus',

@@ -619,14 +619,17 @@ name = "runtime-bridge-api"
 version = "0.1.0"
 dependencies = [
  "core-commands",
+ "core-entity",
  "core-error",
  "core-ids",
+ "core-math",
  "core-space",
  "core-voxel",
  "protocol-view",
  "rule-voxel-edit",
  "svc-collision",
  "svc-mesh",
+ "svc-pathfinding",
  "svc-serialization",
  "svc-spatial",
  "svc-volume",
