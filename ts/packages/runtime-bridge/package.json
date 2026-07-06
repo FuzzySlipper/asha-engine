@@ -46,7 +46,9 @@
   "scripts": {
     "build": "tsc --build",
     "typecheck": "tsc --build",
-    "test": "tsc --build && node --test 'dist/**/*.test.js'"
+    "test": "tsc --build && node --test 'dist/**/*.test.js'",
+    "test:evidence:reference": "tsc --build && node --test --test-name-pattern '\\[reference evidence\\]' dist/runtime-session-evidence.test.js",
+    "test:evidence:rust": "tsc --build && node --test --test-name-pattern '\\[rust authority evidence\\]' dist/runtime-session-evidence.test.js dist/native-fail-closed.test.js"
   },
   "dependencies": {
     "@asha/contracts": "workspace:*",

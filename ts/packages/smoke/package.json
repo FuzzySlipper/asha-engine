@@ -15,6 +15,8 @@
     "build": "tsc --build",
     "typecheck": "tsc --build",
     "test": "tsc --build && node --test 'dist/**/*.test.js'",
+    "test:evidence:reference": "tsc --build && node --test --test-name-pattern 'mock run passes|reference smoke matches|every required launchable stage' dist/smoke.test.js",
+    "test:evidence:authority": "tsc --build && node --test --test-name-pattern 'authority run reads diffs|authority run fails closed|authority boot fails closed|real native authority boot fails closed' dist/smoke.test.js",
     "dev:asha-smoke": "tsc --build && node dist/cli.js",
     "dev:asha-perf": "tsc --build && node dist/perf-cli.js",
     "dev:asha-gpu-perf": "tsc --build && node dist/gpu-perf-cli.js"
