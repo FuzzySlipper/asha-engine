@@ -4153,10 +4153,6 @@ const generatedBoundaryConfigs = [
               "message": "ts/packages/smoke (lane ts-shell) may not import @asha/catalog-examples (lane ts-catalog) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
             },
             {
-              "name": "@asha/command-registry",
-              "message": "ts/packages/smoke (lane ts-shell) may not import @asha/command-registry (lane ts-command-registry) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
-            },
-            {
               "name": "@asha/cosmetic",
               "message": "ts/packages/smoke (lane ts-shell) may not import @asha/cosmetic (lane ts-shell) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
             },
@@ -4228,7 +4224,7 @@ const generatedBoundaryConfigs = [
               "group": [
                 "@asha/command-registry/*"
               ],
-              "message": "ts/packages/smoke (lane ts-shell) may not import @asha/command-registry (lane ts-command-registry) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
+              "message": "ts/packages/smoke must import @asha/command-registry through its root barrel. Do not import @asha/command-registry/src, @asha/command-registry/dist, generated internals, or other package-private files."
             },
             {
               "group": [

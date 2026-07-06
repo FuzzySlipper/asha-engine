@@ -209,6 +209,9 @@ importers:
       '@asha/catalog-core':
         specifier: workspace:*
         version: link:../catalog-core
+      '@asha/command-registry':
+        specifier: workspace:*
+        version: link:../command-registry
       '@asha/contracts':
         specifier: workspace:*
         version: link:../contracts

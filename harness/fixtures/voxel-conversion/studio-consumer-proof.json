@@ -1,0 +1,202 @@
+{
+  "schemaVersion": 1,
+  "publicImports": [
+    "@asha/contracts",
+    "@asha/runtime-bridge",
+    "@asha/runtime-bridge/reference",
+    "@asha/command-registry"
+  ],
+  "commandIds": [
+    "voxel_conversion.plan",
+    "voxel_conversion.preview",
+    "voxel_conversion.apply",
+    "voxel_conversion.export_evidence"
+  ],
+  "rustAuthorityGolden": "harness/goldens/voxel-conversion/conversion-summary.golden",
+  "planRequest": {
+    "source": {
+      "assetId": "mesh.proof-quad",
+      "assetKind": "mesh",
+      "assetVersion": 1,
+      "sourceHash": "sha256-proof-quad",
+      "meshPrimitive": null
+    },
+    "target": {
+      "grid": 1,
+      "volumeAssetId": "voxel.proof-quad",
+      "origin": { "x": 0, "y": 0, "z": 0 }
+    },
+    "settings": {
+      "mode": "surface",
+      "fitPolicy": "contain",
+      "originPolicy": "target_min",
+      "resolution": [4, 4, 1],
+      "voxelSize": 0.25,
+      "maxOutputVoxels": 16,
+      "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+      "materialMap": {
+        "entries": [
+          { "sourceMaterialSlot": 1, "sourceMaterialId": "material.copper", "voxelMaterial": 3 },
+          { "sourceMaterialSlot": 2, "sourceMaterialId": "material.tin", "voxelMaterial": 5 }
+        ],
+        "defaultVoxelMaterial": null
+      }
+    }
+  },
+  "plan": {
+    "planId": "plan-proof-quad",
+    "source": {
+      "assetId": "mesh.proof-quad",
+      "assetKind": "mesh",
+      "assetVersion": 1,
+      "sourceHash": "sha256-proof-quad",
+      "meshPrimitive": null
+    },
+    "target": {
+      "grid": 1,
+      "volumeAssetId": "voxel.proof-quad",
+      "origin": { "x": 0, "y": 0, "z": 0 }
+    },
+    "settings": {
+      "mode": "surface",
+      "fitPolicy": "contain",
+      "originPolicy": "target_min",
+      "resolution": [4, 4, 1],
+      "voxelSize": 0.25,
+      "maxOutputVoxels": 16,
+      "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+      "materialMap": {
+        "entries": [
+          { "sourceMaterialSlot": 1, "sourceMaterialId": "material.copper", "voxelMaterial": 3 },
+          { "sourceMaterialSlot": 2, "sourceMaterialId": "material.tin", "voxelMaterial": 5 }
+        ],
+        "defaultVoxelMaterial": null
+      }
+    },
+    "authorityVersion": "svc-voxel-conversion.v0",
+    "expectedSourceHash": "sha256-proof-quad",
+    "settingsHash": "sha256-settings-proof",
+    "estimatedOutputVoxels": 4,
+    "estimatedBounds": {
+      "min": { "x": 0, "y": 0, "z": 0 },
+      "max": { "x": 3, "y": 3, "z": 0 }
+    },
+    "diagnostics": [],
+    "evidence": [
+      {
+        "kind": "plan",
+        "uri": "asha://voxel-conversion/plan/plan-proof-quad",
+        "contentHash": "sha256-plan-proof"
+      }
+    ]
+  },
+  "previewRequest": {
+    "planId": "plan-proof-quad",
+    "expectedPlanHash": "sha256-plan-proof"
+  },
+  "preview": {
+    "planId": "plan-proof-quad",
+    "outputHash": "sha256-preview-proof",
+    "outputVoxelCount": 4,
+    "outputBounds": {
+      "min": { "x": 0, "y": 0, "z": 0 },
+      "max": { "x": 3, "y": 3, "z": 0 }
+    },
+    "sampleVoxels": [
+      { "coord": { "x": 0, "y": 0, "z": 0 }, "material": 3 },
+      { "coord": { "x": 3, "y": 3, "z": 0 }, "material": 5 }
+    ],
+    "diagnostics": [],
+    "evidence": [
+      {
+        "kind": "preview",
+        "uri": "asha://voxel-conversion/preview/plan-proof-quad",
+        "contentHash": "sha256-preview-proof"
+      }
+    ]
+  },
+  "applyRequest": {
+    "planId": "plan-proof-quad",
+    "expectedPlanHash": "sha256-plan-proof",
+    "expectedPreviewHash": "sha256-preview-proof"
+  },
+  "receipt": {
+    "planId": "plan-proof-quad",
+    "applied": true,
+    "outputHash": "sha256-applied-proof",
+    "outputVoxelCount": 4,
+    "outputBounds": {
+      "min": { "x": 0, "y": 0, "z": 0 },
+      "max": { "x": 3, "y": 3, "z": 0 }
+    },
+    "diagnostics": [],
+    "evidence": [
+      {
+        "kind": "apply_receipt",
+        "uri": "asha://voxel-conversion/apply/plan-proof-quad",
+        "contentHash": "sha256-apply-proof"
+      }
+    ]
+  },
+  "diagnosticCases": [
+    {
+      "caseId": "unsupported-source",
+      "code": "unsupported_source_asset",
+      "severity": "error",
+      "reference": "source",
+      "message": "source reference does not match a supported loaded static mesh asset"
+    },
+    {
+      "caseId": "invalid-material-map",
+      "code": "invalid_material_map",
+      "severity": "error",
+      "reference": "materialMap",
+      "message": "every source material slot must have a voxel material mapping"
+    },
+    {
+      "caseId": "oversized-output",
+      "code": "output_limit_exceeded",
+      "severity": "error",
+      "reference": "settings.maxOutputVoxels",
+      "message": "conversion output exceeds the requested maxOutputVoxels"
+    },
+    {
+      "caseId": "stale-source",
+      "code": "source_hash_mismatch",
+      "severity": "error",
+      "reference": "source",
+      "message": "source hash does not match the loaded static mesh authority snapshot"
+    },
+    {
+      "caseId": "stale-authority",
+      "code": "stale_authority_snapshot",
+      "severity": "error",
+      "reference": "plan",
+      "message": "preview request did not match the current authority plan hash"
+    },
+    {
+      "caseId": "replay-mismatch",
+      "code": "conversion_replay_mismatch",
+      "severity": "error",
+      "reference": "preview",
+      "message": "apply request expected a different preview output hash"
+    }
+  ],
+  "evidenceExport": [
+    {
+      "kind": "plan",
+      "uri": "asha://voxel-conversion/plan/plan-proof-quad",
+      "contentHash": "sha256-plan-proof"
+    },
+    {
+      "kind": "preview",
+      "uri": "asha://voxel-conversion/preview/plan-proof-quad",
+      "contentHash": "sha256-preview-proof"
+    },
+    {
+      "kind": "apply_receipt",
+      "uri": "asha://voxel-conversion/apply/plan-proof-quad",
+      "contentHash": "sha256-apply-proof"
+    }
+  ]
+}

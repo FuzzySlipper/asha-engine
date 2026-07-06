@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@asha/contracts": "workspace:*",
+    "@asha/command-registry": "workspace:*",
     "@asha/catalog-core": "workspace:*",
     "@asha/runtime-bridge": "workspace:*",
     "@asha/renderer-three": "workspace:*",

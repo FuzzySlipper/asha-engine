@@ -567,12 +567,13 @@ may_not_import = ["@asha/electron-main", "@asha/native-bridge", "@asha/wasm-repl
 
 # Developer smoke harness (#2395–#2398): boots the facade against an abstract
 # fixture world and emits structured pass/fail evidence. Shell-lane consumer of the
-# facade + renderer; never imports the raw native addon directly.
+# facade + renderer; may import command-registry metadata for public consumer
+# compatibility proofs; never imports the raw native addon directly.
 [package."ts/packages/smoke"]
 lane = "ts-shell"
 type = "testing"
 layer = "testing-fixtures"
-may_import = ["@asha/contracts", "@asha/catalog-core", "@asha/runtime-bridge", "@asha/renderer-three", "@asha/editor-tools", "@asha/ui-dom", "@asha/app"]
+may_import = ["@asha/contracts", "@asha/catalog-core", "@asha/runtime-bridge", "@asha/renderer-three", "@asha/editor-tools", "@asha/ui-dom", "@asha/app", "@asha/command-registry"]
 may_not_import = ["@asha/native-bridge", "@asha/electron-main", "@asha/wasm-replay-bridge"]
 
 # ─── Runtime bridge boundary (ADR 0006) ──────────────────────────────────────
