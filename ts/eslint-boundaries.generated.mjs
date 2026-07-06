@@ -3116,10 +3116,6 @@ const generatedBoundaryConfigs = [
               "message": "ts/packages/renderer-host (lane ts-shell) may not import @asha/policy-examples (lane ts-policy) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
             },
             {
-              "name": "@asha/runtime-bridge",
-              "message": "ts/packages/renderer-host (lane ts-shell) may not import @asha/runtime-bridge (lane ts-shell) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
-            },
-            {
               "name": "@asha/script-host",
               "message": "ts/packages/renderer-host (lane ts-shell) may not import @asha/script-host (lane ts-policy) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
             },
@@ -3234,9 +3230,10 @@ const generatedBoundaryConfigs = [
             },
             {
               "group": [
-                "@asha/runtime-bridge/*"
+                "@asha/runtime-bridge/*",
+                "!@asha/runtime-bridge/reference"
               ],
-              "message": "ts/packages/renderer-host (lane ts-shell) may not import @asha/runtime-bridge (lane ts-shell) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
+              "message": "ts/packages/renderer-host must import @asha/runtime-bridge through its root barrel. Do not import @asha/runtime-bridge/src, @asha/runtime-bridge/dist, generated internals, or other package-private files."
             },
             {
               "group": [

@@ -7,7 +7,6 @@ import {
   summarizeFirstPersonTunnelViewport,
   type FirstPersonTunnelViewportInput,
   type FirstPersonTunnelViewportSummary,
-  type TunnelViewportMaterialPalette,
   type TunnelViewportVec3,
 } from '@asha/render-projection';
 import { renderHandle, type CameraBasis, type Geometry, type RenderFrameDiff, type RenderNode, type Transform } from '@asha/contracts';
@@ -488,35 +487,6 @@ function identityTransform(
   };
 }
 
-function controlsHaveKeyboardFocus(canvas: HTMLCanvasElement, pointerLocked: boolean): boolean {
-  return pointerLocked || canvas.ownerDocument.activeElement === canvas;
-}
-
-function isFirstPersonMovementKey(code: string): boolean {
-  return (
-    code === 'KeyW' ||
-    code === 'KeyA' ||
-    code === 'KeyS' ||
-    code === 'KeyD' ||
-    code === 'ArrowUp' ||
-    code === 'ArrowDown' ||
-    code === 'ArrowLeft' ||
-    code === 'ArrowRight'
-  );
-}
-
-function movementAxis(
-  keys: ReadonlySet<string>,
-  positivePrimary: string,
-  positiveSecondary: string,
-  negativePrimary: string,
-  negativeSecondary: string,
-): number {
-  const positive = keys.has(positivePrimary) || keys.has(positiveSecondary) ? 1 : 0;
-  const negative = keys.has(negativePrimary) || keys.has(negativeSecondary) ? 1 : 0;
-  return positive - negative;
-}
-
 function deterministicUnitGenerator(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
@@ -525,16 +495,8 @@ function deterministicUnitGenerator(seed: number): () => number {
   };
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
 function degreesToRadians(degrees: number): number {
   return (degrees * Math.PI) / 180;
-}
-
-function radiansToDegrees(radians: number): number {
-  return (radians * 180) / Math.PI;
 }
 
 function round2(value: number): number {

@@ -329,24 +329,6 @@ function identityTransform(translation, scale) {
         scale,
     };
 }
-function controlsHaveKeyboardFocus(canvas, pointerLocked) {
-    return pointerLocked || canvas.ownerDocument.activeElement === canvas;
-}
-function isFirstPersonMovementKey(code) {
-    return (code === 'KeyW' ||
-        code === 'KeyA' ||
-        code === 'KeyS' ||
-        code === 'KeyD' ||
-        code === 'ArrowUp' ||
-        code === 'ArrowDown' ||
-        code === 'ArrowLeft' ||
-        code === 'ArrowRight');
-}
-function movementAxis(keys, positivePrimary, positiveSecondary, negativePrimary, negativeSecondary) {
-    const positive = keys.has(positivePrimary) || keys.has(positiveSecondary) ? 1 : 0;
-    const negative = keys.has(negativePrimary) || keys.has(negativeSecondary) ? 1 : 0;
-    return positive - negative;
-}
 function deterministicUnitGenerator(seed) {
     let state = seed >>> 0;
     return () => {
@@ -354,14 +336,8 @@ function deterministicUnitGenerator(seed) {
         return state / 0x100000000;
     };
 }
-function clamp(value, min, max) {
-    return Math.min(max, Math.max(min, value));
-}
 function degreesToRadians(degrees) {
     return (degrees * Math.PI) / 180;
-}
-function radiansToDegrees(radians) {
-    return (radians * 180) / Math.PI;
 }
 function round2(value) {
     return Number(value.toFixed(2));

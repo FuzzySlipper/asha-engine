@@ -366,7 +366,8 @@ function stableStringify(value: StableHashValue | undefined): string {
     return JSON.stringify(value);
   }
   if (Array.isArray(value)) {
-    return `[${value.map((entry) => stableStringify(entry)).join(',')}]`;
+    const entries = value as readonly StableHashValue[];
+    return `[${entries.map((entry) => stableStringify(entry)).join(',')}]`;
   }
   const record = value as StableHashRecord;
   return `{${Object.keys(record)

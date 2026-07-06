@@ -11,7 +11,7 @@ import {
   surfaceTargetProjectionFromRenderTarget,
 } from './index.js';
 
-test('renderer-host projects render frames through the neutral projection model', () => {
+void test('renderer-host projects render frames through the neutral projection model', () => {
   const frame: RenderFrameDiff = {
     ops: [
       {
@@ -42,14 +42,14 @@ test('renderer-host projects render frames through the neutral projection model'
   assert.equal(receipt.snapshot.nodes[0]?.handle, 4385001);
 });
 
-test('renderer-host can create the default visible surface frame', () => {
+void test('renderer-host can create the default visible surface frame', () => {
   const frame = createAshaRendererDefaultSurfaceFrame();
 
   assert.ok(frame.ops.length > 0);
   assert.ok(frame.ops.some((op) => op.op === 'create'));
 });
 
-test('renderer-host maps runtime render target identity to backend-neutral projection input', () => {
+void test('renderer-host maps runtime render target identity to backend-neutral projection input', () => {
   const projection = surfaceTargetProjectionFromRenderTarget(
     {
       kind: 'runtime_session.ecrp_render_target.v0',
@@ -70,7 +70,7 @@ test('renderer-host maps runtime render target identity to backend-neutral proje
   });
 });
 
-test('renderer-host accepts render target identity without a concrete render scale', () => {
+void test('renderer-host accepts render target identity without a concrete render scale', () => {
   const projection = surfaceTargetProjectionFromRenderTarget({
     kind: 'runtime_session.ecrp_render_target.v0',
     renderLabel: 'actor/demo-player',
@@ -84,7 +84,7 @@ test('renderer-host accepts render target identity without a concrete render sca
   assert.equal(projection.visible, true);
 });
 
-test('renderer-host declarations do not expose concrete Three.js backend types', () => {
+void test('renderer-host declarations do not expose concrete Three.js backend types', () => {
   const declarationPath = fileURLToPath(new URL('./index.d.ts', import.meta.url));
   const declarationText = readFileSync(declarationPath, 'utf8');
 
