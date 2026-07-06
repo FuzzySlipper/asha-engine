@@ -171,6 +171,16 @@ cd ts
 pnpm dev:asha-smoke
 ```
 
+Focused evidence lanes split reference fixtures from product/live authority:
+
+```sh
+cd ts
+pnpm --filter @asha/runtime-bridge test:evidence:reference
+pnpm --filter @asha/runtime-bridge test:evidence:rust
+pnpm --filter @asha/smoke test:evidence:reference
+pnpm --filter @asha/smoke test:evidence:authority
+```
+
 ### App shell launch
 
 The launchable voxel shell is composed by one transport-agnostic root, `composeAppShell`

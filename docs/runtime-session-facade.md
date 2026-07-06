@@ -24,17 +24,22 @@ RuntimeSession readout/HUD surfaces without private ASHA paths.
 
 ## Current API
 
+`RuntimeSessionFacade` exposes the same semantic methods in explicit backend
+modes. Product/live consumers create the facade from the package root with a
+Rust-capable bridge and `mode: 'rust'`; reference fixtures use
+`createMockRuntimeSession()` from `@asha/runtime-bridge/reference`.
+
 `RuntimeSessionFacade` exposes:
 
 - `initialize(input)`: validates semantic session/project input, initializes the bridge, and loads a ProjectBundle-shaped request.
-- `loadEcrpProject(input)`: validates and loads ProjectBundle-shaped ECRP content (`ProjectBundle`, `EntityDefinition[]`, and `SceneDocument` placements) into the reference RuntimeSession ECRP project state. It returns a typed load receipt with diagnostics and bootstrap hash; rejected loads mutate nothing.
+- `loadEcrpProject(input)`: validates and loads ProjectBundle-shaped ECRP content (`ProjectBundle`, `EntityDefinition[]`, and `SceneDocument` placements). Rust-backed sessions route bootstrap through the bridge authority surface and return Rust provenance/read sets; reference sessions keep fixture/project-state compatibility. Rejected loads mutate nothing.
 - `submitCommands(batch)`: submits generated `CommandBatch` values only.
 - `tick(input?)`: advances deterministic runtime ticks through the bridge.
 - `createCamera(request)`: creates a typed bridge-owned camera.
 - `applyFirstPersonCameraInput(envelope)`: applies unconstrained first-person camera motion/look input.
 - `applyCollisionConstrainedCameraInput(envelope)`: applies first-person camera motion/look input through the typed collision bridge surface and returns a receipt with collided, blocked axes, world/collision projection hashes, movement hash, and the generated before/attempted/after `CameraCollisionSnapshot`.
-- `submitRuntimeActionIntent(envelope)`: accepts a typed `RuntimeActionIntentEnvelope` proposal. The reference slice accepts `primary_fire` pressed intents, builds combat/fire/health evidence from the loaded ECRP player/enemy state, updates lifecycle/render visibility through accepted authority state, and fails unsupported action intents closed with typed receipts.
-- `runAutonomousPolicyTick(input)`: advances a narrow generated-tunnel enemy policy loop, validates typed movement/fire proposals, routes primary fire through runtime action authority, and reports proposal counts, nav/replay hashes, movement/combat summaries, and deterministic tick hash.
+- `submitRuntimeActionIntent(envelope)`: accepts a typed `RuntimeActionIntentEnvelope` proposal. Rust-backed sessions route accepted `primary_fire` pressed intents through the Rust bridge authority surface and return combat/fire/health provenance; reference sessions return labelled fixture/reference receipts. Unsupported action intents fail closed with typed receipts.
+- `runAutonomousPolicyTick(input)`: advances a narrow generated-tunnel enemy policy loop, validates typed movement/fire proposals, routes primary fire through runtime action authority, and reports proposal counts, nav/replay hashes, movement/combat summaries, backend provenance, and deterministic tick hash.
 - `readLifecycleStatus(request?)`: reads player/enemy lifecycle status, win/loss/in-progress outcome, restart eligibility, fixture reset hash, lifecycle/replay hashes, and terminal death events.
 - `requestSessionRestart(intent)`: validates a typed `runtime.restart_session_intent`, rejects stale/non-terminal requests with typed receipts, or resets the session deterministically through the existing restart path.
 - `readCombatReadout(request?)`: reads the committed #4040 generated-tunnel combat fixture readouts for compatibility/golden evidence. Runtime action receipts use the loaded RuntimeSession state when a project has been loaded.
@@ -45,7 +50,7 @@ RuntimeSession readout/HUD surfaces without private ASHA paths.
 - `readNavPolicyView()`: returns a read-only/proposal-only policy-facing nav view shape with no mutation/apply authority.
 - `readCameraProjection(request)`: reads typed camera projection matrices and projection hash.
 - `readProjection()`: returns a render/projection summary from public render diff contracts.
-- `readEcrpRuntimeReadout()`: returns live Entity/CapabilityState/event readouts derived from the loaded ECRP project state.
+- `readEcrpRuntimeReadout()`: returns live Entity/CapabilityState/event readouts derived from the selected backend. Rust-backed readouts identify `mode: 'rust'`, `source: 'rust_bridge'`, authority surface, and declared read sets.
 - `readTelemetry()`: returns sequence/tick/composition/command/replay/hash summary.
 - `restart()`: unloads/reinitializes/reloads the same ProjectBundle input and resets tick/command counters and lifecycle state.
 
@@ -56,6 +61,12 @@ Lifecycle fixture hashes in the current reference slice:
 - player defeated fixture lifecycle hash: `fnv1a64:32322a108d4f2767`
 
 The current reference helper is `createMockRuntimeSession`, a facade over the existing `RuntimeBridge` mock exposed only from `@asha/runtime-bridge/reference`. It is useful for unit tests, compatibility fixtures, and offline smoke baselines. It is not the product/live authority path for demo or Studio, and selected/native backend launchers must fail closed rather than falling back to this helper. For collision-constrained camera input, the reference facade hosts the upstream static-room collision fixture so consumers can prove wall-stop/open-space behavior without importing demo-local physics. For ECRP content, the reference RuntimeSession owns a loaded project-state projection seeded by `loadEcrpProject`; primary-fire receipts, lifecycle updates, entity events, health state, and render visibility apply to the loaded enemy entity in reference mode. It does not claim native runtime attach, product authority, raw state-store access, or renderer ownership.
+
+Evidence lanes:
+
+- `pnpm --filter @asha/runtime-bridge test:evidence:reference` proves the reference RuntimeSession fixture lane remains explicitly non-product authority.
+- `pnpm --filter @asha/runtime-bridge test:evidence:rust` proves the public Rust-backed facade reports backend provenance for collision, combat, lifecycle, encounter, and restart.
+- `pnpm --filter @asha/smoke test:evidence:reference` and `pnpm --filter @asha/smoke test:evidence:authority` split smoke evidence into reference and authority lanes.
 
 ## Runtime Vocabulary
 

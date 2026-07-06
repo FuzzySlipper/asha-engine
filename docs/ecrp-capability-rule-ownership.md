@@ -53,16 +53,18 @@ authority slice in `rule-lifecycle`, composed over `svc-entity-authoring` and
   as typed CapabilityState/source refs and remain read-only in this slice unless
   routed through their specific RuntimeSession methods.
 
-`@asha/runtime-bridge` keeps the public browser/mock RuntimeSession facade stable
-and mirrors this Rust-semantic authority path for the current consumer tests.
-That mirror is explicitly labelled with `rule-lifecycle`, `svc-combat`, and the
-`runtime_session.fps.primary_fire.v0` replay unit; it is not an independent
-TypeScript combat implementation.
+`@asha/runtime-bridge` exposes this authority through the public
+`RuntimeSessionFacade` product/live path when a Rust-capable bridge is selected.
+Reference/mock RuntimeSession helpers remain available only from
+`@asha/runtime-bridge/reference` for tests, compatibility fixtures, and offline
+smoke baselines. Reference receipts are labelled as fixture/reference evidence;
+Rust-backed receipts carry `rust_bridge` / `native_rust` provenance and named
+authority surfaces such as `runtime_session.fps.primary_fire.v0`.
 
 ## Non-Claims
 
 This note does not introduce a scheduler, generic component registry, or
 framework ECS. The Rust `svc-entity-authoring` owner matrix still covers the
-generic entity/transform/render/collision/relation substrate. The remaining
-transport work is to route the public RuntimeSession facade through the compiled
-runtime/native bridge instead of the current Rust-semantic TypeScript mirror.
+generic entity/transform/render/collision/relation substrate. Some reference
+readouts remain compatibility fixtures, and any still-unwired Rust operation must
+fail closed rather than silently falling back to reference behavior.

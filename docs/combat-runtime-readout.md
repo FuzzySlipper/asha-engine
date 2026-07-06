@@ -30,9 +30,12 @@ Primary fire uses the typed action intent protocol from #4036:
 ```
 
 `RuntimeSessionFacade.submitRuntimeActionIntent()` returns an accepted receipt for
-`primary_fire` press intents in the reference slice, with a `CombatRuntimeReadout`.
-When a ProjectBundle has been loaded through `loadEcrpProject()`, that receipt is
-derived from the loaded player/enemy RuntimeSession state:
+`primary_fire` press intents, with a `CombatRuntimeReadout`. Rust-backed
+RuntimeSession facades route the accepted intent through the Rust bridge authority
+surface and report `rust_bridge` / `native_rust` provenance. Reference facades
+remain labelled fixture/compatibility evidence. When a ProjectBundle has been
+loaded through `loadEcrpProject()`, the receipt is derived from the loaded
+player/enemy RuntimeSession state:
 
 - outcome target equals the loaded enemy runtime entity id;
 - health current/max/dead comes from the loaded enemy `health` CapabilityState;
@@ -63,6 +66,6 @@ Non-claims:
 - No demo HUD rendering; #4043 owns HUD/menu projection.
 - No local demo combat authority.
 - No generic JSON action tunnel.
-- No native-runtime combat bridge claim yet; the reference slice is the public
-  TypeScript RuntimeSession authority until the equivalent native/protocol route
-  lands.
+- No claim that `readCombatReadout()` fixture compatibility output is product
+  authority; product/live combat evidence should come from runtime action
+  receipts with backend provenance.
