@@ -49,6 +49,10 @@ Rust-capable bridge and `mode: 'rust'`; reference fixtures use
 - `queryNavPath(request?)`: returns reachable or no-path generated-tunnel path readouts.
 - `readNavPolicyView()`: returns a read-only/proposal-only policy-facing nav view shape with no mutation/apply authority.
 - `readCameraProjection(request)`: reads typed camera projection matrices and projection hash.
+- `planVoxelConversion(request)`: requests a Rust-owned mesh-to-voxel conversion plan using generated voxel conversion DTOs. Current reference and Rust-backed sessions fail closed with `operation_unimplemented` until backend wiring lands.
+- `previewVoxelConversion(request)`: requests bounded conversion preview output for a previously planned conversion. Current reference and Rust-backed sessions fail closed with `operation_unimplemented` until backend wiring lands.
+- `applyVoxelConversion(request)`: requests authority application of a validated conversion plan/preview pair and returns a generated receipt shape when wired. Current reference and Rust-backed sessions fail closed with `operation_unimplemented` until backend wiring lands.
+- `exportVoxelConversionEvidence(evidence)`: requests export of selected generated voxel conversion evidence refs for Studio timeline/review workflows. Current reference and Rust-backed sessions fail closed with `operation_unimplemented` until backend wiring lands.
 - `readProjection()`: returns a render/projection summary from public render diff contracts.
 - `readEcrpRuntimeReadout()`: returns live Entity/CapabilityState/event readouts derived from the selected backend. Rust-backed readouts identify `mode: 'rust'`, `source: 'rust_bridge'`, authority surface, and declared read sets.
 - `readTelemetry()`: returns sequence/tick/composition/command/replay/hash summary.

@@ -78,6 +78,62 @@ The metadata schema is intentionally tiny for now:
 
 No consumer should import raw native transports, generated contract internals, ASHA package `src/*` paths, Rust crate paths, or arbitrary runtime JSON tunnels. Missing public API should become an ASHA engine feature request, not a private import.
 
+## asha-studio Voxel Conversion Boundary
+
+Status: task #4287 consumer compatibility record for the first mesh-to-voxel conversion lane.
+
+Asha Studio may build voxel conversion UI and workflow affordances from these ASHA package roots:
+
+| Package root | Studio use | Boundary |
+|---|---|---|
+| `@asha/contracts` | Generated voxel conversion DTOs: plan/preview/apply requests, plans, previews, receipts, diagnostics, and evidence refs. | Import from the package root only; never from generated file paths or copied DTO forks. |
+| `@asha/runtime-bridge` | `RuntimeSessionFacade` voxel conversion methods: `planVoxelConversion`, `previewVoxelConversion`, `applyVoxelConversion`, and `exportVoxelConversionEvidence`. | RuntimeSession remains the authority route. Missing native/reference support must surface as classified fail-closed errors. |
+| `@asha/command-registry` | Studio command/menu/timeline metadata for `voxel_conversion.plan`, `voxel_conversion.preview`, `voxel_conversion.apply`, and `voxel_conversion.export_evidence`. | Metadata describes commands, contracts, artifacts, retry/idempotency, and UI placement; it does not execute conversion or validate authority. |
+| `@asha/render-projection` | Optional renderer-neutral projection/evidence readback for previews once the runtime emits public render frames. | Projection is descriptive. It must not become mesh voxelization authority or a renderer-private data source. |
+| `@asha/ui-dom` | Optional render-agnostic panel/control descriptors if Studio chooses to share UI readout vocabulary. | UI descriptors may propose or display; they do not mutate runtime authority. |
+| `@asha/devtools` / `@asha/editor-tools` / `@asha/game-workspace` / `@asha/catalog-core` | Existing Studio-approved unstable tooling surfaces when the surrounding workflow needs attach/readout, editor-local state, workspace manifests, or catalog validation. | These packages do not own mesh-to-voxel conversion authority. |
+
+The engine manifest already records the Studio policy in
+`harness/public-surface/ts-packages.json`: Studio may consume `@asha/contracts`,
+`@asha/runtime-bridge`, `@asha/command-registry`, `@asha/devtools`,
+`@asha/editor-tools`, `@asha/game-workspace`, `@asha/render-projection`,
+`@asha/catalog-core`, and `@asha/ui-dom` through package roots, plus the explicit
+`@asha/runtime-bridge/reference` fixture subpath. Studio must not import
+`@asha/native-bridge`, `@asha/renderer-three`, `@asha/wasm-replay-bridge`,
+policy/script internals, ASHA package `src/*` paths, ASHA package
+`dist/generated/*` paths, Rust crate paths, raw bridge operations, renderer
+buffers as authority, or VoxelForge runtime code.
+
+Fail-closed behavior is part of the compatibility contract:
+
+- unavailable native/reference backend support reports `RuntimeBridgeError` with
+  `operation_unimplemented` on the runtime facade methods from #4284;
+- unsupported source assets, invalid material maps, oversized output, stale
+  source hashes, stale authority snapshots, and replay mismatches are typed
+  voxel conversion diagnostics, not best-effort partial output;
+- Studio should display and preserve those diagnostics/evidence refs rather than
+  falling back to local conversion, private generated paths, raw native calls, or
+  arbitrary JSON command tunnels.
+
+Predecessor evidence for the conversion lane is engine-owned. The durable
+foundation is the ASHA voxel capability series (`asha/voxel-capability-roadmap-index`
+and especially `voxel-capability-06-voxel-meshing`,
+`voxel-capability-07-mesh-payload-render-protocol`,
+`voxel-capability-08-threejs-voxel-renderer-path`,
+`voxel-capability-10-picking-selection`, and
+`voxel-capability-11-collision-physics`), plus the committed #4282-#4286 task
+slices. VoxelForge-derived assets or candidates may be used only as predecessor
+evidence after asset/license review; they are not runtime dependencies, source
+truth, or a Studio-owned conversion path.
+
+The #4286 consumer proof covers the practical adoption boundary:
+`harness/fixtures/voxel-conversion/studio-consumer-proof.json` and
+`ts/packages/smoke/src/voxel-conversion-consumer-proof.test.ts` import only
+approved public roots, verify command metadata and generated DTO shapes, check
+the Rust authority golden
+`harness/goldens/voxel-conversion/conversion-summary.golden`, and assert the
+RuntimeSession facade fails closed until backend wiring lands.
+
 ## asha-demo Initial Import Policy
 
 Status: task #4018 policy gate for the first minimal `/home/dev/asha-demo`
@@ -207,6 +263,7 @@ Additive notes under `runtime-bridge.v0`:
 - #4401 adds package-root native Rust provider helpers: `resolveNativeRustRuntimeBridgeProvider()` and `assertNativeRustRuntimeBridgeAuthority()`. Browser/standalone hosts can expose `globalThis.ashaRuntimeBridge` with provider kind `asha.runtime_bridge.native_rust_provider.v1`, or the current `asha-demo` compatibility alias, and the resolver fails closed for missing providers, spoofed reference metadata, missing bridge objects, and missing required RuntimeBridge operations. Loaded sessions still verify ECRP/FPS provenance through `assertNativeRustRuntimeBridgeAuthority`; provider metadata alone is not authority. The compatibility marker remains `runtime-bridge.v0` because the change is additive.
 - #4403 adds the package-root helper `readRuntimeSessionPlayableEncounterTick(session, request)`. The helper derives the enemy actor/position from ECRP readouts, accepts the current RuntimeSession camera handle plus camera position from the shell, applies pause/player-dead/enemy-dead/missing actor gates, and advances one generated-tunnel autonomous policy tick through RuntimeSession. Receipts expose movement/combat/lifecycle summaries while keeping browser timer scheduling outside runtime authority. The compatibility marker remains `runtime-bridge.v0` because the change is additive.
 - #4284 adds typed voxel conversion operations to `RuntimeSessionFacade`: `planVoxelConversion`, `previewVoxelConversion`, `applyVoxelConversion`, and `exportVoxelConversionEvidence`. The signatures use generated `@asha/contracts` voxel-conversion DTOs and deliberately fail closed with `operation_unimplemented` in reference and Rust-backed sessions until the native/reference conversion backend is wired. Consumers must not bypass this with raw native bridge calls, private generated paths, renderer buffers, Studio-owned voxelization, or JSON method tunnels. The compatibility marker remains `runtime-bridge.v0` because the change is additive.
+- #4287 records the Studio voxel conversion adoption boundary for the #4284 facade methods. Studio may consume generated DTOs from `@asha/contracts`, runtime methods from `@asha/runtime-bridge`, command/evidence metadata from `@asha/command-registry`, and optional renderer-neutral projection/readout surfaces only through approved package roots. Unavailable backend support remains a typed fail-closed `operation_unimplemented` result rather than permission to use raw native bridge calls, private generated imports, renderer buffers as authority, Rust crates, VoxelForge runtime code, or Studio-owned mesh voxelization. The compatibility marker remains `runtime-bridge.v0` because this is documentation of additive surfaces.
 
 ## Command registry compatibility log
 
@@ -228,6 +285,7 @@ Consumer behavior:
 Additive notes under `command-registry.v0`:
 
 - #4285 adds Studio command metadata for `voxel_conversion.plan`, `voxel_conversion.preview`, `voxel_conversion.apply`, and `voxel_conversion.export_evidence`. These entries use generated voxel-conversion DTO contract refs, declare RuntimeSessionFacade method requirements rather than raw bridge operations, and expose plan/preview/receipt/evidence artifact posture for Studio UI/timeline projection. They do not execute conversion, smuggle native calls, claim renderer authority, or replace the Rust/runtime fail-closed behavior from #4284. The compatibility marker remains `command-registry.v0` because the change is additive.
+- #4287 clarifies that the command registry is the Studio metadata/readout lane for voxel conversion, not the executor. Studio may use the root export to discover menu placement, typed input/output contracts, artifact posture, retry/idempotency, and known limitations for the four `voxel_conversion.*` commands. Runtime execution still goes through `RuntimeSessionFacade`, and Rust/runtime diagnostics remain authoritative. The compatibility marker remains `command-registry.v0` because the change is additive.
 
 ## Devtools protocol compatibility log
 
