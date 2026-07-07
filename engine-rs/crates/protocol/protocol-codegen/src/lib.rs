@@ -131,7 +131,7 @@ mod tests {
     use super::*;
     use crate::schema::{Item, Module, TsType, Variant};
     use serde_json::{json, Value};
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeMap, BTreeSet};
 
     #[test]
     fn generation_is_deterministic() {
@@ -277,6 +277,517 @@ mod tests {
                 "{item_name}.{tag} fields drifted: expected {expected:?}, got {actual:?}"
             ))
         }
+    }
+
+    fn interface_coverage_key(module: &str, item: &str) -> String {
+        format!("{module}.{item}")
+    }
+
+    fn variant_coverage_key(module: &str, item: &str, tag: &str) -> String {
+        format!("{module}.{item}.{tag}")
+    }
+
+    fn rust_round_trip_sample_coverage() -> BTreeSet<String> {
+        [
+            interface_coverage_key("policyView", "PolicyWorldView"),
+            interface_coverage_key("policyView", "PolicyWorldSummary"),
+            interface_coverage_key("policyView", "PolicyEntityView"),
+            interface_coverage_key("policyView", "PolicyTransform"),
+            interface_coverage_key("policyView", "PolicyAssetView"),
+            variant_coverage_key("policyView", "PolicyEntitySource", "imported"),
+            variant_coverage_key("policyView", "PolicyWorldCommand", "requestAddLabel"),
+            variant_coverage_key("policyView", "PolicyWorldEvent", "transformSet"),
+            variant_coverage_key("policyView", "PolicyWorldOutcome", "rejected"),
+            interface_coverage_key("telemetry", "TelemetryEnvelope"),
+            interface_coverage_key("telemetry", "TelemetryMetric"),
+            variant_coverage_key("telemetry", "TelemetryEvent", "metric"),
+            variant_coverage_key("telemetry", "TelemetryEvent", "trace"),
+        ]
+        .into_iter()
+        .collect()
+    }
+
+    const LEGACY_GAP_REASON: &str = "pre-ratchet legacy IR entry covered only by existing rendered-file/vocabulary checks; add a direct Rust serde round-trip sample before removing this exemption";
+
+    fn exempt_items(
+        exemptions: &mut BTreeMap<&'static str, &'static str>,
+        module: &str,
+        keys: &[&'static str],
+        reason: &'static str,
+    ) {
+        for key in keys {
+            assert!(
+                key.starts_with(module),
+                "coverage exemption {key} is listed under wrong module {module}"
+            );
+            exemptions.insert(*key, reason);
+        }
+    }
+
+    fn rust_round_trip_coverage_exemptions() -> BTreeMap<&'static str, &'static str> {
+        let mut exemptions = BTreeMap::new();
+
+        exempt_items(
+            &mut exemptions,
+            "script",
+            &[
+                "script.EntityView",
+                "script.ProcessView",
+                "script.ScriptView",
+                "script.EntityCommand.create",
+                "script.EntityCommand.addTag",
+                "script.EntityCommand.removeTag",
+                "script.EntityCommand.delete",
+                "script.SubjectCommand.create",
+                "script.SubjectCommand.delete",
+                "script.ProcessCommand.start",
+                "script.ProcessCommand.setMode",
+                "script.ProcessCommand.stop",
+                "script.ModeCommand.define",
+                "script.ModeCommand.undefine",
+                "script.SignalCommand.define",
+                "script.SignalCommand.undefine",
+                "script.TagCommand.define",
+                "script.TagCommand.undefine",
+                "script.Command.entity",
+                "script.Command.subject",
+                "script.Command.process",
+                "script.Command.mode",
+                "script.Command.signal",
+                "script.Command.tag",
+                "script.CommandEnvelope",
+                "script.ScriptRejection.entityAlreadyExists",
+                "script.ScriptRejection.entityNotFound",
+                "script.ScriptRejection.tagNotFound",
+                "script.ScriptRejection.tagAlreadyOnEntity",
+                "script.ScriptRejection.tagNotOnEntity",
+                "script.ScriptRejection.subjectAlreadyExists",
+                "script.ScriptRejection.subjectNotFound",
+                "script.ScriptRejection.processAlreadyExists",
+                "script.ScriptRejection.processNotFound",
+                "script.ScriptRejection.modeAlreadyExists",
+                "script.ScriptRejection.modeNotFound",
+                "script.ScriptRejection.signalAlreadyExists",
+                "script.ScriptRejection.signalNotFound",
+                "script.ScriptRejection.tagAlreadyDefined",
+                "script.ScriptRejection.tagDefinitionNotFound",
+                "script.ScriptOutcome.accepted",
+                "script.ScriptOutcome.rejected",
+            ],
+            LEGACY_GAP_REASON,
+        );
+
+        exempt_items(
+            &mut exemptions,
+            "render",
+            &[
+                "render.Transform",
+                "render.Geometry.cube",
+                "render.Geometry.sphere",
+                "render.Geometry.quad",
+                "render.Geometry.point",
+                "render.Geometry.line",
+                "render.Material",
+                "render.RenderMetadata",
+                "render.RenderNode",
+                "render.MeshAttribute",
+                "render.MeshBufferLayout",
+                "render.MeshGroupDescriptor",
+                "render.MeshBoundsDescriptor",
+                "render.MeshPayloadSource.inline",
+                "render.MeshPayloadSource.handle",
+                "render.MeshPayloadDescriptor",
+                "render.MeshMaterialSlot",
+                "render.MeshCollisionPolicy.visualOnly",
+                "render.MeshCollisionPolicy.proxy",
+                "render.MeshCollisionPolicy.aabbFallback",
+                "render.StaticMeshAsset",
+                "render.StaticMeshInstanceDescriptor",
+                "render.SpriteAttachment",
+                "render.SpriteInstanceDescriptor",
+                "render.SpritePickHit",
+                "render.MeshPickHit",
+                "render.TextureDescriptor",
+                "render.SpriteFrameRect",
+                "render.SpriteAtlasDescriptor",
+                "render.RenderMaterialDescriptor",
+                "render.RenderDiff.create",
+                "render.RenderDiff.update",
+                "render.RenderDiff.destroy",
+                "render.RenderDiff.replaceMeshPayload",
+                "render.RenderDiff.defineMaterial",
+                "render.RenderDiff.defineTexture",
+                "render.RenderDiff.defineSpriteAtlas",
+                "render.RenderDiff.defineStaticMesh",
+                "render.RenderDiff.createStaticMeshInstance",
+                "render.RenderDiff.createSprite",
+                "render.RenderDiff.updateSprite",
+                "render.ModelMaterialPreviewRequest",
+                "render.ModelMaterialPreviewSnapshot",
+                "render.RenderFrameDiff",
+            ],
+            LEGACY_GAP_REASON,
+        );
+
+        exempt_items(
+            &mut exemptions,
+            "replay",
+            &[
+                "replay.DomainEvent.entityCreated",
+                "replay.DomainEvent.entityTagAdded",
+                "replay.DomainEvent.entityTagRemoved",
+                "replay.DomainEvent.entityDeleted",
+                "replay.DomainEvent.subjectCreated",
+                "replay.DomainEvent.subjectDeleted",
+                "replay.DomainEvent.processStarted",
+                "replay.DomainEvent.processModeSet",
+                "replay.DomainEvent.processStopped",
+                "replay.DomainEvent.modeDefined",
+                "replay.DomainEvent.modeUndefined",
+                "replay.DomainEvent.signalDefined",
+                "replay.DomainEvent.signalUndefined",
+                "replay.DomainEvent.tagDefined",
+                "replay.DomainEvent.tagUndefined",
+                "replay.StepOutcome.accepted",
+                "replay.StepOutcome.rejected",
+                "replay.ReplayStep",
+                "replay.SnapshotMeta",
+                "replay.ReplayRecord",
+            ],
+            LEGACY_GAP_REASON,
+        );
+
+        exempt_items(
+            &mut exemptions,
+            "voxel",
+            &[
+                "voxel.VoxelCoord",
+                "voxel.ChunkCoord",
+                "voxel.VoxelValue.empty",
+                "voxel.VoxelValue.solid",
+                "voxel.VoxelCommand.setVoxel",
+                "voxel.VoxelCommand.fillRegion",
+                "voxel.VoxelCommand.generateChunk",
+                "voxel.VoxelEditEvent.voxelSet",
+                "voxel.VoxelEditEvent.voxelRegionFilled",
+                "voxel.VoxelEditEvent.chunkGenerated",
+                "voxel.VoxelEditRejection.unknownMaterial",
+                "voxel.VoxelEditRejection.emptyRegion",
+                "voxel.VoxelEditRejection.chunkNotResident",
+                "voxel.VoxelEditRejection.generationDivergence",
+                "voxel.CommandBatch",
+                "voxel.CommandResult",
+                "voxel.PickRejection.noHit",
+                "voxel.PickRejection.hitMismatch",
+                "voxel.PickRay",
+                "voxel.VoxelHit",
+                "voxel.PickResult.hit",
+                "voxel.PickResult.miss",
+            ],
+            LEGACY_GAP_REASON,
+        );
+
+        exempt_items(
+            &mut exemptions,
+            "voxelConversion",
+            &[
+                "voxelConversion.VoxelConversionSourceRef",
+                "voxelConversion.VoxelConversionSourceTriangle",
+                "voxelConversion.VoxelConversionSourceMaterialSlot",
+                "voxelConversion.VoxelConversionSourceRegistrationRequest",
+                "voxelConversion.VoxelConversionSourceRegistration",
+                "voxelConversion.VoxelConversionTargetRef",
+                "voxelConversion.VoxelConversionBounds",
+                "voxelConversion.VoxelConversionMaterialMapEntry",
+                "voxelConversion.VoxelConversionMaterialMap",
+                "voxelConversion.VoxelConversionSettings",
+                "voxelConversion.VoxelConversionPlanRequest",
+                "voxelConversion.VoxelConversionDiagnostic",
+                "voxelConversion.VoxelConversionEvidenceRef",
+                "voxelConversion.VoxelConversionPlan",
+                "voxelConversion.VoxelConversionPreviewRequest",
+                "voxelConversion.VoxelConversionPreviewVoxel",
+                "voxelConversion.VoxelConversionPreview",
+                "voxelConversion.VoxelConversionApplyRequest",
+                "voxelConversion.VoxelConversionReceipt",
+            ],
+            LEGACY_GAP_REASON,
+        );
+
+        exempt_items(
+            &mut exemptions,
+            "scene",
+            &[
+                "scene.AssetVersionReq.any",
+                "scene.AssetVersionReq.exact",
+                "scene.AssetVersionReq.atLeast",
+                "scene.AssetReference",
+                "scene.SceneTransform",
+                "scene.SceneNodeKind.emptyGroup",
+                "scene.SceneNodeKind.staticMesh",
+                "scene.SceneNodeKind.sprite",
+                "scene.SceneNodeKind.voxelVolume",
+                "scene.SceneNodeRecord",
+                "scene.SceneMetadata",
+                "scene.FlatSceneDocument",
+                "scene.SceneValidationError",
+                "scene.SceneValidationReport",
+                "scene.SceneObjectRecord",
+                "scene.SceneObjectSnapshot",
+                "scene.SceneObjectCommand.create",
+                "scene.SceneObjectCommand.delete",
+                "scene.SceneObjectCommand.rename",
+                "scene.SceneObjectCommand.reparent",
+                "scene.SceneObjectCommand.translate",
+                "scene.SceneObjectCommand.rotate",
+                "scene.SceneObjectCommand.select",
+                "scene.SceneObjectCommandRejection",
+                "scene.SceneObjectCommandOutcome",
+                "scene.SceneObjectCommandRequest",
+                "scene.SceneObjectCommandResult",
+                "scene.SceneSourceTrace",
+                "scene.BootstrapRecord",
+            ],
+            LEGACY_GAP_REASON,
+        );
+
+        exempt_items(
+            &mut exemptions,
+            "worldBundle",
+            &[
+                "worldBundle.ArtifactEntry",
+                "worldBundle.GeneratorMetadata",
+                "worldBundle.WorldSection",
+                "worldBundle.SceneSection",
+                "worldBundle.AssetLockSection",
+                "worldBundle.WorldBundleManifest",
+                "worldBundle.ManifestError.unsupportedSchema",
+                "worldBundle.ManifestError.unsupportedProtocol",
+                "worldBundle.ManifestError.duplicateArtifact",
+                "worldBundle.ManifestError.missingArtifact",
+                "worldBundle.ManifestError.durableMissingHash",
+                "worldBundle.ManifestValidationReport",
+                "worldBundle.LoadStep.validateVersions",
+                "worldBundle.LoadStep.loadAssetLock",
+                "worldBundle.LoadStep.loadSceneDocument",
+                "worldBundle.LoadStep.generateTerrain",
+                "worldBundle.LoadStep.applyVoxelEdits",
+                "worldBundle.LoadStep.bootstrapScene",
+                "worldBundle.LoadStep.restoreWorldState",
+                "worldBundle.LoadStep.validateFinalState",
+                "worldBundle.LoadPlan",
+                "worldBundle.LoadPlanError.manifest",
+                "worldBundle.LoadPlanError.missingPrerequisiteArtifact",
+                "worldBundle.LoadPlanError.outOfOrder",
+                "worldBundle.LoadPlanError.missingStage",
+                "worldBundle.CompactionSummary",
+                "worldBundle.SaveSummary",
+                "worldBundle.GeneratorMismatch",
+                "worldBundle.EditConflict",
+                "worldBundle.RegenConflictReport",
+            ],
+            LEGACY_GAP_REASON,
+        );
+
+        exempt_items(
+            &mut exemptions,
+            "assets",
+            &[
+                "assets.Rgba",
+                "assets.RenderMaterial",
+                "assets.CollisionMaterial",
+                "assets.MaterialProjection",
+                "assets.CatalogEntry",
+                "assets.Catalog",
+                "assets.CatalogValidationError",
+                "assets.CatalogValidationReport",
+                "assets.AssetLockEntry",
+                "assets.AssetLock",
+                "assets.LockFinding",
+                "assets.LockValidationReport",
+                "assets.FallbackDecision.useFallback",
+                "assets.FallbackDecision.failClosed",
+                "assets.FallbackDecision.skip",
+            ],
+            LEGACY_GAP_REASON,
+        );
+
+        exempt_items(
+            &mut exemptions,
+            "diagnostics",
+            &[
+                "diagnostics.SuggestedRemedy",
+                "diagnostics.DiagnosticSourceRef",
+                "diagnostics.DiagnosticReport",
+                "diagnostics.DiagnosticReportSet",
+                "diagnostics.SourceTrace",
+                "diagnostics.RendererResourceReport",
+            ],
+            LEGACY_GAP_REASON,
+        );
+
+        exempt_items(
+            &mut exemptions,
+            "policyView",
+            &[
+                "policyView.PolicyEntitySource.sceneNode",
+                "policyView.PolicyEntitySource.runtime",
+                "policyView.PolicyEntitySource.policy",
+                "policyView.PolicyWorldCommand.requestSetTransform",
+                "policyView.PolicyWorldCommand.requestDisable",
+                "policyView.PolicyWorldCommand.noopMarker",
+                "policyView.PolicyWorldEvent.labelAdded",
+                "policyView.PolicyWorldEvent.disabled",
+                "policyView.PolicyWorldEvent.noopRecorded",
+                "policyView.PolicyWorldOutcome.accepted",
+            ],
+            LEGACY_GAP_REASON,
+        );
+
+        exempt_items(
+            &mut exemptions,
+            "view",
+            &[
+                "view.CameraPose",
+                "view.CameraBasis",
+                "view.PerspectiveProjection",
+                "view.ViewportSize",
+                "view.CameraCreateRequest",
+                "view.FirstPersonCameraInput",
+                "view.FirstPersonCameraInputEnvelope",
+                "view.CameraProjectionRequest",
+                "view.CameraSnapshot",
+                "view.CameraProjectionSnapshot",
+                "view.CameraCollisionShape",
+                "view.CameraCollisionPolicy",
+                "view.CollisionConstrainedCameraInputEnvelope",
+                "view.CollisionAabbEvidence",
+                "view.CameraCollisionEvidence",
+                "view.CameraCollisionSnapshot",
+                "view.ScreenPoint",
+                "view.ScreenPointToPickRayRequest",
+                "view.PickRaySnapshot",
+                "view.VoxelSelectionSnapshot",
+            ],
+            LEGACY_GAP_REASON,
+        );
+
+        exempt_items(
+            &mut exemptions,
+            "entityAuthoring",
+            &[
+                "entityAuthoring.AuthoringTransform",
+                "entityAuthoring.AuthoringSource.sceneBootstrap",
+                "entityAuthoring.AuthoringSource.runtimeCreated",
+                "entityAuthoring.AuthoringSource.imported",
+                "entityAuthoring.AuthoringSource.diagnosticTooling",
+                "entityAuthoring.AuthoringSource.policyProposed",
+                "entityAuthoring.AuthoringCapability.transform",
+                "entityAuthoring.AuthoringCapability.render",
+                "entityAuthoring.AuthoringCapability.collision",
+                "entityAuthoring.AuthoringCapability.bounds",
+                "entityAuthoring.EntityDefinitionSourceTrace",
+                "entityAuthoring.EntityDefinitionMetadataEntry",
+                "entityAuthoring.EntityDefinitionCapability.transform",
+                "entityAuthoring.EntityDefinitionCapability.render",
+                "entityAuthoring.EntityDefinitionCapability.collision",
+                "entityAuthoring.EntityDefinitionCapability.bounds",
+                "entityAuthoring.EntityDefinitionCapability.unknown",
+                "entityAuthoring.EntityDefinition",
+                "entityAuthoring.EntityDefinitionDiagnostic",
+                "entityAuthoring.EntityDefinitionValidationOutcome.valid",
+                "entityAuthoring.EntityDefinitionValidationOutcome.invalid",
+                "entityAuthoring.EntityAuthoringCommand.create",
+                "entityAuthoring.EntityAuthoringCommand.destroy",
+                "entityAuthoring.EntityAuthoringCommand.disable",
+                "entityAuthoring.EntityAuthoringCommand.enable",
+                "entityAuthoring.EntityAuthoringCommand.addLabel",
+                "entityAuthoring.EntityAuthoringCommand.removeLabel",
+                "entityAuthoring.EntityAuthoringCommand.attachCapability",
+                "entityAuthoring.EntityAuthoringCommand.setTransform",
+                "entityAuthoring.EntityAuthoringCommand.move",
+                "entityAuthoring.EntityAuthoringCommand.attachTransformParent",
+                "entityAuthoring.EntityAuthoringCommand.detachTransformParent",
+                "entityAuthoring.EntityAuthoringCommand.setContainment",
+                "entityAuthoring.EntityAuthoringCommand.clearContainment",
+                "entityAuthoring.EntityAuthoringCommand.setDerivedFrom",
+                "entityAuthoring.EntityAuthoringEvent",
+                "entityAuthoring.EntityAuthoringRejection",
+                "entityAuthoring.EntityAuthoringOutcome.accepted",
+                "entityAuthoring.EntityAuthoringOutcome.rejected",
+            ],
+            LEGACY_GAP_REASON,
+        );
+
+        exemptions
+    }
+
+    fn missing_round_trip_coverage(modules: Vec<Module>) -> Vec<String> {
+        let covered = rust_round_trip_sample_coverage();
+        let exemptions = rust_round_trip_coverage_exemptions();
+        let mut missing = Vec::new();
+
+        for module in modules {
+            for item in &module.items {
+                match item {
+                    Item::Interface { name, .. } => {
+                        let key = interface_coverage_key(&module.name, name);
+                        if !covered.contains(&key) && !exemptions.contains_key(key.as_str()) {
+                            missing.push(key);
+                        }
+                    }
+                    Item::Union { name, variants, .. } => {
+                        for variant in variants {
+                            let key = variant_coverage_key(&module.name, name, &variant.tag);
+                            if !covered.contains(&key) && !exemptions.contains_key(key.as_str()) {
+                                missing.push(key);
+                            }
+                        }
+                    }
+                    Item::Alias { .. }
+                    | Item::BrandedId { .. }
+                    | Item::Const { .. }
+                    | Item::ReExport { .. } => {}
+                }
+            }
+        }
+
+        missing
+    }
+
+    #[test]
+    fn rust_mirrored_ir_entries_have_round_trip_coverage_or_exemption() {
+        let missing = missing_round_trip_coverage(model::all_modules());
+        assert!(
+            missing.is_empty(),
+            "Rust-mirrored IR entries need round-trip samples or documented exemptions:\n{}",
+            missing.join("\n")
+        );
+
+        for (key, reason) in rust_round_trip_coverage_exemptions() {
+            assert!(
+                reason.trim().len() >= 20,
+                "round-trip coverage exemption {key} must include a specific rationale"
+            );
+        }
+    }
+
+    #[test]
+    fn new_rust_mirrored_ir_interface_without_sample_fails_ratchet() {
+        let mut modules = model::all_modules();
+        let telemetry = modules
+            .iter_mut()
+            .find(|module| module.name == "telemetry")
+            .expect("telemetry module exists");
+        telemetry.items.push(Item::Interface {
+            doc: "Mutation-test interface that simulates a forgotten Rust round-trip sample."
+                .to_string(),
+            name: "ForgottenRustMirror".to_string(),
+            fields: Vec::new(),
+        });
+
+        let missing = missing_round_trip_coverage(modules);
+        assert_eq!(missing, vec!["telemetry.ForgottenRustMirror"]);
     }
 
     #[test]
