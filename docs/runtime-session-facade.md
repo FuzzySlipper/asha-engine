@@ -61,6 +61,7 @@ Rust-capable bridge and `mode: 'rust'`; reference fixtures use
 - `previewVoxelConversion(request)`: requests bounded conversion preview output for a previously planned conversion, guarded by the expected plan hash. Rust-backed sessions return typed diagnostics for stale plan hashes; reference sessions fail closed.
 - `applyVoxelConversion(request)`: requests authority application of a validated conversion plan/preview pair. Rust-backed sessions preserve plan/preview hash guards and apply accepted output through the upstream voxel command path; mismatched previews or unsupported authority target grids return classified diagnostics.
 - `exportVoxelConversionEvidence(evidence)`: requests export of selected generated voxel conversion evidence refs from the current Rust authority conversion state. Unknown evidence refs fail closed.
+- `readVoxelModelInfo(request)`: reads bounded authority-owned model information for an applied voxel conversion target, including identity, bounds, voxel count, optional material counts, source/evidence refs, plan/output hashes, session hash, replay hash, and typed diagnostics for missing or unknown models.
 - `readProjection()`: returns a render/projection summary from public render diff contracts.
 - `readEcrpRuntimeReadout()`: returns live Entity/CapabilityState/event readouts derived from the selected backend. Rust-backed readouts identify `mode: 'rust'`, `source: 'rust_bridge'`, authority surface, and declared read sets.
 - `readTelemetry()`: returns sequence/tick/composition/command/replay/hash summary.
