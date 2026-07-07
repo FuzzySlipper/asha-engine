@@ -399,6 +399,7 @@ function fakeAddon(calls: string[] = []): NativeAddon {
         authorityVersion: 'svc-voxel-conversion.v0',
         expectedSourceHash: 'sha256:quad',
         settingsHash: 'fnv1a64:0000000000000102',
+        planHash: VOXEL_PLAN_HASH,
         estimatedOutputVoxels: 1,
         estimatedBounds: { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } },
         diagnostics: [],

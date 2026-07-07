@@ -145,7 +145,10 @@ void test('voxel conversion consumer proof uses public roots and deterministic f
   assert.deepEqual(evidence.map((ref) => ref.kind), ['plan', 'preview', 'apply_receipt']);
   assert.match(plan.planId, /^fnv1a64:/);
   assert.match(plan.settingsHash, /^fnv1a64:/);
+  assert.match(plan.planHash, /^fnv1a64:/);
+  assert.equal(fixture.previewRequest.expectedPlanHash, plan.planHash);
   assert.equal(fixture.previewRequest.expectedPlanHash, authorityFixture.previewRequest.expectedPlanHash);
+  assert.equal(fixture.applyRequest.expectedPlanHash, plan.planHash);
   assert.equal(fixture.applyRequest.expectedPreviewHash, authorityFixture.preview.outputHash);
 
   const diagnosticCodes = fixture.diagnosticCases.map((diagnostic) => diagnostic.code);

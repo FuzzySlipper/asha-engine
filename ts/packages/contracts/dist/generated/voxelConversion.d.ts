@@ -64,6 +64,7 @@ export interface VoxelConversionPlan {
     readonly authorityVersion: string;
     readonly expectedSourceHash: string;
     readonly settingsHash: string;
+    readonly planHash: string;
     readonly estimatedOutputVoxels: number;
     readonly estimatedBounds: VoxelConversionBounds | null;
     readonly diagnostics: readonly VoxelConversionDiagnostic[];

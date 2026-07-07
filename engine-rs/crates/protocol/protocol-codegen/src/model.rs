@@ -1212,6 +1212,7 @@ pub fn voxel_conversion_module() -> Module {
                 f("authorityVersion", string()),
                 f("expectedSourceHash", string()),
                 f("settingsHash", string()),
+                f("planHash", string()),
                 f("estimatedOutputVoxels", num()),
                 f(
                     "estimatedBounds",

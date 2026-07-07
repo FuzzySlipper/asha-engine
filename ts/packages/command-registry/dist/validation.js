@@ -454,6 +454,7 @@ function isVoxelConversionPlan(value) {
             'authorityVersion',
             'expectedSourceHash',
             'settingsHash',
+            'planHash',
             'estimatedOutputVoxels',
             'estimatedBounds',
             'diagnostics',
@@ -466,6 +467,7 @@ function isVoxelConversionPlan(value) {
         && isString(value.authorityVersion)
         && isString(value.expectedSourceHash)
         && isString(value.settingsHash)
+        && isString(value.planHash)
         && isInteger(value.estimatedOutputVoxels)
         && (value.estimatedBounds === null || isVoxelConversionBounds(value.estimatedBounds))
         && Array.isArray(value.diagnostics)

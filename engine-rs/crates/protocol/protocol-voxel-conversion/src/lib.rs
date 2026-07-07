@@ -275,6 +275,7 @@ pub struct VoxelConversionPlan {
     pub authority_version: String,
     pub expected_source_hash: String,
     pub settings_hash: String,
+    pub plan_hash: String,
     pub estimated_output_voxels: u64,
     pub estimated_bounds: Option<VoxelConversionBounds>,
     pub diagnostics: Vec<VoxelConversionDiagnostic>,

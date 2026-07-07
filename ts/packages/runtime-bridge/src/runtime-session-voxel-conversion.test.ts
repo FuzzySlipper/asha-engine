@@ -79,6 +79,7 @@ function voxelConversionPlan(request: VoxelConversionPlanRequest): VoxelConversi
     authorityVersion: 'svc-voxel-conversion.v0',
     expectedSourceHash: request.source.sourceHash,
     settingsHash: 'fnv1a64:settings',
+    planHash: PLAN_HASH,
     estimatedOutputVoxels: 1,
     estimatedBounds: { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } },
     diagnostics: [],

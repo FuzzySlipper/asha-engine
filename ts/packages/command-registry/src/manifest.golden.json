@@ -2341,6 +2341,7 @@
         "authorityVersion": "svc-voxel-conversion.v0",
         "expectedSourceHash": "sha256-source-mesh",
         "settingsHash": "sha256-settings",
+        "planHash": "sha256-plan",
         "estimatedOutputVoxels": 24,
         "estimatedBounds": {
           "min": {

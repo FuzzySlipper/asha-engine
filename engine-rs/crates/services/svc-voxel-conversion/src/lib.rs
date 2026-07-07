@@ -94,6 +94,14 @@ pub fn plan_conversion(
         &settings_fingerprint(request),
     ]);
     let settings_hash = stable_hash(&["settings", &settings_fingerprint(request)]);
+    let authority_version = AUTHORITY_VERSION.to_string();
+    let expected_source_hash = request.source.source_hash.clone();
+    let plan_hash = plan_hash_from_parts(
+        &plan_id,
+        &expected_source_hash,
+        &settings_hash,
+        &authority_version,
+    );
     let evidence = vec![evidence_ref(
         VoxelConversionEvidenceKind::Plan,
         format!("asha://voxel-conversion/plan/{plan_id}"),
@@ -106,9 +114,10 @@ pub fn plan_conversion(
             source: request.source.clone(),
             target: request.target.clone(),
             settings: request.settings.clone(),
-            authority_version: AUTHORITY_VERSION.to_string(),
-            expected_source_hash: request.source.source_hash.clone(),
+            authority_version,
+            expected_source_hash,
             settings_hash,
+            plan_hash,
             estimated_output_voxels,
             estimated_bounds,
             diagnostics,
@@ -223,12 +232,26 @@ pub fn apply_conversion(
 }
 
 pub fn plan_hash(plan: &VoxelConversionPlan) -> String {
-    stable_hash(&[
-        "plan-hash",
+    plan_hash_from_parts(
         &plan.plan_id,
         &plan.expected_source_hash,
         &plan.settings_hash,
         &plan.authority_version,
+    )
+}
+
+fn plan_hash_from_parts(
+    plan_id: &str,
+    expected_source_hash: &str,
+    settings_hash: &str,
+    authority_version: &str,
+) -> String {
+    stable_hash(&[
+        "plan-hash",
+        plan_id,
+        expected_source_hash,
+        settings_hash,
+        authority_version,
     ])
 }
 
@@ -934,11 +957,12 @@ mod tests {
         assert!(planned.plan.diagnostics.is_empty());
         assert_eq!(planned.plan.estimated_output_voxels, 4);
         assert_eq!(planned.plan.estimated_bounds.unwrap().max.x, 3);
+        assert_eq!(planned.plan.plan_hash, plan_hash(&planned.plan));
 
         let preview = preview_conversion(
             &VoxelConversionPreviewRequest {
                 plan_id: planned.plan.plan_id.clone(),
-                expected_plan_hash: plan_hash(&planned.plan),
+                expected_plan_hash: planned.plan.plan_hash.clone(),
             },
             &planned,
         );

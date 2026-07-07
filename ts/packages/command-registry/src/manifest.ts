@@ -598,6 +598,7 @@ const voxelConversionPlanExample: VoxelConversionPlan = {
   authorityVersion: 'svc-voxel-conversion.v0',
   expectedSourceHash: 'sha256-source-mesh',
   settingsHash: 'sha256-settings',
+  planHash: 'sha256-plan',
   estimatedOutputVoxels: 24,
   estimatedBounds: { min: { x: 0, y: 0, z: 0 }, max: { x: 7, y: 7, z: 7 } },
   diagnostics: [
@@ -612,7 +613,7 @@ const voxelConversionPlanExample: VoxelConversionPlan = {
 };
 const voxelConversionPreviewRequestExample: VoxelConversionPreviewRequest = {
   planId: voxelConversionPlanExample.planId,
-  expectedPlanHash: 'sha256-plan',
+  expectedPlanHash: voxelConversionPlanExample.planHash,
 };
 const voxelConversionPreviewExample: VoxelConversionPreview = {
   planId: voxelConversionPlanExample.planId,
@@ -691,7 +692,7 @@ export const COMMAND_MANIFEST = [
   }),
   base<VoxelConversionApplyCommandInput, VoxelConversionApplyCommandOutput>({
     id: 'voxel_conversion.apply', label: 'Apply Voxel Conversion', summary: 'Apply a planned voxel conversion through RuntimeSession authority with receipt and replay-oriented hashes.', category: 'authority_edit', menuPath: ['Voxel Conversion', 'Apply'], keywords: ['voxel', 'conversion', 'apply', 'authority'],
-    inputSchema: voxelConversionApplyInput, outputSchema: voxelConversionApplyOutput, operationClass: 'authority_mutating', stateImpact: mutateAuthority, runtimeRequirements: [runtimeSession('applyVoxelConversion')], artifacts: [artifact('voxel_conversion_receipt', 'Apply receipt with accepted output hash/count, diagnostics, and evidence refs.')], typedInputExample: { sessionId: 'session-1', request: { planId: voxelConversionPlanExample.planId, expectedPlanHash: 'sha256-plan', expectedPreviewHash: voxelConversionPreviewExample.outputHash } }, typedOutputExample: { receipt: voxelConversionReceiptExample }, panel: 'timeline', dialog: 'advanced_form', inputContractRefs: [{ package: '@asha/contracts', exportName: 'VoxelConversionApplyRequest' }], outputContractRefs: [{ package: '@asha/contracts', exportName: 'VoxelConversionReceipt' }], agentExposure: { kind: 'authority_mutating', requiresPreview: true, batchable: false }, undo: { kind: 'not_undoable', reason: 'Conversion apply must be reversed by an explicit future authority command or snapshot restore, not registry-local metadata.' }, retry: 'safe_to_retry_if_state_hash_unchanged', idempotency: { kind: 'conditional', condition: 'Safe only when expected plan/preview hashes still match and the conversion has not already committed.' }, knownLimitations: ['RuntimeSessionFacade may fail closed with operation_unimplemented until voxel conversion backend wiring lands.'],
+    inputSchema: voxelConversionApplyInput, outputSchema: voxelConversionApplyOutput, operationClass: 'authority_mutating', stateImpact: mutateAuthority, runtimeRequirements: [runtimeSession('applyVoxelConversion')], artifacts: [artifact('voxel_conversion_receipt', 'Apply receipt with accepted output hash/count, diagnostics, and evidence refs.')], typedInputExample: { sessionId: 'session-1', request: { planId: voxelConversionPlanExample.planId, expectedPlanHash: voxelConversionPlanExample.planHash, expectedPreviewHash: voxelConversionPreviewExample.outputHash } }, typedOutputExample: { receipt: voxelConversionReceiptExample }, panel: 'timeline', dialog: 'advanced_form', inputContractRefs: [{ package: '@asha/contracts', exportName: 'VoxelConversionApplyRequest' }], outputContractRefs: [{ package: '@asha/contracts', exportName: 'VoxelConversionReceipt' }], agentExposure: { kind: 'authority_mutating', requiresPreview: true, batchable: false }, undo: { kind: 'not_undoable', reason: 'Conversion apply must be reversed by an explicit future authority command or snapshot restore, not registry-local metadata.' }, retry: 'safe_to_retry_if_state_hash_unchanged', idempotency: { kind: 'conditional', condition: 'Safe only when expected plan/preview hashes still match and the conversion has not already committed.' }, knownLimitations: ['RuntimeSessionFacade may fail closed with operation_unimplemented until voxel conversion backend wiring lands.'],
   }),
   base<VoxelConversionEvidenceExportInput, VoxelConversionEvidenceExportOutput>({
     id: 'voxel_conversion.export_evidence', label: 'Export Voxel Conversion Evidence', summary: 'Export selected voxel conversion evidence refs for Studio timeline and review packets.', category: 'export', menuPath: ['Voxel Conversion', 'Export Evidence'], keywords: ['voxel', 'conversion', 'evidence', 'export'],

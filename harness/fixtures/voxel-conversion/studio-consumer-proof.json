@@ -101,6 +101,7 @@
       }
     ],
     "expectedSourceHash": "sha256:quad",
+    "planHash": "fnv1a64:d6599862cf46e3b7",
     "planId": "fnv1a64:19b47aaa598c9130",
     "settings": {
       "fitPolicy": "contain",
