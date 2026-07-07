@@ -50,8 +50,10 @@ moving downstream planning truth into this engine repository.
 
 - [harness/public-surface/check-public-boundary.py](../../harness/public-surface/check-public-boundary.py)
 - [harness/fixtures/smoke](../../harness/fixtures/smoke)
-- [harness/smoke-out](../../harness/smoke-out)
 - [docs/consumer-compatibility.md](../consumer-compatibility.md)
+
+Generated smoke reports are emitted under `harness/smoke-out/`; that directory
+is local output and is intentionally not a checked-in Atlas link target.
 
 ## Common Agent Mistakes
 
