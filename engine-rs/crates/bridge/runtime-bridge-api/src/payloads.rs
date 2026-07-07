@@ -1,0 +1,497 @@
+use crate::*;
+
+// ── Prototype operation payloads ────────────────────────────────────────────--
+//
+// PROTOTYPE NOTE: these minimal structs stand in for generated `protocol_runtime`
+// types (`EngineConfig`/`StepInputEnvelope`/`StepResult`). The codegen emitter
+// (#2250 follow-up) replaces them with protocol-crate types; the *shape* of the
+// trait below is the stable part.
+
+/// Engine construction config. A deterministic seed is the only required input.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EngineConfig {
+    pub seed: u64,
+}
+
+/// Deterministic per-tick input envelope.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StepInputEnvelope {
+    pub tick: u64,
+}
+
+/// Result of advancing one tick.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StepResult {
+    pub tick: u64,
+    /// Number of render diffs produced this tick (real impl returns a descriptor).
+    pub diff_count: u32,
+}
+
+/// Bounded request to apply an enemy direct-nav movement transaction.
+///
+/// `seed_position` is used only when this bridge session has not yet seen the
+/// entity. Once seeded, Rust authority reads the current transform from its
+/// [`EntityStore`] and ignores any stale caller-side position.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EnemyDirectNavMovementRequest {
+    pub entity: u64,
+    pub seed_position: Vec3,
+    pub target: Vec3,
+    pub max_step_units: f32,
+}
+
+/// Where the movement transaction read the starting transform from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnemyDirectNavAuthoritySource {
+    SeededFromRequest,
+    RustEntityStore,
+}
+
+impl EnemyDirectNavAuthoritySource {
+    pub fn label(self) -> &'static str {
+        match self {
+            EnemyDirectNavAuthoritySource::SeededFromRequest => "seeded_from_request",
+            EnemyDirectNavAuthoritySource::RustEntityStore => "rust_entity_store",
+        }
+    }
+}
+
+/// Result of a Rust-owned enemy direct-nav movement application.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EnemyDirectNavMovementResult {
+    pub entity: u64,
+    pub authority_source: EnemyDirectNavAuthoritySource,
+    pub from: Vec3,
+    pub target: Vec3,
+    pub next_waypoint: Vec3,
+    pub distance_units: f32,
+    pub reached: bool,
+    pub path_hash: u64,
+    pub transform_hash: u64,
+    pub projection_changed: bool,
+}
+
+/// Why an enemy direct-nav movement transaction was rejected.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnemyDirectNavMovementError {
+    InvalidEntity,
+    Navigation(DirectNavMovementError),
+    Transform(TransformError),
+}
+
+impl EnemyDirectNavMovementError {
+    pub fn label(self) -> &'static str {
+        match self {
+            EnemyDirectNavMovementError::InvalidEntity => "invalidEntity",
+            EnemyDirectNavMovementError::Navigation(error) => error.label(),
+            EnemyDirectNavMovementError::Transform(error) => error.label(),
+        }
+    }
+}
+
+// PROTOTYPE NOTE: these stand in for the generated
+// `protocol_world_bundle::{WorldBundleManifest, SaveSummary}` /
+// `protocol_diagnostics::DiagnosticReportSet` contract types named in the
+// manifest. The *shape* of the load/save verbs is the stable part.
+
+/// A bounded request to load a world bundle. Identifies the bundle and its
+/// versions; the runtime resolves artifacts itself (never a raw path or JSON).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorldLoadRequest {
+    pub bundle_schema_version: u32,
+    pub protocol_version: u32,
+    /// The scene identity the bundle bootstraps (stand-in for the full manifest).
+    pub scene_id: u64,
+}
+
+/// A bounded composition status / diagnostics summary (load + save).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompositionStatus {
+    /// The currently-loaded world's scene identity, or `None` if empty.
+    pub loaded_world: Option<u64>,
+    /// Number of `Fatal` composition diagnostics.
+    pub fatal_count: u32,
+    /// Total composition diagnostics.
+    pub total_count: u32,
+    /// Whether the diagnostics block a load.
+    pub blocks_load: bool,
+}
+
+impl CompositionStatus {
+    /// An empty, clean status (no world loaded, no diagnostics).
+    pub fn empty() -> Self {
+        Self {
+            loaded_world: None,
+            fatal_count: 0,
+            total_count: 0,
+            blocks_load: false,
+        }
+    }
+}
+
+/// A bounded summary of a save through the real save/compaction path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WorldSaveSummary {
+    pub artifacts_written: u32,
+    pub compacted_edits: u32,
+    pub retained_edits: u32,
+}
+
+// ── Command submission payloads (launchable-voxel, #2436) ─────────────────────
+//
+// The launch/edit loop submits **generated** voxel commands (the authority-owned
+// `core_commands::VoxelCommand`, mirrored into the TS `voxel.ts` contract) for
+// Rust-side validation + apply via `rule-voxel-edit`. No placeholder `{ kind }`
+// command tunnel: the batch carries the real typed command union.
+
+/// A batch of proposed voxel commands awaiting Rust-side validation + apply.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CommandBatch {
+    pub commands: Vec<VoxelCommand>,
+}
+
+/// The classified outcome of a [`RuntimeBridge::submit_commands`] batch: how many
+/// commands authority accepted/rejected, plus the classified rejection for each
+/// refused command (never a silent drop). Accepted commands have already mutated
+/// authority voxel state and marked their chunks dirty.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CommandResult {
+    pub accepted: u32,
+    pub rejected: u32,
+    /// One classified rejection per refused command, in submission order.
+    pub rejections: Vec<VoxelEditRejection>,
+}
+
+/// Build the public set-voxel command used by transport glue that must stay
+/// outside the state/rule crates. This keeps native/wasm adapters from depending
+/// directly on authority internals while still carrying the real command union.
+pub fn set_voxel_command(grid: u32, x: i64, y: i64, z: i64, material: u16) -> VoxelCommand {
+    VoxelCommand::SetVoxel {
+        grid: GridId::new(grid),
+        coord: VoxelCoord::new(x, y, z),
+        value: VoxelValue::solid_raw(material),
+    }
+}
+
+// ── Pick (voxel raycast) payloads (launchable-voxel picking, #2437) ───────────
+//
+// The renderer/UI builds a world-space ray from camera + pointer and hands it to
+// `pick_voxel`. Rust authority owns the voxel-grid raycast (`svc-collision`); the
+// renderer never owns authoritative voxel coordinates. Mirrors the generated
+// `voxel.ts` `PickRay` / `VoxelHit` / `PickResult` border shapes.
+
+/// A world-space pick ray. `grid` selects which authority grid to cast against;
+/// `origin`/`direction` are world-space `[x, y, z]`; `max_distance` bounds the cast.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PickRay {
+    pub grid: u64,
+    pub origin: [f64; 3],
+    pub direction: [f64; 3],
+    pub max_distance: f64,
+}
+
+/// An authoritative voxel ray hit (the border mirror of `svc_collision::VoxelHit`,
+/// carrying the grid id so the border is self-describing).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct VoxelHit {
+    pub grid: u64,
+    pub voxel: VoxelCoord,
+    pub chunk: ChunkCoord,
+    pub face: Face,
+    pub point: [f64; 3],
+    pub distance: f64,
+}
+
+/// Why a pick produced no authoritative hit. Mirrors the `noHit` arm of the
+/// generated `PickRejection`; `hitMismatch` is reserved for the renderer-hint
+/// revalidation path (a later picking slice), so the raw-ray pick only ever
+/// reports `NoHit`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PickRejection {
+    #[default]
+    NoHit,
+}
+
+/// The classified outcome of an authority voxel pick.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PickResult {
+    Hit(VoxelHit),
+    Miss(PickRejection),
+}
+
+// ── Voxel mesh/remesh evidence (basic graphical voxel proof, #2646) ───────────
+
+/// Compact request for deterministic voxel mesh evidence. If `chunks` is empty,
+/// the bridge reports every resident chunk in canonical coordinate order.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct VoxelMeshEvidenceRequest {
+    pub grid: u64,
+    pub chunks: Vec<ChunkCoord>,
+}
+
+/// Compact mesh counters suitable for artifacts without inline geometry arrays.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct VoxelMeshStatsEvidence {
+    pub vertices: u32,
+    pub indices: u32,
+    pub quads: u32,
+    pub faces_emitted: u32,
+    pub faces_culled: u32,
+}
+
+/// Axis-aligned chunk-local mesh bounds.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct VoxelMeshBoundsEvidence {
+    pub min: [f32; 3],
+    pub max: [f32; 3],
+}
+
+/// Per-chunk compact mesh evidence derived from authoritative voxel state.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VoxelMeshChunkEvidence {
+    pub coord: ChunkCoord,
+    pub resident: bool,
+    pub visible: bool,
+    pub content_hash: Option<String>,
+    pub mesh_hash: Option<String>,
+    pub stats: Option<VoxelMeshStatsEvidence>,
+    pub bounds: Option<VoxelMeshBoundsEvidence>,
+    pub material_slots: Vec<u16>,
+}
+
+/// Compact mesh snapshot for proof artifacts: no Three.js objects, no inline mesh
+/// arrays by default, just stable hashes/stats sufficient to prove remeshing.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VoxelMeshEvidenceSnapshot {
+    pub grid: u64,
+    pub fixture_id: String,
+    pub world_hash: String,
+    pub meshing_strategy: String,
+    pub chunks: Vec<VoxelMeshChunkEvidence>,
+    pub diagnostics: Vec<String>,
+}
+
+// ── FPS/ECRP RuntimeSession authority payloads (#4347) ───────────────────────
+//
+// These DTOs are the narrow public bridge shape for the FPS RuntimeSession
+// substrate. Stored definitions enter as typed data, Rust validates/bootstrap
+// them through rule-lifecycle/svc-entity-authoring, and readouts project typed
+// authority state. There is no generic ProjectBundle JSON tunnel here.
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum FpsBridgeRole {
+    Player,
+    Enemy,
+    Neutral,
+}
+
+impl FpsBridgeRole {
+    pub fn label(self) -> &'static str {
+        match self {
+            FpsBridgeRole::Player => "player",
+            FpsBridgeRole::Enemy => "enemy",
+            FpsBridgeRole::Neutral => "neutral",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FpsBridgeTransformCapability {
+    pub translation: [f32; 3],
+    pub rotation: [f32; 4],
+    pub scale: [f32; 3],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FpsBridgeBoundsCapability {
+    pub min: [f32; 3],
+    pub max: [f32; 3],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FpsBridgeHealth {
+    pub current: u32,
+    pub max: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsBridgeWeaponMount {
+    pub weapon_id: String,
+    pub damage: u32,
+    pub range_units: u32,
+    pub ammo: u32,
+    pub cooldown_ticks_after_fire: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsBridgePolicyBinding {
+    pub binding_id: String,
+    pub policy_id: String,
+    pub view_kind: String,
+    pub view_version: String,
+    pub allowed_intents: Vec<String>,
+    pub runtime_moment: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FpsBridgeStoredEntityDefinition {
+    pub entity: u64,
+    pub stable_id: String,
+    pub display_name: String,
+    pub source_path: String,
+    pub tags: Vec<String>,
+    pub role: FpsBridgeRole,
+    pub transform: Option<FpsBridgeTransformCapability>,
+    pub bounds: Option<FpsBridgeBoundsCapability>,
+    pub render_visible: Option<bool>,
+    pub static_collider: Option<bool>,
+    pub health: Option<FpsBridgeHealth>,
+    pub weapon: Option<FpsBridgeWeaponMount>,
+    pub policy_binding: Option<FpsBridgePolicyBinding>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FpsRuntimeSessionLoadRequest {
+    pub project_bundle: String,
+    pub definitions: Vec<FpsBridgeStoredEntityDefinition>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsRuntimeSessionRestartRequest {
+    pub expected_epoch: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FpsPrimaryFireRequest {
+    pub tick: u64,
+    pub origin: [f64; 3],
+    pub direction: [f64; 3],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsReadSetEvidence {
+    pub view_kind: String,
+    pub owner: String,
+    pub read_set: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsReplayEvidence {
+    pub replay_unit: String,
+    pub entity_hash: u64,
+    pub health_hash: u64,
+    pub record_hash: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsEntityHealthReadout {
+    pub entity: u64,
+    pub current: u32,
+    pub max: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsPolicyBindingReadout {
+    pub entity: u64,
+    pub binding_id: String,
+    pub policy_id: String,
+    pub view_kind: String,
+    pub view_version: String,
+    pub allowed_intents: Vec<String>,
+    pub runtime_moment: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FpsBridgeLifecycleStatus {
+    Active,
+    EnemyDefeated { entity: u64, tick: u64 },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsRuntimeSessionSnapshot {
+    pub backend: String,
+    pub authority_surface: String,
+    pub project_bundle: String,
+    pub session_epoch: u64,
+    pub lifecycle_status: FpsBridgeLifecycleStatus,
+    pub player_entity: u64,
+    pub enemy_entity: u64,
+    pub health: Vec<FpsEntityHealthReadout>,
+    pub policy_bindings: Vec<FpsPolicyBindingReadout>,
+    pub replay_records: Vec<FpsReplayEvidence>,
+    pub read_sets: Vec<FpsReadSetEvidence>,
+    pub entity_hash: u64,
+    pub health_hash: u64,
+    pub replay_hash: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FpsPrimaryFireResult {
+    pub backend: String,
+    pub authority_surface: String,
+    pub mutation_owner: String,
+    pub workspace_trace: Vec<String>,
+    pub shooter: u64,
+    pub target: Option<u64>,
+    pub target_health_before: Option<FpsBridgeHealth>,
+    pub target_health_after: Option<FpsBridgeHealth>,
+    pub lifecycle_status: FpsBridgeLifecycleStatus,
+    pub target_render_visible: Option<bool>,
+    pub entity_hash: u64,
+    pub health_hash: u64,
+    pub replay_hash: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsEncounterLifecycleInput {
+    pub outcome_kind: String,
+    pub terminal: bool,
+    pub enemy_dead: bool,
+    pub player_dead: bool,
+    pub lifecycle_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsEncounterTransitionRequest {
+    pub preset_id: String,
+    pub action: String,
+    pub lifecycle: FpsEncounterLifecycleInput,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsEncounterStateReadout {
+    pub preset_id: String,
+    pub status: String,
+    pub spawned_enemy_ids: Vec<String>,
+    pub defeated_enemy_ids: Vec<String>,
+    pub revision: u64,
+    pub last_transition: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsEncounterDirectorSnapshot {
+    pub backend: String,
+    pub authority_surface: String,
+    pub mutation_owner: String,
+    pub workspace_trace: Vec<String>,
+    pub state: FpsEncounterStateReadout,
+    pub lifecycle: FpsEncounterLifecycleInput,
+    pub read_sets: Vec<FpsReadSetEvidence>,
+    pub encounter_hash: u64,
+    pub replay_hash: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FpsEncounterTransitionResult {
+    pub backend: String,
+    pub authority_surface: String,
+    pub mutation_owner: String,
+    pub workspace_trace: Vec<String>,
+    pub accepted: bool,
+    pub rejection_reason: Option<String>,
+    pub event_kind: Option<String>,
+    pub state: FpsEncounterStateReadout,
+    pub lifecycle: FpsEncounterLifecycleInput,
+    pub encounter_hash: u64,
+    pub replay_hash: u64,
+}

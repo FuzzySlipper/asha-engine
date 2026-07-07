@@ -1,0 +1,7 @@
+{
+  "maxSourceLines": 1600,
+  "fileLineExemptions": {
+    "engine-rs/crates/protocol/protocol-codegen/src/model.rs": "Protocol-codegen still owns the hand-maintained Rust-to-TS IR registry while the R3-4 completeness/derive follow-up is pending; split generated-contract families or derive the IR before removing this exemption.",
+    "engine-rs/crates/protocol/protocol-render/src/lib.rs": "Protocol-render is an older consolidated border DTO crate; split render material, texture, sprite, mesh, and diff shape families during the next protocol-surface module pass."
+  }
+}

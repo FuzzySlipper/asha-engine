@@ -6,6 +6,9 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 echo "==> Verifying Rust dependency graph"
 bash "$REPO_ROOT/harness/depgraph/verify-rust-deps.sh"
 
+echo "==> Rust source shape guard"
+node "$REPO_ROOT/harness/depgraph/check-rust-source-shape.mjs" "$REPO_ROOT"
+
 echo "==> Verifying TypeScript dependency graph"
 bash "$REPO_ROOT/harness/depgraph/verify-ts-deps.sh"
 
