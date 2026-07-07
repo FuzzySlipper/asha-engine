@@ -1181,6 +1181,31 @@ mod tests {
     }
 
     #[test]
+    fn material_map_default_is_rust_authority_fallback() {
+        let source = quad_source();
+        let mut request = request_for(&source, VoxelConversionMode::Surface, [4, 4, 1], 16);
+        request.settings.material_map.entries = vec![VoxelConversionMaterialMapEntry {
+            source_material_slot: 0,
+            source_material_id: Some("mat/a".to_string()),
+            voxel_material: 3,
+        }];
+        request.settings.material_map.default_voxel_material = Some(7);
+
+        let planned = plan_conversion(&request, &source);
+        let preview = preview_conversion(
+            &VoxelConversionPreviewRequest {
+                plan_id: planned.plan.plan_id.clone(),
+                expected_plan_hash: planned.plan.plan_hash.clone(),
+            },
+            &planned,
+        );
+
+        assert!(planned.plan.diagnostics.is_empty());
+        assert_eq!(preview.output_voxel_count, 4);
+        assert_eq!(material_label(&preview.sample_voxels), "3,7");
+    }
+
+    #[test]
     fn unsupported_topology_rejects_solid_mode() {
         let source = quad_source();
         let request = request_for(&source, VoxelConversionMode::Solid, [2, 2, 2], 8);
