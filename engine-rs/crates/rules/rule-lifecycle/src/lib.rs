@@ -841,8 +841,8 @@ mod tests {
         }
     }
 
-    fn load_custom_session() -> FpsRuntimeSessionState {
-        load_fps_project_bundle(FpsProjectBundleLoadInput {
+    fn custom_load_input() -> FpsProjectBundleLoadInput {
+        FpsProjectBundleLoadInput {
             project_bundle: "custom-demo".into(),
             definitions: vec![
                 FpsStoredEntityDefinition {
@@ -894,8 +894,81 @@ mod tests {
                     }),
                 },
             ],
-        })
-        .expect("load session")
+        }
+    }
+
+    fn load_custom_session() -> FpsRuntimeSessionState {
+        load_fps_project_bundle(custom_load_input()).expect("load session")
+    }
+
+    fn lifecycle_input(
+        outcome_kind: &str,
+        terminal: bool,
+        enemy_dead: bool,
+        player_dead: bool,
+    ) -> FpsEncounterLifecycleInput {
+        FpsEncounterLifecycleInput {
+            outcome_kind: outcome_kind.into(),
+            terminal,
+            enemy_dead,
+            player_dead,
+            lifecycle_hash: format!(
+                "lifecycle-{outcome_kind}-{terminal}-{enemy_dead}-{player_dead}"
+            ),
+        }
+    }
+
+    #[test]
+    fn project_bundle_bootstrap_preserves_owner_matrix_capability_readout() {
+        let session = load_custom_session();
+
+        assert_eq!(session.project_bundle, "custom-demo");
+        assert_eq!(session.bootstrap.project_bundle, "custom-demo");
+        assert_eq!(
+            session.bootstrap.replay_unit_label,
+            "project_bundle.entity_definitions.bootstrap"
+        );
+        assert_eq!(session.bootstrap.records.len(), 2);
+        assert_eq!(
+            session.roles.get(&FpsRuntimeRole::Player),
+            Some(&EntityId::new(101))
+        );
+        assert_eq!(
+            session.roles.get(&FpsRuntimeRole::Enemy),
+            Some(&EntityId::new(777))
+        );
+
+        for record in &session.bootstrap.records {
+            assert_eq!(
+                record.applied_capabilities,
+                vec!["transform", "bounds", "render", "collision"]
+            );
+            assert_eq!(record.replay_unit_label, "entity_definition.bootstrap");
+            assert_eq!(
+                session.entity_lifecycle(record.entity),
+                Some(EntityLifecycle::Active)
+            );
+        }
+
+        assert_eq!(
+            session.render_projection.get(&EntityId::new(101)),
+            Some(&FpsRenderProjectionState {
+                projection: "first_person_camera".into(),
+                visible: true,
+            })
+        );
+        assert_eq!(
+            session.render_projection.get(&EntityId::new(777)),
+            Some(&FpsRenderProjectionState {
+                projection: "target_cube".into(),
+                visible: true,
+            })
+        );
+        assert_eq!(session.replay_records.len(), 1);
+        assert_eq!(
+            session.replay_records[0].kind,
+            "runtime_session.fps.bootstrap.v0"
+        );
     }
 
     #[test]
@@ -960,5 +1033,219 @@ mod tests {
         assert_ne!(receipt.replay_hash, 0);
         assert_eq!(session.replay_records.len(), 2);
         assert_eq!(session.replay_records[1].record_hash, receipt.replay_hash);
+    }
+
+    #[test]
+    fn primary_fire_miss_records_combat_without_mutating_lifecycle_or_visibility() {
+        let projection = tunnel_projection();
+        let mut session = load_custom_session();
+        let enemy = EntityId::new(777);
+        let before_entity_hash = session.entities.hash().0;
+        let before_health_hash = session.combat.health_hash();
+
+        let receipt = session
+            .apply_primary_fire(
+                &projection,
+                Ray::new(WorldPos::new(2.5, 1.5, 1.5), WorldVec::new(1.0, 0.0, 0.0)),
+                10,
+            )
+            .expect("primary fire miss");
+
+        assert_eq!(receipt.target, None);
+        assert_eq!(
+            receipt.combat.outcome,
+            CombatFireOutcome::Miss {
+                reason: svc_combat::FireMissReason::NoTarget
+            }
+        );
+        assert_eq!(receipt.target_health_before, Some(HealthState::new(75, 75)));
+        assert_eq!(receipt.target_health_after, Some(HealthState::new(75, 75)));
+        assert_eq!(session.health(enemy), Some(HealthState::new(75, 75)));
+        assert_eq!(session.lifecycle_status, FpsLifecycleStatus::Active);
+        assert_eq!(
+            session.entity_lifecycle(enemy),
+            Some(EntityLifecycle::Active)
+        );
+        assert_eq!(receipt.target_render_visible, Some(true));
+        assert_eq!(session.entities.hash().0, before_entity_hash);
+        assert_eq!(session.combat.health_hash(), before_health_hash);
+        assert_eq!(session.replay_records.len(), 2);
+        assert_eq!(session.replay_records[1].record_hash, receipt.replay_hash);
+    }
+
+    #[test]
+    fn primary_fire_nonlethal_hit_updates_health_without_death_lifecycle() {
+        let projection = tunnel_projection();
+        let mut input = custom_load_input();
+        input.definitions[0]
+            .weapon
+            .as_mut()
+            .expect("player weapon")
+            .damage = 25;
+        let mut session = load_fps_project_bundle(input).expect("load session");
+        let enemy = EntityId::new(777);
+
+        let receipt = session
+            .apply_primary_fire(
+                &projection,
+                Ray::new(WorldPos::new(2.5, 1.5, 1.5), WorldVec::new(0.0, 0.0, 1.0)),
+                11,
+            )
+            .expect("primary fire hit");
+
+        assert_eq!(receipt.target, Some(enemy));
+        assert_eq!(receipt.target_health_before, Some(HealthState::new(75, 75)));
+        assert_eq!(receipt.target_health_after, Some(HealthState::new(50, 75)));
+        assert_eq!(session.health(enemy), Some(HealthState::new(50, 75)));
+        assert_eq!(session.lifecycle_status, FpsLifecycleStatus::Active);
+        assert_eq!(
+            session.entity_lifecycle(enemy),
+            Some(EntityLifecycle::Active)
+        );
+        assert_eq!(receipt.target_render_visible, Some(true));
+        assert!(matches!(
+            receipt.combat.outcome,
+            CombatFireOutcome::Hit {
+                target,
+                defeated: false,
+                ..
+            } if target == enemy
+        ));
+        assert!(!receipt.combat.events.iter().any(
+            |event| matches!(event, CombatEvent::EntityDefeated { target } if *target == enemy)
+        ));
+    }
+
+    #[test]
+    fn primary_fire_rejection_does_not_append_replay_or_mutate_health() {
+        let projection = tunnel_projection();
+        let mut session = load_custom_session();
+        let enemy = EntityId::new(777);
+        let before_replay_records = session.replay_records.clone();
+        let before_health_hash = session.combat.health_hash();
+
+        let err = session
+            .apply_primary_fire(
+                &projection,
+                Ray::new(WorldPos::new(2.5, 1.5, 1.5), WorldVec::new(0.0, 0.0, 0.0)),
+                12,
+            )
+            .expect_err("zero direction ray is rejected");
+
+        assert_eq!(
+            err,
+            FpsRuntimeError::CombatRejected(CombatRejectionReason::InvalidRay)
+        );
+        assert_eq!(session.health(enemy), Some(HealthState::new(75, 75)));
+        assert_eq!(session.combat.health_hash(), before_health_hash);
+        assert_eq!(session.replay_records, before_replay_records);
+        assert_eq!(session.lifecycle_status, FpsLifecycleStatus::Active);
+    }
+
+    #[test]
+    fn load_rejects_invalid_project_bundle_and_runtime_authority_inputs() {
+        let mut missing_weapon = custom_load_input();
+        missing_weapon.definitions[0].weapon = None;
+        assert_eq!(
+            load_fps_project_bundle(missing_weapon).expect_err("player weapon required"),
+            FpsRuntimeError::MissingPlayerWeapon {
+                entity: EntityId::new(101)
+            }
+        );
+
+        let mut missing_enemy_health = custom_load_input();
+        missing_enemy_health.definitions[1].health = None;
+        assert_eq!(
+            load_fps_project_bundle(missing_enemy_health).expect_err("enemy health required"),
+            FpsRuntimeError::MissingEnemyHealth {
+                entity: EntityId::new(777)
+            }
+        );
+
+        let mut invalid_policy = custom_load_input();
+        invalid_policy.definitions[1]
+            .policy_binding
+            .as_mut()
+            .expect("enemy policy")
+            .allowed_intents
+            .clear();
+        assert_eq!(
+            load_fps_project_bundle(invalid_policy).expect_err("policy intent required"),
+            FpsRuntimeError::InvalidPolicyBinding {
+                entity: EntityId::new(777),
+                field: "allowed_intents"
+            }
+        );
+
+        let mut source_mismatch = custom_load_input();
+        source_mismatch.project_bundle = "other-demo".into();
+        let source_mismatch_error =
+            load_fps_project_bundle(source_mismatch).expect_err("source project must match bundle");
+        assert!(matches!(
+            source_mismatch_error,
+            FpsRuntimeError::Bootstrap(ProjectBundleEntityDefinitionBootstrapError::Invalid { .. })
+        ));
+    }
+
+    #[test]
+    fn encounter_lifecycle_tracks_player_death_failure_and_reset_restart() {
+        let mut session = load_custom_session();
+
+        let activated = session
+            .apply_encounter_transition(
+                FPS_GENERATED_TUNNEL_ENCOUNTER_PRESET,
+                FpsEncounterTransitionAction::Activate,
+                &lifecycle_input("active", false, false, false),
+            )
+            .expect("activate encounter");
+        assert!(activated.accepted);
+        assert_eq!(activated.state.status, FpsEncounterStatus::Active);
+        assert_eq!(
+            activated.state.spawned_enemy_ids,
+            vec![FPS_GENERATED_TUNNEL_ENCOUNTER_INSTANCE.to_string()]
+        );
+
+        let rejected = session
+            .apply_encounter_transition(
+                FPS_GENERATED_TUNNEL_ENCOUNTER_PRESET,
+                FpsEncounterTransitionAction::Activate,
+                &lifecycle_input("active", false, false, false),
+            )
+            .expect("second activate is rejected readout");
+        assert!(!rejected.accepted);
+        assert_eq!(rejected.rejection_reason, Some("encounter_not_pending"));
+        assert_eq!(rejected.state.status, FpsEncounterStatus::Active);
+        assert_eq!(session.replay_records.len(), 2);
+
+        let failed = session
+            .apply_encounter_transition(
+                FPS_GENERATED_TUNNEL_ENCOUNTER_PRESET,
+                FpsEncounterTransitionAction::SyncLifecycle,
+                &lifecycle_input("lost", true, false, true),
+            )
+            .expect("sync player death");
+        assert!(failed.accepted);
+        assert_eq!(failed.state.status, FpsEncounterStatus::Failed);
+        assert_eq!(
+            failed.state.last_transition,
+            FpsEncounterLastTransition::Failed
+        );
+
+        let reset = session
+            .apply_encounter_transition(
+                FPS_GENERATED_TUNNEL_ENCOUNTER_PRESET,
+                FpsEncounterTransitionAction::Reset,
+                &lifecycle_input("restart", false, false, false),
+            )
+            .expect("reset encounter");
+        assert!(reset.accepted);
+        assert_eq!(reset.state.status, FpsEncounterStatus::Pending);
+        assert_eq!(reset.state.spawned_enemy_ids, Vec::<String>::new());
+        assert_eq!(reset.state.defeated_enemy_ids, Vec::<String>::new());
+        assert_eq!(
+            reset.state.last_transition,
+            FpsEncounterLastTransition::Reset
+        );
+        assert_eq!(session.replay_records.len(), 4);
     }
 }
