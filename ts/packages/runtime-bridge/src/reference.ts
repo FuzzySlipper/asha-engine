@@ -7,9 +7,10 @@ export {
 } from './mock-session.js';
 export {
   ReferenceGameRuntimeLauncher,
+  ReferenceGameRuntimeSession,
   createReferenceGameRuntimeLauncher,
   referenceBackendProfile,
-} from './launcher.js';
+} from './reference-launcher.js';
 export type {
   GameRuntimeLauncher,
   GameRuntimeConfig,

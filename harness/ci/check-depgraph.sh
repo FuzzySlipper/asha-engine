@@ -12,6 +12,9 @@ node "$REPO_ROOT/harness/depgraph/check-rust-source-shape.mjs" "$REPO_ROOT"
 echo "==> Verifying TypeScript dependency graph"
 bash "$REPO_ROOT/harness/depgraph/verify-ts-deps.sh"
 
+echo "==> Runtime bridge root isolation"
+node "$REPO_ROOT/harness/depgraph/check-runtime-bridge-root-isolation.mjs" "$REPO_ROOT"
+
 echo "==> Checking generated TypeScript ESLint boundary config"
 python3 "$REPO_ROOT/harness/depgraph/generate-ts-eslint-boundaries.py" --check
 

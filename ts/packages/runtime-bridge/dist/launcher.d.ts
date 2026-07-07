@@ -1,5 +1,5 @@
 import type { CommandBatch, CommandResult, RenderFrameDiff } from '@asha/contracts';
-import { type FrameCursor, type RuntimeBridge, type WorldLoadRequest } from './bridge.js';
+import { type CompositionStatus, type FrameCursor, type RuntimeBridge, type WorldLoadRequest } from './bridge.js';
 export type GameRuntimeMode = 'reference' | 'native' | 'wasm' | 'degraded';
 export type GameRuntimeBackendMode = 'reference' | 'native' | 'wasm';
 export type GameRuntimeBackendTransport = 'reference_mock' | 'napi_native' | 'wasm_module';
@@ -149,13 +149,22 @@ export interface GameRuntimeLauncher {
     launch(config: GameRuntimeConfig): Promise<GameRuntimeSession>;
 }
 export declare function validateGameRuntimeBackendProfile(input: object): GameRuntimeBackendProfileValidation;
-export declare function referenceBackendProfile(config: GameRuntimeConfig): GameRuntimeBackendProfile;
 export declare function nativeBackendProfile(config: GameRuntimeConfig): GameRuntimeBackendProfile;
-export declare class ReferenceGameRuntimeLauncher implements GameRuntimeLauncher {
-    readonly mode = "reference";
-    launch(config: GameRuntimeConfig): Promise<GameRuntimeSession>;
+export declare class BridgeGameRuntimeSession implements GameRuntimeSession {
+    #private;
+    private readonly bridge;
+    private readonly config;
+    readonly identity: GameRuntimeIdentity;
+    readonly launch: GameRuntimeLaunchResult;
+    constructor(bridge: RuntimeBridge, config: GameRuntimeConfig, runtimeProfile: GameRuntimeProfile, initialStatus: CompositionStatus);
+    pullProjection(): Promise<GameRuntimeProjectionSummary>;
+    pullRenderDiff(cursor?: FrameCursor): Promise<GameRuntimeRenderDiffSnapshot>;
+    pullTelemetry(): Promise<GameRuntimeTelemetrySnapshot>;
+    proposeCommands(batch: CommandBatch): Promise<GameRuntimeCommandProposalResult>;
+    exportReplay(request: GameRuntimeReplayExportRequest): Promise<GameRuntimeReplayExport>;
+    exportEvidence(request: GameRuntimeEvidenceExportRequest): Promise<GameRuntimeEvidenceExport>;
+    shutdown(): Promise<void>;
 }
-export declare function createReferenceGameRuntimeLauncher(): GameRuntimeLauncher;
 export interface SelectedBackendLauncherOptions {
     readonly profile?: GameRuntimeBackendProfile;
     readonly nativeModulePath?: string;

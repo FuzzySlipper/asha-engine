@@ -7,7 +7,6 @@ import {
   type RuntimeBridge,
   type WorldLoadRequest,
 } from './bridge.js';
-import { createMockRuntimeBridge } from './mock.js';
 
 // ── Game runtime launcher facade types (#3653) ────────────────────────────────
 // Higher-level public types for game consumers. These describe launch/session
@@ -240,17 +239,6 @@ function requireNonEmpty(value: string, field: string): string {
   return value;
 }
 
-function referenceNonClaims(): readonly GameRuntimeNonClaim[] {
-  return [
-    'not_native_runtime',
-    'not_hardware_gpu',
-    'not_performance_evidence',
-    'not_publish_artifact',
-    'not_product_authority',
-    'not_wasm_authority',
-  ];
-}
-
 function selectedNativeNonClaims(): readonly GameRuntimeNonClaim[] {
   return ['not_hardware_gpu', 'not_performance_evidence', 'not_publish_artifact', 'not_wasm_authority'];
 }
@@ -417,18 +405,6 @@ export function validateGameRuntimeBackendProfile(
   };
 }
 
-export function referenceBackendProfile(config: GameRuntimeConfig): GameRuntimeBackendProfile {
-  return {
-    profileId: 'reference.launcher.v1',
-    mode: 'reference',
-    transport: 'reference_mock',
-    launcherName: 'reference-game-runtime-launcher',
-    bridgeCompatibility: config.compatibility,
-    evidenceRefs: [{ kind: 'diagnostic', id: 'backend-profile:reference' }],
-    nonClaims: referenceNonClaims(),
-  };
-}
-
 export function nativeBackendProfile(config: GameRuntimeConfig): GameRuntimeBackendProfile {
   return {
     profileId: 'native.napi.launcher.v1',
@@ -438,17 +414,6 @@ export function nativeBackendProfile(config: GameRuntimeConfig): GameRuntimeBack
     bridgeCompatibility: config.compatibility,
     evidenceRefs: [{ kind: 'diagnostic', id: 'backend-profile:native:napi', path: config.runtimeEntry }],
     nonClaims: selectedNativeNonClaims(),
-  };
-}
-
-function referenceRuntimeProfile(config: GameRuntimeConfig): GameRuntimeProfile {
-  const profile = referenceBackendProfile(config);
-  return {
-    profileId: profile.profileId,
-    runtimeMode: profile.mode,
-    launcherName: profile.launcherName,
-    bridgeCompatibility: profile.bridgeCompatibility,
-    nonClaims: profile.nonClaims,
   };
 }
 
@@ -473,7 +438,7 @@ function projectionSummary(
   };
 }
 
-class ReferenceGameRuntimeSession implements GameRuntimeSession {
+export class BridgeGameRuntimeSession implements GameRuntimeSession {
   readonly identity: GameRuntimeIdentity;
   readonly launch: GameRuntimeLaunchResult;
   readonly #runtimeProfile: GameRuntimeProfile;
@@ -616,33 +581,6 @@ class ReferenceGameRuntimeSession implements GameRuntimeSession {
   }
 }
 
-export class ReferenceGameRuntimeLauncher implements GameRuntimeLauncher {
-  readonly mode = 'reference';
-
-  async launch(config: GameRuntimeConfig): Promise<GameRuntimeSession> {
-    requireNonEmpty(config.gameId, 'gameId');
-    requireNonEmpty(config.workspaceId, 'workspaceId');
-    requireNonEmpty(config.runtimeEntry, 'runtimeEntry');
-    requireNonEmpty(config.compatibility.contractsPackageVersion, 'compatibility.contractsPackageVersion');
-    requireNonEmpty(config.compatibility.runtimeBridgePackageVersion, 'compatibility.runtimeBridgePackageVersion');
-    if (config.runtimeEntry !== config.resourceProfile.runtimeEntry) {
-      throw new RuntimeBridgeError('invalid_input', 'runtimeEntry must match resourceProfile.runtimeEntry');
-    }
-
-    const bridge = createMockRuntimeBridge();
-    bridge.initializeEngine({ seed: config.world.sceneId });
-    const status = bridge.loadWorldBundle(config.world);
-    if (status.blocksLoad || status.loadedWorld === null) {
-      throw new RuntimeBridgeError('invalid_input', 'world bundle failed to load for reference launcher');
-    }
-    return new ReferenceGameRuntimeSession(bridge, config, referenceRuntimeProfile(config), status);
-  }
-}
-
-export function createReferenceGameRuntimeLauncher(): GameRuntimeLauncher {
-  return new ReferenceGameRuntimeLauncher();
-}
-
 function runtimeProfileFromBackendProfile(profile: GameRuntimeBackendProfile): GameRuntimeProfile {
   return {
     profileId: profile.profileId,
@@ -694,7 +632,7 @@ export class SelectedBackendGameRuntimeLauncher implements GameRuntimeLauncher {
     if (status.blocksLoad || status.loadedWorld === null) {
       throw new RuntimeBridgeError('invalid_input', 'world bundle failed to load for selected backend launcher');
     }
-    return new ReferenceGameRuntimeSession(
+    return new BridgeGameRuntimeSession(
       bridge,
       config,
       runtimeProfileFromBackendProfile(validation.profile),
