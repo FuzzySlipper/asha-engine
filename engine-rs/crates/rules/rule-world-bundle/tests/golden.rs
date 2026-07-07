@@ -13,11 +13,11 @@ use std::path::PathBuf;
 mod render;
 
 fn dir() -> PathBuf {
-    // .../engine-rs/crates/rules/rule-world-bundle -> repo root is four up.
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    manifest_dir
         .ancestors()
-        .nth(4)
-        .expect("crate is nested four levels under the repo root")
+        .find(|ancestor| ancestor.join("engine-rs").is_dir() && ancestor.join("harness").is_dir())
+        .expect("repo root")
         .join("harness/fixtures/world-bundle")
 }
 

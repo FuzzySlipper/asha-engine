@@ -17,6 +17,10 @@ engine-rs/crates/tools/scene-diagnostics/
 # Legacy touchpoints in otherwise-current crates
 engine-rs/crates/bridge/native-bridge/src/lib.rs
 engine-rs/crates/bridge/runtime-bridge-api/src/lib.rs
+engine-rs/crates/bridge/runtime-bridge-api/src/bridge.rs
+engine-rs/crates/bridge/runtime-bridge-api/src/payloads.rs
+engine-rs/crates/bridge/runtime-bridge-api/src/reference/runtime_bridge_impl.rs
+engine-rs/crates/bridge/runtime-bridge-api/src/reference/tests.rs
 engine-rs/crates/foundation/core-ids/src/lib.rs
 engine-rs/crates/protocol/protocol-codegen/src/lib.rs
 engine-rs/crates/protocol/protocol-codegen/src/model.rs
@@ -50,6 +54,7 @@ ts/packages/runtime-bridge/src/mock.ts
 ts/packages/runtime-bridge/src/native-fail-closed.test.ts
 ts/packages/runtime-bridge/src/native.ts
 ts/packages/runtime-bridge/src/runtime-session.ts
+ts/packages/runtime-bridge/src/reference-launcher.ts
 ts/packages/runtime-bridge/src/world-dto-conformance.test.ts
 ts/packages/smoke/src/harness.ts
 ts/packages/smoke/src/perf.ts

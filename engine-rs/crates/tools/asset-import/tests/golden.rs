@@ -10,12 +10,13 @@ use std::path::PathBuf;
 use asset_import::{artifacts, fixtures, import_text, manifest, IMPORTER_VERSION};
 
 fn golden_path() -> PathBuf {
-    // <repo>/engine-rs/crates/tools/asset-import -> up four to <repo>.
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let rel = "harness/fixtures/asset-import/imported.golden";
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    manifest_dir
         .ancestors()
-        .nth(4)
-        .unwrap()
-        .join("harness/fixtures/asset-import/imported.golden")
+        .map(|ancestor| ancestor.join(rel))
+        .find(|candidate| candidate.exists())
+        .unwrap_or_else(|| manifest_dir.join(rel))
 }
 
 fn dump_one(label: &str, source_path: &str, source: &str, out: &mut String) {

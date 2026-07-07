@@ -14,11 +14,12 @@ use asset_import::{
 };
 
 fn repo_path(rel: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    manifest_dir
         .ancestors()
-        .nth(4)
-        .unwrap()
-        .join(rel)
+        .map(|ancestor| ancestor.join(rel))
+        .find(|candidate| candidate.exists())
+        .unwrap_or_else(|| manifest_dir.join(rel))
 }
 
 #[test]

@@ -25,10 +25,11 @@ use json::Json;
 /// Repo root, derived from this crate's location:
 /// `<repo>/engine-rs/crates/sim/sim-validator` → up four components.
 fn repo_root() -> PathBuf {
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    manifest_dir
         .ancestors()
-        .nth(4)
-        .expect("sim-validator is nested four levels under the repo root")
+        .find(|ancestor| ancestor.join("engine-rs").is_dir() && ancestor.join("harness").is_dir())
+        .expect("repo root")
         .to_path_buf()
 }
 

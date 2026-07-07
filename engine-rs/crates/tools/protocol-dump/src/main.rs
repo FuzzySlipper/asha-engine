@@ -308,7 +308,7 @@ mod tests {
         let (code, out, err) = run_str(&["list"]);
         assert_eq!(code, 0);
         assert!(err.is_empty());
-        assert!(out.starts_with("protocol-modules: 15 modules"));
+        assert!(out.starts_with("protocol-modules: 16 modules"));
         assert!(out.contains("module ids generated=ts/packages/contracts/src/generated/ids.ts"));
         assert!(out.contains("  branded-id EntityId"));
     }

@@ -12,11 +12,13 @@ use asset_import::{
 };
 
 fn golden_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let rel = "harness/fixtures/asset-import/diagnostics.golden";
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    manifest_dir
         .ancestors()
-        .nth(4)
-        .unwrap()
-        .join("harness/fixtures/asset-import/diagnostics.golden")
+        .map(|ancestor| ancestor.join(rel))
+        .find(|candidate| candidate.exists())
+        .unwrap_or_else(|| manifest_dir.join(rel))
 }
 
 fn render(diags: &[ImportDiagnostic], out: &mut String) {
