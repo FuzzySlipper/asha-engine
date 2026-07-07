@@ -70,18 +70,23 @@ npm run build
 pnpm install
 pnpm run check:boundaries
 pnpm run check:docs-scripts
-pnpm run test
 pnpm run build
 ```
+
+`pnpm run test` is a broader Studio suite. Run it after the required
+`asha-testing` publish/workspace cockpit evidence artifacts exist; it is not the
+fresh-checkout deployment gate.
 
 `asha-testing`:
 
 ```sh
 npm install
-npm run check:boundary
-npm run conformance
 npm run ci
 ```
+
+`npm run ci` is the focused boundary gate for fresh checkouts. Broader
+conformance, native backend, publish, and aggregate evidence commands require
+current native runtime bridge exports plus generated sibling evidence artifacts.
 
 Consumer repos must use public ASHA package roots or published public artifacts.
 If a consumer needs a missing capability, add or request a public engine surface
