@@ -40,6 +40,9 @@ KNOWN_TRANSITIONAL_PROTOCOL_REFS = {
     "protocol_runtime::FpsRuntimeSessionLoadRequest",
     "protocol_runtime::FpsRuntimeSessionRestartRequest",
     "protocol_runtime::FpsRuntimeSessionSnapshot",
+    "protocol_runtime::GameRuleCatalogValidationReceipt",
+    "protocol_runtime::GameRuleEffectIntentRequest",
+    "protocol_runtime::GameRuleRuntimeReadout",
     "protocol_runtime::GameExtensionWeaponEffectInvocationRequest",
     "protocol_runtime::GameExtensionWeaponEffectInvocationResult",
     "protocol_runtime::StepInputEnvelope",
@@ -52,6 +55,7 @@ KNOWN_TRANSITIONAL_PROTOCOL_REFS = {
 }
 PROTOCOL_MODULE_TO_GENERATED_FILE = {
     "protocol_diagnostics": "diagnostics.ts",
+    "protocol_game_rules": "gameRules.ts",
     "protocol_render": "render.ts",
     "protocol_replay": "replay.ts",
     "protocol_scene": "scene.ts",

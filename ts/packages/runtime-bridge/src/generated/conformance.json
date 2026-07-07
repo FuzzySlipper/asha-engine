@@ -139,6 +139,30 @@
       "errors": "RuntimeBridgeError"
     },
     {
+      "manifestName": "validate_game_rule_catalog",
+      "facadeMethod": "validateGameRuleCatalog",
+      "surface": "stable",
+      "input": "protocol_game_rules::GameRuleCatalog",
+      "output": "protocol_runtime::GameRuleCatalogValidationReceipt",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "submit_game_rule_effect_intent",
+      "facadeMethod": "submitGameRuleEffectIntent",
+      "surface": "stable",
+      "input": "protocol_runtime::GameRuleEffectIntentRequest",
+      "output": "protocol_game_rules::GameRuleResolutionReceipt",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "read_game_rule_runtime_readout",
+      "facadeMethod": "readGameRuleRuntimeReadout",
+      "surface": "stable",
+      "input": "Unit",
+      "output": "protocol_runtime::GameRuleRuntimeReadout",
+      "errors": "RuntimeBridgeError"
+    },
+    {
       "manifestName": "restart_fps_runtime_session",
       "facadeMethod": "restartFpsRuntimeSession",
       "surface": "stable",

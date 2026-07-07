@@ -160,6 +160,30 @@ errors = "RuntimeBridgeError"
 summary = "Invoke a declared game-owned Rust weapon-effect hook, validate its generated proposal, and apply accepted output through FPS combat authority with replay evidence."
 
 [[operation]]
+name = "validate_game_rule_catalog"
+surface = "stable"
+input = "protocol_game_rules::GameRuleCatalog"
+output = "protocol_runtime::GameRuleCatalogValidationReceipt"
+errors = "RuntimeBridgeError"
+summary = "Validate a generated generic game-rules catalog through Rust svc-game-rules authority; returns typed diagnostics, trace, hash, and evidence."
+
+[[operation]]
+name = "submit_game_rule_effect_intent"
+surface = "stable"
+input = "protocol_runtime::GameRuleEffectIntentRequest"
+output = "protocol_game_rules::GameRuleResolutionReceipt"
+errors = "RuntimeBridgeError"
+summary = "Submit one typed generic effect/impact intent through Rust svc-game-rules; no arbitrary JSON rule dispatch or JS authority callback."
+
+[[operation]]
+name = "read_game_rule_runtime_readout"
+surface = "stable"
+input = "Unit"
+output = "protocol_runtime::GameRuleRuntimeReadout"
+errors = "RuntimeBridgeError"
+summary = "Read bounded recent game-rules modifier, trace, and replay evidence without exposing raw state."
+
+[[operation]]
 name = "restart_fps_runtime_session"
 surface = "stable"
 input = "protocol_runtime::FpsRuntimeSessionRestartRequest"

@@ -23,6 +23,9 @@ import {
   type VoxelModelInfoRequest,
   type GameExtensionHookReceipt,
   type GameExtensionReplayEvidence,
+  type GameRuleCatalog,
+  type GameRuleResolutionReceipt,
+  type GameRuleResolutionRequest,
   type WeaponEffectHookRequest,
 } from '@asha/contracts';
 import {
@@ -34,6 +37,8 @@ import {
   type FrameCursor,
   type FpsPrimaryFireRequest,
   type FpsPrimaryFireResult,
+  type GameRuleCatalogValidationReceipt,
+  type GameRuleRuntimeReadout,
   type RuntimeBridge,
   type StepResult,
   type WorldLoadRequest,
@@ -240,6 +245,8 @@ export interface RuntimeSessionReplayRecord {
     | 'loadEcrpProject'
     | 'submitRuntimeActionIntent'
     | 'submitGameExtensionWeaponEffect'
+    | 'validateGameRuleCatalog'
+    | 'submitGameRuleEffectIntent'
     | 'lifecycleDeath'
     | 'runAutonomousPolicyTick'
     | 'requestGeneratedTunnelOperation'
@@ -744,6 +751,21 @@ export interface RuntimeSessionGameExtensionWeaponEffectReceipt {
   readonly sessionHashAfter: string;
 }
 
+export interface RuntimeSessionGameRuleCatalogValidationReceipt extends GameRuleCatalogValidationReceipt {
+  readonly sequenceId: number;
+  readonly catalog: GameRuleCatalog;
+  readonly sessionHashBefore: string;
+  readonly sessionHashAfter: string;
+}
+
+export interface RuntimeSessionGameRuleEffectIntentReceipt extends GameRuleResolutionReceipt {
+  readonly sequenceId: number;
+  readonly catalog: GameRuleCatalog;
+  readonly request: GameRuleResolutionRequest;
+  readonly sessionHashBefore: string;
+  readonly sessionHashAfter: string;
+}
+
 export interface RuntimeSessionFacade {
   initialize(input: RuntimeSessionInitializeInput): RuntimeSessionStateSummary;
   loadEcrpProject(input: RuntimeSessionEcrpProjectLoadInput): RuntimeSessionEcrpProjectLoadReceipt;
@@ -759,6 +781,12 @@ export interface RuntimeSessionFacade {
     hook: WeaponEffectHookRequest,
     primaryFire: FpsPrimaryFireRequest,
   ): RuntimeSessionGameExtensionWeaponEffectReceipt;
+  validateGameRuleCatalog(catalog: GameRuleCatalog): RuntimeSessionGameRuleCatalogValidationReceipt;
+  submitGameRuleEffectIntent(
+    catalog: GameRuleCatalog,
+    request: GameRuleResolutionRequest,
+  ): RuntimeSessionGameRuleEffectIntentReceipt;
+  readGameRuleRuntimeReadout(): GameRuleRuntimeReadout;
   runAutonomousPolicyTick(input: RuntimeSessionAutonomousPolicyTickInput): RuntimeSessionAutonomousPolicyTickReadout;
   readLifecycleStatus(request?: RuntimeSessionLifecycleStatusRequest): RuntimeSessionLifecycleStatusReadout;
   requestSessionRestart(intent: RuntimeSessionRestartIntent): RuntimeSessionLifecycleRestartReceipt;
@@ -1062,6 +1090,45 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
       sessionHashBefore: before,
       sessionHashAfter: this.#sessionHash(),
     };
+  }
+
+  validateGameRuleCatalog(catalog: GameRuleCatalog): RuntimeSessionGameRuleCatalogValidationReceipt {
+    this.#requireInitialized('validateGameRuleCatalog');
+    const before = this.#sessionHash();
+    const receipt = this.#bridge.validateGameRuleCatalog(catalog);
+    this.#sequenceId += 1;
+    this.#record('validateGameRuleCatalog');
+    return {
+      ...receipt,
+      sequenceId: this.#sequenceId,
+      catalog,
+      sessionHashBefore: before,
+      sessionHashAfter: this.#sessionHash(),
+    };
+  }
+
+  submitGameRuleEffectIntent(
+    catalog: GameRuleCatalog,
+    request: GameRuleResolutionRequest,
+  ): RuntimeSessionGameRuleEffectIntentReceipt {
+    this.#requireInitialized('submitGameRuleEffectIntent');
+    const before = this.#sessionHash();
+    const receipt = this.#bridge.submitGameRuleEffectIntent({ catalog, request });
+    this.#sequenceId += 1;
+    this.#record('submitGameRuleEffectIntent');
+    return {
+      ...receipt,
+      sequenceId: this.#sequenceId,
+      catalog,
+      request,
+      sessionHashBefore: before,
+      sessionHashAfter: this.#sessionHash(),
+    };
+  }
+
+  readGameRuleRuntimeReadout(): GameRuleRuntimeReadout {
+    this.#requireInitialized('readGameRuleRuntimeReadout');
+    return this.#bridge.readGameRuleRuntimeReadout();
   }
 
   runAutonomousPolicyTick(input: RuntimeSessionAutonomousPolicyTickInput): RuntimeSessionAutonomousPolicyTickReadout {

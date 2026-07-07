@@ -17,6 +17,9 @@ import {
 
 No consumer should import package internals, raw native transports, generated file paths, or Rust crate paths.
 Demo and Studio live/default flows should not treat `@asha/runtime-bridge/reference` as product authority. Its `REFERENCE_RUNTIME_BACKEND_PROFILE.productAuthority` value is `false`, and reference RuntimeSession identities include `not_product_authority`.
+Game-rules reference readouts are compatibility fixtures; product/live authority
+is the Rust-backed bridge path through `svc-game-rules` and the modifier rule
+substrate.
 
 #4547 starts the package split: transport-neutral RuntimeSession semantic
 readouts, proposal envelopes, and helper projections can now be imported from
@@ -47,6 +50,9 @@ Rust-capable bridge and `mode: 'rust'`; reference fixtures use
 - `applyFirstPersonCameraInput(envelope)`: applies unconstrained first-person camera motion/look input.
 - `applyCollisionConstrainedCameraInput(envelope)`: applies first-person camera motion/look input through the typed collision bridge surface and returns a receipt with collided, blocked axes, world/collision projection hashes, movement hash, and the generated before/attempted/after `CameraCollisionSnapshot`.
 - `submitRuntimeActionIntent(envelope)`: accepts a typed `RuntimeActionIntentEnvelope` proposal. Rust-backed sessions route accepted `primary_fire` pressed intents through the Rust bridge authority surface and return combat/fire/health provenance; reference sessions return labelled fixture/reference receipts. Unsupported action intents fail closed with typed receipts.
+- `validateGameRuleCatalog(catalog)`: validates generated game-rules catalog DTOs through the bounded bridge surface. Rust-backed sessions call `svc-game-rules`; reference sessions are labelled fixture/reference compatibility. Invalid catalogs return typed diagnostics and trace/evidence, not raw JSON errors.
+- `submitGameRuleEffectIntent(catalog, request)`: submits one generated `GameRuleResolutionRequest` against a generated catalog. Accepted receipts carry pending value deltas, applied modifier readouts, trace, evidence refs, and replay hash; rejected requests fail closed with typed diagnostics.
+- `readGameRuleRuntimeReadout()`: reads the bounded recent game-rules projection: active modifiers, recent trace entries, recent replay hashes, and latest replay hash. Periodic modifier readouts include source, target, next tick, expiration tick, stack count, and source hash.
 - `runAutonomousPolicyTick(input)`: advances a narrow generated-tunnel enemy policy loop, validates typed movement/fire proposals, routes primary fire through runtime action authority, and reports proposal counts, nav/replay hashes, movement/combat summaries, backend provenance, and deterministic tick hash.
 - `readLifecycleStatus(request?)`: reads player/enemy lifecycle status, win/loss/in-progress outcome, restart eligibility, fixture reset hash, lifecycle/replay hashes, and terminal death events.
 - `requestSessionRestart(intent)`: validates a typed `runtime.restart_session_intent`, rejects stale/non-terminal requests with typed receipts, or resets the session deterministically through the existing restart path.

@@ -34,6 +34,9 @@ pub struct ReferenceBridge {
     fps_seed: Option<FpsRuntimeSessionLoadRequest>,
     fps_epoch: u64,
     game_rule_modules: BTreeMap<String, GameRuleModuleManifest>,
+    game_rule_active_modifiers: Vec<GameRuleModifierState>,
+    game_rule_recent_trace: Vec<GameRuleTraceEntry>,
+    game_rule_recent_replay_hashes: Vec<String>,
     /// Last planned voxel conversion. This is bridge-owned authority state used
     /// by preview/apply hash guards; callers cannot provide their own output.
     voxel_conversion_sources: BTreeMap<String, StaticMeshSource>,

@@ -227,6 +227,39 @@ class ReferenceRuntimeSessionFacade {
             sessionHashAfter: this.#sessionHash(),
         };
     }
+    validateGameRuleCatalog(catalog) {
+        this.#requireInitialized('validateGameRuleCatalog');
+        const before = this.#sessionHash();
+        const receipt = this.#bridge.validateGameRuleCatalog(catalog);
+        this.#sequenceId += 1;
+        this.#record('validateGameRuleCatalog');
+        return {
+            ...receipt,
+            sequenceId: this.#sequenceId,
+            catalog,
+            sessionHashBefore: before,
+            sessionHashAfter: this.#sessionHash(),
+        };
+    }
+    submitGameRuleEffectIntent(catalog, request) {
+        this.#requireInitialized('submitGameRuleEffectIntent');
+        const before = this.#sessionHash();
+        const receipt = this.#bridge.submitGameRuleEffectIntent({ catalog, request });
+        this.#sequenceId += 1;
+        this.#record('submitGameRuleEffectIntent');
+        return {
+            ...receipt,
+            sequenceId: this.#sequenceId,
+            catalog,
+            request,
+            sessionHashBefore: before,
+            sessionHashAfter: this.#sessionHash(),
+        };
+    }
+    readGameRuleRuntimeReadout() {
+        this.#requireInitialized('readGameRuleRuntimeReadout');
+        return this.#bridge.readGameRuleRuntimeReadout();
+    }
     runAutonomousPolicyTick(input) {
         this.#requireInitialized('runAutonomousPolicyTick');
         validateAutonomousPolicyTickInput(input);

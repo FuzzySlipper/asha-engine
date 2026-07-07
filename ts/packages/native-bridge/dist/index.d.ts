@@ -1,4 +1,4 @@
-import type { CommandResult, RenderFrameDiff, VoxelConversionApplyRequest, VoxelConversionEvidenceRef, VoxelConversionPlan, VoxelConversionPlanRequest, VoxelConversionPreview, VoxelConversionPreviewRequest, VoxelConversionReceipt, VoxelConversionSourceRegistration, VoxelConversionSourceRegistrationRequest, VoxelModelInfoReadout, VoxelModelInfoRequest } from '@asha/contracts';
+import type { CommandResult, GameRuleCatalog, GameRuleResolutionReceipt, GameRuleResolutionRequest, RenderFrameDiff, VoxelConversionApplyRequest, VoxelConversionEvidenceRef, VoxelConversionPlan, VoxelConversionPlanRequest, VoxelConversionPreview, VoxelConversionPreviewRequest, VoxelConversionReceipt, VoxelConversionSourceRegistration, VoxelConversionSourceRegistrationRequest, VoxelModelInfoReadout, VoxelModelInfoRequest } from '@asha/contracts';
 interface NativeVec3 {
     readonly x: number;
     readonly y: number;
@@ -179,6 +179,9 @@ export interface NativeAddon {
     readFpsRuntimeSession(handle: number): NativeFpsRuntimeSessionSnapshot;
     applyFpsPrimaryFire(handle: number, tick: number, origin: NativeVec3, direction: NativeVec3): NativeFpsPrimaryFireResult;
     invokeGameExtensionWeaponEffect(handle: number, hookJson: string, tick: number, origin: NativeVec3, direction: NativeVec3): NativeGameExtensionWeaponEffectInvocationResult;
+    validateGameRuleCatalog(handle: number, catalogJson: string): string;
+    submitGameRuleEffectIntent(handle: number, catalogJson: string, requestJson: string): string;
+    readGameRuleRuntimeReadout(handle: number): string;
     restartFpsRuntimeSession(handle: number, expectedEpoch: number): NativeFpsRuntimeSessionSnapshot;
     readFpsEncounterDirector(handle: number, lifecycle: NativeFpsEncounterLifecycleInput): NativeFpsEncounterDirectorSnapshot;
     applyFpsEncounterTransition(handle: number, request: NativeFpsEncounterTransitionRequest): NativeFpsEncounterTransitionResult;
@@ -201,7 +204,7 @@ export interface NativeAddon {
     exportVoxelConversionEvidence(handle: number, evidenceJson: string): string;
     readVoxelModelInfo(handle: number, requestJson: string): string;
 }
-export type { VoxelConversionApplyRequest, VoxelConversionEvidenceRef, VoxelConversionPlan, VoxelConversionPlanRequest, VoxelConversionPreview, VoxelConversionPreviewRequest, VoxelConversionReceipt, VoxelConversionSourceRegistration, VoxelConversionSourceRegistrationRequest, VoxelModelInfoReadout, VoxelModelInfoRequest, };
+export type { VoxelConversionApplyRequest, VoxelConversionEvidenceRef, GameRuleCatalog, GameRuleResolutionReceipt, GameRuleResolutionRequest, VoxelConversionPlan, VoxelConversionPlanRequest, VoxelConversionPreview, VoxelConversionPreviewRequest, VoxelConversionReceipt, VoxelConversionSourceRegistration, VoxelConversionSourceRegistrationRequest, VoxelModelInfoReadout, VoxelModelInfoRequest, };
 /** Raised when the native addon cannot be loaded (missing build / ABI mismatch). */
 export declare class NativeAddonUnavailable extends Error {
     constructor(message: string);

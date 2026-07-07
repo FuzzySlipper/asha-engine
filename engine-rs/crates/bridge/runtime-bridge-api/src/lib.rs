@@ -46,6 +46,11 @@ pub(crate) use protocol_diagnostics::DiagnosticSeverity;
 pub(crate) use protocol_entity_authoring::{
     AuthoringTransform, EntityDefinition, EntityDefinitionCapability, EntityDefinitionSourceTrace,
 };
+pub use protocol_game_rules::{
+    GameRuleCatalog, GameRuleDiagnostic, GameRuleEvidenceKind, GameRuleEvidenceRef,
+    GameRuleModifierState, GameRuleResolutionReceipt, GameRuleResolutionRequest,
+    GameRuleTraceEntry,
+};
 pub(crate) use protocol_render::{
     MeshAttribute, MeshAttributeKind, MeshAttributeName, MeshBoundsDescriptor, MeshBufferLayout,
     MeshCollisionPolicy, MeshGroupDescriptor, MeshIndexWidth, MeshMaterialSlot,
@@ -80,6 +85,7 @@ pub(crate) use rule_lifecycle::{
 pub(crate) use rule_voxel_edit::VoxelEditRejection;
 pub(crate) use svc_collision::{CollisionProjection, Ray};
 pub(crate) use svc_combat::HealthState;
+pub(crate) use svc_game_rules::{resolve_protocol_request, validate_catalog};
 pub(crate) use svc_mesh::mesh_chunk_in_world;
 pub(crate) use svc_pathfinding::{
     propose_direct_nav_movement, DirectNavMovementError, DirectNavMovementRequest,

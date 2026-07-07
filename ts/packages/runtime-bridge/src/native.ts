@@ -24,6 +24,9 @@ import type {
   VoxelModelInfoRequest,
   GameExtensionHookReceipt,
   GameExtensionReplayEvidence,
+  GameRuleCatalog,
+  GameRuleResolutionReceipt,
+  GameRuleResolutionRequest,
 } from '@asha/contracts';
 import { loadNativeAddon, NativeAddonUnavailable, type NativeAddon } from '@asha/native-bridge';
 import { MANIFEST_OPERATIONS } from './generated/operations.js';
@@ -43,6 +46,9 @@ import {
   type FpsEncounterTransitionResult,
   type GameExtensionWeaponEffectInvocationRequest,
   type GameExtensionWeaponEffectInvocationResult,
+  type GameRuleCatalogValidationReceipt,
+  type GameRuleEffectIntentRequest,
+  type GameRuleRuntimeReadout,
   type FpsLifecycleStatus,
   type FpsPrimaryFireRequest,
   type FpsPrimaryFireResult,
@@ -91,6 +97,9 @@ export const NATIVE_WIRED_OPERATIONS: ReadonlySet<string> = new Set<string>([
   'read_fps_runtime_session',
   'apply_fps_primary_fire',
   'invoke_game_extension_weapon_effect',
+  'validate_game_rule_catalog',
+  'submit_game_rule_effect_intent',
+  'read_game_rule_runtime_readout',
   'restart_fps_runtime_session',
   'read_fps_encounter_director',
   'apply_fps_encounter_transition',
@@ -483,6 +492,36 @@ export class NativeRuntimeBridge implements RuntimeBridge {
             replayHash: hashString(result.primaryFire.replayHash, 'replayHash'),
           },
     };
+  }
+
+  validateGameRuleCatalog(catalog: GameRuleCatalog): GameRuleCatalogValidationReceipt {
+    const handle = this.#requireHandle('validateGameRuleCatalog');
+    return parseNativeJson<GameRuleCatalogValidationReceipt>(
+      callNative(() => this.#addon.validateGameRuleCatalog(handle, JSON.stringify(catalog))),
+      'game-rule catalog validation receipt',
+    );
+  }
+
+  submitGameRuleEffectIntent(input: GameRuleEffectIntentRequest): GameRuleResolutionReceipt {
+    const handle = this.#requireHandle('submitGameRuleEffectIntent');
+    return parseNativeJson<GameRuleResolutionReceipt>(
+      callNative(() =>
+        this.#addon.submitGameRuleEffectIntent(
+          handle,
+          JSON.stringify(input.catalog),
+          JSON.stringify(input.request),
+        )),
+      'game-rule resolution receipt',
+    );
+  }
+
+  readGameRuleRuntimeReadout(): GameRuleRuntimeReadout {
+    const handle = this.#requireHandle('readGameRuleRuntimeReadout');
+    const readout = parseNativeJson<GameRuleRuntimeReadout>(
+      callNative(() => this.#addon.readGameRuleRuntimeReadout(handle)),
+      'game-rule runtime readout',
+    );
+    return { ...readout, backend: fpsBackend(readout.backend) };
   }
 
   restartFpsRuntimeSession(request: FpsRuntimeSessionRestartRequest): FpsRuntimeSessionSnapshot {

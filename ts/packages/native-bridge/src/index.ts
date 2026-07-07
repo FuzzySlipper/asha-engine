@@ -9,6 +9,9 @@
 import { createRequire } from 'node:module';
 import type {
   CommandResult,
+  GameRuleCatalog,
+  GameRuleResolutionReceipt,
+  GameRuleResolutionRequest,
   RenderFrameDiff,
   VoxelConversionApplyRequest,
   VoxelConversionEvidenceRef,
@@ -228,6 +231,9 @@ export interface NativeAddon {
     origin: NativeVec3,
     direction: NativeVec3,
   ): NativeGameExtensionWeaponEffectInvocationResult;
+  validateGameRuleCatalog(handle: number, catalogJson: string): string;
+  submitGameRuleEffectIntent(handle: number, catalogJson: string, requestJson: string): string;
+  readGameRuleRuntimeReadout(handle: number): string;
   restartFpsRuntimeSession(handle: number, expectedEpoch: number): NativeFpsRuntimeSessionSnapshot;
   readFpsEncounterDirector(
     handle: number,
@@ -260,6 +266,9 @@ export interface NativeAddon {
 export type {
   VoxelConversionApplyRequest,
   VoxelConversionEvidenceRef,
+  GameRuleCatalog,
+  GameRuleResolutionReceipt,
+  GameRuleResolutionRequest,
   VoxelConversionPlan,
   VoxelConversionPlanRequest,
   VoxelConversionPreview,

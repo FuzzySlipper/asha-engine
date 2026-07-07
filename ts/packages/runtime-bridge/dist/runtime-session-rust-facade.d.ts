@@ -1,12 +1,12 @@
-import type { CameraCreateRequest, CameraProjectionRequest, CollisionConstrainedCameraInputEnvelope, CommandBatch, FirstPersonCameraInputEnvelope, VoxelConversionApplyRequest, VoxelConversionEvidenceRef, VoxelConversionPlan, VoxelConversionPlanRequest, VoxelConversionPreview, VoxelConversionPreviewRequest, VoxelConversionReceipt, VoxelModelInfoReadout, VoxelModelInfoRequest, WeaponEffectHookRequest } from '@asha/contracts';
-import { type FpsPrimaryFireRequest, type RuntimeBridge } from './bridge.js';
+import type { CameraCreateRequest, CameraProjectionRequest, CollisionConstrainedCameraInputEnvelope, CommandBatch, FirstPersonCameraInputEnvelope, VoxelConversionApplyRequest, VoxelConversionEvidenceRef, VoxelConversionPlan, VoxelConversionPlanRequest, VoxelConversionPreview, VoxelConversionPreviewRequest, VoxelConversionReceipt, VoxelModelInfoReadout, VoxelModelInfoRequest, WeaponEffectHookRequest, GameRuleCatalog, GameRuleResolutionRequest } from '@asha/contracts';
+import { type FpsPrimaryFireRequest, type GameRuleRuntimeReadout, type RuntimeBridge } from './bridge.js';
 import type { CombatRuntimeReadout } from './combat-readout.js';
 import type { CombatFeedbackProjection } from './combat-feedback.js';
 import type { GeneratedTunnelOperationRequest, GeneratedTunnelReadout, GeneratedTunnelReadoutRequest } from './generated-tunnel.js';
 import type { EncounterDirectorReadout, EncounterDirectorReadoutRequest, EncounterTransitionRequest, RuntimeSessionEncounterTransitionReceipt } from './encounter-director.js';
 import type { NavPathQueryRequest, NavPathReadout, NavPolicyViewReadout, NavProjectionReadout } from './nav-readout.js';
 import type { RuntimeActionIntentEnvelope } from './runtime-action.js';
-import type { RuntimeSessionActionIntentReceipt, RuntimeSessionAutonomousPolicyTickInput, RuntimeSessionAutonomousPolicyTickReadout, RuntimeSessionCameraCollisionInputReceipt, RuntimeSessionCameraCreateReceipt, RuntimeSessionCameraInputReceipt, RuntimeSessionCameraProjectionReadout, RuntimeSessionCommandReceipt, RuntimeSessionCombatFeedbackProjectionRequest, RuntimeSessionCombatReadoutRequest, RuntimeSessionEcrpProjectLoadInput, RuntimeSessionEcrpProjectLoadReceipt, RuntimeSessionEcrpReadout, RuntimeSessionFacade, RuntimeSessionGeneratedTunnelOperationReceipt, RuntimeSessionGameExtensionWeaponEffectReceipt, RuntimeSessionInitializeInput, RuntimeSessionLifecycleRestartReceipt, RuntimeSessionLifecycleStatusReadout, RuntimeSessionLifecycleStatusRequest, RuntimeSessionProjectionSummary, RuntimeSessionRestartIntent, RuntimeSessionRestartResult, RuntimeSessionStateSummary, RuntimeSessionTelemetrySummary, RuntimeSessionTickInput, RuntimeSessionTickResult } from './runtime-session.js';
+import type { RuntimeSessionActionIntentReceipt, RuntimeSessionAutonomousPolicyTickInput, RuntimeSessionAutonomousPolicyTickReadout, RuntimeSessionCameraCollisionInputReceipt, RuntimeSessionCameraCreateReceipt, RuntimeSessionCameraInputReceipt, RuntimeSessionCameraProjectionReadout, RuntimeSessionCommandReceipt, RuntimeSessionCombatFeedbackProjectionRequest, RuntimeSessionCombatReadoutRequest, RuntimeSessionEcrpProjectLoadInput, RuntimeSessionEcrpProjectLoadReceipt, RuntimeSessionEcrpReadout, RuntimeSessionFacade, RuntimeSessionGeneratedTunnelOperationReceipt, RuntimeSessionGameRuleCatalogValidationReceipt, RuntimeSessionGameRuleEffectIntentReceipt, RuntimeSessionGameExtensionWeaponEffectReceipt, RuntimeSessionInitializeInput, RuntimeSessionLifecycleRestartReceipt, RuntimeSessionLifecycleStatusReadout, RuntimeSessionLifecycleStatusRequest, RuntimeSessionProjectionSummary, RuntimeSessionRestartIntent, RuntimeSessionRestartResult, RuntimeSessionStateSummary, RuntimeSessionTelemetrySummary, RuntimeSessionTickInput, RuntimeSessionTickResult } from './runtime-session.js';
 export declare class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     #private;
     constructor(bridge: RuntimeBridge);
@@ -19,6 +19,9 @@ export declare class RustBackedRuntimeSessionFacade implements RuntimeSessionFac
     applyCollisionConstrainedCameraInput(envelope: CollisionConstrainedCameraInputEnvelope): RuntimeSessionCameraCollisionInputReceipt;
     submitRuntimeActionIntent(envelope: RuntimeActionIntentEnvelope): RuntimeSessionActionIntentReceipt;
     submitGameExtensionWeaponEffect(hook: WeaponEffectHookRequest, primaryFire: FpsPrimaryFireRequest): RuntimeSessionGameExtensionWeaponEffectReceipt;
+    validateGameRuleCatalog(catalog: GameRuleCatalog): RuntimeSessionGameRuleCatalogValidationReceipt;
+    submitGameRuleEffectIntent(catalog: GameRuleCatalog, request: GameRuleResolutionRequest): RuntimeSessionGameRuleEffectIntentReceipt;
+    readGameRuleRuntimeReadout(): GameRuleRuntimeReadout;
     runAutonomousPolicyTick(input: RuntimeSessionAutonomousPolicyTickInput): RuntimeSessionAutonomousPolicyTickReadout;
     readLifecycleStatus(request?: RuntimeSessionLifecycleStatusRequest): RuntimeSessionLifecycleStatusReadout;
     requestSessionRestart(intent: RuntimeSessionRestartIntent): RuntimeSessionLifecycleRestartReceipt;

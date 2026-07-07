@@ -10,6 +10,13 @@ import type {
   FirstPersonCameraInputEnvelope,
   GameExtensionHookReceipt,
   GameExtensionReplayEvidence,
+  GameRuleCatalog,
+  GameRuleDiagnostic,
+  GameRuleEvidenceRef,
+  GameRuleModifierState,
+  GameRuleResolutionReceipt,
+  GameRuleResolutionRequest,
+  GameRuleTraceEntry,
   GameRuleModuleManifest,
   ModelMaterialPreviewRequest,
   ModelMaterialPreviewSnapshot,
@@ -252,6 +259,25 @@ export interface GameExtensionWeaponEffectInvocationResult {
   readonly replayEvidence: GameExtensionReplayEvidence;
   readonly primaryFire: FpsPrimaryFireResult | null;
 }
+export interface GameRuleCatalogValidationReceipt {
+  readonly accepted: boolean;
+  readonly catalogHash: string;
+  readonly diagnostics: readonly GameRuleDiagnostic[];
+  readonly trace: readonly GameRuleTraceEntry[];
+  readonly evidence: readonly GameRuleEvidenceRef[];
+}
+export interface GameRuleEffectIntentRequest {
+  readonly catalog: GameRuleCatalog;
+  readonly request: GameRuleResolutionRequest;
+}
+export interface GameRuleRuntimeReadout {
+  readonly backend: FpsRuntimeAuthorityTransport;
+  readonly authoritySurface: string;
+  readonly activeModifiers: readonly GameRuleModifierState[];
+  readonly recentTrace: readonly GameRuleTraceEntry[];
+  readonly recentReplayHashes: readonly string[];
+  readonly latestReplayHash: string | null;
+}
 export type FpsEncounterStatus = 'pending' | 'active' | 'cleared' | 'failed';
 export type FpsEncounterLastTransition = 'initialized' | 'activated' | 'cleared' | 'failed' | 'reset';
 export type FpsEncounterTransitionAction = 'activate' | 'sync_lifecycle' | 'reset';
@@ -399,6 +425,9 @@ export interface RuntimeBridge {
   invokeGameExtensionWeaponEffect(
     request: GameExtensionWeaponEffectInvocationRequest,
   ): GameExtensionWeaponEffectInvocationResult;
+  validateGameRuleCatalog(catalog: GameRuleCatalog): GameRuleCatalogValidationReceipt;
+  submitGameRuleEffectIntent(input: GameRuleEffectIntentRequest): GameRuleResolutionReceipt;
+  readGameRuleRuntimeReadout(): GameRuleRuntimeReadout;
   restartFpsRuntimeSession(request: FpsRuntimeSessionRestartRequest): FpsRuntimeSessionSnapshot;
   readFpsEncounterDirector(lifecycle: FpsEncounterLifecycleInput): FpsEncounterDirectorSnapshot;
   applyFpsEncounterTransition(request: FpsEncounterTransitionRequest): FpsEncounterTransitionResult;

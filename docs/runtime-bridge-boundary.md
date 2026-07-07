@@ -106,6 +106,9 @@ Allowed bounded verbs (full manifest defined in #2249):
 initializeEngine(config)
 stepSimulation(inputEnvelope) -> StepResult
 submitCommands(commandBatch) -> CommandResult
+validateGameRuleCatalog(gameRuleCatalog) -> GameRuleCatalogValidationReceipt
+submitGameRuleEffectIntent(catalog, request) -> GameRuleResolutionReceipt
+readGameRuleRuntimeReadout() -> GameRuleRuntimeReadout
 readRenderDiffs(frameCursor)  -> RenderFrameDiffDescriptor
 getBuffer(bufferHandle)       -> typed buffer view
 releaseBuffer(bufferHandle)
@@ -116,6 +119,12 @@ Disallowed (mechanically guarded in #2249): `callRust(methodName, json)`-style d
 JSON escape hatches; exposing `StateStore` handles to TS; UI/renderer importing the native
 addon; duplicate hand-written schemas in the bridge; transport types leaking into
 policy/catalog; bypassing generated contract surfaces.
+
+The game-rules operations are bounded RuntimeSession bridge verbs over generated
+`protocol-game-rules` DTOs. They validate catalogs, resolve one typed effect
+intent, and expose recent modifier/trace/replay readouts through Rust-owned
+`svc-game-rules` state. They are not permission to add arbitrary rule method
+dispatch, JS callbacks, local TS rule authority, or raw JSON tunnels.
 
 ## 6. `wasm-bridge` runtime assumptions — migration (DONE)
 

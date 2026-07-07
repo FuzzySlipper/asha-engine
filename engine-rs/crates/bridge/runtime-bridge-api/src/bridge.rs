@@ -92,6 +92,22 @@ pub trait RuntimeBridge {
         &mut self,
         request: GameExtensionWeaponEffectInvocationRequest,
     ) -> BridgeResult<GameExtensionWeaponEffectInvocationResult>;
+    /// Validate a generated generic game-rules catalog through Rust authority.
+    /// This is a bounded semantic verb, not a raw rules/JSON dispatch surface.
+    fn validate_game_rule_catalog(
+        &mut self,
+        catalog: GameRuleCatalog,
+    ) -> BridgeResult<GameRuleCatalogValidationReceipt>;
+    /// Submit one typed effect-resolution intent through the generic
+    /// `svc-game-rules` substrate. Accepted modifier/readout evidence remains
+    /// bridge-owned authority state until a later rule-event migration commits it
+    /// into broader session state.
+    fn submit_game_rule_effect_intent(
+        &mut self,
+        input: GameRuleEffectIntentRequest,
+    ) -> BridgeResult<GameRuleResolutionReceipt>;
+    /// Read bounded recent game-rules state/evidence without exposing raw state.
+    fn read_game_rule_runtime_readout(&self) -> BridgeResult<GameRuleRuntimeReadout>;
     /// Restart the FPS/ECRP session by replaying the validated stored bundle into
     /// a fresh authority session, guarded by the caller's current epoch.
     fn restart_fps_runtime_session(

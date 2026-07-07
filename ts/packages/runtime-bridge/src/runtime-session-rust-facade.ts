@@ -14,6 +14,8 @@ import type {
   VoxelModelInfoReadout,
   VoxelModelInfoRequest,
   WeaponEffectHookRequest,
+  GameRuleCatalog,
+  GameRuleResolutionRequest,
 } from '@asha/contracts';
 import {
   RuntimeBridgeError,
@@ -31,6 +33,7 @@ import {
   type FpsStoredEntityDefinition,
   type FpsTransformCapability,
   type EnemyDirectNavMovementResult,
+  type GameRuleRuntimeReadout,
   type RuntimeBridge,
 } from './bridge.js';
 import type { CombatRuntimeReadout } from './combat-readout.js';
@@ -123,6 +126,8 @@ import type {
   RuntimeSessionEcrpTransformState,
   RuntimeSessionFacade,
   RuntimeSessionGeneratedTunnelOperationReceipt,
+  RuntimeSessionGameRuleCatalogValidationReceipt,
+  RuntimeSessionGameRuleEffectIntentReceipt,
   RuntimeSessionGameExtensionWeaponEffectReceipt,
   RuntimeSessionIdentity,
   RuntimeSessionInitializeInput,
@@ -381,6 +386,45 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       sessionHashBefore: before,
       sessionHashAfter: this.#sessionHash(),
     };
+  }
+
+  validateGameRuleCatalog(catalog: GameRuleCatalog): RuntimeSessionGameRuleCatalogValidationReceipt {
+    this.#requireInitialized('validateGameRuleCatalog');
+    const before = this.#sessionHash();
+    const receipt = this.#bridge.validateGameRuleCatalog(catalog);
+    this.#sequenceId += 1;
+    this.#record('validateGameRuleCatalog', receipt.evidence.at(-1)?.contentHash);
+    return {
+      ...receipt,
+      sequenceId: this.#sequenceId,
+      catalog,
+      sessionHashBefore: before,
+      sessionHashAfter: this.#sessionHash(),
+    };
+  }
+
+  submitGameRuleEffectIntent(
+    catalog: GameRuleCatalog,
+    request: GameRuleResolutionRequest,
+  ): RuntimeSessionGameRuleEffectIntentReceipt {
+    this.#requireInitialized('submitGameRuleEffectIntent');
+    const before = this.#sessionHash();
+    const receipt = this.#bridge.submitGameRuleEffectIntent({ catalog, request });
+    this.#sequenceId += 1;
+    this.#record('submitGameRuleEffectIntent', receipt.replayHash);
+    return {
+      ...receipt,
+      sequenceId: this.#sequenceId,
+      catalog,
+      request,
+      sessionHashBefore: before,
+      sessionHashAfter: this.#sessionHash(),
+    };
+  }
+
+  readGameRuleRuntimeReadout(): GameRuleRuntimeReadout {
+    this.#requireInitialized('readGameRuleRuntimeReadout');
+    return this.#bridge.readGameRuleRuntimeReadout();
   }
 
   runAutonomousPolicyTick(input: RuntimeSessionAutonomousPolicyTickInput): RuntimeSessionAutonomousPolicyTickReadout {

@@ -27,6 +27,9 @@ impl RuntimeBridge for ReferenceBridge {
         self.fps_seed = None;
         self.fps_epoch = 0;
         self.game_rule_modules.clear();
+        self.game_rule_active_modifiers.clear();
+        self.game_rule_recent_trace.clear();
+        self.game_rule_recent_replay_hashes.clear();
         self.voxel_conversion_sources = Self::seeded_voxel_conversion_sources()?;
         self.voxel_conversion_targets = Self::seeded_voxel_conversion_targets();
         self.voxel_conversion_plan = None;
@@ -620,6 +623,75 @@ impl RuntimeBridge for ReferenceBridge {
             hook_receipt,
             replay_evidence,
             primary_fire: Some(primary_fire),
+        })
+    }
+
+    fn validate_game_rule_catalog(
+        &mut self,
+        catalog: GameRuleCatalog,
+    ) -> BridgeResult<GameRuleCatalogValidationReceipt> {
+        self.require_initialized("validate_game_rule_catalog")?;
+        let report = validate_catalog(&catalog);
+        let replay_hash = format!(
+            "fnv1a64:{}",
+            Self::fnv1a64(&format!(
+                "{}|{}|catalogValidation",
+                catalog.catalog.catalog_id, report.catalog_hash
+            ))
+        );
+        self.game_rule_recent_trace = report.trace.clone();
+        self.game_rule_recent_replay_hashes
+            .push(replay_hash.clone());
+        Ok(GameRuleCatalogValidationReceipt {
+            accepted: report.accepted(),
+            catalog_hash: report.catalog_hash,
+            diagnostics: report.diagnostics,
+            trace: report.trace,
+            evidence: vec![GameRuleEvidenceRef {
+                kind: GameRuleEvidenceKind::CatalogValidation,
+                uri: format!(
+                    "asha://game-rules/catalog-validation/{}",
+                    catalog.catalog.catalog_id
+                ),
+                content_hash: replay_hash,
+            }],
+        })
+    }
+
+    fn submit_game_rule_effect_intent(
+        &mut self,
+        input: GameRuleEffectIntentRequest,
+    ) -> BridgeResult<GameRuleResolutionReceipt> {
+        self.require_initialized("submit_game_rule_effect_intent")?;
+        let receipt = resolve_protocol_request(&input.request, &input.catalog);
+        self.game_rule_recent_trace = receipt.trace.clone();
+        self.game_rule_recent_replay_hashes
+            .push(receipt.replay_hash.clone());
+        if receipt.accepted {
+            for modifier in &receipt.applied_modifiers {
+                if let Some(existing) = self.game_rule_active_modifiers.iter_mut().find(|active| {
+                    active.modifier_id == modifier.modifier_id
+                        && active.source == modifier.source
+                        && active.target == modifier.target
+                }) {
+                    *existing = modifier.clone();
+                } else {
+                    self.game_rule_active_modifiers.push(modifier.clone());
+                }
+            }
+        }
+        Ok(receipt)
+    }
+
+    fn read_game_rule_runtime_readout(&self) -> BridgeResult<GameRuleRuntimeReadout> {
+        self.require_initialized("read_game_rule_runtime_readout")?;
+        Ok(GameRuleRuntimeReadout {
+            backend: "reference_bridge_rust".to_string(),
+            authority_surface: "runtime_session.game_rules.v0".to_string(),
+            active_modifiers: self.game_rule_active_modifiers.clone(),
+            recent_trace: self.game_rule_recent_trace.clone(),
+            recent_replay_hashes: self.game_rule_recent_replay_hashes.clone(),
+            latest_replay_hash: self.game_rule_recent_replay_hashes.last().cloned(),
         })
     }
 

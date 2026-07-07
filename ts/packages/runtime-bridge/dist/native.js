@@ -28,6 +28,9 @@ export const NATIVE_WIRED_OPERATIONS = new Set([
     'read_fps_runtime_session',
     'apply_fps_primary_fire',
     'invoke_game_extension_weapon_effect',
+    'validate_game_rule_catalog',
+    'submit_game_rule_effect_intent',
+    'read_game_rule_runtime_readout',
     'restart_fps_runtime_session',
     'read_fps_encounter_director',
     'apply_fps_encounter_transition',
@@ -354,6 +357,19 @@ export class NativeRuntimeBridge {
                     replayHash: hashString(result.primaryFire.replayHash, 'replayHash'),
                 },
         };
+    }
+    validateGameRuleCatalog(catalog) {
+        const handle = this.#requireHandle('validateGameRuleCatalog');
+        return parseNativeJson(callNative(() => this.#addon.validateGameRuleCatalog(handle, JSON.stringify(catalog))), 'game-rule catalog validation receipt');
+    }
+    submitGameRuleEffectIntent(input) {
+        const handle = this.#requireHandle('submitGameRuleEffectIntent');
+        return parseNativeJson(callNative(() => this.#addon.submitGameRuleEffectIntent(handle, JSON.stringify(input.catalog), JSON.stringify(input.request))), 'game-rule resolution receipt');
+    }
+    readGameRuleRuntimeReadout() {
+        const handle = this.#requireHandle('readGameRuleRuntimeReadout');
+        const readout = parseNativeJson(callNative(() => this.#addon.readGameRuleRuntimeReadout(handle)), 'game-rule runtime readout');
+        return { ...readout, backend: fpsBackend(readout.backend) };
     }
     restartFpsRuntimeSession(request) {
         const handle = this.#requireHandle('restartFpsRuntimeSession');

@@ -23,6 +23,7 @@ core-math  = { path = "../../foundation/core-math" }
 protocol-view = { path = "../../protocol/protocol-view" }
 protocol-render = { path = "../../protocol/protocol-render" }
 protocol-diagnostics = { path = "../../protocol/protocol-diagnostics" }
+protocol-game-rules = { path = "../../protocol/protocol-game-rules" }
 protocol-voxel-conversion = { path = "../../protocol/protocol-voxel-conversion" }
 # Voxel command submission → Rust authority validation/apply (launchable-voxel, #2436).
 core-space      = { path = "../../foundation/core-space" }
@@ -36,6 +37,7 @@ svc-mesh        = { path = "../../services/svc-mesh" }
 svc-serialization = { path = "../../services/svc-serialization" }
 svc-pathfinding = { path = "../../services/svc-pathfinding" }
 svc-voxel-conversion = { path = "../../services/svc-voxel-conversion" }
+svc-game-rules = { path = "../../services/svc-game-rules" }
 # Authority voxel raycast for the pick verb (launchable-voxel picking, #2437).
 svc-collision   = { path = "../../services/svc-collision" }
 rule-voxel-edit = { path = "../../rules/rule-voxel-edit" }
@@ -45,3 +47,4 @@ protocol-entity-authoring = { path = "../../protocol/protocol-entity-authoring" 
 game-rule-extension = { path = "../../rules/game-rule-extension" }
 rule-lifecycle = { path = "../../rules/rule-lifecycle" }
 svc-combat = { path = "../../services/svc-combat" }
+serde = { version = "1", features = ["derive"] }

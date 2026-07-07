@@ -24,10 +24,11 @@ use runtime_bridge_api::{
     FpsEncounterTransitionRequest, FpsEncounterTransitionResult, FpsPrimaryFireRequest,
     FpsPrimaryFireResult, FpsRuntimeSessionLoadRequest, FpsRuntimeSessionRestartRequest,
     FpsRuntimeSessionSnapshot, GameExtensionWeaponEffectInvocationRequest, GameRuleModuleManifest,
-    ReferenceBridge, RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind, StepInputEnvelope,
+    GameRuleCatalog, GameRuleEffectIntentRequest, GameRuleResolutionRequest, ReferenceBridge,
+    RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind, StepInputEnvelope,
     VoxelConversionApplyRequest, VoxelConversionEvidenceRef, VoxelConversionPlanRequest,
-    VoxelConversionPreviewRequest, VoxelConversionSourceRegistrationRequest, VoxelModelInfoRequest,
-    WeaponEffectHookRequest, WorldLoadRequest,
+    VoxelConversionPreviewRequest, VoxelConversionSourceRegistrationRequest,
+    VoxelModelInfoRequest, WeaponEffectHookRequest, WorldLoadRequest,
 };
 use serde::{Deserialize, Serialize};
 
@@ -841,6 +842,26 @@ fn parse_weapon_effect_hook_request(request_json: &str) -> napi::Result<WeaponEf
     })
 }
 
+fn parse_game_rule_catalog(catalog_json: &str) -> napi::Result<GameRuleCatalog> {
+    serde_json::from_str(catalog_json).map_err(|err| {
+        to_napi(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::InvalidInput,
+            format!("invalid game-rule catalog JSON: {err}"),
+        ))
+    })
+}
+
+fn parse_game_rule_resolution_request(
+    request_json: &str,
+) -> napi::Result<GameRuleResolutionRequest> {
+    serde_json::from_str(request_json).map_err(|err| {
+        to_napi(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::InvalidInput,
+            format!("invalid game-rule resolution request JSON: {err}"),
+        ))
+    })
+}
+
 fn voxel_conversion_json<T: serde::Serialize>(value: &T) -> napi::Result<String> {
     serde_json::to_string(value).map_err(|err| {
         to_napi(RuntimeBridgeError::new(
@@ -855,6 +876,15 @@ fn game_extension_json<T: Serialize>(value: &T) -> napi::Result<String> {
         to_napi(RuntimeBridgeError::new(
             RuntimeBridgeErrorKind::Internal,
             format!("failed to serialize game extension DTO: {err}"),
+        ))
+    })
+}
+
+fn game_rule_json<T: Serialize>(value: &T) -> napi::Result<String> {
+    serde_json::to_string(value).map_err(|err| {
+        to_napi(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::Internal,
+            format!("failed to serialize game-rule DTO: {err}"),
         ))
     })
 }
@@ -1057,6 +1087,41 @@ pub fn invoke_game_extension_weapon_effect(
             replay_evidence_json: game_extension_json(&result.replay_evidence)?,
             primary_fire: result.primary_fire.map(NativeFpsPrimaryFireResult::from),
         })
+    })
+}
+
+#[napi]
+pub fn validate_game_rule_catalog(handle: i64, catalog_json: String) -> napi::Result<String> {
+    let catalog = parse_game_rule_catalog(&catalog_json)?;
+    with_bridge(handle, |bridge| {
+        let receipt = bridge
+            .validate_game_rule_catalog(catalog)
+            .map_err(to_napi)?;
+        game_rule_json(&receipt)
+    })
+}
+
+#[napi]
+pub fn submit_game_rule_effect_intent(
+    handle: i64,
+    catalog_json: String,
+    request_json: String,
+) -> napi::Result<String> {
+    let catalog = parse_game_rule_catalog(&catalog_json)?;
+    let request = parse_game_rule_resolution_request(&request_json)?;
+    with_bridge(handle, |bridge| {
+        let receipt = bridge
+            .submit_game_rule_effect_intent(GameRuleEffectIntentRequest { catalog, request })
+            .map_err(to_napi)?;
+        game_rule_json(&receipt)
+    })
+}
+
+#[napi]
+pub fn read_game_rule_runtime_readout(handle: i64) -> napi::Result<String> {
+    with_bridge(handle, |bridge| {
+        let readout = bridge.read_game_rule_runtime_readout().map_err(to_napi)?;
+        game_rule_json(&readout)
     })
 }
 

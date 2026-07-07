@@ -24,6 +24,9 @@ operations are replay/devtools-only.
 | `read_fps_runtime_session` | stable | `Unit` | `protocol_runtime::FpsRuntimeSessionSnapshot` | `RuntimeBridgeError` |
 | `apply_fps_primary_fire` | stable | `protocol_runtime::FpsPrimaryFireRequest` | `protocol_runtime::FpsPrimaryFireResult` | `RuntimeBridgeError` |
 | `invoke_game_extension_weapon_effect` | stable | `protocol_runtime::GameExtensionWeaponEffectInvocationRequest` | `protocol_runtime::GameExtensionWeaponEffectInvocationResult` | `RuntimeBridgeError` |
+| `validate_game_rule_catalog` | stable | `protocol_game_rules::GameRuleCatalog` | `protocol_runtime::GameRuleCatalogValidationReceipt` | `RuntimeBridgeError` |
+| `submit_game_rule_effect_intent` | stable | `protocol_runtime::GameRuleEffectIntentRequest` | `protocol_game_rules::GameRuleResolutionReceipt` | `RuntimeBridgeError` |
+| `read_game_rule_runtime_readout` | stable | `Unit` | `protocol_runtime::GameRuleRuntimeReadout` | `RuntimeBridgeError` |
 | `restart_fps_runtime_session` | stable | `protocol_runtime::FpsRuntimeSessionRestartRequest` | `protocol_runtime::FpsRuntimeSessionSnapshot` | `RuntimeBridgeError` |
 | `read_fps_encounter_director` | stable | `protocol_runtime::FpsEncounterLifecycleInput` | `protocol_runtime::FpsEncounterDirectorSnapshot` | `RuntimeBridgeError` |
 | `apply_fps_encounter_transition` | stable | `protocol_runtime::FpsEncounterTransitionRequest` | `protocol_runtime::FpsEncounterTransitionResult` | `RuntimeBridgeError` |

@@ -456,6 +456,34 @@ pub struct GameExtensionWeaponEffectInvocationResult {
     pub primary_fire: Option<FpsPrimaryFireResult>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameRuleCatalogValidationReceipt {
+    pub accepted: bool,
+    pub catalog_hash: String,
+    pub diagnostics: Vec<GameRuleDiagnostic>,
+    pub trace: Vec<GameRuleTraceEntry>,
+    pub evidence: Vec<GameRuleEvidenceRef>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameRuleEffectIntentRequest {
+    pub catalog: GameRuleCatalog,
+    pub request: GameRuleResolutionRequest,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameRuleRuntimeReadout {
+    pub backend: String,
+    pub authority_surface: String,
+    pub active_modifiers: Vec<GameRuleModifierState>,
+    pub recent_trace: Vec<GameRuleTraceEntry>,
+    pub recent_replay_hashes: Vec<String>,
+    pub latest_replay_hash: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FpsEncounterLifecycleInput {
     pub outcome_kind: String,

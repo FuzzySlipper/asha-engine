@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { cameraHandle } from '@asha/contracts';
+import { cameraHandle, entityId } from '@asha/contracts';
 import type {
   CameraCreateRequest,
   CollisionConstrainedCameraInputEnvelope,
@@ -641,6 +641,75 @@ void test('Rust-backed ECRP load fails closed on authority rejection without rep
   assert.equal(after.projectBundle.sceneId, before.projectBundle.sceneId);
   assert.equal(after.authority.source, 'rust_bridge');
   assert.equal(calls.load.length, 1);
+});
+
+void test('RuntimeSession exposes bounded game-rules validation, submit, and readout surfaces', () => {
+  const session = createRuntimeSessionFacade({ bridge: createMockRuntimeBridge(), mode: 'rust' });
+  session.initialize(sessionInput());
+  const catalog = {
+    catalog: { catalogId: 'catalog.game-rules.test', version: '0.1.0', contentHash: 'fnv1a64:catalog' },
+    valueChannels: [{ channelId: 'value.health', displayName: 'Health' }],
+    bundles: [{
+      bundleId: 'bundle.poisoned-impact',
+      effectOps: [
+        { kind: 'applyDelta' as const, opId: 'op.impact-damage', channelId: 'value.health', amount: -4, tags: ['tag.impact'] },
+        {
+          kind: 'schedulePeriodicEffect' as const,
+          opId: 'op.schedule-poison',
+          modifierId: 'modifier.poison',
+          cadence: { periodTicks: 2 },
+          duration: { kind: 'ticks' as const, ticks: 6 },
+          tags: ['tag.poison'],
+        },
+      ],
+      modifiers: [{
+        modifierId: 'modifier.poison',
+        stackPolicy: { kind: 'refresh' as const },
+        duration: { kind: 'ticks' as const, ticks: 6 },
+        tickCadence: { periodTicks: 2 },
+        tags: ['tag.poison'],
+        effectOpIds: ['op.poison-tick'],
+        sourceHash: 'fnv1a64:poison',
+      }],
+      tags: ['tag.poison'],
+      sourceHash: 'fnv1a64:bundle',
+    }],
+  };
+
+  const validation = session.validateGameRuleCatalog(catalog);
+  assert.equal(validation.accepted, true);
+  assert.equal(validation.catalog.catalog.catalogId, 'catalog.game-rules.test');
+  assert.equal(validation.sequenceId, 1);
+
+  const receipt = session.submitGameRuleEffectIntent(catalog, {
+    catalog: catalog.catalog,
+    bundleId: 'bundle.poisoned-impact',
+    source: entityId(101),
+    target: entityId(777),
+    values: [{ channelId: 'value.health', min: 0, current: 75, max: 75 }],
+    tick: 9,
+  });
+  assert.equal(receipt.accepted, true);
+  assert.deepEqual(receipt.pendingValueDeltas, [{ channelId: 'value.health', amount: -4 }]);
+  assert.equal(receipt.appliedModifiers[0]?.modifierId, 'modifier.poison');
+  assert.equal(receipt.appliedModifiers[0]?.source, 101);
+  assert.equal(receipt.appliedModifiers[0]?.target, 777);
+  assert.equal(receipt.appliedModifiers[0]?.nextTick, 11);
+  assert.equal(receipt.appliedModifiers[0]?.expiresTick, 15);
+
+  const readout = session.readGameRuleRuntimeReadout();
+  assert.equal(readout.backend, 'reference_bridge');
+  assert.equal(readout.activeModifiers[0]?.modifierId, 'modifier.poison');
+  assert.equal(readout.activeModifiers[0]?.nextTick, 11);
+  assert.equal(readout.latestReplayHash, receipt.replayHash);
+  assert.equal(session.readTelemetry().replayRecords.at(-1)?.kind, 'submitGameRuleEffectIntent');
+
+  const invalid = session.validateGameRuleCatalog({
+    ...catalog,
+    catalog: { ...catalog.catalog, contentHash: '' },
+  });
+  assert.equal(invalid.accepted, false);
+  assert.equal(invalid.diagnostics[0]?.severity, 'error');
 });
 
 void test('Rust-backed ECRP load stages world authority before FPS runtime mutation', () => {

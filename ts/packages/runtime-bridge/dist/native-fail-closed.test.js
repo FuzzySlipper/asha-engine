@@ -65,6 +65,9 @@ const REQUIRED_NATIVE_CONFORMANCE_OPS = [
     'read_fps_runtime_session',
     'apply_fps_primary_fire',
     'invoke_game_extension_weapon_effect',
+    'validate_game_rule_catalog',
+    'submit_game_rule_effect_intent',
+    'read_game_rule_runtime_readout',
     'restart_fps_runtime_session',
     'read_fps_encounter_director',
     'apply_fps_encounter_transition',
@@ -83,6 +86,43 @@ const HASH_B = 'fnv1a64:00000000000000bb';
 const HASH_C = 'fnv1a64:00000000000000cc';
 const VOXEL_PLAN_HASH = 'fnv1a64:0000000000000102';
 const VOXEL_PREVIEW_HASH = 'fnv1a64:0000000000000103';
+const GAME_RULE_CATALOG = {
+    catalog: { catalogId: 'catalog.game-rules.native', version: '0.1.0', contentHash: HASH_A },
+    valueChannels: [{ channelId: 'value.health', displayName: 'Health' }],
+    bundles: [{
+            bundleId: 'bundle.poisoned-impact',
+            effectOps: [
+                { kind: 'applyDelta', opId: 'op.impact-damage', channelId: 'value.health', amount: -3, tags: ['tag.impact'] },
+                {
+                    kind: 'schedulePeriodicEffect',
+                    opId: 'op.schedule-poison',
+                    modifierId: 'modifier.poison',
+                    cadence: { periodTicks: 2 },
+                    duration: { kind: 'ticks', ticks: 6 },
+                    tags: ['tag.poison'],
+                },
+            ],
+            modifiers: [{
+                    modifierId: 'modifier.poison',
+                    stackPolicy: { kind: 'refresh' },
+                    duration: { kind: 'ticks', ticks: 6 },
+                    tickCadence: { periodTicks: 2 },
+                    tags: ['tag.poison'],
+                    effectOpIds: ['op.poison-tick'],
+                    sourceHash: HASH_B,
+                }],
+            tags: ['tag.poison'],
+            sourceHash: HASH_C,
+        }],
+};
+const GAME_RULE_REQUEST = {
+    catalog: GAME_RULE_CATALOG.catalog,
+    bundleId: 'bundle.poisoned-impact',
+    source: entityId(101),
+    target: entityId(777),
+    values: [{ channelId: 'value.health', min: 0, current: 75, max: 75 }],
+    tick: 9,
+};
 const VOXEL_CONVERSION_PLAN_REQUEST = {
     source: {
         assetId: 'mesh/quad',
@@ -341,6 +381,61 @@ function fakeAddon(calls = []) {
                 },
             };
         },
+        validateGameRuleCatalog: (_handle, catalogJson) => {
+            const catalog = parseJsonFixture(catalogJson);
+            calls.push(`gameRuleValidate:${catalog.catalog.catalogId}`);
+            return JSON.stringify({
+                accepted: true,
+                catalogHash: HASH_A,
+                diagnostics: [],
+                trace: [{ step: 1, code: 'catalog.accepted', message: 'sentinel catalog accepted', refs: [] }],
+                evidence: [{ kind: 'catalogValidation', uri: 'asha://game-rules/catalog-validation/native', contentHash: HASH_B }],
+            });
+        },
+        submitGameRuleEffectIntent: (_handle, catalogJson, requestJson) => {
+            const catalog = parseJsonFixture(catalogJson);
+            const request = parseJsonFixture(requestJson);
+            calls.push(`gameRuleSubmit:${catalog.catalog.catalogId}:${request.bundleId}`);
+            return JSON.stringify({
+                accepted: true,
+                requestHash: HASH_A,
+                pendingValueDeltas: [{ channelId: 'value.health', amount: -3 }],
+                appliedModifiers: [{
+                        modifierId: 'modifier.poison',
+                        source: request.source,
+                        target: request.target,
+                        stacks: 1,
+                        appliedTick: request.tick,
+                        expiresTick: request.tick + 6,
+                        nextTick: request.tick + 2,
+                        sourceHash: HASH_B,
+                    }],
+                diagnostics: [],
+                trace: [{ step: 1, code: 'resolution.accepted', message: 'sentinel effect accepted', refs: [] }],
+                evidence: [{ kind: 'resolutionReceipt', uri: 'asha://game-rules/receipt/native', contentHash: HASH_C }],
+                replayHash: HASH_C,
+            });
+        },
+        readGameRuleRuntimeReadout: (_handle) => {
+            calls.push('gameRuleReadout');
+            return JSON.stringify({
+                backend: 'reference_bridge_rust',
+                authoritySurface: 'runtime_session.game_rules.v0',
+                activeModifiers: [{
+                        modifierId: 'modifier.poison',
+                        source: 101,
+                        target: 777,
+                        stacks: 1,
+                        appliedTick: 9,
+                        expiresTick: 15,
+                        nextTick: 11,
+                        sourceHash: HASH_B,
+                    }],
+                recentTrace: [{ step: 1, code: 'resolution.accepted', message: 'sentinel effect accepted', refs: [] }],
+                recentReplayHashes: [HASH_C],
+                latestReplayHash: HASH_C,
+            });
+        },
         restartFpsRuntimeSession: (_handle, expectedEpoch) => {
             calls.push(`fpsRestart:${expectedEpoch}`);
             return {
@@ -568,6 +663,12 @@ const INVOKE = new Map([
             },
             primaryFire: { tick: 9, origin: [2.5, 1.5, 1.5], direction: [0, 0, 1] },
         })],
+    ['validateGameRuleCatalog', (b) => b.validateGameRuleCatalog(GAME_RULE_CATALOG)],
+    ['submitGameRuleEffectIntent', (b) => b.submitGameRuleEffectIntent({
+            catalog: GAME_RULE_CATALOG,
+            request: GAME_RULE_REQUEST,
+        })],
+    ['readGameRuleRuntimeReadout', (b) => b.readGameRuleRuntimeReadout()],
     ['restartFpsRuntimeSession', (b) => b.restartFpsRuntimeSession({ expectedEpoch: 1 })],
     ['readFpsEncounterDirector', (b) => b.readFpsEncounterDirector({
             outcomeKind: 'in_progress',
@@ -700,6 +801,17 @@ void test('native conformance sequence routes through the addon without mock fal
     assert.equal(fired.backend, 'native_rust');
     assert.deepEqual(fired.lifecycleStatus, { state: 'enemy_defeated', entity: 777, tick: 9 });
     assert.equal(fired.targetHealthAfter?.current, 0);
+    const catalogValidation = bridge.validateGameRuleCatalog(GAME_RULE_CATALOG);
+    assert.equal(catalogValidation.accepted, true);
+    const gameRuleReceipt = bridge.submitGameRuleEffectIntent({
+        catalog: GAME_RULE_CATALOG,
+        request: GAME_RULE_REQUEST,
+    });
+    assert.equal(gameRuleReceipt.accepted, true);
+    assert.equal(gameRuleReceipt.appliedModifiers[0]?.nextTick, 11);
+    const gameRuleReadout = bridge.readGameRuleRuntimeReadout();
+    assert.equal(gameRuleReadout.backend, 'native_rust');
+    assert.equal(gameRuleReadout.activeModifiers[0]?.modifierId, 'modifier.poison');
     assert.equal(bridge.readFpsRuntimeSession().replayHash, HASH_C);
     assert.equal(bridge.restartFpsRuntimeSession({ expectedEpoch: 1 }).sessionEpoch, 2);
     const encounter = bridge.readFpsEncounterDirector({
@@ -745,6 +857,9 @@ void test('native conformance sequence routes through the addon without mock fal
         'fpsLoad:custom-demo:2:0',
         'fpsNativeShape:true:true:0',
         'fpsFire:9:2.5,1.5,1.5:0,0,1',
+        'gameRuleValidate:catalog.game-rules.native',
+        'gameRuleSubmit:catalog.game-rules.native:bundle.poisoned-impact',
+        'gameRuleReadout',
         'fpsRead',
         'fpsRestart:1',
         'fpsEncounterRead',
