@@ -44,7 +44,7 @@ Forbidden for downstream consumers:
 
 - no direct `@asha/native-bridge` imports;
 - no `@asha/wasm-replay-bridge` runtime imports;
-- no `../asha/ts/packages/*/src/*` imports;
+- no `../asha-engine/ts/packages/*/src/*` imports;
 - no generated contract file edits or local contract forks;
 - no package-root mock/reference backend imports;
 - no raw `call(methodName, json)` bridge tunnels;

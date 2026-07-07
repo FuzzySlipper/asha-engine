@@ -273,7 +273,7 @@ void test('authoring write target resolver fails closed on disallowed paths and 
 
   const traversal = resolveAshaAuthoringWriteTarget(manifest, {
     operationKind: 'authoring.catalog.save_source',
-    relativePath: '../asha/private/catalog.json',
+    relativePath: '../asha-engine/private/catalog.json',
   });
   assert.equal(traversal.ok, false);
   assert.equal(
@@ -404,7 +404,7 @@ void test('asset catalog fails closed for missing file, duplicate id, forbidden 
     schemaVersion: 1,
     entries: [
       { ...validCatalog().entries[0]! },
-      { ...validCatalog().entries[0]!, source: '../asha/private.bin', kind: 'shader' as never },
+      { ...validCatalog().entries[0]!, source: '../asha-engine/private.bin', kind: 'shader' as never },
       { ...validCatalog().entries[1]!, importProfile: 'inline-static-mesh.v0', publish: { include: true, outputKey: 'meshes/not-a-material.mesh.json' } },
     ],
   };

@@ -618,7 +618,7 @@ It should not contain product-domain logic, renderer logic, or policy logic.
 ## 9. Repository structure
 
 ```txt
-/agent-engine
+/asha-engine
   README.md
 
   /governance

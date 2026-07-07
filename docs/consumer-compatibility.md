@@ -405,8 +405,8 @@ Until ASHA has registry/package publication, downstream consumers pin by local p
 ```json
 {
   "dependencies": {
-    "@asha/contracts": "file:../asha/ts/packages/contracts",
-    "@asha/runtime-bridge": "file:../asha/ts/packages/runtime-bridge"
+    "@asha/contracts": "file:../asha-engine/ts/packages/contracts",
+    "@asha/runtime-bridge": "file:../asha-engine/ts/packages/runtime-bridge"
   }
 }
 ```

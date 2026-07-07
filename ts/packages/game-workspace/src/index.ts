@@ -426,7 +426,7 @@ export function buildAshaAuthoringPersistenceContract(manifest: AshaGameManifest
   return {
     contractVersion: 'authoring-persistence.v0',
     writeScopes,
-    forbiddenRoots: ['harness/out', 'node_modules', '.git', '../asha', '../asha-studio'],
+    forbiddenRoots: ['harness/out', 'node_modules', '.git', '../asha-engine', '../asha-studio'],
     diagnostics: writeScopes.flatMap((scope) =>
       scope.operationKind === 'authoring.policy.save_source'
         ? [authoringDiag('unsupported_operation', scope.operationKind, 'policy authoring is reserved until a policy schema contract exists')]
@@ -877,7 +877,7 @@ function isGeneratedOrPrivateAuthoringPath(value: string): boolean {
     || value.startsWith('harness/out/')
     || value === 'node_modules'
     || value.startsWith('node_modules/')
-    || value.startsWith('../asha')
+    || value.startsWith('../asha-engine')
     || value.startsWith('../asha-studio');
 }
 

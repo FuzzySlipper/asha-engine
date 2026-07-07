@@ -45,7 +45,7 @@ See `docs/design.md` for the full system design and `README.md` for current repo
 ## Repository Structure
 
 ```
-/agent-engine          # repo name in design, maps to /home/dev/asha
+/asha-engine          # repo name in design, maps to /home/dev/asha-engine
   /governance           # lane docs, ADRs, reviewer prompts, ownership config
   /harness              # CI, lints, depgraph checkers, goldens, fixtures, smoke/perf output
   /engine-rs            # Rust cargo workspace

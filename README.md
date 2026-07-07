@@ -17,6 +17,10 @@ TypeScript never becomes a second authoritative engine.
 
 ## Repository posture
 
+This repository is the core ASHA engine repo, named `asha-engine` on GitHub and
+in fresh checkout instructions. The `@asha/*` package scope and ASHA concept name
+remain unchanged.
+
 This repo has moved past the original prototype-phase checklist. Do not infer current work from old phase language. Current planning, implementation queues, and architectural decisions live in Den under project `asha`; use Den tasks/docs/messages as the durable source of truth when available.
 
 Major durable surfaces include:

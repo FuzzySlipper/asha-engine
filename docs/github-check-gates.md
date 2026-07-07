@@ -15,7 +15,7 @@ For Den Review GitHub check gates, use:
 {
   "project_id": "asha",
   "task_id": "<den-task-id>",
-  "repository": "FuzzySlipper/asha",
+  "repository": "FuzzySlipper/asha-engine",
   "commit_sha": "<full-40-character-sha>",
   "ref": "main",
   "required_checks": ["Verify ASHA"],

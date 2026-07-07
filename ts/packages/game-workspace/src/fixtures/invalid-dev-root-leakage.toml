@@ -4,7 +4,7 @@ contracts_version = "0.1.0"
 runtime_bridge_version = "0.1.0"
 devtools_protocol_version = "devtools-protocol.v0"
 publish_artifact_format_version = "publish-artifact.v0"
-engine_source = "../asha"
+engine_source = "../asha-engine"
 
 [workspace]
 scene_roots = ["scenes"]
