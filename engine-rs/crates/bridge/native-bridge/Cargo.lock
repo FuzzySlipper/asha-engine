@@ -570,9 +570,11 @@ dependencies = [
  "core-ids",
  "core-space",
  "protocol-entity-authoring",
+ "protocol-game-rules",
  "svc-collision",
  "svc-combat",
  "svc-entity-authoring",
+ "svc-game-rules",
 ]
 
 [[package]]
