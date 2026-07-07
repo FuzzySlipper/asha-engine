@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRuntimeSessionFacade, } from './index.js';
-import { createMockRuntimeBridge } from './mock.js';
+import { MockRuntimeBridge } from './mock.js';
 function sessionInput() {
     return {
         sessionId: 'runtime-session.game-rule-load.test',
@@ -109,23 +109,14 @@ function gameRuleModuleManifest() {
     };
 }
 function bridgeWithLoadCapture() {
-    const base = createMockRuntimeBridge();
     const calls = { load: [] };
-    const bridge = new Proxy(base, {
-        get(target, property, receiver) {
-            if (property === 'loadFpsRuntimeSession') {
-                return (request) => {
-                    calls.load.push(request);
-                    return target.loadFpsRuntimeSession(request);
-                };
-            }
-            const value = Reflect.get(target, property, receiver);
-            if (typeof value === 'function') {
-                return value.bind(target);
-            }
-            return value;
-        },
-    });
+    class CapturingRuntimeBridge extends MockRuntimeBridge {
+        loadFpsRuntimeSession(request) {
+            calls.load.push(request);
+            return super.loadFpsRuntimeSession(request);
+        }
+    }
+    const bridge = new CapturingRuntimeBridge();
     return { bridge, calls };
 }
 void test('Rust-backed ECRP load forwards generated game-rule module manifests', () => {

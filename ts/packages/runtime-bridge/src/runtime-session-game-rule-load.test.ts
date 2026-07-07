@@ -8,7 +8,7 @@ import {
   type FpsRuntimeSessionLoadRequest,
   type RuntimeBridge,
 } from './index.js';
-import { createMockRuntimeBridge } from './mock.js';
+import { MockRuntimeBridge } from './mock.js';
 
 function sessionInput() {
   return {
@@ -123,23 +123,14 @@ function bridgeWithLoadCapture(): {
   readonly bridge: RuntimeBridge;
   readonly calls: { readonly load: FpsRuntimeSessionLoadRequest[] };
 } {
-  const base = createMockRuntimeBridge();
   const calls: { load: FpsRuntimeSessionLoadRequest[] } = { load: [] };
-  const bridge = new Proxy(base, {
-    get(target, property, receiver) {
-      if (property === 'loadFpsRuntimeSession') {
-        return (request: FpsRuntimeSessionLoadRequest) => {
-          calls.load.push(request);
-          return target.loadFpsRuntimeSession(request);
-        };
-      }
-      const value = Reflect.get(target, property, receiver);
-      if (typeof value === 'function') {
-        return value.bind(target);
-      }
-      return value;
-    },
-  });
+  class CapturingRuntimeBridge extends MockRuntimeBridge {
+    override loadFpsRuntimeSession(request: FpsRuntimeSessionLoadRequest) {
+      calls.load.push(request);
+      return super.loadFpsRuntimeSession(request);
+    }
+  }
+  const bridge = new CapturingRuntimeBridge();
   return { bridge, calls };
 }
 
