@@ -79,4 +79,3 @@ export class ReferenceGameRuntimeLauncher implements GameRuntimeLauncher {
 export function createReferenceGameRuntimeLauncher(): GameRuntimeLauncher {
   return new ReferenceGameRuntimeLauncher();
 }
-
