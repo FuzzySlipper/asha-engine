@@ -159,4 +159,3 @@ The smallest useful proving slice is a game-owned Rust weapon effect:
 Until those upstream extension points exist, `asha-demo` Rust should stay in the
 content/tooling lane: manifest preflight, package metadata checks, or build
 validation. It should not become an alternate combat/collision/lifecycle stack.
-
