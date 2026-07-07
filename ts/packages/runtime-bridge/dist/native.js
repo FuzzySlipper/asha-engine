@@ -101,7 +101,7 @@ function requiredString(value, field) {
     return value;
 }
 function requiredStringArray(value, field) {
-    if (!Array.isArray(value)) {
+    if (!isTypedArray(value)) {
         throw new RuntimeBridgeError('invalid_input', `${field} must be an array of non-empty strings`);
     }
     return value.map((entry, index) => requiredString(entry, `${field}[${index}]`));
@@ -111,6 +111,9 @@ function bridgeVec3(value, field) {
         throw new RuntimeBridgeError('internal', `native ${field} was not a finite vec3`);
     }
     return [value.x, value.y, value.z];
+}
+function isTypedArray(value) {
+    return Array.isArray(value);
 }
 function nativeAuthoritySource(value) {
     if (value === 'seeded_from_request' || value === 'rust_entity_store') {

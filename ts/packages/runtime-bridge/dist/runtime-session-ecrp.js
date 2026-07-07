@@ -222,7 +222,7 @@ function validateGameRuleModuleManifests(value, diagnostics) {
     if (value === undefined) {
         return;
     }
-    if (!Array.isArray(value)) {
+    if (!isTypedArray(value)) {
         diagnostics.push({
             code: 'invalidGameRuleModuleManifest',
             path: 'gameRuleModules',
@@ -233,7 +233,7 @@ function validateGameRuleModuleManifests(value, diagnostics) {
     value.forEach((manifest, index) => validateGameRuleModuleManifest(manifest, `gameRuleModules.${index}`, diagnostics));
 }
 function validateGameRuleModuleManifest(manifest, path, diagnostics) {
-    if (!isRecord(manifest)) {
+    if (!isPlainObject(manifest)) {
         diagnostics.push({
             code: 'invalidGameRuleModuleManifest',
             path,
@@ -247,7 +247,7 @@ function validateGameRuleModuleManifest(manifest, path, diagnostics) {
     validateNonEmptyString(manifest['sourceHash'], `${path}.sourceHash`, 'sourceHash is required', diagnostics);
 }
 function validateGameRuleModuleRef(value, path, diagnostics) {
-    if (!isRecord(value)) {
+    if (!isPlainObject(value)) {
         diagnostics.push({
             code: 'invalidGameRuleModuleManifest',
             path,
@@ -260,7 +260,7 @@ function validateGameRuleModuleRef(value, path, diagnostics) {
     validateNonEmptyString(value['contractHash'], `${path}.contractHash`, 'moduleRef.contractHash is required', diagnostics);
 }
 function validateGameRuleHookDeclarations(value, path, diagnostics) {
-    if (!Array.isArray(value) || value.length === 0) {
+    if (!isTypedArray(value) || value.length === 0) {
         diagnostics.push({
             code: 'invalidGameRuleModuleManifest',
             path,
@@ -271,7 +271,7 @@ function validateGameRuleHookDeclarations(value, path, diagnostics) {
     value.forEach((hook, index) => validateGameRuleHookDeclaration(hook, `${path}.${index}`, diagnostics));
 }
 function validateGameRuleHookDeclaration(value, path, diagnostics) {
-    if (!isRecord(value)) {
+    if (!isPlainObject(value)) {
         diagnostics.push({
             code: 'invalidGameRuleModuleManifest',
             path,
@@ -310,8 +310,11 @@ function validateStringArray(value, path, diagnostics) {
         });
     }
 }
-function isRecord(value) {
+function isPlainObject(value) {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+function isTypedArray(value) {
+    return Array.isArray(value);
 }
 function validateEcrpCapabilities(definition, path, diagnostics) {
     const capabilityKinds = new Set();

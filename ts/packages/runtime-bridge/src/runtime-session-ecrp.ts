@@ -1,3 +1,4 @@
+import type { GameRuleHookDeclaration, GameRuleModuleManifest, GameRuleModuleRef } from '@asha/contracts';
 import { lifecycleHealth } from './runtime-session-lifecycle.js';
 import { projectBundleHashRecord, stableHash } from './runtime-session-hash.js';
 import type {
@@ -245,13 +246,13 @@ export function validateEcrpProjectLoadInput(
 }
 
 function validateGameRuleModuleManifests(
-  value: unknown,
+  value: readonly GameRuleModuleManifest[] | null | undefined,
   diagnostics: RuntimeSessionEcrpProjectDiagnostic[],
 ): void {
   if (value === undefined) {
     return;
   }
-  if (!Array.isArray(value)) {
+  if (!isTypedArray(value)) {
     diagnostics.push({
       code: 'invalidGameRuleModuleManifest',
       path: 'gameRuleModules',
@@ -263,11 +264,11 @@ function validateGameRuleModuleManifests(
 }
 
 function validateGameRuleModuleManifest(
-  manifest: unknown,
+  manifest: GameRuleModuleManifest | null | undefined,
   path: string,
   diagnostics: RuntimeSessionEcrpProjectDiagnostic[],
 ): void {
-  if (!isRecord(manifest)) {
+  if (!isPlainObject(manifest)) {
     diagnostics.push({
       code: 'invalidGameRuleModuleManifest',
       path,
@@ -282,11 +283,11 @@ function validateGameRuleModuleManifest(
 }
 
 function validateGameRuleModuleRef(
-  value: unknown,
+  value: GameRuleModuleRef | null | undefined,
   path: string,
   diagnostics: RuntimeSessionEcrpProjectDiagnostic[],
 ): void {
-  if (!isRecord(value)) {
+  if (!isPlainObject(value)) {
     diagnostics.push({
       code: 'invalidGameRuleModuleManifest',
       path,
@@ -300,11 +301,11 @@ function validateGameRuleModuleRef(
 }
 
 function validateGameRuleHookDeclarations(
-  value: unknown,
+  value: readonly GameRuleHookDeclaration[] | null | undefined,
   path: string,
   diagnostics: RuntimeSessionEcrpProjectDiagnostic[],
 ): void {
-  if (!Array.isArray(value) || value.length === 0) {
+  if (!isTypedArray(value) || value.length === 0) {
     diagnostics.push({
       code: 'invalidGameRuleModuleManifest',
       path,
@@ -316,11 +317,11 @@ function validateGameRuleHookDeclarations(
 }
 
 function validateGameRuleHookDeclaration(
-  value: unknown,
+  value: GameRuleHookDeclaration | null | undefined,
   path: string,
   diagnostics: RuntimeSessionEcrpProjectDiagnostic[],
 ): void {
-  if (!isRecord(value)) {
+  if (!isPlainObject(value)) {
     diagnostics.push({
       code: 'invalidGameRuleModuleManifest',
       path,
@@ -343,7 +344,7 @@ function validateGameRuleHookDeclaration(
 }
 
 function validateNonEmptyString(
-  value: unknown,
+  value: string | null | undefined,
   path: string,
   detail: string,
   diagnostics: RuntimeSessionEcrpProjectDiagnostic[],
@@ -358,7 +359,7 @@ function validateNonEmptyString(
 }
 
 function validateStringArray(
-  value: unknown,
+  value: readonly string[] | null | undefined,
   path: string,
   diagnostics: RuntimeSessionEcrpProjectDiagnostic[],
 ): void {
@@ -371,8 +372,12 @@ function validateStringArray(
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isPlainObject(value: object | null | undefined): value is object {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isTypedArray<T>(value: readonly T[] | null | undefined): value is readonly T[] {
+  return Array.isArray(value);
 }
 
 function validateEcrpCapabilities(

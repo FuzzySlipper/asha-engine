@@ -169,15 +169,15 @@ function nativeOptionalObject<T extends object>(value: T | null): T | undefined 
   return value == null ? undefined : value;
 }
 
-function requiredString(value: unknown, field: string): string {
+function requiredString(value: string | null | undefined, field: string): string {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new RuntimeBridgeError('invalid_input', `${field} must be a non-empty string`);
   }
   return value;
 }
 
-function requiredStringArray(value: unknown, field: string): readonly string[] {
-  if (!Array.isArray(value)) {
+function requiredStringArray(value: readonly string[] | null | undefined, field: string): readonly string[] {
+  if (!isTypedArray(value)) {
     throw new RuntimeBridgeError('invalid_input', `${field} must be an array of non-empty strings`);
   }
   return value.map((entry, index) => requiredString(entry, `${field}[${index}]`));
@@ -191,6 +191,10 @@ function bridgeVec3(
     throw new RuntimeBridgeError('internal', `native ${field} was not a finite vec3`);
   }
   return [value.x, value.y, value.z];
+}
+
+function isTypedArray<T>(value: readonly T[] | null | undefined): value is readonly T[] {
+  return Array.isArray(value);
 }
 
 function nativeAuthoritySource(value: string): 'seeded_from_request' | 'rust_entity_store' {
