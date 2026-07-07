@@ -424,6 +424,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "protocol-diagnostics"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "protocol-entity-authoring"
 version = "0.1.0"
 dependencies = [
@@ -435,6 +442,14 @@ name = "protocol-view"
 version = "0.1.0"
 dependencies = [
  "core-space",
+]
+
+[[package]]
+name = "protocol-voxel-conversion"
+version = "0.1.0"
+dependencies = [
+ "protocol-diagnostics",
+ "serde",
 ]
 
 [[package]]
@@ -529,8 +544,10 @@ dependencies = [
  "core-math",
  "core-space",
  "core-voxel",
+ "protocol-diagnostics",
  "protocol-entity-authoring",
  "protocol-view",
+ "protocol-voxel-conversion",
  "rule-lifecycle",
  "rule-voxel-edit",
  "svc-collision",
@@ -540,6 +557,7 @@ dependencies = [
  "svc-serialization",
  "svc-spatial",
  "svc-volume",
+ "svc-voxel-conversion",
 ]
 
 [[package]]
@@ -717,6 +735,15 @@ version = "0.1.0"
 dependencies = [
  "core-space",
  "core-voxel",
+]
+
+[[package]]
+name = "svc-voxel-conversion"
+version = "0.1.0"
+dependencies = [
+ "core-voxel",
+ "protocol-diagnostics",
+ "protocol-voxel-conversion",
 ]
 
 [[package]]

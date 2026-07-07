@@ -26,6 +26,13 @@ import type {
   SceneObjectSnapshot,
   ScreenPointToPickRayRequest,
   VoxelCoord,
+  VoxelConversionApplyRequest,
+  VoxelConversionEvidenceRef,
+  VoxelConversionPlan,
+  VoxelConversionPlanRequest,
+  VoxelConversionPreview,
+  VoxelConversionPreviewRequest,
+  VoxelConversionReceipt,
   VoxelSelectionSnapshot,
 } from '@asha/contracts';
 import {
@@ -1121,6 +1128,40 @@ export class MockRuntimeBridge implements RuntimeBridge {
       })),
       diagnostics: [],
     };
+  }
+
+  planVoxelConversion(_request: VoxelConversionPlanRequest): VoxelConversionPlan {
+    void _request;
+    if (this.#engine === null) {
+      throw new RuntimeBridgeError('not_initialized', 'planVoxelConversion before initializeEngine');
+    }
+    throw new RuntimeBridgeError('operation_unimplemented', 'mock bridge does not own voxel conversion authority');
+  }
+
+  previewVoxelConversion(_request: VoxelConversionPreviewRequest): VoxelConversionPreview {
+    void _request;
+    if (this.#engine === null) {
+      throw new RuntimeBridgeError('not_initialized', 'previewVoxelConversion before initializeEngine');
+    }
+    throw new RuntimeBridgeError('operation_unimplemented', 'mock bridge does not own voxel conversion authority');
+  }
+
+  applyVoxelConversion(_request: VoxelConversionApplyRequest): VoxelConversionReceipt {
+    void _request;
+    if (this.#engine === null) {
+      throw new RuntimeBridgeError('not_initialized', 'applyVoxelConversion before initializeEngine');
+    }
+    throw new RuntimeBridgeError('operation_unimplemented', 'mock bridge does not own voxel conversion authority');
+  }
+
+  exportVoxelConversionEvidence(
+    _evidence: readonly VoxelConversionEvidenceRef[],
+  ): readonly VoxelConversionEvidenceRef[] {
+    void _evidence;
+    if (this.#engine === null) {
+      throw new RuntimeBridgeError('not_initialized', 'exportVoxelConversionEvidence before initializeEngine');
+    }
+    throw new RuntimeBridgeError('operation_unimplemented', 'mock bridge does not own voxel conversion authority');
   }
 
 

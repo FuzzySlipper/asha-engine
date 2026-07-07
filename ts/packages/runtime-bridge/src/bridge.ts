@@ -18,6 +18,13 @@ import type {
   SceneObjectSnapshot,
   ScreenPointToPickRayRequest,
   VoxelSelectionSnapshot,
+  VoxelConversionApplyRequest,
+  VoxelConversionEvidenceRef,
+  VoxelConversionPlan,
+  VoxelConversionPlanRequest,
+  VoxelConversionPreview,
+  VoxelConversionPreviewRequest,
+  VoxelConversionReceipt,
 } from '@asha/contracts';
 
 // ── Opaque handle types ───────────────────────────────────────────────────────
@@ -362,6 +369,10 @@ export interface RuntimeBridge {
   applyCollisionConstrainedCameraInput(input: CollisionConstrainedCameraInputEnvelope): CameraCollisionSnapshot;
   selectVoxel(request: ScreenPointToPickRayRequest): VoxelSelectionSnapshot;
   readVoxelMeshEvidence(request: VoxelMeshEvidenceRequest): VoxelMeshEvidenceSnapshot;
+  planVoxelConversion(request: VoxelConversionPlanRequest): VoxelConversionPlan;
+  previewVoxelConversion(request: VoxelConversionPreviewRequest): VoxelConversionPreview;
+  applyVoxelConversion(request: VoxelConversionApplyRequest): VoxelConversionReceipt;
+  exportVoxelConversionEvidence(evidence: readonly VoxelConversionEvidenceRef[]): readonly VoxelConversionEvidenceRef[];
   loadFpsRuntimeSession(request: FpsRuntimeSessionLoadRequest): FpsRuntimeSessionSnapshot;
   readFpsRuntimeSession(): FpsRuntimeSessionSnapshot;
   applyFpsPrimaryFire(request: FpsPrimaryFireRequest): FpsPrimaryFireResult;

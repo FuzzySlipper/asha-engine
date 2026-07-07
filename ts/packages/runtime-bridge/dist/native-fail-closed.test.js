@@ -66,6 +66,10 @@ const REQUIRED_NATIVE_CONFORMANCE_OPS = [
     'restart_fps_runtime_session',
     'read_fps_encounter_director',
     'apply_fps_encounter_transition',
+    'plan_voxel_conversion',
+    'preview_voxel_conversion',
+    'apply_voxel_conversion',
+    'export_voxel_conversion_evidence',
     'read_render_diffs',
     'save_current_world',
     'get_composition_status',
@@ -73,6 +77,45 @@ const REQUIRED_NATIVE_CONFORMANCE_OPS = [
 const HASH_A = 'fnv1a64:00000000000000aa';
 const HASH_B = 'fnv1a64:00000000000000bb';
 const HASH_C = 'fnv1a64:00000000000000cc';
+const VOXEL_PLAN_HASH = 'fnv1a64:0000000000000102';
+const VOXEL_PREVIEW_HASH = 'fnv1a64:0000000000000103';
+const VOXEL_CONVERSION_PLAN_REQUEST = {
+    source: {
+        assetId: 'mesh/quad',
+        assetKind: 'mesh',
+        assetVersion: 1,
+        sourceHash: 'sha256:quad',
+        meshPrimitive: null,
+    },
+    target: {
+        grid: 1,
+        volumeAssetId: 'voxel/generated',
+        origin: { x: 0, y: 0, z: 0 },
+    },
+    settings: {
+        mode: 'surface',
+        fitPolicy: 'contain',
+        originPolicy: 'target_min',
+        resolution: [4, 4, 1],
+        voxelSize: 1,
+        maxOutputVoxels: 16,
+        transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+        materialMap: {
+            entries: [{ sourceMaterialSlot: 0, sourceMaterialId: 'mat/a', voxelMaterial: 3 }],
+            defaultVoxelMaterial: 3,
+        },
+    },
+};
+const VOXEL_CONVERSION_EVIDENCE = [
+    {
+        kind: 'plan',
+        uri: 'asha://voxel-conversion/plan/fnv1a64:0000000000000101',
+        contentHash: VOXEL_PLAN_HASH,
+    },
+];
+function parseJsonFixture(payload) {
+    return JSON.parse(payload);
+}
 function fpsLoadRequest() {
     return {
         projectBundle: 'custom-demo',
@@ -295,6 +338,63 @@ function fakeAddon(calls = []) {
             calls.push('status');
             return { loadedWorld: 2001, fatalCount: 0, totalCount: 0, blocksLoad: false };
         },
+        planVoxelConversion: (_handle, requestJson) => {
+            calls.push(`voxelPlan:${requestJson}`);
+            const request = parseJsonFixture(requestJson);
+            return JSON.stringify({
+                planId: 'fnv1a64:0000000000000101',
+                source: {
+                    assetId: 'mesh/quad',
+                    assetKind: 'mesh',
+                    assetVersion: 1,
+                    sourceHash: 'sha256:quad',
+                    meshPrimitive: null,
+                },
+                target: {
+                    grid: 1,
+                    volumeAssetId: 'voxel/generated',
+                    origin: { x: 0, y: 0, z: 0 },
+                },
+                settings: request.settings,
+                authorityVersion: 'svc-voxel-conversion.v0',
+                expectedSourceHash: 'sha256:quad',
+                settingsHash: 'fnv1a64:0000000000000102',
+                estimatedOutputVoxels: 1,
+                estimatedBounds: { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } },
+                diagnostics: [],
+                evidence: [{ kind: 'plan', uri: 'asha://voxel-conversion/plan/fnv1a64:0000000000000101', contentHash: 'fnv1a64:0000000000000102' }],
+            });
+        },
+        previewVoxelConversion: (_handle, requestJson) => {
+            calls.push(`voxelPreview:${requestJson}`);
+            const request = parseJsonFixture(requestJson);
+            return JSON.stringify({
+                planId: request.planId,
+                outputHash: 'fnv1a64:0000000000000103',
+                outputVoxelCount: 1,
+                outputBounds: { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } },
+                sampleVoxels: [{ coord: { x: 0, y: 0, z: 0 }, material: 3 }],
+                diagnostics: [],
+                evidence: [{ kind: 'preview', uri: 'asha://voxel-conversion/preview/fnv1a64:0000000000000101', contentHash: 'fnv1a64:0000000000000103' }],
+            });
+        },
+        applyVoxelConversion: (_handle, requestJson) => {
+            calls.push(`voxelApply:${requestJson}`);
+            const request = parseJsonFixture(requestJson);
+            return JSON.stringify({
+                planId: request.planId,
+                applied: true,
+                outputHash: 'fnv1a64:0000000000000103',
+                outputVoxelCount: 1,
+                outputBounds: { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } },
+                diagnostics: [],
+                evidence: [{ kind: 'apply_receipt', uri: 'asha://voxel-conversion/apply/fnv1a64:0000000000000101', contentHash: 'fnv1a64:0000000000000104' }],
+            });
+        },
+        exportVoxelConversionEvidence: (_handle, evidenceJson) => {
+            calls.push(`voxelEvidence:${evidenceJson}`);
+            return evidenceJson;
+        },
     };
 }
 // One invocation per facade method. The native bridge is fully initialized first
@@ -351,6 +451,17 @@ const INVOKE = new Map([
                 lifecycleHash: HASH_A,
             },
         })],
+    ['planVoxelConversion', (b) => b.planVoxelConversion(VOXEL_CONVERSION_PLAN_REQUEST)],
+    ['previewVoxelConversion', (b) => b.previewVoxelConversion({
+            planId: 'fnv1a64:0000000000000101',
+            expectedPlanHash: VOXEL_PLAN_HASH,
+        })],
+    ['applyVoxelConversion', (b) => b.applyVoxelConversion({
+            planId: 'fnv1a64:0000000000000101',
+            expectedPlanHash: VOXEL_PLAN_HASH,
+            expectedPreviewHash: VOXEL_PREVIEW_HASH,
+        })],
+    ['exportVoxelConversionEvidence', (b) => b.exportVoxelConversionEvidence(VOXEL_CONVERSION_EVIDENCE)],
     ['readModelMaterialPreview', (b) => b.readModelMaterialPreview(MODEL_MATERIAL_PREVIEW_REQUEST)],
     ['readSceneObjectSnapshot', (b) => b.readSceneObjectSnapshot()],
     [

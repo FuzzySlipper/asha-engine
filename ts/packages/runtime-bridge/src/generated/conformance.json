@@ -59,6 +59,38 @@
       "errors": "RuntimeBridgeError"
     },
     {
+      "manifestName": "plan_voxel_conversion",
+      "facadeMethod": "planVoxelConversion",
+      "surface": "stable",
+      "input": "protocol_voxel_conversion::VoxelConversionPlanRequest",
+      "output": "protocol_voxel_conversion::VoxelConversionPlan",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "preview_voxel_conversion",
+      "facadeMethod": "previewVoxelConversion",
+      "surface": "stable",
+      "input": "protocol_voxel_conversion::VoxelConversionPreviewRequest",
+      "output": "protocol_voxel_conversion::VoxelConversionPreview",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "apply_voxel_conversion",
+      "facadeMethod": "applyVoxelConversion",
+      "surface": "stable",
+      "input": "protocol_voxel_conversion::VoxelConversionApplyRequest",
+      "output": "protocol_voxel_conversion::VoxelConversionReceipt",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "export_voxel_conversion_evidence",
+      "facadeMethod": "exportVoxelConversionEvidence",
+      "surface": "stable",
+      "input": "protocol_voxel_conversion::VoxelConversionEvidenceRef[]",
+      "output": "protocol_voxel_conversion::VoxelConversionEvidenceRef[]",
+      "errors": "RuntimeBridgeError"
+    },
+    {
       "manifestName": "load_fps_runtime_session",
       "facadeMethod": "loadFpsRuntimeSession",
       "surface": "stable",

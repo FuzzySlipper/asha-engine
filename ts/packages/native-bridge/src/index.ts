@@ -7,7 +7,17 @@
 // (enforced by governance/ownership.toml); app/UI/renderer never import it.
 
 import { createRequire } from 'node:module';
-import type { CommandResult, RenderFrameDiff } from '@asha/contracts';
+import type {
+  CommandResult,
+  RenderFrameDiff,
+  VoxelConversionApplyRequest,
+  VoxelConversionEvidenceRef,
+  VoxelConversionPlan,
+  VoxelConversionPlanRequest,
+  VoxelConversionPreview,
+  VoxelConversionPreviewRequest,
+  VoxelConversionReceipt,
+} from '@asha/contracts';
 
 interface NativeVec3 {
   readonly x: number;
@@ -221,7 +231,21 @@ export interface NativeAddon {
     totalCount: number;
     blocksLoad: boolean;
   };
+  planVoxelConversion(handle: number, requestJson: string): string;
+  previewVoxelConversion(handle: number, requestJson: string): string;
+  applyVoxelConversion(handle: number, requestJson: string): string;
+  exportVoxelConversionEvidence(handle: number, evidenceJson: string): string;
 }
+
+export type {
+  VoxelConversionApplyRequest,
+  VoxelConversionEvidenceRef,
+  VoxelConversionPlan,
+  VoxelConversionPlanRequest,
+  VoxelConversionPreview,
+  VoxelConversionPreviewRequest,
+  VoxelConversionReceipt,
+};
 
 /** Raised when the native addon cannot be loaded (missing build / ABI mismatch). */
 export class NativeAddonUnavailable extends Error {
@@ -246,6 +270,10 @@ const REQUIRED_EXPORTS = [
   'readRenderDiffs',
   'saveCurrentWorld',
   'getCompositionStatus',
+  'planVoxelConversion',
+  'previewVoxelConversion',
+  'applyVoxelConversion',
+  'exportVoxelConversionEvidence',
 ] as const;
 
 /**

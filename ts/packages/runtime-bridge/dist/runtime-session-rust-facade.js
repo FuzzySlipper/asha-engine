@@ -509,25 +509,21 @@ export class RustBackedRuntimeSessionFacade {
         this.#requireInitialized('requestGeneratedTunnelOperation');
         throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed generated tunnel operation authority is not wired yet');
     }
-    planVoxelConversion(_request) {
-        void _request;
+    planVoxelConversion(request) {
         this.#requireInitialized('planVoxelConversion');
-        throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed voxel conversion planning is not wired through the native bridge yet');
+        return this.#bridge.planVoxelConversion(request);
     }
-    previewVoxelConversion(_request) {
-        void _request;
+    previewVoxelConversion(request) {
         this.#requireInitialized('previewVoxelConversion');
-        throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed voxel conversion preview is not wired through the native bridge yet');
+        return this.#bridge.previewVoxelConversion(request);
     }
-    applyVoxelConversion(_request) {
-        void _request;
+    applyVoxelConversion(request) {
         this.#requireInitialized('applyVoxelConversion');
-        throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed voxel conversion apply is not wired through the native bridge yet');
+        return this.#bridge.applyVoxelConversion(request);
     }
-    exportVoxelConversionEvidence(_evidence) {
-        void _evidence;
+    exportVoxelConversionEvidence(evidence) {
         this.#requireInitialized('exportVoxelConversionEvidence');
-        throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed voxel conversion evidence export is not wired through the native bridge yet');
+        return this.#bridge.exportVoxelConversionEvidence(evidence);
     }
     readEcrpRuntimeReadout() {
         const identity = this.#requireInitialized('readEcrpRuntimeReadout');

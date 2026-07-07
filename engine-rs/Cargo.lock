@@ -658,8 +658,10 @@ dependencies = [
  "core-math",
  "core-space",
  "core-voxel",
+ "protocol-diagnostics",
  "protocol-entity-authoring",
  "protocol-view",
+ "protocol-voxel-conversion",
  "rule-lifecycle",
  "rule-voxel-edit",
  "svc-collision",
@@ -669,6 +671,7 @@ dependencies = [
  "svc-serialization",
  "svc-spatial",
  "svc-volume",
+ "svc-voxel-conversion",
 ]
 
 [[package]]

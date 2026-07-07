@@ -10,6 +10,13 @@ import type {
   RenderFrameDiff,
   SceneObjectCommandResult,
   SceneObjectSnapshot,
+  VoxelConversionApplyRequest,
+  VoxelConversionEvidenceRef,
+  VoxelConversionPlan,
+  VoxelConversionPlanRequest,
+  VoxelConversionPreview,
+  VoxelConversionPreviewRequest,
+  VoxelConversionReceipt,
   VoxelSelectionSnapshot,
 } from '@asha/contracts';
 import { loadNativeAddon, NativeAddonUnavailable, type NativeAddon } from '@asha/native-bridge';
@@ -78,6 +85,10 @@ export const NATIVE_WIRED_OPERATIONS: ReadonlySet<string> = new Set<string>([
   'restart_fps_runtime_session',
   'read_fps_encounter_director',
   'apply_fps_encounter_transition',
+  'plan_voxel_conversion',
+  'preview_voxel_conversion',
+  'apply_voxel_conversion',
+  'export_voxel_conversion_evidence',
   'read_render_diffs',
   'save_current_world',
   'get_composition_status',
@@ -116,6 +127,15 @@ function callNative<T>(body: () => T): T {
     return body();
   } catch (cause) {
     throw classifyNativeAddonError(cause as RuntimeBridgeError | Error | string | object);
+  }
+}
+
+function parseNativeJson<T>(payload: string, field: string): T {
+  try {
+    return JSON.parse(payload) as T;
+  } catch (cause) {
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    throw new RuntimeBridgeError('internal', `native ${field} was not valid JSON: ${reason}`);
   }
 }
 
@@ -442,6 +462,34 @@ export class NativeRuntimeBridge implements RuntimeBridge {
   getCompositionStatus(): CompositionStatus {
     const handle = this.#requireHandle('getCompositionStatus');
     return callNative(() => this.#addon.getCompositionStatus(handle) as CompositionStatus);
+  }
+
+  planVoxelConversion(request: VoxelConversionPlanRequest): VoxelConversionPlan {
+    const handle = this.#requireHandle('planVoxelConversion');
+    const payload = callNative(() => this.#addon.planVoxelConversion(handle, JSON.stringify(request)));
+    return parseNativeJson<VoxelConversionPlan>(payload, 'voxel conversion plan');
+  }
+
+  previewVoxelConversion(request: VoxelConversionPreviewRequest): VoxelConversionPreview {
+    const handle = this.#requireHandle('previewVoxelConversion');
+    const payload = callNative(() => this.#addon.previewVoxelConversion(handle, JSON.stringify(request)));
+    return parseNativeJson<VoxelConversionPreview>(payload, 'voxel conversion preview');
+  }
+
+  applyVoxelConversion(request: VoxelConversionApplyRequest): VoxelConversionReceipt {
+    const handle = this.#requireHandle('applyVoxelConversion');
+    const payload = callNative(() => this.#addon.applyVoxelConversion(handle, JSON.stringify(request)));
+    return parseNativeJson<VoxelConversionReceipt>(payload, 'voxel conversion receipt');
+  }
+
+  exportVoxelConversionEvidence(
+    evidence: readonly VoxelConversionEvidenceRef[],
+  ): readonly VoxelConversionEvidenceRef[] {
+    const handle = this.#requireHandle('exportVoxelConversionEvidence');
+    const payload = callNative(() =>
+      this.#addon.exportVoxelConversionEvidence(handle, JSON.stringify(evidence)),
+    );
+    return parseNativeJson<readonly VoxelConversionEvidenceRef[]>(payload, 'voxel conversion evidence');
   }
 
   // ── Unwired operations: fail-closed, never mock-backed ─────────────────────

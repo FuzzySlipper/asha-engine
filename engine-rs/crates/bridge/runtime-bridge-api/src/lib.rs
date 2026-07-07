@@ -32,6 +32,7 @@ use core_space::{
     ChunkCoord, ChunkDims, Direction6, Face, GridId, VoxelCoord, VoxelGridSpec, WorldPos, WorldVec,
 };
 use core_voxel::{MaterialCatalog, VoxelMaterialId, VoxelValue};
+use protocol_diagnostics::DiagnosticSeverity;
 use protocol_entity_authoring::{
     AuthoringTransform, EntityDefinition, EntityDefinitionCapability, EntityDefinitionSourceTrace,
 };
@@ -44,6 +45,11 @@ use protocol_view::{
     CollisionConstrainedCameraInputEnvelope, FirstPersonCameraInput,
     FirstPersonCameraInputEnvelope, PickRaySnapshot, ScreenPoint, ScreenPointSpace,
     ScreenPointToPickRayRequest, ViewportSize, VoxelSelectionOutcome, VoxelSelectionSnapshot,
+};
+pub use protocol_voxel_conversion::{
+    VoxelConversionApplyRequest, VoxelConversionDiagnostic, VoxelConversionDiagnosticCode,
+    VoxelConversionEvidenceRef, VoxelConversionPlan, VoxelConversionPlanRequest,
+    VoxelConversionPreview, VoxelConversionPreviewRequest, VoxelConversionReceipt,
 };
 use rule_lifecycle::{
     load_fps_project_bundle, FpsEncounterLastTransition,
@@ -63,6 +69,7 @@ use svc_pathfinding::{
 use svc_serialization::BundleHash;
 use svc_spatial::VoxelWorld;
 use svc_volume::VoxelChunk;
+use svc_voxel_conversion::{MeshTriangle, PlannedConversion, StaticMeshSource};
 
 pub mod buffer_provider;
 
@@ -703,6 +710,29 @@ pub trait RuntimeBridge {
         &self,
         request: VoxelMeshEvidenceRequest,
     ) -> BridgeResult<VoxelMeshEvidenceSnapshot>;
+    /// Plan a bounded static-mesh to voxel conversion through Rust authority.
+    /// The request/response are generated protocol DTOs; no Studio-specific
+    /// transport or renderer buffer shape crosses this boundary.
+    fn plan_voxel_conversion(
+        &mut self,
+        request: VoxelConversionPlanRequest,
+    ) -> BridgeResult<VoxelConversionPlan>;
+    /// Preview the most recently planned conversion, guarded by the plan hash.
+    fn preview_voxel_conversion(
+        &mut self,
+        request: VoxelConversionPreviewRequest,
+    ) -> BridgeResult<VoxelConversionPreview>;
+    /// Apply the current conversion output into voxel authority via the existing
+    /// generated voxel command path, guarded by plan/preview hashes.
+    fn apply_voxel_conversion(
+        &mut self,
+        request: VoxelConversionApplyRequest,
+    ) -> BridgeResult<VoxelConversionReceipt>;
+    /// Export selected evidence refs from the current conversion authority state.
+    fn export_voxel_conversion_evidence(
+        &self,
+        evidence: Vec<VoxelConversionEvidenceRef>,
+    ) -> BridgeResult<Vec<VoxelConversionEvidenceRef>>;
     /// Load an FPS/ECRP ProjectBundle-shaped session through Rust authority.
     /// Stored definitions are validated/bootstraped by rule-lifecycle and
     /// svc-entity-authoring; failure leaves any prior FPS session untouched.
@@ -801,6 +831,10 @@ pub struct ReferenceBridge {
     fps_session: Option<FpsRuntimeSessionState>,
     fps_seed: Option<FpsRuntimeSessionLoadRequest>,
     fps_epoch: u64,
+    /// Last planned voxel conversion. This is bridge-owned authority state used
+    /// by preview/apply hash guards; callers cannot provide their own output.
+    voxel_conversion_plan: Option<PlannedConversion>,
+    voxel_conversion_evidence: Vec<VoxelConversionEvidenceRef>,
 }
 
 /// The bundle schema / protocol versions this reference bridge understands.
@@ -850,6 +884,110 @@ impl ReferenceBridge {
         }
         let _ = world.drain_dirty();
         world
+    }
+
+    fn fixture_quad_source() -> StaticMeshSource {
+        StaticMeshSource {
+            asset_id: "mesh/quad".to_string(),
+            asset_kind: "mesh".to_string(),
+            asset_version: 1,
+            source_hash: "sha256:quad".to_string(),
+            mesh_primitive: None,
+            positions: vec![
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 1.0, 0.0],
+                [0.0, 1.0, 0.0],
+            ],
+            triangles: vec![
+                MeshTriangle {
+                    indices: [0, 1, 2],
+                    source_material_slot: 0,
+                },
+                MeshTriangle {
+                    indices: [0, 2, 3],
+                    source_material_slot: 1,
+                },
+            ],
+        }
+    }
+
+    fn source_for_voxel_conversion(_request: &VoxelConversionPlanRequest) -> StaticMeshSource {
+        // Current bridge-owned fixture source. The conversion service validates
+        // the caller's source ref against it and emits typed diagnostics for
+        // unsupported source identity/hash mismatch instead of TS deciding.
+        Self::fixture_quad_source()
+    }
+
+    fn voxel_conversion_diagnostic(
+        code: VoxelConversionDiagnosticCode,
+        reference: impl Into<String>,
+        message: impl Into<String>,
+    ) -> VoxelConversionDiagnostic {
+        VoxelConversionDiagnostic {
+            code,
+            severity: DiagnosticSeverity::Error,
+            reference: reference.into(),
+            message: message.into(),
+        }
+    }
+
+    fn rejected_voxel_conversion_receipt(
+        plan_id: String,
+        diagnostics: Vec<VoxelConversionDiagnostic>,
+    ) -> VoxelConversionReceipt {
+        VoxelConversionReceipt {
+            plan_id,
+            applied: false,
+            output_hash: None,
+            output_voxel_count: 0,
+            output_bounds: None,
+            diagnostics,
+            evidence: Vec::new(),
+        }
+    }
+
+    fn conversion_commands(planned: &PlannedConversion) -> BridgeResult<Option<CommandBatch>> {
+        let Some(output) = &planned.output else {
+            return Ok(None);
+        };
+        let grid = u32::try_from(planned.plan.target.grid).map_err(|_| {
+            RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                "voxel conversion target grid must fit in u32",
+            )
+        })?;
+        let commands = output
+            .voxels
+            .iter()
+            .map(|voxel| {
+                let material = voxel.value.material().ok_or_else(|| {
+                    RuntimeBridgeError::new(
+                        RuntimeBridgeErrorKind::Internal,
+                        "voxel conversion output contained a non-solid voxel",
+                    )
+                })?;
+                Ok(set_voxel_command(
+                    grid,
+                    voxel.coord.x,
+                    voxel.coord.y,
+                    voxel.coord.z,
+                    material.raw(),
+                ))
+            })
+            .collect::<BridgeResult<Vec<_>>>()?;
+        Ok(Some(CommandBatch { commands }))
+    }
+
+    fn remember_voxel_conversion_evidence(
+        &mut self,
+        refs: impl IntoIterator<Item = VoxelConversionEvidenceRef>,
+    ) {
+        for evidence in refs {
+            if !self.voxel_conversion_evidence.contains(&evidence) {
+                self.voxel_conversion_evidence.push(evidence);
+            }
+        }
     }
 
     fn world_hash(world: &VoxelWorld) -> String {
@@ -1791,6 +1929,8 @@ impl RuntimeBridge for ReferenceBridge {
         self.fps_session = None;
         self.fps_seed = None;
         self.fps_epoch = 0;
+        self.voxel_conversion_plan = None;
+        self.voxel_conversion_evidence.clear();
 
         Ok(handle)
     }
@@ -2083,6 +2223,118 @@ impl RuntimeBridge for ReferenceBridge {
             chunks,
             diagnostics,
         })
+    }
+
+    fn plan_voxel_conversion(
+        &mut self,
+        request: VoxelConversionPlanRequest,
+    ) -> BridgeResult<VoxelConversionPlan> {
+        self.require_initialized("plan_voxel_conversion")?;
+        let source = Self::source_for_voxel_conversion(&request);
+        let planned = svc_voxel_conversion::plan_conversion(&request, &source);
+        let plan = planned.plan.clone();
+        self.voxel_conversion_plan = Some(planned);
+        self.voxel_conversion_evidence.clear();
+        self.remember_voxel_conversion_evidence(plan.evidence.clone());
+        Ok(plan)
+    }
+
+    fn preview_voxel_conversion(
+        &mut self,
+        request: VoxelConversionPreviewRequest,
+    ) -> BridgeResult<VoxelConversionPreview> {
+        self.require_initialized("preview_voxel_conversion")?;
+        let planned = self.voxel_conversion_plan.as_ref().ok_or_else(|| {
+            RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                "preview_voxel_conversion called before a conversion plan exists",
+            )
+        })?;
+        let preview = svc_voxel_conversion::preview_conversion(&request, planned);
+        self.remember_voxel_conversion_evidence(preview.evidence.clone());
+        Ok(preview)
+    }
+
+    fn apply_voxel_conversion(
+        &mut self,
+        request: VoxelConversionApplyRequest,
+    ) -> BridgeResult<VoxelConversionReceipt> {
+        self.require_initialized("apply_voxel_conversion")?;
+        let planned = self.voxel_conversion_plan.as_ref().ok_or_else(|| {
+            RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                "apply_voxel_conversion called before a conversion plan exists",
+            )
+        })?;
+        let mut receipt = svc_voxel_conversion::apply_conversion(&request, planned);
+        if !receipt.applied {
+            self.remember_voxel_conversion_evidence(receipt.evidence.clone());
+            return Ok(receipt);
+        }
+
+        let hosted_grid = self.voxel.as_ref().ok_or_else(|| {
+            RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::NotInitialized,
+                "apply_voxel_conversion called before initialize_engine",
+            )
+        })?;
+        if planned.plan.target.grid != hosted_grid.grid().id().raw() as u64 {
+            return Ok(Self::rejected_voxel_conversion_receipt(
+                request.plan_id,
+                vec![Self::voxel_conversion_diagnostic(
+                    VoxelConversionDiagnosticCode::ConversionReplayMismatch,
+                    "target.grid",
+                    "conversion target grid is not hosted by current authority state",
+                )],
+            ));
+        }
+
+        let Some(batch) = Self::conversion_commands(planned)? else {
+            return Ok(Self::rejected_voxel_conversion_receipt(
+                request.plan_id,
+                vec![Self::voxel_conversion_diagnostic(
+                    VoxelConversionDiagnosticCode::ConversionReplayMismatch,
+                    "output",
+                    "conversion apply had no authority output to commit",
+                )],
+            ));
+        };
+        let expected = batch.commands.len() as u32;
+        let command_result = self.submit_commands(batch)?;
+        if command_result.accepted != expected || command_result.rejected != 0 {
+            receipt = Self::rejected_voxel_conversion_receipt(
+                request.plan_id,
+                vec![Self::voxel_conversion_diagnostic(
+                    VoxelConversionDiagnosticCode::ConversionReplayMismatch,
+                    "voxel_command_apply",
+                    format!(
+                        "conversion output command apply accepted {} of {} commands and rejected {}",
+                        command_result.accepted, expected, command_result.rejected
+                    ),
+                )],
+            );
+        }
+        self.remember_voxel_conversion_evidence(receipt.evidence.clone());
+        Ok(receipt)
+    }
+
+    fn export_voxel_conversion_evidence(
+        &self,
+        evidence: Vec<VoxelConversionEvidenceRef>,
+    ) -> BridgeResult<Vec<VoxelConversionEvidenceRef>> {
+        self.require_initialized("export_voxel_conversion_evidence")?;
+        for requested in &evidence {
+            if !self.voxel_conversion_evidence.contains(requested) {
+                return Err(RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::InvalidInput,
+                    format!(
+                        "voxel conversion evidence ref is not available from current authority state: {}",
+                        requested.uri
+                    ),
+                ));
+            }
+        }
+        Ok(evidence)
     }
 
     fn load_fps_runtime_session(
@@ -2633,6 +2885,49 @@ mod tests {
         bridge
     }
 
+    fn voxel_conversion_request(grid: u64) -> VoxelConversionPlanRequest {
+        VoxelConversionPlanRequest {
+            source: protocol_voxel_conversion::VoxelConversionSourceRef {
+                asset_id: "mesh/quad".to_string(),
+                asset_kind: "mesh".to_string(),
+                asset_version: 1,
+                source_hash: "sha256:quad".to_string(),
+                mesh_primitive: None,
+            },
+            target: protocol_voxel_conversion::VoxelConversionTargetRef {
+                grid,
+                volume_asset_id: Some("voxel/generated".to_string()),
+                origin: protocol_voxel_conversion::VoxelConversionCoord { x: 0, y: 0, z: 0 },
+            },
+            settings: protocol_voxel_conversion::VoxelConversionSettings {
+                mode: protocol_voxel_conversion::VoxelConversionMode::Surface,
+                fit_policy: protocol_voxel_conversion::VoxelConversionFitPolicy::Contain,
+                origin_policy: protocol_voxel_conversion::VoxelConversionOriginPolicy::TargetMin,
+                resolution: [4, 4, 1],
+                voxel_size: 1.0,
+                max_output_voxels: 16,
+                transform: [
+                    1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+                ],
+                material_map: protocol_voxel_conversion::VoxelConversionMaterialMap {
+                    entries: vec![
+                        protocol_voxel_conversion::VoxelConversionMaterialMapEntry {
+                            source_material_slot: 0,
+                            source_material_id: Some("mat/a".to_string()),
+                            voxel_material: 3,
+                        },
+                        protocol_voxel_conversion::VoxelConversionMaterialMapEntry {
+                            source_material_slot: 1,
+                            source_material_id: Some("mat/b".to_string()),
+                            voxel_material: 2,
+                        },
+                    ],
+                    default_voxel_material: None,
+                },
+            },
+        }
+    }
+
     fn fps_load_request(enemy_health: u32) -> FpsRuntimeSessionLoadRequest {
         FpsRuntimeSessionLoadRequest {
             project_bundle: "custom-demo".to_string(),
@@ -2962,6 +3257,95 @@ mod tests {
         assert_eq!(after.session_epoch, before.session_epoch);
         assert_eq!(after.health, before.health);
         assert_eq!(after.replay_hash, before.replay_hash);
+    }
+
+    #[test]
+    fn voxel_conversion_plan_preview_apply_uses_rust_authority_and_commands() {
+        let mut bridge = init_bridge();
+        let request = voxel_conversion_request(1);
+        let plan = bridge.plan_voxel_conversion(request).unwrap();
+        assert_eq!(
+            plan.authority_version,
+            svc_voxel_conversion::AUTHORITY_VERSION
+        );
+        assert!(plan.diagnostics.is_empty());
+        assert_eq!(plan.estimated_output_voxels, 4);
+
+        let stale = bridge
+            .preview_voxel_conversion(VoxelConversionPreviewRequest {
+                plan_id: plan.plan_id.clone(),
+                expected_plan_hash: "fnv1a64:stale".to_string(),
+            })
+            .unwrap();
+        assert_eq!(
+            stale.diagnostics[0].code,
+            VoxelConversionDiagnosticCode::StaleAuthoritySnapshot
+        );
+
+        let preview = bridge
+            .preview_voxel_conversion(VoxelConversionPreviewRequest {
+                plan_id: plan.plan_id.clone(),
+                expected_plan_hash: svc_voxel_conversion::plan_hash(&plan),
+            })
+            .unwrap();
+        assert!(preview.diagnostics.is_empty());
+        assert_eq!(preview.output_voxel_count, 4);
+
+        let receipt = bridge
+            .apply_voxel_conversion(VoxelConversionApplyRequest {
+                plan_id: plan.plan_id.clone(),
+                expected_plan_hash: svc_voxel_conversion::plan_hash(&plan),
+                expected_preview_hash: Some(preview.output_hash.clone()),
+            })
+            .unwrap();
+        assert!(receipt.applied);
+        assert_eq!(receipt.output_voxel_count, 4);
+
+        let world = bridge.voxel.as_ref().unwrap();
+        let chunk = world.get(ChunkCoord::new(0, 0, 0)).unwrap();
+        assert_eq!(
+            chunk.get(LocalVoxelCoord::new(0, 0, 0)),
+            Some(VoxelValue::solid_raw(2)),
+            "conversion output applied through voxel command authority"
+        );
+
+        let exported = bridge
+            .export_voxel_conversion_evidence(
+                plan.evidence
+                    .iter()
+                    .chain(preview.evidence.iter())
+                    .chain(receipt.evidence.iter())
+                    .cloned()
+                    .collect(),
+            )
+            .unwrap();
+        assert_eq!(exported.len(), 3);
+    }
+
+    #[test]
+    fn voxel_conversion_apply_to_unknown_grid_returns_diagnostic_receipt() {
+        let mut bridge = init_bridge();
+        let plan = bridge
+            .plan_voxel_conversion(voxel_conversion_request(7))
+            .unwrap();
+        let preview = bridge
+            .preview_voxel_conversion(VoxelConversionPreviewRequest {
+                plan_id: plan.plan_id.clone(),
+                expected_plan_hash: svc_voxel_conversion::plan_hash(&plan),
+            })
+            .unwrap();
+        let receipt = bridge
+            .apply_voxel_conversion(VoxelConversionApplyRequest {
+                plan_id: plan.plan_id.clone(),
+                expected_plan_hash: svc_voxel_conversion::plan_hash(&plan),
+                expected_preview_hash: Some(preview.output_hash),
+            })
+            .unwrap();
+        assert!(!receipt.applied);
+        assert_eq!(
+            receipt.diagnostics[0].code,
+            VoxelConversionDiagnosticCode::ConversionReplayMismatch
+        );
     }
 
     fn set_voxel(coord: VoxelCoord, material: u16) -> VoxelCommand {

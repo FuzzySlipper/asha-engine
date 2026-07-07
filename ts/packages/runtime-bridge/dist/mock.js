@@ -960,6 +960,34 @@ export class MockRuntimeBridge {
             diagnostics: [],
         };
     }
+    planVoxelConversion(_request) {
+        void _request;
+        if (this.#engine === null) {
+            throw new RuntimeBridgeError('not_initialized', 'planVoxelConversion before initializeEngine');
+        }
+        throw new RuntimeBridgeError('operation_unimplemented', 'mock bridge does not own voxel conversion authority');
+    }
+    previewVoxelConversion(_request) {
+        void _request;
+        if (this.#engine === null) {
+            throw new RuntimeBridgeError('not_initialized', 'previewVoxelConversion before initializeEngine');
+        }
+        throw new RuntimeBridgeError('operation_unimplemented', 'mock bridge does not own voxel conversion authority');
+    }
+    applyVoxelConversion(_request) {
+        void _request;
+        if (this.#engine === null) {
+            throw new RuntimeBridgeError('not_initialized', 'applyVoxelConversion before initializeEngine');
+        }
+        throw new RuntimeBridgeError('operation_unimplemented', 'mock bridge does not own voxel conversion authority');
+    }
+    exportVoxelConversionEvidence(_evidence) {
+        void _evidence;
+        if (this.#engine === null) {
+            throw new RuntimeBridgeError('not_initialized', 'exportVoxelConversionEvidence before initializeEngine');
+        }
+        throw new RuntimeBridgeError('operation_unimplemented', 'mock bridge does not own voxel conversion authority');
+    }
     readModelMaterialPreview(request) {
         if (this.#engine === null) {
             throw new RuntimeBridgeError('not_initialized', 'readModelMaterialPreview before initializeEngine');

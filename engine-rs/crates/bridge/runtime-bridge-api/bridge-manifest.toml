@@ -80,6 +80,38 @@ errors = "RuntimeBridgeError"
 summary = "Read compact deterministic voxel mesh/remesh evidence (world hash, per-chunk content/mesh hashes, stats, material slots) derived from Rust authority and svc-mesh; no renderer internals or inline geometry."
 
 [[operation]]
+name = "plan_voxel_conversion"
+surface = "stable"
+input = "protocol_voxel_conversion::VoxelConversionPlanRequest"
+output = "protocol_voxel_conversion::VoxelConversionPlan"
+errors = "RuntimeBridgeError"
+summary = "Plan a bounded static-mesh to voxel conversion through Rust authority using generated voxel-conversion DTOs; no Studio/VoxelForge/raw renderer transport."
+
+[[operation]]
+name = "preview_voxel_conversion"
+surface = "stable"
+input = "protocol_voxel_conversion::VoxelConversionPreviewRequest"
+output = "protocol_voxel_conversion::VoxelConversionPreview"
+errors = "RuntimeBridgeError"
+summary = "Preview the current Rust-owned voxel-conversion plan, guarded by the expected plan hash and returned as generated DTO evidence."
+
+[[operation]]
+name = "apply_voxel_conversion"
+surface = "stable"
+input = "protocol_voxel_conversion::VoxelConversionApplyRequest"
+output = "protocol_voxel_conversion::VoxelConversionReceipt"
+errors = "RuntimeBridgeError"
+summary = "Apply a guarded voxel-conversion plan/preview through upstream voxel command authority; rejected requests return classified conversion diagnostics."
+
+[[operation]]
+name = "export_voxel_conversion_evidence"
+surface = "stable"
+input = "protocol_voxel_conversion::VoxelConversionEvidenceRef[]"
+output = "protocol_voxel_conversion::VoxelConversionEvidenceRef[]"
+errors = "RuntimeBridgeError"
+summary = "Export selected voxel-conversion evidence refs that are present in the current Rust authority conversion state."
+
+[[operation]]
 name = "load_fps_runtime_session"
 surface = "stable"
 input = "protocol_runtime::FpsRuntimeSessionLoadRequest"

@@ -30,10 +30,10 @@ export declare class RustBackedRuntimeSessionFacade implements RuntimeSessionFac
     queryNavPath(_request?: NavPathQueryRequest): NavPathReadout;
     readNavPolicyView(): NavPolicyViewReadout;
     requestGeneratedTunnelOperation(_request: GeneratedTunnelOperationRequest): RuntimeSessionGeneratedTunnelOperationReceipt;
-    planVoxelConversion(_request: VoxelConversionPlanRequest): VoxelConversionPlan;
-    previewVoxelConversion(_request: VoxelConversionPreviewRequest): VoxelConversionPreview;
-    applyVoxelConversion(_request: VoxelConversionApplyRequest): VoxelConversionReceipt;
-    exportVoxelConversionEvidence(_evidence: readonly VoxelConversionEvidenceRef[]): readonly VoxelConversionEvidenceRef[];
+    planVoxelConversion(request: VoxelConversionPlanRequest): VoxelConversionPlan;
+    previewVoxelConversion(request: VoxelConversionPreviewRequest): VoxelConversionPreview;
+    applyVoxelConversion(request: VoxelConversionApplyRequest): VoxelConversionReceipt;
+    exportVoxelConversionEvidence(evidence: readonly VoxelConversionEvidenceRef[]): readonly VoxelConversionEvidenceRef[];
     readEcrpRuntimeReadout(): RuntimeSessionEcrpReadout;
     readCameraProjection(request: CameraProjectionRequest): RuntimeSessionCameraProjectionReadout;
     readProjection(): RuntimeSessionProjectionSummary;

@@ -28,6 +28,10 @@ const REQUIRED_EXPORTS = [
     'readRenderDiffs',
     'saveCurrentWorld',
     'getCompositionStatus',
+    'planVoxelConversion',
+    'previewVoxelConversion',
+    'applyVoxelConversion',
+    'exportVoxelConversionEvidence',
 ];
 /**
  * Attempt to load the compiled addon. Returns a typed handle or throws a

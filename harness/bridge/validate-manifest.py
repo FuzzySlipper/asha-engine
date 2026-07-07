@@ -21,7 +21,7 @@ FORBIDDEN_TYPE_TOKENS = [
     "serde_json::Value", "Value", "Json", "any", "unknown", "Box<dyn", "dyn ",
 ]
 ALLOWED_BARE = {"Unit", "RuntimeBufferView"}
-TYPE_REF_RE = re.compile(r"^protocol_[a-z_]+::[A-Za-z0-9_]+$")
+TYPE_REF_RE = re.compile(r"^protocol_[a-z_]+::[A-Za-z0-9_]+(?:\[\])?$")
 NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 # Known prototype manifest refs that predate generated contract ownership. Keep
@@ -55,6 +55,7 @@ PROTOCOL_MODULE_TO_GENERATED_FILE = {
     "protocol_scene": "scene.ts",
     "protocol_view": "view.ts",
     "protocol_voxel": "voxel.ts",
+    "protocol_voxel_conversion": "voxelConversion.ts",
     "protocol_world_bundle": "worldBundle.ts",
 }
 EXPORT_RE = re.compile(r"export (?:interface|type|const|enum) ([A-Za-z0-9_]+)")
@@ -86,6 +87,7 @@ def validate_protocol_ref(errors, op_name, field, ref, exports):
     if not ref.startswith("protocol_") or ref in KNOWN_TRANSITIONAL_PROTOCOL_REFS:
         return
     module, type_name = ref.split("::", 1)
+    type_name = type_name.removesuffix("[]")
     if module not in PROTOCOL_MODULE_TO_GENERATED_FILE:
         fail(errors, f"[{op_name}] {field} uses unknown protocol module '{module}'")
         return

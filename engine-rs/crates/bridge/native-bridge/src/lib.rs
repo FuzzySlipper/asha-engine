@@ -24,7 +24,9 @@ use runtime_bridge_api::{
     FpsEncounterTransitionRequest, FpsEncounterTransitionResult, FpsPrimaryFireRequest,
     FpsPrimaryFireResult, FpsRuntimeSessionLoadRequest, FpsRuntimeSessionRestartRequest,
     FpsRuntimeSessionSnapshot, ReferenceBridge, RuntimeBridge, RuntimeBridgeError,
-    RuntimeBridgeErrorKind, StepInputEnvelope, WorldLoadRequest,
+    RuntimeBridgeErrorKind, StepInputEnvelope, VoxelConversionApplyRequest,
+    VoxelConversionEvidenceRef, VoxelConversionPlanRequest, VoxelConversionPreviewRequest,
+    WorldLoadRequest,
 };
 use serde::Deserialize;
 
@@ -657,7 +659,9 @@ impl From<FpsEncounterStateReadout> for NativeFpsEncounterStateReadout {
     }
 }
 
-fn native_fps_read_sets(read_sets: Vec<runtime_bridge_api::FpsReadSetEvidence>) -> Vec<NativeFpsReadSetEvidence> {
+fn native_fps_read_sets(
+    read_sets: Vec<runtime_bridge_api::FpsReadSetEvidence>,
+) -> Vec<NativeFpsReadSetEvidence> {
     read_sets
         .into_iter()
         .map(|read_set| NativeFpsReadSetEvidence {
@@ -743,6 +747,59 @@ fn parse_commands(commands_json: &str) -> napi::Result<CommandBatch> {
         })
         .collect();
     Ok(CommandBatch { commands })
+}
+
+fn parse_voxel_conversion_plan_request(
+    request_json: &str,
+) -> napi::Result<VoxelConversionPlanRequest> {
+    serde_json::from_str(request_json).map_err(|err| {
+        to_napi(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::InvalidInput,
+            format!("invalid voxel conversion plan request JSON: {err}"),
+        ))
+    })
+}
+
+fn parse_voxel_conversion_preview_request(
+    request_json: &str,
+) -> napi::Result<VoxelConversionPreviewRequest> {
+    serde_json::from_str(request_json).map_err(|err| {
+        to_napi(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::InvalidInput,
+            format!("invalid voxel conversion preview request JSON: {err}"),
+        ))
+    })
+}
+
+fn parse_voxel_conversion_apply_request(
+    request_json: &str,
+) -> napi::Result<VoxelConversionApplyRequest> {
+    serde_json::from_str(request_json).map_err(|err| {
+        to_napi(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::InvalidInput,
+            format!("invalid voxel conversion apply request JSON: {err}"),
+        ))
+    })
+}
+
+fn parse_voxel_conversion_evidence(
+    evidence_json: &str,
+) -> napi::Result<Vec<VoxelConversionEvidenceRef>> {
+    serde_json::from_str(evidence_json).map_err(|err| {
+        to_napi(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::InvalidInput,
+            format!("invalid voxel conversion evidence JSON: {err}"),
+        ))
+    })
+}
+
+fn voxel_conversion_json<T: serde::Serialize>(value: &T) -> napi::Result<String> {
+    serde_json::to_string(value).map_err(|err| {
+        to_napi(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::Internal,
+            format!("failed to serialize voxel conversion DTO: {err}"),
+        ))
+    })
 }
 
 /// Construct a stateful native reference bridge from a deterministic seed and
@@ -972,6 +1029,47 @@ pub fn get_composition_status(handle: i64) -> napi::Result<NativeCompositionStat
             .get_composition_status()
             .map(NativeCompositionStatus::from)
             .map_err(to_napi)
+    })
+}
+
+#[napi]
+pub fn plan_voxel_conversion(handle: i64, request_json: String) -> napi::Result<String> {
+    let request = parse_voxel_conversion_plan_request(&request_json)?;
+    with_bridge(handle, |bridge| {
+        let plan = bridge.plan_voxel_conversion(request).map_err(to_napi)?;
+        voxel_conversion_json(&plan)
+    })
+}
+
+#[napi]
+pub fn preview_voxel_conversion(handle: i64, request_json: String) -> napi::Result<String> {
+    let request = parse_voxel_conversion_preview_request(&request_json)?;
+    with_bridge(handle, |bridge| {
+        let preview = bridge.preview_voxel_conversion(request).map_err(to_napi)?;
+        voxel_conversion_json(&preview)
+    })
+}
+
+#[napi]
+pub fn apply_voxel_conversion(handle: i64, request_json: String) -> napi::Result<String> {
+    let request = parse_voxel_conversion_apply_request(&request_json)?;
+    with_bridge(handle, |bridge| {
+        let receipt = bridge.apply_voxel_conversion(request).map_err(to_napi)?;
+        voxel_conversion_json(&receipt)
+    })
+}
+
+#[napi]
+pub fn export_voxel_conversion_evidence(
+    handle: i64,
+    evidence_json: String,
+) -> napi::Result<String> {
+    let evidence = parse_voxel_conversion_evidence(&evidence_json)?;
+    with_bridge(handle, |bridge| {
+        let exported = bridge
+            .export_voxel_conversion_evidence(evidence)
+            .map_err(to_napi)?;
+        voxel_conversion_json(&exported)
     })
 }
 

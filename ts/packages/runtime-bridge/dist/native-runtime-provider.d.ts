@@ -2,7 +2,7 @@ import { type RuntimeBridge } from './bridge.js';
 export declare const NATIVE_RUST_RUNTIME_BRIDGE_PROVIDER_KIND = "asha.runtime_bridge.native_rust_provider.v1";
 export declare const LEGACY_ASHA_DEMO_NATIVE_RUST_RUNTIME_BRIDGE_PROVIDER_KIND = "asha_demo.native_runtime_bridge_provider.v1";
 export declare const NATIVE_RUST_RUNTIME_BRIDGE_PROVIDER_GLOBALS: readonly ["ashaRuntimeBridge", "ashaDemoRuntimeBridge"];
-export declare const NATIVE_RUST_RUNTIME_BRIDGE_REQUIRED_METHODS: readonly ["initializeEngine", "loadWorldBundle", "getCompositionStatus", "createCamera", "applyCollisionConstrainedCameraInput", "loadFpsRuntimeSession", "readFpsRuntimeSession", "applyFpsPrimaryFire", "restartFpsRuntimeSession", "applyEnemyDirectNavMovement", "unloadWorld"];
+export declare const NATIVE_RUST_RUNTIME_BRIDGE_REQUIRED_METHODS: readonly ["initializeEngine", "loadWorldBundle", "getCompositionStatus", "createCamera", "applyCollisionConstrainedCameraInput", "loadFpsRuntimeSession", "readFpsRuntimeSession", "applyFpsPrimaryFire", "restartFpsRuntimeSession", "applyEnemyDirectNavMovement", "planVoxelConversion", "previewVoxelConversion", "applyVoxelConversion", "exportVoxelConversionEvidence", "unloadWorld"];
 export type NativeRustRuntimeBridgeProviderKind = typeof NATIVE_RUST_RUNTIME_BRIDGE_PROVIDER_KIND | typeof LEGACY_ASHA_DEMO_NATIVE_RUST_RUNTIME_BRIDGE_PROVIDER_KIND;
 export type NativeRustRuntimeBridgeProviderDiagnosticCode = 'missing_rust_runtime_backend' | 'invalid_rust_runtime_provider' | 'missing_runtime_bridge' | 'missing_runtime_bridge_operation' | 'non_native_runtime_authority';
 export interface NativeRustRuntimeBridgeProviderDiagnostic {

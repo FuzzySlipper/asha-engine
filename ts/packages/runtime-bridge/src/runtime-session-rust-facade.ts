@@ -693,30 +693,26 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed generated tunnel operation authority is not wired yet');
   }
 
-  planVoxelConversion(_request: VoxelConversionPlanRequest): VoxelConversionPlan {
-    void _request;
+  planVoxelConversion(request: VoxelConversionPlanRequest): VoxelConversionPlan {
     this.#requireInitialized('planVoxelConversion');
-    throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed voxel conversion planning is not wired through the native bridge yet');
+    return this.#bridge.planVoxelConversion(request);
   }
 
-  previewVoxelConversion(_request: VoxelConversionPreviewRequest): VoxelConversionPreview {
-    void _request;
+  previewVoxelConversion(request: VoxelConversionPreviewRequest): VoxelConversionPreview {
     this.#requireInitialized('previewVoxelConversion');
-    throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed voxel conversion preview is not wired through the native bridge yet');
+    return this.#bridge.previewVoxelConversion(request);
   }
 
-  applyVoxelConversion(_request: VoxelConversionApplyRequest): VoxelConversionReceipt {
-    void _request;
+  applyVoxelConversion(request: VoxelConversionApplyRequest): VoxelConversionReceipt {
     this.#requireInitialized('applyVoxelConversion');
-    throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed voxel conversion apply is not wired through the native bridge yet');
+    return this.#bridge.applyVoxelConversion(request);
   }
 
   exportVoxelConversionEvidence(
-    _evidence: readonly VoxelConversionEvidenceRef[],
+    evidence: readonly VoxelConversionEvidenceRef[],
   ): readonly VoxelConversionEvidenceRef[] {
-    void _evidence;
     this.#requireInitialized('exportVoxelConversionEvidence');
-    throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed voxel conversion evidence export is not wired through the native bridge yet');
+    return this.#bridge.exportVoxelConversionEvidence(evidence);
   }
 
   readEcrpRuntimeReadout(): RuntimeSessionEcrpReadout {

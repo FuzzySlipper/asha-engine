@@ -14,6 +14,10 @@ operations are replay/devtools-only.
 | `apply_collision_constrained_camera_input` | stable | `protocol_view::CollisionConstrainedCameraInputEnvelope` | `protocol_view::CameraCollisionSnapshot` | `RuntimeBridgeError` |
 | `select_voxel` | stable | `protocol_view::ScreenPointToPickRayRequest` | `protocol_view::VoxelSelectionSnapshot` | `RuntimeBridgeError` |
 | `read_voxel_mesh_evidence` | stable | `protocol_render::VoxelMeshEvidenceRequest` | `protocol_render::VoxelMeshEvidenceSnapshot` | `RuntimeBridgeError` |
+| `plan_voxel_conversion` | stable | `protocol_voxel_conversion::VoxelConversionPlanRequest` | `protocol_voxel_conversion::VoxelConversionPlan` | `RuntimeBridgeError` |
+| `preview_voxel_conversion` | stable | `protocol_voxel_conversion::VoxelConversionPreviewRequest` | `protocol_voxel_conversion::VoxelConversionPreview` | `RuntimeBridgeError` |
+| `apply_voxel_conversion` | stable | `protocol_voxel_conversion::VoxelConversionApplyRequest` | `protocol_voxel_conversion::VoxelConversionReceipt` | `RuntimeBridgeError` |
+| `export_voxel_conversion_evidence` | stable | `protocol_voxel_conversion::VoxelConversionEvidenceRef[]` | `protocol_voxel_conversion::VoxelConversionEvidenceRef[]` | `RuntimeBridgeError` |
 | `load_fps_runtime_session` | stable | `protocol_runtime::FpsRuntimeSessionLoadRequest` | `protocol_runtime::FpsRuntimeSessionSnapshot` | `RuntimeBridgeError` |
 | `read_fps_runtime_session` | stable | `Unit` | `protocol_runtime::FpsRuntimeSessionSnapshot` | `RuntimeBridgeError` |
 | `apply_fps_primary_fire` | stable | `protocol_runtime::FpsPrimaryFireRequest` | `protocol_runtime::FpsPrimaryFireResult` | `RuntimeBridgeError` |

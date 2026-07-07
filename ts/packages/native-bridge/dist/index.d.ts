@@ -1,4 +1,4 @@
-import type { CommandResult, RenderFrameDiff } from '@asha/contracts';
+import type { CommandResult, RenderFrameDiff, VoxelConversionApplyRequest, VoxelConversionEvidenceRef, VoxelConversionPlan, VoxelConversionPlanRequest, VoxelConversionPreview, VoxelConversionPreviewRequest, VoxelConversionReceipt } from '@asha/contracts';
 interface NativeVec3 {
     readonly x: number;
     readonly y: number;
@@ -188,7 +188,12 @@ export interface NativeAddon {
         totalCount: number;
         blocksLoad: boolean;
     };
+    planVoxelConversion(handle: number, requestJson: string): string;
+    previewVoxelConversion(handle: number, requestJson: string): string;
+    applyVoxelConversion(handle: number, requestJson: string): string;
+    exportVoxelConversionEvidence(handle: number, evidenceJson: string): string;
 }
+export type { VoxelConversionApplyRequest, VoxelConversionEvidenceRef, VoxelConversionPlan, VoxelConversionPlanRequest, VoxelConversionPreview, VoxelConversionPreviewRequest, VoxelConversionReceipt, };
 /** Raised when the native addon cannot be loaded (missing build / ABI mismatch). */
 export declare class NativeAddonUnavailable extends Error {
     constructor(message: string);
@@ -201,5 +206,4 @@ export declare class NativeAddonUnavailable extends Error {
  * Build the addon with `napi build --platform --release` in the native-bridge crate.
  */
 export declare function loadNativeAddon(modulePath?: string): NativeAddon;
-export {};
 //# sourceMappingURL=index.d.ts.map

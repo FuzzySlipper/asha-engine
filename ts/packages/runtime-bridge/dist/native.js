@@ -30,6 +30,10 @@ export const NATIVE_WIRED_OPERATIONS = new Set([
     'restart_fps_runtime_session',
     'read_fps_encounter_director',
     'apply_fps_encounter_transition',
+    'plan_voxel_conversion',
+    'preview_voxel_conversion',
+    'apply_voxel_conversion',
+    'export_voxel_conversion_evidence',
     'read_render_diffs',
     'save_current_world',
     'get_composition_status',
@@ -64,6 +68,15 @@ function callNative(body) {
     }
     catch (cause) {
         throw classifyNativeAddonError(cause);
+    }
+}
+function parseNativeJson(payload, field) {
+    try {
+        return JSON.parse(payload);
+    }
+    catch (cause) {
+        const reason = cause instanceof Error ? cause.message : String(cause);
+        throw new RuntimeBridgeError('internal', `native ${field} was not valid JSON: ${reason}`);
     }
 }
 function nativeVec3(value, field) {
@@ -337,6 +350,26 @@ export class NativeRuntimeBridge {
     getCompositionStatus() {
         const handle = this.#requireHandle('getCompositionStatus');
         return callNative(() => this.#addon.getCompositionStatus(handle));
+    }
+    planVoxelConversion(request) {
+        const handle = this.#requireHandle('planVoxelConversion');
+        const payload = callNative(() => this.#addon.planVoxelConversion(handle, JSON.stringify(request)));
+        return parseNativeJson(payload, 'voxel conversion plan');
+    }
+    previewVoxelConversion(request) {
+        const handle = this.#requireHandle('previewVoxelConversion');
+        const payload = callNative(() => this.#addon.previewVoxelConversion(handle, JSON.stringify(request)));
+        return parseNativeJson(payload, 'voxel conversion preview');
+    }
+    applyVoxelConversion(request) {
+        const handle = this.#requireHandle('applyVoxelConversion');
+        const payload = callNative(() => this.#addon.applyVoxelConversion(handle, JSON.stringify(request)));
+        return parseNativeJson(payload, 'voxel conversion receipt');
+    }
+    exportVoxelConversionEvidence(evidence) {
+        const handle = this.#requireHandle('exportVoxelConversionEvidence');
+        const payload = callNative(() => this.#addon.exportVoxelConversionEvidence(handle, JSON.stringify(evidence)));
+        return parseNativeJson(payload, 'voxel conversion evidence');
     }
     // ── Unwired operations: fail-closed, never mock-backed ─────────────────────
     // Replace each body with its real native call (and add the manifest name to
