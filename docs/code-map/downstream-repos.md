@@ -24,7 +24,7 @@ moving downstream planning truth into this engine repository.
 - [consumer-compatibility.md](../consumer-compatibility.md)
 - [game-agent-code-organization.md](../game-agent-code-organization.md)
 - [harness/public-surface/ts-packages.json](../../harness/public-surface/ts-packages.json)
-- [ts/artifacts/public-packages/manifest.json](../../ts/artifacts/public-packages/manifest.json)
+- [pack-public-artifacts.mjs](../../ts/scripts/pack-public-artifacts.mjs)
 
 ## Public Downstream Surfaces
 
@@ -34,6 +34,9 @@ moving downstream planning truth into this engine repository.
   authoring and live inspection.
 - `asha-testing`: synthetic proof/conformance consumer; may consume testing
   surfaces approved by the public-surface manifest.
+- Public package tarballs and their generated manifest are emitted under
+  `ts/artifacts/public-packages/`; that directory is a generated local output,
+  not a checked-in Atlas link target.
 
 ## Private Or Forbidden Paths
 

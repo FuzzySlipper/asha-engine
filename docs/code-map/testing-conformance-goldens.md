@@ -31,8 +31,9 @@ smoke outputs, and CI gates.
 
 ## Public Downstream Surfaces
 
-- Public package compatibility artifacts under
-  [ts/artifacts/public-packages](../../ts/artifacts/public-packages).
+- Public package compatibility artifacts emitted by
+  [pack-public-artifacts.mjs](../../ts/scripts/pack-public-artifacts.mjs) under
+  `ts/artifacts/public-packages/`.
 - Smoke and conformance fixtures consumed through approved package roots.
 - Review packets that cite exact commands and generated artifacts.
 
