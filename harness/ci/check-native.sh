@@ -24,21 +24,20 @@ if [ -z "$ARTIFACT" ]; then
 fi
 cp "$ARTIFACT" "$DEST"
 
-echo "==> Native addon smoke (every export, parity with ReferenceBridge)"
+echo "==> Building TS bridge packages used by the native smoke"
+( cd "$REPO_ROOT/ts" && pnpm --filter @asha/native-bridge build && pnpm --filter @asha/runtime-bridge build )
+
+echo "==> Native addon smoke (required exports, facade load, voxel conversion path)"
 node --input-type=module -e "
 import { strict as assert } from 'node:assert';
 import { createRequire } from 'node:module';
+import { createNativeRuntimeBridge } from '$REPO_ROOT/ts/packages/runtime-bridge/dist/index.js';
+import { REQUIRED_NATIVE_ADDON_EXPORTS, loadNativeAddon } from '$REPO_ROOT/ts/packages/native-bridge/dist/index.js';
 const require = createRequire('file://$DEST');
-const a = require('$DEST');
-assert.deepEqual(Object.keys(a).sort(), [
-  'getCompositionStatus',
-  'initializeEngine',
-  'loadWorldBundle',
-  'readRenderDiffs',
-  'saveCurrentWorld',
-  'stepSimulation',
-  'submitCommands',
-]);
+const rawAddon = require('$DEST');
+const exportNames = Object.keys(rawAddon).sort();
+assert.deepEqual(exportNames, [...REQUIRED_NATIVE_ADDON_EXPORTS].sort());
+const a = loadNativeAddon('$DEST');
 const h = a.initializeEngine(7);
 assert.equal(typeof h, 'number');
 assert.deepEqual(a.loadWorldBundle(h, 1, 1, 1001), { loadedWorld: 1001, fatalCount: 0, totalCount: 0, blocksLoad: false });
@@ -47,6 +46,75 @@ assert.equal(a.stepSimulation(h, 6), 2);    // tick 6 % 4 == 2, matches Referenc
 assert.deepEqual(a.readRenderDiffs(h, 0), { ops: [] });
 assert.deepEqual(a.saveCurrentWorld(h), { artifactsWritten: 3, compactedEdits: 0, retainedEdits: 0 });
 assert.deepEqual(a.getCompositionStatus(h), { loadedWorld: 1001, fatalCount: 0, totalCount: 0, blocksLoad: false });
+
+const bridge = createNativeRuntimeBridge('$DEST');
+bridge.initializeEngine({ seed: 1 });
+const planRequest = {
+  source: {
+    assetId: 'mesh/import-fixture-a',
+    assetKind: 'mesh',
+    assetVersion: 1,
+    sourceHash: 'sha256:import-fixture-a',
+    meshPrimitive: 'default',
+  },
+  target: {
+    grid: 1,
+    volumeAssetId: 'voxel/generated',
+    origin: { x: 0, y: 0, z: 0 },
+  },
+  settings: {
+    mode: 'surface',
+    fitPolicy: 'contain',
+    originPolicy: 'target_min',
+    resolution: [4, 4, 1],
+    voxelSize: 1,
+    maxOutputVoxels: 16,
+    transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+    materialMap: {
+      entries: [{
+        sourceMaterialSlot: 0,
+        sourceMaterialId: 'material/surface-a',
+        voxelMaterial: 3,
+      }],
+      defaultVoxelMaterial: null,
+    },
+  },
+};
+const plan = bridge.planVoxelConversion(planRequest);
+assert.equal(plan.authorityVersion, 'svc-voxel-conversion.v0');
+assert.equal(plan.expectedSourceHash, 'sha256:import-fixture-a');
+assert.equal(plan.diagnostics.length, 0);
+assert.match(plan.planHash, /^fnv1a64:[0-9a-f]{16}$/u);
+
+const stalePreview = bridge.previewVoxelConversion({
+  planId: plan.planId,
+  expectedPlanHash: 'fnv1a64:0000000000000000',
+});
+assert.equal(stalePreview.diagnostics[0]?.code, 'stale_authority_snapshot');
+
+const preview = bridge.previewVoxelConversion({
+  planId: plan.planId,
+  expectedPlanHash: plan.planHash,
+});
+assert.equal(preview.diagnostics.length, 0);
+assert.ok(preview.outputVoxelCount > 0);
+assert.match(preview.outputHash, /^fnv1a64:[0-9a-f]{16}$/u);
+
+const receipt = bridge.applyVoxelConversion({
+  planId: plan.planId,
+  expectedPlanHash: plan.planHash,
+  expectedPreviewHash: preview.outputHash,
+});
+assert.equal(receipt.applied, true);
+assert.equal(receipt.outputHash, preview.outputHash);
+assert.equal(receipt.diagnostics.length, 0);
+
+const exportedEvidence = bridge.exportVoxelConversionEvidence([
+  ...plan.evidence,
+  ...preview.evidence,
+  ...receipt.evidence,
+]);
+assert.ok(exportedEvidence.length >= 3);
 console.log('Native addon smoke: OK');
 "
 

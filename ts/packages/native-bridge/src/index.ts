@@ -255,7 +255,7 @@ export class NativeAddonUnavailable extends Error {
   }
 }
 
-const REQUIRED_EXPORTS = [
+export const REQUIRED_NATIVE_ADDON_EXPORTS = [
   'initializeEngine',
   'loadWorldBundle',
   'submitCommands',
@@ -275,6 +275,8 @@ const REQUIRED_EXPORTS = [
   'applyVoxelConversion',
   'exportVoxelConversionEvidence',
 ] as const;
+
+const REQUIRED_EXPORTS = REQUIRED_NATIVE_ADDON_EXPORTS;
 
 /**
  * Attempt to load the compiled addon. Returns a typed handle or throws a

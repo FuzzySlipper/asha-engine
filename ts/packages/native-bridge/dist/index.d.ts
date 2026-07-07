@@ -198,6 +198,7 @@ export type { VoxelConversionApplyRequest, VoxelConversionEvidenceRef, VoxelConv
 export declare class NativeAddonUnavailable extends Error {
     constructor(message: string);
 }
+export declare const REQUIRED_NATIVE_ADDON_EXPORTS: readonly ["initializeEngine", "loadWorldBundle", "submitCommands", "stepSimulation", "applyEnemyDirectNavMovement", "loadFpsRuntimeSession", "readFpsRuntimeSession", "applyFpsPrimaryFire", "restartFpsRuntimeSession", "readFpsEncounterDirector", "applyFpsEncounterTransition", "readRenderDiffs", "saveCurrentWorld", "getCompositionStatus", "planVoxelConversion", "previewVoxelConversion", "applyVoxelConversion", "exportVoxelConversionEvidence"];
 /**
  * Attempt to load the compiled addon. Returns a typed handle or throws a
  * classified {@link NativeAddonUnavailable} — never a raw module-resolution error,

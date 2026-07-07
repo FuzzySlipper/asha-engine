@@ -13,7 +13,7 @@ export class NativeAddonUnavailable extends Error {
         this.name = 'NativeAddonUnavailable';
     }
 }
-const REQUIRED_EXPORTS = [
+export const REQUIRED_NATIVE_ADDON_EXPORTS = [
     'initializeEngine',
     'loadWorldBundle',
     'submitCommands',
@@ -33,6 +33,7 @@ const REQUIRED_EXPORTS = [
     'applyVoxelConversion',
     'exportVoxelConversionEvidence',
 ];
+const REQUIRED_EXPORTS = REQUIRED_NATIVE_ADDON_EXPORTS;
 /**
  * Attempt to load the compiled addon. Returns a typed handle or throws a
  * classified {@link NativeAddonUnavailable} — never a raw module-resolution error,
