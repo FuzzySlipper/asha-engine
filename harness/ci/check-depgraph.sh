@@ -18,6 +18,9 @@ node "$REPO_ROOT/harness/depgraph/check-runtime-bridge-root-isolation.mjs" "$REP
 echo "==> Checking generated TypeScript ESLint boundary config"
 python3 "$REPO_ROOT/harness/depgraph/generate-ts-eslint-boundaries.py" --check
 
+echo "==> Checking Agent Code Atlas inventory"
+python3 "$REPO_ROOT/harness/code-map/check-agent-code-atlas.py" --check
+
 echo "==> Running depgraph negative fixtures"
 bash "$REPO_ROOT/harness/depgraph/check-negative-fixtures.sh"
 

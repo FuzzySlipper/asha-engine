@@ -215,6 +215,7 @@ Check the relevant package scripts before adding new commands; this workspace in
 
 | Document | Purpose |
 |---|---|
+| `docs/agent-code-atlas.md` | Agent navigation atlas: lane maps, public/private boundaries, proof gates, and generated inventory checks |
 | `docs/launchable-voxel.md` | **Launchable voxel loop hub**: fixture, launch/smoke commands, regeneration, known limitations |
 | `docs/perf-baseline.md` | Same-host perf baseline harness (`dev:asha-perf`) plus optional non-gating GPU/WebGL lane (`dev:asha-gpu-perf`): trend tracking, field stability |
 | `docs/design.md` | Canonical repository architecture, layer model, dependency direction, and design principles |
