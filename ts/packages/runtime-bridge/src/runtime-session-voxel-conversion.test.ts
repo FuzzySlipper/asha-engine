@@ -72,6 +72,8 @@ function voxelConversionPlanRequest(): VoxelConversionPlanRequest {
             voxelMaterial: 3,
           },
         ],
+        textureAssets: [],
+        textureBindings: [],
         defaultVoxelMaterial: 3,
       },
     },

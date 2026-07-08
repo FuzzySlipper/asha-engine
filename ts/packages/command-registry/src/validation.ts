@@ -89,6 +89,7 @@ interface ParsedRecord {
   readonly accepted?: unknown;
   readonly actualHash?: unknown;
   readonly actualKind?: unknown;
+  readonly attributeName?: unknown;
   readonly applied?: unknown;
   readonly asset?: unknown;
   readonly assetId?: unknown;
@@ -105,9 +106,11 @@ interface ParsedRecord {
   readonly childOrder?: unknown;
   readonly chunk?: unknown;
   readonly code?: unknown;
+  readonly channelLayout?: unknown;
   readonly collidable?: unknown;
   readonly collision?: unknown;
   readonly color?: unknown;
+  readonly colorSpace?: unknown;
   readonly command?: unknown;
   readonly components?: unknown;
   readonly coord?: unknown;
@@ -155,6 +158,7 @@ interface ParsedRecord {
   readonly materialOverrides?: unknown;
   readonly materialSlot?: unknown;
   readonly materialSlots?: unknown;
+  readonly materialMode?: unknown;
   readonly materialMap?: unknown;
   readonly max?: unknown;
   readonly maxDistance?: unknown;
@@ -203,6 +207,8 @@ interface ParsedRecord {
   readonly screenPoint?: unknown;
   readonly seed?: unknown;
   readonly sampleVoxels?: unknown;
+  readonly sampleUv?: unknown;
+  readonly samplingPolicy?: unknown;
   readonly selected?: unknown;
   readonly selectedFace?: unknown;
   readonly selectedVoxel?: unknown;
@@ -222,7 +228,11 @@ interface ParsedRecord {
   readonly start?: unknown;
   readonly structuralClass?: unknown;
   readonly tags?: unknown;
+  readonly texelMaterials?: unknown;
   readonly texture?: unknown;
+  readonly textureAssetId?: unknown;
+  readonly textureAssets?: unknown;
+  readonly textureBindings?: unknown;
   readonly tick?: unknown;
   readonly transform?: unknown;
   readonly transformReason?: unknown;
@@ -230,6 +240,7 @@ interface ParsedRecord {
   readonly target?: unknown;
   readonly uvStrategy?: unknown;
   readonly uri?: unknown;
+  readonly uvAttribute?: unknown;
   readonly validationErrors?: unknown;
   readonly value?: unknown;
   readonly version?: unknown;
@@ -238,6 +249,7 @@ interface ParsedRecord {
   readonly voxelMaterial?: unknown;
   readonly voxelSize?: unknown;
   readonly volumeAssetId?: unknown;
+  readonly wrapPolicy?: unknown;
   readonly width?: unknown;
   readonly x?: unknown;
   readonly y?: unknown;
@@ -267,6 +279,10 @@ function isString(value: unknown): value is string {
 
 function isNumberTuple3(value: unknown): boolean {
   return Array.isArray(value) && value.length === 3 && value.every(isFiniteNumber);
+}
+
+function isNumberTuple2(value: unknown): boolean {
+  return Array.isArray(value) && value.length === 2 && value.every(isFiniteNumber);
 }
 
 function isNumberTuple4(value: unknown): boolean {
@@ -601,11 +617,54 @@ function isVoxelConversionMaterialMapEntry(value: unknown): boolean {
     && isInteger(value.voxelMaterial);
 }
 
+function isVoxelConversionUvAttributeRef(value: unknown): boolean {
+  return isPlainObject(value)
+    && hasExactKeys(value, ['attributeName', 'sourceHash'])
+    && isString(value.attributeName)
+    && isString(value.sourceHash);
+}
+
+function isVoxelConversionTextureSourceRef(value: unknown): boolean {
+  return isPlainObject(value)
+    && hasExactKeys(value, ['textureAssetId', 'assetVersion', 'contentHash', 'width', 'height', 'colorSpace', 'channelLayout'])
+    && isString(value.textureAssetId)
+    && isInteger(value.assetVersion)
+    && isString(value.contentHash)
+    && isInteger(value.width)
+    && isInteger(value.height)
+    && isString(value.colorSpace)
+    && isString(value.channelLayout);
+}
+
+function isVoxelConversionTextureSampleAsset(value: unknown): boolean {
+  return isPlainObject(value)
+    && hasExactKeys(value, ['texture', 'texelMaterials'])
+    && isVoxelConversionTextureSourceRef(value.texture)
+    && Array.isArray(value.texelMaterials)
+    && value.texelMaterials.every(isInteger);
+}
+
+function isVoxelConversionTextureBinding(value: unknown): boolean {
+  return isPlainObject(value)
+    && hasExactKeys(value, ['sourceMaterialSlot', 'texture', 'uvAttribute', 'sampleUv', 'samplingPolicy', 'wrapPolicy', 'materialMode'])
+    && isInteger(value.sourceMaterialSlot)
+    && isVoxelConversionTextureSourceRef(value.texture)
+    && isVoxelConversionUvAttributeRef(value.uvAttribute)
+    && isNumberTuple2(value.sampleUv)
+    && isString(value.samplingPolicy)
+    && isString(value.wrapPolicy)
+    && isString(value.materialMode);
+}
+
 function isVoxelConversionMaterialMap(value: unknown): boolean {
   return isPlainObject(value)
-    && hasExactKeys(value, ['entries', 'defaultVoxelMaterial'])
+    && hasExactKeys(value, ['entries', 'textureAssets', 'textureBindings', 'defaultVoxelMaterial'])
     && Array.isArray(value.entries)
     && value.entries.every(isVoxelConversionMaterialMapEntry)
+    && Array.isArray(value.textureAssets)
+    && value.textureAssets.every(isVoxelConversionTextureSampleAsset)
+    && Array.isArray(value.textureBindings)
+    && value.textureBindings.every(isVoxelConversionTextureBinding)
     && (value.defaultVoxelMaterial === null || isInteger(value.defaultVoxelMaterial));
 }
 

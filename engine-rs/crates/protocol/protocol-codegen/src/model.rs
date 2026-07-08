@@ -1087,6 +1087,7 @@ pub fn voxel_conversion_module() -> Module {
         ])
     };
     let resolution3 = || TsType::Tuple(vec![num(), num(), num()]);
+    let tuple2 = || TsType::Tuple(vec![num(), num()]);
     let vec3 = || TsType::Tuple(vec![num(), num(), num()]);
 
     let items = vec![
@@ -1229,12 +1230,59 @@ pub fn voxel_conversion_module() -> Module {
             ],
         ),
         iface(
+            "Authority-visible UV attribute identity used by texture sampling.",
+            "VoxelConversionUvAttributeRef",
+            vec![f("attributeName", string()), f("sourceHash", string())],
+        ),
+        iface(
+            "Authority-visible texture snapshot identity for voxel material sampling.",
+            "VoxelConversionTextureSourceRef",
+            vec![
+                f("textureAssetId", string()),
+                f("assetVersion", num()),
+                f("contentHash", string()),
+                f("width", num()),
+                f("height", num()),
+                f("colorSpace", string()),
+                f("channelLayout", string()),
+            ],
+        ),
+        iface(
+            "Texture snapshot data accepted by Rust authority for voxel material sampling.",
+            "VoxelConversionTextureSampleAsset",
+            vec![
+                f("texture", r("VoxelConversionTextureSourceRef")),
+                f("texelMaterials", TsType::array(num())),
+            ],
+        ),
+        iface(
+            "Per-source-slot texture sampling request.",
+            "VoxelConversionTextureBinding",
+            vec![
+                f("sourceMaterialSlot", num()),
+                f("texture", r("VoxelConversionTextureSourceRef")),
+                f("uvAttribute", r("VoxelConversionUvAttributeRef")),
+                f("sampleUv", tuple2()),
+                f("samplingPolicy", string()),
+                f("wrapPolicy", string()),
+                f("materialMode", string()),
+            ],
+        ),
+        iface(
             "Material-map DTO. Default material is null when unmapped slots fail closed.",
             "VoxelConversionMaterialMap",
             vec![
                 f(
                     "entries",
                     TsType::array(r("VoxelConversionMaterialMapEntry")),
+                ),
+                f(
+                    "textureAssets",
+                    TsType::array(r("VoxelConversionTextureSampleAsset")),
+                ),
+                f(
+                    "textureBindings",
+                    TsType::array(r("VoxelConversionTextureBinding")),
                 ),
                 f("defaultVoxelMaterial", TsType::nullable(num())),
             ],

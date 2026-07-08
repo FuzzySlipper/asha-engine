@@ -575,6 +575,10 @@ mod tests {
                 "voxelConversion.VoxelConversionTargetRef",
                 "voxelConversion.VoxelConversionBounds",
                 "voxelConversion.VoxelConversionMaterialMapEntry",
+                "voxelConversion.VoxelConversionUvAttributeRef",
+                "voxelConversion.VoxelConversionTextureSourceRef",
+                "voxelConversion.VoxelConversionTextureSampleAsset",
+                "voxelConversion.VoxelConversionTextureBinding",
                 "voxelConversion.VoxelConversionMaterialMap",
                 "voxelConversion.VoxelConversionSettings",
                 "voxelConversion.VoxelConversionPlanRequest",
@@ -978,6 +982,11 @@ mod tests {
         assert!(vc.contains("export interface VoxelConversionApplyRequest {"));
         assert!(vc.contains("export interface VoxelConversionReceipt {"));
         assert!(vc.contains("export interface VoxelConversionEvidenceRef {"));
+        assert!(vc.contains("export interface VoxelConversionTextureSourceRef {"));
+        assert!(
+            vc.contains("readonly textureAssets: readonly VoxelConversionTextureSampleAsset[];")
+        );
+        assert!(vc.contains("readonly textureBindings: readonly VoxelConversionTextureBinding[];"));
         assert!(vc.contains("readonly transform: readonly [number, number, number, number"));
         assert!(vc.contains("readonly defaultVoxelMaterial: number | null;"));
     }

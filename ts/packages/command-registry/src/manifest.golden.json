@@ -2274,6 +2274,8 @@
                 "voxelMaterial": 3
               }
             ],
+            "textureAssets": [],
+            "textureBindings": [],
             "defaultVoxelMaterial": 3
           }
         }
@@ -2335,6 +2337,8 @@
                 "voxelMaterial": 3
               }
             ],
+            "textureAssets": [],
+            "textureBindings": [],
             "defaultVoxelMaterial": 3
           }
         },

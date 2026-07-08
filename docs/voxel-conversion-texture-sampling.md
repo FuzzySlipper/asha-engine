@@ -1,13 +1,17 @@
 # Rust-Owned Voxel Conversion Texture Sampling
 
-Status: design record for Den task #4596.
+Status: design record for Den task #4596, with the first implementation slice
+landed by Den task #4912.
 
 ## Purpose
 
-ASHA voxel conversion currently maps source material slots to voxel material ids
-in Rust. It does not sample source textures or UVs. This document defines the
-future authority lane for texture and UV sampling so later implementation does
-not drift into Studio, renderer, Three.js, or raw image-buffer authority.
+ASHA voxel conversion maps source material slots to voxel material ids in Rust.
+Task #4912 adds the first Rust-owned texture/UV sampling slice: callers may
+provide generated DTOs for authority-visible texture sample assets and per-slot
+UV sample bindings. The service validates hashes and deterministic sampling
+policy before output generation. This document keeps the authority lane explicit
+so later implementation does not drift into Studio, renderer, Three.js, or raw
+image-buffer authority.
 
 The durable path remains:
 
@@ -34,8 +38,8 @@ generated voxel-conversion DTOs
 
 ## Protocol Additions
 
-The existing generated voxel-conversion protocol should gain a small additive
-family. Names are proposed, not implemented in this design slice.
+The generated voxel-conversion protocol now has a small additive texture
+sampling family for the first implementation slice:
 
 ```rust
 pub struct VoxelConversionUvAttributeRef {
@@ -47,36 +51,40 @@ pub struct VoxelConversionTextureSourceRef {
     pub texture_asset_id: String,
     pub asset_version: u64,
     pub content_hash: String,
-    pub color_space: VoxelConversionTextureColorSpace,
-    pub channel_layout: VoxelConversionTextureChannelLayout,
+    pub width: u32,
+    pub height: u32,
+    pub color_space: String,
+    pub channel_layout: String,
+}
+
+pub struct VoxelConversionTextureSampleAsset {
+    pub texture: VoxelConversionTextureSourceRef,
+    pub texel_materials: Vec<u16>,
 }
 
 pub struct VoxelConversionTextureBinding {
     pub source_material_slot: u32,
     pub texture: VoxelConversionTextureSourceRef,
     pub uv_attribute: VoxelConversionUvAttributeRef,
-    pub sampling: VoxelConversionTextureSamplingPolicy,
-}
-
-pub struct VoxelConversionTextureMaterialRule {
-    pub source_material_slot: u32,
-    pub mode: VoxelConversionTextureMaterialMode,
-    pub output_palette: Option<VoxelConversionTexturePaletteRef>,
+    pub sample_uv: [f32; 2],
+    pub sampling_policy: String,
+    pub wrap_policy: String,
+    pub material_mode: String,
 }
 ```
 
-Suggested stable vocabularies:
+Current accepted values:
 
 - `VoxelConversionTextureColorSpace`: `linear`, `srgb`.
-- `VoxelConversionTextureChannelLayout`: `rgba8`, `rgb8`, `grayscale8`.
-- `VoxelConversionTextureSamplingPolicy`: `nearest_texel`,
-  `nearest_mipmap_level0`, `bilinear_level0`.
-- `VoxelConversionTextureMaterialMode`: `sample_palette_index`,
-  `sample_luminance_threshold`, `sample_average_color_to_palette`.
+- `VoxelConversionTextureChannelLayout`: `palette_index_u16`.
+- `VoxelConversionTextureSamplingPolicy`: `nearest_texel`.
+- `VoxelConversionTextureWrapPolicy`: `clamp_to_edge`.
+- `VoxelConversionTextureMaterialMode`: `sample_palette_index`.
 
-The first implementation should prefer `nearest_texel` and a palette/index mode.
-More visual sampling modes can be added later without changing the authority
-boundary.
+The fields remain string-valued at the DTO border so Rust authority can return
+typed `unsupported_sampling_policy`, `unsupported_texture_format`, or
+`invalid_texture_material_rule` diagnostics for unsupported future values rather
+than accepting them through TypeScript type pressure.
 
 ## Source Snapshot Model
 
@@ -101,30 +109,27 @@ conversion as trusted runtime memory.
 
 Initial texture sampling should be intentionally boring:
 
-- UVs are read from a named source mesh UV attribute.
-- Triangle sample UV is derived in Rust from the same primitive used for
-  conversion, using deterministic barycentric or representative-cell sampling.
+- UV bindings identify a named source mesh UV attribute and hash.
+- The first implementation uses an explicit representative `sample_uv` per
+  source material slot. Full per-vertex UV interpolation is not implemented yet.
 - UV wrapping is explicit per binding. The initial allowed value should be
   `clamp_to_edge`; repeat/mirror can be added later.
 - Filtering is explicit per binding. The initial implementation should support
   `nearest_texel`; bilinear support must define exact rounding and color-space
   conversion before acceptance.
-- Palette or threshold mapping produces ASHA voxel material ids. Raw sampled
-  colors are evidence/projection only unless a generated DTO explicitly defines
-  them as authority output.
+- `palette_index_u16` texels map directly to ASHA voxel material ids. Raw
+  sampled colors are evidence/projection only unless a generated DTO explicitly
+  defines them as authority output.
 - All floating-point decisions that affect material assignment must be covered
   by deterministic tests and stable summary hashes.
 
 ## Diagnostics
 
-Add diagnostic codes only through the generated protocol vocabulary. Suggested
-codes:
+Texture diagnostic codes are part of the generated protocol vocabulary:
 
-- `texture_sampling_unavailable`: backend does not support texture sampling.
 - `missing_texture_source`: a requested texture ref is not authority-visible.
 - `texture_hash_mismatch`: request hash does not match the validated snapshot.
 - `missing_uv_attribute`: source mesh lacks the named UV attribute.
-- `uv_hash_mismatch`: UV attribute hash does not match the validated snapshot.
 - `unsupported_texture_format`: layout/color-space is not supported.
 - `unsupported_sampling_policy`: requested sampling/filter/wrap is unsupported.
 - `invalid_texture_material_rule`: palette/threshold/material output mapping is
@@ -148,27 +153,21 @@ include texture sampling facts when texture sampling participates in output:
 
 These facts are readouts. They do not grant Studio or TypeScript mutation rights.
 
-## Implementation Path
+## Implementation Status
 
-1. Extend `protocol-voxel-conversion` with texture source, UV, sampling policy,
-   material-rule, and diagnostic DTOs.
-2. Regenerate `@asha/contracts` through `protocol-codegen` and add Rust
-   round-trip coverage for every Rust-mirrored DTO.
-3. Add a Rust texture snapshot/input model in `svc-voxel-conversion` or a
-   dedicated service that `svc-voxel-conversion` calls.
-4. Validate snapshot hashes, UV hashes, texture formats, and sampling policy
-   before output generation.
-5. Add one tiny deterministic fixture: a textured quad with two UV regions that
-   map to two voxel material ids.
-6. Add negative fixtures for missing texture, hash mismatch, missing UV, and
-   unsupported format/policy.
-7. Surface readout/evidence through existing RuntimeSession conversion methods
-   before adding any Studio UI.
+- Implemented in #4912: generated DTOs, Rust service validation, nearest-texel
+  `palette_index_u16` sampling, texture/hash diagnostics, and deterministic
+  service tests for sampled output, missing texture, stale hash, and unsupported
+  sampling policy.
+- Still future work: per-vertex UV buffers, barycentric/cell sampling,
+  mipmaps, bilinear filtering, repeat/mirror wrapping, image decode/import,
+  color-to-palette rules, average-color material selection, atlas packing, and
+  Studio UI affordances.
 
 ## Non-Claims
 
-- This document does not implement texture sampling.
 - It does not permit Studio or renderer-owned texture data to become authority.
 - It does not define atlas packing, material authoring UI, complex PBR material
-  evaluation, mip generation, or GPU-assisted sampling.
+  evaluation, mip generation, per-vertex UV interpolation, image import, or
+  GPU-assisted sampling.
 - It does not require changing current material-slot mapping behavior.

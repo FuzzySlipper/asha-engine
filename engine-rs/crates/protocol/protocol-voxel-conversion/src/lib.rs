@@ -45,11 +45,32 @@ pub const VOXEL_CONVERSION_DIAGNOSTIC_CODES: &[&str] = &[
     "unsupported_source_asset",
     "source_hash_mismatch",
     "invalid_material_map",
+    "missing_texture_source",
+    "texture_hash_mismatch",
+    "missing_uv_attribute",
+    "unsupported_texture_format",
+    "unsupported_sampling_policy",
+    "invalid_texture_material_rule",
     "output_limit_exceeded",
     "non_manifold_or_ambiguous_solid",
     "stale_authority_snapshot",
     "conversion_replay_mismatch",
 ];
+
+/// Stable texture color-space names accepted by voxel conversion.
+pub const VOXEL_CONVERSION_TEXTURE_COLOR_SPACES: &[&str] = &["linear", "srgb"];
+
+/// Stable texture channel-layout names accepted by voxel conversion.
+pub const VOXEL_CONVERSION_TEXTURE_CHANNEL_LAYOUTS: &[&str] = &["palette_index_u16", "grayscale8"];
+
+/// Stable texture sampling policy names accepted by voxel conversion.
+pub const VOXEL_CONVERSION_TEXTURE_SAMPLING_POLICIES: &[&str] = &["nearest_texel"];
+
+/// Stable texture wrapping policy names accepted by voxel conversion.
+pub const VOXEL_CONVERSION_TEXTURE_WRAP_POLICIES: &[&str] = &["clamp_to_edge"];
+
+/// Stable texture-to-material mode names accepted by voxel conversion.
+pub const VOXEL_CONVERSION_TEXTURE_MATERIAL_MODES: &[&str] = &["sample_palette_index"];
 
 /// Conversion modes Rust authority may execute.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -142,6 +163,12 @@ pub enum VoxelConversionDiagnosticCode {
     UnsupportedSourceAsset,
     SourceHashMismatch,
     InvalidMaterialMap,
+    MissingTextureSource,
+    TextureHashMismatch,
+    MissingUvAttribute,
+    UnsupportedTextureFormat,
+    UnsupportedSamplingPolicy,
+    InvalidTextureMaterialRule,
     OutputLimitExceeded,
     NonManifoldOrAmbiguousSolid,
     StaleAuthoritySnapshot,
@@ -158,6 +185,16 @@ impl VoxelConversionDiagnosticCode {
             VoxelConversionDiagnosticCode::UnsupportedSourceAsset => "unsupported_source_asset",
             VoxelConversionDiagnosticCode::SourceHashMismatch => "source_hash_mismatch",
             VoxelConversionDiagnosticCode::InvalidMaterialMap => "invalid_material_map",
+            VoxelConversionDiagnosticCode::MissingTextureSource => "missing_texture_source",
+            VoxelConversionDiagnosticCode::TextureHashMismatch => "texture_hash_mismatch",
+            VoxelConversionDiagnosticCode::MissingUvAttribute => "missing_uv_attribute",
+            VoxelConversionDiagnosticCode::UnsupportedTextureFormat => "unsupported_texture_format",
+            VoxelConversionDiagnosticCode::UnsupportedSamplingPolicy => {
+                "unsupported_sampling_policy"
+            }
+            VoxelConversionDiagnosticCode::InvalidTextureMaterialRule => {
+                "invalid_texture_material_rule"
+            }
             VoxelConversionDiagnosticCode::OutputLimitExceeded => "output_limit_exceeded",
             VoxelConversionDiagnosticCode::NonManifoldOrAmbiguousSolid => {
                 "non_manifold_or_ambiguous_solid"
@@ -280,12 +317,56 @@ pub struct VoxelConversionMaterialMapEntry {
     pub voxel_material: u16,
 }
 
+/// Authority-visible UV attribute identity used by texture sampling.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VoxelConversionUvAttributeRef {
+    pub attribute_name: String,
+    pub source_hash: String,
+}
+
+/// Authority-visible texture snapshot identity for voxel material sampling.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VoxelConversionTextureSourceRef {
+    pub texture_asset_id: String,
+    pub asset_version: u64,
+    pub content_hash: String,
+    pub width: u32,
+    pub height: u32,
+    pub color_space: String,
+    pub channel_layout: String,
+}
+
+/// Texture snapshot data accepted by Rust authority for voxel material sampling.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VoxelConversionTextureSampleAsset {
+    pub texture: VoxelConversionTextureSourceRef,
+    pub texel_materials: Vec<u16>,
+}
+
+/// Per-source-slot texture sampling request.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VoxelConversionTextureBinding {
+    pub source_material_slot: u32,
+    pub texture: VoxelConversionTextureSourceRef,
+    pub uv_attribute: VoxelConversionUvAttributeRef,
+    pub sample_uv: [f32; 2],
+    pub sampling_policy: String,
+    pub wrap_policy: String,
+    pub material_mode: String,
+}
+
 /// Material-map DTO. `default_voxel_material` is used only when authority
 /// accepts unmapped source slots for the chosen conversion policy.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VoxelConversionMaterialMap {
     pub entries: Vec<VoxelConversionMaterialMapEntry>,
+    pub texture_assets: Vec<VoxelConversionTextureSampleAsset>,
+    pub texture_bindings: Vec<VoxelConversionTextureBinding>,
     pub default_voxel_material: Option<u16>,
 }
 
@@ -486,6 +567,12 @@ mod tests {
                 VoxelConversionDiagnosticCode::UnsupportedSourceAsset.as_str(),
                 VoxelConversionDiagnosticCode::SourceHashMismatch.as_str(),
                 VoxelConversionDiagnosticCode::InvalidMaterialMap.as_str(),
+                VoxelConversionDiagnosticCode::MissingTextureSource.as_str(),
+                VoxelConversionDiagnosticCode::TextureHashMismatch.as_str(),
+                VoxelConversionDiagnosticCode::MissingUvAttribute.as_str(),
+                VoxelConversionDiagnosticCode::UnsupportedTextureFormat.as_str(),
+                VoxelConversionDiagnosticCode::UnsupportedSamplingPolicy.as_str(),
+                VoxelConversionDiagnosticCode::InvalidTextureMaterialRule.as_str(),
                 VoxelConversionDiagnosticCode::OutputLimitExceeded.as_str(),
                 VoxelConversionDiagnosticCode::NonManifoldOrAmbiguousSolid.as_str(),
                 VoxelConversionDiagnosticCode::StaleAuthoritySnapshot.as_str(),
@@ -525,6 +612,8 @@ mod tests {
                         source_material_id: Some("mat/stone".to_string()),
                         voxel_material: 3,
                     }],
+                    texture_assets: Vec::new(),
+                    texture_bindings: Vec::new(),
                     default_voxel_material: None,
                 },
             },
@@ -538,6 +627,59 @@ mod tests {
         assert_eq!(
             serialized["settings"]["materialMap"]["entries"][0]["voxelMaterial"],
             3
+        );
+    }
+
+    #[test]
+    fn texture_sampling_dtos_round_trip_with_camel_case_fields() {
+        let texture = VoxelConversionTextureSourceRef {
+            texture_asset_id: "texture/checker".to_string(),
+            asset_version: 2,
+            content_hash: "sha256:texture".to_string(),
+            width: 2,
+            height: 1,
+            color_space: "linear".to_string(),
+            channel_layout: "palette_index_u16".to_string(),
+        };
+        let texture_asset = VoxelConversionTextureSampleAsset {
+            texture: texture.clone(),
+            texel_materials: vec![3, 7],
+        };
+        let binding = VoxelConversionTextureBinding {
+            source_material_slot: 4,
+            texture,
+            uv_attribute: VoxelConversionUvAttributeRef {
+                attribute_name: "TEXCOORD_0".to_string(),
+                source_hash: "sha256:uv".to_string(),
+            },
+            sample_uv: [1.0, 0.0],
+            sampling_policy: "nearest_texel".to_string(),
+            wrap_policy: "clamp_to_edge".to_string(),
+            material_mode: "sample_palette_index".to_string(),
+        };
+        let map = VoxelConversionMaterialMap {
+            entries: Vec::new(),
+            texture_assets: vec![texture_asset],
+            texture_bindings: vec![binding],
+            default_voxel_material: None,
+        };
+
+        assert_round_trip(&map);
+
+        let serialized = serde_json::to_value(&map).unwrap();
+        assert_eq!(
+            serialized["textureAssets"][0]["texture"]["textureAssetId"],
+            "texture/checker"
+        );
+        assert_eq!(serialized["textureAssets"][0]["texelMaterials"][1], 7);
+        assert_eq!(
+            serialized["textureBindings"][0]["uvAttribute"]["attributeName"],
+            "TEXCOORD_0"
+        );
+        assert_eq!(serialized["textureBindings"][0]["sampleUv"][0], 1.0);
+        assert_eq!(
+            serialized["textureBindings"][0]["samplingPolicy"],
+            "nearest_texel"
         );
     }
 

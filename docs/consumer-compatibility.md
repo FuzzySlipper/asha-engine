@@ -136,6 +136,11 @@ Fail-closed behavior is part of the compatibility contract:
 - unsupported source assets, invalid material maps, oversized output, stale
   source hashes, stale authority snapshots, and replay mismatches are typed
   voxel conversion diagnostics, not best-effort partial output;
+- material maps may include generated texture sample assets and UV sample
+  bindings for the Rust-owned nearest-texel `palette_index_u16` sampling slice;
+  missing texture snapshots, texture hash mismatches, missing UV refs,
+  unsupported texture formats/policies, and invalid material rules fail closed
+  through generated voxel conversion diagnostics;
 - Studio should display and preserve those diagnostics/evidence refs rather than
   falling back to local conversion, private generated paths, raw native calls, or
   arbitrary JSON command tunnels.

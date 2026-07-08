@@ -124,6 +124,8 @@ const planRequest = {
         sourceMaterialId: 'material/surface-a',
         voxelMaterial: 3,
       }],
+      textureAssets: [],
+      textureBindings: [],
       defaultVoxelMaterial: null,
     },
   },

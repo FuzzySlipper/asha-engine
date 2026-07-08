@@ -581,6 +581,8 @@ const voxelConversionPlanRequestExample: VoxelConversionPlanRequest = {
     transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
     materialMap: {
       entries: [{ sourceMaterialSlot: 0, sourceMaterialId: 'material.copper', voxelMaterial: 3 }],
+      textureAssets: [],
+      textureBindings: [],
       defaultVoxelMaterial: 3,
     },
   },

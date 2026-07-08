@@ -3,7 +3,7 @@ import type { VoxelCoord } from './voxel.js';
 export type VoxelConversionMode = 'surface' | 'solid';
 export type VoxelConversionFitPolicy = 'contain' | 'cover' | 'stretch';
 export type VoxelConversionOriginPolicy = 'source_origin' | 'target_min' | 'centered';
-export type VoxelConversionDiagnosticCode = 'voxel_conversion_unavailable' | 'operation_unimplemented' | 'unsupported_source_asset' | 'source_hash_mismatch' | 'invalid_material_map' | 'output_limit_exceeded' | 'non_manifold_or_ambiguous_solid' | 'stale_authority_snapshot' | 'conversion_replay_mismatch';
+export type VoxelConversionDiagnosticCode = 'voxel_conversion_unavailable' | 'operation_unimplemented' | 'unsupported_source_asset' | 'source_hash_mismatch' | 'invalid_material_map' | 'missing_texture_source' | 'texture_hash_mismatch' | 'missing_uv_attribute' | 'unsupported_texture_format' | 'unsupported_sampling_policy' | 'invalid_texture_material_rule' | 'output_limit_exceeded' | 'non_manifold_or_ambiguous_solid' | 'stale_authority_snapshot' | 'conversion_replay_mismatch';
 export type VoxelConversionEvidenceKind = 'plan' | 'preview' | 'apply_receipt' | 'diagnostics' | 'source_snapshot' | 'output_snapshot';
 export interface VoxelConversionSourceRef {
     readonly assetId: string;
@@ -65,8 +65,36 @@ export interface VoxelConversionMaterialMapEntry {
     readonly sourceMaterialId: string | null;
     readonly voxelMaterial: number;
 }
+export interface VoxelConversionUvAttributeRef {
+    readonly attributeName: string;
+    readonly sourceHash: string;
+}
+export interface VoxelConversionTextureSourceRef {
+    readonly textureAssetId: string;
+    readonly assetVersion: number;
+    readonly contentHash: string;
+    readonly width: number;
+    readonly height: number;
+    readonly colorSpace: string;
+    readonly channelLayout: string;
+}
+export interface VoxelConversionTextureSampleAsset {
+    readonly texture: VoxelConversionTextureSourceRef;
+    readonly texelMaterials: readonly number[];
+}
+export interface VoxelConversionTextureBinding {
+    readonly sourceMaterialSlot: number;
+    readonly texture: VoxelConversionTextureSourceRef;
+    readonly uvAttribute: VoxelConversionUvAttributeRef;
+    readonly sampleUv: readonly [number, number];
+    readonly samplingPolicy: string;
+    readonly wrapPolicy: string;
+    readonly materialMode: string;
+}
 export interface VoxelConversionMaterialMap {
     readonly entries: readonly VoxelConversionMaterialMapEntry[];
+    readonly textureAssets: readonly VoxelConversionTextureSampleAsset[];
+    readonly textureBindings: readonly VoxelConversionTextureBinding[];
     readonly defaultVoxelMaterial: number | null;
 }
 export interface VoxelConversionSettings {

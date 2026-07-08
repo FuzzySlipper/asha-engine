@@ -84,6 +84,9 @@ function isString(value) {
 function isNumberTuple3(value) {
     return Array.isArray(value) && value.length === 3 && value.every(isFiniteNumber);
 }
+function isNumberTuple2(value) {
+    return Array.isArray(value) && value.length === 2 && value.every(isFiniteNumber);
+}
 function isNumberTuple4(value) {
     return Array.isArray(value) && value.length === 4 && value.every(isFiniteNumber);
 }
@@ -393,11 +396,50 @@ function isVoxelConversionMaterialMapEntry(value) {
         && (value.sourceMaterialId === null || isString(value.sourceMaterialId))
         && isInteger(value.voxelMaterial);
 }
+function isVoxelConversionUvAttributeRef(value) {
+    return isPlainObject(value)
+        && hasExactKeys(value, ['attributeName', 'sourceHash'])
+        && isString(value.attributeName)
+        && isString(value.sourceHash);
+}
+function isVoxelConversionTextureSourceRef(value) {
+    return isPlainObject(value)
+        && hasExactKeys(value, ['textureAssetId', 'assetVersion', 'contentHash', 'width', 'height', 'colorSpace', 'channelLayout'])
+        && isString(value.textureAssetId)
+        && isInteger(value.assetVersion)
+        && isString(value.contentHash)
+        && isInteger(value.width)
+        && isInteger(value.height)
+        && isString(value.colorSpace)
+        && isString(value.channelLayout);
+}
+function isVoxelConversionTextureSampleAsset(value) {
+    return isPlainObject(value)
+        && hasExactKeys(value, ['texture', 'texelMaterials'])
+        && isVoxelConversionTextureSourceRef(value.texture)
+        && Array.isArray(value.texelMaterials)
+        && value.texelMaterials.every(isInteger);
+}
+function isVoxelConversionTextureBinding(value) {
+    return isPlainObject(value)
+        && hasExactKeys(value, ['sourceMaterialSlot', 'texture', 'uvAttribute', 'sampleUv', 'samplingPolicy', 'wrapPolicy', 'materialMode'])
+        && isInteger(value.sourceMaterialSlot)
+        && isVoxelConversionTextureSourceRef(value.texture)
+        && isVoxelConversionUvAttributeRef(value.uvAttribute)
+        && isNumberTuple2(value.sampleUv)
+        && isString(value.samplingPolicy)
+        && isString(value.wrapPolicy)
+        && isString(value.materialMode);
+}
 function isVoxelConversionMaterialMap(value) {
     return isPlainObject(value)
-        && hasExactKeys(value, ['entries', 'defaultVoxelMaterial'])
+        && hasExactKeys(value, ['entries', 'textureAssets', 'textureBindings', 'defaultVoxelMaterial'])
         && Array.isArray(value.entries)
         && value.entries.every(isVoxelConversionMaterialMapEntry)
+        && Array.isArray(value.textureAssets)
+        && value.textureAssets.every(isVoxelConversionTextureSampleAsset)
+        && Array.isArray(value.textureBindings)
+        && value.textureBindings.every(isVoxelConversionTextureBinding)
         && (value.defaultVoxelMaterial === null || isInteger(value.defaultVoxelMaterial));
 }
 function isVoxelConversionSettings(value) {

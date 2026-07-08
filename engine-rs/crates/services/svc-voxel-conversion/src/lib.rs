@@ -25,7 +25,8 @@ use protocol_voxel_conversion::{
     VoxelConversionFitPolicy, VoxelConversionMode, VoxelConversionOriginPolicy,
     VoxelConversionPlan, VoxelConversionPlanRequest, VoxelConversionPreview,
     VoxelConversionPreviewRequest, VoxelConversionPreviewVoxel, VoxelConversionReceipt,
-    VoxelConversionSourceRef, VoxelConversionTargetRef,
+    VoxelConversionSourceRef, VoxelConversionTargetRef, VoxelConversionTextureSampleAsset,
+    VoxelConversionTextureSourceRef,
 };
 
 pub const AUTHORITY_VERSION: &str = "svc-voxel-conversion.v0";
@@ -358,6 +359,7 @@ fn validate_settings(
             message,
         ));
     }
+    validate_texture_sampling(request, source, diagnostics);
     if request.settings.mode == VoxelConversionMode::Solid {
         if let Err(message) = validate_solid_topology(source) {
             diagnostics.push(diagnostic(
@@ -471,13 +473,225 @@ fn validate_material_map(
         .default_voxel_material
         .is_none()
     {
+        let texture_slots = texture_binding_slots(request);
         for slot in source_material_slots(source) {
-            if !map_slots.contains(&slot) {
+            if !map_slots.contains(&slot) && !texture_slots.contains(&slot) {
                 return Err("source material slot is unmapped and no default material is set");
             }
         }
     }
     Ok(())
+}
+
+fn validate_texture_sampling(
+    request: &VoxelConversionPlanRequest,
+    source: &StaticMeshSource,
+    diagnostics: &mut Vec<VoxelConversionDiagnostic>,
+) {
+    let mut texture_keys = BTreeSet::new();
+    for texture_asset in &request.settings.material_map.texture_assets {
+        validate_texture_sample_asset(texture_asset, diagnostics);
+        if !texture_keys.insert(texture_key(&texture_asset.texture)) {
+            diagnostics.push(diagnostic(
+                VoxelConversionDiagnosticCode::InvalidTextureMaterialRule,
+                DiagnosticSeverity::Error,
+                "materialMap.textureAssets",
+                "duplicate texture sample asset identity",
+            ));
+        }
+    }
+
+    let source_slots = source_material_slots(source);
+    let mut binding_slots = BTreeSet::new();
+    for binding in &request.settings.material_map.texture_bindings {
+        if !binding_slots.insert(binding.source_material_slot) {
+            diagnostics.push(diagnostic(
+                VoxelConversionDiagnosticCode::InvalidTextureMaterialRule,
+                DiagnosticSeverity::Error,
+                format!(
+                    "materialMap.textureBindings.{}",
+                    binding.source_material_slot
+                ),
+                "duplicate texture binding for source material slot",
+            ));
+        }
+        if !source_slots.contains(&binding.source_material_slot) {
+            diagnostics.push(diagnostic(
+                VoxelConversionDiagnosticCode::InvalidTextureMaterialRule,
+                DiagnosticSeverity::Error,
+                format!(
+                    "materialMap.textureBindings.{}",
+                    binding.source_material_slot
+                ),
+                "texture binding references a source material slot not present in the mesh",
+            ));
+        }
+        if binding.uv_attribute.attribute_name.is_empty()
+            || binding.uv_attribute.source_hash.is_empty()
+        {
+            diagnostics.push(diagnostic(
+                VoxelConversionDiagnosticCode::MissingUvAttribute,
+                DiagnosticSeverity::Error,
+                format!(
+                    "materialMap.textureBindings.{}.uvAttribute",
+                    binding.source_material_slot
+                ),
+                "texture binding requires an authority-visible UV attribute name and source hash",
+            ));
+        }
+        if binding.sample_uv.iter().any(|value| !value.is_finite()) {
+            diagnostics.push(diagnostic(
+                VoxelConversionDiagnosticCode::InvalidTextureMaterialRule,
+                DiagnosticSeverity::Error,
+                format!(
+                    "materialMap.textureBindings.{}.sampleUv",
+                    binding.source_material_slot
+                ),
+                "texture binding sample UV must contain finite values",
+            ));
+        }
+        if binding.sampling_policy != "nearest_texel" {
+            diagnostics.push(diagnostic(
+                VoxelConversionDiagnosticCode::UnsupportedSamplingPolicy,
+                DiagnosticSeverity::Error,
+                format!(
+                    "materialMap.textureBindings.{}.samplingPolicy",
+                    binding.source_material_slot
+                ),
+                "voxel conversion currently supports nearest_texel texture sampling only",
+            ));
+        }
+        if binding.wrap_policy != "clamp_to_edge" {
+            diagnostics.push(diagnostic(
+                VoxelConversionDiagnosticCode::UnsupportedSamplingPolicy,
+                DiagnosticSeverity::Error,
+                format!(
+                    "materialMap.textureBindings.{}.wrapPolicy",
+                    binding.source_material_slot
+                ),
+                "voxel conversion currently supports clamp_to_edge texture wrapping only",
+            ));
+        }
+        if binding.material_mode != "sample_palette_index" {
+            diagnostics.push(diagnostic(
+                VoxelConversionDiagnosticCode::InvalidTextureMaterialRule,
+                DiagnosticSeverity::Error,
+                format!(
+                    "materialMap.textureBindings.{}.materialMode",
+                    binding.source_material_slot
+                ),
+                "voxel conversion currently supports sample_palette_index material mapping only",
+            ));
+        }
+        if binding.texture.color_space != "linear" && binding.texture.color_space != "srgb" {
+            diagnostics.push(diagnostic(
+                VoxelConversionDiagnosticCode::UnsupportedTextureFormat,
+                DiagnosticSeverity::Error,
+                format!(
+                    "materialMap.textureBindings.{}.texture.colorSpace",
+                    binding.source_material_slot
+                ),
+                "texture binding uses an unsupported color space",
+            ));
+        }
+        if binding.texture.channel_layout != "palette_index_u16" {
+            diagnostics.push(diagnostic(
+                VoxelConversionDiagnosticCode::UnsupportedTextureFormat,
+                DiagnosticSeverity::Error,
+                format!(
+                    "materialMap.textureBindings.{}.texture.channelLayout",
+                    binding.source_material_slot
+                ),
+                "texture binding currently requires palette_index_u16 texel materials",
+            ));
+        }
+        validate_texture_binding_source(
+            request,
+            binding.source_material_slot,
+            &binding.texture,
+            diagnostics,
+        );
+    }
+}
+
+fn validate_texture_sample_asset(
+    texture_asset: &VoxelConversionTextureSampleAsset,
+    diagnostics: &mut Vec<VoxelConversionDiagnostic>,
+) {
+    let texture = &texture_asset.texture;
+    if texture.texture_asset_id.is_empty() || texture.content_hash.is_empty() {
+        diagnostics.push(diagnostic(
+            VoxelConversionDiagnosticCode::MissingTextureSource,
+            DiagnosticSeverity::Error,
+            "materialMap.textureAssets",
+            "texture sample asset requires an asset id and content hash",
+        ));
+    }
+    if texture.width == 0 || texture.height == 0 {
+        diagnostics.push(diagnostic(
+            VoxelConversionDiagnosticCode::UnsupportedTextureFormat,
+            DiagnosticSeverity::Error,
+            "materialMap.textureAssets",
+            "texture sample asset dimensions must be non-zero",
+        ));
+    }
+    if texture.color_space != "linear" && texture.color_space != "srgb" {
+        diagnostics.push(diagnostic(
+            VoxelConversionDiagnosticCode::UnsupportedTextureFormat,
+            DiagnosticSeverity::Error,
+            "materialMap.textureAssets",
+            "texture sample asset uses an unsupported color space",
+        ));
+    }
+    if texture.channel_layout != "palette_index_u16" {
+        diagnostics.push(diagnostic(
+            VoxelConversionDiagnosticCode::UnsupportedTextureFormat,
+            DiagnosticSeverity::Error,
+            "materialMap.textureAssets",
+            "texture sample asset currently requires palette_index_u16 texel materials",
+        ));
+    }
+    let expected_len = u64::from(texture.width) * u64::from(texture.height);
+    if texture_asset.texel_materials.len() as u64 != expected_len {
+        diagnostics.push(diagnostic(
+            VoxelConversionDiagnosticCode::InvalidTextureMaterialRule,
+            DiagnosticSeverity::Error,
+            "materialMap.textureAssets.texelMaterials",
+            "texture sample asset texel material count does not match width * height",
+        ));
+    }
+}
+
+fn validate_texture_binding_source(
+    request: &VoxelConversionPlanRequest,
+    source_slot: u32,
+    texture: &VoxelConversionTextureSourceRef,
+    diagnostics: &mut Vec<VoxelConversionDiagnostic>,
+) {
+    let matching_asset = request
+        .settings
+        .material_map
+        .texture_assets
+        .iter()
+        .find(|asset| {
+            asset.texture.texture_asset_id == texture.texture_asset_id
+                && asset.texture.asset_version == texture.asset_version
+        });
+    match matching_asset {
+        Some(asset) if asset.texture.content_hash == texture.content_hash => {}
+        Some(_) => diagnostics.push(diagnostic(
+            VoxelConversionDiagnosticCode::TextureHashMismatch,
+            DiagnosticSeverity::Error,
+            format!("materialMap.textureBindings.{source_slot}.texture"),
+            "texture binding content hash does not match the authority-visible texture snapshot",
+        )),
+        None => diagnostics.push(diagnostic(
+            VoxelConversionDiagnosticCode::MissingTextureSource,
+            DiagnosticSeverity::Error,
+            format!("materialMap.textureBindings.{source_slot}.texture"),
+            "texture binding references no authority-visible texture snapshot",
+        )),
+    }
 }
 
 fn build_output(
@@ -512,7 +726,7 @@ fn surface_voxels(
     source: &StaticMeshSource,
 ) -> Vec<ConvertedVoxel> {
     let mapper = CoordMapper::new(request, source);
-    let material_map = material_lookup(request);
+    let material_map = material_resolver(request);
     let mut voxels = BTreeMap::new();
     for triangle in &source.triangles {
         let material = material_for(&material_map, request, triangle.source_material_slot);
@@ -535,7 +749,7 @@ fn solid_voxels(
     source: &StaticMeshSource,
 ) -> Vec<ConvertedVoxel> {
     let mapper = CoordMapper::new(request, source);
-    let material_map = material_lookup(request);
+    let material_map = material_resolver(request);
     let material = source
         .triangles
         .first()
@@ -581,14 +795,51 @@ fn source_material_slots(source: &StaticMeshSource) -> BTreeSet<u32> {
         .collect()
 }
 
-fn material_lookup(request: &VoxelConversionPlanRequest) -> BTreeMap<u32, u16> {
+fn texture_binding_slots(request: &VoxelConversionPlanRequest) -> BTreeSet<u32> {
     request
+        .settings
+        .material_map
+        .texture_bindings
+        .iter()
+        .map(|binding| binding.source_material_slot)
+        .collect()
+}
+
+fn material_resolver(request: &VoxelConversionPlanRequest) -> BTreeMap<u32, u16> {
+    let mut material_map: BTreeMap<u32, u16> = request
         .settings
         .material_map
         .entries
         .iter()
         .map(|entry| (entry.source_material_slot, entry.voxel_material))
-        .collect()
+        .collect();
+    for binding in &request.settings.material_map.texture_bindings {
+        if let Some(sampled) = sample_texture_material(request, binding) {
+            material_map.insert(binding.source_material_slot, sampled);
+        }
+    }
+    material_map
+}
+
+fn sample_texture_material(
+    request: &VoxelConversionPlanRequest,
+    binding: &protocol_voxel_conversion::VoxelConversionTextureBinding,
+) -> Option<u16> {
+    let texture = request
+        .settings
+        .material_map
+        .texture_assets
+        .iter()
+        .find(|asset| asset.texture == binding.texture)?;
+    let x = nearest_texel_axis(binding.sample_uv[0], texture.texture.width);
+    let y = nearest_texel_axis(binding.sample_uv[1], texture.texture.height);
+    let index = y * texture.texture.width as usize + x;
+    texture.texel_materials.get(index).copied()
+}
+
+fn nearest_texel_axis(uv: f32, size: u32) -> usize {
+    let max_index = size.saturating_sub(1) as f32;
+    uv.clamp(0.0, 1.0).mul_add(max_index, 0.0).round() as usize
 }
 
 fn material_for(
@@ -601,6 +852,10 @@ fn material_for(
         .copied()
         .or(request.settings.material_map.default_voxel_material)
         .expect("material map was validated before conversion")
+}
+
+fn texture_key(texture: &VoxelConversionTextureSourceRef) -> (String, u64) {
+    (texture.texture_asset_id.clone(), texture.asset_version)
 }
 
 fn validate_solid_topology(source: &StaticMeshSource) -> Result<(), &'static str> {
@@ -707,6 +962,35 @@ fn settings_fingerprint(request: &VoxelConversionPlanRequest) -> String {
             "{}:{}",
             entry.source_material_slot, entry.voxel_material
         ));
+    }
+    for texture_asset in &request.settings.material_map.texture_assets {
+        parts.push(format!(
+            "texture:{}:{}:{}:{}:{}:{}:{}",
+            texture_asset.texture.texture_asset_id,
+            texture_asset.texture.asset_version,
+            texture_asset.texture.content_hash,
+            texture_asset.texture.width,
+            texture_asset.texture.height,
+            texture_asset.texture.color_space,
+            texture_asset.texture.channel_layout
+        ));
+        parts.push(format!("{:?}", texture_asset.texel_materials));
+    }
+    for binding in &request.settings.material_map.texture_bindings {
+        parts.push(format!(
+            "texture-binding:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
+            binding.source_material_slot,
+            binding.texture.texture_asset_id,
+            binding.texture.asset_version,
+            binding.texture.content_hash,
+            binding.uv_attribute.attribute_name,
+            binding.uv_attribute.source_hash,
+            binding.sample_uv[0].to_bits(),
+            binding.sample_uv[1].to_bits(),
+            binding.sampling_policy,
+            binding.material_mode
+        ));
+        parts.push(format!("wrap:{}", binding.wrap_policy));
     }
     if let Some(default) = request.settings.material_map.default_voxel_material {
         parts.push(format!("default:{default}"));
@@ -940,6 +1224,8 @@ mod tests {
     use protocol_voxel_conversion::{
         VoxelConversionCoord, VoxelConversionFitPolicy, VoxelConversionMaterialMap,
         VoxelConversionMaterialMapEntry, VoxelConversionOriginPolicy, VoxelConversionSettings,
+        VoxelConversionTextureBinding, VoxelConversionTextureSampleAsset,
+        VoxelConversionTextureSourceRef, VoxelConversionUvAttributeRef,
     };
     use serde_json::json;
 
@@ -1128,9 +1414,48 @@ mod tests {
                             voxel_material: 5,
                         },
                     ],
+                    texture_assets: Vec::new(),
+                    texture_bindings: Vec::new(),
                     default_voxel_material: None,
                 },
             },
+        }
+    }
+
+    fn texture_source_ref(content_hash: &str) -> VoxelConversionTextureSourceRef {
+        VoxelConversionTextureSourceRef {
+            texture_asset_id: "texture/checker".to_string(),
+            asset_version: 1,
+            content_hash: content_hash.to_string(),
+            width: 2,
+            height: 1,
+            color_space: "linear".to_string(),
+            channel_layout: "palette_index_u16".to_string(),
+        }
+    }
+
+    fn texture_sample_asset() -> VoxelConversionTextureSampleAsset {
+        VoxelConversionTextureSampleAsset {
+            texture: texture_source_ref("sha256:texture-checker"),
+            texel_materials: vec![9, 11],
+        }
+    }
+
+    fn texture_binding(
+        source_material_slot: u32,
+        sample_uv: [f32; 2],
+    ) -> VoxelConversionTextureBinding {
+        VoxelConversionTextureBinding {
+            source_material_slot,
+            texture: texture_source_ref("sha256:texture-checker"),
+            uv_attribute: VoxelConversionUvAttributeRef {
+                attribute_name: "TEXCOORD_0".to_string(),
+                source_hash: "sha256:quad-uv0".to_string(),
+            },
+            sample_uv,
+            sampling_policy: "nearest_texel".to_string(),
+            wrap_policy: "clamp_to_edge".to_string(),
+            material_mode: "sample_palette_index".to_string(),
         }
     }
 
@@ -1311,6 +1636,91 @@ mod tests {
         assert!(planned.plan.diagnostics.is_empty());
         assert_eq!(preview.output_voxel_count, 4);
         assert_eq!(material_label(&preview.sample_voxels), "3,7");
+    }
+
+    #[test]
+    fn texture_sampled_materials_are_rust_authority_output() {
+        let source = quad_source();
+        let mut request = request_for(&source, VoxelConversionMode::Surface, [4, 4, 1], 16);
+        request.settings.material_map.entries.clear();
+        request.settings.material_map.texture_assets = vec![texture_sample_asset()];
+        request.settings.material_map.texture_bindings = vec![
+            texture_binding(0, [0.0, 0.0]),
+            texture_binding(1, [1.0, 0.0]),
+        ];
+
+        let planned = plan_conversion(&request, &source);
+        let preview = preview_conversion(
+            &VoxelConversionPreviewRequest {
+                plan_id: planned.plan.plan_id.clone(),
+                expected_plan_hash: planned.plan.plan_hash.clone(),
+            },
+            &planned,
+        );
+
+        assert!(planned.plan.diagnostics.is_empty());
+        assert_eq!(preview.output_voxel_count, 4);
+        assert_eq!(material_label(&preview.sample_voxels), "9,11");
+        assert_ne!(
+            planned.plan.settings_hash,
+            plan_conversion(
+                &request_for(&source, VoxelConversionMode::Surface, [4, 4, 1], 16),
+                &source
+            )
+            .plan
+            .settings_hash
+        );
+    }
+
+    #[test]
+    fn texture_binding_missing_snapshot_fails_closed() {
+        let source = quad_source();
+        let mut request = request_for(&source, VoxelConversionMode::Surface, [4, 4, 1], 16);
+        request.settings.material_map.entries.clear();
+        request.settings.material_map.texture_bindings = vec![texture_binding(0, [0.0, 0.0])];
+
+        let planned = plan_conversion(&request, &source);
+
+        assert!(planned.output.is_none());
+        assert!(planned.plan.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == VoxelConversionDiagnosticCode::MissingTextureSource
+        }));
+    }
+
+    #[test]
+    fn texture_binding_hash_mismatch_fails_closed() {
+        let source = quad_source();
+        let mut request = request_for(&source, VoxelConversionMode::Surface, [4, 4, 1], 16);
+        request.settings.material_map.entries.clear();
+        request.settings.material_map.texture_assets = vec![texture_sample_asset()];
+        let mut binding = texture_binding(0, [0.0, 0.0]);
+        binding.texture.content_hash = "sha256:stale-texture".to_string();
+        request.settings.material_map.texture_bindings = vec![binding];
+
+        let planned = plan_conversion(&request, &source);
+
+        assert!(planned.output.is_none());
+        assert!(planned.plan.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == VoxelConversionDiagnosticCode::TextureHashMismatch
+        }));
+    }
+
+    #[test]
+    fn unsupported_texture_sampling_policy_fails_closed() {
+        let source = quad_source();
+        let mut request = request_for(&source, VoxelConversionMode::Surface, [4, 4, 1], 16);
+        request.settings.material_map.entries.clear();
+        request.settings.material_map.texture_assets = vec![texture_sample_asset()];
+        let mut binding = texture_binding(0, [0.0, 0.0]);
+        binding.sampling_policy = "bilinear_level0".to_string();
+        request.settings.material_map.texture_bindings = vec![binding];
+
+        let planned = plan_conversion(&request, &source);
+
+        assert!(planned.output.is_none());
+        assert!(planned.plan.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == VoxelConversionDiagnosticCode::UnsupportedSamplingPolicy
+        }));
     }
 
     #[test]

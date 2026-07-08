@@ -76,6 +76,8 @@ void test('persisted voxel asset public consumer proof saves, reloads, and recor
             transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
             materialMap: {
                 entries: [{ sourceMaterialSlot: 0, sourceMaterialId: 'material/surface-a', voxelMaterial: 3 }],
+                textureAssets: [],
+                textureBindings: [],
                 defaultVoxelMaterial: null,
             },
         },

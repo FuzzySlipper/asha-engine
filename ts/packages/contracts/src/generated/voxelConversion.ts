@@ -19,7 +19,7 @@ export type VoxelConversionFitPolicy = 'contain' | 'cover' | 'stretch';
 export type VoxelConversionOriginPolicy = 'source_origin' | 'target_min' | 'centered';
 
 // Stable classified diagnostic/error code for voxel conversion.
-export type VoxelConversionDiagnosticCode = 'voxel_conversion_unavailable' | 'operation_unimplemented' | 'unsupported_source_asset' | 'source_hash_mismatch' | 'invalid_material_map' | 'output_limit_exceeded' | 'non_manifold_or_ambiguous_solid' | 'stale_authority_snapshot' | 'conversion_replay_mismatch';
+export type VoxelConversionDiagnosticCode = 'voxel_conversion_unavailable' | 'operation_unimplemented' | 'unsupported_source_asset' | 'source_hash_mismatch' | 'invalid_material_map' | 'missing_texture_source' | 'texture_hash_mismatch' | 'missing_uv_attribute' | 'unsupported_texture_format' | 'unsupported_sampling_policy' | 'invalid_texture_material_rule' | 'output_limit_exceeded' | 'non_manifold_or_ambiguous_solid' | 'stale_authority_snapshot' | 'conversion_replay_mismatch';
 
 // Role of an exported conversion evidence artifact.
 export type VoxelConversionEvidenceKind = 'plan' | 'preview' | 'apply_receipt' | 'diagnostics' | 'source_snapshot' | 'output_snapshot';
@@ -106,9 +106,45 @@ export interface VoxelConversionMaterialMapEntry {
   readonly voxelMaterial: number;
 }
 
+// Authority-visible UV attribute identity used by texture sampling.
+export interface VoxelConversionUvAttributeRef {
+  readonly attributeName: string;
+  readonly sourceHash: string;
+}
+
+// Authority-visible texture snapshot identity for voxel material sampling.
+export interface VoxelConversionTextureSourceRef {
+  readonly textureAssetId: string;
+  readonly assetVersion: number;
+  readonly contentHash: string;
+  readonly width: number;
+  readonly height: number;
+  readonly colorSpace: string;
+  readonly channelLayout: string;
+}
+
+// Texture snapshot data accepted by Rust authority for voxel material sampling.
+export interface VoxelConversionTextureSampleAsset {
+  readonly texture: VoxelConversionTextureSourceRef;
+  readonly texelMaterials: readonly number[];
+}
+
+// Per-source-slot texture sampling request.
+export interface VoxelConversionTextureBinding {
+  readonly sourceMaterialSlot: number;
+  readonly texture: VoxelConversionTextureSourceRef;
+  readonly uvAttribute: VoxelConversionUvAttributeRef;
+  readonly sampleUv: readonly [number, number];
+  readonly samplingPolicy: string;
+  readonly wrapPolicy: string;
+  readonly materialMode: string;
+}
+
 // Material-map DTO. Default material is null when unmapped slots fail closed.
 export interface VoxelConversionMaterialMap {
   readonly entries: readonly VoxelConversionMaterialMapEntry[];
+  readonly textureAssets: readonly VoxelConversionTextureSampleAsset[];
+  readonly textureBindings: readonly VoxelConversionTextureBinding[];
   readonly defaultVoxelMaterial: number | null;
 }
 

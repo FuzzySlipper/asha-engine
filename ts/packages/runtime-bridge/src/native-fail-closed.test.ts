@@ -183,6 +183,8 @@ const VOXEL_CONVERSION_PLAN_REQUEST = {
     transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] as const,
     materialMap: {
       entries: [{ sourceMaterialSlot: 0, sourceMaterialId: 'mat/a', voxelMaterial: 3 }],
+      textureAssets: [],
+      textureBindings: [],
       defaultVoxelMaterial: 3,
     },
   },
