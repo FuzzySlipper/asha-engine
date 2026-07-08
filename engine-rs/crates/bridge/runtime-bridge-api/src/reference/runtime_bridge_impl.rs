@@ -554,8 +554,8 @@ impl RuntimeBridge for ReferenceBridge {
         request: GameExtensionWeaponEffectInvocationRequest,
     ) -> BridgeResult<GameExtensionWeaponEffectInvocationResult> {
         self.require_initialized("invoke_game_extension_weapon_effect")?;
-        Self::validate_loaded_game_rule_module(&self.game_rule_modules, &request.hook)?;
-        let module = ReferenceDamageModifierModule::new(request.hook.module_ref.clone());
+        let module =
+            Self::resolve_weapon_effect_game_rule_module(&self.game_rule_modules, &request.hook)?;
         let proposal = match module.evaluate_weapon_effect(&request.hook) {
             Ok(proposal) => proposal,
             Err(diagnostic) => {
@@ -575,9 +575,13 @@ impl RuntimeBridge for ReferenceBridge {
             vec![GameExtensionTraceEntry {
                 step: 1,
                 code: "module.proposed_damage_modifier".to_string(),
-                message: "reference Rust game rule module returned a typed damage modifier"
+                message: "resolved Rust game rule module returned a typed damage modifier"
                     .to_string(),
-                refs: vec![request.hook.module_ref.module_id.clone()],
+                refs: vec![
+                    module.manifest().module_ref.module_id.clone(),
+                    module.manifest().module_ref.version.clone(),
+                    module.manifest().module_ref.contract_hash.clone(),
+                ],
             }],
         );
         let damage_delta = match Self::validated_damage_modifier_delta(&request.hook, &hook_receipt)

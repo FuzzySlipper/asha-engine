@@ -260,7 +260,7 @@ fn init_then_step_is_deterministic() {
 use core_space::{LocalVoxelCoord, VoxelCoord};
 use core_voxel::VoxelValue;
 
-fn init_bridge() -> ReferenceBridge {
+pub(super) fn init_bridge() -> ReferenceBridge {
     let mut bridge = ReferenceBridge::new();
     bridge.initialize_engine(EngineConfig { seed: 1 }).unwrap();
     bridge
@@ -398,7 +398,7 @@ fn larger_registered_grid_plan_request(
     request
 }
 
-fn fps_load_request(enemy_health: u32) -> FpsRuntimeSessionLoadRequest {
+pub(super) fn fps_load_request(enemy_health: u32) -> FpsRuntimeSessionLoadRequest {
     FpsRuntimeSessionLoadRequest {
         project_bundle: "custom-demo".to_string(),
         definitions: vec![
@@ -473,31 +473,6 @@ fn fps_load_request(enemy_health: u32) -> FpsRuntimeSessionLoadRequest {
     }
 }
 
-fn fps_load_request_with_reference_game_rule(enemy_health: u32) -> FpsRuntimeSessionLoadRequest {
-    FpsRuntimeSessionLoadRequest {
-        game_rule_modules: vec![reference_game_rule_declared_manifest()],
-        ..fps_load_request(enemy_health)
-    }
-}
-
-fn weapon_effect_request(tick: u64) -> WeaponEffectHookRequest {
-    WeaponEffectHookRequest {
-        module_ref: reference_game_rule_module_ref(),
-        hook_id: REFERENCE_GAME_RULE_HOOK_ID.to_string(),
-        request_id: format!("request.primary-fire.{tick}"),
-        tick,
-        source: EntityId::new(101),
-        target: Some(EntityId::new(777)),
-        base_damage: 25,
-        range_millimeters: 16_000,
-        tags: vec!["primary-fire".to_string()],
-        input_hash: format!(
-            "fnv1a64:{}",
-            ReferenceBridge::fnv1a64(&format!("hook|{tick}"))
-        ),
-    }
-}
-
 #[test]
 fn fps_runtime_session_loads_project_bundle_through_rust_authority() {
     let mut bridge = init_bridge();
@@ -539,76 +514,6 @@ fn fps_runtime_session_loads_project_bundle_through_rust_authority() {
         .read_sets
         .iter()
         .any(|view| view.owner == "rule-lifecycle"));
-}
-
-#[test]
-fn game_extension_weapon_effect_requires_declared_module() {
-    let mut bridge = init_bridge();
-    bridge
-        .load_fps_runtime_session(fps_load_request(75))
-        .expect("fps session loads");
-
-    let err = bridge
-        .invoke_game_extension_weapon_effect(GameExtensionWeaponEffectInvocationRequest {
-            hook: weapon_effect_request(9),
-            primary_fire: FpsPrimaryFireRequest {
-                tick: 9,
-                origin: [2.5, 1.5, 1.5],
-                direction: [0.0, 0.0, 1.0],
-            },
-        })
-        .expect_err("missing module declaration rejects");
-
-    assert_eq!(err.kind, RuntimeBridgeErrorKind::InvalidInput);
-    assert!(err.message.contains("is not declared"));
-}
-
-#[test]
-fn game_extension_weapon_effect_applies_validated_proposal_through_combat_authority() {
-    let mut bridge = init_bridge();
-    let mut request = fps_load_request_with_reference_game_rule(75);
-    request.definitions[0]
-        .weapon
-        .as_mut()
-        .expect("player weapon")
-        .damage = 25;
-    bridge
-        .load_fps_runtime_session(request)
-        .expect("fps session loads with module declaration");
-
-    let result = bridge
-        .invoke_game_extension_weapon_effect(GameExtensionWeaponEffectInvocationRequest {
-            hook: weapon_effect_request(9),
-            primary_fire: FpsPrimaryFireRequest {
-                tick: 9,
-                origin: [2.5, 1.5, 1.5],
-                direction: [0.0, 0.0, 1.0],
-            },
-        })
-        .expect("extension hook invokes and applies");
-    let primary_fire = result.primary_fire.expect("accepted primary fire");
-
-    assert_eq!(
-        result.hook_receipt.status,
-        GameExtensionReceiptStatus::Proposed
-    );
-    assert_eq!(
-        result.hook_receipt.proposal_hash,
-        result.replay_evidence.proposal_hash
-    );
-    assert_eq!(result.replay_evidence.validation_status, "accepted");
-    assert_eq!(
-        result.replay_evidence.event_hashes,
-        vec![format!("fnv1a64:{:016x}", primary_fire.replay_hash)]
-    );
-    assert_eq!(primary_fire.target, Some(777));
-    assert_eq!(
-        primary_fire.target_health_after,
-        Some(FpsBridgeHealth {
-            current: 45,
-            max: 75
-        })
-    );
 }
 
 #[test]
