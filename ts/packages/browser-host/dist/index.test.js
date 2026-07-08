@@ -79,7 +79,19 @@ void test('browser host serves a downstream UI root with provider status evidenc
             assert.equal(provider['available'], true);
             const page = await fetch(host.url);
             assert.equal(page.status, 200);
-            assert.match(await page.text(), /ASHA demo/);
+            const html = await page.text();
+            assert.match(html, /ASHA demo/);
+            assert.match(html, /\/asha\/browser-host\/native-provider\.js/);
+            const script = await fetch(`${host.url}/asha/browser-host/native-provider.js`);
+            assert.equal(script.status, 200);
+            assert.match(await script.text(), /globalThis\.ashaRuntimeBridge/);
+            const invocation = await fetch(`${host.url}/asha/browser-host/runtime-bridge/initializeEngine`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ args: [{ seed: 17 }] }),
+            });
+            assert.equal(invocation.status, 200);
+            assert.deepEqual(await invocation.json(), { result: { called: true } });
         }
         finally {
             await host.close();
@@ -95,7 +107,7 @@ async function readJson(url) {
     return await response.json();
 }
 function createFakeRuntimeBridge() {
-    const operation = () => ({});
+    const operation = () => ({ called: true });
     return {
         initializeEngine: operation,
         loadWorldBundle: operation, // vocab-allow: fake bridge must satisfy the legacy RuntimeBridge method name.

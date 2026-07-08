@@ -374,11 +374,12 @@ The host command shape is:
 asha-browser-host --ui-root dist/ui --host 0.0.0.0 --port 5173
 ```
 
-The host installs `globalThis.ashaRuntimeBridge` with provider kind
-`asha.runtime_bridge.native_rust_provider.v1` through the public
-`@asha/runtime-bridge` package root before downstream app boot. Provider status
-reports `rust_authority` only after the runtime bridge resolver accepts the
-provider and required operations. Missing or spoofed providers report
+The host injects `/asha/browser-host/native-provider.js` into served HTML before
+downstream app boot. That script installs `globalThis.ashaRuntimeBridge` with
+provider kind `asha.runtime_bridge.native_rust_provider.v1`, then routes typed
+RuntimeBridge methods to the upstream host-owned native bridge endpoint. Provider
+status reports `rust_authority` only after the runtime bridge resolver accepts
+the provider and required operations. Missing or spoofed providers report
 `missing_rust_backend` with typed diagnostics and no reference fallback.
 
 ## Command registry compatibility log

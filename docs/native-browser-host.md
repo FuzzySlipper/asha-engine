@@ -15,8 +15,9 @@ asha-browser-host --ui-root dist/ui --host 0.0.0.0 --port 5173
 
 ## Contract
 
-The host installs `globalThis.ashaRuntimeBridge` before the app entry imports or
-boots. The installed provider uses:
+The host injects `/asha/browser-host/native-provider.js` into served HTML before
+the app entry imports or boots. That script installs `globalThis.ashaRuntimeBridge`
+in the browser page. The installed provider uses:
 
 - provider kind: `asha.runtime_bridge.native_rust_provider.v1`
 - provider global: `globalThis.ashaRuntimeBridge`
@@ -28,12 +29,18 @@ The provider is installed through the public `@asha/runtime-bridge` package root
 Game projects do not import `@asha/native-bridge`, private runtime-bridge files,
 engine Rust crates, or raw transports.
 
+The host owns the browser-to-native method transport behind bounded
+`/asha/browser-host/runtime-bridge/<method>` endpoints. Those endpoints are an
+upstream ASHA host implementation detail; game projects still see only the public
+RuntimeBridge provider object and typed RuntimeSession facade.
+
 ## Status Readout
 
 The static host exposes:
 
 - `/health`
 - `/asha/browser-host/runtime-provider.json`
+- `/asha/browser-host/native-provider.js`
 
 The provider readout reports `status: "rust_authority"` only after the public
 provider resolver accepts the installed native provider and verifies the required
