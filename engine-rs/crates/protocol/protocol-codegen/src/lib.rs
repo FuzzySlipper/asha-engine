@@ -367,6 +367,8 @@ mod tests {
             interface_coverage_key("voxelAsset", "VoxelAssetContentHashes"),
             interface_coverage_key("voxelAsset", "VoxelAssetDiagnostic"),
             interface_coverage_key("voxelAsset", "VoxelVolumeAsset"),
+            interface_coverage_key("voxelAsset", "VoxelVolumeAssetExportRequest"),
+            interface_coverage_key("voxelAsset", "VoxelVolumeAssetExportReceipt"),
         ]
         .into_iter()
         .collect()

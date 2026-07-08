@@ -876,6 +876,156 @@ impl ReferenceBridge {
         }
     }
 
+    fn rejected_voxel_volume_asset_export(
+        request: VoxelVolumeAssetExportRequest,
+        diagnostics: Vec<VoxelAssetDiagnostic>,
+    ) -> VoxelVolumeAssetExportReceipt {
+        VoxelVolumeAssetExportReceipt {
+            request,
+            exported: false,
+            asset: None,
+            canonical_json: None,
+            canonical_json_hash: None,
+            voxel_data_hash: None,
+            diagnostics,
+        }
+    }
+
+    fn voxel_asset_diagnostic(
+        code: VoxelAssetDiagnosticCode,
+        reference: impl Into<String>,
+        message: impl Into<String>,
+    ) -> VoxelAssetDiagnostic {
+        VoxelAssetDiagnostic {
+            code,
+            severity: DiagnosticSeverity::Error,
+            reference: reference.into(),
+            message: message.into(),
+        }
+    }
+
+    fn voxel_asset_bounds(
+        bounds: protocol_voxel_conversion::VoxelConversionBounds,
+    ) -> VoxelAssetBounds {
+        VoxelAssetBounds {
+            min: Self::voxel_asset_coord(bounds.min),
+            max: Self::voxel_asset_coord(bounds.max),
+        }
+    }
+
+    fn voxel_asset_coord(
+        coord: protocol_voxel_conversion::VoxelConversionCoord,
+    ) -> VoxelAssetCoord {
+        VoxelAssetCoord {
+            x: coord.x,
+            y: coord.y,
+            z: coord.z,
+        }
+    }
+
+    fn sparse_runs_for_conversion_output(
+        output: &svc_voxel_conversion::ConversionOutput,
+    ) -> Vec<VoxelAssetSparseRun> {
+        let mut voxels = output.voxels.clone();
+        voxels.sort_by_key(|voxel| {
+            (
+                voxel.coord.z,
+                voxel.coord.y,
+                voxel.coord.x,
+                voxel
+                    .value
+                    .material()
+                    .expect("converted voxels are solid")
+                    .raw(),
+            )
+        });
+        let mut runs: Vec<VoxelAssetSparseRun> = Vec::new();
+        for voxel in voxels {
+            let material = voxel
+                .value
+                .material()
+                .expect("converted voxels are solid")
+                .raw();
+            if let Some(last) = runs.last_mut() {
+                let next_x = last.start.x + i64::from(last.length);
+                if last.start.y == voxel.coord.y
+                    && last.start.z == voxel.coord.z
+                    && last.material == material
+                    && next_x == voxel.coord.x
+                {
+                    last.length += 1;
+                    continue;
+                }
+            }
+            runs.push(VoxelAssetSparseRun {
+                start: Self::voxel_asset_coord(voxel.coord),
+                length: 1,
+                material,
+            });
+        }
+        runs
+    }
+
+    fn material_palette_for_conversion_export(
+        planned: &PlannedConversion,
+        output: &svc_voxel_conversion::ConversionOutput,
+    ) -> Result<Vec<VoxelAssetMaterialBinding>, Vec<VoxelAssetDiagnostic>> {
+        let mut used_materials = BTreeSet::new();
+        for voxel in &output.voxels {
+            if let Some(material) = voxel.value.material() {
+                used_materials.insert(material.raw());
+            }
+        }
+        let mut bindings = BTreeMap::<u16, String>::new();
+        let mut diagnostics = Vec::new();
+        for entry in &planned.plan.settings.material_map.entries {
+            if !used_materials.contains(&entry.voxel_material) {
+                continue;
+            }
+            let Some(material_asset_id) = &entry.source_material_id else {
+                diagnostics.push(Self::voxel_asset_diagnostic(
+                    VoxelAssetDiagnosticCode::InvalidMaterialReference,
+                    format!("materialMap.{}", entry.voxel_material),
+                    "export requires every used voxel material to reference a material asset id",
+                ));
+                continue;
+            };
+            match bindings.get(&entry.voxel_material) {
+                Some(existing) if existing == material_asset_id => {}
+                Some(_) => diagnostics.push(Self::voxel_asset_diagnostic(
+                    VoxelAssetDiagnosticCode::DuplicateMaterialBinding,
+                    format!("materialMap.{}", entry.voxel_material),
+                    "export cannot represent one voxel material with multiple material asset ids",
+                )),
+                None => {
+                    bindings.insert(entry.voxel_material, material_asset_id.clone());
+                }
+            }
+        }
+        for material in used_materials {
+            if !bindings.contains_key(&material) {
+                diagnostics.push(Self::voxel_asset_diagnostic(
+                    VoxelAssetDiagnosticCode::InvalidMaterialReference,
+                    format!("material.{material}"),
+                    "export could not map a used voxel material to a material asset id",
+                ));
+            }
+        }
+        if diagnostics.is_empty() {
+            Ok(bindings
+                .into_iter()
+                .map(
+                    |(voxel_material, material_asset_id)| VoxelAssetMaterialBinding {
+                        voxel_material,
+                        material_asset_id,
+                    },
+                )
+                .collect())
+        } else {
+            Err(diagnostics)
+        }
+    }
+
     fn world_hash(world: &VoxelWorld) -> String {
         let mut buf = String::new();
         for (coord, chunk) in world.resident_chunks() {

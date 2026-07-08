@@ -20,6 +20,7 @@ operations are replay/devtools-only.
 | `apply_voxel_conversion` | stable | `protocol_voxel_conversion::VoxelConversionApplyRequest` | `protocol_voxel_conversion::VoxelConversionReceipt` | `RuntimeBridgeError` |
 | `export_voxel_conversion_evidence` | stable | `protocol_voxel_conversion::VoxelConversionEvidenceRef[]` | `protocol_voxel_conversion::VoxelConversionEvidenceRef[]` | `RuntimeBridgeError` |
 | `read_voxel_model_info` | stable | `protocol_voxel_conversion::VoxelModelInfoRequest` | `protocol_voxel_conversion::VoxelModelInfoReadout` | `RuntimeBridgeError` |
+| `export_voxel_volume_asset` | stable | `protocol_voxel_asset::VoxelVolumeAssetExportRequest` | `protocol_voxel_asset::VoxelVolumeAssetExportReceipt` | `RuntimeBridgeError` |
 | `load_fps_runtime_session` | stable | `protocol_runtime::FpsRuntimeSessionLoadRequest` | `protocol_runtime::FpsRuntimeSessionSnapshot` | `RuntimeBridgeError` |
 | `read_fps_runtime_session` | stable | `Unit` | `protocol_runtime::FpsRuntimeSessionSnapshot` | `RuntimeBridgeError` |
 | `apply_fps_primary_fire` | stable | `protocol_runtime::FpsPrimaryFireRequest` | `protocol_runtime::FpsPrimaryFireResult` | `RuntimeBridgeError` |

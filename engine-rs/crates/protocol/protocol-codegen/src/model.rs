@@ -1506,6 +1506,33 @@ pub fn voxel_asset_module() -> Module {
                 f("contentHashes", r("VoxelAssetContentHashes")),
             ],
         ),
+        iface(
+            "Request to export a resident runtime voxel model into stored asset form.",
+            "VoxelVolumeAssetExportRequest",
+            vec![
+                f("grid", num()),
+                f("volumeAssetId", TsType::nullable(string())),
+                f("targetAssetId", string()),
+                f("label", TsType::nullable(string())),
+                f("createdBy", TsType::nullable(string())),
+                f("sourceTool", TsType::nullable(string())),
+                f("maxSparseRuns", num()),
+                f("expectedSessionHash", TsType::nullable(string())),
+            ],
+        ),
+        iface(
+            "Receipt for explicit runtime-to-stored voxel asset export.",
+            "VoxelVolumeAssetExportReceipt",
+            vec![
+                f("request", r("VoxelVolumeAssetExportRequest")),
+                f("exported", boolean()),
+                f("asset", TsType::nullable(r("VoxelVolumeAsset"))),
+                f("canonicalJson", TsType::nullable(string())),
+                f("canonicalJsonHash", TsType::nullable(string())),
+                f("voxelDataHash", TsType::nullable(string())),
+                f("diagnostics", TsType::array(r("VoxelAssetDiagnostic"))),
+            ],
+        ),
     ];
 
     Module {

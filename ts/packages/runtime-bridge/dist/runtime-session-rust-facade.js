@@ -583,6 +583,10 @@ export class RustBackedRuntimeSessionFacade {
         this.#requireInitialized('readVoxelModelInfo');
         return this.#bridge.readVoxelModelInfo(request);
     }
+    exportVoxelVolumeAsset(request) {
+        this.#requireInitialized('exportVoxelVolumeAsset');
+        return this.#bridge.exportVoxelVolumeAsset(request);
+    }
     readEcrpRuntimeReadout() {
         const identity = this.#requireInitialized('readEcrpRuntimeReadout');
         const snapshot = this.#requireSnapshot();

@@ -15,6 +15,7 @@ import type {
   VoxelConversionPreviewRequest,
   VoxelConversionSourceRegistrationRequest,
   VoxelModelInfoRequest,
+  VoxelVolumeAssetExportRequest,
 } from '@asha/contracts';
 import { entityId } from '@asha/contracts';
 import type { NativeAddon } from '@asha/native-bridge';
@@ -206,6 +207,17 @@ const VOXEL_MODEL_INFO_REQUEST = {
   volumeAssetId: 'voxel/generated',
   includeMaterialCounts: true,
 } satisfies VoxelModelInfoRequest;
+
+const VOXEL_VOLUME_ASSET_EXPORT_REQUEST = {
+  grid: 1,
+  volumeAssetId: 'voxel/generated',
+  targetAssetId: 'voxel-volume/native-export',
+  label: 'Native export',
+  createdBy: 'native-fail-closed-test',
+  sourceTool: '@asha/runtime-bridge',
+  maxSparseRuns: 16,
+  expectedSessionHash: 'fnv1a64:0000000000000105',
+} satisfies VoxelVolumeAssetExportRequest;
 
 function parseJsonFixture<T>(payload: string): T {
   return JSON.parse(payload) as T;
@@ -676,6 +688,50 @@ function fakeAddon(calls: string[] = []): NativeAddon {
         diagnostics: [],
       });
     },
+    exportVoxelVolumeAsset: (_handle: number, requestJson: string) => {
+      calls.push(`voxelVolumeAssetExport:${requestJson}`);
+      const request = parseJsonFixture<VoxelVolumeAssetExportRequest>(requestJson);
+      const asset = {
+        assetId: request.targetAssetId,
+        schemaVersion: 1,
+        mediaType: 'application/vnd.asha.voxel-volume+json;version=1',
+        grid: {
+          origin: [0, 0, 0],
+          cellSize: 1,
+          coordinateSystem: 'y_up_right_handed',
+        },
+        bounds: { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } },
+        representation: {
+          kind: 'sparse_runs',
+          sparseRuns: [{ start: { x: 0, y: 0, z: 0 }, length: 1, material: 3 }],
+        },
+        materialPalette: [{ voxelMaterial: 3, materialAssetId: 'mat/a' }],
+        provenance: [{
+          kind: 'runtime_export',
+          uri: `asha://runtime-session/voxel-volume-export/${request.targetAssetId}`,
+          contentHash: 'fnv1a64:0000000000000107',
+        }],
+        authoring: {
+          label: request.label,
+          createdBy: request.createdBy,
+          sourceTool: request.sourceTool,
+        },
+        validationDiagnostics: [],
+        contentHashes: {
+          canonicalJson: 'fnv1a64:0000000000000108',
+          voxelData: 'fnv1a64:0000000000000109',
+        },
+      };
+      return JSON.stringify({
+        request,
+        exported: true,
+        asset,
+        canonicalJson: `${JSON.stringify(asset)}\n`,
+        canonicalJsonHash: 'fnv1a64:0000000000000108',
+        voxelDataHash: 'fnv1a64:0000000000000109',
+        diagnostics: [],
+      });
+    },
   } as unknown as NativeAddon;
 }
 
@@ -773,6 +829,7 @@ const INVOKE = new Map<string, (b: RuntimeBridge) => unknown>([
   })],
   ['exportVoxelConversionEvidence', (b) => b.exportVoxelConversionEvidence(VOXEL_CONVERSION_EVIDENCE)],
   ['readVoxelModelInfo', (b) => b.readVoxelModelInfo(VOXEL_MODEL_INFO_REQUEST)],
+  ['exportVoxelVolumeAsset', (b) => b.exportVoxelVolumeAsset(VOXEL_VOLUME_ASSET_EXPORT_REQUEST)],
   ['readModelMaterialPreview', (b) => b.readModelMaterialPreview(MODEL_MATERIAL_PREVIEW_REQUEST)],
   ['readSceneObjectSnapshot', (b) => b.readSceneObjectSnapshot()],
   [

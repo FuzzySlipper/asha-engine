@@ -28,7 +28,8 @@ use runtime_bridge_api::{
     RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind, StepInputEnvelope,
     VoxelConversionApplyRequest, VoxelConversionEvidenceRef, VoxelConversionPlanRequest,
     VoxelConversionPreviewRequest, VoxelConversionSourceRegistrationRequest,
-    VoxelModelInfoRequest, WeaponEffectHookRequest, WorldLoadRequest,
+    VoxelModelInfoRequest, VoxelVolumeAssetExportRequest, WeaponEffectHookRequest,
+    WorldLoadRequest,
 };
 use serde::{Deserialize, Serialize};
 
@@ -822,6 +823,17 @@ fn parse_voxel_model_info_request(request_json: &str) -> napi::Result<VoxelModel
     })
 }
 
+fn parse_voxel_volume_asset_export_request(
+    request_json: &str,
+) -> napi::Result<VoxelVolumeAssetExportRequest> {
+    serde_json::from_str(request_json).map_err(|err| {
+        to_napi(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::InvalidInput,
+            format!("invalid voxel volume asset export request JSON: {err}"),
+        ))
+    })
+}
+
 fn parse_game_rule_module_manifests(
     manifests_json: &str,
 ) -> napi::Result<Vec<GameRuleModuleManifest>> {
@@ -1257,6 +1269,15 @@ pub fn read_voxel_model_info(handle: i64, request_json: String) -> napi::Result<
     })
 }
 
+#[napi]
+pub fn export_voxel_volume_asset(handle: i64, request_json: String) -> napi::Result<String> {
+    let request = parse_voxel_volume_asset_export_request(&request_json)?;
+    with_bridge(handle, |bridge| {
+        let receipt = bridge.export_voxel_volume_asset(request).map_err(to_napi)?;
+        voxel_conversion_json(&receipt)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1267,6 +1288,7 @@ mod tests {
         "applyFpsPrimaryFire",
         "applyVoxelConversion",
         "exportVoxelConversionEvidence",
+        "exportVoxelVolumeAsset",
         "getCompositionStatus",
         "initializeEngine",
         "invokeGameExtensionWeaponEffect",
@@ -1294,6 +1316,7 @@ mod tests {
                 "applyFpsPrimaryFire",
                 "applyVoxelConversion",
                 "exportVoxelConversionEvidence",
+                "exportVoxelVolumeAsset",
                 "getCompositionStatus",
                 "initializeEngine",
                 "invokeGameExtensionWeaponEffect",

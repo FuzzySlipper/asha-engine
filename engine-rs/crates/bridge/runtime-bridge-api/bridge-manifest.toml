@@ -128,6 +128,14 @@ errors = "RuntimeBridgeError"
 summary = "Read bounded authority-owned voxel model information for an applied conversion target; missing/unknown models return typed diagnostics."
 
 [[operation]]
+name = "export_voxel_volume_asset"
+surface = "stable"
+input = "protocol_voxel_asset::VoxelVolumeAssetExportRequest"
+output = "protocol_voxel_asset::VoxelVolumeAssetExportReceipt"
+errors = "RuntimeBridgeError"
+summary = "Export a complete resident runtime voxel model as an Asha-native voxel-volume asset proposal with Rust-owned sparse runs, validation diagnostics, canonical JSON, and authority hashes."
+
+[[operation]]
 name = "load_fps_runtime_session"
 surface = "stable"
 input = "protocol_runtime::FpsRuntimeSessionLoadRequest"

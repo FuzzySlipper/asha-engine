@@ -107,6 +107,14 @@
       "errors": "RuntimeBridgeError"
     },
     {
+      "manifestName": "export_voxel_volume_asset",
+      "facadeMethod": "exportVoxelVolumeAsset",
+      "surface": "stable",
+      "input": "protocol_voxel_asset::VoxelVolumeAssetExportRequest",
+      "output": "protocol_voxel_asset::VoxelVolumeAssetExportReceipt",
+      "errors": "RuntimeBridgeError"
+    },
+    {
       "manifestName": "load_fps_runtime_session",
       "facadeMethod": "loadFpsRuntimeSession",
       "surface": "stable",

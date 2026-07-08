@@ -140,6 +140,24 @@ const exportedEvidence = bridge.exportVoxelConversionEvidence([
   ...receipt.evidence,
 ]);
 assert.ok(exportedEvidence.length >= 3);
+const modelInfo = bridge.readVoxelModelInfo({
+  grid: 1,
+  volumeAssetId: 'voxel/generated',
+  includeMaterialCounts: true,
+});
+const exportedAsset = bridge.exportVoxelVolumeAsset({
+  grid: 1,
+  volumeAssetId: 'voxel/generated',
+  targetAssetId: 'voxel-volume/check-native-export',
+  label: 'Check native export',
+  createdBy: 'harness/ci/check-native.sh',
+  sourceTool: '@asha/runtime-bridge',
+  maxSparseRuns: 16,
+  expectedSessionHash: modelInfo.sessionHash,
+});
+assert.equal(exportedAsset.exported, true);
+assert.equal(exportedAsset.asset.assetId, 'voxel-volume/check-native-export');
+assert.match(exportedAsset.canonicalJsonHash, /^fnv1a64:[0-9a-f]{16}$/u);
 console.log('Native addon smoke: OK');
 "
 

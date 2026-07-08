@@ -71,6 +71,13 @@ pub trait RuntimeBridge {
         &self,
         request: VoxelModelInfoRequest,
     ) -> BridgeResult<VoxelModelInfoReadout>;
+    /// Export a complete resident runtime voxel model as an Asha-native stored
+    /// voxel-volume asset proposal. Rust owns the sparse-run representation,
+    /// material palette validation, canonical JSON, and content hashes.
+    fn export_voxel_volume_asset(
+        &self,
+        request: VoxelVolumeAssetExportRequest,
+    ) -> BridgeResult<VoxelVolumeAssetExportReceipt>;
     /// Load an FPS/ECRP ProjectBundle-shaped session through Rust authority.
     /// Stored definitions are validated/bootstraped by rule-lifecycle and
     /// svc-entity-authoring; failure leaves any prior FPS session untouched.

@@ -836,6 +836,73 @@ fn voxel_conversion_plan_preview_apply_uses_rust_authority_and_commands() {
         })
         .unwrap();
     assert!(compact_info.material_counts.is_empty());
+
+    let exported = bridge
+        .export_voxel_volume_asset(VoxelVolumeAssetExportRequest {
+            grid: 7,
+            volume_asset_id: Some("voxel/generated".to_string()),
+            target_asset_id: "voxel-volume/generated-crate".to_string(),
+            label: Some("Generated crate".to_string()),
+            created_by: Some("runtime-bridge-api-test".to_string()),
+            source_tool: Some("svc-voxel-conversion".to_string()),
+            max_sparse_runs: 16,
+            expected_session_hash: Some(model_info.session_hash.clone()),
+        })
+        .unwrap();
+    assert!(exported.exported);
+    assert!(exported.diagnostics.is_empty());
+    let asset = exported.asset.as_ref().expect("exported asset");
+    assert_eq!(asset.asset_id, "voxel-volume/generated-crate");
+    assert_eq!(
+        asset.schema_version,
+        protocol_voxel_asset::VOXEL_ASSET_SCHEMA_VERSION
+    );
+    assert_eq!(
+        asset.media_type,
+        protocol_voxel_asset::VOXEL_ASSET_MEDIA_TYPE
+    );
+    assert_eq!(
+        asset.material_palette[0].material_asset_id,
+        "material/surface-a"
+    );
+    assert_eq!(
+        asset
+            .representation
+            .sparse_runs
+            .iter()
+            .map(|run| run.length as u64)
+            .sum::<u64>(),
+        3
+    );
+    assert_eq!(
+        exported.canonical_json_hash.as_deref(),
+        Some(asset.content_hashes.canonical_json.as_str())
+    );
+    assert_eq!(
+        exported.voxel_data_hash.as_deref(),
+        Some(asset.content_hashes.voxel_data.as_str())
+    );
+    let canonical_json = exported.canonical_json.as_ref().expect("canonical json");
+    let decoded = svc_voxel_asset::decode_asset(canonical_json).expect("canonical asset decodes");
+    assert_eq!(decoded, *asset);
+
+    let stale_export = bridge
+        .export_voxel_volume_asset(VoxelVolumeAssetExportRequest {
+            grid: 7,
+            volume_asset_id: Some("voxel/generated".to_string()),
+            target_asset_id: "voxel-volume/stale".to_string(),
+            label: None,
+            created_by: None,
+            source_tool: None,
+            max_sparse_runs: 16,
+            expected_session_hash: Some("fnv1a64:stale".to_string()),
+        })
+        .unwrap();
+    assert!(!stale_export.exported);
+    assert_eq!(
+        stale_export.diagnostics[0].code,
+        protocol_voxel_asset::VoxelAssetDiagnosticCode::StaleRuntimeSnapshot
+    );
 }
 
 #[test]
@@ -932,7 +999,7 @@ fn voxel_conversion_larger_registered_source_applies_and_reports_model_info() {
         }]
     );
     assert_eq!(
-        model_info.source.unwrap().asset_id,
+        model_info.source.as_ref().unwrap().asset_id,
         "mesh/registered-grid-3x3"
     );
     assert_eq!(
@@ -943,6 +1010,58 @@ fn voxel_conversion_larger_registered_source_applies_and_reports_model_info() {
     assert!(model_info.session_hash.starts_with("fnv1a64:"));
     assert!(model_info.replay_hash.starts_with("fnv1a64:"));
     assert!(model_info.diagnostics.is_empty());
+
+    let exported = bridge
+        .export_voxel_volume_asset(VoxelVolumeAssetExportRequest {
+            grid: 7,
+            volume_asset_id: Some("voxel/generated".to_string()),
+            target_asset_id: "voxel-volume/generated-grid".to_string(),
+            label: Some("Generated grid".to_string()),
+            created_by: Some("runtime-bridge-api-test".to_string()),
+            source_tool: Some("svc-voxel-conversion".to_string()),
+            max_sparse_runs: 16,
+            expected_session_hash: Some(model_info.session_hash),
+        })
+        .unwrap();
+    assert!(exported.exported);
+    let asset = exported.asset.expect("exported larger asset");
+    assert_eq!(asset.bounds.max.x, 2);
+    assert_eq!(asset.bounds.max.y, 2);
+    assert_eq!(asset.representation.sparse_runs.len(), 3);
+    assert_eq!(
+        asset
+            .representation
+            .sparse_runs
+            .iter()
+            .map(|run| run.length)
+            .collect::<Vec<_>>(),
+        vec![3, 3, 3]
+    );
+    assert!(svc_voxel_asset::decode_asset(
+        exported
+            .canonical_json
+            .as_ref()
+            .expect("larger canonical json")
+    )
+    .is_ok());
+
+    let limited = bridge
+        .export_voxel_volume_asset(VoxelVolumeAssetExportRequest {
+            grid: 7,
+            volume_asset_id: Some("voxel/generated".to_string()),
+            target_asset_id: "voxel-volume/too-large".to_string(),
+            label: None,
+            created_by: None,
+            source_tool: None,
+            max_sparse_runs: 2,
+            expected_session_hash: None,
+        })
+        .unwrap();
+    assert!(!limited.exported);
+    assert_eq!(
+        limited.diagnostics[0].code,
+        protocol_voxel_asset::VoxelAssetDiagnosticCode::ExportLimitExceeded
+    );
 }
 
 #[test]

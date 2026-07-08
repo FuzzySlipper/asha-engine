@@ -1,4 +1,4 @@
-import type { CameraCreateRequest, CameraProjectionRequest, CollisionConstrainedCameraInputEnvelope, CommandBatch, FirstPersonCameraInputEnvelope, VoxelConversionApplyRequest, VoxelConversionEvidenceRef, VoxelConversionPlan, VoxelConversionPlanRequest, VoxelConversionPreview, VoxelConversionPreviewRequest, VoxelConversionReceipt, VoxelConversionSourceRegistration, VoxelConversionSourceRegistrationRequest, VoxelModelInfoReadout, VoxelModelInfoRequest, WeaponEffectHookRequest, GameRuleCatalog, GameRuleResolutionRequest } from '@asha/contracts';
+import type { CameraCreateRequest, CameraProjectionRequest, CollisionConstrainedCameraInputEnvelope, CommandBatch, FirstPersonCameraInputEnvelope, VoxelConversionApplyRequest, VoxelConversionEvidenceRef, VoxelConversionPlan, VoxelConversionPlanRequest, VoxelConversionPreview, VoxelConversionPreviewRequest, VoxelConversionReceipt, VoxelConversionSourceRegistration, VoxelConversionSourceRegistrationRequest, VoxelModelInfoReadout, VoxelModelInfoRequest, VoxelVolumeAssetExportReceipt, VoxelVolumeAssetExportRequest, WeaponEffectHookRequest, GameRuleCatalog, GameRuleResolutionRequest } from '@asha/contracts';
 import { type FpsPrimaryFireRequest, type GameRuleRuntimeReadout, type RuntimeBridge } from './bridge.js';
 import type { CombatRuntimeReadout } from './combat-readout.js';
 import type { CombatFeedbackProjection } from './combat-feedback.js';
@@ -40,6 +40,7 @@ export declare class RustBackedRuntimeSessionFacade implements RuntimeSessionFac
     applyVoxelConversion(request: VoxelConversionApplyRequest): VoxelConversionReceipt;
     exportVoxelConversionEvidence(evidence: readonly VoxelConversionEvidenceRef[]): readonly VoxelConversionEvidenceRef[];
     readVoxelModelInfo(request: VoxelModelInfoRequest): VoxelModelInfoReadout;
+    exportVoxelVolumeAsset(request: VoxelVolumeAssetExportRequest): VoxelVolumeAssetExportReceipt;
     readEcrpRuntimeReadout(): RuntimeSessionEcrpReadout;
     readCameraProjection(request: CameraProjectionRequest): RuntimeSessionCameraProjectionReadout;
     readProjection(): RuntimeSessionProjectionSummary;

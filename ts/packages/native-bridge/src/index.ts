@@ -24,6 +24,8 @@ import type {
   VoxelConversionSourceRegistrationRequest,
   VoxelModelInfoReadout,
   VoxelModelInfoRequest,
+  VoxelVolumeAssetExportReceipt,
+  VoxelVolumeAssetExportRequest,
 } from '@asha/contracts';
 
 interface NativeVec3 {
@@ -261,6 +263,7 @@ export interface NativeAddon {
   applyVoxelConversion(handle: number, requestJson: string): string;
   exportVoxelConversionEvidence(handle: number, evidenceJson: string): string;
   readVoxelModelInfo(handle: number, requestJson: string): string;
+  exportVoxelVolumeAsset(handle: number, requestJson: string): string;
 }
 
 export type {
@@ -278,6 +281,8 @@ export type {
   VoxelConversionSourceRegistrationRequest,
   VoxelModelInfoReadout,
   VoxelModelInfoRequest,
+  VoxelVolumeAssetExportReceipt,
+  VoxelVolumeAssetExportRequest,
 };
 
 /** Raised when the native addon cannot be loaded (missing build / ABI mismatch). */
@@ -313,6 +318,7 @@ export const REQUIRED_NATIVE_ADDON_EXPORTS = [
   'applyVoxelConversion',
   'exportVoxelConversionEvidence',
   'readVoxelModelInfo',
+  'exportVoxelVolumeAsset',
 ] as const;
 
 const REQUIRED_EXPORTS = REQUIRED_NATIVE_ADDON_EXPORTS;

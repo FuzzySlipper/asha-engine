@@ -4,7 +4,7 @@ export declare const VOXEL_ASSET_MEDIA_TYPE = "application/vnd.asha.voxel-volume
 export declare const VOXEL_ASSET_EXTENSION = "avxl.json";
 export type VoxelAssetRepresentationKind = 'sparse_runs';
 export type VoxelAssetProvenanceKind = 'authored' | 'converted' | 'runtime_export' | 'imported_reference';
-export type VoxelAssetDiagnosticCode = 'unsupported_schema_version' | 'unsupported_media_type' | 'invalid_asset_id' | 'invalid_grid' | 'invalid_bounds' | 'unsupported_representation' | 'invalid_sparse_run' | 'duplicate_voxel' | 'duplicate_material_binding' | 'invalid_material_reference' | 'unknown_voxel_material' | 'content_hash_mismatch';
+export type VoxelAssetDiagnosticCode = 'unsupported_schema_version' | 'unsupported_media_type' | 'invalid_asset_id' | 'invalid_grid' | 'invalid_bounds' | 'unsupported_representation' | 'invalid_sparse_run' | 'duplicate_voxel' | 'duplicate_material_binding' | 'invalid_material_reference' | 'unknown_voxel_material' | 'content_hash_mismatch' | 'runtime_model_unavailable' | 'export_limit_exceeded' | 'stale_runtime_snapshot';
 export interface VoxelAssetCoord {
     readonly x: number;
     readonly y: number;
@@ -64,5 +64,24 @@ export interface VoxelVolumeAsset {
     readonly authoring: VoxelAssetAuthoringMetadata;
     readonly validationDiagnostics: readonly VoxelAssetDiagnostic[];
     readonly contentHashes: VoxelAssetContentHashes;
+}
+export interface VoxelVolumeAssetExportRequest {
+    readonly grid: number;
+    readonly volumeAssetId: string | null;
+    readonly targetAssetId: string;
+    readonly label: string | null;
+    readonly createdBy: string | null;
+    readonly sourceTool: string | null;
+    readonly maxSparseRuns: number;
+    readonly expectedSessionHash: string | null;
+}
+export interface VoxelVolumeAssetExportReceipt {
+    readonly request: VoxelVolumeAssetExportRequest;
+    readonly exported: boolean;
+    readonly asset: VoxelVolumeAsset | null;
+    readonly canonicalJson: string | null;
+    readonly canonicalJsonHash: string | null;
+    readonly voxelDataHash: string | null;
+    readonly diagnostics: readonly VoxelAssetDiagnostic[];
 }
 //# sourceMappingURL=voxelAsset.d.ts.map

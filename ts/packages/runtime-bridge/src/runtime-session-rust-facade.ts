@@ -15,6 +15,8 @@ import type {
   VoxelConversionSourceRegistrationRequest,
   VoxelModelInfoReadout,
   VoxelModelInfoRequest,
+  VoxelVolumeAssetExportReceipt,
+  VoxelVolumeAssetExportRequest,
   WeaponEffectHookRequest,
   GameRuleCatalog,
   GameRuleResolutionRequest,
@@ -797,6 +799,11 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   readVoxelModelInfo(request: VoxelModelInfoRequest): VoxelModelInfoReadout {
     this.#requireInitialized('readVoxelModelInfo');
     return this.#bridge.readVoxelModelInfo(request);
+  }
+
+  exportVoxelVolumeAsset(request: VoxelVolumeAssetExportRequest): VoxelVolumeAssetExportReceipt {
+    this.#requireInitialized('exportVoxelVolumeAsset');
+    return this.#bridge.exportVoxelVolumeAsset(request);
   }
 
   readEcrpRuntimeReadout(): RuntimeSessionEcrpReadout {

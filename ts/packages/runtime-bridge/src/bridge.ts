@@ -39,6 +39,8 @@ import type {
   VoxelConversionSourceRegistrationRequest,
   VoxelModelInfoReadout,
   VoxelModelInfoRequest,
+  VoxelVolumeAssetExportReceipt,
+  VoxelVolumeAssetExportRequest,
   WeaponEffectHookRequest,
 } from '@asha/contracts';
 
@@ -419,6 +421,7 @@ export interface RuntimeBridge {
   applyVoxelConversion(request: VoxelConversionApplyRequest): VoxelConversionReceipt;
   exportVoxelConversionEvidence(evidence: readonly VoxelConversionEvidenceRef[]): readonly VoxelConversionEvidenceRef[];
   readVoxelModelInfo(request: VoxelModelInfoRequest): VoxelModelInfoReadout;
+  exportVoxelVolumeAsset(request: VoxelVolumeAssetExportRequest): VoxelVolumeAssetExportReceipt;
   loadFpsRuntimeSession(request: FpsRuntimeSessionLoadRequest): FpsRuntimeSessionSnapshot;
   readFpsRuntimeSession(): FpsRuntimeSessionSnapshot;
   applyFpsPrimaryFire(request: FpsPrimaryFireRequest): FpsPrimaryFireResult;

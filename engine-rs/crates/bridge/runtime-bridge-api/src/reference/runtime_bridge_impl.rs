@@ -502,6 +502,196 @@ impl RuntimeBridge for ReferenceBridge {
         })
     }
 
+    fn export_voxel_volume_asset(
+        &self,
+        request: VoxelVolumeAssetExportRequest,
+    ) -> BridgeResult<VoxelVolumeAssetExportReceipt> {
+        self.require_initialized("export_voxel_volume_asset")?;
+        let key = Self::voxel_model_key(request.grid, &request.volume_asset_id);
+        let Some(info) = self.voxel_model_infos.get(&key) else {
+            return Ok(Self::rejected_voxel_volume_asset_export(
+                request,
+                vec![Self::voxel_asset_diagnostic(
+                    VoxelAssetDiagnosticCode::RuntimeModelUnavailable,
+                    "runtimeModel",
+                    "voxel model is not resident in current authority state; apply a conversion before export",
+                )],
+            ));
+        };
+        if let Some(expected) = &request.expected_session_hash {
+            if expected != &info.session_hash {
+                return Ok(Self::rejected_voxel_volume_asset_export(
+                    request,
+                    vec![Self::voxel_asset_diagnostic(
+                        VoxelAssetDiagnosticCode::StaleRuntimeSnapshot,
+                        "expectedSessionHash",
+                        "export request expected a different runtime model session hash",
+                    )],
+                ));
+            }
+        }
+        let Some(planned) = &self.voxel_conversion_plan else {
+            return Ok(Self::rejected_voxel_volume_asset_export(
+                request,
+                vec![Self::voxel_asset_diagnostic(
+                    VoxelAssetDiagnosticCode::RuntimeModelUnavailable,
+                    "conversionOutput",
+                    "current authority state no longer has complete conversion output for export",
+                )],
+            ));
+        };
+        let Some(output) = &planned.output else {
+            return Ok(Self::rejected_voxel_volume_asset_export(
+                request,
+                vec![Self::voxel_asset_diagnostic(
+                    VoxelAssetDiagnosticCode::RuntimeModelUnavailable,
+                    "conversionOutput",
+                    "conversion output is incomplete and cannot be exported as a stored asset",
+                )],
+            ));
+        };
+        let Some(target) = self.target_for_voxel_conversion(&planned.plan.target) else {
+            return Ok(Self::rejected_voxel_volume_asset_export(
+                request,
+                vec![Self::voxel_asset_diagnostic(
+                    VoxelAssetDiagnosticCode::RuntimeModelUnavailable,
+                    "target",
+                    "conversion target is no longer registered in current authority state",
+                )],
+            ));
+        };
+        if target.spec.id().raw() as u64 != request.grid
+            || target.volume_asset_id != request.volume_asset_id
+            || info.latest_plan_id != planned.plan.plan_id
+            || info.latest_output_hash != output.output_hash
+        {
+            return Ok(Self::rejected_voxel_volume_asset_export(
+                request,
+                vec![Self::voxel_asset_diagnostic(
+                    VoxelAssetDiagnosticCode::StaleRuntimeSnapshot,
+                    "runtimeModel",
+                    "resident model readout does not match the current conversion output snapshot",
+                )],
+            ));
+        }
+        let sparse_runs = Self::sparse_runs_for_conversion_output(output);
+        if request.max_sparse_runs == 0 || sparse_runs.len() as u64 > request.max_sparse_runs {
+            let message = format!(
+                "export requires {} sparse run(s), exceeding request limit {}",
+                sparse_runs.len(),
+                request.max_sparse_runs
+            );
+            return Ok(Self::rejected_voxel_volume_asset_export(
+                request,
+                vec![Self::voxel_asset_diagnostic(
+                    VoxelAssetDiagnosticCode::ExportLimitExceeded,
+                    "maxSparseRuns",
+                    message,
+                )],
+            ));
+        }
+        let material_palette = match Self::material_palette_for_conversion_export(planned, output) {
+            Ok(palette) => palette,
+            Err(diagnostics) => {
+                return Ok(Self::rejected_voxel_volume_asset_export(
+                    request,
+                    diagnostics,
+                ));
+            }
+        };
+        let Some(bounds) = output.bounds else {
+            return Ok(Self::rejected_voxel_volume_asset_export(
+                request,
+                vec![Self::voxel_asset_diagnostic(
+                    VoxelAssetDiagnosticCode::RuntimeModelUnavailable,
+                    "bounds",
+                    "conversion output has no bounds to export",
+                )],
+            ));
+        };
+
+        let origin = target.spec.origin_world().to_array();
+        let mut provenance = info
+            .evidence
+            .iter()
+            .map(|evidence| VoxelAssetProvenanceRef {
+                kind: VoxelAssetProvenanceKind::Converted,
+                uri: evidence.uri.clone(),
+                content_hash: evidence.content_hash.clone(),
+            })
+            .collect::<Vec<_>>();
+        provenance.push(VoxelAssetProvenanceRef {
+            kind: VoxelAssetProvenanceKind::RuntimeExport,
+            uri: format!(
+                "asha://runtime-session/voxel-volume-export/{}",
+                request.target_asset_id
+            ),
+            content_hash: format!(
+                "fnv1a64:{}",
+                Self::fnv1a64(&format!(
+                    "voxel-volume-export|{}|{}|{}|{}",
+                    request.target_asset_id,
+                    info.session_hash,
+                    info.replay_hash,
+                    output.output_hash
+                ))
+            ),
+        });
+        let asset = VoxelVolumeAsset {
+            asset_id: request.target_asset_id.clone(),
+            schema_version: VOXEL_ASSET_SCHEMA_VERSION,
+            media_type: VOXEL_ASSET_MEDIA_TYPE.to_string(),
+            grid: VoxelAssetGrid {
+                origin,
+                cell_size: target.spec.voxel_size(),
+                coordinate_system: svc_voxel_asset::VOXEL_ASSET_COORDINATE_SYSTEM.to_string(),
+            },
+            bounds: Self::voxel_asset_bounds(bounds),
+            representation: VoxelAssetRepresentation {
+                kind: VoxelAssetRepresentationKind::SparseRuns,
+                sparse_runs,
+            },
+            material_palette,
+            provenance,
+            authoring: VoxelAssetAuthoringMetadata {
+                label: request.label.clone(),
+                created_by: request.created_by.clone(),
+                source_tool: request.source_tool.clone(),
+            },
+            validation_diagnostics: Vec::new(),
+            content_hashes: VoxelAssetContentHashes {
+                canonical_json: String::new(),
+                voxel_data: String::new(),
+            },
+        };
+        let asset = svc_voxel_asset::with_computed_hashes(&asset);
+        let report = svc_voxel_asset::validate_asset(&asset);
+        if !report.is_valid() {
+            return Ok(Self::rejected_voxel_volume_asset_export(
+                request,
+                report.diagnostics,
+            ));
+        }
+        let canonical_json = svc_voxel_asset::encode_asset(&asset).map_err(|report| {
+            RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::Internal,
+                format!(
+                    "validated voxel volume asset failed canonical encode with {} diagnostic(s)",
+                    report.diagnostics.len()
+                ),
+            )
+        })?;
+        Ok(VoxelVolumeAssetExportReceipt {
+            request,
+            exported: true,
+            canonical_json_hash: Some(asset.content_hashes.canonical_json.clone()),
+            voxel_data_hash: Some(asset.content_hashes.voxel_data.clone()),
+            asset: Some(asset),
+            canonical_json: Some(canonical_json),
+            diagnostics: Vec::new(),
+        })
+    }
+
     fn load_fps_runtime_session(
         &mut self,
         request: FpsRuntimeSessionLoadRequest,

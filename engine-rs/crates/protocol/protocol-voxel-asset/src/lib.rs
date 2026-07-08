@@ -52,6 +52,9 @@ pub const VOXEL_ASSET_DIAGNOSTIC_CODES: &[&str] = &[
     "invalid_material_reference",
     "unknown_voxel_material",
     "content_hash_mismatch",
+    "runtime_model_unavailable",
+    "export_limit_exceeded",
+    "stale_runtime_snapshot",
 ];
 
 /// Stored voxel representation kind.
@@ -106,6 +109,9 @@ pub enum VoxelAssetDiagnosticCode {
     InvalidMaterialReference,
     UnknownVoxelMaterial,
     ContentHashMismatch,
+    RuntimeModelUnavailable,
+    ExportLimitExceeded,
+    StaleRuntimeSnapshot,
 }
 
 impl VoxelAssetDiagnosticCode {
@@ -123,6 +129,9 @@ impl VoxelAssetDiagnosticCode {
             VoxelAssetDiagnosticCode::InvalidMaterialReference => "invalid_material_reference",
             VoxelAssetDiagnosticCode::UnknownVoxelMaterial => "unknown_voxel_material",
             VoxelAssetDiagnosticCode::ContentHashMismatch => "content_hash_mismatch",
+            VoxelAssetDiagnosticCode::RuntimeModelUnavailable => "runtime_model_unavailable",
+            VoxelAssetDiagnosticCode::ExportLimitExceeded => "export_limit_exceeded",
+            VoxelAssetDiagnosticCode::StaleRuntimeSnapshot => "stale_runtime_snapshot",
         }
     }
 }
@@ -228,6 +237,33 @@ pub struct VoxelVolumeAsset {
     pub authoring: VoxelAssetAuthoringMetadata,
     pub validation_diagnostics: Vec<VoxelAssetDiagnostic>,
     pub content_hashes: VoxelAssetContentHashes,
+}
+
+/// Request to export a resident runtime voxel model into stored asset form.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VoxelVolumeAssetExportRequest {
+    pub grid: u64,
+    pub volume_asset_id: Option<String>,
+    pub target_asset_id: String,
+    pub label: Option<String>,
+    pub created_by: Option<String>,
+    pub source_tool: Option<String>,
+    pub max_sparse_runs: u64,
+    pub expected_session_hash: Option<String>,
+}
+
+/// Receipt for explicit runtime-to-stored voxel asset export.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VoxelVolumeAssetExportReceipt {
+    pub request: VoxelVolumeAssetExportRequest,
+    pub exported: bool,
+    pub asset: Option<VoxelVolumeAsset>,
+    pub canonical_json: Option<String>,
+    pub canonical_json_hash: Option<String>,
+    pub voxel_data_hash: Option<String>,
+    pub diagnostics: Vec<VoxelAssetDiagnostic>,
 }
 
 #[cfg(test)]

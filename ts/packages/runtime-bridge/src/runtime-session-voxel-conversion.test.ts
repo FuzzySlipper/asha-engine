@@ -13,6 +13,8 @@ import type {
   VoxelConversionSourceRegistrationRequest,
   VoxelModelInfoReadout,
   VoxelModelInfoRequest,
+  VoxelVolumeAssetExportReceipt,
+  VoxelVolumeAssetExportRequest,
 } from '@asha/contracts';
 
 import { RuntimeBridgeError, createRuntimeSessionFacade, type RuntimeBridge } from './index.js';
@@ -267,6 +269,66 @@ function createVoxelConversionBridge(): RuntimeBridge {
           };
         };
       }
+      if (property === 'exportVoxelVolumeAsset') {
+        return (request: VoxelVolumeAssetExportRequest): VoxelVolumeAssetExportReceipt => {
+          if (request.grid !== 1 || request.volumeAssetId !== 'voxel/generated') {
+            return {
+              request,
+              exported: false,
+              asset: null,
+              canonicalJson: null,
+              canonicalJsonHash: null,
+              voxelDataHash: null,
+              diagnostics: [{
+                code: 'runtime_model_unavailable',
+                severity: 'error',
+                reference: 'runtimeModel',
+                message: 'voxel model is not resident in current authority state',
+              }],
+            };
+          }
+          const asset = {
+            assetId: request.targetAssetId,
+            schemaVersion: 1,
+            mediaType: 'application/vnd.asha.voxel-volume+json;version=1',
+            grid: {
+              origin: [0, 0, 0] as const,
+              cellSize: 1,
+              coordinateSystem: 'y_up_right_handed',
+            },
+            bounds: { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } },
+            representation: {
+              kind: 'sparse_runs' as const,
+              sparseRuns: [{ start: { x: 0, y: 0, z: 0 }, length: 1, material: 3 }],
+            },
+            materialPalette: [{ voxelMaterial: 3, materialAssetId: 'material/surface-a' }],
+            provenance: availableEvidence.map((evidence) => ({
+              kind: 'converted' as const,
+              uri: evidence.uri,
+              contentHash: evidence.contentHash,
+            })),
+            authoring: {
+              label: request.label,
+              createdBy: request.createdBy,
+              sourceTool: request.sourceTool,
+            },
+            validationDiagnostics: [],
+            contentHashes: {
+              canonicalJson: 'fnv1a64:0000000000000205',
+              voxelData: 'fnv1a64:0000000000000206',
+            },
+          };
+          return {
+            request,
+            exported: true,
+            asset,
+            canonicalJson: `${JSON.stringify(asset)}\n`,
+            canonicalJsonHash: asset.contentHashes.canonicalJson,
+            voxelDataHash: asset.contentHashes.voxelData,
+            diagnostics: [],
+          };
+        };
+      }
       const value = Reflect.get(target, property, receiver) as unknown;
       if (typeof value === 'function') {
         const boundValue: unknown = value.bind(target);
@@ -336,6 +398,20 @@ void test('reference RuntimeSession voxel conversion facade methods remain typed
       }),
     (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'operation_unimplemented',
   );
+  assert.throws(
+    () =>
+      referenceSession.exportVoxelVolumeAsset({
+        grid: 1,
+        volumeAssetId: 'voxel/generated',
+        targetAssetId: 'voxel-volume/generated',
+        label: null,
+        createdBy: null,
+        sourceTool: null,
+        maxSparseRuns: 16,
+        expectedSessionHash: null,
+      }),
+    (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'operation_unimplemented',
+  );
 });
 
 void test('Rust-backed RuntimeSession delegates voxel conversion to the bridge authority surface', () => {
@@ -394,6 +470,29 @@ void test('Rust-backed RuntimeSession delegates voxel conversion to the bridge a
   assert.equal(modelInfo.voxelCount, 1);
   assert.deepEqual(modelInfo.materialCounts, [{ material: 3, voxelCount: 1 }]);
   assert.equal(modelInfo.source?.assetId, 'mesh/quad');
+
+  const exportedAsset = rustSession.exportVoxelVolumeAsset({
+    grid: 1,
+    volumeAssetId: 'voxel/generated',
+    targetAssetId: 'voxel-volume/generated',
+    label: 'Generated voxel volume',
+    createdBy: 'runtime-session-voxel-conversion-test',
+    sourceTool: '@asha/runtime-bridge',
+    maxSparseRuns: 16,
+    expectedSessionHash: modelInfo.sessionHash,
+  });
+  assert.equal(exportedAsset.exported, true);
+  assert.equal(exportedAsset.asset?.assetId, 'voxel-volume/generated');
+  assert.equal(exportedAsset.asset?.representation.kind, 'sparse_runs');
+  assert.deepEqual(exportedAsset.asset?.representation.sparseRuns, [
+    { start: { x: 0, y: 0, z: 0 }, length: 1, material: 3 },
+  ]);
+  assert.deepEqual(exportedAsset.asset?.materialPalette, [
+    { voxelMaterial: 3, materialAssetId: 'material/surface-a' },
+  ]);
+  assert.equal(exportedAsset.canonicalJsonHash, exportedAsset.asset?.contentHashes.canonicalJson);
+  assert.equal(exportedAsset.voxelDataHash, exportedAsset.asset?.contentHashes.voxelData);
+  assert.match(exportedAsset.canonicalJson ?? '', /"assetId":"voxel-volume\/generated"/u);
 
   const missingModel = rustSession.readVoxelModelInfo({
     grid: 999,
