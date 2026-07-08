@@ -10,8 +10,6 @@
 
 # Legacy crates (whole-crate: world-bundle is their current domain language).
 # Each whole-directory exception must name the task that owns its removal.
-# Remove svc-serialization via Den #5099.
-engine-rs/crates/services/svc-serialization/
 # Remove rule-world-bundle via Den #5100 after #5099 lands.
 engine-rs/crates/rules/rule-world-bundle/
 # Remove scene-diagnostics world-bundle diagnostics after the service/rule lanes

@@ -1,4 +1,4 @@
-//! Std-only canonical JSON encode/decode for the world-bundle manifest.
+//! Std-only canonical JSON encode/decode for the project-bundle manifest.
 //!
 //! The workspace has zero external dependencies, so — like `core-scene`'s
 //! `json` module — this hand-writes the exact manifest shape. [`encode`] emits a
@@ -11,14 +11,14 @@ use core_ids::{ProjectId, SceneId};
 use crate::artifact::{ArtifactClass, ArtifactEntry, ArtifactRole};
 use crate::hash::BundleHash;
 use crate::manifest::{
-    AssetLockSection, GeneratorMetadata, SceneSection, WorldBundleManifest, WorldSection,
+    AssetLockSection, GeneratorMetadata, ProjectBundleManifest, ProjectSection, SceneSection,
 };
 
 // ── Encode ──────────────────────────────────────────────────────────────────
 
 /// Encode a manifest as canonical JSON (LF newlines, trailing newline). The input
 /// is canonicalized first, so equivalent manifests encode byte-identically.
-pub fn encode(manifest: &WorldBundleManifest) -> String {
+pub fn encode(manifest: &ProjectBundleManifest) -> String {
     let m = manifest.canonical();
     let mut out = String::new();
     out.push_str("{\n");
@@ -28,10 +28,10 @@ pub fn encode(manifest: &WorldBundleManifest) -> String {
     ));
     out.push_str(&format!("  \"protocolVersion\": {},\n", m.protocol_version));
 
-    out.push_str("  \"world\": { \"id\": ");
-    out.push_str(&m.world.id.raw().to_string());
+    out.push_str("  \"project\": { \"id\": ");
+    out.push_str(&m.project.id.raw().to_string());
     out.push_str(", \"name\": ");
-    encode_opt_str(&mut out, m.world.name.as_deref());
+    encode_opt_str(&mut out, m.project.name.as_deref());
     out.push_str(" },\n");
 
     out.push_str(&format!(
@@ -118,7 +118,7 @@ fn escape(s: &str) -> String {
 
 // ── Decode ──────────────────────────────────────────────────────────────────
 
-/// Why decoding a manifest failed structurally (before [`WorldBundleManifest::validate`]).
+/// Why decoding a manifest failed structurally (before [`ProjectBundleManifest::validate`]).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ManifestDecodeError {
     /// The bytes were not valid JSON.
@@ -145,16 +145,16 @@ impl core::fmt::Display for ManifestDecodeError {
 impl std::error::Error for ManifestDecodeError {}
 
 /// Decode canonical/authored manifest JSON. The result is **not** validated; call
-/// [`WorldBundleManifest::validate`].
-pub fn decode(input: &str) -> Result<WorldBundleManifest, ManifestDecodeError> {
+/// [`ProjectBundleManifest::validate`].
+pub fn decode(input: &str) -> Result<ProjectBundleManifest, ManifestDecodeError> {
     let json = Json::parse(input).map_err(ManifestDecodeError::Json)?;
     let bundle_schema_version = field_u64(&json, "bundleSchemaVersion")? as u32;
     let protocol_version = field_u64(&json, "protocolVersion")? as u32;
 
-    let world_j = field(&json, "world")?;
-    let world = WorldSection {
-        id: ProjectId::new(field_u64(world_j, "id")?),
-        name: opt_str(world_j, "name")?,
+    let project_j = field(&json, "project")?;
+    let project = ProjectSection {
+        id: ProjectId::new(field_u64(project_j, "id")?),
+        name: opt_str(project_j, "name")?,
     };
 
     let scene_j = field(&json, "scene")?;
@@ -185,10 +185,10 @@ pub fn decode(input: &str) -> Result<WorldBundleManifest, ManifestDecodeError> {
         artifacts.push(decode_artifact(a)?);
     }
 
-    Ok(WorldBundleManifest {
+    Ok(ProjectBundleManifest {
         bundle_schema_version,
         protocol_version,
-        world,
+        project,
         scene,
         asset_lock,
         generator,

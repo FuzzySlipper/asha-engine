@@ -1,4 +1,4 @@
-//! World-bundle serialization: manifest format, deterministic load plan, and
+//! Project-bundle serialization: manifest format, deterministic load plan, and
 //! save/compaction plan model (scene-capability-02, epic #2310).
 //!
 //! # Lane
@@ -8,13 +8,13 @@
 //! into protocol/render/wasm/bridge. The *execution* that needs voxel
 //! persistence (`rule-voxel-edit`) — actual snapshot/edit-log composition,
 //! compaction reconstruction, and regenerate-and-replay diagnostics — lives in
-//! the higher `rule-world-bundle` crate so the format/plan model stays low and
+//! the higher `rule-project-bundle` crate so the format/plan model stays low and
 //! reusable.
 //!
 //! # Scope
 //!
-//! * [`WorldBundleManifest`] — the inspectable directory/manifest index with the
-//!   classified [`ArtifactEntry`] table, bundle/protocol versions, world/scene
+//! * [`ProjectBundleManifest`] — the inspectable directory/manifest index with the
+//!   classified [`ArtifactEntry`] table, bundle/protocol versions, project/scene
 //!   identity, asset lock, and generator metadata. Validation fails **closed** on
 //!   unknown newer versions (subtask #2318).
 //! * [`json`] — std-only canonical manifest encode/decode (subtask #2318).
@@ -45,8 +45,8 @@ pub use hash::BundleHash;
 pub use json::{decode, encode, ManifestDecodeError};
 pub use load_plan::{LoadPlan, LoadPlanError, LoadStage, LoadStep};
 pub use manifest::{
-    AssetLockSection, GeneratorMetadata, ManifestError, SceneSection, WorldBundleManifest,
-    WorldSection, BUNDLE_SCHEMA_VERSION, SUPPORTED_PROTOCOL_VERSION,
+    AssetLockSection, GeneratorMetadata, ManifestError, ProjectBundleManifest, ProjectSection,
+    SceneSection, BUNDLE_SCHEMA_VERSION, SUPPORTED_PROTOCOL_VERSION,
 };
 pub use save_plan::{CompactionPlan, SavePlan};
 
@@ -58,13 +58,13 @@ mod tests {
     /// A minimal but representative manifest: scene + asset lock (durable),
     /// one generated chunk snapshot, one durable edit log, and one disposable
     /// cache artifact. Abstract fixture nouns only.
-    fn sample_manifest() -> WorldBundleManifest {
-        WorldBundleManifest {
+    fn sample_manifest() -> ProjectBundleManifest {
+        ProjectBundleManifest {
             bundle_schema_version: BUNDLE_SCHEMA_VERSION,
             protocol_version: SUPPORTED_PROTOCOL_VERSION,
-            world: WorldSection {
+            project: ProjectSection {
                 id: ProjectId::new(7),
-                name: Some("sample-world".into()),
+                name: Some("sample-project".into()),
             },
             scene: SceneSection {
                 id: SceneId::new(100),
@@ -271,7 +271,7 @@ mod tests {
     fn save_plan_describes_writes_and_compaction() {
         let writes = vec![
             ArtifactEntry::durable(
-                "world/state.snapshot",
+                "project/state.snapshot",
                 ArtifactRole::SessionStateSnapshot,
                 b"s",
             ),

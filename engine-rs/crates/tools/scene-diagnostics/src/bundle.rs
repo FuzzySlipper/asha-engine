@@ -1,4 +1,4 @@
-//! World-bundle diagnostics: manifest validation, durable-artifact integrity,
+//! ProjectBundle diagnostics: manifest validation, durable-artifact integrity,
 //! missing optional cache, and terrain generator mismatch.
 
 use std::collections::BTreeMap;
@@ -8,13 +8,13 @@ use protocol_diagnostics::{
     RemedyAction, SuggestedRemedy,
 };
 use rule_world_bundle::{GeneratorMismatch, RegenReplayReport};
-use svc_serialization::{ArtifactClass, BundleHash, ManifestError, WorldBundleManifest};
+use svc_serialization::{ArtifactClass, BundleHash, ManifestError, ProjectBundleManifest};
 
-/// Emit diagnostics for a world-bundle manifest by running its fail-closed
+/// Emit diagnostics for a ProjectBundle manifest by running its fail-closed
 /// validation. A version mismatch is `Fatal` (incompatible — stop the load);
 /// structural manifest faults (missing/duplicate artifact, unhashed durable) are
 /// reported as a corrupt/incomplete bundle. Read-only.
-pub fn manifest_diagnostics(manifest: &WorldBundleManifest) -> DiagnosticReportSet {
+pub fn manifest_diagnostics(manifest: &ProjectBundleManifest) -> DiagnosticReportSet {
     let mut set = DiagnosticReportSet::new();
     if let Err(err) = manifest.validate() {
         set.push(map_manifest_error(&err));
@@ -60,7 +60,7 @@ fn map_manifest_error(err: &ManifestError) -> DiagnosticReport {
 /// path absent from the map is treated as "not measured" and skipped here
 /// (use [`missing_cache_diagnostics`] / manifest validation for presence).
 pub fn artifact_integrity_diagnostics(
-    manifest: &WorldBundleManifest,
+    manifest: &ProjectBundleManifest,
     actual_hashes: &BTreeMap<String, BundleHash>,
 ) -> DiagnosticReportSet {
     let mut set = DiagnosticReportSet::new();
@@ -101,7 +101,7 @@ pub fn artifact_integrity_diagnostics(
 /// absent from `present_paths`. Cache disposal is allowed, so these are
 /// `Warning`s, never load-blocking. Read-only.
 pub fn missing_cache_diagnostics(
-    manifest: &WorldBundleManifest,
+    manifest: &ProjectBundleManifest,
     present_paths: &std::collections::BTreeSet<String>,
 ) -> DiagnosticReportSet {
     let mut set = DiagnosticReportSet::new();
@@ -182,16 +182,16 @@ mod tests {
     use core_ids::{ProjectId, SceneId};
     use svc_serialization::artifact::ArtifactRole;
     use svc_serialization::{
-        ArtifactEntry, AssetLockSection, GeneratorMetadata, SceneSection, WorldSection,
+        ArtifactEntry, AssetLockSection, GeneratorMetadata, ProjectSection, SceneSection,
     };
 
-    fn manifest() -> WorldBundleManifest {
+    fn manifest() -> ProjectBundleManifest {
         let scene_bytes = b"scene-doc";
         let lock_bytes = b"asset-lock";
-        WorldBundleManifest {
+        ProjectBundleManifest {
             bundle_schema_version: 1,
             protocol_version: 1,
-            world: WorldSection {
+            project: ProjectSection {
                 id: ProjectId::new(1),
                 name: None,
             },

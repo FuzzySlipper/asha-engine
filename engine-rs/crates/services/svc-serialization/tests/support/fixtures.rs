@@ -3,19 +3,19 @@
 
 use core_ids::{ProjectId, SceneId};
 use svc_serialization::{
-    ArtifactEntry, ArtifactRole, AssetLockSection, GeneratorMetadata, SceneSection,
-    WorldBundleManifest, WorldSection, BUNDLE_SCHEMA_VERSION, SUPPORTED_PROTOCOL_VERSION,
+    ArtifactEntry, ArtifactRole, AssetLockSection, GeneratorMetadata, ProjectBundleManifest,
+    ProjectSection, SceneSection, BUNDLE_SCHEMA_VERSION, SUPPORTED_PROTOCOL_VERSION,
 };
 
-/// A minimal but representative world-bundle manifest: durable scene + asset lock,
+/// A minimal but representative project-bundle manifest: durable scene + asset lock,
 /// a durable voxel edit log, a generated chunk snapshot, and a disposable cache.
-pub fn sample_manifest() -> WorldBundleManifest {
-    WorldBundleManifest {
+pub fn sample_manifest() -> ProjectBundleManifest {
+    ProjectBundleManifest {
         bundle_schema_version: BUNDLE_SCHEMA_VERSION,
         protocol_version: SUPPORTED_PROTOCOL_VERSION,
-        world: WorldSection {
+        project: ProjectSection {
             id: ProjectId::new(7),
-            name: Some("sample-world".into()),
+            name: Some("sample-project".into()),
         },
         scene: SceneSection {
             id: SceneId::new(100),

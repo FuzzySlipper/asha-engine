@@ -1,7 +1,7 @@
-//! Regenerator for the world-bundle manifest golden fixture.
+//! Regenerator for the project-bundle manifest golden fixture.
 //!
 //! `cargo run -p svc-serialization --example dump_manifest` and redirect into
-//! `harness/fixtures/world-bundle/sample-manifest.json`.
+//! `harness/fixtures/project-bundle/sample-manifest.json`.
 
 use svc_serialization::encode;
 

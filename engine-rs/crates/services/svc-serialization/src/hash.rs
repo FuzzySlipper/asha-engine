@@ -1,4 +1,4 @@
-//! Deterministic content hashing for world-bundle artifacts.
+//! Deterministic content hashing for project-bundle artifacts.
 //!
 //! Mirrors the FNV-1a fingerprint used by `core-snapshot` / `core-scene` so a
 //! durable artifact's hash is stable across runs and platforms and is legible in

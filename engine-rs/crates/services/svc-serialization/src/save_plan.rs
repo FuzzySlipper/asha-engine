@@ -1,8 +1,8 @@
-//! World-bundle save & compaction plan model (scene-capability-02, subtask #2320).
+//! Project-bundle save & compaction plan model (scene-capability-02, subtask #2320).
 //!
 //! A [`SavePlan`] declares **what a save will write** and **what it compacts**,
 //! without performing any voxel work itself — the actual snapshot/edit-log
-//! composition and reconstruction lives in the `rule-world-bundle` crate (which
+//! composition and reconstruction lives in the `rule-project-bundle` crate (which
 //! can reach the `rule-voxel-edit` persistence layer). This keeps the plan a
 //! pure, inspectable description usable below the rules layer.
 //!

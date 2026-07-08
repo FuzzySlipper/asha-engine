@@ -36,8 +36,8 @@ use scene_diagnostics::{
 };
 use svc_serialization::artifact::ArtifactRole;
 use svc_serialization::{
-    ArtifactEntry, AssetLockSection, BundleHash, GeneratorMetadata, SceneSection,
-    WorldBundleManifest, WorldSection,
+    ArtifactEntry, AssetLockSection, BundleHash, GeneratorMetadata, ProjectBundleManifest,
+    ProjectSection, SceneSection,
 };
 
 // ── golden harness ────────────────────────────────────────────────────────────
@@ -116,11 +116,11 @@ fn material_with_texture(texture: Option<&str>) -> MaterialDef {
     }
 }
 
-fn manifest() -> WorldBundleManifest {
-    WorldBundleManifest {
+fn manifest() -> ProjectBundleManifest {
+    ProjectBundleManifest {
         bundle_schema_version: 1,
         protocol_version: 1,
-        world: WorldSection {
+        project: ProjectSection {
             id: ProjectId::new(1),
             name: None,
         },

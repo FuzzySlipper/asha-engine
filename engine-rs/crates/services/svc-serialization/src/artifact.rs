@@ -1,9 +1,9 @@
-//! Artifact classification for the world-bundle manifest.
+//! Artifact classification for the project-bundle manifest.
 //!
-//! Every file in a world bundle is one of three classes (scene-capability-02,
+//! Every file in a project bundle is one of three classes (scene-capability-02,
 //! "Recommended model"):
 //!
-//! * **durable** — required to load or diagnose the world (scene/current
+//! * **durable** — required to load or diagnose the project (scene/current
 //!   authority, asset lock, edits/snapshots, generator metadata).
 //! * **generated** — reproducible from seed/version/params + edits.
 //! * **cache** — disposable acceleration data (meshed geometry, collision
@@ -17,7 +17,7 @@ use crate::hash::BundleHash;
 /// How durable an artifact is. Drives load requirements and cache disposal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ArtifactClass {
-    /// Required to load or diagnose the world.
+    /// Required to load or diagnose the project.
     Durable,
     /// Reproducible from seed/version/params + edits.
     Generated,

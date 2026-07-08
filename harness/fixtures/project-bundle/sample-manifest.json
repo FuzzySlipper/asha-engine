@@ -1,7 +1,7 @@
 {
   "bundleSchemaVersion": 1,
   "protocolVersion": 1,
-  "world": { "id": 7, "name": "sample-world" },
+  "project": { "id": 7, "name": "sample-project" },
   "scene": { "id": 100, "schemaVersion": 1, "artifact": "scene/scene.json" },
   "assetLock": { "artifact": "assets/lock.json", "assetCount": 1 },
   "generator": { "seed": 42, "version": 1, "params": "default" },

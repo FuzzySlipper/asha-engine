@@ -10,9 +10,6 @@ the diff; never hand-edit.
 | `compacted-save.txt` | `render::sample_compacted_save` | `tests/golden.rs::compacted_save_matches_committed_golden` | `cargo run -p rule-world-bundle --example dump_compacted_save > harness/fixtures/world-bundle/compacted-save.txt` |
 | `voxel-durability.txt` | `render::sample_durability_evidence` | `tests/golden.rs::voxel_durability_matches_committed_golden` | `cargo run -p rule-world-bundle --example dump_durability > harness/fixtures/world-bundle/voxel-durability.txt` |
 | `regen-conflict.txt` | `render::conflict_report` | `tests/golden.rs::regen_conflict_matches_committed_golden` | `cargo run -p rule-world-bundle --example dump_regen_conflict > harness/fixtures/world-bundle/regen-conflict.txt` |
-| `load-plan.txt` | `svc-serialization` `dump_load_plan` example | `svc-serialization` golden + `rule-world-bundle` load-executor tests | `cargo run -p svc-serialization --example dump_load_plan > harness/fixtures/world-bundle/load-plan.txt` |
-| `sample-manifest.json` | `svc-serialization` `dump_manifest` example | `svc-serialization::tests::golden` | `cargo run -p svc-serialization --example dump_manifest > harness/fixtures/world-bundle/sample-manifest.json` |
-
 ## voxel-durability.txt
 
 The save→compaction→reload durability evidence for the canonical voxel edit sequence:

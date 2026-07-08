@@ -1,4 +1,4 @@
-//! Golden-fixture drift + readback for the world-bundle manifest and load plan.
+//! Golden-fixture drift + readback for the project-bundle manifest and load plan.
 //!
 //! Pins the committed fixtures against the in-crate builders so a serialization or
 //! load-ordering change fails loudly, and proves the committed bytes decode,
@@ -6,9 +6,9 @@
 //!
 //! Regenerate with:
 //!   cargo run -p svc-serialization --example dump_manifest > \
-//!     harness/fixtures/world-bundle/sample-manifest.json
+//!     harness/fixtures/project-bundle/sample-manifest.json
 //!   cargo run -p svc-serialization --example dump_load_plan > \
-//!     harness/fixtures/world-bundle/load-plan.txt
+//!     harness/fixtures/project-bundle/load-plan.txt
 
 use std::path::PathBuf;
 
@@ -23,7 +23,7 @@ fn dir() -> PathBuf {
         .ancestors()
         .find(|ancestor| ancestor.join("engine-rs").is_dir() && ancestor.join("harness").is_dir())
         .expect("repo root")
-        .join("harness/fixtures/world-bundle")
+        .join("harness/fixtures/project-bundle")
 }
 
 #[test]
@@ -33,7 +33,7 @@ fn manifest_encoding_matches_committed_golden() {
     let encoded = encode(&fixtures::sample_manifest());
     assert_eq!(
         encoded, committed,
-        "manifest encoding drifted from harness/fixtures/world-bundle/sample-manifest.json; \
+        "manifest encoding drifted from harness/fixtures/project-bundle/sample-manifest.json; \
          regenerate with `cargo run -p svc-serialization --example dump_manifest`"
     );
 }
@@ -77,7 +77,7 @@ fn load_plan_matches_committed_golden_and_is_stable() {
     let rendered = LoadPlan::build(&manifest).expect("plan").render();
     assert_eq!(
         rendered, committed,
-        "load plan drifted from harness/fixtures/world-bundle/load-plan.txt; \
+        "load plan drifted from harness/fixtures/project-bundle/load-plan.txt; \
          regenerate with `cargo run -p svc-serialization --example dump_load_plan`"
     );
     // Build order is stable across runs.

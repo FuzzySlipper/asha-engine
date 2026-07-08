@@ -1,4 +1,4 @@
-//! Deterministic world-bundle load plan (scene-capability-02, subtask #2319).
+//! Deterministic project-bundle load plan (scene-capability-02, subtask #2319).
 //!
 //! Loading order is an **authority constraint**, not an implementation detail. A
 //! [`LoadPlan`] is the ordered, typed sequence of steps that turn a manifest into
@@ -20,7 +20,7 @@
 use core_ids::{RuntimeSessionId, SceneId};
 
 use crate::artifact::ArtifactRole;
-use crate::manifest::{ManifestError, WorldBundleManifest};
+use crate::manifest::{ManifestError, ProjectBundleManifest};
 
 /// The ordered authority-application stages. A load plan's steps must appear in
 /// non-decreasing stage order; the numeric index defines that order.
@@ -175,7 +175,7 @@ impl LoadPlan {
     /// Build the canonical load plan for a manifest. Validates the manifest first
     /// (fail closed), then emits steps in authority order. Voxel edit logs and
     /// chunk snapshots are listed in artifact-path order for determinism.
-    pub fn build(manifest: &WorldBundleManifest) -> Result<LoadPlan, LoadPlanError> {
+    pub fn build(manifest: &ProjectBundleManifest) -> Result<LoadPlan, LoadPlanError> {
         manifest.validate().map_err(LoadPlanError::Manifest)?;
 
         let edit_logs = artifacts_with_role(manifest, &ArtifactRole::VoxelEditLog);
@@ -211,7 +211,7 @@ impl LoadPlan {
             },
             LoadStep::BootstrapScene {
                 scene: manifest.scene.id,
-                runtime_session: RuntimeSessionId::new(manifest.world.id.raw()),
+                runtime_session: RuntimeSessionId::new(manifest.project.id.raw()),
             },
         ];
         if let Some(artifact) = session_state_snapshot {
@@ -261,7 +261,7 @@ impl LoadPlan {
     }
 }
 
-fn artifacts_with_role(manifest: &WorldBundleManifest, role: &ArtifactRole) -> Vec<String> {
+fn artifacts_with_role(manifest: &ProjectBundleManifest, role: &ArtifactRole) -> Vec<String> {
     let mut v: Vec<String> = manifest
         .artifacts
         .iter()

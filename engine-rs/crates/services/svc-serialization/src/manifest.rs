@@ -1,7 +1,7 @@
-//! The world-bundle manifest (scene-capability-02, subtask #2318).
+//! The project-bundle manifest (scene-capability-02, subtask #2318).
 //!
-//! The manifest is the single inspectable index of a world bundle: it records the
-//! bundle/protocol schema versions, the world/scene identity, the asset lock, the
+//! The manifest is the single inspectable index of a project bundle: it records the
+//! bundle/protocol schema versions, the project/scene identity, the asset lock, the
 //! terrain generator metadata, and the classified artifact table. It is canonical
 //! for the *directory* layout; a future `.asha` archive is only a transport
 //! wrapper around the same files (see crate docs).
@@ -35,7 +35,7 @@ pub struct GeneratorMetadata {
 
 /// The project identity section.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WorldSection {
+pub struct ProjectSection {
     pub id: ProjectId,
     pub name: Option<String>,
 }
@@ -58,17 +58,17 @@ pub struct AssetLockSection {
     pub asset_count: u32,
 }
 
-/// A whole-world bundle manifest.
+/// A whole-project bundle manifest.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WorldBundleManifest {
+pub struct ProjectBundleManifest {
     pub bundle_schema_version: u32,
     pub protocol_version: u32,
-    pub world: WorldSection,
+    pub project: ProjectSection,
     pub scene: SceneSection,
     pub asset_lock: AssetLockSection,
     pub generator: GeneratorMetadata,
     /// The classified artifact table. Canonicalized (sorted by path) by
-    /// [`WorldBundleManifest::canonical`].
+    /// [`ProjectBundleManifest::canonical`].
     pub artifacts: Vec<ArtifactEntry>,
 }
 
@@ -114,9 +114,9 @@ impl core::fmt::Display for ManifestError {
 
 impl std::error::Error for ManifestError {}
 
-impl WorldBundleManifest {
+impl ProjectBundleManifest {
     /// A copy with the artifact table sorted by path (deterministic on-disk order).
-    pub fn canonical(&self) -> WorldBundleManifest {
+    pub fn canonical(&self) -> ProjectBundleManifest {
         let mut m = self.clone();
         m.artifacts.sort_by(|a, b| a.path.cmp(&b.path));
         m
@@ -192,7 +192,7 @@ impl WorldBundleManifest {
     /// A copy of the manifest with every cache artifact removed. Used to prove an
     /// authority load is unaffected by cache disposal: the result still validates
     /// and yields the same [`load_required_artifacts`](Self::load_required_artifacts).
-    pub fn without_cache(&self) -> WorldBundleManifest {
+    pub fn without_cache(&self) -> ProjectBundleManifest {
         let mut m = self.clone();
         m.artifacts.retain(|a| a.class != ArtifactClass::Cache);
         m
@@ -207,7 +207,7 @@ impl WorldBundleManifest {
             "{}|{}|{}|{}|{}|{}|{}|{}|{}\n",
             self.bundle_schema_version,
             self.protocol_version,
-            self.world.id.raw(),
+            self.project.id.raw(),
             self.scene.id.raw(),
             self.scene.schema_version,
             self.asset_lock.asset_count,
@@ -239,7 +239,7 @@ impl WorldBundleManifest {
 }
 
 /// Convenience builder for the common artifact roles.
-impl WorldBundleManifest {
+impl ProjectBundleManifest {
     /// Add an artifact entry, returning `self` for chaining.
     pub fn with_artifact(mut self, entry: ArtifactEntry) -> Self {
         self.artifacts.push(entry);

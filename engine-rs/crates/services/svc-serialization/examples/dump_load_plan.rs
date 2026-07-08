@@ -1,7 +1,7 @@
-//! Regenerator for the world-bundle load-plan golden fixture.
+//! Regenerator for the project-bundle load-plan golden fixture.
 //!
 //! `cargo run -p svc-serialization --example dump_load_plan` and redirect into
-//! `harness/fixtures/world-bundle/load-plan.txt`.
+//! `harness/fixtures/project-bundle/load-plan.txt`.
 
 use svc_serialization::LoadPlan;
 
