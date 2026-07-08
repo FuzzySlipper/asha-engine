@@ -26,7 +26,8 @@ use runtime_bridge_api::{
     FpsRuntimeSessionSnapshot, GameExtensionWeaponEffectInvocationRequest, GameRuleModuleManifest,
     GameRuleCatalog, GameRuleEffectIntentRequest, GameRuleResolutionRequest, ReferenceBridge,
     RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind, StepInputEnvelope,
-    VoxelConversionApplyRequest, VoxelConversionEvidenceRef, VoxelConversionPlanRequest,
+    VoxelConversionApplyRequest, VoxelConversionEvidenceRef,
+    VoxelConversionMeshAssetRegistrationRequest, VoxelConversionPlanRequest,
     VoxelConversionPreviewRequest, VoxelConversionSourceRegistrationRequest,
     VoxelModelInfoRequest, VoxelVolumeAssetExportRequest, VoxelVolumeAssetLoadRequest,
     WeaponEffectHookRequest, WorldLoadRequest,
@@ -781,6 +782,17 @@ fn parse_voxel_conversion_source_registration_request(
     })
 }
 
+fn parse_voxel_conversion_mesh_asset_registration_request(
+    request_json: &str,
+) -> napi::Result<VoxelConversionMeshAssetRegistrationRequest> {
+    serde_json::from_str(request_json).map_err(|err| {
+        to_napi(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::InvalidInput,
+            format!("invalid voxel conversion mesh asset registration request JSON: {err}"),
+        ))
+    })
+}
+
 fn parse_voxel_conversion_preview_request(
     request_json: &str,
 ) -> napi::Result<VoxelConversionPreviewRequest> {
@@ -1240,6 +1252,20 @@ pub fn register_voxel_conversion_source(handle: i64, request_json: String) -> na
 }
 
 #[napi]
+pub fn register_voxel_conversion_mesh_asset(
+    handle: i64,
+    request_json: String,
+) -> napi::Result<String> {
+    let request = parse_voxel_conversion_mesh_asset_registration_request(&request_json)?;
+    with_bridge(handle, |bridge| {
+        let registration = bridge
+            .register_voxel_conversion_mesh_asset(request)
+            .map_err(to_napi)?;
+        voxel_conversion_json(&registration)
+    })
+}
+
+#[napi]
 pub fn preview_voxel_conversion(handle: i64, request_json: String) -> napi::Result<String> {
     let request = parse_voxel_conversion_preview_request(&request_json)?;
     with_bridge(handle, |bridge| {
@@ -1321,6 +1347,7 @@ mod tests {
         "readFpsRuntimeSession",
         "readVoxelModelInfo",
         "registerVoxelConversionSource",
+        "registerVoxelConversionMeshAsset",
         "restartFpsRuntimeSession",
         "saveCurrentWorld",
         "stepSimulation",
@@ -1350,6 +1377,7 @@ mod tests {
                 "readFpsRuntimeSession",
                 "readVoxelModelInfo",
                 "registerVoxelConversionSource",
+                "registerVoxelConversionMeshAsset",
                 "restartFpsRuntimeSession",
                 "saveCurrentWorld",
                 "stepSimulation",

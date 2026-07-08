@@ -1043,6 +1043,13 @@ export class MockRuntimeBridge {
         }
         throw new RuntimeBridgeError('operation_unimplemented', 'mock bridge does not own voxel conversion authority');
     }
+    registerVoxelConversionMeshAsset(_request) {
+        void _request;
+        if (this.#engine === null) {
+            throw new RuntimeBridgeError('not_initialized', 'registerVoxelConversionMeshAsset before initializeEngine');
+        }
+        throw new RuntimeBridgeError('operation_unimplemented', 'mock bridge does not own voxel conversion authority');
+    }
     previewVoxelConversion(_request) {
         void _request;
         if (this.#engine === null) {

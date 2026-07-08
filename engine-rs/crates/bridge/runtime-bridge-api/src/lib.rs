@@ -79,9 +79,9 @@ pub use protocol_voxel_asset::{
 };
 pub use protocol_voxel_conversion::{
     VoxelConversionApplyRequest, VoxelConversionDiagnostic, VoxelConversionDiagnosticCode,
-    VoxelConversionEvidenceRef, VoxelConversionPlan, VoxelConversionPlanRequest,
-    VoxelConversionPreview, VoxelConversionPreviewRequest, VoxelConversionReceipt,
-    VoxelConversionSourceMaterialSlot, VoxelConversionSourceRegistration,
+    VoxelConversionEvidenceRef, VoxelConversionMeshAssetRegistrationRequest, VoxelConversionPlan,
+    VoxelConversionPlanRequest, VoxelConversionPreview, VoxelConversionPreviewRequest,
+    VoxelConversionReceipt, VoxelConversionSourceMaterialSlot, VoxelConversionSourceRegistration,
     VoxelConversionSourceRegistrationRequest, VoxelModelInfoReadout, VoxelModelInfoRequest,
     VoxelModelMaterialCount,
 };

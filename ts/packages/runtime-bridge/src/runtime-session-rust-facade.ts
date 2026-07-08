@@ -6,6 +6,7 @@ import type {
   FirstPersonCameraInputEnvelope,
   VoxelConversionApplyRequest,
   VoxelConversionEvidenceRef,
+  VoxelConversionMeshAssetRegistrationRequest,
   VoxelConversionPlan,
   VoxelConversionPlanRequest,
   VoxelConversionPreview,
@@ -779,6 +780,13 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   ): VoxelConversionSourceRegistration {
     this.#requireInitialized('registerVoxelConversionSource');
     return this.#bridge.registerVoxelConversionSource(request);
+  }
+
+  registerVoxelConversionMeshAsset(
+    request: VoxelConversionMeshAssetRegistrationRequest,
+  ): VoxelConversionSourceRegistration {
+    this.#requireInitialized('registerVoxelConversionMeshAsset');
+    return this.#bridge.registerVoxelConversionMeshAsset(request);
   }
 
   previewVoxelConversion(request: VoxelConversionPreviewRequest): VoxelConversionPreview {

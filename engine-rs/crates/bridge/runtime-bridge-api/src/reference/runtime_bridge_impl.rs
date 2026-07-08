@@ -353,6 +353,41 @@ impl RuntimeBridge for ReferenceBridge {
         })
     }
 
+    fn register_voxel_conversion_mesh_asset(
+        &mut self,
+        request: VoxelConversionMeshAssetRegistrationRequest,
+    ) -> BridgeResult<VoxelConversionSourceRegistration> {
+        self.require_initialized("register_voxel_conversion_mesh_asset")?;
+        let source = match Self::static_mesh_source_from_project_mesh_asset(&request) {
+            Ok(source) => source,
+            Err(message) => {
+                return Ok(Self::source_registration_diagnostic(
+                    &request.source,
+                    message,
+                ));
+            }
+        };
+        self.voxel_conversion_sources
+            .insert(source.asset_id.clone(), source);
+        self.voxel_conversion_plan = None;
+        let evidence = vec![VoxelConversionEvidenceRef {
+            kind: protocol_voxel_conversion::VoxelConversionEvidenceKind::SourceSnapshot,
+            uri: format!(
+                "asha://voxel-conversion/source/{}",
+                request.source.asset_id.as_str()
+            ),
+            content_hash: request.source.source_hash.clone(),
+        }];
+        self.remember_voxel_conversion_evidence(evidence.clone());
+        Ok(VoxelConversionSourceRegistration {
+            source: request.source,
+            registered: true,
+            material_slots: request.mesh_asset.material_slots,
+            diagnostics: Vec::new(),
+            evidence,
+        })
+    }
+
     fn preview_voxel_conversion(
         &mut self,
         request: VoxelConversionPreviewRequest,

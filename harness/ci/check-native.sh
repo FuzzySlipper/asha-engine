@@ -68,6 +68,29 @@ assert.equal(registration.source.assetVersion, 2);
 assert.equal(registration.materialSlots[0]?.sourceMaterialId, 'material/surface-a');
 assert.equal(registration.evidence[0]?.kind, 'source_snapshot');
 
+const meshAssetRegistrationRequest = {
+  source: {
+    assetId: 'mesh/check-native-project-quad',
+    assetKind: 'mesh',
+    assetVersion: 3,
+    sourceHash: 'sha256:check-native-project-quad',
+    meshPrimitive: 'default',
+  },
+  meshAsset: {
+    assetId: 'mesh/check-native-project-quad',
+    sourcePath: 'assets/mesh/check-native-project-quad.mesh.json',
+    positions: [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]],
+    normals: [],
+    indices: [0, 1, 2, 0, 2, 3],
+    groups: [{ materialSlot: 0, start: 0, count: 6 }],
+    materialSlots: [{ sourceMaterialSlot: 0, sourceMaterialId: 'material/surface-a' }],
+  },
+};
+const meshAssetRegistration = bridge.registerVoxelConversionMeshAsset(meshAssetRegistrationRequest);
+assert.equal(meshAssetRegistration.registered, true);
+assert.equal(meshAssetRegistration.source.assetVersion, 3);
+assert.equal(meshAssetRegistration.materialSlots[0]?.sourceMaterialId, 'material/surface-a');
+
 const rejectedRegistration = bridge.registerVoxelConversionSource({
   ...registrationRequest,
   source: {
@@ -81,7 +104,7 @@ assert.equal(rejectedRegistration.registered, false);
 assert.equal(rejectedRegistration.diagnostics[0]?.code, 'unsupported_source_asset');
 
 const planRequest = {
-  source: registrationRequest.source,
+  source: meshAssetRegistrationRequest.source,
   target: {
     grid: 1,
     volumeAssetId: 'voxel/generated',
@@ -107,7 +130,7 @@ const planRequest = {
 };
 const plan = bridge.planVoxelConversion(planRequest);
 assert.equal(plan.authorityVersion, 'svc-voxel-conversion.v0');
-assert.equal(plan.expectedSourceHash, 'sha256:check-native-registered-triangle');
+assert.equal(plan.expectedSourceHash, 'sha256:check-native-project-quad');
 assert.equal(plan.diagnostics.length, 0);
 assert.match(plan.planHash, /^fnv1a64:[0-9a-f]{16}$/u);
 

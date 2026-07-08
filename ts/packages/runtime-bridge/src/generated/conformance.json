@@ -75,6 +75,14 @@
       "errors": "RuntimeBridgeError"
     },
     {
+      "manifestName": "register_voxel_conversion_mesh_asset",
+      "facadeMethod": "registerVoxelConversionMeshAsset",
+      "surface": "stable",
+      "input": "protocol_voxel_conversion::VoxelConversionMeshAssetRegistrationRequest",
+      "output": "protocol_voxel_conversion::VoxelConversionSourceRegistration",
+      "errors": "RuntimeBridgeError"
+    },
+    {
       "manifestName": "preview_voxel_conversion",
       "facadeMethod": "previewVoxelConversion",
       "surface": "stable",

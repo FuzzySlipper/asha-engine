@@ -53,6 +53,30 @@ export interface VoxelConversionSourceRegistrationRequest {
   readonly materialSlots: readonly VoxelConversionSourceMaterialSlot[];
 }
 
+// A material-indexed triangle group inside a project mesh asset.
+export interface VoxelConversionMeshAssetGroup {
+  readonly materialSlot: number;
+  readonly start: number;
+  readonly count: number;
+}
+
+// Project/catalog static-mesh data accepted by Rust voxel-conversion ingestion.
+export interface VoxelConversionMeshAsset {
+  readonly assetId: string;
+  readonly sourcePath: string | null;
+  readonly positions: readonly (readonly [number, number, number])[];
+  readonly normals: readonly (readonly [number, number, number])[];
+  readonly indices: readonly number[];
+  readonly groups: readonly VoxelConversionMeshAssetGroup[];
+  readonly materialSlots: readonly VoxelConversionSourceMaterialSlot[];
+}
+
+// Register an authored project static-mesh asset as a conversion source.
+export interface VoxelConversionMeshAssetRegistrationRequest {
+  readonly source: VoxelConversionSourceRef;
+  readonly meshAsset: VoxelConversionMeshAsset;
+}
+
 // Result of registering a conversion source; rejected inputs carry diagnostics.
 export interface VoxelConversionSourceRegistration {
   readonly source: VoxelConversionSourceRef;

@@ -1159,6 +1159,39 @@ pub fn voxel_conversion_module() -> Module {
             ],
         ),
         iface(
+            "A material-indexed triangle group inside a project mesh asset.",
+            "VoxelConversionMeshAssetGroup",
+            vec![
+                f("materialSlot", num()),
+                f("start", num()),
+                f("count", num()),
+            ],
+        ),
+        iface(
+            "Project/catalog static-mesh data accepted by Rust voxel-conversion ingestion.",
+            "VoxelConversionMeshAsset",
+            vec![
+                f("assetId", string()),
+                f("sourcePath", TsType::nullable(string())),
+                f("positions", TsType::array(vec3())),
+                f("normals", TsType::array(vec3())),
+                f("indices", TsType::array(num())),
+                f("groups", TsType::array(r("VoxelConversionMeshAssetGroup"))),
+                f(
+                    "materialSlots",
+                    TsType::array(r("VoxelConversionSourceMaterialSlot")),
+                ),
+            ],
+        ),
+        iface(
+            "Register an authored project static-mesh asset as a conversion source.",
+            "VoxelConversionMeshAssetRegistrationRequest",
+            vec![
+                f("source", r("VoxelConversionSourceRef")),
+                f("meshAsset", r("VoxelConversionMeshAsset")),
+            ],
+        ),
+        iface(
             "Result of registering a conversion source; rejected inputs carry diagnostics.",
             "VoxelConversionSourceRegistration",
             vec![

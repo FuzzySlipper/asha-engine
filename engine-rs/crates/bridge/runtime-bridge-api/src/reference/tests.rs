@@ -323,6 +323,40 @@ fn studio_registered_source_request() -> VoxelConversionSourceRegistrationReques
     }
 }
 
+fn project_mesh_asset_registration_request(
+) -> protocol_voxel_conversion::VoxelConversionMeshAssetRegistrationRequest {
+    protocol_voxel_conversion::VoxelConversionMeshAssetRegistrationRequest {
+        source: protocol_voxel_conversion::VoxelConversionSourceRef {
+            asset_id: "mesh/project-quad".to_string(),
+            asset_kind: "mesh".to_string(),
+            asset_version: 5,
+            source_hash: "sha256:project-quad".to_string(),
+            mesh_primitive: Some("default".to_string()),
+        },
+        mesh_asset: protocol_voxel_conversion::VoxelConversionMeshAsset {
+            asset_id: "mesh/project-quad".to_string(),
+            source_path: Some("assets/meshes/project-quad.mesh.json".to_string()),
+            positions: vec![
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 1.0, 0.0],
+                [0.0, 1.0, 0.0],
+            ],
+            normals: Vec::new(),
+            indices: vec![0, 1, 2, 0, 2, 3],
+            groups: vec![protocol_voxel_conversion::VoxelConversionMeshAssetGroup {
+                material_slot: 2,
+                start: 0,
+                count: 6,
+            }],
+            material_slots: vec![VoxelConversionSourceMaterialSlot {
+                source_material_slot: 2,
+                source_material_id: Some("material/project-brick".to_string()),
+            }],
+        },
+    }
+}
+
 fn larger_registered_grid_source_request() -> VoxelConversionSourceRegistrationRequest {
     let mut positions = Vec::new();
     for y in 0..3 {
@@ -393,6 +427,22 @@ fn larger_registered_grid_plan_request(
             source_material_slot: 0,
             source_material_id: Some("material/grid-stone".to_string()),
             voxel_material: 3,
+        }];
+    request.settings.material_map.default_voxel_material = None;
+    request
+}
+
+fn project_mesh_asset_plan_request(
+    registration: &protocol_voxel_conversion::VoxelConversionMeshAssetRegistrationRequest,
+) -> VoxelConversionPlanRequest {
+    let mut request = project_voxel_conversion_request(7);
+    request.source = registration.source.clone();
+    request.settings.resolution = [4, 4, 1];
+    request.settings.material_map.entries =
+        vec![protocol_voxel_conversion::VoxelConversionMaterialMapEntry {
+            source_material_slot: 2,
+            source_material_id: Some("material/project-brick".to_string()),
+            voxel_material: 11,
         }];
     request.settings.material_map.default_voxel_material = None;
     request
@@ -1105,6 +1155,39 @@ fn voxel_conversion_registers_studio_static_mesh_source_before_plan() {
 }
 
 #[test]
+fn voxel_conversion_registers_project_mesh_asset_before_plan() {
+    let mut bridge = init_bridge();
+    let registration_request = project_mesh_asset_registration_request();
+    let registration = bridge
+        .register_voxel_conversion_mesh_asset(registration_request.clone())
+        .unwrap();
+    assert!(registration.registered);
+    assert!(registration.diagnostics.is_empty());
+    assert_eq!(registration.source.asset_id, "mesh/project-quad");
+    assert_eq!(registration.source.asset_version, 5);
+    assert_eq!(registration.material_slots[0].source_material_slot, 2);
+    assert_eq!(
+        registration.material_slots[0].source_material_id.as_deref(),
+        Some("material/project-brick")
+    );
+    assert_eq!(
+        registration.evidence[0].kind,
+        protocol_voxel_conversion::VoxelConversionEvidenceKind::SourceSnapshot
+    );
+
+    let plan = bridge
+        .plan_voxel_conversion(project_mesh_asset_plan_request(&registration_request))
+        .unwrap();
+    assert!(plan.diagnostics.is_empty());
+    assert_eq!(plan.source.asset_id, "mesh/project-quad");
+    assert_eq!(plan.expected_source_hash, "sha256:project-quad");
+    assert_eq!(
+        plan.settings.material_map.entries[0].source_material_slot,
+        2
+    );
+}
+
+#[test]
 fn voxel_conversion_larger_registered_source_applies_and_reports_model_info() {
     let mut bridge = init_bridge();
     let registration_request = larger_registered_grid_source_request();
@@ -1221,6 +1304,63 @@ fn voxel_conversion_larger_registered_source_applies_and_reports_model_info() {
     assert_eq!(
         limited.diagnostics[0].code,
         protocol_voxel_asset::VoxelAssetDiagnosticCode::ExportLimitExceeded
+    );
+}
+
+#[test]
+fn voxel_conversion_project_mesh_asset_registration_rejects_invalid_assets() {
+    let mut bridge = init_bridge();
+
+    let mut missing_geometry = project_mesh_asset_registration_request();
+    missing_geometry.mesh_asset.positions = Vec::new();
+    let rejected_missing = bridge
+        .register_voxel_conversion_mesh_asset(missing_geometry)
+        .unwrap();
+    assert!(!rejected_missing.registered);
+    assert!(rejected_missing.evidence.is_empty());
+    assert_eq!(
+        rejected_missing.diagnostics[0].code,
+        VoxelConversionDiagnosticCode::UnsupportedSourceAsset
+    );
+
+    let mut unsupported_primitive = project_mesh_asset_registration_request();
+    unsupported_primitive.source.mesh_primitive = Some("lod1".to_string());
+    let rejected_primitive = bridge
+        .register_voxel_conversion_mesh_asset(unsupported_primitive)
+        .unwrap();
+    assert!(!rejected_primitive.registered);
+    assert_eq!(
+        rejected_primitive.diagnostics[0].code,
+        VoxelConversionDiagnosticCode::UnsupportedSourceAsset
+    );
+
+    let mut material_slot_mismatch = project_mesh_asset_registration_request();
+    material_slot_mismatch.mesh_asset.groups[0].material_slot = 99;
+    let rejected_material = bridge
+        .register_voxel_conversion_mesh_asset(material_slot_mismatch)
+        .unwrap();
+    assert!(!rejected_material.registered);
+    assert_eq!(
+        rejected_material.diagnostics[0].code,
+        VoxelConversionDiagnosticCode::UnsupportedSourceAsset
+    );
+}
+
+#[test]
+fn voxel_conversion_project_mesh_asset_stale_source_hash_fails_closed() {
+    let mut bridge = init_bridge();
+    let registration_request = project_mesh_asset_registration_request();
+    let registration = bridge
+        .register_voxel_conversion_mesh_asset(registration_request.clone())
+        .unwrap();
+    assert!(registration.registered);
+
+    let mut plan_request = project_mesh_asset_plan_request(&registration_request);
+    plan_request.source.source_hash = "sha256:stale-project-quad".to_string();
+    let plan = bridge.plan_voxel_conversion(plan_request).unwrap();
+    assert_eq!(
+        plan.diagnostics[0].code,
+        VoxelConversionDiagnosticCode::SourceHashMismatch
     );
 }
 

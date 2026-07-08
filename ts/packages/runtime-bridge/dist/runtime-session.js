@@ -586,6 +586,11 @@ class ReferenceRuntimeSessionFacade {
         this.#requireInitialized('registerVoxelConversionSource');
         throw new RuntimeBridgeError('operation_unimplemented', 'Voxel conversion source registration is not wired into the reference RuntimeSession');
     }
+    registerVoxelConversionMeshAsset(_request) {
+        void _request;
+        this.#requireInitialized('registerVoxelConversionMeshAsset');
+        throw new RuntimeBridgeError('operation_unimplemented', 'Voxel conversion mesh asset registration is not wired into the reference RuntimeSession');
+    }
     previewVoxelConversion(_request) {
         void _request;
         this.#requireInitialized('previewVoxelConversion');

@@ -1,4 +1,4 @@
-import type { CameraCreateRequest, CameraProjectionRequest, CollisionConstrainedCameraInputEnvelope, CommandBatch, FirstPersonCameraInputEnvelope, VoxelConversionApplyRequest, VoxelConversionEvidenceRef, VoxelConversionPlan, VoxelConversionPlanRequest, VoxelConversionPreview, VoxelConversionPreviewRequest, VoxelConversionReceipt, VoxelConversionSourceRegistration, VoxelConversionSourceRegistrationRequest, VoxelModelInfoReadout, VoxelModelInfoRequest, VoxelVolumeAssetExportReceipt, VoxelVolumeAssetExportRequest, VoxelVolumeAssetLoadReceipt, VoxelVolumeAssetLoadRequest, WeaponEffectHookRequest, GameRuleCatalog, GameRuleResolutionRequest } from '@asha/contracts';
+import type { CameraCreateRequest, CameraProjectionRequest, CollisionConstrainedCameraInputEnvelope, CommandBatch, FirstPersonCameraInputEnvelope, VoxelConversionApplyRequest, VoxelConversionEvidenceRef, VoxelConversionMeshAssetRegistrationRequest, VoxelConversionPlan, VoxelConversionPlanRequest, VoxelConversionPreview, VoxelConversionPreviewRequest, VoxelConversionReceipt, VoxelConversionSourceRegistration, VoxelConversionSourceRegistrationRequest, VoxelModelInfoReadout, VoxelModelInfoRequest, VoxelVolumeAssetExportReceipt, VoxelVolumeAssetExportRequest, VoxelVolumeAssetLoadReceipt, VoxelVolumeAssetLoadRequest, WeaponEffectHookRequest, GameRuleCatalog, GameRuleResolutionRequest } from '@asha/contracts';
 import { type FpsPrimaryFireRequest, type GameRuleRuntimeReadout, type RuntimeBridge } from './bridge.js';
 import type { CombatRuntimeReadout } from './combat-readout.js';
 import type { CombatFeedbackProjection } from './combat-feedback.js';
@@ -36,6 +36,7 @@ export declare class RustBackedRuntimeSessionFacade implements RuntimeSessionFac
     requestGeneratedTunnelOperation(_request: GeneratedTunnelOperationRequest): RuntimeSessionGeneratedTunnelOperationReceipt;
     planVoxelConversion(request: VoxelConversionPlanRequest): VoxelConversionPlan;
     registerVoxelConversionSource(request: VoxelConversionSourceRegistrationRequest): VoxelConversionSourceRegistration;
+    registerVoxelConversionMeshAsset(request: VoxelConversionMeshAssetRegistrationRequest): VoxelConversionSourceRegistration;
     previewVoxelConversion(request: VoxelConversionPreviewRequest): VoxelConversionPreview;
     applyVoxelConversion(request: VoxelConversionApplyRequest): VoxelConversionReceipt;
     exportVoxelConversionEvidence(evidence: readonly VoxelConversionEvidenceRef[]): readonly VoxelConversionEvidenceRef[];

@@ -48,6 +48,13 @@ pub trait RuntimeBridge {
         &mut self,
         request: VoxelConversionSourceRegistrationRequest,
     ) -> BridgeResult<VoxelConversionSourceRegistration>;
+    /// Register a project/catalog static-mesh asset as an authority-visible
+    /// conversion source. Rust validates/parses the mesh asset; callers provide
+    /// selection and identity, not parsed conversion authority.
+    fn register_voxel_conversion_mesh_asset(
+        &mut self,
+        request: VoxelConversionMeshAssetRegistrationRequest,
+    ) -> BridgeResult<VoxelConversionSourceRegistration>;
     /// Preview the most recently planned conversion, guarded by the plan hash.
     fn preview_voxel_conversion(
         &mut self,

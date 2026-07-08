@@ -15,6 +15,9 @@ import type {
   RenderFrameDiff,
   VoxelConversionApplyRequest,
   VoxelConversionEvidenceRef,
+  VoxelConversionMeshAsset,
+  VoxelConversionMeshAssetGroup,
+  VoxelConversionMeshAssetRegistrationRequest,
   VoxelConversionPlan,
   VoxelConversionPlanRequest,
   VoxelConversionPreview,
@@ -261,6 +264,7 @@ export interface NativeAddon {
   };
   planVoxelConversion(handle: number, requestJson: string): string;
   registerVoxelConversionSource(handle: number, requestJson: string): string;
+  registerVoxelConversionMeshAsset(handle: number, requestJson: string): string;
   previewVoxelConversion(handle: number, requestJson: string): string;
   applyVoxelConversion(handle: number, requestJson: string): string;
   exportVoxelConversionEvidence(handle: number, evidenceJson: string): string;
@@ -272,9 +276,12 @@ export interface NativeAddon {
 export type {
   VoxelConversionApplyRequest,
   VoxelConversionEvidenceRef,
+  VoxelConversionMeshAsset,
+  VoxelConversionMeshAssetGroup,
   GameRuleCatalog,
   GameRuleResolutionReceipt,
   GameRuleResolutionRequest,
+  VoxelConversionMeshAssetRegistrationRequest,
   VoxelConversionPlan,
   VoxelConversionPlanRequest,
   VoxelConversionPreview,
@@ -319,6 +326,7 @@ export const REQUIRED_NATIVE_ADDON_EXPORTS = [
   'getCompositionStatus',
   'planVoxelConversion',
   'registerVoxelConversionSource',
+  'registerVoxelConversionMeshAsset',
   'previewVoxelConversion',
   'applyVoxelConversion',
   'exportVoxelConversionEvidence',

@@ -567,6 +567,10 @@ export class RustBackedRuntimeSessionFacade {
         this.#requireInitialized('registerVoxelConversionSource');
         return this.#bridge.registerVoxelConversionSource(request);
     }
+    registerVoxelConversionMeshAsset(request) {
+        this.#requireInitialized('registerVoxelConversionMeshAsset');
+        return this.#bridge.registerVoxelConversionMeshAsset(request);
+    }
     previewVoxelConversion(request) {
         this.#requireInitialized('previewVoxelConversion');
         return this.#bridge.previewVoxelConversion(request);

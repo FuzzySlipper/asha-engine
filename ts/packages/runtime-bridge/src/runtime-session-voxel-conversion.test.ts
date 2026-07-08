@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import type {
   VoxelConversionApplyRequest,
   VoxelConversionEvidenceRef,
+  VoxelConversionMeshAssetRegistrationRequest,
   VoxelConversionPlan,
   VoxelConversionPlanRequest,
   VoxelConversionPreview,
@@ -98,6 +99,30 @@ function voxelConversionSourceRegistrationRequest(): VoxelConversionSourceRegist
   };
 }
 
+function voxelConversionMeshAssetRegistrationRequest(): VoxelConversionMeshAssetRegistrationRequest {
+  return {
+    source: voxelConversionPlanRequest().source,
+    meshAsset: {
+      assetId: 'mesh/quad',
+      sourcePath: 'assets/mesh/quad.mesh.json',
+      positions: [
+        [0, 0, 0],
+        [1, 0, 0],
+        [0, 1, 0],
+      ],
+      normals: [],
+      indices: [0, 1, 2],
+      groups: [{ materialSlot: 0, start: 0, count: 3 }],
+      materialSlots: [
+        {
+          sourceMaterialSlot: 0,
+          sourceMaterialId: 'mat/a',
+        },
+      ],
+    },
+  };
+}
+
 const PLAN_HASH = 'fnv1a64:plan-hash';
 const PREVIEW_HASH = 'fnv1a64:preview-hash';
 
@@ -110,6 +135,18 @@ function voxelConversionSourceRegistration(
     materialSlots: request.materialSlots,
     diagnostics: [],
     evidence: [{ kind: 'diagnostics', uri: 'asha://voxel-conversion/source/mesh/quad', contentHash: request.source.sourceHash }],
+  };
+}
+
+function voxelConversionMeshAssetRegistration(
+  request: VoxelConversionMeshAssetRegistrationRequest,
+): VoxelConversionSourceRegistration {
+  return {
+    source: request.source,
+    registered: true,
+    materialSlots: request.meshAsset.materialSlots,
+    diagnostics: [],
+    evidence: [{ kind: 'source_snapshot', uri: `asha://voxel-conversion/source/${request.meshAsset.assetId}`, contentHash: request.source.sourceHash }],
   };
 }
 
@@ -194,6 +231,10 @@ function createVoxelConversionBridge(): RuntimeBridge {
       if (property === 'registerVoxelConversionSource') {
         return (request: VoxelConversionSourceRegistrationRequest): VoxelConversionSourceRegistration =>
           voxelConversionSourceRegistration(request);
+      }
+      if (property === 'registerVoxelConversionMeshAsset') {
+        return (request: VoxelConversionMeshAssetRegistrationRequest): VoxelConversionSourceRegistration =>
+          voxelConversionMeshAssetRegistration(request);
       }
       if (property === 'planVoxelConversion') {
         return (request: VoxelConversionPlanRequest): VoxelConversionPlan => {
@@ -371,10 +412,18 @@ void test('reference RuntimeSession voxel conversion facade methods remain typed
     () => referenceSession.registerVoxelConversionSource(voxelConversionSourceRegistrationRequest()),
     (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'not_initialized',
   );
+  assert.throws(
+    () => referenceSession.registerVoxelConversionMeshAsset(voxelConversionMeshAssetRegistrationRequest()),
+    (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'not_initialized',
+  );
 
   referenceSession.initialize(sessionInput());
   assert.throws(
     () => referenceSession.registerVoxelConversionSource(voxelConversionSourceRegistrationRequest()),
+    (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'operation_unimplemented',
+  );
+  assert.throws(
+    () => referenceSession.registerVoxelConversionMeshAsset(voxelConversionMeshAssetRegistrationRequest()),
     (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'operation_unimplemented',
   );
   assert.throws(
@@ -467,6 +516,12 @@ void test('Rust-backed RuntimeSession delegates voxel conversion to the bridge a
   assert.equal(registration.source.assetId, 'mesh/quad');
   assert.equal(registration.registered, true);
   assert.deepEqual(registration.materialSlots, registrationRequest.materialSlots);
+
+  const meshAssetRegistrationRequest = voxelConversionMeshAssetRegistrationRequest();
+  const meshAssetRegistration = rustSession.registerVoxelConversionMeshAsset(meshAssetRegistrationRequest);
+  assert.equal(meshAssetRegistration.source.assetId, 'mesh/quad');
+  assert.equal(meshAssetRegistration.registered, true);
+  assert.deepEqual(meshAssetRegistration.materialSlots, meshAssetRegistrationRequest.meshAsset.materialSlots);
 
   const plan = rustSession.planVoxelConversion(request);
   assert.equal(plan.authorityVersion, 'svc-voxel-conversion.v0');

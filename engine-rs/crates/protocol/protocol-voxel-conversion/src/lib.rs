@@ -221,6 +221,36 @@ pub struct VoxelConversionSourceRegistrationRequest {
     pub material_slots: Vec<VoxelConversionSourceMaterialSlot>,
 }
 
+/// A material-indexed triangle group inside a project mesh asset.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VoxelConversionMeshAssetGroup {
+    pub material_slot: u32,
+    pub start: u32,
+    pub count: u32,
+}
+
+/// Project/catalog static-mesh data accepted by Rust voxel-conversion ingestion.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VoxelConversionMeshAsset {
+    pub asset_id: String,
+    pub source_path: Option<String>,
+    pub positions: Vec<[f32; 3]>,
+    pub normals: Vec<[f32; 3]>,
+    pub indices: Vec<u32>,
+    pub groups: Vec<VoxelConversionMeshAssetGroup>,
+    pub material_slots: Vec<VoxelConversionSourceMaterialSlot>,
+}
+
+/// Register an authored project static-mesh asset as a conversion source.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VoxelConversionMeshAssetRegistrationRequest {
+    pub source: VoxelConversionSourceRef,
+    pub mesh_asset: VoxelConversionMeshAsset,
+}
+
 /// Result of registering a conversion source; rejected inputs carry diagnostics.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

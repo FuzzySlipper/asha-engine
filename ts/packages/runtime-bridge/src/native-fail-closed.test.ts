@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 
 import type {
   VoxelConversionApplyRequest,
+  VoxelConversionMeshAssetRegistrationRequest,
   VoxelConversionPlanRequest,
   VoxelConversionPreviewRequest,
   VoxelConversionSourceRegistrationRequest,
@@ -100,10 +101,13 @@ const REQUIRED_NATIVE_CONFORMANCE_OPS = [
   'apply_fps_encounter_transition',
   'plan_voxel_conversion',
   'register_voxel_conversion_source',
+  'register_voxel_conversion_mesh_asset',
   'preview_voxel_conversion',
   'apply_voxel_conversion',
   'export_voxel_conversion_evidence',
   'read_voxel_model_info',
+  'export_voxel_volume_asset',
+  'load_voxel_volume_asset',
   'read_render_diffs',
   'save_current_world',
   'get_composition_status',
@@ -194,6 +198,19 @@ const VOXEL_CONVERSION_SOURCE_REGISTRATION_REQUEST = {
   triangles: [{ indices: [0, 1, 2] as const, sourceMaterialSlot: 0 }],
   materialSlots: [{ sourceMaterialSlot: 0, sourceMaterialId: 'mat/a' }],
 } satisfies VoxelConversionSourceRegistrationRequest;
+
+const VOXEL_CONVERSION_MESH_ASSET_REGISTRATION_REQUEST = {
+  source: VOXEL_CONVERSION_PLAN_REQUEST.source,
+  meshAsset: {
+    assetId: 'mesh/quad',
+    sourcePath: 'assets/mesh/quad.mesh.json',
+    positions: [[0, 0, 0], [1, 0, 0], [0, 1, 0]] as const,
+    normals: [] as const,
+    indices: [0, 1, 2] as const,
+    groups: [{ materialSlot: 0, start: 0, count: 3 }],
+    materialSlots: [{ sourceMaterialSlot: 0, sourceMaterialId: 'mat/a' }],
+  },
+} satisfies VoxelConversionMeshAssetRegistrationRequest;
 
 const VOXEL_CONVERSION_EVIDENCE = [
   {
@@ -676,6 +693,21 @@ function fakeAddon(calls: string[] = []): NativeAddon {
         }],
       });
     },
+    registerVoxelConversionMeshAsset: (_handle: number, requestJson: string) => {
+      calls.push(`voxelMeshAssetRegister:${requestJson}`);
+      const request = parseJsonFixture<VoxelConversionMeshAssetRegistrationRequest>(requestJson);
+      return JSON.stringify({
+        source: request.source,
+        registered: true,
+        materialSlots: request.meshAsset.materialSlots,
+        diagnostics: [],
+        evidence: [{
+          kind: 'source_snapshot',
+          uri: `asha://voxel-conversion/source/${request.meshAsset.assetId}`,
+          contentHash: request.source.sourceHash,
+        }],
+      });
+    },
     previewVoxelConversion: (_handle: number, requestJson: string) => {
       calls.push(`voxelPreview:${requestJson}`);
       const request = parseJsonFixture<VoxelConversionPreviewRequest>(requestJson);
@@ -877,6 +909,7 @@ const INVOKE = new Map<string, (b: RuntimeBridge) => unknown>([
   })],
   ['planVoxelConversion', (b) => b.planVoxelConversion(VOXEL_CONVERSION_PLAN_REQUEST)],
   ['registerVoxelConversionSource', (b) => b.registerVoxelConversionSource(VOXEL_CONVERSION_SOURCE_REGISTRATION_REQUEST)],
+  ['registerVoxelConversionMeshAsset', (b) => b.registerVoxelConversionMeshAsset(VOXEL_CONVERSION_MESH_ASSET_REGISTRATION_REQUEST)],
   ['previewVoxelConversion', (b) => b.previewVoxelConversion({
     planId: 'fnv1a64:0000000000000101',
     expectedPlanHash: VOXEL_PLAN_HASH,
@@ -1045,6 +1078,10 @@ void test('native conformance sequence routes through the addon without mock fal
   assert.equal(registration.registered, true);
   assert.equal(registration.source.assetId, 'mesh/native-registered-triangle');
   assert.equal(registration.materialSlots[0]?.sourceMaterialId, 'mat/a');
+  const meshAssetRegistration = bridge.registerVoxelConversionMeshAsset(VOXEL_CONVERSION_MESH_ASSET_REGISTRATION_REQUEST);
+  assert.equal(meshAssetRegistration.registered, true);
+  assert.equal(meshAssetRegistration.source.assetId, 'mesh/quad');
+  assert.equal(meshAssetRegistration.materialSlots[0]?.sourceMaterialId, 'mat/a');
   assert.deepEqual(bridge.readRenderDiffs(frameCursor(0)), { ops: [{ op: 'sentinel' }] });
   assert.deepEqual(bridge.saveCurrentWorld(), { artifactsWritten: 5, compactedEdits: 2, retainedEdits: 3 });
   assert.deepEqual(bridge.getCompositionStatus(), {
@@ -1071,6 +1108,7 @@ void test('native conformance sequence routes through the addon without mock fal
     'fpsEncounterRead',
     'fpsEncounterTransition',
     'voxelRegister:{"source":{"assetId":"mesh/native-registered-triangle","assetKind":"mesh","assetVersion":2,"sourceHash":"sha256:native-registered-triangle","meshPrimitive":"default"},"positions":[[0,0,0],[1,0,0],[0,1,0]],"triangles":[{"indices":[0,1,2],"sourceMaterialSlot":0}],"materialSlots":[{"sourceMaterialSlot":0,"sourceMaterialId":"mat/a"}]}',
+    'voxelMeshAssetRegister:{"source":{"assetId":"mesh/quad","assetKind":"mesh","assetVersion":1,"sourceHash":"sha256:quad","meshPrimitive":null},"meshAsset":{"assetId":"mesh/quad","sourcePath":"assets/mesh/quad.mesh.json","positions":[[0,0,0],[1,0,0],[0,1,0]],"normals":[],"indices":[0,1,2],"groups":[{"materialSlot":0,"start":0,"count":3}],"materialSlots":[{"sourceMaterialSlot":0,"sourceMaterialId":"mat/a"}]}}',
     'render:0',
     'save',
     'status',

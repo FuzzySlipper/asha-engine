@@ -34,6 +34,7 @@ export const REQUIRED_NATIVE_ADDON_EXPORTS = [
     'getCompositionStatus',
     'planVoxelConversion',
     'registerVoxelConversionSource',
+    'registerVoxelConversionMeshAsset',
     'previewVoxelConversion',
     'applyVoxelConversion',
     'exportVoxelConversionEvidence',

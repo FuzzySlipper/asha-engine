@@ -96,6 +96,14 @@ errors = "RuntimeBridgeError"
 summary = "Register inline static-mesh geometry as an authority-visible voxel conversion source; rejected inputs return typed diagnostics and no Studio-side voxelizer is involved."
 
 [[operation]]
+name = "register_voxel_conversion_mesh_asset"
+surface = "stable"
+input = "protocol_voxel_conversion::VoxelConversionMeshAssetRegistrationRequest"
+output = "protocol_voxel_conversion::VoxelConversionSourceRegistration"
+errors = "RuntimeBridgeError"
+summary = "Register a ProjectBundle/catalog static-mesh asset as an authority-visible voxel conversion source; Rust validates mesh geometry, primitive identity, and material slots."
+
+[[operation]]
 name = "preview_voxel_conversion"
 surface = "stable"
 input = "protocol_voxel_conversion::VoxelConversionPreviewRequest"

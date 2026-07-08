@@ -441,6 +441,93 @@ impl ReferenceBridge {
         })
     }
 
+    fn static_mesh_source_from_project_mesh_asset(
+        request: &VoxelConversionMeshAssetRegistrationRequest,
+    ) -> Result<StaticMeshSource, String> {
+        let asset = &request.mesh_asset;
+        if request.source.asset_id != asset.asset_id
+            || request.source.asset_kind != "mesh"
+            || request.source.asset_version == 0
+            || request.source.source_hash.is_empty()
+        {
+            return Err(
+                "mesh asset source ref does not match a supported project mesh asset identity"
+                    .to_string(),
+            );
+        }
+        if !matches!(
+            request.source.mesh_primitive.as_deref(),
+            None | Some("default")
+        ) {
+            return Err("only the default mesh primitive is supported for project mesh asset voxel conversion".to_string());
+        }
+        if asset.positions.is_empty() || asset.indices.is_empty() || asset.groups.is_empty() {
+            return Err(
+                "project mesh asset must contain positions, indices, and triangle groups"
+                    .to_string(),
+            );
+        }
+        if !asset.normals.is_empty() && asset.normals.len() != asset.positions.len() {
+            return Err(
+                "project mesh asset normals must either be omitted or match position count"
+                    .to_string(),
+            );
+        }
+        let material_slots = asset
+            .material_slots
+            .iter()
+            .map(|slot| slot.source_material_slot)
+            .collect::<BTreeSet<_>>();
+        let mut covered = 0u64;
+        let mut triangles = Vec::new();
+        for group in &asset.groups {
+            if group.count % 3 != 0 {
+                return Err("project mesh asset group is not a triangle list".to_string());
+            }
+            if !material_slots.contains(&group.material_slot) {
+                return Err(
+                    "project mesh asset group references an unbound material slot".to_string(),
+                );
+            }
+            let start = group.start as usize;
+            let end = start + group.count as usize;
+            if end > asset.indices.len() {
+                return Err(
+                    "project mesh asset group range is outside the index buffer".to_string()
+                );
+            }
+            covered += u64::from(group.count);
+            for tri in asset.indices[start..end].chunks_exact(3) {
+                if tri
+                    .iter()
+                    .any(|index| *index as usize >= asset.positions.len())
+                {
+                    return Err(
+                        "project mesh asset index references a missing position".to_string()
+                    );
+                }
+                triangles.push(MeshTriangle {
+                    indices: [tri[0], tri[1], tri[2]],
+                    source_material_slot: group.material_slot,
+                });
+            }
+        }
+        if covered != asset.indices.len() as u64 {
+            return Err(
+                "project mesh asset groups must exactly cover the index buffer".to_string(),
+            );
+        }
+        Ok(StaticMeshSource {
+            asset_id: request.source.asset_id.clone(),
+            asset_kind: "mesh".to_string(),
+            asset_version: request.source.asset_version,
+            source_hash: request.source.source_hash.clone(),
+            mesh_primitive: request.source.mesh_primitive.clone(),
+            positions: asset.positions.clone(),
+            triangles,
+        })
+    }
+
     fn source_registration_diagnostic(
         source: &protocol_voxel_conversion::VoxelConversionSourceRef,
         message: impl Into<String>,

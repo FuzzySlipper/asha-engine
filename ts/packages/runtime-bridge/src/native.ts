@@ -12,6 +12,7 @@ import type {
   SceneObjectSnapshot,
   VoxelConversionApplyRequest,
   VoxelConversionEvidenceRef,
+  VoxelConversionMeshAssetRegistrationRequest,
   VoxelConversionPlan,
   VoxelConversionPlanRequest,
   VoxelConversionPreview,
@@ -108,6 +109,7 @@ export const NATIVE_WIRED_OPERATIONS: ReadonlySet<string> = new Set<string>([
   'apply_fps_encounter_transition',
   'plan_voxel_conversion',
   'register_voxel_conversion_source',
+  'register_voxel_conversion_mesh_asset',
   'preview_voxel_conversion',
   'apply_voxel_conversion',
   'export_voxel_conversion_evidence',
@@ -624,6 +626,16 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     const handle = this.#requireHandle('registerVoxelConversionSource');
     const payload = callNative(() => this.#addon.registerVoxelConversionSource(handle, JSON.stringify(request)));
     return parseNativeJson<VoxelConversionSourceRegistration>(payload, 'voxel conversion source registration');
+  }
+
+  registerVoxelConversionMeshAsset(
+    request: VoxelConversionMeshAssetRegistrationRequest,
+  ): VoxelConversionSourceRegistration {
+    const handle = this.#requireHandle('registerVoxelConversionMeshAsset');
+    const payload = callNative(() =>
+      this.#addon.registerVoxelConversionMeshAsset(handle, JSON.stringify(request)),
+    );
+    return parseNativeJson<VoxelConversionSourceRegistration>(payload, 'voxel conversion mesh asset registration');
   }
 
   previewVoxelConversion(request: VoxelConversionPreviewRequest): VoxelConversionPreview {
