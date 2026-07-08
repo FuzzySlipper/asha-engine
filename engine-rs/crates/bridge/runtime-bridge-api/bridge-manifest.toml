@@ -326,31 +326,35 @@ errors = "RuntimeBridgeError"
 buffers = "invalidates any outstanding RuntimeBufferView for the handle"
 summary = "Release a borrowed buffer; outstanding views must be copied out first."
 
-# ── World load/save composition surface (world-runtime-composition, #2363) ───
-# Curated, bounded verbs for loading a world bundle into authority, saving the
-# current world, and reading composition status/diagnostics. Operational (native)
-# path — NOT a replacement for replay verification (the quarantined replay surface
-# below remains the authority check). Inputs/outputs are generated protocol types;
-# the runtime never accepts a raw path or JSON blob here.
+# ── ProjectBundle load/save composition surface (#2363 vocabulary migration) ─
+# Curated, bounded verbs for loading a ProjectBundle into authority, saving the
+# current ProjectBundle/session content, and reading composition status/diagnostics.
+# The manifest operation names still carry the legacy Rust/native ABI vocabulary
+# until the Rust bridge migration lands, but the TypeScript RuntimeBridge facade
+# uses the target ProjectBundle names now. Inputs/outputs are generated protocol
+# types; the runtime never accepts a raw path or JSON blob here.
 
 [[operation]]
 name = "load_world_bundle"
+facade_method = "loadProjectBundle"
 surface = "stable"
 input = "protocol_world_bundle::WorldBundleManifest"
 output = "protocol_diagnostics::DiagnosticReportSet"
 errors = "RuntimeBridgeError"
-summary = "Load a world bundle into authority via the staged executor. Returns the composition diagnostics (empty == loaded; a fatal report == failed, prior world untouched)."
+summary = "Load a ProjectBundle into authority via the staged executor. Returns the composition diagnostics (empty == loaded; a fatal report == failed, prior ProjectBundle/session state untouched)."
 
 [[operation]]
 name = "save_current_world"
+facade_method = "saveProjectBundle"
 surface = "stable"
 input = "Unit"
 output = "protocol_world_bundle::SaveSummary"
 errors = "RuntimeBridgeError"
-summary = "Save the current authority world through the real save/compaction path. Fails closed with NotInitialized if no world is loaded."
+summary = "Save the current ProjectBundle/session content through the real save/compaction path. Fails closed with NotInitialized if no ProjectBundle is loaded."
 
 [[operation]]
 name = "get_composition_status"
+facade_method = "getProjectBundleCompositionStatus"
 surface = "stable"
 input = "Unit"
 output = "protocol_diagnostics::DiagnosticReportSet"
@@ -359,11 +363,12 @@ summary = "Read the current load/save composition status and diagnostics without
 
 [[operation]]
 name = "unload_world"
+facade_method = "unloadProjectBundle"
 surface = "stable"
 input = "Unit"
 output = "Unit"
 errors = "RuntimeBridgeError"
-summary = "Unload the staged/live world, returning the runtime to an empty state."
+summary = "Unload the staged/live ProjectBundle, returning the runtime to an empty state."
 
 # ── Replay surface (quarantined: tests/devtools/CI only) ─────────────────────
 # These are exercised through the wasm-replay-bridge / native replay path, not

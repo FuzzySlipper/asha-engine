@@ -1,6 +1,6 @@
-// World DTO drift guard (task #2423).
+// ProjectBundle DTO drift guard (task #2423).
 //
-// The facade's world load/save payloads are deliberate *prototype* subsets of the
+// The facade's ProjectBundle load/save payloads are deliberate *prototype* subsets of the
 // generated protocol contracts (@asha/contracts). Until they are replaced outright,
 // these compile-time assertions make drift visible: if a shared field's type
 // changes in the generated contract, this file fails `tsc --build` (and therefore

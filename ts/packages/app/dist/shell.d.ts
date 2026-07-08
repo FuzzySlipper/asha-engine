@@ -1,5 +1,5 @@
 import type { PickRay, PickResult, RenderFrameDiff } from '@asha/contracts';
-import { RuntimeBridgeError, type CompositionStatus, type RuntimeBridge, type WorldLoadRequest } from '@asha/runtime-bridge';
+import { RuntimeBridgeError, type CompositionStatus, type RuntimeBridge, type ProjectBundleLoadRequest } from '@asha/runtime-bridge';
 import { type EditorControl, type MaterialOption } from '@asha/ui-dom';
 import { type EditorInspection } from '@asha/devtools';
 import { ThreeRenderer } from '@asha/renderer-three/backend';
@@ -56,7 +56,7 @@ export interface FixtureChoice {
     readonly label: string;
     /** Catalog material ids this fixture exposes (drives the material palette). */
     readonly materials: readonly number[];
-    readonly request: WorldLoadRequest;
+    readonly request: ProjectBundleLoadRequest;
 }
 /** Everything the host injects to compose the shell. */
 export interface AppShellConfig {

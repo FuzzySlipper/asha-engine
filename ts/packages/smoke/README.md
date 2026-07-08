@@ -34,12 +34,13 @@ or any external tool can link to them.
   reported. The canonical smoke runs on the fully-wired **mock** facade for
   determinism (the native addon is a partial prototype today); native mode is
   opt-in by injecting a `bootBridge`.
-- **load** — an abstract fixture world (`sceneId 1001`) loads through the real
-  `loadWorldBundle` facade verb; diagnostics are summarized.
+- **load** — an abstract fixture ProjectBundle (`sceneId 1001`) loads through
+  the real `loadProjectBundle` facade verb; diagnostics are summarized.
 - **render** — a deterministic fixture frame is uploaded through the real
   `renderer-three` create → `replaceMeshPayload` path (GL-free scene graph).
 - **edit-save** — a proposed command is submitted through `submitCommands`
-  (accepted/rejected both observable) and the world is saved via `saveCurrentWorld`.
+  (accepted/rejected both observable) and the ProjectBundle is saved via
+  `saveProjectBundle`.
 
 A missing native/WASM/runtime capability is **classified** (see
 `SmokeFailureCategory`), never a silent blank success.
@@ -50,12 +51,12 @@ A missing native/WASM/runtime capability is **classified** (see
 asha-smoke: PASS
 command: pnpm --filter @asha/smoke dev:asha-smoke
 runtimeMode: mock (nativeAvailable=true)
-capabilities: runtimeBridge=mock worldLoad=mock renderer=ok projection=mock
-fixture: id=1001 worldHash=f4a19eb318f7749d
+capabilities: runtimeBridge=mock projectBundleLoad=mock renderer=ok projection=mock
+fixture: id=1001 projectBundleHash=f4a19eb318f7749d
 diagnostics: total=0 fatal=0 blocksLoad=false
 render: applied=true sceneNodes=1
 stage boot: ok — runtime facade up in mock mode (nativeAvailable=true)
-stage load: ok — loaded world 1001
+stage load: ok — loaded ProjectBundle 1001
 stage render: ok — applied fixture frame; scene nodes=1
 stage edit-save: ok — proposed 1 command → accepted=1 rejected=0; rejected-path visible=true; saved artifacts=3
 ```
@@ -64,9 +65,9 @@ stage edit-save: ok — proposed 1 command → accepted=1 rejected=0; rejected-p
 
 ```
 asha-smoke: FAIL
-capabilities: runtimeBridge=mock worldLoad=unavailable renderer=ok projection=unavailable
-stage load: FAIL — load did not settle (loadedWorld=null, blocksLoad=true)
-failure [load_failure] runtime-bridge.loadWorldBundle: world 1001 did not load cleanly → inspect composition diagnostics for the failing artifact
+capabilities: runtimeBridge=mock projectBundleLoad=unavailable renderer=ok projection=unavailable
+stage load: FAIL — load did not settle (loadedProjectBundle=null, blocksLoad=true)
+failure [load_failure] runtime-bridge.loadProjectBundle: ProjectBundle 1001 did not load cleanly → inspect composition diagnostics for the failing artifact
 ```
 
 ## Programmatic use

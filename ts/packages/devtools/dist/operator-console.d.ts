@@ -16,7 +16,7 @@ export interface CapabilityStatus {
 /** The unified runtime status: mode, loaded world identity/versions, capabilities. */
 export interface RuntimeStatus {
     readonly mode: RuntimeMode;
-    readonly loadedWorldId: number | null;
+    readonly loadedProjectBundleId: number | null;
     readonly worldHash: string | null;
     readonly protocolVersion: number | null;
     readonly schemaVersion: number | null;
@@ -27,7 +27,7 @@ export interface PersistenceReadout {
     readonly operation: 'save' | 'load' | 'replay';
     readonly status: 'ok' | 'failed';
     readonly worldHash: string | null;
-    /** Artifact roles touched (e.g. sceneDocument, worldStateSnapshot, voxelEditLog). */
+    /** Artifact roles touched (e.g. sceneDocument, sessionStateSnapshot, voxelEditLog). */
     readonly artifactRoles: readonly string[];
     /** Classified divergence/compaction summary, when relevant. */
     readonly detail: string | null;

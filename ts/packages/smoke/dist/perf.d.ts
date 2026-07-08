@@ -19,7 +19,7 @@ export interface PerfMetadata {
     readonly runtimeMode: BridgeBoot['mode'];
     readonly smokeMode: SmokeMode;
     readonly fixtureId: number;
-    readonly fixtureWorldHash: string;
+    readonly fixtureProjectBundleHash: string;
     readonly node: string;
     readonly platform: string;
     readonly arch: string;

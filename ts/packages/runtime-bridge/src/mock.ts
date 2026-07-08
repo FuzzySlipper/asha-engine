@@ -85,8 +85,8 @@ import {
   type StepResult,
   type VoxelMeshEvidenceRequest,
   type VoxelMeshEvidenceSnapshot,
-  type WorldLoadRequest,
-  type WorldSaveSummary,
+  type ProjectBundleLoadRequest,
+  type ProjectBundleSaveSummary,
 } from './bridge.js';
 import { MockGameRuleRuntime } from './mock-game-rules.js';
 
@@ -578,7 +578,7 @@ export class MockRuntimeBridge implements RuntimeBridge {
   #engine: EngineHandle | null = null;
   #buffer: Uint8Array = new Uint8Array();
   #replaySteps = 0;
-  #loadedWorld: number | null = null;
+  #loadedProjectBundle: number | null = null;
   #sceneDocument = initialMockSceneDocument();
   #nextCamera = 1;
   #cameras = new Map<number, MutableCameraSnapshot>();
@@ -1494,35 +1494,35 @@ export class MockRuntimeBridge implements RuntimeBridge {
     this.#buffer = new Uint8Array();
   }
 
-  loadWorldBundle(request: WorldLoadRequest): CompositionStatus {
+  loadProjectBundle(request: ProjectBundleLoadRequest): CompositionStatus {
     const bundleSchemaVersion = u32(request.bundleSchemaVersion, 'bundleSchemaVersion');
     const protocolVersion = u32(request.protocolVersion, 'protocolVersion');
     const sceneId = nonNegativeSafeInteger(request.sceneId, 'sceneId');
     // Fail closed on a newer bundle; the prior loaded world is left untouched
-    // (we only set #loadedWorld on success — the staged commit/swap).
+    // (we only set #loadedProjectBundle on success — the staged commit/swap).
     if (bundleSchemaVersion > 1 || protocolVersion > 1) {
       throw new RuntimeBridgeError(
         'invalid_input',
         `unsupported bundle schema ${bundleSchemaVersion} / protocol ${protocolVersion}`,
       );
     }
-    this.#loadedWorld = sceneId;
-    return { loadedWorld: sceneId, fatalCount: 0, totalCount: 0, blocksLoad: false };
+    this.#loadedProjectBundle = sceneId;
+    return { loadedProjectBundle: sceneId, fatalCount: 0, totalCount: 0, blocksLoad: false };
   }
 
-  saveCurrentWorld(): WorldSaveSummary {
-    if (this.#loadedWorld === null) {
-      throw new RuntimeBridgeError('not_initialized', 'saveCurrentWorld with no world loaded');
+  saveProjectBundle(): ProjectBundleSaveSummary {
+    if (this.#loadedProjectBundle === null) {
+      throw new RuntimeBridgeError('not_initialized', 'saveProjectBundle with no project bundle loaded');
     }
     return { artifactsWritten: 3, compactedEdits: 0, retainedEdits: 0 };
   }
 
-  getCompositionStatus(): CompositionStatus {
-    return { loadedWorld: this.#loadedWorld, fatalCount: 0, totalCount: 0, blocksLoad: false };
+  getProjectBundleCompositionStatus(): CompositionStatus {
+    return { loadedProjectBundle: this.#loadedProjectBundle, fatalCount: 0, totalCount: 0, blocksLoad: false };
   }
 
-  unloadWorld(): void {
-    this.#loadedWorld = null;
+  unloadProjectBundle(): void {
+    this.#loadedProjectBundle = null;
   }
 
   loadReplayFixture(fixture: ReplayFixture): ReplaySessionHandle {

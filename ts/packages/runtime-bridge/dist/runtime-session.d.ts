@@ -1,5 +1,5 @@
 import { type CameraCollisionSnapshot, type CameraCreateRequest, type CameraHandle, type CameraProjectionRequest, type CameraProjectionSnapshot, type CameraSnapshot, type CollisionAxis, type CollisionConstrainedCameraInputEnvelope, type CommandBatch, type CommandResult, type FirstPersonCameraInputEnvelope, type RenderFrameDiff, type VoxelConversionApplyRequest, type VoxelConversionEvidenceRef, type VoxelConversionMeshAssetRegistrationRequest, type VoxelConversionPlan, type VoxelConversionPlanRequest, type VoxelConversionPreview, type VoxelConversionPreviewRequest, type VoxelConversionReceipt, type VoxelConversionSourceRegistration, type VoxelConversionSourceRegistrationRequest, type VoxelModelInfoReadout, type VoxelModelInfoRequest, type VoxelVolumeAssetExportReceipt, type VoxelVolumeAssetExportRequest, type VoxelVolumeAssetLoadReceipt, type VoxelVolumeAssetLoadRequest, type VoxelVolumeAssetSaveReceipt, type VoxelVolumeAssetSaveRequest, type GameRuleModuleManifest, type GameExtensionHookReceipt, type GameExtensionReplayEvidence, type GameRuleCatalog, type GameRuleResolutionReceipt, type GameRuleResolutionRequest, type WeaponEffectHookRequest } from '@asha/contracts';
-import { type CompositionStatus, type EngineHandle, type FrameCursor, type FpsPrimaryFireRequest, type FpsPrimaryFireResult, type GameRuleCatalogValidationReceipt, type GameRuleRuntimeReadout, type RuntimeBridge, type StepResult, type WorldLoadRequest } from './bridge.js';
+import { type CompositionStatus, type EngineHandle, type FrameCursor, type FpsPrimaryFireRequest, type FpsPrimaryFireResult, type GameRuleCatalogValidationReceipt, type GameRuleRuntimeReadout, type RuntimeBridge, type StepResult, type ProjectBundleLoadRequest } from './bridge.js';
 import type { RuntimeSessionEcrpRenderTargetIdentity } from './ecrp-render-target.js';
 import { type CombatReadoutScenario, type CombatRuntimeReadout } from './combat-readout.js';
 import { type CombatFeedbackProjection } from './combat-feedback.js';
@@ -19,14 +19,14 @@ export interface RuntimeSessionInitializeInput {
     readonly sessionId: string;
     readonly seed: number;
     readonly project: RuntimeSessionProjectIdentity;
-    readonly projectBundle: WorldLoadRequest;
+    readonly projectBundle: ProjectBundleLoadRequest;
 }
 export interface RuntimeSessionIdentity {
     readonly sessionId: string;
     readonly mode: RuntimeSessionMode;
     readonly seed: number;
     readonly project: RuntimeSessionProjectIdentity;
-    readonly projectBundle: WorldLoadRequest;
+    readonly projectBundle: ProjectBundleLoadRequest;
     readonly nonClaims: readonly RuntimeSessionNonClaim[];
 }
 export type RuntimeSessionNonClaim = 'not_native_runtime' | 'not_raw_state_store' | 'not_arbitrary_json_bridge' | 'not_product_authority' | 'not_gameplay_loop' | 'not_renderer';
@@ -162,7 +162,7 @@ export interface RuntimeSessionEcrpReadout {
         }[];
     };
     readonly project: RuntimeSessionProjectIdentity;
-    readonly projectBundle: WorldLoadRequest;
+    readonly projectBundle: ProjectBundleLoadRequest;
     readonly entities: readonly RuntimeSessionEcrpEntityReadout[];
     readonly entityCount: number;
     readonly hashes: {
@@ -246,7 +246,7 @@ export interface RuntimeSessionEcrpProjectLoadInput {
     readonly projectBundle: {
         readonly kind: 'ProjectBundle';
         readonly project: RuntimeSessionProjectIdentity;
-        readonly runtimeRequest: WorldLoadRequest;
+        readonly runtimeRequest: ProjectBundleLoadRequest;
     };
     readonly entityDefinitions: readonly RuntimeSessionEcrpEntityDefinition[];
     readonly sceneDocument: RuntimeSessionEcrpSceneDocument;

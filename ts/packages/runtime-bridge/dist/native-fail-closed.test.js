@@ -57,7 +57,7 @@ const CAMERA_INPUT = {
 };
 const REQUIRED_NATIVE_CONFORMANCE_OPS = [
     'initialize_engine',
-    'load_world_bundle',
+    'load_world_bundle', // vocab-allow: raw Rust/native manifest operation remains until #5048.
     'submit_commands',
     'step_simulation',
     'apply_enemy_direct_nav_movement',
@@ -306,7 +306,7 @@ function fakeAddon(calls = []) {
         },
         loadWorldBundle: (_handle, bundleSchemaVersion, protocolVersion, sceneId) => {
             calls.push(`load:${bundleSchemaVersion}:${protocolVersion}:${sceneId}`);
-            return { loadedWorld: sceneId + 1000, fatalCount: 0, totalCount: 0, blocksLoad: false };
+            return { loadedWorld: sceneId + 1000, fatalCount: 0, totalCount: 0, blocksLoad: false }; // vocab-allow: raw fake addon payload remains until #5048.
         },
         submitCommands: (_handle, commandsJson) => {
             calls.push(`submit:${commandsJson}`);
@@ -594,7 +594,7 @@ function fakeAddon(calls = []) {
         getCompositionStatus: (handle) => {
             void handle;
             calls.push('status');
-            return { loadedWorld: 2001, fatalCount: 0, totalCount: 0, blocksLoad: false };
+            return { loadedWorld: 2001, fatalCount: 0, totalCount: 0, blocksLoad: false }; // vocab-allow: raw fake addon payload remains until #5048.
         },
         planVoxelConversion: (_handle, requestJson) => {
             calls.push(`voxelPlan:${requestJson}`);
@@ -951,12 +951,12 @@ const INVOKE = new Map([
     ['getBuffer', (b) => b.getBuffer(0)],
     ['releaseBuffer', (b) => b.releaseBuffer(0)],
     [
-        'loadWorldBundle',
-        (b) => b.loadWorldBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1 }),
+        'loadProjectBundle',
+        (b) => b.loadProjectBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1 }),
     ],
-    ['saveCurrentWorld', (b) => b.saveCurrentWorld()],
-    ['getCompositionStatus', (b) => b.getCompositionStatus()],
-    ['unloadWorld', (b) => b.unloadWorld()],
+    ['saveProjectBundle', (b) => b.saveProjectBundle()],
+    ['getProjectBundleCompositionStatus', (b) => b.getProjectBundleCompositionStatus()],
+    ['unloadProjectBundle', (b) => b.unloadProjectBundle()],
     ['loadReplayFixture', (b) => b.loadReplayFixture({ name: 'x', steps: 1 })],
     ['runReplayStep', (b) => b.runReplayStep(0)],
 ]);
@@ -987,8 +987,8 @@ void test('native conformance sequence routes through the addon without mock fal
     const calls = [];
     const bridge = new NativeRuntimeBridge(fakeAddon(calls));
     assert.equal(bridge.initializeEngine({ seed: 7 }), 107);
-    assert.deepEqual(bridge.loadWorldBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1001 }), {
-        loadedWorld: 2001,
+    assert.deepEqual(bridge.loadProjectBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1001 }), {
+        loadedProjectBundle: 2001,
         fatalCount: 0,
         totalCount: 0,
         blocksLoad: false,
@@ -1070,9 +1070,9 @@ void test('native conformance sequence routes through the addon without mock fal
     assert.equal(meshAssetRegistration.source.assetId, 'mesh/quad');
     assert.equal(meshAssetRegistration.materialSlots[0]?.sourceMaterialId, 'mat/a');
     assert.deepEqual(bridge.readRenderDiffs(frameCursor(0)), { ops: [{ op: 'sentinel' }] });
-    assert.deepEqual(bridge.saveCurrentWorld(), { artifactsWritten: 5, compactedEdits: 2, retainedEdits: 3 });
-    assert.deepEqual(bridge.getCompositionStatus(), {
-        loadedWorld: 2001,
+    assert.deepEqual(bridge.saveProjectBundle(), { artifactsWritten: 5, compactedEdits: 2, retainedEdits: 3 });
+    assert.deepEqual(bridge.getProjectBundleCompositionStatus(), {
+        loadedProjectBundle: 2001,
         fatalCount: 0,
         totalCount: 0,
         blocksLoad: false,
@@ -1104,8 +1104,8 @@ void test('native facade validates numeric inputs before addon casts can wrap', 
     const calls = [];
     const bridge = new NativeRuntimeBridge(fakeAddon(calls));
     bridge.initializeEngine({ seed: 1 });
-    assert.throws(() => bridge.loadWorldBundle({ bundleSchemaVersion: 1.5, protocolVersion: 1, sceneId: 1 }), (e) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input');
-    assert.throws(() => bridge.loadWorldBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: -1 }), (e) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input');
+    assert.throws(() => bridge.loadProjectBundle({ bundleSchemaVersion: 1.5, protocolVersion: 1, sceneId: 1 }), (e) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input');
+    assert.throws(() => bridge.loadProjectBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: -1 }), (e) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input');
     assert.throws(() => bridge.stepSimulation({ tick: -1 }), (e) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input');
     assert.throws(() => bridge.readRenderDiffs(frameCursor(-1)), (e) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input');
     assert.deepEqual(calls, ['initialize:1']);
@@ -1130,7 +1130,7 @@ void test('native addon semantic errors are reclassified into RuntimeBridgeError
     };
     const bridge = new NativeRuntimeBridge(addon);
     bridge.initializeEngine({ seed: 1 });
-    assert.throws(() => bridge.loadWorldBundle({ bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 1 }), (e) => e instanceof RuntimeBridgeError &&
+    assert.throws(() => bridge.loadProjectBundle({ bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 1 }), (e) => e instanceof RuntimeBridgeError &&
         e.kind === 'invalid_input' &&
         e.message.includes('unsupported bundle schema 99 / protocol 1'));
 });

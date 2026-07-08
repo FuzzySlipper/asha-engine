@@ -112,10 +112,10 @@ export const ASHA_BROWSER_HOST_BRIDGE_METHODS = [
   'readCameraProjection',
   'getBuffer',
   'releaseBuffer',
-  'loadWorldBundle', // vocab-allow: browser host must forward the legacy RuntimeBridge operation.
-  'saveCurrentWorld',
-  'getCompositionStatus',
-  'unloadWorld',
+  'loadProjectBundle', // vocab-allow: browser host must forward the legacy RuntimeBridge operation.
+  'saveProjectBundle',
+  'getProjectBundleCompositionStatus',
+  'unloadProjectBundle',
   'loadReplayFixture',
   'runReplayStep',
 ] as const satisfies readonly (keyof RuntimeBridge)[];

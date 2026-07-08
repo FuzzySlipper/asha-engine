@@ -110,8 +110,8 @@ function createFakeRuntimeBridge() {
     const operation = () => ({ called: true });
     return {
         initializeEngine: operation,
-        loadWorldBundle: operation, // vocab-allow: fake bridge must satisfy the legacy RuntimeBridge method name.
-        getCompositionStatus: operation,
+        loadProjectBundle: operation, // vocab-allow: fake bridge must satisfy the legacy RuntimeBridge method name.
+        getProjectBundleCompositionStatus: operation,
         submitCommands: operation,
         stepSimulation: operation,
         createCamera: operation,
@@ -121,7 +121,7 @@ function createFakeRuntimeBridge() {
         selectVoxel: operation,
         readVoxelMeshEvidence: operation,
         readRenderDiffs: operation,
-        saveCurrentWorld: operation,
+        saveProjectBundle: operation,
         applyCollisionConstrainedCameraInput: operation,
         readModelMaterialPreview: operation,
         loadFpsRuntimeSession: operation,
@@ -149,7 +149,7 @@ function createFakeRuntimeBridge() {
         loadVoxelVolumeAsset: operation,
         getBuffer: operation,
         releaseBuffer: operation,
-        unloadWorld: operation,
+        unloadProjectBundle: operation,
         loadReplayFixture: operation,
         runReplayStep: operation,
     };

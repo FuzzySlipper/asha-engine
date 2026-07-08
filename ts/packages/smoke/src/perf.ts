@@ -31,11 +31,11 @@ import { OVERLAY_HANDLE_BASE, previewOverlayDiffs } from '@asha/ui-dom';
 import { bootForMode, type BridgeBoot } from './harness.js';
 import type { SmokeMode } from './result.js';
 import {
-  FIXTURE_WORLD,
+  FIXTURE_PROJECT_BUNDLE,
   fixtureEditUpdateFrame,
   fixtureRenderFrame,
   fixtureVoxelCommand,
-  fixtureWorldHash,
+  fixtureProjectBundleHash,
 } from './fixtures.js';
 
 /** The documented perf command (referenced by docs + Den). */
@@ -60,7 +60,7 @@ export interface PerfMetadata {
   readonly runtimeMode: BridgeBoot['mode'];
   readonly smokeMode: SmokeMode;
   readonly fixtureId: number;
-  readonly fixtureWorldHash: string;
+  readonly fixtureProjectBundleHash: string;
   readonly node: string;
   readonly platform: string;
   readonly arch: string;
@@ -229,8 +229,8 @@ export async function runPerf(options: PerfOptions = {}): Promise<PerfResult> {
     hostLabel: options.meta?.hostLabel ?? 'unlabeled-host',
     runtimeMode: boot.mode,
     smokeMode: mode,
-    fixtureId: FIXTURE_WORLD.sceneId,
-    fixtureWorldHash: fixtureWorldHash(FIXTURE_WORLD),
+    fixtureId: FIXTURE_PROJECT_BUNDLE.sceneId,
+    fixtureProjectBundleHash: fixtureProjectBundleHash(FIXTURE_PROJECT_BUNDLE),
     node: process.version,
     platform: os.platform,
     arch: os.arch,
@@ -272,7 +272,7 @@ export async function runPerf(options: PerfOptions = {}): Promise<PerfResult> {
 
   // ── Timed phases ──
   phase(state, 'initialize', 1, () => state.bridge.initializeEngine({ seed: 1 }));
-  phase(state, 'world-load', 1, () => state.bridge.loadWorldBundle(FIXTURE_WORLD));
+  phase(state, 'project-bundle-load', 1, () => state.bridge.loadProjectBundle(FIXTURE_PROJECT_BUNDLE));
 
   const initialFrame = phase(state, 'render-projection-initial', 1, () =>
     state.authority ? state.bridge.readRenderDiffs(frameCursor(0)) : fixtureRenderFrame(),
@@ -304,8 +304,8 @@ export async function runPerf(options: PerfOptions = {}): Promise<PerfResult> {
   applyAndTrack(state, overlay);
   const sceneAfterOverlay = sceneNodeCount(state.renderer);
 
-  phase(state, 'save', 1, () => state.bridge.saveCurrentWorld());
-  phase(state, 'reload', 1, () => state.bridge.loadWorldBundle(FIXTURE_WORLD));
+  phase(state, 'save', 1, () => state.bridge.saveProjectBundle());
+  phase(state, 'reload', 1, () => state.bridge.loadProjectBundle(FIXTURE_PROJECT_BUNDLE));
 
   // Save→reload→replay evidence (the quarantined replay harness path).
   const replaySteps = 4;
@@ -436,7 +436,7 @@ export function formatPerf(result: PerfResult): string {
   const lines: string[] = [];
   const m = result.meta;
   lines.push(`asha-perf ${result.ok ? 'OK' : 'FAILED'} (structural invariants)`);
-  lines.push(`fixture ${m.fixtureId} hash ${m.fixtureWorldHash} / ${m.runtimeMode} ${m.smokeMode}`);
+  lines.push(`fixture ${m.fixtureId} hash ${m.fixtureProjectBundleHash} / ${m.runtimeMode} ${m.smokeMode}`);
   lines.push(`host ${m.hostLabel} ${m.platform}/${m.arch} cpus=${m.cpus} mem=${m.totalMemMb}MB node ${m.node}`);
   lines.push(`commit ${m.commit} branch ${m.branch} at ${m.timestamp}`);
   lines.push('timings (ms):');

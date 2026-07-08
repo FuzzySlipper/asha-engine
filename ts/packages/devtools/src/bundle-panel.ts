@@ -1,7 +1,7 @@
-// @asha/devtools — world-bundle save/load and diagnostics panel read models
+// @asha/devtools — project-bundle save/load and diagnostics panel read models
 // (#2379).
 //
-// Observational read models for the world-bundle manifest, the ordered authority
+// Observational read models for the project-bundle manifest, the ordered authority
 // load plan, the save/compaction plan, generator-mismatch + round-trip diagnostics,
 // and a navigable diagnostics panel. The load/save *actions* submit typed requests
 // through the runtime-bridge facade only — this module never touches the filesystem
@@ -11,8 +11,8 @@ import {
   RuntimeBridgeError,
   type CompositionStatus,
   type RuntimeBridge,
-  type WorldLoadRequest,
-  type WorldSaveSummary,
+  type ProjectBundleLoadRequest,
+  type ProjectBundleSaveSummary,
 } from '@asha/runtime-bridge';
 import type {
   ArtifactClass,
@@ -27,7 +27,7 @@ import type {
   LoadStep,
   RegenConflictReport,
   SaveSummary,
-  WorldBundleManifest,
+  WorldBundleManifest as GeneratedProjectBundleManifest, // vocab-allow: generated contract keeps legacy name until #5049.
 } from '@asha/contracts';
 
 // ── Manifest read model ──────────────────────────────────────────────────────────
@@ -45,7 +45,7 @@ export interface ArtifactView {
 export interface ManifestModel {
   readonly bundleSchemaVersion: number;
   readonly protocolVersion: number;
-  readonly worldId: number;
+  readonly projectBundleId: number;
   readonly sceneId: number;
   readonly assetCount: number;
   readonly artifacts: readonly ArtifactView[];
@@ -53,8 +53,8 @@ export interface ManifestModel {
   readonly classCounts: Readonly<Record<ArtifactClass, number>>;
 }
 
-/** Build the manifest inspector model from a generated world-bundle manifest. */
-export function buildManifestModel(manifest: WorldBundleManifest): ManifestModel {
+/** Build the manifest inspector model from a generated ProjectBundle manifest. */
+export function buildManifestModel(manifest: GeneratedProjectBundleManifest): ManifestModel {
   const classCounts: Record<ArtifactClass, number> = { durable: 0, generated: 0, cache: 0 };
   const artifacts: ArtifactView[] = manifest.artifacts.map((artifact: ArtifactEntry) => {
     classCounts[artifact.class] += 1;
@@ -69,7 +69,7 @@ export function buildManifestModel(manifest: WorldBundleManifest): ManifestModel
   return {
     bundleSchemaVersion: manifest.bundleSchemaVersion,
     protocolVersion: manifest.protocolVersion,
-    worldId: manifest.world.id as number,
+    projectBundleId: manifest.world.id as number,
     sceneId: manifest.scene.id as number,
     assetCount: manifest.assetLock.assetCount,
     artifacts,
@@ -99,8 +99,8 @@ function describeLoadStep(step: LoadStep): string {
       return `apply voxel edits (${step.editLogs.length} logs, ${step.snapshots.length} snapshots)`;
     case 'bootstrapScene':
       return `bootstrap scene ${step.scene as number} → world ${step.world as number}`;
-    case 'restoreWorldState':
-      return `restore runtime world state ${step.artifact}`;
+    case 'restoreWorldState': // vocab-allow: generated load-step tag keeps legacy name until #5049.
+      return `restore runtime session state ${step.artifact}`;
     case 'validateFinalState':
       return `validate final state`;
   }
@@ -146,20 +146,20 @@ export function buildSavePlanModel(summary: SaveSummary): SavePlanView {
 
 // ── Voxel save/reload/replay durability read model (task #2440) ──────────────────
 //
-// A projected mirror of the Rust `rule-world-bundle` durability evidence (the
+// A projected mirror of the Rust `rule-project-bundle` durability evidence (the
 // post-load / post-edit / post-reload world fingerprints for the canonical fixture).
 // Observational only: devtools never computes the checkpoints — authority owns the
-// fingerprints; this formats them so a panel/agent can read whether the edited world
+// fingerprints; this formats them so a panel/agent can read whether the edited session
 // survives a save→reload→replay cycle.
 
 /** Projected durability checkpoints for a fixture (mirrors `DurabilityEvidence`). */
 export interface VoxelDurabilityEvidence {
   readonly fixture: string;
-  /** World fingerprint after the base fixture loads (generation only). */
+  /** Session fingerprint after the base fixture loads (generation only). */
   readonly postLoad: string;
-  /** World fingerprint after the canonical edit sequence. */
+  /** Session fingerprint after the canonical edit sequence. */
   readonly postEdit: string;
-  /** World fingerprint after compaction + reload. */
+  /** Session fingerprint after compaction + reload. */
   readonly postReload: string;
   readonly compactedEdits: number;
   readonly retainedEdits: number;
@@ -172,7 +172,7 @@ export interface VoxelDurabilityView {
   readonly postEdit: string;
   readonly postReload: string;
   /** A no-op edit (load == edit) is suspicious — the sequence changed nothing. */
-  readonly editedWorld: boolean;
+  readonly editedSession: boolean;
   /** Durability holds iff post-edit and post-reload fingerprints agree. */
   readonly durable: boolean;
   readonly compactedEdits: number;
@@ -186,7 +186,7 @@ export function buildVoxelDurabilityModel(evidence: VoxelDurabilityEvidence): Vo
     postLoad: evidence.postLoad,
     postEdit: evidence.postEdit,
     postReload: evidence.postReload,
-    editedWorld: evidence.postLoad !== evidence.postEdit,
+    editedSession: evidence.postLoad !== evidence.postEdit,
     durable: evidence.postEdit === evidence.postReload,
     compactedEdits: evidence.compactedEdits,
     retainedEdits: evidence.retainedEdits,
@@ -196,7 +196,7 @@ export function buildVoxelDurabilityModel(evidence: VoxelDurabilityEvidence): Vo
 /** Deterministic display lines summarizing save/reload/replay durability. */
 export function summarizeVoxelDurability(view: VoxelDurabilityView): string[] {
   return [
-    `fixture ${view.fixture}: durable=${view.durable} edited=${view.editedWorld}`,
+    `fixture ${view.fixture}: durable=${view.durable} edited=${view.editedSession}`,
     `postLoad=${view.postLoad} postEdit=${view.postEdit} postReload=${view.postReload}`,
     `compaction folded=${view.compactedEdits} retained=${view.retainedEdits}`,
   ];
@@ -314,7 +314,7 @@ export function buildDiagnosticsPanel(set: DiagnosticReportSet): DiagnosticsPane
 // ── Load / save action requests (through the facade only) ─────────────────────────
 
 /** Derive the typed facade load request from a manifest (no local mutation). */
-export function buildLoadRequest(manifest: WorldBundleManifest): WorldLoadRequest {
+export function buildProjectBundleLoadRequest(manifest: GeneratedProjectBundleManifest): ProjectBundleLoadRequest {
   return {
     bundleSchemaVersion: manifest.bundleSchemaVersion,
     protocolVersion: manifest.protocolVersion,
@@ -323,7 +323,7 @@ export function buildLoadRequest(manifest: WorldBundleManifest): WorldLoadReques
 }
 
 /** A classified outcome of a load/save action — fail-closed errors are surfaced. */
-export type BundleActionResult<T> =
+export type ProjectBundleActionResult<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly kind: string; readonly message: string; readonly recovery: string };
 
@@ -332,7 +332,7 @@ function recoveryHint(error: RuntimeBridgeError): string {
     case 'invalid_input':
       return 'bundle is incompatible with this build — inspect the manifest version/protocol diagnostics';
     case 'not_initialized':
-      return 'load a world before saving';
+      return 'load a ProjectBundle before saving';
     case 'native_unavailable':
       return 'the native runtime is unavailable — retry on the mock facade or rebuild the addon';
     default:
@@ -341,13 +341,13 @@ function recoveryHint(error: RuntimeBridgeError): string {
 }
 
 /**
- * Submit a world-bundle load through the facade. The prior world is left untouched
+ * Submit a project-bundle load through the facade. The prior world is left untouched
  * on failure (the facade stages the swap); this returns a classified result rather
  * than throwing, so a panel can render the fail-closed outcome.
  */
-export function submitLoad(bridge: RuntimeBridge, request: WorldLoadRequest): BundleActionResult<CompositionStatus> {
+export function submitProjectBundleLoad(bridge: RuntimeBridge, request: ProjectBundleLoadRequest): ProjectBundleActionResult<CompositionStatus> {
   try {
-    return { ok: true, value: bridge.loadWorldBundle(request) };
+    return { ok: true, value: bridge.loadProjectBundle(request) };
   } catch (error) {
     if (error instanceof RuntimeBridgeError) {
       return { ok: false, kind: error.kind, message: error.message, recovery: recoveryHint(error) };
@@ -357,9 +357,9 @@ export function submitLoad(bridge: RuntimeBridge, request: WorldLoadRequest): Bu
 }
 
 /** Submit a save through the facade, returning a classified result. */
-export function submitSave(bridge: RuntimeBridge): BundleActionResult<WorldSaveSummary> {
+export function submitProjectBundleSave(bridge: RuntimeBridge): ProjectBundleActionResult<ProjectBundleSaveSummary> {
   try {
-    return { ok: true, value: bridge.saveCurrentWorld() };
+    return { ok: true, value: bridge.saveProjectBundle() };
   } catch (error) {
     if (error instanceof RuntimeBridgeError) {
       return { ok: false, kind: error.kind, message: error.message, recovery: recoveryHint(error) };

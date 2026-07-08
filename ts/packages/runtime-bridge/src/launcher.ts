@@ -5,7 +5,7 @@ import {
   type CompositionStatus,
   type FrameCursor,
   type RuntimeBridge,
-  type WorldLoadRequest,
+  type ProjectBundleLoadRequest,
 } from './bridge.js';
 
 // ── Game runtime launcher facade types (#3653) ────────────────────────────────
@@ -28,7 +28,7 @@ export type GameRuntimeNonClaim =
 
 export type GameRuntimeDiagnosticCode =
   | 'missing_compatibility'
-  | 'missing_world_bundle'
+  | 'missing_project_bundle'
   | 'unsupported_runtime_entry'
   | 'unsupported_backend_mode'
   | 'missing_backend_evidence'
@@ -86,7 +86,7 @@ export type GameRuntimeBackendProfileValidation =
 export interface GameRuntimeResourceProfile {
   readonly profileId: string;
   readonly runtimeEntry: string;
-  readonly worldBundleId: string;
+  readonly projectBundleId: string;
   readonly resourceManifestHash?: string;
   readonly estimatedBytes?: number;
 }
@@ -105,7 +105,7 @@ export interface GameRuntimeConfig {
   readonly runtimeEntry: string;
   readonly compatibility: GameRuntimeCompatibility;
   readonly resourceProfile: GameRuntimeResourceProfile;
-  readonly world: WorldLoadRequest;
+  readonly projectBundle: ProjectBundleLoadRequest;
   readonly startedAtIso?: string;
 }
 
@@ -123,7 +123,7 @@ export interface GameRuntimeProjectionSummary {
   readonly sequenceId: number;
   readonly worldHash: string;
   readonly authorityHash: string;
-  readonly loadedWorld: number | null;
+  readonly loadedProjectBundle: number | null;
   readonly fatalCount: number;
   readonly totalDiagnosticCount: number;
   readonly evidenceRefs: readonly GameRuntimeEvidenceRef[];
@@ -424,14 +424,14 @@ function projectionSummary(
   sequenceId: number,
   acceptedCommandCount: number,
 ): GameRuntimeProjectionSummary {
-  const loadedWorld = status.loadedWorld;
-  const worldHash = `${runtimeMode}-world:${config.gameId}:${loadedWorld ?? 'none'}:accepted:${acceptedCommandCount}`;
-  const authorityHash = `${runtimeMode}-authority:${config.workspaceId}:${loadedWorld ?? 'none'}:accepted:${acceptedCommandCount}`;
+  const loadedProjectBundle = status.loadedProjectBundle;
+  const worldHash = `${runtimeMode}-world:${config.gameId}:${loadedProjectBundle ?? 'none'}:accepted:${acceptedCommandCount}`;
+  const authorityHash = `${runtimeMode}-authority:${config.workspaceId}:${loadedProjectBundle ?? 'none'}:accepted:${acceptedCommandCount}`;
   return {
     sequenceId,
     worldHash,
     authorityHash,
-    loadedWorld,
+    loadedProjectBundle,
     fatalCount: status.fatalCount,
     totalDiagnosticCount: status.totalCount,
     evidenceRefs: [{ kind: 'projection', id: `projection:${sequenceId}`, sequenceId }],
@@ -478,7 +478,7 @@ export class BridgeGameRuntimeSession implements GameRuntimeSession {
 
   async pullProjection(): Promise<GameRuntimeProjectionSummary> {
     this.#assertOpen();
-    return projectionSummary(this.config, this.#runtimeProfile.runtimeMode, this.bridge.getCompositionStatus(), this.#sequenceId, this.#acceptedCommandCount);
+    return projectionSummary(this.config, this.#runtimeProfile.runtimeMode, this.bridge.getProjectBundleCompositionStatus(), this.#sequenceId, this.#acceptedCommandCount);
   }
 
   async pullRenderDiff(cursor: FrameCursor = frameCursor(0)): Promise<GameRuntimeRenderDiffSnapshot> {
@@ -570,7 +570,7 @@ export class BridgeGameRuntimeSession implements GameRuntimeSession {
 
   async shutdown(): Promise<void> {
     if (this.#shutdown) return;
-    this.bridge.unloadWorld();
+    this.bridge.unloadProjectBundle();
     this.#shutdown = true;
   }
 
@@ -627,10 +627,10 @@ export class SelectedBackendGameRuntimeLauncher implements GameRuntimeLauncher {
     }
 
     const bridge = this.options.bridgeFactory?.() ?? await createNativeBridgeForSelectedBackend(this.options.nativeModulePath);
-    bridge.initializeEngine({ seed: config.world.sceneId });
-    const status = bridge.loadWorldBundle(config.world);
-    if (status.blocksLoad || status.loadedWorld === null) {
-      throw new RuntimeBridgeError('invalid_input', 'world bundle failed to load for selected backend launcher');
+    bridge.initializeEngine({ seed: config.projectBundle.sceneId });
+    const status = bridge.loadProjectBundle(config.projectBundle);
+    if (status.blocksLoad || status.loadedProjectBundle === null) {
+      throw new RuntimeBridgeError('invalid_input', 'project bundle failed to load for selected backend launcher');
     }
     return new BridgeGameRuntimeSession(
       bridge,

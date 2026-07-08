@@ -178,7 +178,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   initialize(input: RuntimeSessionInitializeInput): RuntimeSessionStateSummary {
     validateInitializeInput(input);
     const engine = this.#bridge.initializeEngine({ seed: input.seed });
-    const composition = this.#bridge.loadWorldBundle(input.projectBundle); // vocab-allow: RuntimeSession facade adapts the legacy bridge operation.
+    const composition = this.#bridge.loadProjectBundle(input.projectBundle); // vocab-allow: RuntimeSession facade adapts the legacy bridge operation.
     const defaultProject = defaultRuntimeSessionEcrpProjectLoadInput(input);
     const snapshot = this.#bridge.loadFpsRuntimeSession(fpsLoadRequestFromEcrpProject(defaultProject));
     this.#engine = engine;
@@ -223,7 +223,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       };
     }
 
-    this.#bridge.loadWorldBundle(input.projectBundle.runtimeRequest); // vocab-allow: RuntimeSession ECRP load adapts the legacy bridge operation.
+    this.#bridge.loadProjectBundle(input.projectBundle.runtimeRequest); // vocab-allow: RuntimeSession ECRP load adapts the legacy bridge operation.
     const snapshot = this.#bridge.loadFpsRuntimeSession(fpsLoadRequestFromEcrpProject(input));
     this.#sequenceId += 1;
     this.#identity = {
@@ -277,7 +277,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       sequenceId: this.#sequenceId,
       tick: this.#tick,
       step,
-      composition: this.#bridge.getCompositionStatus(),
+      composition: this.#bridge.getProjectBundleCompositionStatus(),
       sessionHash: this.#sessionHash(),
     };
   }
@@ -863,7 +863,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#requireInitialized('readProjection');
     const cursor = frameCursor(this.#sequenceId);
     const frame = this.#bridge.readRenderDiffs(cursor);
-    const composition = this.#bridge.getCompositionStatus();
+    const composition = this.#bridge.getProjectBundleCompositionStatus();
     return {
       sequenceId: this.#sequenceId,
       cursor,
@@ -883,7 +883,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     return {
       sequenceId: this.#sequenceId,
       tick: this.#tick,
-      composition: this.#bridge.getCompositionStatus(),
+      composition: this.#bridge.getProjectBundleCompositionStatus(),
       acceptedCommandCount: this.#acceptedCommandCount,
       rejectedCommandCount: this.#rejectedCommandCount,
       restartCount: this.#restartCount,
@@ -907,7 +907,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     return {
       sequenceId: this.#sequenceId,
       tick: this.#tick,
-      composition: this.#bridge.getCompositionStatus(),
+      composition: this.#bridge.getProjectBundleCompositionStatus(),
       restartCount: this.#restartCount,
       sessionHash: this.#sessionHash(),
     };
@@ -1008,7 +1008,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
         kind,
         sequenceId: this.#sequenceId,
         tick: this.#tick,
-        composition: compositionHashRecord(this.#bridge.getCompositionStatus()),
+        composition: compositionHashRecord(this.#bridge.getProjectBundleCompositionStatus()),
         fps: this.#snapshot === null
           ? null
           : {
@@ -1040,7 +1040,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
             replayHash: snapshot.replayHash,
             epoch: snapshot.sessionEpoch,
           },
-      composition: this.#identity === null ? null : compositionHashRecord(this.#bridge.getCompositionStatus()),
+      composition: this.#identity === null ? null : compositionHashRecord(this.#bridge.getProjectBundleCompositionStatus()),
     });
   }
 }

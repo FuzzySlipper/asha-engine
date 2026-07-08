@@ -10,17 +10,17 @@ import type {
   VoxelCommand,
 } from '@asha/contracts';
 import { entityId, renderHandle } from '@asha/contracts';
-import type { CommandBatch, WorldLoadRequest } from '@asha/runtime-bridge';
+import type { CommandBatch, ProjectBundleLoadRequest } from '@asha/runtime-bridge';
 
-/** The abstract fixture world the smoke harness loads through the facade. */
-export const FIXTURE_WORLD: WorldLoadRequest = {
+/** The abstract fixture ProjectBundle the smoke harness loads through the facade. */
+export const FIXTURE_PROJECT_BUNDLE: ProjectBundleLoadRequest = {
   bundleSchemaVersion: 1,
   protocolVersion: 1,
   sceneId: 1001,
 };
 
-/** A deterministic FNV-1a hash over the fixture world definition (stable evidence). */
-export function fixtureWorldHash(request: WorldLoadRequest): string {
+/** A deterministic FNV-1a hash over the fixture ProjectBundle definition (stable evidence). */
+export function fixtureProjectBundleHash(request: ProjectBundleLoadRequest): string {
   let hash = 0xcbf29ce484222325n;
   const prime = 0x100000001b3n;
   const mask = (1n << 64n) - 1n;

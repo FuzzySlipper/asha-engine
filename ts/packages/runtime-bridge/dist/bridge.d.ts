@@ -256,18 +256,18 @@ export interface ReplayStepReport {
     readonly hash: string;
     readonly diverged: boolean;
 }
-export interface WorldLoadRequest {
+export interface ProjectBundleLoadRequest {
     readonly bundleSchemaVersion: number;
     readonly protocolVersion: number;
     readonly sceneId: number;
 }
 export interface CompositionStatus {
-    readonly loadedWorld: number | null;
+    readonly loadedProjectBundle: number | null;
     readonly fatalCount: number;
     readonly totalCount: number;
     readonly blocksLoad: boolean;
 }
-export interface WorldSaveSummary {
+export interface ProjectBundleSaveSummary {
     readonly artifactsWritten: number;
     readonly compactedEdits: number;
     readonly retainedEdits: number;
@@ -351,10 +351,10 @@ export interface RuntimeBridge {
     readCameraProjection(request: CameraProjectionRequest): CameraProjectionSnapshot;
     getBuffer(handle: RuntimeBufferHandle): RuntimeBufferView;
     releaseBuffer(handle: RuntimeBufferHandle): void;
-    loadWorldBundle(request: WorldLoadRequest): CompositionStatus;
-    saveCurrentWorld(): WorldSaveSummary;
-    getCompositionStatus(): CompositionStatus;
-    unloadWorld(): void;
+    loadProjectBundle(request: ProjectBundleLoadRequest): CompositionStatus;
+    saveProjectBundle(): ProjectBundleSaveSummary;
+    getProjectBundleCompositionStatus(): CompositionStatus;
+    unloadProjectBundle(): void;
     loadReplayFixture(fixture: ReplayFixture): ReplaySessionHandle;
     runReplayStep(session: ReplaySessionHandle): ReplayStepReport;
 }

@@ -1,6 +1,6 @@
 import type { CameraCollisionSnapshot, CameraProjectionSnapshot, CameraSnapshot, CommandBatch, CommandResult, ModelMaterialPreviewRequest, ModelMaterialPreviewSnapshot, PickResult, RenderFrameDiff, SceneObjectCommandResult, SceneObjectSnapshot, VoxelConversionApplyRequest, VoxelConversionEvidenceRef, VoxelConversionMeshAssetRegistrationRequest, VoxelConversionPlan, VoxelConversionPlanRequest, VoxelConversionPreview, VoxelConversionPreviewRequest, VoxelConversionReceipt, VoxelConversionSourceRegistration, VoxelConversionSourceRegistrationRequest, VoxelSelectionSnapshot, VoxelModelInfoReadout, VoxelModelInfoRequest, VoxelVolumeAssetExportReceipt, VoxelVolumeAssetExportRequest, VoxelVolumeAssetLoadReceipt, VoxelVolumeAssetLoadRequest, VoxelVolumeAssetSaveReceipt, VoxelVolumeAssetSaveRequest, GameRuleCatalog, GameRuleResolutionReceipt } from '@asha/contracts';
 import { type NativeAddon } from '@asha/native-bridge';
-import { type CompositionStatus, type EnemyDirectNavMovementRequest, type EnemyDirectNavMovementResult, type EngineConfig, type EngineHandle, type FrameCursor, type FpsEncounterDirectorSnapshot, type FpsEncounterLifecycleInput, type FpsEncounterTransitionRequest, type FpsEncounterTransitionResult, type GameExtensionWeaponEffectInvocationRequest, type GameExtensionWeaponEffectInvocationResult, type GameRuleCatalogValidationReceipt, type GameRuleEffectIntentRequest, type GameRuleRuntimeReadout, type FpsPrimaryFireRequest, type FpsPrimaryFireResult, type FpsRuntimeSessionLoadRequest, type FpsRuntimeSessionRestartRequest, type FpsRuntimeSessionSnapshot, type ReplaySessionHandle, type ReplayStepReport, type RuntimeBridge, type RuntimeBufferView, type StepInputEnvelope, type StepResult, type VoxelMeshEvidenceSnapshot, type WorldLoadRequest, type WorldSaveSummary } from './bridge.js';
+import { type CompositionStatus, type EnemyDirectNavMovementRequest, type EnemyDirectNavMovementResult, type EngineConfig, type EngineHandle, type FrameCursor, type FpsEncounterDirectorSnapshot, type FpsEncounterLifecycleInput, type FpsEncounterTransitionRequest, type FpsEncounterTransitionResult, type GameExtensionWeaponEffectInvocationRequest, type GameExtensionWeaponEffectInvocationResult, type GameRuleCatalogValidationReceipt, type GameRuleEffectIntentRequest, type GameRuleRuntimeReadout, type FpsPrimaryFireRequest, type FpsPrimaryFireResult, type FpsRuntimeSessionLoadRequest, type FpsRuntimeSessionRestartRequest, type FpsRuntimeSessionSnapshot, type ReplaySessionHandle, type ReplayStepReport, type RuntimeBridge, type RuntimeBufferView, type StepInputEnvelope, type StepResult, type VoxelMeshEvidenceSnapshot, type ProjectBundleLoadRequest, type ProjectBundleSaveSummary } from './bridge.js';
 /**
  * Manifest names of operations whose native (`#[napi]`) implementation is actually
  * wired. Everything else on {@link NativeRuntimeBridge} fail-closes with
@@ -13,7 +13,7 @@ export declare class NativeRuntimeBridge implements RuntimeBridge {
     #private;
     constructor(addon: NativeAddon);
     initializeEngine(config: EngineConfig): EngineHandle;
-    loadWorldBundle(request: WorldLoadRequest): CompositionStatus;
+    loadProjectBundle(request: ProjectBundleLoadRequest): CompositionStatus;
     submitCommands(batch: CommandBatch): CommandResult;
     stepSimulation(input: StepInputEnvelope): StepResult;
     applyEnemyDirectNavMovement(request: EnemyDirectNavMovementRequest): EnemyDirectNavMovementResult;
@@ -31,8 +31,8 @@ export declare class NativeRuntimeBridge implements RuntimeBridge {
     readSceneObjectSnapshot(): SceneObjectSnapshot;
     applySceneObjectCommand(): SceneObjectCommandResult;
     readRenderDiffs(cursor: FrameCursor): RenderFrameDiff;
-    saveCurrentWorld(): WorldSaveSummary;
-    getCompositionStatus(): CompositionStatus;
+    saveProjectBundle(): ProjectBundleSaveSummary;
+    getProjectBundleCompositionStatus(): CompositionStatus;
     planVoxelConversion(request: VoxelConversionPlanRequest): VoxelConversionPlan;
     registerVoxelConversionSource(request: VoxelConversionSourceRegistrationRequest): VoxelConversionSourceRegistration;
     registerVoxelConversionMeshAsset(request: VoxelConversionMeshAssetRegistrationRequest): VoxelConversionSourceRegistration;
@@ -52,7 +52,7 @@ export declare class NativeRuntimeBridge implements RuntimeBridge {
     readCameraProjection(): CameraProjectionSnapshot;
     getBuffer(): RuntimeBufferView;
     releaseBuffer(): void;
-    unloadWorld(): void;
+    unloadProjectBundle(): void;
     loadReplayFixture(): ReplaySessionHandle;
     runReplayStep(): ReplayStepReport;
 }

@@ -108,8 +108,8 @@ export function u32(value: number, field: string): number {
 // PROTOTYPE: replaced by generated protocol_runtime / protocol_script contracts
 // once the codegen emitter lands. The facade *shape* is the stable part.
 //
-// The simplified world DTOs below are deliberate subsets of the generated
-// protocol contracts (@asha/contracts: WorldBundleManifest / SaveSummary /
+// The simplified ProjectBundle DTOs below are deliberate subsets of the generated
+// bundle/diagnostic contracts (@asha/contracts manifest / SaveSummary /
 // DiagnosticReportSet). `world-dto-conformance.test.ts` is a compile-time guard
 // that fails when a shared field's type drifts in the generated contract, keeping
 // this prototype debt visible until the DTOs are replaced outright.
@@ -355,20 +355,20 @@ export interface ReplayStepReport {
   readonly hash: string;
   readonly diverged: boolean;
 }
-// World load/save composition payloads (#2363). PROTOTYPE: replaced by generated
-// protocol_world_bundle / protocol_diagnostics contracts once the emitter wires them.
-export interface WorldLoadRequest {
+// ProjectBundle load/save composition payloads (#2363). PROTOTYPE: replaced by
+// generated bundle/diagnostic contracts once the emitter wires them.
+export interface ProjectBundleLoadRequest {
   readonly bundleSchemaVersion: number;
   readonly protocolVersion: number;
   readonly sceneId: number;
 }
 export interface CompositionStatus {
-  readonly loadedWorld: number | null;
+  readonly loadedProjectBundle: number | null;
   readonly fatalCount: number;
   readonly totalCount: number;
   readonly blocksLoad: boolean;
 }
-export interface WorldSaveSummary {
+export interface ProjectBundleSaveSummary {
   readonly artifactsWritten: number;
   readonly compactedEdits: number;
   readonly retainedEdits: number;
@@ -452,11 +452,11 @@ export interface RuntimeBridge {
   readCameraProjection(request: CameraProjectionRequest): CameraProjectionSnapshot;
   getBuffer(handle: RuntimeBufferHandle): RuntimeBufferView;
   releaseBuffer(handle: RuntimeBufferHandle): void;
-  // World load/save composition (operational; not a replay-verification replacement).
-  loadWorldBundle(request: WorldLoadRequest): CompositionStatus;
-  saveCurrentWorld(): WorldSaveSummary;
-  getCompositionStatus(): CompositionStatus;
-  unloadWorld(): void;
+  // ProjectBundle load/save composition (operational; not a replay-verification replacement).
+  loadProjectBundle(request: ProjectBundleLoadRequest): CompositionStatus;
+  saveProjectBundle(): ProjectBundleSaveSummary;
+  getProjectBundleCompositionStatus(): CompositionStatus;
+  unloadProjectBundle(): void;
   // Quarantined: replay/golden harness, not the production renderer path.
   loadReplayFixture(fixture: ReplayFixture): ReplaySessionHandle;
   runReplayStep(session: ReplaySessionHandle): ReplayStepReport;

@@ -12,9 +12,9 @@ export function formatResult(result) {
     lines.push(`smokeMode: ${result.smokeMode}`);
     lines.push(`runtimeMode: ${result.runtimeMode} (nativeAvailable=${result.nativeAvailable})`);
     lines.push(`capabilities: runtimeBridge=${result.capabilities.runtimeBridge} ` +
-        `worldLoad=${result.capabilities.worldLoad} renderer=${result.capabilities.renderer} ` +
+        `projectBundleLoad=${result.capabilities.projectBundleLoad} renderer=${result.capabilities.renderer} ` +
         `projection=${result.capabilities.projection}`);
-    lines.push(`fixture: id=${result.fixture.id} worldHash=${result.fixture.worldHash}`);
+    lines.push(`fixture: id=${result.fixture.id} projectBundleHash=${result.fixture.projectBundleHash}`);
     lines.push(`diagnostics: total=${result.diagnostics.total} fatal=${result.diagnostics.fatal} ` +
         `blocksLoad=${result.diagnostics.blocksLoad}`);
     lines.push(`render: applied=${result.render.applied} sceneNodes=${result.render.sceneNodes}`);

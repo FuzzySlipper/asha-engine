@@ -46,7 +46,7 @@ export interface GpuPerfMetadata {
   readonly arch: string;
   readonly node: string;
   readonly fixtureId: number | null;
-  readonly fixtureWorldHash: string | null;
+  readonly fixtureProjectBundleHash: string | null;
   readonly renderContext: GpuPerfRenderContext | 'unavailable';
   readonly gpu: GpuDescriptor;
   readonly browser: string;
@@ -125,7 +125,7 @@ function metadata(
     arch: base?.meta.arch ?? process.arch,
     node: base?.meta.node ?? process.version,
     fixtureId: base?.meta.fixtureId ?? null,
-    fixtureWorldHash: base?.meta.fixtureWorldHash ?? null,
+    fixtureProjectBundleHash: base?.meta.fixtureProjectBundleHash ?? null,
     renderContext: renderContext ?? 'unavailable',
     gpu: descriptor(env),
     browser: read(env, 'ASHA_GPU_BROWSER'),

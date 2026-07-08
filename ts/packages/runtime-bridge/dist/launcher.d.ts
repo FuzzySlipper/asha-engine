@@ -1,10 +1,10 @@
 import type { CommandBatch, CommandResult, RenderFrameDiff } from '@asha/contracts';
-import { type CompositionStatus, type FrameCursor, type RuntimeBridge, type WorldLoadRequest } from './bridge.js';
+import { type CompositionStatus, type FrameCursor, type RuntimeBridge, type ProjectBundleLoadRequest } from './bridge.js';
 export type GameRuntimeMode = 'reference' | 'native' | 'wasm' | 'degraded';
 export type GameRuntimeBackendMode = 'reference' | 'native' | 'wasm';
 export type GameRuntimeBackendTransport = 'reference_mock' | 'napi_native' | 'wasm_module';
 export type GameRuntimeNonClaim = 'not_native_runtime' | 'not_hardware_gpu' | 'not_performance_evidence' | 'not_publish_artifact' | 'not_product_authority' | 'not_wasm_authority';
-export type GameRuntimeDiagnosticCode = 'missing_compatibility' | 'missing_world_bundle' | 'unsupported_runtime_entry' | 'unsupported_backend_mode' | 'missing_backend_evidence' | 'private_transport_hint' | 'backend_claim_mismatch' | 'runtime_unavailable' | 'operation_unimplemented' | 'command_rejected' | 'stale_sequence' | 'stale_readback' | 'internal';
+export type GameRuntimeDiagnosticCode = 'missing_compatibility' | 'missing_project_bundle' | 'unsupported_runtime_entry' | 'unsupported_backend_mode' | 'missing_backend_evidence' | 'private_transport_hint' | 'backend_claim_mismatch' | 'runtime_unavailable' | 'operation_unimplemented' | 'command_rejected' | 'stale_sequence' | 'stale_readback' | 'internal';
 export interface GameRuntimeDiagnostic {
     readonly code: GameRuntimeDiagnosticCode;
     readonly severity: 'info' | 'warning' | 'error';
@@ -43,7 +43,7 @@ export type GameRuntimeBackendProfileValidation = {
 export interface GameRuntimeResourceProfile {
     readonly profileId: string;
     readonly runtimeEntry: string;
-    readonly worldBundleId: string;
+    readonly projectBundleId: string;
     readonly resourceManifestHash?: string;
     readonly estimatedBytes?: number;
 }
@@ -60,7 +60,7 @@ export interface GameRuntimeConfig {
     readonly runtimeEntry: string;
     readonly compatibility: GameRuntimeCompatibility;
     readonly resourceProfile: GameRuntimeResourceProfile;
-    readonly world: WorldLoadRequest;
+    readonly projectBundle: ProjectBundleLoadRequest;
     readonly startedAtIso?: string;
 }
 export interface GameRuntimeIdentity {
@@ -76,7 +76,7 @@ export interface GameRuntimeProjectionSummary {
     readonly sequenceId: number;
     readonly worldHash: string;
     readonly authorityHash: string;
-    readonly loadedWorld: number | null;
+    readonly loadedProjectBundle: number | null;
     readonly fatalCount: number;
     readonly totalDiagnosticCount: number;
     readonly evidenceRefs: readonly GameRuntimeEvidenceRef[];

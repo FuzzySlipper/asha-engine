@@ -7,8 +7,8 @@ export const NATIVE_RUST_RUNTIME_BRIDGE_PROVIDER_GLOBALS = [
 ];
 export const NATIVE_RUST_RUNTIME_BRIDGE_REQUIRED_METHODS = [
     'initializeEngine',
-    'loadWorldBundle', // vocab-allow: provider compatibility check must require the legacy bridge operation.
-    'getCompositionStatus',
+    'loadProjectBundle', // vocab-allow: provider compatibility check must require the legacy bridge operation.
+    'getProjectBundleCompositionStatus',
     'createCamera',
     'applyCollisionConstrainedCameraInput',
     'loadFpsRuntimeSession',
@@ -23,7 +23,7 @@ export const NATIVE_RUST_RUNTIME_BRIDGE_REQUIRED_METHODS = [
     'applyVoxelConversion',
     'exportVoxelConversionEvidence',
     'readVoxelModelInfo',
-    'unloadWorld',
+    'unloadProjectBundle',
 ];
 export function createNativeRustRuntimeBridgeProvider(request) {
     const hasBridge = request.bridge !== undefined;

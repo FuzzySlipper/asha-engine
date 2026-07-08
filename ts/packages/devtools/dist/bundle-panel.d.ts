@@ -1,5 +1,5 @@
-import { type CompositionStatus, type RuntimeBridge, type WorldLoadRequest, type WorldSaveSummary } from '@asha/runtime-bridge';
-import type { ArtifactClass, DiagnosticReport, DiagnosticReportSet, DiagnosticSeverity, DiagnosticSourceRef, GeneratorMismatch, LoadPlan, LoadStep, RegenConflictReport, SaveSummary, WorldBundleManifest } from '@asha/contracts';
+import { type CompositionStatus, type RuntimeBridge, type ProjectBundleLoadRequest, type ProjectBundleSaveSummary } from '@asha/runtime-bridge';
+import type { ArtifactClass, DiagnosticReport, DiagnosticReportSet, DiagnosticSeverity, DiagnosticSourceRef, GeneratorMismatch, LoadPlan, LoadStep, RegenConflictReport, SaveSummary, WorldBundleManifest as GeneratedProjectBundleManifest } from '@asha/contracts';
 /** One artifact row with its persistence class and whether a durable hash is present. */
 export interface ArtifactView {
     readonly path: string;
@@ -12,15 +12,15 @@ export interface ArtifactView {
 export interface ManifestModel {
     readonly bundleSchemaVersion: number;
     readonly protocolVersion: number;
-    readonly worldId: number;
+    readonly projectBundleId: number;
     readonly sceneId: number;
     readonly assetCount: number;
     readonly artifacts: readonly ArtifactView[];
     /** Artifact counts grouped by persistence class. */
     readonly classCounts: Readonly<Record<ArtifactClass, number>>;
 }
-/** Build the manifest inspector model from a generated world-bundle manifest. */
-export declare function buildManifestModel(manifest: WorldBundleManifest): ManifestModel;
+/** Build the manifest inspector model from a generated ProjectBundle manifest. */
+export declare function buildManifestModel(manifest: GeneratedProjectBundleManifest): ManifestModel;
 export interface LoadStepView {
     readonly index: number;
     readonly step: LoadStep['step'];
@@ -42,11 +42,11 @@ export declare function buildSavePlanModel(summary: SaveSummary): SavePlanView;
 /** Projected durability checkpoints for a fixture (mirrors `DurabilityEvidence`). */
 export interface VoxelDurabilityEvidence {
     readonly fixture: string;
-    /** World fingerprint after the base fixture loads (generation only). */
+    /** Session fingerprint after the base fixture loads (generation only). */
     readonly postLoad: string;
-    /** World fingerprint after the canonical edit sequence. */
+    /** Session fingerprint after the canonical edit sequence. */
     readonly postEdit: string;
-    /** World fingerprint after compaction + reload. */
+    /** Session fingerprint after compaction + reload. */
     readonly postReload: string;
     readonly compactedEdits: number;
     readonly retainedEdits: number;
@@ -58,7 +58,7 @@ export interface VoxelDurabilityView {
     readonly postEdit: string;
     readonly postReload: string;
     /** A no-op edit (load == edit) is suspicious — the sequence changed nothing. */
-    readonly editedWorld: boolean;
+    readonly editedSession: boolean;
     /** Durability holds iff post-edit and post-reload fingerprints agree. */
     readonly durable: boolean;
     readonly compactedEdits: number;
@@ -135,9 +135,9 @@ export interface DiagnosticsPanelModel {
 /** Build the diagnostics panel model: severity, remedy, and navigable source per report. */
 export declare function buildDiagnosticsPanel(set: DiagnosticReportSet): DiagnosticsPanelModel;
 /** Derive the typed facade load request from a manifest (no local mutation). */
-export declare function buildLoadRequest(manifest: WorldBundleManifest): WorldLoadRequest;
+export declare function buildProjectBundleLoadRequest(manifest: GeneratedProjectBundleManifest): ProjectBundleLoadRequest;
 /** A classified outcome of a load/save action — fail-closed errors are surfaced. */
-export type BundleActionResult<T> = {
+export type ProjectBundleActionResult<T> = {
     readonly ok: true;
     readonly value: T;
 } | {
@@ -147,11 +147,11 @@ export type BundleActionResult<T> = {
     readonly recovery: string;
 };
 /**
- * Submit a world-bundle load through the facade. The prior world is left untouched
+ * Submit a project-bundle load through the facade. The prior world is left untouched
  * on failure (the facade stages the swap); this returns a classified result rather
  * than throwing, so a panel can render the fail-closed outcome.
  */
-export declare function submitLoad(bridge: RuntimeBridge, request: WorldLoadRequest): BundleActionResult<CompositionStatus>;
+export declare function submitProjectBundleLoad(bridge: RuntimeBridge, request: ProjectBundleLoadRequest): ProjectBundleActionResult<CompositionStatus>;
 /** Submit a save through the facade, returning a classified result. */
-export declare function submitSave(bridge: RuntimeBridge): BundleActionResult<WorldSaveSummary>;
+export declare function submitProjectBundleSave(bridge: RuntimeBridge): ProjectBundleActionResult<ProjectBundleSaveSummary>;
 //# sourceMappingURL=bundle-panel.d.ts.map

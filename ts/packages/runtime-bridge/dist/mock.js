@@ -416,7 +416,7 @@ export class MockRuntimeBridge {
     #engine = null;
     #buffer = new Uint8Array();
     #replaySteps = 0;
-    #loadedWorld = null;
+    #loadedProjectBundle = null;
     #sceneDocument = initialMockSceneDocument();
     #nextCamera = 1;
     #cameras = new Map();
@@ -1260,29 +1260,29 @@ export class MockRuntimeBridge {
         }
         this.#buffer = new Uint8Array();
     }
-    loadWorldBundle(request) {
+    loadProjectBundle(request) {
         const bundleSchemaVersion = u32(request.bundleSchemaVersion, 'bundleSchemaVersion');
         const protocolVersion = u32(request.protocolVersion, 'protocolVersion');
         const sceneId = nonNegativeSafeInteger(request.sceneId, 'sceneId');
         // Fail closed on a newer bundle; the prior loaded world is left untouched
-        // (we only set #loadedWorld on success — the staged commit/swap).
+        // (we only set #loadedProjectBundle on success — the staged commit/swap).
         if (bundleSchemaVersion > 1 || protocolVersion > 1) {
             throw new RuntimeBridgeError('invalid_input', `unsupported bundle schema ${bundleSchemaVersion} / protocol ${protocolVersion}`);
         }
-        this.#loadedWorld = sceneId;
-        return { loadedWorld: sceneId, fatalCount: 0, totalCount: 0, blocksLoad: false };
+        this.#loadedProjectBundle = sceneId;
+        return { loadedProjectBundle: sceneId, fatalCount: 0, totalCount: 0, blocksLoad: false };
     }
-    saveCurrentWorld() {
-        if (this.#loadedWorld === null) {
-            throw new RuntimeBridgeError('not_initialized', 'saveCurrentWorld with no world loaded');
+    saveProjectBundle() {
+        if (this.#loadedProjectBundle === null) {
+            throw new RuntimeBridgeError('not_initialized', 'saveProjectBundle with no project bundle loaded');
         }
         return { artifactsWritten: 3, compactedEdits: 0, retainedEdits: 0 };
     }
-    getCompositionStatus() {
-        return { loadedWorld: this.#loadedWorld, fatalCount: 0, totalCount: 0, blocksLoad: false };
+    getProjectBundleCompositionStatus() {
+        return { loadedProjectBundle: this.#loadedProjectBundle, fatalCount: 0, totalCount: 0, blocksLoad: false };
     }
-    unloadWorld() {
-        this.#loadedWorld = null;
+    unloadProjectBundle() {
+        this.#loadedProjectBundle = null;
     }
     loadReplayFixture(fixture) {
         this.#replaySteps = fixture.steps;

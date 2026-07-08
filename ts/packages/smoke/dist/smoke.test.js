@@ -9,7 +9,7 @@ import { RuntimeBridgeError, } from '@asha/runtime-bridge';
 import { createMockRuntimeBridge } from '@asha/runtime-bridge/reference';
 import { authorityBootBridge, runSmoke } from './harness.js';
 import { formatResult } from './result.js';
-import { FIXTURE_WORLD, fixtureEditUpdateFrame, fixtureRenderFrame, fixtureWorldHash, } from './fixtures.js';
+import { FIXTURE_PROJECT_BUNDLE, fixtureEditUpdateFrame, fixtureRenderFrame, fixtureProjectBundleHash, } from './fixtures.js';
 /** The canonical 10-stage launchable-voxel proof order (task #2441). */
 const STAGE_ORDER = [
     'boot',
@@ -40,11 +40,11 @@ void test('mock run passes and reports trustworthy evidence', () => {
     assert.equal(result.nativeAvailable, false);
     // Capabilities honestly distinguish real (renderer) from mock-backed.
     assert.equal(result.capabilities.renderer, 'ok');
-    assert.equal(result.capabilities.worldLoad, 'mock');
+    assert.equal(result.capabilities.projectBundleLoad, 'mock');
     assert.equal(result.capabilities.projection, 'mock');
     // Deterministic fixture evidence.
-    assert.equal(result.fixture.id, FIXTURE_WORLD.sceneId);
-    assert.equal(result.fixture.worldHash, fixtureWorldHash(FIXTURE_WORLD));
+    assert.equal(result.fixture.id, FIXTURE_PROJECT_BUNDLE.sceneId);
+    assert.equal(result.fixture.projectBundleHash, fixtureProjectBundleHash(FIXTURE_PROJECT_BUNDLE));
     // The full 10-stage launchable proof ran, every stage green.
     assert.deepEqual(result.stages.map((s) => s.name), STAGE_ORDER);
     assert.ok(result.stages.every((s) => s.ok));
@@ -164,32 +164,32 @@ function bridgeWith(overrides) {
         readCameraProjection: base.readCameraProjection.bind(base),
         getBuffer: base.getBuffer.bind(base),
         releaseBuffer: base.releaseBuffer.bind(base),
-        loadWorldBundle: base.loadWorldBundle.bind(base),
-        saveCurrentWorld: base.saveCurrentWorld.bind(base),
-        getCompositionStatus: base.getCompositionStatus.bind(base),
-        unloadWorld: base.unloadWorld.bind(base),
+        loadProjectBundle: base.loadProjectBundle.bind(base),
+        saveProjectBundle: base.saveProjectBundle.bind(base),
+        getProjectBundleCompositionStatus: base.getProjectBundleCompositionStatus.bind(base),
+        unloadProjectBundle: base.unloadProjectBundle.bind(base),
         loadReplayFixture: base.loadReplayFixture.bind(base),
         runReplayStep: base.runReplayStep.bind(base),
         ...overrides,
     };
 }
-void test('a failing world load is categorized to the load subsystem, not a blank success', () => {
+void test('a failing ProjectBundle load is categorized to the load subsystem, not a blank success', () => {
     const failing = bridgeWith({
-        loadWorldBundle: () => ({ loadedWorld: null, fatalCount: 1, totalCount: 1, blocksLoad: true }),
+        loadProjectBundle: () => ({ loadedProjectBundle: null, fatalCount: 1, totalCount: 1, blocksLoad: true }),
     });
     const result = runSmoke({
         bootBridge: () => ({ bridge: failing, mode: 'mock', intent: 'reference', nativeAvailable: false }),
     });
     assert.equal(result.ok, false);
     assert.equal(result.outcome, 'failed');
-    assert.equal(result.capabilities.worldLoad, 'unavailable');
+    assert.equal(result.capabilities.projectBundleLoad, 'unavailable');
     const loadFailure = result.failures.find((f) => f.category === 'load_failure');
     assert.ok(loadFailure, 'expected a classified load_failure');
     assert.ok(loadFailure.nextStep.length > 0, 'failure carries an actionable next step');
 });
 void test('a thrown bridge load surfaces a classified failure', () => {
     const throwing = bridgeWith({
-        loadWorldBundle: () => {
+        loadProjectBundle: () => {
             throw new RuntimeBridgeError('invalid_input', 'bad bundle');
         },
     });
@@ -222,7 +222,7 @@ void test('authority run reads diffs through the facade and earns native_authori
     assert.equal(result.smokeMode, 'authority');
     assert.equal(result.outcome, 'native_authority_passed');
     // Capabilities report real (not mock) once the authority path passes.
-    assert.equal(result.capabilities.worldLoad, 'ok');
+    assert.equal(result.capabilities.projectBundleLoad, 'ok');
     assert.equal(result.capabilities.projection, 'ok');
     // The render stage consumed bridge.readRenderDiffs, not the local fixture frame.
     const render = result.stages.find((s) => s.name === 'render');

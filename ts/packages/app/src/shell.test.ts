@@ -165,7 +165,7 @@ void test('fixture selection is runtime-selectable (data, not compile-time)', ()
 
   const world = shell.loadActiveFixture();
   assert.equal(world.loaded, true);
-  assert.equal(world.composition?.loadedWorld, 1002);
+  assert.equal(world.composition?.loadedProjectBundle, 1002);
   assert.throws(() => shell.selectFixture('nope'), /unknown fixture/);
 });
 

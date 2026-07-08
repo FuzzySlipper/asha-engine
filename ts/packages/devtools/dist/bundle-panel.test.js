@@ -2,8 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RuntimeBridgeError } from '@asha/runtime-bridge';
 import { createMockRuntimeBridge } from '@asha/runtime-bridge/reference';
-import { sceneId, worldId, } from '@asha/contracts';
-import { buildDiagnosticsPanel, buildLoadPlanModel, buildLoadRequest, buildManifestModel, buildRegenReport, buildSavePlanModel, buildVoxelDurabilityModel, describeGeneratorMismatch, summarizeVoxelDurability, navigateSource, submitLoad, submitSave, } from './bundle-panel.js';
+import { sceneId, worldId, // vocab-allow: generated id helper keeps legacy name until #5049.
+ } from '@asha/contracts';
+import { buildDiagnosticsPanel, buildLoadPlanModel, buildProjectBundleLoadRequest, buildManifestModel, buildRegenReport, buildSavePlanModel, buildVoxelDurabilityModel, describeGeneratorMismatch, summarizeVoxelDurability, navigateSource, submitProjectBundleLoad, submitProjectBundleSave, } from './bundle-panel.js';
 function manifest() {
     return {
         bundleSchemaVersion: 1,
@@ -22,7 +23,7 @@ function manifest() {
 }
 void test('buildManifestModel classifies artifacts and counts by class', () => {
     const model = buildManifestModel(manifest());
-    assert.equal(model.worldId, 7);
+    assert.equal(model.projectBundleId, 7);
     assert.equal(model.sceneId, 1001);
     assert.equal(model.assetCount, 4);
     assert.deepEqual(model.classCounts, { durable: 2, generated: 1, cache: 1 });
@@ -57,7 +58,7 @@ void test('buildSavePlanModel summarizes writes and compaction', () => {
     const summary = {
         writes: [
             { path: 'scene.json', class: 'durable', role: 'sceneDocument', contentHash: 'h1' },
-            { path: 'snap.bin', class: 'generated', role: 'worldStateSnapshot', contentHash: null },
+            { path: 'snap.bin', class: 'generated', role: 'sessionStateSnapshot', contentHash: null },
         ],
         compaction: { compactedEdits: 12, retainedEdits: 3, snapshotChunks: ['c0', 'c1'] },
     };
@@ -120,7 +121,7 @@ void test('buildDiagnosticsPanel carries severity, remedy, and navigation; only 
     const set = {
         reports: [
             {
-                scope: 'worldBundle',
+                scope: 'worldBundle', // vocab-allow: generated diagnostic scope keeps legacy name until #5049.
                 severity: 'fatal',
                 code: 'corruptBundleArtifact',
                 reference: 'bundle/scene.json',
@@ -153,49 +154,49 @@ function loadedBridge() {
     bridge.initializeEngine({ seed: 1 });
     return bridge;
 }
-void test('buildLoadRequest derives a typed facade request from the manifest', () => {
-    assert.deepEqual(buildLoadRequest(manifest()), { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1001 });
+void test('buildProjectBundleLoadRequest derives a typed facade request from the manifest', () => {
+    assert.deepEqual(buildProjectBundleLoadRequest(manifest()), { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1001 });
 });
-void test('submitLoad goes through the facade and returns the composition status', () => {
+void test('submitProjectBundleLoad goes through the facade and returns the composition status', () => {
     const bridge = loadedBridge();
-    const result = submitLoad(bridge, buildLoadRequest(manifest()));
+    const result = submitProjectBundleLoad(bridge, buildProjectBundleLoadRequest(manifest()));
     assert.equal(result.ok, true);
     if (result.ok) {
-        assert.equal(result.value.loadedWorld, 1001);
+        assert.equal(result.value.loadedProjectBundle, 1001);
         assert.equal(result.value.blocksLoad, false);
     }
 });
-void test('submitLoad surfaces a fail-closed incompatible bundle with a recovery hint', () => {
+void test('submitProjectBundleLoad surfaces a fail-closed incompatible bundle with a recovery hint', () => {
     const bridge = loadedBridge();
-    const result = submitLoad(bridge, { bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 1001 });
+    const result = submitProjectBundleLoad(bridge, { bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 1001 });
     assert.equal(result.ok, false);
     if (!result.ok) {
         assert.equal(result.kind, 'invalid_input');
         assert.match(result.recovery, /incompatible/);
     }
 });
-void test('submitSave fails closed when no world is loaded, succeeds after a load', () => {
+void test('submitProjectBundleSave fails closed when no ProjectBundle is loaded, succeeds after a load', () => {
     const bridge = loadedBridge();
-    const before = submitSave(bridge);
+    const before = submitProjectBundleSave(bridge);
     assert.equal(before.ok, false);
     if (!before.ok) {
         assert.equal(before.kind, 'not_initialized');
     }
-    submitLoad(bridge, buildLoadRequest(manifest()));
-    const after = submitSave(bridge);
+    submitProjectBundleLoad(bridge, buildProjectBundleLoadRequest(manifest()));
+    const after = submitProjectBundleSave(bridge);
     assert.equal(after.ok, true);
     if (after.ok) {
         assert.equal(after.value.artifactsWritten, 3);
     }
 });
-void test('submitLoad rethrows non-bridge errors unchanged', () => {
+void test('submitProjectBundleLoad rethrows non-bridge errors unchanged', () => {
     const exploding = {
         ...createMockRuntimeBridge(),
-        loadWorldBundle() {
+        loadProjectBundle() {
             throw new TypeError('not a bridge error');
         },
     };
-    assert.throws(() => submitLoad(exploding, buildLoadRequest(manifest())), TypeError);
+    assert.throws(() => submitProjectBundleLoad(exploding, buildProjectBundleLoadRequest(manifest())), TypeError);
     // Sanity: a bridge error is caught, a TypeError is not.
     assert.ok(new RuntimeBridgeError('internal', 'x') instanceof RuntimeBridgeError);
 });
@@ -211,18 +212,18 @@ const DURABLE_EVIDENCE = {
 void test('buildVoxelDurabilityModel classifies a durable, genuinely-edited fixture', () => {
     const view = buildVoxelDurabilityModel(DURABLE_EVIDENCE);
     assert.equal(view.durable, true, 'post-edit equals post-reload');
-    assert.equal(view.editedWorld, true, 'post-load differs from post-edit');
+    assert.equal(view.editedSession, true, 'post-load differs from post-edit');
     assert.equal(view.compactedEdits, 2);
     assert.equal(view.retainedEdits, 1);
 });
 void test('buildVoxelDurabilityModel flags a non-durable reload (fingerprint divergence)', () => {
     const view = buildVoxelDurabilityModel({ ...DURABLE_EVIDENCE, postReload: 'ffffffffffffffff' });
     assert.equal(view.durable, false, 'a reload that does not reproduce the edit is not durable');
-    assert.equal(view.editedWorld, true);
+    assert.equal(view.editedSession, true);
 });
 void test('buildVoxelDurabilityModel flags a no-op edit sequence', () => {
     const view = buildVoxelDurabilityModel({ ...DURABLE_EVIDENCE, postEdit: DURABLE_EVIDENCE.postLoad });
-    assert.equal(view.editedWorld, false, 'load == edit means the sequence changed nothing');
+    assert.equal(view.editedSession, false, 'load == edit means the sequence changed nothing');
 });
 void test('summarizeVoxelDurability renders deterministic display lines', () => {
     const lines = summarizeVoxelDurability(buildVoxelDurabilityModel(DURABLE_EVIDENCE));

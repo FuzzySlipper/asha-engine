@@ -300,7 +300,7 @@
     },
     {
       "manifestName": "load_world_bundle",
-      "facadeMethod": "loadWorldBundle",
+      "facadeMethod": "loadProjectBundle",
       "surface": "stable",
       "input": "protocol_world_bundle::WorldBundleManifest",
       "output": "protocol_diagnostics::DiagnosticReportSet",
@@ -308,7 +308,7 @@
     },
     {
       "manifestName": "save_current_world",
-      "facadeMethod": "saveCurrentWorld",
+      "facadeMethod": "saveProjectBundle",
       "surface": "stable",
       "input": "Unit",
       "output": "protocol_world_bundle::SaveSummary",
@@ -316,7 +316,7 @@
     },
     {
       "manifestName": "get_composition_status",
-      "facadeMethod": "getCompositionStatus",
+      "facadeMethod": "getProjectBundleCompositionStatus",
       "surface": "stable",
       "input": "Unit",
       "output": "protocol_diagnostics::DiagnosticReportSet",
@@ -324,7 +324,7 @@
     },
     {
       "manifestName": "unload_world",
-      "facadeMethod": "unloadWorld",
+      "facadeMethod": "unloadProjectBundle",
       "surface": "stable",
       "input": "Unit",
       "output": "Unit",

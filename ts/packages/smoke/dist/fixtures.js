@@ -1,14 +1,14 @@
 // Deterministic abstract fixtures for the smoke harness. No product nouns; these
 // exercise the real facade load path and the real renderer upload path.
 import { entityId, renderHandle } from '@asha/contracts';
-/** The abstract fixture world the smoke harness loads through the facade. */
-export const FIXTURE_WORLD = {
+/** The abstract fixture ProjectBundle the smoke harness loads through the facade. */
+export const FIXTURE_PROJECT_BUNDLE = {
     bundleSchemaVersion: 1,
     protocolVersion: 1,
     sceneId: 1001,
 };
-/** A deterministic FNV-1a hash over the fixture world definition (stable evidence). */
-export function fixtureWorldHash(request) {
+/** A deterministic FNV-1a hash over the fixture ProjectBundle definition (stable evidence). */
+export function fixtureProjectBundleHash(request) {
     let hash = 0xcbf29ce484222325n;
     const prime = 0x100000001b3n;
     const mask = (1n << 64n) - 1n;

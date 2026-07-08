@@ -66,14 +66,14 @@ export interface SmokeResult {
     /** Per-capability probe results. */
     readonly capabilities: {
         readonly runtimeBridge: CapabilityStatus;
-        readonly worldLoad: CapabilityStatus;
+        readonly projectBundleLoad: CapabilityStatus;
         readonly renderer: CapabilityStatus;
         readonly projection: CapabilityStatus;
     };
-    /** The abstract fixture world that was loaded (id + deterministic content hash). */
+    /** The abstract fixture ProjectBundle that was loaded (id + deterministic content hash). */
     readonly fixture: {
         readonly id: number;
-        readonly worldHash: string;
+        readonly projectBundleHash: string;
     };
     /** Diagnostics summary from the load/composition path. */
     readonly diagnostics: {

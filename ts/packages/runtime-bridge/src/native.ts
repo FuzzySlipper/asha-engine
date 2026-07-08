@@ -71,8 +71,8 @@ import {
   type StepInputEnvelope,
   type StepResult,
   type VoxelMeshEvidenceSnapshot,
-  type WorldLoadRequest,
-  type WorldSaveSummary,
+  type ProjectBundleLoadRequest,
+  type ProjectBundleSaveSummary,
 } from './bridge.js';
 
 // ── Native implementation factory ─────────────────────────────────────────────
@@ -95,7 +95,7 @@ import {
  */
 export const NATIVE_WIRED_OPERATIONS: ReadonlySet<string> = new Set<string>([
   'initialize_engine',
-  'load_world_bundle',
+  'load_world_bundle', // vocab-allow: raw Rust/native manifest operation remains until #5048.
   'submit_commands',
   'step_simulation',
   'apply_enemy_direct_nav_movement',
@@ -167,6 +167,24 @@ function parseNativeJson<T>(payload: string, field: string): T {
     const reason = cause instanceof Error ? cause.message : String(cause);
     throw new RuntimeBridgeError('internal', `native ${field} was not valid JSON: ${reason}`);
   }
+}
+
+interface NativeProjectBundleCompositionStatus {
+  readonly loadedWorld: number | null; // vocab-allow: raw native payload field remains until #5048.
+  readonly fatalCount: number;
+  readonly totalCount: number;
+  readonly blocksLoad: boolean;
+}
+
+function projectBundleCompositionStatusFromNative(
+  status: NativeProjectBundleCompositionStatus,
+): CompositionStatus {
+  return {
+    loadedProjectBundle: status.loadedWorld, // vocab-allow: raw native payload field remains until #5048.
+    fatalCount: status.fatalCount,
+    totalCount: status.totalCount,
+    blocksLoad: status.blocksLoad,
+  };
 }
 
 function nativeVec3(value: readonly [number, number, number], field: string): { readonly x: number; readonly y: number; readonly z: number } {
@@ -398,14 +416,15 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     return this.#engineHandle;
   }
 
-  loadWorldBundle(request: WorldLoadRequest): CompositionStatus {
-    const handle = this.#requireHandle('loadWorldBundle');
+  loadProjectBundle(request: ProjectBundleLoadRequest): CompositionStatus {
+    const handle = this.#requireHandle('loadProjectBundle');
     const bundleSchemaVersion = u32(request.bundleSchemaVersion, 'bundleSchemaVersion');
     const protocolVersion = u32(request.protocolVersion, 'protocolVersion');
     const sceneId = nonNegativeSafeInteger(request.sceneId, 'sceneId');
-    return callNative(() =>
-      this.#addon.loadWorldBundle(handle, bundleSchemaVersion, protocolVersion, sceneId) as CompositionStatus,
+    const status = callNative(() =>
+      this.#addon.loadWorldBundle(handle, bundleSchemaVersion, protocolVersion, sceneId), // vocab-allow: raw native addon symbol remains until #5048.
     );
+    return projectBundleCompositionStatusFromNative(status);
   }
 
   submitCommands(batch: CommandBatch): CommandResult {
@@ -607,14 +626,15 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     return callNative(() => this.#addon.readRenderDiffs(handle, frame) as RenderFrameDiff);
   }
 
-  saveCurrentWorld(): WorldSaveSummary {
-    const handle = this.#requireHandle('saveCurrentWorld');
-    return callNative(() => this.#addon.saveCurrentWorld(handle) as WorldSaveSummary);
+  saveProjectBundle(): ProjectBundleSaveSummary {
+    const handle = this.#requireHandle('saveProjectBundle');
+    return callNative(() => this.#addon.saveCurrentWorld(handle) as ProjectBundleSaveSummary);
   }
 
-  getCompositionStatus(): CompositionStatus {
-    const handle = this.#requireHandle('getCompositionStatus');
-    return callNative(() => this.#addon.getCompositionStatus(handle) as CompositionStatus);
+  getProjectBundleCompositionStatus(): CompositionStatus {
+    const handle = this.#requireHandle('getProjectBundleCompositionStatus');
+    const status = callNative(() => this.#addon.getCompositionStatus(handle));
+    return projectBundleCompositionStatusFromNative(status);
   }
 
   planVoxelConversion(request: VoxelConversionPlanRequest): VoxelConversionPlan {
@@ -726,7 +746,7 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     throw nativeUnimplemented('release_buffer');
   }
 
-  unloadWorld(): void {
+  unloadProjectBundle(): void {
     throw nativeUnimplemented('unload_world');
   }
 

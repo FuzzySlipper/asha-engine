@@ -67,10 +67,10 @@ export class ReferenceGameRuntimeLauncher implements GameRuntimeLauncher {
     }
 
     const bridge = createMockRuntimeBridge();
-    bridge.initializeEngine({ seed: config.world.sceneId });
-    const status = bridge.loadWorldBundle(config.world);
-    if (status.blocksLoad || status.loadedWorld === null) {
-      throw new RuntimeBridgeError('invalid_input', 'world bundle failed to load for reference launcher');
+    bridge.initializeEngine({ seed: config.projectBundle.sceneId });
+    const status = bridge.loadProjectBundle(config.projectBundle);
+    if (status.blocksLoad || status.loadedProjectBundle === null) {
+      throw new RuntimeBridgeError('invalid_input', 'project bundle failed to load for reference launcher');
     }
     return new ReferenceGameRuntimeSession(bridge, config, referenceRuntimeProfile(config), status);
   }

@@ -96,14 +96,14 @@ export interface SmokeResult {
   /** Per-capability probe results. */
   readonly capabilities: {
     readonly runtimeBridge: CapabilityStatus;
-    readonly worldLoad: CapabilityStatus;
+    readonly projectBundleLoad: CapabilityStatus;
     readonly renderer: CapabilityStatus;
     readonly projection: CapabilityStatus;
   };
-  /** The abstract fixture world that was loaded (id + deterministic content hash). */
+  /** The abstract fixture ProjectBundle that was loaded (id + deterministic content hash). */
   readonly fixture: {
     readonly id: number;
-    readonly worldHash: string;
+    readonly projectBundleHash: string;
   };
   /** Diagnostics summary from the load/composition path. */
   readonly diagnostics: {
@@ -131,10 +131,10 @@ export function formatResult(result: SmokeResult): string {
   lines.push(`runtimeMode: ${result.runtimeMode} (nativeAvailable=${result.nativeAvailable})`);
   lines.push(
     `capabilities: runtimeBridge=${result.capabilities.runtimeBridge} ` +
-      `worldLoad=${result.capabilities.worldLoad} renderer=${result.capabilities.renderer} ` +
+      `projectBundleLoad=${result.capabilities.projectBundleLoad} renderer=${result.capabilities.renderer} ` +
       `projection=${result.capabilities.projection}`,
   );
-  lines.push(`fixture: id=${result.fixture.id} worldHash=${result.fixture.worldHash}`);
+  lines.push(`fixture: id=${result.fixture.id} projectBundleHash=${result.fixture.projectBundleHash}`);
   lines.push(
     `diagnostics: total=${result.diagnostics.total} fatal=${result.diagnostics.fatal} ` +
       `blocksLoad=${result.diagnostics.blocksLoad}`,

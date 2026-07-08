@@ -130,8 +130,8 @@ export type {
   VoxelMeshEvidenceRequest,
   VoxelMeshEvidenceSnapshot,
   VoxelMeshStatsEvidence,
-  WorldLoadRequest,
-  WorldSaveSummary,
+  ProjectBundleLoadRequest,
+  ProjectBundleSaveSummary,
 } from './bridge.js';
 export {
   SelectedBackendGameRuntimeLauncher,

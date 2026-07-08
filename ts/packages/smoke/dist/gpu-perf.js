@@ -40,7 +40,7 @@ function metadata(env, base, renderContext, timestamp) {
         arch: base?.meta.arch ?? process.arch,
         node: base?.meta.node ?? process.version,
         fixtureId: base?.meta.fixtureId ?? null,
-        fixtureWorldHash: base?.meta.fixtureWorldHash ?? null,
+        fixtureProjectBundleHash: base?.meta.fixtureProjectBundleHash ?? null,
         renderContext: renderContext ?? 'unavailable',
         gpu: descriptor(env),
         browser: read(env, 'ASHA_GPU_BROWSER'),

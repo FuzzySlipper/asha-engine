@@ -19,7 +19,7 @@ import {
   RuntimeBridgeError,
   type CompositionStatus,
   type RuntimeBridge,
-  type WorldLoadRequest,
+  type ProjectBundleLoadRequest,
 } from '@asha/runtime-bridge';
 import {
   buildEditorControls,
@@ -104,7 +104,7 @@ export interface FixtureChoice {
   readonly label: string;
   /** Catalog material ids this fixture exposes (drives the material palette). */
   readonly materials: readonly number[];
-  readonly request: WorldLoadRequest;
+  readonly request: ProjectBundleLoadRequest;
 }
 
 /** Everything the host injects to compose the shell. */
@@ -203,7 +203,7 @@ export class AppShell {
 
   #activeFixtureId: string;
   #composition: CompositionStatus | null = null;
-  #worldLoaded = false;
+  #projectBundleLoaded = false;
   #renderApplied = false;
   #renderSource: 'authority' | 'none' = 'none';
   #renderDetail = 'no projection applied yet';
@@ -262,7 +262,7 @@ export class AppShell {
     }
     this.#activeFixtureId = id;
     this.#composition = null;
-    this.#worldLoaded = false;
+    this.#projectBundleLoaded = false;
     this.#renderApplied = false;
     this.#renderSource = 'none';
     this.#renderDetail = 'fixture changed; reload to project';
@@ -275,16 +275,16 @@ export class AppShell {
    */
   loadActiveFixture(): WorldStatus {
     if (!this.#bridge) {
-      this.#worldLoaded = false;
+      this.#projectBundleLoaded = false;
       this.#composition = null;
       return this.worldStatus();
     }
     try {
-      const status = this.#bridge.loadWorldBundle(this.activeFixture.request);
+      const status = this.#bridge.loadProjectBundle(this.activeFixture.request);
       this.#composition = status;
-      this.#worldLoaded = status.loadedWorld === this.activeFixture.request.sceneId && !status.blocksLoad;
+      this.#projectBundleLoaded = status.loadedProjectBundle === this.activeFixture.request.sceneId && !status.blocksLoad;
     } catch (cause) {
-      this.#worldLoaded = false;
+      this.#projectBundleLoaded = false;
       this.#captureDegradation(cause);
     }
     return this.worldStatus();
@@ -402,10 +402,10 @@ export class AppShell {
     return {
       fixtureId: fixture.id,
       fixtureLabel: fixture.label,
-      loaded: this.#worldLoaded,
+      loaded: this.#projectBundleLoaded,
       composition: this.#composition,
-      detail: this.#worldLoaded
-        ? `loaded world ${this.#composition?.loadedWorld ?? '?'}`
+      detail: this.#projectBundleLoaded
+        ? `loaded world ${this.#composition?.loadedProjectBundle ?? '?'}`
         : this.#bridge
           ? 'fixture not loaded'
           : 'no bridge to load fixture',

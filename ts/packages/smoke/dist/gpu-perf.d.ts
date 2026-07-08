@@ -33,7 +33,7 @@ export interface GpuPerfMetadata {
     readonly arch: string;
     readonly node: string;
     readonly fixtureId: number | null;
-    readonly fixtureWorldHash: string | null;
+    readonly fixtureProjectBundleHash: string | null;
     readonly renderContext: GpuPerfRenderContext | 'unavailable';
     readonly gpu: GpuDescriptor;
     readonly browser: string;

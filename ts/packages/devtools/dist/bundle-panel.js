@@ -1,13 +1,13 @@
-// @asha/devtools — world-bundle save/load and diagnostics panel read models
+// @asha/devtools — project-bundle save/load and diagnostics panel read models
 // (#2379).
 //
-// Observational read models for the world-bundle manifest, the ordered authority
+// Observational read models for the project-bundle manifest, the ordered authority
 // load plan, the save/compaction plan, generator-mismatch + round-trip diagnostics,
 // and a navigable diagnostics panel. The load/save *actions* submit typed requests
 // through the runtime-bridge facade only — this module never touches the filesystem
 // and never mutates authority. Fail-closed outcomes are surfaced, never papered over.
 import { RuntimeBridgeError, } from '@asha/runtime-bridge';
-/** Build the manifest inspector model from a generated world-bundle manifest. */
+/** Build the manifest inspector model from a generated ProjectBundle manifest. */
 export function buildManifestModel(manifest) {
     const classCounts = { durable: 0, generated: 0, cache: 0 };
     const artifacts = manifest.artifacts.map((artifact) => {
@@ -23,7 +23,7 @@ export function buildManifestModel(manifest) {
     return {
         bundleSchemaVersion: manifest.bundleSchemaVersion,
         protocolVersion: manifest.protocolVersion,
-        worldId: manifest.world.id,
+        projectBundleId: manifest.world.id,
         sceneId: manifest.scene.id,
         assetCount: manifest.assetLock.assetCount,
         artifacts,
@@ -44,8 +44,8 @@ function describeLoadStep(step) {
             return `apply voxel edits (${step.editLogs.length} logs, ${step.snapshots.length} snapshots)`;
         case 'bootstrapScene':
             return `bootstrap scene ${step.scene} → world ${step.world}`;
-        case 'restoreWorldState':
-            return `restore runtime world state ${step.artifact}`;
+        case 'restoreWorldState': // vocab-allow: generated load-step tag keeps legacy name until #5049.
+            return `restore runtime session state ${step.artifact}`;
         case 'validateFinalState':
             return `validate final state`;
     }
@@ -80,7 +80,7 @@ export function buildVoxelDurabilityModel(evidence) {
         postLoad: evidence.postLoad,
         postEdit: evidence.postEdit,
         postReload: evidence.postReload,
-        editedWorld: evidence.postLoad !== evidence.postEdit,
+        editedSession: evidence.postLoad !== evidence.postEdit,
         durable: evidence.postEdit === evidence.postReload,
         compactedEdits: evidence.compactedEdits,
         retainedEdits: evidence.retainedEdits,
@@ -89,7 +89,7 @@ export function buildVoxelDurabilityModel(evidence) {
 /** Deterministic display lines summarizing save/reload/replay durability. */
 export function summarizeVoxelDurability(view) {
     return [
-        `fixture ${view.fixture}: durable=${view.durable} edited=${view.editedWorld}`,
+        `fixture ${view.fixture}: durable=${view.durable} edited=${view.editedSession}`,
         `postLoad=${view.postLoad} postEdit=${view.postEdit} postReload=${view.postReload}`,
         `compaction folded=${view.compactedEdits} retained=${view.retainedEdits}`,
     ];
@@ -154,7 +154,7 @@ export function buildDiagnosticsPanel(set) {
 }
 // ── Load / save action requests (through the facade only) ─────────────────────────
 /** Derive the typed facade load request from a manifest (no local mutation). */
-export function buildLoadRequest(manifest) {
+export function buildProjectBundleLoadRequest(manifest) {
     return {
         bundleSchemaVersion: manifest.bundleSchemaVersion,
         protocolVersion: manifest.protocolVersion,
@@ -166,7 +166,7 @@ function recoveryHint(error) {
         case 'invalid_input':
             return 'bundle is incompatible with this build — inspect the manifest version/protocol diagnostics';
         case 'not_initialized':
-            return 'load a world before saving';
+            return 'load a ProjectBundle before saving';
         case 'native_unavailable':
             return 'the native runtime is unavailable — retry on the mock facade or rebuild the addon';
         default:
@@ -174,13 +174,13 @@ function recoveryHint(error) {
     }
 }
 /**
- * Submit a world-bundle load through the facade. The prior world is left untouched
+ * Submit a project-bundle load through the facade. The prior world is left untouched
  * on failure (the facade stages the swap); this returns a classified result rather
  * than throwing, so a panel can render the fail-closed outcome.
  */
-export function submitLoad(bridge, request) {
+export function submitProjectBundleLoad(bridge, request) {
     try {
-        return { ok: true, value: bridge.loadWorldBundle(request) };
+        return { ok: true, value: bridge.loadProjectBundle(request) };
     }
     catch (error) {
         if (error instanceof RuntimeBridgeError) {
@@ -190,9 +190,9 @@ export function submitLoad(bridge, request) {
     }
 }
 /** Submit a save through the facade, returning a classified result. */
-export function submitSave(bridge) {
+export function submitProjectBundleSave(bridge) {
     try {
-        return { ok: true, value: bridge.saveCurrentWorld() };
+        return { ok: true, value: bridge.saveProjectBundle() };
     }
     catch (error) {
         if (error instanceof RuntimeBridgeError) {

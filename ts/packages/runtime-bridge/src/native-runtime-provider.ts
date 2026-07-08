@@ -14,8 +14,8 @@ export type NativeRustRuntimeBridgeProviderGlobalName = typeof NATIVE_RUST_RUNTI
 
 export const NATIVE_RUST_RUNTIME_BRIDGE_REQUIRED_METHODS = [
   'initializeEngine',
-  'loadWorldBundle', // vocab-allow: provider compatibility check must require the legacy bridge operation.
-  'getCompositionStatus',
+  'loadProjectBundle', // vocab-allow: provider compatibility check must require the legacy bridge operation.
+  'getProjectBundleCompositionStatus',
   'createCamera',
   'applyCollisionConstrainedCameraInput',
   'loadFpsRuntimeSession',
@@ -30,7 +30,7 @@ export const NATIVE_RUST_RUNTIME_BRIDGE_REQUIRED_METHODS = [
   'applyVoxelConversion',
   'exportVoxelConversionEvidence',
   'readVoxelModelInfo',
-  'unloadWorld',
+  'unloadProjectBundle',
 ] as const;
 
 export type NativeRustRuntimeBridgeProviderKind =

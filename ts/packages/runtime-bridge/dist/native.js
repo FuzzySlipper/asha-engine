@@ -20,7 +20,7 @@ import { RuntimeBridgeError, nonNegativeSafeInteger, u32, } from './bridge.js';
  */
 export const NATIVE_WIRED_OPERATIONS = new Set([
     'initialize_engine',
-    'load_world_bundle',
+    'load_world_bundle', // vocab-allow: raw Rust/native manifest operation remains until #5048.
     'submit_commands',
     'step_simulation',
     'apply_enemy_direct_nav_movement',
@@ -88,6 +88,14 @@ function parseNativeJson(payload, field) {
         const reason = cause instanceof Error ? cause.message : String(cause);
         throw new RuntimeBridgeError('internal', `native ${field} was not valid JSON: ${reason}`);
     }
+}
+function projectBundleCompositionStatusFromNative(status) {
+    return {
+        loadedProjectBundle: status.loadedWorld, // vocab-allow: raw native payload field remains until #5048.
+        fatalCount: status.fatalCount,
+        totalCount: status.totalCount,
+        blocksLoad: status.blocksLoad,
+    };
 }
 function nativeVec3(value, field) {
     if (value.length !== 3 || value.some((component) => !Number.isFinite(component))) {
@@ -297,12 +305,13 @@ export class NativeRuntimeBridge {
         }
         return this.#engineHandle;
     }
-    loadWorldBundle(request) {
-        const handle = this.#requireHandle('loadWorldBundle');
+    loadProjectBundle(request) {
+        const handle = this.#requireHandle('loadProjectBundle');
         const bundleSchemaVersion = u32(request.bundleSchemaVersion, 'bundleSchemaVersion');
         const protocolVersion = u32(request.protocolVersion, 'protocolVersion');
         const sceneId = nonNegativeSafeInteger(request.sceneId, 'sceneId');
-        return callNative(() => this.#addon.loadWorldBundle(handle, bundleSchemaVersion, protocolVersion, sceneId));
+        const status = callNative(() => this.#addon.loadWorldBundle(handle, bundleSchemaVersion, protocolVersion, sceneId));
+        return projectBundleCompositionStatusFromNative(status);
     }
     submitCommands(batch) {
         const handle = this.#requireHandle('submitCommands');
@@ -432,13 +441,14 @@ export class NativeRuntimeBridge {
         const frame = nonNegativeSafeInteger(cursor, 'frame cursor');
         return callNative(() => this.#addon.readRenderDiffs(handle, frame));
     }
-    saveCurrentWorld() {
-        const handle = this.#requireHandle('saveCurrentWorld');
+    saveProjectBundle() {
+        const handle = this.#requireHandle('saveProjectBundle');
         return callNative(() => this.#addon.saveCurrentWorld(handle));
     }
-    getCompositionStatus() {
-        const handle = this.#requireHandle('getCompositionStatus');
-        return callNative(() => this.#addon.getCompositionStatus(handle));
+    getProjectBundleCompositionStatus() {
+        const handle = this.#requireHandle('getProjectBundleCompositionStatus');
+        const status = callNative(() => this.#addon.getCompositionStatus(handle));
+        return projectBundleCompositionStatusFromNative(status);
     }
     planVoxelConversion(request) {
         const handle = this.#requireHandle('planVoxelConversion');
@@ -520,7 +530,7 @@ export class NativeRuntimeBridge {
     releaseBuffer() {
         throw nativeUnimplemented('release_buffer');
     }
-    unloadWorld() {
+    unloadProjectBundle() {
         throw nativeUnimplemented('unload_world');
     }
     loadReplayFixture() {

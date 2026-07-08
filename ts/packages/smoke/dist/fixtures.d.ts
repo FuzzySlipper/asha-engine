@@ -1,9 +1,9 @@
 import type { CommandEnvelope, PickRay, RenderFrameDiff, VoxelCommand } from '@asha/contracts';
-import type { CommandBatch, WorldLoadRequest } from '@asha/runtime-bridge';
-/** The abstract fixture world the smoke harness loads through the facade. */
-export declare const FIXTURE_WORLD: WorldLoadRequest;
-/** A deterministic FNV-1a hash over the fixture world definition (stable evidence). */
-export declare function fixtureWorldHash(request: WorldLoadRequest): string;
+import type { CommandBatch, ProjectBundleLoadRequest } from '@asha/runtime-bridge';
+/** The abstract fixture ProjectBundle the smoke harness loads through the facade. */
+export declare const FIXTURE_PROJECT_BUNDLE: ProjectBundleLoadRequest;
+/** A deterministic FNV-1a hash over the fixture ProjectBundle definition (stable evidence). */
+export declare function fixtureProjectBundleHash(request: ProjectBundleLoadRequest): string;
 /**
  * Deterministic, contract-shaped command envelopes (generated `@asha/contracts`
  * types). The smoke edit stage submits these instead of an ad-hoc `{ kind:

@@ -36,6 +36,10 @@ def snake_to_camel(name: str) -> str:
     return head + "".join(p.capitalize() for p in rest)
 
 
+def facade_method(op) -> str:
+    return op.get("facade_method") or snake_to_camel(op["name"])
+
+
 def load_ops():
     with open(MANIFEST, "rb") as f:
         data = tomllib.load(f)
@@ -59,7 +63,7 @@ def emit_operations_ts(ops) -> str:
         name = op["name"]
         lines.append(
             f"  {{ manifestName: '{name}', "
-            f"facadeMethod: '{snake_to_camel(name)}', "
+            f"facadeMethod: '{facade_method(op)}', "
             f"surface: '{op['surface']}' }},"
         )
     lines.append("];")
@@ -74,7 +78,7 @@ def emit_conformance_json(manifest, ops) -> str:
         "operations": [
             {
                 "manifestName": op["name"],
-                "facadeMethod": snake_to_camel(op["name"]),
+                "facadeMethod": facade_method(op),
                 "surface": op["surface"],
                 "input": op["input"],
                 "output": op["output"],

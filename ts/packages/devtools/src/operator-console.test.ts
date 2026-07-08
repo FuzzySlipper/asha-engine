@@ -46,7 +46,7 @@ function canonical(): OperatorConsoleInput {
   return {
     runtime: {
       mode: 'reference',
-      loadedWorldId: 7,
+      loadedProjectBundleId: 7,
       worldHash: '9d281709bd588a99',
       protocolVersion: 1,
       schemaVersion: 1,
@@ -64,7 +64,7 @@ function canonical(): OperatorConsoleInput {
       operation: 'save',
       status: 'ok',
       worldHash: '9d281709bd588a99',
-      artifactRoles: ['sceneDocument', 'worldStateSnapshot'],
+      artifactRoles: ['sceneDocument', 'sessionStateSnapshot'],
       detail: null,
     },
     policy: null,
@@ -80,10 +80,10 @@ void test('classifyLane routes scope + code overrides to owning lanes', () => {
   assert.equal(classifyLane(diag({ scope: 'assetCatalog' })), 'assetCatalog');
   assert.equal(classifyLane(diag({ scope: 'renderProjection' })), 'renderProjection');
   assert.equal(classifyLane(diag({ scope: 'rendererResources' })), 'rendererResources');
-  assert.equal(classifyLane(diag({ scope: 'worldBundle' })), 'persistenceReplay');
+  assert.equal(classifyLane(diag({ scope: 'worldBundle' })), 'persistenceReplay'); // vocab-allow: generated diagnostic scope keeps legacy name until #5049.
   assert.equal(classifyLane(diag({ scope: 'worldComposition' })), 'persistenceReplay');
   // Protocol mismatch overrides scope.
-  assert.equal(classifyLane(diag({ scope: 'worldBundle', code: 'manifestProtocolMismatch' })), 'protocolContracts');
+  assert.equal(classifyLane(diag({ scope: 'worldBundle', code: 'manifestProtocolMismatch' })), 'protocolContracts'); // vocab-allow: generated diagnostic scope keeps legacy name until #5049.
 });
 
 void test('canonical fixture populates every section and reports ready', () => {
@@ -93,7 +93,7 @@ void test('canonical fixture populates every section and reports ready', () => {
   assert.equal(model.laneFailures.length, 0);
   assert.equal(model.sourceTraces[0]!.broken, false);
   assert.equal(model.resources!.suspectedLeak, false);
-  assert.equal(model.persistence!.artifactRoles.includes('worldStateSnapshot'), true);
+  assert.equal(model.persistence!.artifactRoles.includes('sessionStateSnapshot'), true);
   assert.equal(model.commands.length, 1);
 
   // The export is stable, agent-parseable JSON round-tripping the model.

@@ -58,7 +58,7 @@ export function projectBundleHashRecord(projectBundle) {
 }
 export function compositionHashRecord(composition) {
     return {
-        loadedWorld: composition.loadedWorld,
+        loadedProjectBundle: composition.loadedProjectBundle,
         fatalCount: composition.fatalCount,
         totalCount: composition.totalCount,
         blocksLoad: composition.blocksLoad,

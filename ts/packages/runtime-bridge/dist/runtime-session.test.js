@@ -224,7 +224,7 @@ function rustEncounterSnapshot(state, lifecycle, replayHash = 'fnv1a64:000000000
 }
 function rustRuntimeSessionBridgeDouble(options = {}) {
     const base = createMockRuntimeBridge();
-    const calls = { load: [], world: [], fire: [], nav: [], restart: [], encounterTransitions: [] };
+    const calls = { load: [], projectBundle: [], fire: [], nav: [], restart: [], encounterTransitions: [] };
     let player = 10;
     let enemy = 20;
     let epoch = 1;
@@ -258,13 +258,13 @@ function rustRuntimeSessionBridgeDouble(options = {}) {
                     return snapshot;
                 };
             }
-            if (property === 'loadWorldBundle') { // vocab-allow: proxy intercepts the legacy bridge operation by name.
+            if (property === 'loadProjectBundle') {
                 return (request) => {
-                    calls.world.push(request);
-                    if (request.sceneId === options.rejectWorldSceneId) {
+                    calls.projectBundle.push(request);
+                    if (request.sceneId === options.rejectProjectBundleSceneId) {
                         throw new RuntimeBridgeError('invalid_input', `authority rejected scene ${request.sceneId}`);
                     }
-                    return target.loadWorldBundle(request); // vocab-allow: test delegates to the legacy bridge operation under the RuntimeSession facade.
+                    return target.loadProjectBundle(request);
                 };
             }
             if (property === 'applyFpsPrimaryFire') {
@@ -420,7 +420,7 @@ void test('RuntimeSession initializes, ticks, reads projection and telemetry, th
     const initialized = session.initialize(sessionInput());
     assert.equal(initialized.identity.sessionId, 'runtime-session.asha-demo.reference');
     assert.equal(initialized.identity.mode, 'reference');
-    assert.equal(initialized.composition.loadedWorld, 42);
+    assert.equal(initialized.composition.loadedProjectBundle, 42);
     assert.ok(initialized.identity.nonClaims.includes('not_raw_state_store'));
     assert.ok(initialized.identity.nonClaims.includes('not_arbitrary_json_bridge'));
     const command = {
@@ -435,7 +435,7 @@ void test('RuntimeSession initializes, ticks, reads projection and telemetry, th
     assert.notEqual(receipt.sessionHashAfter, receipt.sessionHashBefore);
     const tick = session.tick();
     assert.equal(tick.tick, 1);
-    assert.equal(tick.composition.loadedWorld, 42);
+    assert.equal(tick.composition.loadedProjectBundle, 42);
     const projection = session.readProjection();
     assert.equal(projection.sequenceId, tick.sequenceId);
     assert.equal(projection.renderDiffCount, 0);
@@ -447,7 +447,7 @@ void test('RuntimeSession initializes, ticks, reads projection and telemetry, th
     const restarted = session.restart();
     assert.equal(restarted.tick, 0);
     assert.equal(restarted.restartCount, 1);
-    assert.equal(restarted.composition.loadedWorld, 42);
+    assert.equal(restarted.composition.loadedProjectBundle, 42);
     const afterRestart = session.readTelemetry();
     assert.equal(afterRestart.acceptedCommandCount, 0);
     assert.equal(afterRestart.rejectedCommandCount, 0);
@@ -625,9 +625,9 @@ void test('RuntimeSession exposes bounded game-rules validation, submit, and rea
     assert.equal(invalid.accepted, false);
     assert.equal(invalid.diagnostics[0]?.severity, 'error');
 });
-void test('Rust-backed ECRP load stages world authority before FPS runtime mutation', () => {
+void test('Rust-backed ECRP load stages ProjectBundle authority before FPS runtime mutation', () => {
     const { bridge, calls } = rustRuntimeSessionBridgeDouble({
-        rejectWorldSceneId: 77,
+        rejectProjectBundleSceneId: 77,
     });
     const session = createRuntimeSessionFacade({ bridge, mode: 'rust' });
     session.initialize(sessionInput());
@@ -636,9 +636,9 @@ void test('Rust-backed ECRP load stages world authority before FPS runtime mutat
     assert.throws(() => session.loadEcrpProject(ecrpProjectLoadInput()), (error) => error instanceof RuntimeBridgeError && error.kind === 'invalid_input');
     const afterReadout = session.readEcrpRuntimeReadout();
     const afterTelemetry = session.readTelemetry();
-    assert.equal(calls.world.length, 2);
-    assert.equal(calls.world[0]?.sceneId, 42);
-    assert.equal(calls.world[1]?.sceneId, 77);
+    assert.equal(calls.projectBundle.length, 2);
+    assert.equal(calls.projectBundle[0]?.sceneId, 42);
+    assert.equal(calls.projectBundle[1]?.sceneId, 77);
     assert.equal(calls.load.length, 1);
     assert.equal(afterReadout.project.gameId, beforeReadout.project.gameId);
     assert.equal(afterReadout.projectBundle.sceneId, beforeReadout.projectBundle.sceneId);

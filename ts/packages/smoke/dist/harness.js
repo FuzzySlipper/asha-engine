@@ -1,6 +1,6 @@
 // @asha/smoke — the canonical developer smoke harness (#2395/#2396/#2397/#2424/#2441).
 //
-// One entrypoint boots the ASHA runtime facade against an abstract fixture world and
+// One entrypoint boots the ASHA runtime facade against an abstract fixture ProjectBundle and
 // drives the full launchable-voxel loop end to end, emitting a single structured
 // `SmokeResult` (see result.ts). The proof is staged (task #2441):
 //
@@ -23,7 +23,7 @@ import { ThreeRenderer } from '@asha/renderer-three/backend';
 import { EditorStore } from '@asha/editor-tools';
 import { bridgePicker, pickAndSelect } from '@asha/app';
 import { previewOverlayDiffs, OVERLAY_HANDLE_BASE } from '@asha/ui-dom';
-import { FIXTURE_WORLD, fixtureCommandBatch, fixtureEditUpdateFrame, fixturePickRay, fixtureRenderFrame, fixtureWorldHash, } from './fixtures.js';
+import { FIXTURE_PROJECT_BUNDLE, fixtureCommandBatch, fixtureEditUpdateFrame, fixturePickRay, fixtureRenderFrame, fixtureProjectBundleHash, } from './fixtures.js';
 export const SMOKE_COMMAND = 'pnpm --filter @asha/smoke dev:asha-smoke';
 export const AUTHORITY_SMOKE_COMMAND = 'ASHA_SMOKE_MODE=authority pnpm --filter @asha/smoke dev:asha-smoke';
 /**
@@ -109,7 +109,7 @@ export function runSmoke(options = {}) {
         peakHandles: 0,
         sceneNodes: 0,
         debugNodes: 0,
-        worldLoadOk: false,
+        projectBundleLoadOk: false,
         renderApplied: false,
         diagnostics: { total: 0, fatal: 0, blocksLoad: false },
     };
@@ -143,11 +143,11 @@ export function runSmoke(options = {}) {
         nativeAvailable: boot.nativeAvailable,
         capabilities: {
             runtimeBridge: state.authority ? 'ok' : 'mock',
-            worldLoad: state.worldLoadOk ? (state.authority ? 'ok' : 'mock') : 'unavailable',
+            projectBundleLoad: state.projectBundleLoadOk ? (state.authority ? 'ok' : 'mock') : 'unavailable',
             renderer: state.renderApplied ? 'ok' : 'unavailable',
             projection: state.renderApplied ? (state.authority ? 'ok' : 'mock') : 'unavailable',
         },
-        fixture: { id: FIXTURE_WORLD.sceneId, worldHash: fixtureWorldHash(FIXTURE_WORLD) },
+        fixture: { id: FIXTURE_PROJECT_BUNDLE.sceneId, projectBundleHash: fixtureProjectBundleHash(FIXTURE_PROJECT_BUNDLE) },
         diagnostics: state.diagnostics,
         render: { applied: state.renderApplied, sceneNodes: state.sceneNodes },
         counters,
@@ -155,34 +155,34 @@ export function runSmoke(options = {}) {
         failures: state.failures,
     };
 }
-// ── Stage 2: load the abstract fixture world through the real facade path ──
+// ── Stage 2: load the abstract fixture ProjectBundle through the real facade path ──
 function stageLoad(state) {
     try {
-        const status = state.bridge.loadWorldBundle(FIXTURE_WORLD);
+        const status = state.bridge.loadProjectBundle(FIXTURE_PROJECT_BUNDLE);
         state.diagnostics = {
             total: status.totalCount,
             fatal: status.fatalCount,
             blocksLoad: status.blocksLoad,
         };
-        state.worldLoadOk = status.loadedWorld === FIXTURE_WORLD.sceneId && !status.blocksLoad;
+        state.projectBundleLoadOk = status.loadedProjectBundle === FIXTURE_PROJECT_BUNDLE.sceneId && !status.blocksLoad;
         state.stages.push({
             name: 'load',
-            ok: state.worldLoadOk,
-            detail: state.worldLoadOk
-                ? `loaded world ${status.loadedWorld}`
-                : `load did not settle (loadedWorld=${status.loadedWorld}, blocksLoad=${status.blocksLoad})`,
+            ok: state.projectBundleLoadOk,
+            detail: state.projectBundleLoadOk
+                ? `loaded ProjectBundle ${status.loadedProjectBundle}`
+                : `load did not settle (loadedProjectBundle=${status.loadedProjectBundle}, blocksLoad=${status.blocksLoad})`,
         });
-        if (!state.worldLoadOk) {
+        if (!state.projectBundleLoadOk) {
             state.failures.push({
                 category: 'load_failure',
-                subsystem: 'runtime-bridge.loadWorldBundle',
-                message: `world ${FIXTURE_WORLD.sceneId} did not load cleanly`,
+                subsystem: 'runtime-bridge.loadProjectBundle',
+                message: `world ${FIXTURE_PROJECT_BUNDLE.sceneId} did not load cleanly`,
                 nextStep: 'inspect composition diagnostics for the failing artifact',
             });
         }
     }
     catch (cause) {
-        state.failures.push(classifyBridgeFailure('runtime-bridge.loadWorldBundle', 'load_failure', cause));
+        state.failures.push(classifyBridgeFailure('runtime-bridge.loadProjectBundle', 'load_failure', cause));
         state.stages.push({ name: 'load', ok: false, detail: describeError(cause) });
     }
 }
@@ -318,7 +318,7 @@ function stageAuthorityClassify(state) {
     let statusDetail = '';
     if (state.authority) {
         try {
-            statusOk = !state.bridge.getCompositionStatus().blocksLoad;
+            statusOk = !state.bridge.getProjectBundleCompositionStatus().blocksLoad;
             statusDetail = '; composition status read=ok';
         }
         catch (cause) {
@@ -365,10 +365,10 @@ function stageRenderUpdate(state) {
 // ── Stage 9: save / reload / replay through the facade ──
 function stageSaveReloadReplay(state) {
     try {
-        const save = state.bridge.saveCurrentWorld();
-        state.bridge.unloadWorld();
-        const reload = state.bridge.loadWorldBundle(FIXTURE_WORLD);
-        const reloadOk = reload.loadedWorld === FIXTURE_WORLD.sceneId && !reload.blocksLoad;
+        const save = state.bridge.saveProjectBundle();
+        state.bridge.unloadProjectBundle();
+        const reload = state.bridge.loadProjectBundle(FIXTURE_PROJECT_BUNDLE);
+        const reloadOk = reload.loadedProjectBundle === FIXTURE_PROJECT_BUNDLE.sceneId && !reload.blocksLoad;
         const session = state.bridge.loadReplayFixture({ name: 'smoke-edit-sequence', steps: 1 });
         const step = state.bridge.runReplayStep(session);
         const ok = save.artifactsWritten > 0 && reloadOk && !step.diverged;
@@ -376,7 +376,7 @@ function stageSaveReloadReplay(state) {
             name: 'save-reload-replay',
             ok,
             detail: `saved artifacts=${save.artifactsWritten} (compacted=${save.compactedEdits} retained=${save.retainedEdits}); ` +
-                `reloaded world ${reload.loadedWorld}; replay step ${step.step} diverged=${step.diverged}`,
+                `reloaded ProjectBundle ${reload.loadedProjectBundle}; replay step ${step.step} diverged=${step.diverged}`,
         });
         if (!ok) {
             state.failures.push({
@@ -455,11 +455,11 @@ function bootFailedResult(boot) {
         nativeAvailable: boot.nativeAvailable,
         capabilities: {
             runtimeBridge: 'unavailable',
-            worldLoad: 'unavailable',
+            projectBundleLoad: 'unavailable',
             renderer: 'unavailable',
             projection: 'unavailable',
         },
-        fixture: { id: FIXTURE_WORLD.sceneId, worldHash: fixtureWorldHash(FIXTURE_WORLD) },
+        fixture: { id: FIXTURE_PROJECT_BUNDLE.sceneId, projectBundleHash: fixtureProjectBundleHash(FIXTURE_PROJECT_BUNDLE) },
         diagnostics: { total: 0, fatal: 0, blocksLoad: false },
         render: { applied: false, sceneNodes: 0 },
         counters: emptyCounters(),

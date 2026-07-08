@@ -23,7 +23,7 @@ export function classifyLane(report) {
             return 'renderProjection';
         case 'rendererResources':
             return 'rendererResources';
-        case 'worldBundle':
+        case 'worldBundle': // vocab-allow: generated diagnostic scope keeps legacy name until #5049.
         case 'worldComposition':
             return 'persistenceReplay';
     }
@@ -95,7 +95,7 @@ export function toOperatorJson(model) {
 export function formatOperatorConsole(model) {
     const lines = [];
     const r = model.runtime;
-    lines.push(`runtime mode=${r.mode} world=${r.loadedWorldId ?? '-'} hash=${r.worldHash ?? '-'} ` +
+    lines.push(`runtime mode=${r.mode} world=${r.loadedProjectBundleId ?? '-'} hash=${r.worldHash ?? '-'} ` +
         `protocol=${r.protocolVersion ?? '-'} schema=${r.schemaVersion ?? '-'} ready=${model.ready}`);
     for (const cap of r.capabilities) {
         lines.push(`  capability ${cap.operation} available=${cap.available}${cap.note ? ` (${cap.note})` : ''}`);

@@ -18,7 +18,7 @@ function fakeBaseResult() {
             runtimeMode: 'mock',
             smokeMode: 'reference',
             fixtureId: 1001,
-            fixtureWorldHash: '0123456789abcdef',
+            fixtureProjectBundleHash: '0123456789abcdef',
             node: 'v0.0.0-test',
             platform: 'linux',
             arch: 'x64',

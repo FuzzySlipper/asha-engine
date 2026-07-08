@@ -51,7 +51,7 @@ import {
   type GameRuleRuntimeReadout,
   type RuntimeBridge,
   type StepResult,
-  type WorldLoadRequest,
+  type ProjectBundleLoadRequest,
 } from './bridge.js';
 import type { RuntimeSessionEcrpRenderTargetIdentity } from './ecrp-render-target.js';
 import {
@@ -183,7 +183,7 @@ export interface RuntimeSessionInitializeInput {
   readonly sessionId: string;
   readonly seed: number;
   readonly project: RuntimeSessionProjectIdentity;
-  readonly projectBundle: WorldLoadRequest;
+  readonly projectBundle: ProjectBundleLoadRequest;
 }
 
 export interface RuntimeSessionIdentity {
@@ -191,7 +191,7 @@ export interface RuntimeSessionIdentity {
   readonly mode: RuntimeSessionMode;
   readonly seed: number;
   readonly project: RuntimeSessionProjectIdentity;
-  readonly projectBundle: WorldLoadRequest;
+  readonly projectBundle: ProjectBundleLoadRequest;
   readonly nonClaims: readonly RuntimeSessionNonClaim[];
 }
 
@@ -382,7 +382,7 @@ export interface RuntimeSessionEcrpReadout {
     }[];
   };
   readonly project: RuntimeSessionProjectIdentity;
-  readonly projectBundle: WorldLoadRequest;
+  readonly projectBundle: ProjectBundleLoadRequest;
   readonly entities: readonly RuntimeSessionEcrpEntityReadout[];
   readonly entityCount: number;
   readonly hashes: {
@@ -492,7 +492,7 @@ export interface RuntimeSessionEcrpProjectLoadInput {
   readonly projectBundle: {
     readonly kind: 'ProjectBundle';
     readonly project: RuntimeSessionProjectIdentity;
-    readonly runtimeRequest: WorldLoadRequest;
+    readonly runtimeRequest: ProjectBundleLoadRequest;
   };
   readonly entityDefinitions: readonly RuntimeSessionEcrpEntityDefinition[];
   readonly sceneDocument: RuntimeSessionEcrpSceneDocument;
@@ -902,7 +902,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
   initialize(input: RuntimeSessionInitializeInput): RuntimeSessionStateSummary {
     validateInitializeInput(input);
     const engine = this.#bridge.initializeEngine({ seed: input.seed });
-    const composition = this.#bridge.loadWorldBundle(input.projectBundle);
+    const composition = this.#bridge.loadProjectBundle(input.projectBundle);
     this.#engine = engine;
     this.#identity = {
       sessionId: input.sessionId,
@@ -946,7 +946,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     }
 
     const state = buildEcrpProjectState(input);
-    this.#bridge.loadWorldBundle(input.projectBundle.runtimeRequest);
+    this.#bridge.loadProjectBundle(input.projectBundle.runtimeRequest);
     this.#identity = {
       ...identity,
       project: input.projectBundle.project,
@@ -998,7 +998,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
       sequenceId: this.#sequenceId,
       tick: this.#tick,
       step,
-      composition: this.#bridge.getCompositionStatus(),
+      composition: this.#bridge.getProjectBundleCompositionStatus(),
       sessionHash: this.#sessionHash(),
     };
   }
@@ -1597,7 +1597,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#requireInitialized('readProjection');
     const cursor = frameCursor(this.#sequenceId);
     const frame = this.#bridge.readRenderDiffs(cursor);
-    const composition = this.#bridge.getCompositionStatus();
+    const composition = this.#bridge.getProjectBundleCompositionStatus();
     return {
       sequenceId: this.#sequenceId,
       cursor,
@@ -1617,7 +1617,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     return {
       sequenceId: this.#sequenceId,
       tick: this.#tick,
-      composition: this.#bridge.getCompositionStatus(),
+      composition: this.#bridge.getProjectBundleCompositionStatus(),
       acceptedCommandCount: this.#acceptedCommandCount,
       rejectedCommandCount: this.#rejectedCommandCount,
       restartCount: this.#restartCount,
@@ -1628,9 +1628,9 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
 
   restart(): RuntimeSessionRestartResult {
     const identity = this.#requireInitialized('restart');
-    this.#bridge.unloadWorld();
+    this.#bridge.unloadProjectBundle();
     this.#bridge.initializeEngine({ seed: identity.seed });
-    const composition = this.#bridge.loadWorldBundle(identity.projectBundle);
+    const composition = this.#bridge.loadProjectBundle(identity.projectBundle);
     this.#sequenceId += 1;
     this.#tick = 0;
     this.#acceptedCommandCount = 0;
@@ -1759,7 +1759,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
           ? {}
           : { runtimeTransforms: runtimeTransformHashRecord(this.#runtimeTransforms) }),
         encounter: encounterStateHashRecord(this.#encounterState),
-        composition: compositionHashRecord(this.#bridge.getCompositionStatus()),
+        composition: compositionHashRecord(this.#bridge.getProjectBundleCompositionStatus()),
       }),
     });
   }
@@ -1777,7 +1777,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
         ? {}
         : { runtimeTransforms: runtimeTransformHashRecord(this.#runtimeTransforms) }),
       encounter: this.#identity === null ? null : encounterStateHashRecord(this.#encounterState),
-      composition: this.#identity === null ? null : compositionHashRecord(this.#bridge.getCompositionStatus()),
+      composition: this.#identity === null ? null : compositionHashRecord(this.#bridge.getProjectBundleCompositionStatus()),
     });
   }
 }

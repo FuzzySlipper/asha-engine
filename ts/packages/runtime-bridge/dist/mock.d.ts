@@ -1,5 +1,5 @@
 import type { CameraCollisionSnapshot, CameraCreateRequest, CameraProjectionRequest, CameraProjectionSnapshot, CameraSnapshot, CollisionConstrainedCameraInputEnvelope, CommandBatch, CommandResult, FirstPersonCameraInputEnvelope, ModelMaterialPreviewRequest, ModelMaterialPreviewSnapshot, PickRay, PickResult, RenderFrameDiff, SceneObjectCommandRequest, SceneObjectCommandResult, SceneObjectSnapshot, ScreenPointToPickRayRequest, VoxelConversionApplyRequest, VoxelConversionEvidenceRef, VoxelConversionMeshAssetRegistrationRequest, VoxelConversionPlan, VoxelConversionPlanRequest, VoxelConversionPreview, VoxelConversionPreviewRequest, VoxelConversionReceipt, VoxelConversionSourceRegistration, VoxelConversionSourceRegistrationRequest, VoxelSelectionSnapshot, VoxelModelInfoReadout, VoxelModelInfoRequest, VoxelVolumeAssetExportReceipt, VoxelVolumeAssetExportRequest, VoxelVolumeAssetLoadReceipt, VoxelVolumeAssetLoadRequest, VoxelVolumeAssetSaveReceipt, VoxelVolumeAssetSaveRequest, GameRuleCatalog, GameRuleResolutionReceipt } from '@asha/contracts';
-import { type CompositionStatus, type EnemyDirectNavMovementRequest, type EnemyDirectNavMovementResult, type EngineConfig, type EngineHandle, type FrameCursor, type FpsEncounterDirectorSnapshot, type FpsEncounterLifecycleInput, type FpsEncounterTransitionRequest, type FpsEncounterTransitionResult, type FpsPrimaryFireRequest, type FpsPrimaryFireResult, type GameExtensionWeaponEffectInvocationRequest, type GameExtensionWeaponEffectInvocationResult, type GameRuleCatalogValidationReceipt, type GameRuleEffectIntentRequest, type GameRuleRuntimeReadout, type FpsRuntimeSessionLoadRequest, type FpsRuntimeSessionRestartRequest, type FpsRuntimeSessionSnapshot, type ReplayFixture, type ReplaySessionHandle, type ReplayStepReport, type RuntimeBridge, type RuntimeBufferHandle, type RuntimeBufferView, type StepInputEnvelope, type StepResult, type VoxelMeshEvidenceRequest, type VoxelMeshEvidenceSnapshot, type WorldLoadRequest, type WorldSaveSummary } from './bridge.js';
+import { type CompositionStatus, type EnemyDirectNavMovementRequest, type EnemyDirectNavMovementResult, type EngineConfig, type EngineHandle, type FrameCursor, type FpsEncounterDirectorSnapshot, type FpsEncounterLifecycleInput, type FpsEncounterTransitionRequest, type FpsEncounterTransitionResult, type FpsPrimaryFireRequest, type FpsPrimaryFireResult, type GameExtensionWeaponEffectInvocationRequest, type GameExtensionWeaponEffectInvocationResult, type GameRuleCatalogValidationReceipt, type GameRuleEffectIntentRequest, type GameRuleRuntimeReadout, type FpsRuntimeSessionLoadRequest, type FpsRuntimeSessionRestartRequest, type FpsRuntimeSessionSnapshot, type ReplayFixture, type ReplaySessionHandle, type ReplayStepReport, type RuntimeBridge, type RuntimeBufferHandle, type RuntimeBufferView, type StepInputEnvelope, type StepResult, type VoxelMeshEvidenceRequest, type VoxelMeshEvidenceSnapshot, type ProjectBundleLoadRequest, type ProjectBundleSaveSummary } from './bridge.js';
 export declare class MockRuntimeBridge implements RuntimeBridge {
     #private;
     initializeEngine(config: EngineConfig): EngineHandle;
@@ -39,10 +39,10 @@ export declare class MockRuntimeBridge implements RuntimeBridge {
     readCameraProjection(request: CameraProjectionRequest): CameraProjectionSnapshot;
     getBuffer(handle: RuntimeBufferHandle): RuntimeBufferView;
     releaseBuffer(handle: RuntimeBufferHandle): void;
-    loadWorldBundle(request: WorldLoadRequest): CompositionStatus;
-    saveCurrentWorld(): WorldSaveSummary;
-    getCompositionStatus(): CompositionStatus;
-    unloadWorld(): void;
+    loadProjectBundle(request: ProjectBundleLoadRequest): CompositionStatus;
+    saveProjectBundle(): ProjectBundleSaveSummary;
+    getProjectBundleCompositionStatus(): CompositionStatus;
+    unloadProjectBundle(): void;
     loadReplayFixture(fixture: ReplayFixture): ReplaySessionHandle;
     runReplayStep(session: ReplaySessionHandle): ReplayStepReport;
 }

@@ -88,7 +88,7 @@ function writeStaleNativeAddonModule(): string {
     modulePath,
     `module.exports = {
       initializeEngine() {},
-      loadWorldBundle() {},
+      loadProjectBundle() {},
       submitCommands() {},
       stepSimulation() {},
       applyEnemyDirectNavMovement() {},
@@ -97,8 +97,8 @@ function writeStaleNativeAddonModule(): string {
       applyFpsPrimaryFire() {},
       restartFpsRuntimeSession() {},
       readRenderDiffs() {},
-      saveCurrentWorld() {},
-      getCompositionStatus() {}
+      saveProjectBundle() {},
+      getProjectBundleCompositionStatus() {}
     };`,
   );
   return modulePath;
@@ -134,7 +134,7 @@ void test('game runtime launcher public DTOs compile as package-root consumer fi
   const resourceProfile: GameRuntimeResourceProfile = {
     profileId: 'demo.reference.resources.v1',
     runtimeEntry: 'harness/conformance/fixtures/minimal-world.json',
-    worldBundleId: 'world.minimal',
+    projectBundleId: 'world.minimal',
     resourceManifestHash: 'sha256-resource-profile',
     estimatedBytes: 4096,
   };
@@ -144,7 +144,7 @@ void test('game runtime launcher public DTOs compile as package-root consumer fi
     runtimeEntry: resourceProfile.runtimeEntry,
     compatibility,
     resourceProfile,
-    world: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 7 },
+    projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 7 },
     startedAtIso: '2026-06-28T00:00:00.000Z',
   };
   const runtimeProfile: GameRuntimeProfile = {
@@ -158,7 +158,7 @@ void test('game runtime launcher public DTOs compile as package-root consumer fi
     sequenceId: 0,
     worldHash: 'world:minimal:0',
     authorityHash: 'authority:minimal:0',
-    loadedWorld: config.world.sceneId,
+    loadedProjectBundle: config.projectBundle.sceneId,
     fatalCount: 0,
     totalDiagnosticCount: 0,
     evidenceRefs: [{ kind: 'projection', id: 'projection:0', sequenceId: 0 }],
@@ -209,10 +209,10 @@ function gameRuntimeConfig(): GameRuntimeConfig {
     resourceProfile: {
       profileId: 'demo.reference.resources.v1',
       runtimeEntry: 'harness/conformance/fixtures/minimal-world.json',
-      worldBundleId: 'world.minimal',
+      projectBundleId: 'world.minimal',
       resourceManifestHash: 'sha256-resource-profile',
     },
-    world: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 7 },
+    projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 7 },
     startedAtIso: '2026-06-28T00:00:00.000Z',
   };
 }
@@ -300,7 +300,7 @@ void test('reference RuntimeSession helper is explicitly fixture-only', () => {
   assert.ok(initialized.identity.nonClaims.includes('not_product_authority'));
 });
 
-void test('reference game runtime launcher fails closed on unsupported world bundle', async () => {
+void test('reference game runtime launcher fails closed on unsupported project bundle', async () => {
   const launcher = createReferenceGameRuntimeLauncher();
   await assert.rejects(
     () =>
@@ -315,9 +315,9 @@ void test('reference game runtime launcher fails closed on unsupported world bun
         resourceProfile: {
           profileId: 'demo.reference.resources.v1',
           runtimeEntry: 'harness/conformance/fixtures/minimal-world.json',
-          worldBundleId: 'world.minimal',
+          projectBundleId: 'world.minimal',
         },
-        world: { bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 7 },
+        projectBundle: { bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 7 },
       }),
     (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input',
   );
@@ -484,7 +484,7 @@ void test('native Rust RuntimeBridge provider resolver reports missing operation
   const resolution = await resolveNativeRustRuntimeBridgeProvider({ provider });
   assert.equal(resolution.status, 'unavailable');
   assert.equal(resolution.diagnostics[0]?.code, 'missing_runtime_bridge_operation');
-  assert.match(resolution.diagnostics[0]?.message ?? '', /loadWorldBundle/);
+  assert.match(resolution.diagnostics[0]?.message ?? '', /loadProjectBundle/);
 });
 
 void test('native Rust RuntimeBridge provider resolver accepts public native provider shape', async () => {
@@ -749,39 +749,39 @@ void test('mock: readRenderDiffs returns a contract-shaped frame', () => {
   assert.deepEqual(frame, { ops: [] });
 });
 
-void test('mock: world load → save → status → unload, with fail-closed save', () => {
+void test('mock: project bundle load → save → status → unload, with fail-closed save', () => {
   const bridge = createMockRuntimeBridge();
   // Save before load fails closed.
   assert.throws(
-    () => bridge.saveCurrentWorld(),
+    () => bridge.saveProjectBundle(),
     (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'not_initialized',
   );
-  const status = bridge.loadWorldBundle({
+  const status = bridge.loadProjectBundle({
     bundleSchemaVersion: 1,
     protocolVersion: 1,
     sceneId: 100,
   });
-  assert.equal(status.loadedWorld, 100);
+  assert.equal(status.loadedProjectBundle, 100);
   assert.equal(status.blocksLoad, false);
-  assert.deepEqual(bridge.saveCurrentWorld(), {
+  assert.deepEqual(bridge.saveProjectBundle(), {
     artifactsWritten: 3,
     compactedEdits: 0,
     retainedEdits: 0,
   });
-  assert.equal(bridge.getCompositionStatus().loadedWorld, 100);
-  bridge.unloadWorld();
-  assert.equal(bridge.getCompositionStatus().loadedWorld, null);
+  assert.equal(bridge.getProjectBundleCompositionStatus().loadedProjectBundle, 100);
+  bridge.unloadProjectBundle();
+  assert.equal(bridge.getProjectBundleCompositionStatus().loadedProjectBundle, null);
 });
 
 void test('mock: an unsupported bundle version fails closed without swapping the world', () => {
   const bridge = createMockRuntimeBridge();
-  bridge.loadWorldBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 7 });
+  bridge.loadProjectBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 7 });
   assert.throws(
-    () => bridge.loadWorldBundle({ bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 8 }),
+    () => bridge.loadProjectBundle({ bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 8 }),
     (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input',
   );
-  // The prior world stays loaded (no partial swap).
-  assert.equal(bridge.getCompositionStatus().loadedWorld, 7);
+  // The prior ProjectBundle stays loaded (no partial swap).
+  assert.equal(bridge.getProjectBundleCompositionStatus().loadedProjectBundle, 7);
 });
 
 void test('mock: submitCommands carries the generated VoxelCommand union (the launch path)', () => {
@@ -888,8 +888,8 @@ void test('native bridge matches the mock when the addon is built (else skip)', 
   // Parity with MockRuntimeBridge / Rust ReferenceBridge for the native authority sequence.
   const handle = bridge.initializeEngine({ seed: 7 }) as number;
   assert.equal(typeof handle, 'number');
-  assert.deepEqual(bridge.loadWorldBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1001 }), {
-    loadedWorld: 1001,
+  assert.deepEqual(bridge.loadProjectBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1001 }), {
+    loadedProjectBundle: 1001,
     fatalCount: 0,
     totalCount: 0,
     blocksLoad: false,
@@ -904,9 +904,9 @@ void test('native bridge matches the mock when the addon is built (else skip)', 
   );
   assert.deepEqual(bridge.stepSimulation({ tick: 6 }), { tick: 6, diffCount: 2 });
   assert.deepEqual(bridge.readRenderDiffs(frameCursor(0)), { ops: [] });
-  assert.deepEqual(bridge.saveCurrentWorld(), { artifactsWritten: 3, compactedEdits: 0, retainedEdits: 0 });
-  assert.deepEqual(bridge.getCompositionStatus(), {
-    loadedWorld: 1001,
+  assert.deepEqual(bridge.saveProjectBundle(), { artifactsWritten: 3, compactedEdits: 0, retainedEdits: 0 });
+  assert.deepEqual(bridge.getProjectBundleCompositionStatus(), {
+    loadedProjectBundle: 1001,
     fatalCount: 0,
     totalCount: 0,
     blocksLoad: false,

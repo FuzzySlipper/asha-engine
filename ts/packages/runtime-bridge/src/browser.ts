@@ -64,8 +64,8 @@ export type {
   VoxelMeshEvidenceRequest,
   VoxelMeshEvidenceSnapshot,
   VoxelMeshStatsEvidence,
-  WorldLoadRequest,
-  WorldSaveSummary,
+  ProjectBundleLoadRequest,
+  ProjectBundleSaveSummary,
 } from './bridge.js';
 export * from './browser-fps-input.js';
 export * from './combat-readout.js';

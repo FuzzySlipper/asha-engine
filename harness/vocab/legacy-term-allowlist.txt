@@ -38,24 +38,7 @@ engine-rs/crates/state/core-scene/tests/bootstrap.rs
 engine-rs/crates/state/core-scene/tests/world_invariant.rs
 
 # TypeScript legacy touchpoints (mostly world-bundle DTO/panel plumbing)
-ts/packages/app/src/shell.ts
 ts/packages/command-registry/src/manifest.ts
 ts/packages/command-registry/src/types.ts
 ts/packages/contracts/src/smoke.ts
-ts/packages/devtools/src/bundle-panel.test.ts
-ts/packages/devtools/src/bundle-panel.ts
-ts/packages/devtools/src/operator-console.test.ts
-ts/packages/devtools/src/operator-console.ts
 ts/packages/native-bridge/src/index.ts
-ts/packages/runtime-bridge/src/bridge.ts
-ts/packages/runtime-bridge/src/conformance.test.ts
-ts/packages/runtime-bridge/src/launcher.ts
-ts/packages/runtime-bridge/src/mock.ts
-ts/packages/runtime-bridge/src/native-fail-closed.test.ts
-ts/packages/runtime-bridge/src/native.ts
-ts/packages/runtime-bridge/src/runtime-session.ts
-ts/packages/runtime-bridge/src/reference-launcher.ts
-ts/packages/runtime-bridge/src/world-dto-conformance.test.ts
-ts/packages/smoke/src/harness.ts
-ts/packages/smoke/src/perf.ts
-ts/packages/smoke/src/smoke.test.ts

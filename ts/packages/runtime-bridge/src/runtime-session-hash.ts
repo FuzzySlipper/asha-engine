@@ -1,5 +1,5 @@
 import type { RenderFrameDiff } from '@asha/contracts';
-import type { CompositionStatus, WorldLoadRequest } from './bridge.js';
+import type { CompositionStatus, ProjectBundleLoadRequest } from './bridge.js';
 import type { EncounterDirectorState } from './encounter-director.js';
 import type {
   RuntimeSessionHashRecord,
@@ -67,7 +67,7 @@ function lifecycleHealthHashRecord(health: RuntimeSessionLifecycleHealthReadout)
   };
 }
 
-export function projectBundleHashRecord(projectBundle: WorldLoadRequest): RuntimeSessionHashRecord {
+export function projectBundleHashRecord(projectBundle: ProjectBundleLoadRequest): RuntimeSessionHashRecord {
   return {
     bundleSchemaVersion: projectBundle.bundleSchemaVersion,
     protocolVersion: projectBundle.protocolVersion,
@@ -77,7 +77,7 @@ export function projectBundleHashRecord(projectBundle: WorldLoadRequest): Runtim
 
 export function compositionHashRecord(composition: CompositionStatus): RuntimeSessionHashRecord {
   return {
-    loadedWorld: composition.loadedWorld,
+    loadedProjectBundle: composition.loadedProjectBundle,
     fatalCount: composition.fatalCount,
     totalCount: composition.totalCount,
     blocksLoad: composition.blocksLoad,

@@ -47,7 +47,7 @@ export function classifyLane(report: DiagnosticReport): OperatorLane {
       return 'renderProjection';
     case 'rendererResources':
       return 'rendererResources';
-    case 'worldBundle':
+    case 'worldBundle': // vocab-allow: generated diagnostic scope keeps legacy name until #5049.
     case 'worldComposition':
       return 'persistenceReplay';
   }
@@ -69,7 +69,7 @@ export interface CapabilityStatus {
 /** The unified runtime status: mode, loaded world identity/versions, capabilities. */
 export interface RuntimeStatus {
   readonly mode: RuntimeMode;
-  readonly loadedWorldId: number | null;
+  readonly loadedProjectBundleId: number | null;
   readonly worldHash: string | null;
   readonly protocolVersion: number | null;
   readonly schemaVersion: number | null;
@@ -83,7 +83,7 @@ export interface PersistenceReadout {
   readonly operation: 'save' | 'load' | 'replay';
   readonly status: 'ok' | 'failed';
   readonly worldHash: string | null;
-  /** Artifact roles touched (e.g. sceneDocument, worldStateSnapshot, voxelEditLog). */
+  /** Artifact roles touched (e.g. sceneDocument, sessionStateSnapshot, voxelEditLog). */
   readonly artifactRoles: readonly string[];
   /** Classified divergence/compaction summary, when relevant. */
   readonly detail: string | null;
@@ -231,7 +231,7 @@ export function formatOperatorConsole(model: OperatorConsoleModel): string[] {
   const lines: string[] = [];
   const r = model.runtime;
   lines.push(
-    `runtime mode=${r.mode} world=${r.loadedWorldId ?? '-'} hash=${r.worldHash ?? '-'} ` +
+    `runtime mode=${r.mode} world=${r.loadedProjectBundleId ?? '-'} hash=${r.worldHash ?? '-'} ` +
       `protocol=${r.protocolVersion ?? '-'} schema=${r.schemaVersion ?? '-'} ready=${model.ready}`,
   );
   for (const cap of r.capabilities) {

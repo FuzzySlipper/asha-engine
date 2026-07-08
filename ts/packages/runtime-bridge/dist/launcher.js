@@ -163,14 +163,14 @@ export function nativeBackendProfile(config) {
     };
 }
 function projectionSummary(config, runtimeMode, status, sequenceId, acceptedCommandCount) {
-    const loadedWorld = status.loadedWorld;
-    const worldHash = `${runtimeMode}-world:${config.gameId}:${loadedWorld ?? 'none'}:accepted:${acceptedCommandCount}`;
-    const authorityHash = `${runtimeMode}-authority:${config.workspaceId}:${loadedWorld ?? 'none'}:accepted:${acceptedCommandCount}`;
+    const loadedProjectBundle = status.loadedProjectBundle;
+    const worldHash = `${runtimeMode}-world:${config.gameId}:${loadedProjectBundle ?? 'none'}:accepted:${acceptedCommandCount}`;
+    const authorityHash = `${runtimeMode}-authority:${config.workspaceId}:${loadedProjectBundle ?? 'none'}:accepted:${acceptedCommandCount}`;
     return {
         sequenceId,
         worldHash,
         authorityHash,
-        loadedWorld,
+        loadedProjectBundle,
         fatalCount: status.fatalCount,
         totalDiagnosticCount: status.totalCount,
         evidenceRefs: [{ kind: 'projection', id: `projection:${sequenceId}`, sequenceId }],
@@ -213,7 +213,7 @@ export class BridgeGameRuntimeSession {
     }
     async pullProjection() {
         this.#assertOpen();
-        return projectionSummary(this.config, this.#runtimeProfile.runtimeMode, this.bridge.getCompositionStatus(), this.#sequenceId, this.#acceptedCommandCount);
+        return projectionSummary(this.config, this.#runtimeProfile.runtimeMode, this.bridge.getProjectBundleCompositionStatus(), this.#sequenceId, this.#acceptedCommandCount);
     }
     async pullRenderDiff(cursor = frameCursor(0)) {
         this.#assertOpen();
@@ -301,7 +301,7 @@ export class BridgeGameRuntimeSession {
     async shutdown() {
         if (this.#shutdown)
             return;
-        this.bridge.unloadWorld();
+        this.bridge.unloadProjectBundle();
         this.#shutdown = true;
     }
     #assertOpen() {
@@ -347,10 +347,10 @@ export class SelectedBackendGameRuntimeLauncher {
             throw new RuntimeBridgeError('invalid_input', 'selected backend launcher currently supports native mode only');
         }
         const bridge = this.options.bridgeFactory?.() ?? await createNativeBridgeForSelectedBackend(this.options.nativeModulePath);
-        bridge.initializeEngine({ seed: config.world.sceneId });
-        const status = bridge.loadWorldBundle(config.world);
-        if (status.blocksLoad || status.loadedWorld === null) {
-            throw new RuntimeBridgeError('invalid_input', 'world bundle failed to load for selected backend launcher');
+        bridge.initializeEngine({ seed: config.projectBundle.sceneId });
+        const status = bridge.loadProjectBundle(config.projectBundle);
+        if (status.blocksLoad || status.loadedProjectBundle === null) {
+            throw new RuntimeBridgeError('invalid_input', 'project bundle failed to load for selected backend launcher');
         }
         return new BridgeGameRuntimeSession(bridge, config, runtimeProfileFromBackendProfile(validation.profile), status);
     }
