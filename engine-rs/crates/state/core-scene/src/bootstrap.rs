@@ -6,21 +6,21 @@
 //!
 //! 1. [`BootstrapPlan::prepare`] validates the whole document and the schema/asset
 //!    context and builds a deterministic plan. Any failure returns here, before a
-//!    [`WorldState`] exists.
-//! 2. [`BootstrapPlan::apply`] turns the plan into a populated [`WorldState`] plus
+//!    [`SpatialSessionState`] exists.
+//! 2. [`BootstrapPlan::apply`] turns the plan into a populated [`SpatialSessionState`] plus
 //!    a single [`BootstrapRecord`] — the one replay/audit unit for the whole
 //!    initialization, with a deterministic world hash.
 //!
 //! Entity ids are allocated deterministically (ascending scene-node id from a
 //! base), and scene initial transforms are copied into authority runtime
 //! transforms. After bootstrap the world is authority-owned and free to diverge
-//! from the scene document (see [`WorldState::set_transform`]).
+//! from the scene document (see [`SpatialSessionState::set_transform`]).
 
 use core_ids::{EntityId, SceneId, SceneNodeId, WorldId};
 
 use crate::document::FlatSceneDocument;
+use crate::spatial_session::{SpatialSessionHash, SpatialSessionState};
 use crate::validate::{validate, SceneValidationReport};
-use crate::world::{WorldHash, WorldState};
 
 /// The scene schema version this bootstrap understands. A real migration policy
 /// (scene-capability-01, "Decisions to make") is future work; for now an
@@ -121,8 +121,8 @@ impl BootstrapPlan {
     /// Apply the plan as one atomic initialization: populate a fresh world with
     /// every scene-sourced entity (initial transforms copied in) and return it
     /// alongside the single [`BootstrapRecord`] for replay/audit.
-    pub fn apply(&self) -> (WorldState, BootstrapRecord) {
-        let mut world = WorldState::empty(self.world_id);
+    pub fn apply(&self) -> (SpatialSessionState, BootstrapRecord) {
+        let mut world = SpatialSessionState::empty(self.world_id);
         // `allocations` is parallel to `doc.nodes` (both canonical order).
         for (alloc, rec) in self.allocations.iter().zip(self.doc.nodes.iter()) {
             debug_assert_eq!(alloc.node, rec.id);
@@ -138,7 +138,7 @@ impl BootstrapPlan {
             schema_version: self.schema_version,
             node_count: self.doc.nodes.len(),
             entity_count: world.entity_count(),
-            world_hash: world.hash(),
+            spatial_session_hash: world.hash(),
             source_trace: self.allocations.clone(),
         };
         (world, record)
@@ -149,7 +149,7 @@ impl BootstrapPlan {
 pub fn bootstrap_scene(
     doc: &FlatSceneDocument,
     world_id: WorldId,
-) -> Result<(WorldState, BootstrapRecord), BootstrapError> {
+) -> Result<(SpatialSessionState, BootstrapRecord), BootstrapError> {
     Ok(BootstrapPlan::prepare(doc, world_id)?.apply())
 }
 
@@ -163,7 +163,7 @@ pub struct BootstrapRecord {
     pub node_count: usize,
     pub entity_count: usize,
     /// Deterministic fingerprint of the world produced by this bootstrap.
-    pub world_hash: WorldHash,
+    pub spatial_session_hash: SpatialSessionHash,
     /// The source trace `scene node → runtime entity`. Render-handle/projection
     /// metadata is appended later, at projection time (scene-capability-01).
     pub source_trace: Vec<PlannedEntity>,

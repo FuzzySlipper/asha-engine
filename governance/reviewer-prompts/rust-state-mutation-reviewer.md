@@ -10,7 +10,7 @@ You review changes that mutate authoritative state (`core-state`, `core-entity`,
 - [ ] Mutations are fail-before-mutation: validation rejects bad input before any
       partial state change (no half-applied world on error).
 - [ ] Lifecycle/capability invariants hold across all public mutators (e.g.
-      WorldState's spatial-transform invariant); tests cover create/insert/update
+      SpatialSessionState's spatial-transform invariant); tests cover create/insert/update
       and the reject paths.
 - [ ] Authored vs runtime authority stays separated — runtime movement never
       mutates the authored document.

@@ -217,7 +217,7 @@ const bootstrap = {
     schemaVersion: 1,
     nodeCount: 2,
     entityCount: 2,
-    worldHash: 0,
+    spatialSessionHash: 0,
     sourceTrace: [
         { sceneNodeId: sceneNodeId(1), runtimeEntityId: entity },
         { sceneNodeId: sceneNodeId(2), runtimeEntityId: entityId(2) },

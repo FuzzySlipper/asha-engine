@@ -167,6 +167,6 @@ export interface BootstrapRecord {
   readonly schemaVersion: number;
   readonly nodeCount: number;
   readonly entityCount: number;
-  readonly worldHash: number;
+  readonly spatialSessionHash: number;
   readonly sourceTrace: readonly SceneSourceTrace[];
 }

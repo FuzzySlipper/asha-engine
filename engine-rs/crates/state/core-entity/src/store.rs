@@ -1,7 +1,7 @@
 //! The composed entity store: core records + optional capability tables, with the
 //! lifecycle applier, deterministic hashing, and save/restore (design §1, §2, §4).
 //!
-//! `WorldState` (in `core-scene`) will *compose* this store rather than embedding a
+//! `SpatialSessionState` (in `core-scene`) will *compose* this store rather than embedding a
 //! mandatory transform in every entity (design §0 finding). The store itself is
 //! authority-only: it knows nothing of render, scene documents, or TypeScript.
 

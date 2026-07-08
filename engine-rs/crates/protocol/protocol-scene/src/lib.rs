@@ -448,7 +448,7 @@ pub struct BootstrapRecordDto {
     pub node_count: u32,
     pub entity_count: u32,
     /// Deterministic fingerprint of the bootstrapped world.
-    pub world_hash: u64,
+    pub spatial_session_hash: u64,
     /// One entry per scene-sourced entity, in deterministic order.
     pub source_trace: Vec<SceneSourceTraceDto>,
 }

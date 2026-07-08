@@ -62,8 +62,8 @@ pub enum ArtifactRole {
     SceneDocument,
     /// The asset dependency lock (`core-assets` references resolved to versions).
     AssetLock,
-    /// A persisted current-authority world-state snapshot.
-    WorldStateSnapshot,
+    /// A persisted current-authority session-state snapshot.
+    SessionStateSnapshot,
     /// A voxel chunk snapshot (`rule-voxel-edit` persistence).
     VoxelChunkSnapshot,
     /// A voxel edit/replay log.
@@ -84,7 +84,7 @@ impl ArtifactRole {
         match self {
             ArtifactRole::SceneDocument => "sceneDocument",
             ArtifactRole::AssetLock => "assetLock",
-            ArtifactRole::WorldStateSnapshot => "worldStateSnapshot",
+            ArtifactRole::SessionStateSnapshot => "sessionStateSnapshot",
             ArtifactRole::VoxelChunkSnapshot => "voxelChunkSnapshot",
             ArtifactRole::VoxelEditLog => "voxelEditLog",
             ArtifactRole::ReplayRecord => "replayRecord",
@@ -99,7 +99,7 @@ impl ArtifactRole {
         match tag {
             "sceneDocument" => ArtifactRole::SceneDocument,
             "assetLock" => ArtifactRole::AssetLock,
-            "worldStateSnapshot" => ArtifactRole::WorldStateSnapshot,
+            "sessionStateSnapshot" => ArtifactRole::SessionStateSnapshot,
             "voxelChunkSnapshot" => ArtifactRole::VoxelChunkSnapshot,
             "voxelEditLog" => ArtifactRole::VoxelEditLog,
             "replayRecord" => ArtifactRole::ReplayRecord,

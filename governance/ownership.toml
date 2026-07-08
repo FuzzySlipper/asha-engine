@@ -49,7 +49,7 @@ may_not_depend_on = ["core-scene", "protocol-render", "wasm-api", "render-bridge
 
 [crate."engine-rs/crates/state/core-scene"]
 lane = "rust-state"
-# Composes the generic entity substrate (design §7): WorldState holds a
+# Composes the generic entity substrate (design §7): SpatialSessionState holds a
 # core-entity EntityStore rather than embedding a mandatory transform.
 may_depend_on = ["core-ids", "core-assets", "core-math", "core-error", "core-entity"]
 may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]

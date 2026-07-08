@@ -13,7 +13,7 @@
    (`@asha/wasm-replay-bridge`). Only the facade imports the native addon. (ADR 0006)
 10. `napi-rs` is the runtime transport; WASM is the replay/golden verification target. Neither
     is a public interface. Generated contracts remain the semantic/governance border.
-11. Scene documents describe an *authored* initial arrangement; the live Rust `WorldState`
+11. Scene documents describe an *authored* initial arrangement; the live Rust `SpatialSessionState`
     (`core-scene`) owns runtime truth after bootstrap. An authored `SceneDocument` /
     `FlatSceneDocument` is never runtime authority and is never mutated by runtime movement.
     Scene bootstrap is one atomic authority initialization, not N ordinary create commands.

@@ -1,6 +1,6 @@
 //! Live runtime world authority produced by scene bootstrap.
 //!
-//! A [`WorldState`] is the live authority that scene-capability-01 distinguishes
+//! A [`SpatialSessionState`] is the live authority that scene-capability-01 distinguishes
 //! from the authored `SceneDocument`: it owns **runtime** transforms (seeded from
 //! the scene's initial transforms at bootstrap, then authority-owned and free to
 //! diverge) and the source trace `scene node → runtime entity`. The authored
@@ -8,31 +8,31 @@
 //!
 //! # Composition over a generic entity substrate (#2388, design §0/§7)
 //!
-//! `WorldState` no longer embeds a mandatory `transform` in every entity record —
+//! `SpatialSessionState` no longer embeds a mandatory `transform` in every entity record —
 //! that was the "entity means thing-with-a-position" anti-pattern the entity design
 //! gate forbids. Instead it *composes* [`core_entity::EntityStore`]: identity +
 //! lifecycle + source live in the entity core, and the runtime transform is an
 //! **optional `TransformCapability`** that bootstrap attaches to scene-sourced
 //! entities. The world's public transform/provenance API is unchanged, and the
-//! [`WorldState::hash`] byte sequence is preserved (every world entity carries a
+//! [`SpatialSessionState::hash`] byte sequence is preserved (every world entity carries a
 //! transform today, so the fingerprint is identical).
 //!
 //! # Spatial-world invariant (#2425, decision: option 1)
 //!
 //! The generic entity model treats transform as an *optional* capability, but
-//! `WorldState` is the **spatial scene-runtime world**: every live entity it holds
+//! `SpatialSessionState` is the **spatial scene-runtime world**: every live entity it holds
 //! has the transform capability. This is enforced by construction — the only ways
-//! to add an entity are [`WorldState::insert_scene_entity`] and
-//! [`WorldState::create_runtime_entity`], both of which attach a transform, and
+//! to add an entity are [`SpatialSessionState::insert_scene_entity`] and
+//! [`SpatialSessionState::create_runtime_entity`], both of which attach a transform, and
 //! there is no public destroy/disable/detach path that could strip one. Non-spatial
-//! / logical entities therefore do **not** live in a `WorldState`; they belong in a
+//! / logical entities therefore do **not** live in a `SpatialSessionState`; they belong in a
 //! separate [`core_entity::EntityStore`] scope.
 //!
 //! Consequences this module guarantees:
-//! * [`WorldState::entities`] and [`WorldState::hash`] iterate **live** entities
+//! * [`SpatialSessionState::entities`] and [`SpatialSessionState::hash`] iterate **live** entities
 //!   only, so a (currently unreachable) tombstone — whose capabilities are cleared
 //!   — can never feed a transform-less record into the fingerprint.
-//! * [`WorldState::hash`] therefore cannot panic from any normal public API path.
+//! * [`SpatialSessionState::hash`] therefore cannot panic from any normal public API path.
 //!   The `expect` it contains documents the spatial-world invariant for future
 //!   maintainers, and `tests/world_invariant.rs` proves it holds across the public
 //!   surface. A worker who wants non-spatial entities in the world authority must
@@ -46,11 +46,11 @@ use core_ids::{EntityId, SceneNodeId, WorldId};
 
 use crate::transform::SceneTransform;
 
-/// A compact, deterministic fingerprint of a [`WorldState`].
+/// A compact, deterministic fingerprint of a [`SpatialSessionState`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct WorldHash(pub u64);
+pub struct SpatialSessionHash(pub u64);
 
-/// A read view of one entity's runtime world state: its (optional) runtime
+/// A read view of one entity's runtime spatial session state: its (optional) runtime
 /// transform and scene-node provenance. Transform is `Option` because, in the
 /// composed model, transform is a capability — not every entity has one.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -65,14 +65,14 @@ pub struct EntityRuntime {
 
 /// Live world authority: a composed entity store plus scene-node provenance index.
 #[derive(Debug, Clone, PartialEq)]
-pub struct WorldState {
+pub struct SpatialSessionState {
     id: WorldId,
     entities: EntityStore,
     /// Reverse trace: scene node (raw) → runtime entity.
     node_to_entity: BTreeMap<u64, EntityId>,
 }
 
-impl WorldState {
+impl SpatialSessionState {
     /// An empty world with no entities.
     pub fn empty(id: WorldId) -> Self {
         Self {
@@ -166,7 +166,7 @@ impl WorldState {
 
     /// A durable snapshot of the composed entity store, for persisting the
     /// world's **runtime-diverged** authority (transforms, runtime-created
-    /// entities, capabilities, relations, source traces) into a world-state
+    /// entities, capabilities, relations, source traces) into a session-state
     /// snapshot artifact (#2484). Excludes `DiagnosticTooling`-sourced entities by
     /// default save policy. The reverse `scene node → entity` index is recoverable
     /// from the per-record source traces, so it is not duplicated here.
@@ -175,9 +175,9 @@ impl WorldState {
     }
 
     /// The deterministic fingerprint of the composed entity store (capability and
-    /// relation aware). Distinct from [`WorldState::hash`], which fingerprints only
+    /// relation aware). Distinct from [`SpatialSessionState::hash`], which fingerprints only
     /// the spatial transform/source-node view; this covers the full authority the
-    /// world-state snapshot persists, so divergence detection and round-trip
+    /// session-state snapshot persists, so divergence detection and round-trip
     /// equivalence compare like for like.
     pub fn entity_hash(&self) -> core_entity::EntityHash {
         self.entities.hash()
@@ -220,14 +220,14 @@ impl WorldState {
     /// Cannot panic from a normal public API path: by the spatial-world invariant
     /// (module docs) every live world entity has a transform, and only live
     /// entities are hashed. The `expect` documents that invariant for maintainers.
-    pub fn hash(&self) -> WorldHash {
+    pub fn hash(&self) -> SpatialSessionHash {
         let mut h = Fnv1a::new();
         h.write_u64(self.id.raw());
         h.write_u8(0x01); // entities section
         for (id, rec) in self.entities() {
             h.write_u64(id.raw());
             let transform = rec.transform.expect(
-                "spatial-world invariant: every live WorldState entity has a transform \
+                "spatial-world invariant: every live SpatialSessionState entity has a transform \
                  (see module docs, #2425)",
             );
             hash_transform(&mut h, &transform);
@@ -239,7 +239,7 @@ impl WorldState {
                 None => h.write_u8(0),
             }
         }
-        WorldHash(h.finish())
+        SpatialSessionHash(h.finish())
     }
 }
 

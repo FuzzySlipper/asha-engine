@@ -146,7 +146,11 @@ pub fn render_report(r: &RegenReplayReport) -> String {
     let _ = writeln!(s, "newVersion {}", r.new_version);
     let _ = writeln!(s, "replayedEdits {}", r.replayed_edits);
     let _ = writeln!(s, "clean {}", r.is_clean());
-    let _ = writeln!(s, "stagingWorldHash {}", r.staging_world_hash.to_hex());
+    let _ = writeln!(
+        s,
+        "stagingSpatialSessionHash {}",
+        r.staging_spatial_session_hash.to_hex()
+    );
     let _ = writeln!(s, "conflicts {}", r.conflicts.len());
     for c in &r.conflicts {
         let _ = writeln!(

@@ -22,14 +22,14 @@
 //! This harness focuses on the scene-bootstrap identity + voxel authority facets,
 //! so the scene/entity side here round-trips its bootstrapped identity. Runtime
 //! *divergence* persistence — saving runtime-created entities and diverged
-//! transforms/capabilities/relations into a `worldStateSnapshot` artifact — is now
-//! wired separately (#2484): see [`crate::world_state::world_state_round_trip`] for
+//! transforms/capabilities/relations into a `sessionStateSnapshot` artifact — is now
+//! wired separately (#2484): see [`crate::session_state::session_state_round_trip`] for
 //! the runtime-authority equivalence harness and the executor's
-//! `RestoreWorldState` stage for the load path.
+//! `RestoreSessionState` stage for the load path.
 
 use core_events::VoxelEditEvent;
 use core_ids::{SceneId, WorldId};
-use core_scene::WorldHash;
+use core_scene::SpatialSessionHash;
 use core_space::VoxelGridSpec;
 use protocol_diagnostics::{
     DiagnosticCode, DiagnosticReport, DiagnosticReportSet, DiagnosticSourceRef, RemedyAction,
@@ -49,8 +49,8 @@ pub struct BundleEquivalenceReport {
     pub entities_c: usize,
     pub source_trace_b: usize,
     pub source_trace_c: usize,
-    pub world_hash_b: WorldHash,
-    pub world_hash_c: WorldHash,
+    pub spatial_session_hash_b: SpatialSessionHash,
+    pub spatial_session_hash_c: SpatialSessionHash,
     /// Voxel world fingerprint after the edits (B') and after reload (C).
     pub voxel_hash_b: Option<BundleHash>,
     pub voxel_hash_c: Option<BundleHash>,
@@ -77,7 +77,7 @@ impl BundleEquivalenceReport {
         ));
         out.push_str(&format!(
             "worldHashB={:016x} worldHashC={:016x}\n",
-            self.world_hash_b.0, self.world_hash_c.0
+            self.spatial_session_hash_b.0, self.spatial_session_hash_c.0
         ));
         out.push_str(&format!(
             "voxelHashB={} voxelHashC={}\n",
@@ -201,12 +201,12 @@ pub fn world_bundle_round_trip(
 
     // ── Compare B vs C ─────────────────────────────────────────────────────────
     let mut diagnostics = DiagnosticReportSet::new();
-    if result_b.world_hash != result_c.world_hash {
+    if result_b.spatial_session_hash != result_c.spatial_session_hash {
         diagnostics.push(mismatch(
             "world-hash",
             format!(
                 "scene/entity world hash changed across save/reload: {:016x} != {:016x}",
-                result_b.world_hash.0, result_c.world_hash.0
+                result_b.spatial_session_hash.0, result_c.spatial_session_hash.0
             ),
         ));
     }
@@ -242,8 +242,8 @@ pub fn world_bundle_round_trip(
         entities_c: result_c.world.entity_count(),
         source_trace_b: result_b.bootstrap.source_trace.len(),
         source_trace_c: result_c.bootstrap.source_trace.len(),
-        world_hash_b: result_b.world_hash,
-        world_hash_c: result_c.world_hash,
+        spatial_session_hash_b: result_b.spatial_session_hash,
+        spatial_session_hash_c: result_c.spatial_session_hash,
         voxel_hash_b,
         voxel_hash_c,
         diagnostics,
@@ -281,8 +281,8 @@ mod tests {
             entities_c: 2,
             source_trace_b: 2,
             source_trace_c: 2,
-            world_hash_b: WorldHash(1),
-            world_hash_c: WorldHash(1),
+            spatial_session_hash_b: SpatialSessionHash(1),
+            spatial_session_hash_c: SpatialSessionHash(1),
             voxel_hash_b: Some(BundleHash(10)),
             voxel_hash_c: Some(BundleHash(11)),
             diagnostics,

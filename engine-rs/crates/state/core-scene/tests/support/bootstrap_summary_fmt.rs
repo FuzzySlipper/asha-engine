@@ -19,7 +19,10 @@ pub fn render(record: &BootstrapRecord) -> String {
     ));
     out.push_str(&format!("  \"nodeCount\": {},\n", record.node_count));
     out.push_str(&format!("  \"entityCount\": {},\n", record.entity_count));
-    out.push_str(&format!("  \"worldHash\": {},\n", record.world_hash.0));
+    out.push_str(&format!(
+        "  \"worldHash\": {},\n",
+        record.spatial_session_hash.0
+    ));
     out.push_str("  \"sourceTrace\": [\n");
     for (i, t) in record.source_trace.iter().enumerate() {
         out.push_str(&format!(

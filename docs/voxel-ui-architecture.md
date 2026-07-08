@@ -13,7 +13,7 @@ and #2266 (camera / inspectors / overlays).
 
 | Category | Owner | Examples | Rule |
 |---|---|---|---|
-| **Authoritative** | Rust | voxel/chunk/world state | UI **never** mutates directly |
+| **Authoritative** | Rust | voxel/chunk/spatial session state | UI **never** mutates directly |
 | **Transient DOM/render** | UI components | pointer hover, button press, in-flight drag | throwaway, component-local |
 | **Persistent editor tool context** | `@asha/editor-tools` | current tool, brush, size, material, snapping, selection mode, preview settings, current selection | durable TS state; devtools-inspectable; **not** a shadow copy of authority |
 

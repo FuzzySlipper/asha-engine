@@ -30,7 +30,7 @@ use core_math::Vec3;
 use core_scene::bootstrap::BootstrapPlan;
 use core_scene::document::{NodeMetadata, SceneMetadata};
 use core_scene::transform::{Quat, SceneTransform};
-use core_scene::{FlatSceneDocument, SceneNode, SceneNodeKind, SceneTree, WorldState};
+use core_scene::{FlatSceneDocument, SceneNode, SceneNodeKind, SceneTree, SpatialSessionState};
 use render_bridge::json;
 use render_bridge::presentation::{
     NodePresentation, RenderProjectionDiagnostic, ScenePresentation, ScenePresentationProjector,
@@ -152,7 +152,7 @@ fn showcase_catalog() -> Catalog {
     }
 }
 
-fn bootstrap(doc: &FlatSceneDocument) -> WorldState {
+fn bootstrap(doc: &FlatSceneDocument) -> SpatialSessionState {
     BootstrapPlan::prepare(doc, WorldId::new(1))
         .expect("valid scene")
         .apply()

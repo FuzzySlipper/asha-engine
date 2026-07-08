@@ -105,7 +105,7 @@ id_type!(
 );
 
 id_type!(
-    /// Identifies a live runtime world (`WorldState`) bootstrapped from a scene.
+    /// Identifies a live runtime world (`SpatialSessionState`) bootstrapped from a scene.
     ///
     /// A scene document is loaded *into* a world; the two identities are kept
     /// separate so a world save is authority-owned rather than tied to the

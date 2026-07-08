@@ -271,7 +271,7 @@ Source: [bridge-manifest.toml](../../engine-rs/crates/bridge/runtime-bridge-api/
 - [`harness/fixtures/voxel-persist`](../../harness/fixtures/voxel-persist) — 3 files
 - [`harness/fixtures/voxel-world`](../../harness/fixtures/voxel-world) — 6 files
 - [`harness/fixtures/project-bundle`](../../harness/fixtures/project-bundle) — 6 files
-- [`harness/fixtures/world-state`](../../harness/fixtures/world-state) — 3 files
+- [`harness/fixtures/spatial-session-state`](../../harness/fixtures/spatial-session-state) — 3 files
 
 ### harness/goldens (7 groups)
 

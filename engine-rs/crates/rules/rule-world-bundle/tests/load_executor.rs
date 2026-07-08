@@ -87,14 +87,14 @@ fn minimal_valid_bundle_loads_into_authority() {
 fn stage_summary_matches_golden() {
     let result = execute_load_plan(&sample_plan(), &sample_artifacts()).unwrap();
     let summary = result.render_summary();
-    let world_hash = result.world_hash.0;
+    let spatial_session_hash = result.spatial_session_hash.0;
     let expected = format!(
         "stage versions schema=1 protocol=1\n\
          stage assetLock artifact=assets/lock.json expectedAssets=1\n\
          stage sceneDocument artifact=scene/scene.json nodes=2\n\
          stage bootstrap world=7 entities=2\n\
-         stage finalValidation worldHash={world_hash:016x} ok\n\
-         result entities=2 voxel=false worldHash={world_hash:016x}\n\
+         stage finalValidation worldHash={spatial_session_hash:016x} ok\n\
+         result entities=2 voxel=false worldHash={spatial_session_hash:016x}\n\
          runtimeEntities none\n\
          sourceTrace count=2\n"
     );
@@ -268,7 +268,7 @@ fn staged_commit_swaps_only_on_success() {
         .load_and_commit(&sample_plan(), &sample_artifacts())
         .expect("first load commits");
     assert!(stage.has_live());
-    let original_hash = stage.live_world_hash().unwrap();
+    let original_hash = stage.live_spatial_session_hash().unwrap();
 
     // A second, failing load (missing scene artifact) must NOT mutate the live
     // world: the previous world stays committed, unchanged.
@@ -276,7 +276,7 @@ fn staged_commit_swaps_only_on_success() {
     let err = stage.load_and_commit(&sample_plan(), &broken).unwrap_err();
     assert!(matches!(err, LoadExecutionError::MissingArtifact { .. }));
     assert_eq!(
-        stage.live_world_hash().unwrap(),
+        stage.live_spatial_session_hash().unwrap(),
         original_hash,
         "a failed load must leave the live world unchanged (no partial commit)"
     );

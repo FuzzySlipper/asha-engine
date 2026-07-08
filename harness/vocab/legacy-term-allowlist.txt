@@ -8,29 +8,11 @@
 # 'vocab-allow: <reason>' marker when it must name a legacy type deliberately
 # (e.g. migration shims). Remove entries as files migrate.
 
-# Legacy crates (whole-crate: world-bundle/world-state is their current domain language)
+# Legacy crates (whole-crate: world-bundle is their current domain language)
 engine-rs/crates/rules/rule-world-bundle/
 engine-rs/crates/services/svc-serialization/
 engine-rs/crates/tools/scene-diagnostics/
 
 # Legacy touchpoints in otherwise-current crates
-engine-rs/crates/foundation/core-ids/src/lib.rs
-engine-rs/crates/protocol/protocol-codegen/src/lib.rs
-engine-rs/crates/protocol/protocol-codegen/src/model.rs
-engine-rs/crates/protocol/protocol-diagnostics/src/lib.rs
-engine-rs/crates/render/render-bridge/src/presentation.rs
-engine-rs/crates/render/render-bridge/tests/scene_projection_golden.rs
-engine-rs/crates/render/render-bridge/tests/sprite_atlas_golden.rs
 engine-rs/crates/state/core-catalog/src/lib.rs
 engine-rs/crates/state/core-entity/src/persist.rs
-engine-rs/crates/state/core-entity/src/store.rs
-engine-rs/crates/state/core-scene/src/bootstrap.rs
-engine-rs/crates/state/core-scene/src/lib.rs
-engine-rs/crates/state/core-scene/src/world.rs
-engine-rs/crates/state/core-scene/tests/bootstrap.rs
-engine-rs/crates/state/core-scene/tests/world_invariant.rs
-
-# TypeScript legacy touchpoints (mostly world-bundle DTO/panel plumbing)
-ts/packages/command-registry/src/manifest.ts
-ts/packages/command-registry/src/types.ts
-ts/packages/contracts/src/smoke.ts

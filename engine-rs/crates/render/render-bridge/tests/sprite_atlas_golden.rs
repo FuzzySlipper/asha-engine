@@ -17,7 +17,7 @@ use core_catalog::Catalog;
 use core_ids::{SceneId, SceneNodeId, WorldId};
 use core_scene::bootstrap::BootstrapPlan;
 use core_scene::document::{NodeMetadata, SceneMetadata};
-use core_scene::{FlatSceneDocument, SceneNode, SceneNodeKind, SceneTree, WorldState};
+use core_scene::{FlatSceneDocument, SceneNode, SceneNodeKind, SceneTree, SpatialSessionState};
 use protocol_render::{
     SpriteAtlasDescriptor, SpriteFrameRect, TextureDescriptor, TextureFilter, TextureWrap,
 };
@@ -105,7 +105,7 @@ fn spark_atlas_source() -> SpriteAtlasSource {
     }
 }
 
-fn bootstrap(doc: &FlatSceneDocument) -> WorldState {
+fn bootstrap(doc: &FlatSceneDocument) -> SpatialSessionState {
     BootstrapPlan::prepare(doc, WorldId::new(1))
         .expect("valid scene")
         .apply()

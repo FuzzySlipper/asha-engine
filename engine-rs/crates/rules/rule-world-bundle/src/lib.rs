@@ -22,7 +22,7 @@ pub mod compose;
 pub mod durability;
 pub mod load;
 pub mod regen;
-pub mod world_state;
+pub mod session_state;
 
 pub use compose::{
     compact_voxel_save, reconstruct, voxel_save_plan, ChunkSnapshotArtifact, CompactedVoxelSave,
@@ -38,8 +38,9 @@ pub use regen::{
     check_generator, regenerate_and_replay, replay_against, EditConflict, GeneratorMismatch,
     GeneratorPolicy, RegenReplayReport, SuggestedAction,
 };
-pub use world_state::{
-    compose_world_state_snapshot, runtime_diverged, WorldStateArtifact, WORLD_STATE_SNAPSHOT_PATH,
+pub use session_state::{
+    compose_session_state_snapshot, runtime_diverged, SessionStateArtifact,
+    SESSION_STATE_SNAPSHOT_PATH,
 };
 
 #[cfg(test)]

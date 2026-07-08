@@ -1,14 +1,14 @@
 //! `state-inspector` — deterministic readout for ASHA authority state artifacts.
 //!
 //! The currently committed structured runtime state artifact is the
-//! `core-entity` world-state snapshot JSON under `harness/fixtures/world-state`.
+//! `core-entity` session-state snapshot JSON under `harness/fixtures/session-state`.
 //! This tool decodes that authority snapshot, rebuilds the `EntityStore`, and
 //! prints stable summaries without mutating state or touching renderer/UI paths.
 //!
 //! Commands:
-//!   state-inspector summary <world-state.snapshot.json>
-//!   state-inspector entity <world-state.snapshot.json> <entity-id>
-//!   state-inspector category <world-state.snapshot.json> <category>
+//!   state-inspector summary <session-state.snapshot.json>
+//!   state-inspector entity <session-state.snapshot.json> <entity-id>
+//!   state-inspector category <session-state.snapshot.json> <category>
 //!   state-inspector --help
 //!
 //! Exit codes: 0 = ok, 1 = missing query result, 2 = malformed/read error,
@@ -23,16 +23,16 @@ use core_entity::{
 };
 
 const USAGE: &str = "\
-state-inspector — inspect ASHA authority world-state snapshots
+state-inspector — inspect ASHA authority session-state snapshots
 
 USAGE:
-    state-inspector summary <world-state.snapshot.json>
-    state-inspector entity <world-state.snapshot.json> <entity-id>
-    state-inspector category <world-state.snapshot.json> <category>
+    state-inspector summary <session-state.snapshot.json>
+    state-inspector entity <session-state.snapshot.json> <entity-id>
+    state-inspector category <session-state.snapshot.json> <category>
     state-inspector --help
 
 COMMANDS:
-    summary   Decode a canonical core-entity world-state snapshot and print
+    summary   Decode a canonical core-entity session-state snapshot and print
               deterministic counts, hash, source counts, lifecycle counts, and
               capability counts.
 
@@ -93,7 +93,7 @@ fn cmd_entity<O: Write, E: Write>(args: &[String], out: &mut O, err: &mut E) -> 
     let [path, id] = args else {
         let _ = writeln!(
             err,
-            "error: `entity` requires <world-state.snapshot.json> <entity-id>"
+            "error: `entity` requires <session-state.snapshot.json> <entity-id>"
         );
         return 3;
     };
@@ -127,7 +127,7 @@ fn cmd_category<O: Write, E: Write>(args: &[String], out: &mut O, err: &mut E) -
     let [path, category] = args else {
         let _ = writeln!(
             err,
-            "error: `category` requires <world-state.snapshot.json> <category>"
+            "error: `category` requires <session-state.snapshot.json> <category>"
         );
         return 3;
     };
@@ -165,7 +165,7 @@ fn only_path<'a, E: Write>(args: &'a [String], command: &str, err: &mut E) -> Op
         _ => {
             let _ = writeln!(
                 err,
-                "error: `{command}` requires <world-state.snapshot.json>"
+                "error: `{command}` requires <session-state.snapshot.json>"
             );
             None
         }
@@ -283,7 +283,7 @@ impl CapabilityCounts {
 }
 
 fn write_summary<O: Write>(report: &SnapshotReport, out: &mut O) {
-    let _ = writeln!(out, "artifact: world-state-snapshot");
+    let _ = writeln!(out, "artifact: session-state-snapshot");
     let _ = writeln!(out, "schema_version: {SNAPSHOT_SCHEMA_VERSION}");
     let _ = writeln!(out, "entity_hash: {}", format_hash(report.hash));
     let _ = writeln!(
@@ -428,7 +428,7 @@ mod tests {
 
     fn fixture() -> String {
         repo_root()
-            .join("harness/fixtures/world-state/mixed-world.snapshot.json")
+            .join("harness/fixtures/session-state/mixed-world.snapshot.json")
             .to_string_lossy()
             .into_owned()
     }
@@ -460,7 +460,7 @@ mod tests {
         let (code, out, err) = run_str(&["summary", &path]);
         assert_eq!(code, 0);
         assert!(err.is_empty());
-        assert!(out.contains("artifact: world-state-snapshot"));
+        assert!(out.contains("artifact: session-state-snapshot"));
         assert!(out.contains("entity_hash: 52a209a7aa37a092"));
         assert!(out.contains("entities: total=6 active=5 disabled=0 tombstoned=1"));
         assert!(out.contains("entity_ids: [1,2,3,4,5,6]"));

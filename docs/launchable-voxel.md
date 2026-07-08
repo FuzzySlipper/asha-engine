@@ -96,20 +96,20 @@ classified error. Full model + the deferred generic-`ReplayRecord` unification:
 
 Runtime-diverged **entity** authority — runtime-created entities, diverged
 transforms, capability tables, relations, and source traces — persists separately as
-a durable `worldStateSnapshot` artifact (`core_entity` snapshot codec, composed by
-`rule-world-bundle::world_state`, restored by the executor's `RestoreWorldState` load
+a durable `sessionStateSnapshot` artifact (`core_entity` snapshot codec, composed by
+`rule-world-bundle::spatial_session_state`, restored by the executor's `RestoreSessionState` load
 stage). It is emitted only when runtime state diverged from the bootstrapped scene
 baseline, never collapses voxel persistence into the scene document, and reloads
 fail-closed. The mixed-world round-trip (scene-sourced + runtime-created, spatial +
 non-spatial, contained/attached, voxel edit + entity change in one save) is proven by
-`scene-diagnostics::world_state_round_trip` and the committed fixtures under
-`harness/fixtures/world-state/` (Den #2484).
+`scene-diagnostics::session_state_round_trip` and the committed fixtures under
+`harness/fixtures/session-state/` (Den #2484).
 
 ```bash
 cd engine-rs
 cargo run -p rule-world-bundle --example dump_durability > ../harness/fixtures/world-bundle/voxel-durability.txt
 cargo test -p rule-world-bundle -p rule-voxel-edit        # checks the durability + persist goldens
-cargo test -p core-entity -p scene-diagnostics            # checks the world-state snapshot codec + equivalence goldens
+cargo test -p core-entity -p scene-diagnostics            # checks the session-state snapshot codec + equivalence goldens
 ```
 
 ## Performance baseline
@@ -138,7 +138,7 @@ how to compare runs: `docs/perf-baseline.md`.
 | Voxel persist sample golden | covered by `cargo test -p rule-voxel-edit` (inline `include_str!` goldens) |
 | World-bundle compacted save | `cargo run -p rule-world-bundle --example dump_compacted_save > harness/fixtures/world-bundle/compacted-save.txt` |
 | Voxel durability checkpoints | `cargo run -p rule-world-bundle --example dump_durability > harness/fixtures/world-bundle/voxel-durability.txt` |
-| World-state snapshot + equivalence | `BLESS=1 cargo test -p scene-diagnostics --test world_state_goldens` → `harness/fixtures/world-state/` |
+| Session-state snapshot + equivalence | `BLESS=1 cargo test -p scene-diagnostics --test session_state_goldens` → `harness/fixtures/session-state/` |
 | Regen-conflict diagnostic | `cargo run -p rule-world-bundle --example dump_regen_conflict > harness/fixtures/world-bundle/regen-conflict.txt` |
 | Structural render goldens | `cd ts && pnpm --filter @asha/renderer-three test` (bless the `<name>.snapshot`); see `harness/goldens/render-diffs/README.md` |
 | Golden replays | record with `sim-runner::Recorder`; see `docs/replay-model.md` |

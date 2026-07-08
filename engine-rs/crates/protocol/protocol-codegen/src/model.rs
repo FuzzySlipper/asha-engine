@@ -2533,7 +2533,7 @@ pub fn scene_module() -> Module {
                 f("schemaVersion", num()),
                 f("nodeCount", num()),
                 f("entityCount", num()),
-                f("worldHash", num()),
+                f("spatialSessionHash", num()),
                 f("sourceTrace", TsType::array(r("SceneSourceTrace"))),
             ],
         ),

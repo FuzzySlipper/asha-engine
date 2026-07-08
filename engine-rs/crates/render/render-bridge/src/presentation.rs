@@ -6,7 +6,7 @@
 //! [`RenderProjector`](crate::RenderProjector) projects the abstract entity store
 //! (`core-state`) into one cube per entity. This module projects the *authored
 //! scene graph*: a [`FlatSceneDocument`] gives each node its kind/asset/transform;
-//! [`WorldState`] gives the **authority-owned runtime transform** (post-bootstrap
+//! [`SpatialSessionState`] gives the **authority-owned runtime transform** (post-bootstrap
 //! movement) and the `scene node → entity` source trace; the [`Catalog`] resolves
 //! a static mesh's material slots. Static-mesh nodes project to
 //! [`RenderDiff::DefineStaticMesh`] (once per asset) + per-node
@@ -42,7 +42,7 @@ use core_catalog::material::{Rgba, UvStrategy};
 use core_catalog::Catalog;
 use core_ids::{EntityId, SceneNodeId};
 use core_scene::transform::SceneTransform;
-use core_scene::{FlatSceneDocument, SceneNodeKind, SceneNodeRecord, WorldState};
+use core_scene::{FlatSceneDocument, SceneNodeKind, SceneNodeRecord, SpatialSessionState};
 use protocol_render::{
     BillboardMode, MaterialUvStrategy, MeshAttribute, MeshAttributeKind, MeshAttributeName,
     MeshBoundsDescriptor, MeshBufferLayout, MeshCollisionPolicy, MeshGroupDescriptor,
@@ -296,7 +296,7 @@ pub struct NodePresentation {
 /// The full read-only authority input a single projection frame reads.
 pub struct ScenePresentation<'a> {
     pub scene: &'a FlatSceneDocument,
-    pub world: &'a WorldState,
+    pub world: &'a SpatialSessionState,
     pub catalog: &'a Catalog,
     /// Per-node overrides (material rebinds, sprite runtime). Keyed by node id.
     pub overrides: &'a BTreeMap<SceneNodeId, NodePresentation>,
@@ -306,7 +306,7 @@ impl<'a> ScenePresentation<'a> {
     /// A presentation with no per-node overrides (owns an empty override map).
     pub fn without_overrides(
         scene: &'a FlatSceneDocument,
-        world: &'a WorldState,
+        world: &'a SpatialSessionState,
         catalog: &'a Catalog,
     ) -> ScenePresentationOwned<'a> {
         ScenePresentationOwned {
@@ -321,7 +321,7 @@ impl<'a> ScenePresentation<'a> {
 /// Owns an empty override map so callers without overrides need not allocate one.
 pub struct ScenePresentationOwned<'a> {
     scene: &'a FlatSceneDocument,
-    world: &'a WorldState,
+    world: &'a SpatialSessionState,
     catalog: &'a Catalog,
     overrides: BTreeMap<SceneNodeId, NodePresentation>,
 }
@@ -1104,7 +1104,7 @@ mod tests {
         .to_flat()
     }
 
-    fn bootstrap(doc: &FlatSceneDocument) -> WorldState {
+    fn bootstrap(doc: &FlatSceneDocument) -> SpatialSessionState {
         BootstrapPlan::prepare(doc, WorldId::new(1))
             .expect("valid scene")
             .apply()
@@ -1155,7 +1155,7 @@ mod tests {
     fn project_once(
         proj: &mut ScenePresentationProjector,
         doc: &FlatSceneDocument,
-        world: &WorldState,
+        world: &SpatialSessionState,
         catalog: &Catalog,
     ) -> RenderFrameDiff {
         let overrides = BTreeMap::new();
@@ -1168,8 +1168,8 @@ mod tests {
     }
 
     /// An empty world: no scene node has been bootstrapped into a runtime entity.
-    fn empty_world() -> WorldState {
-        WorldState::empty(WorldId::new(1))
+    fn empty_world() -> SpatialSessionState {
+        SpatialSessionState::empty(WorldId::new(1))
     }
 
     fn count_creates(frame: &RenderFrameDiff) -> usize {

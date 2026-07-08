@@ -1,4 +1,4 @@
-//! Runtime world-state snapshot **round-trip equivalence** (post-launchable-02,
+//! Runtime session-state snapshot **round-trip equivalence** (post-launchable-02,
 //! Den task #2484).
 //!
 //! The voxel round-trip ([`crate::roundtrip`]) and the bundle round-trip
@@ -7,7 +7,7 @@
 //! **runtime-diverged entity store** — runtime-created entities, diverged
 //! transforms, capability presence/absence, relations (transform attachment,
 //! containment, source ancestry), source traces, and asset references — survives
-//! the world-state-snapshot codec round-trip with authority-equivalent state.
+//! the session-state-snapshot codec round-trip with authority-equivalent state.
 //!
 //! A lost or drifted facet is reported as a **classified**
 //! [`protocol_diagnostics`] report whose `reference` names the mismatch category
@@ -29,7 +29,7 @@ use protocol_diagnostics::{
 /// A deterministic comparison of a runtime entity store before save (B) and after
 /// reload (C).
 #[derive(Debug, Clone)]
-pub struct WorldStateEquivalenceReport {
+pub struct SessionStateEquivalenceReport {
     pub entities_b: usize,
     pub entities_c: usize,
     pub entity_hash_b: EntityHash,
@@ -38,7 +38,7 @@ pub struct WorldStateEquivalenceReport {
     pub diagnostics: DiagnosticReportSet,
 }
 
-impl WorldStateEquivalenceReport {
+impl SessionStateEquivalenceReport {
     /// `true` if every compared facet matched.
     pub fn is_equivalent(&self) -> bool {
         self.diagnostics.is_empty()
@@ -48,7 +48,7 @@ impl WorldStateEquivalenceReport {
     pub fn to_report_text(&self) -> String {
         let mut out = String::new();
         out.push_str(&format!(
-            "worldStateEquivalence equivalent={} entitiesB={} entitiesC={}\n",
+            "sessionStateEquivalence equivalent={} entitiesB={} entitiesC={}\n",
             self.is_equivalent(),
             self.entities_b,
             self.entities_c,
@@ -62,11 +62,11 @@ impl WorldStateEquivalenceReport {
     }
 }
 
-/// Run the real world-state-snapshot codec round-trip for `store`: encode it to
+/// Run the real session-state-snapshot codec round-trip for `store`: encode it to
 /// the canonical artifact form, decode it back, restore a store, and compare the
 /// pre-save and post-reload snapshots facet by facet. Nothing here hard-codes the
 /// reloaded result — it drives `core_entity`'s real `encode`/`decode`/`from_snapshot`.
-pub fn world_state_round_trip(store: &EntityStore) -> WorldStateEquivalenceReport {
+pub fn session_state_round_trip(store: &EntityStore) -> SessionStateEquivalenceReport {
     let snapshot_b = store.snapshot();
     let text = encode_snapshot(&snapshot_b);
 
@@ -87,7 +87,7 @@ pub fn world_state_round_trip(store: &EntityStore) -> WorldStateEquivalenceRepor
         compare_into(&snapshot_b, snapshot_c, &mut diagnostics);
     }
 
-    WorldStateEquivalenceReport {
+    SessionStateEquivalenceReport {
         entities_b: snapshot_b.records.len(),
         entities_c,
         entity_hash_b: store.hash(),
@@ -191,19 +191,19 @@ fn compare_records(id: u64, b: &EntityRecord, c: &EntityRecord, set: &mut Diagno
     }
 }
 
-/// A missing world-state snapshot where one was expected (e.g. a manifest claims
+/// A missing session-state snapshot where one was expected (e.g. a manifest claims
 /// runtime divergence but no artifact is present). Classified so it routes to the
 /// persistence lane.
-pub fn missing_world_state_snapshot(path: &str) -> DiagnosticReport {
+pub fn missing_session_state_snapshot(path: &str) -> DiagnosticReport {
     DiagnosticReport::new(
         DiagnosticCode::MissingSourceTrace,
-        "world-state-snapshot",
+        "session-state-snapshot",
         DiagnosticSourceRef::empty(),
-        format!("expected world-state snapshot artifact `{path}` is missing"),
+        format!("expected session-state snapshot artifact `{path}` is missing"),
     )
     .with_remedy(SuggestedRemedy::new(
         RemedyAction::RestoreArtifact,
-        "restore the world-state snapshot artifact or re-save the diverged runtime authority",
+        "restore the session-state snapshot artifact or re-save the diverged runtime authority",
     ))
 }
 
@@ -216,7 +216,7 @@ fn mismatch(reference: &str, message: String) -> DiagnosticReport {
     )
     .with_remedy(SuggestedRemedy::new(
         RemedyAction::Inspect,
-        "world-state save/reload did not preserve authority-equivalent runtime state; \
+        "session-state save/reload did not preserve authority-equivalent runtime state; \
          inspect the named facet",
     ))
 }
@@ -224,13 +224,13 @@ fn mismatch(reference: &str, message: String) -> DiagnosticReport {
 fn decode_failure(detail: &str) -> DiagnosticReport {
     DiagnosticReport::new(
         DiagnosticCode::CorruptBundleArtifact,
-        "world-state-snapshot",
+        "session-state-snapshot",
         DiagnosticSourceRef::empty(),
-        format!("world-state snapshot failed to decode on round-trip: {detail}"),
+        format!("session-state snapshot failed to decode on round-trip: {detail}"),
     )
     .with_remedy(SuggestedRemedy::new(
         RemedyAction::RestoreArtifact,
-        "the world-state snapshot artifact does not decode; restore from a known-good save",
+        "the session-state snapshot artifact does not decode; restore from a known-good save",
     ))
 }
 
@@ -356,7 +356,7 @@ mod tests {
 
     #[test]
     fn mixed_world_round_trips_equivalently() {
-        let report = world_state_round_trip(&mixed_world());
+        let report = session_state_round_trip(&mixed_world());
         assert!(report.is_equivalent(), "{}", report.to_report_text());
         assert_eq!(report.entity_hash_b, report.entity_hash_c);
         assert_eq!(report.entities_b, 5);

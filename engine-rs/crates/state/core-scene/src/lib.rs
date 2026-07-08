@@ -21,8 +21,9 @@
 //!   the `core-assets` `AssetRef` vocabulary from subtask #2314).
 //! * [`json`] — std-only canonical encode/decode so authored JSON crosses to
 //!   Rust authority and re-serializes byte-deterministically.
-//! * [`world`] / [`bootstrap`] — the live [`WorldState`] authority and the atomic
-//!   [`bootstrap::bootstrap_scene`] initialization (subtask #2316): validate →
+//! * [`spatial_session`] / [`bootstrap`] — the live [`SpatialSessionState`]
+//!   authority and the atomic [`bootstrap::bootstrap_scene`] initialization
+//!   (subtask #2316): validate →
 //!   deterministic plan → one [`BootstrapRecord`] replay unit, copying initial
 //!   transforms into authority-owned runtime transforms with a `scene node →
 //!   runtime entity` source trace.
@@ -46,9 +47,9 @@ pub mod bootstrap;
 pub mod document;
 pub mod json;
 pub mod scene_object;
+pub mod spatial_session;
 pub mod transform;
 pub mod validate;
-pub mod world;
 
 pub use bootstrap::{
     bootstrap_scene, BootstrapError, BootstrapPlan, BootstrapRecord, PlannedEntity,
@@ -63,9 +64,9 @@ pub use scene_object::{
     SceneObjectCommandOutcome, SceneObjectCommandRejection, SceneObjectRecord, SceneObjectSnapshot,
     SceneObjectSnapshotHash,
 };
+pub use spatial_session::{EntityRuntime, SpatialSessionHash, SpatialSessionState};
 pub use transform::{Quat, SceneTransform, TransformInvalid};
 pub use validate::{validate, SceneValidationError, SceneValidationReport};
-pub use world::{EntityRuntime, WorldHash, WorldState};
 
 #[cfg(test)]
 mod tests {

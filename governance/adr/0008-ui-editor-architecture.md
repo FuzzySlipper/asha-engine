@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 
-Voxel editing UI has three state categories: **authoritative** (Rust voxel/world state — UI never
+Voxel editing UI has three state categories: **authoritative** (Rust voxel/spatial session state — UI never
 mutates), **transient DOM/render** (hover, drag — throwaway, component-local), and **persistent
 editor tool context** (current tool/brush/size/material/snapping/selection/preview — durable TS
 state, devtools-inspectable, *not* a shadow of authority).

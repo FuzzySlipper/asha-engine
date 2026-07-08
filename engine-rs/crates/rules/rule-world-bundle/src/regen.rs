@@ -113,7 +113,7 @@ pub struct RegenReplayReport {
     /// Number of edit events examined (non-generation events).
     pub replayed_edits: u32,
     /// Deterministic fingerprint of the regenerated+replayed staging world.
-    pub staging_world_hash: BundleHash,
+    pub staging_spatial_session_hash: BundleHash,
 }
 
 impl RegenReplayReport {
@@ -212,7 +212,7 @@ pub fn replay_against(
         new_version,
         conflicts,
         replayed_edits,
-        staging_world_hash: world_fingerprint(&staging),
+        staging_spatial_session_hash: world_fingerprint(&staging),
     })
 }
 

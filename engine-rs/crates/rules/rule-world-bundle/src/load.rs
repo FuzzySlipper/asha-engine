@@ -22,8 +22,8 @@ use core_entity::{decode_snapshot, EntityStore, SnapshotDecodeError};
 use core_ids::SceneId;
 use core_scene::{
     bootstrap_scene, decode as decode_scene, validate as validate_scene, BootstrapError,
-    BootstrapRecord, FlatSceneDocument, SceneDecodeError, SceneValidationReport, WorldHash,
-    WorldState,
+    BootstrapRecord, FlatSceneDocument, SceneDecodeError, SceneValidationReport,
+    SpatialSessionHash, SpatialSessionState,
 };
 use core_space::{ChunkCoord, VoxelGridSpec};
 use svc_serialization::{LoadPlan, LoadPlanError, LoadStage, LoadStep};
@@ -108,9 +108,9 @@ pub struct StageOutcome {
 #[derive(Debug, Clone)]
 pub struct WorldLoadResult {
     /// Scene/entity authority (runtime transforms + `scene node → entity` trace).
-    pub world: WorldState,
+    pub world: SpatialSessionState,
     /// Restored runtime-diverged entity authority, when the bundle carried a
-    /// world-state snapshot (#2484). Holds the full generic entity store —
+    /// session-state snapshot (#2484). Holds the full generic entity store —
     /// runtime-created entities, capability tables, relations, and source traces —
     /// over and above the spatial bootstrap baseline in `world`. `None` when the
     /// save had no runtime divergence to persist.
@@ -120,7 +120,7 @@ pub struct WorldLoadResult {
     /// The atomic bootstrap record (carries the source trace).
     pub bootstrap: BootstrapRecord,
     /// Deterministic fingerprint of the bootstrapped scene/entity world.
-    pub world_hash: WorldHash,
+    pub spatial_session_hash: SpatialSessionHash,
     /// Ordered per-stage outcomes (the executed plan, not the planned plan).
     pub stages: Vec<StageOutcome>,
 }
@@ -137,7 +137,7 @@ impl WorldLoadResult {
             "result entities={} voxel={} worldHash={:016x}\n",
             self.world.entity_count(),
             self.voxel.is_some(),
-            self.world_hash.0
+            self.spatial_session_hash.0
         ));
         match &self.runtime_entities {
             Some(store) => out.push_str(&format!(
@@ -187,11 +187,11 @@ pub enum LoadExecutionError {
     VoxelSpecMissing,
     /// Voxel replay/reconstruction rejected the edits.
     VoxelReplay { detail: String },
-    /// The world-state snapshot artifact failed to decode (fail closed before any
+    /// The session-state snapshot artifact failed to decode (fail closed before any
     /// runtime authority is restored). Carries the classified codec error, so a
     /// schema-version mismatch, malformed structure, and unknown discriminant stay
     /// distinguishable.
-    WorldStateDecode {
+    SessionStateDecode {
         path: String,
         error: SnapshotDecodeError,
     },
@@ -229,8 +229,8 @@ impl WorldStage {
     }
 
     /// The committed live world's hash, if any (cheap mutation-safety probe).
-    pub fn live_world_hash(&self) -> Option<WorldHash> {
-        self.live.as_ref().map(|w| w.world_hash)
+    pub fn live_spatial_session_hash(&self) -> Option<SpatialSessionHash> {
+        self.live.as_ref().map(|w| w.spatial_session_hash)
     }
 
     /// Execute `plan` into a staging area and, **only on success**, swap it in as
@@ -264,7 +264,7 @@ pub fn execute_load_plan(
     let mut stages = Vec::new();
     let mut scene_doc: Option<FlatSceneDocument> = None;
     let mut voxel_world: Option<VoxelWorld> = None;
-    let mut world_and_record: Option<(WorldState, BootstrapRecord)> = None;
+    let mut world_and_record: Option<(SpatialSessionState, BootstrapRecord)> = None;
     let mut runtime_entities: Option<EntityStore> = None;
 
     for step in &plan.steps {
@@ -377,31 +377,31 @@ pub fn execute_load_plan(
                 });
                 world_and_record = Some((state, record));
             }
-            LoadStep::RestoreWorldState { artifact } => {
+            LoadStep::RestoreSessionState { artifact } => {
                 // Restore over the bootstrapped baseline: the snapshot is the full
                 // runtime authority. Fail closed (no partial mutation) on a missing,
                 // empty, or undecodable artifact.
                 if world_and_record.is_none() {
                     return Err(LoadExecutionError::FinalConsistency {
-                        detail: "world-state restore reached before scene bootstrap".into(),
+                        detail: "session-state restore reached before scene bootstrap".into(),
                     });
                 }
-                let text = read_required(artifacts, LoadStage::WorldStateSnapshot, artifact)?;
+                let text = read_required(artifacts, LoadStage::SessionStateSnapshot, artifact)?;
                 if text.trim().is_empty() {
                     return Err(LoadExecutionError::EmptyArtifact {
-                        stage: LoadStage::WorldStateSnapshot,
+                        stage: LoadStage::SessionStateSnapshot,
                         path: artifact.clone(),
                     });
                 }
                 let snapshot = decode_snapshot(text).map_err(|error| {
-                    LoadExecutionError::WorldStateDecode {
+                    LoadExecutionError::SessionStateDecode {
                         path: artifact.clone(),
                         error,
                     }
                 })?;
                 let store = EntityStore::from_snapshot(snapshot);
                 stages.push(StageOutcome {
-                    stage: LoadStage::WorldStateSnapshot,
+                    stage: LoadStage::SessionStateSnapshot,
                     detail: format!(
                         "artifact={artifact} entities={} entityHash={:016x}",
                         store.total_count(),
@@ -419,7 +419,7 @@ pub fn execute_load_plan(
                         })?;
                 // Final consistency: the recorded world hash must reproduce, and
                 // every entity must have a source-trace entry.
-                if state.hash() != record.world_hash {
+                if state.hash() != record.spatial_session_hash {
                     return Err(LoadExecutionError::FinalConsistency {
                         detail: "bootstrapped world hash does not match the record".into(),
                     });
@@ -444,14 +444,14 @@ pub fn execute_load_plan(
     let (world, bootstrap) = world_and_record.ok_or(LoadExecutionError::FinalConsistency {
         detail: "plan completed without bootstrapping a world".into(),
     })?;
-    let world_hash = world.hash();
+    let spatial_session_hash = world.hash();
 
     Ok(WorldLoadResult {
         world,
         runtime_entities,
         voxel: voxel_world,
         bootstrap,
-        world_hash,
+        spatial_session_hash,
         stages,
     })
 }

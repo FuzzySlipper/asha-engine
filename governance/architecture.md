@@ -50,7 +50,7 @@ separate governance change.
     deterministically serialized) with order-preserving round-trip.
   - `validate` — classified scene validation (duplicate/unknown-parent/cycle/transform/
     wrong-kind-asset-ref).
-  - `WorldState` — live runtime authority; bootstrap copies initial transforms in, then
+  - `SpatialSessionState` — live runtime authority; bootstrap copies initial transforms in, then
     runtime transforms are authority-owned and may diverge from the authored document.
   - `bootstrap` — atomic scene→authority initialization producing one `BootstrapRecord`
     replay unit with a deterministic world hash and a `scene node → entity` source trace.

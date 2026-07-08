@@ -1,25 +1,25 @@
-//! Committed mixed-world world-state snapshot fixtures + equivalence golden
+//! Committed mixed-world session-state snapshot fixtures + equivalence golden
 //! (post-launchable-02, Den task #2484).
 //!
-//! Pins (1) the canonical encoded world-state snapshot artifact for the #2484
+//! Pins (1) the canonical encoded session-state snapshot artifact for the #2484
 //! mixed-world save fixture and (2) the deterministic round-trip equivalence
 //! report it produces. The fixtures double as agent-inspectable examples of a
-//! durable runtime-authority snapshot under `harness/fixtures/world-state/`.
+//! durable runtime-authority snapshot under `harness/fixtures/session-state/`.
 //!
 //! Regenerate after an intended change:
 //!
 //! ```text
-//! BLESS=1 cargo test -p scene-diagnostics --test world_state_goldens
+//! BLESS=1 cargo test -p scene-diagnostics --test session_state_goldens
 //! ```
 
 use std::path::PathBuf;
 
 use core_entity::{encode_snapshot, fixtures, EntityStore};
-use scene_diagnostics::world_state_round_trip;
+use scene_diagnostics::session_state_round_trip;
 
 fn fixture_path(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../../harness/fixtures/world-state")
+        .join("../../../../harness/fixtures/session-state")
         .join(name)
 }
 
@@ -33,7 +33,7 @@ fn check_golden(name: &str, actual: &str) {
     let expected = std::fs::read_to_string(&path).unwrap_or_else(|e| {
         panic!(
             "missing golden {}: {e}\nregenerate with BLESS=1 cargo test -p scene-diagnostics \
-             --test world_state_goldens",
+             --test session_state_goldens",
             path.display()
         )
     });
@@ -52,7 +52,7 @@ fn committed_snapshot_reloads_to_an_equivalent_world() {
     // The committed artifact decodes and reconstructs the exact authority the
     // fixture produced — proving the on-disk golden is itself round-trip clean.
     let store = fixtures::mixed_world_save_fixture();
-    let report = world_state_round_trip(&store);
+    let report = session_state_round_trip(&store);
     assert!(report.is_equivalent(), "{}", report.to_report_text());
     check_golden("mixed-world-equivalence.txt", &report.to_report_text());
 }

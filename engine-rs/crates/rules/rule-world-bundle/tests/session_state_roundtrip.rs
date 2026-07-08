@@ -1,13 +1,13 @@
-//! End-to-end runtime world-state snapshot save → reload through the real load
+//! End-to-end runtime session-state snapshot save → reload through the real load
 //! executor (post-launchable-02, Den task #2484).
 //!
 //! Builds a mixed runtime entity store (scene-sourced + runtime-created, spatial +
 //! non-spatial, rendered/collider/logical, contained/attached, asset-bound),
-//! composes the durable `worldStateSnapshot` artifact, drives the real
+//! composes the durable `sessionStateSnapshot` artifact, drives the real
 //! [`execute_load_plan`] over a plan that includes the
-//! [`LoadStep::RestoreWorldState`] stage, and asserts the reloaded runtime entity
+//! [`LoadStep::RestoreSessionState`] stage, and asserts the reloaded runtime entity
 //! authority reproduces the pre-save fingerprint exactly. A corrupted snapshot
-//! must fail closed with a classified [`LoadExecutionError::WorldStateDecode`]
+//! must fail closed with a classified [`LoadExecutionError::SessionStateDecode`]
 //! rather than partially mutate authority.
 
 use core_entity::{
@@ -19,8 +19,8 @@ use core_scene::{encode, SceneMetadata, SceneNode, SceneNodeKind, SceneTree};
 use svc_serialization::{LoadPlan, LoadStep};
 
 use rule_world_bundle::{
-    compose_world_state_snapshot, execute_load_plan, BundleArtifacts, LoadExecutionError,
-    WORLD_STATE_SNAPSHOT_PATH,
+    compose_session_state_snapshot, execute_load_plan, BundleArtifacts, LoadExecutionError,
+    SESSION_STATE_SNAPSHOT_PATH,
 };
 
 /// A small valid scene (id 100), matching the bootstrap baseline.
@@ -29,7 +29,7 @@ fn sample_scene_json() -> String {
         id: SceneId::new(100),
         schema_version: 1,
         metadata: SceneMetadata {
-            name: Some("world-state-fixture".into()),
+            name: Some("session-state-fixture".into()),
             authoring_format_version: 1,
         },
         dependencies: vec![],
@@ -149,7 +149,7 @@ fn core_vec3(x: f32, y: f32, z: f32) -> core_math::Vec3 {
 }
 
 /// A plan that bootstraps the scene baseline then restores the runtime snapshot.
-fn plan_with_world_state() -> LoadPlan {
+fn plan_with_spatial_session_state() -> LoadPlan {
     LoadPlan {
         steps: vec![
             LoadStep::ValidateVersions {
@@ -168,8 +168,8 @@ fn plan_with_world_state() -> LoadPlan {
                 scene: SceneId::new(100),
                 world: WorldId::new(7),
             },
-            LoadStep::RestoreWorldState {
-                artifact: WORLD_STATE_SNAPSHOT_PATH.into(),
+            LoadStep::RestoreSessionState {
+                artifact: SESSION_STATE_SNAPSHOT_PATH.into(),
             },
             LoadStep::ValidateFinalState,
         ],
@@ -180,20 +180,23 @@ fn artifacts_with(snapshot_text: &str) -> BundleArtifacts {
     BundleArtifacts::new()
         .with_artifact("assets/lock.json", "{ \"entries\": [] }\n")
         .with_artifact("scene/scene.json", sample_scene_json())
-        .with_artifact(WORLD_STATE_SNAPSHOT_PATH, snapshot_text.to_string())
+        .with_artifact(SESSION_STATE_SNAPSHOT_PATH, snapshot_text.to_string())
 }
 
 #[test]
-fn mixed_runtime_world_state_survives_save_reload() {
+fn mixed_runtime_spatial_session_state_survives_save_reload() {
     let store = mixed_runtime_store();
-    let artifact = compose_world_state_snapshot(&store.snapshot_durable());
+    let artifact = compose_session_state_snapshot(&store.snapshot_durable());
 
-    let result = execute_load_plan(&plan_with_world_state(), &artifacts_with(&artifact.text))
-        .expect("load with world-state restore succeeds");
+    let result = execute_load_plan(
+        &plan_with_spatial_session_state(),
+        &artifacts_with(&artifact.text),
+    )
+    .expect("load with session-state restore succeeds");
 
     let restored = result
         .runtime_entities
-        .expect("runtime entities restored from world-state snapshot");
+        .expect("runtime entities restored from session-state snapshot");
     assert_eq!(
         restored.hash(),
         store.hash(),
@@ -219,18 +222,21 @@ fn mixed_runtime_world_state_survives_save_reload() {
 }
 
 #[test]
-fn corrupt_world_state_snapshot_fails_closed_classified() {
+fn corrupt_session_state_snapshot_fails_closed_classified() {
     let store = mixed_runtime_store();
-    let artifact = compose_world_state_snapshot(&store.snapshot_durable());
+    let artifact = compose_session_state_snapshot(&store.snapshot_durable());
     // Corrupt the source discriminant: a plausible on-disk edit that no longer
     // names a known source kind.
     let tampered = artifact.text.replace("sceneBootstrap", "bogusSourceKind");
 
-    let err = execute_load_plan(&plan_with_world_state(), &artifacts_with(&tampered))
-        .expect_err("a corrupt snapshot must not load");
+    let err = execute_load_plan(
+        &plan_with_spatial_session_state(),
+        &artifacts_with(&tampered),
+    )
+    .expect_err("a corrupt snapshot must not load");
     assert!(
-        matches!(err, LoadExecutionError::WorldStateDecode { .. }),
-        "expected a classified WorldStateDecode error, got {err:?}"
+        matches!(err, LoadExecutionError::SessionStateDecode { .. }),
+        "expected a classified SessionStateDecode error, got {err:?}"
     );
 }
 
@@ -261,14 +267,14 @@ fn voxel_edit_and_entity_change_survive_the_same_save() {
     ];
 
     let store = mixed_runtime_store();
-    let snapshot = compose_world_state_snapshot(&store.snapshot_durable());
+    let snapshot = compose_session_state_snapshot(&store.snapshot_durable());
 
-    // One bundle, one save: a voxel section AND a runtime world-state snapshot.
+    // One bundle, one save: a voxel section AND a runtime session-state snapshot.
     let artifacts = BundleArtifacts::new()
         .with_artifact("assets/lock.json", "{ \"entries\": [] }\n")
         .with_artifact("scene/scene.json", sample_scene_json())
         .with_artifact("voxel/edits.log", encode_edit_log(&edit_log))
-        .with_artifact(WORLD_STATE_SNAPSHOT_PATH, snapshot.text.clone())
+        .with_artifact(SESSION_STATE_SNAPSHOT_PATH, snapshot.text.clone())
         .with_voxel_spec(spec);
 
     let plan = LoadPlan {
@@ -293,8 +299,8 @@ fn voxel_edit_and_entity_change_survive_the_same_save() {
                 scene: SceneId::new(100),
                 world: WorldId::new(7),
             },
-            LoadStep::RestoreWorldState {
-                artifact: WORLD_STATE_SNAPSHOT_PATH.into(),
+            LoadStep::RestoreSessionState {
+                artifact: SESSION_STATE_SNAPSHOT_PATH.into(),
             },
             LoadStep::ValidateFinalState,
         ],
@@ -311,14 +317,14 @@ fn voxel_edit_and_entity_change_survive_the_same_save() {
 }
 
 #[test]
-fn world_state_stage_is_skipped_when_no_divergence() {
+fn spatial_session_state_stage_is_skipped_when_no_divergence() {
     // A plan without the restore step (no divergence saved) loads cleanly and
     // carries no runtime entities — the scene-only baseline.
     let plan = LoadPlan {
-        steps: plan_with_world_state()
+        steps: plan_with_spatial_session_state()
             .steps
             .into_iter()
-            .filter(|s| !matches!(s, LoadStep::RestoreWorldState { .. }))
+            .filter(|s| !matches!(s, LoadStep::RestoreSessionState { .. }))
             .collect(),
     };
     let result = execute_load_plan(&plan, &artifacts_with("")).expect("scene-only load succeeds");

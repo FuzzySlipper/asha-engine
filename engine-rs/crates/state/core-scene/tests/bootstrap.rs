@@ -60,8 +60,8 @@ fn bootstrap_from_valid_scene_is_deterministic() {
 
     // Same input → identical authority state and fingerprint.
     assert_eq!(world_a, world_b);
-    assert_eq!(rec_a.world_hash, rec_b.world_hash);
-    assert_eq!(world_a.hash(), rec_a.world_hash);
+    assert_eq!(rec_a.spatial_session_hash, rec_b.spatial_session_hash);
+    assert_eq!(world_a.hash(), rec_a.spatial_session_hash);
 
     assert_eq!(world_a.entity_count(), 2);
     assert_eq!(rec_a.node_count, 2);
@@ -131,7 +131,7 @@ fn replay_sees_one_bootstrap_unit() {
 fn ecrp_project_bundle_scene_bootstrap_seeds_session_capability_state() {
     // Current implementation compatibility:
     // - stored ProjectBundle-like content is represented by FlatSceneDocument;
-    // - RuntimeSession/SessionState is represented by core_scene::WorldState.
+    // - RuntimeSession/SessionState is represented by core_scene::SpatialSessionState.
     // The proof stays in Rust authority and uses deterministic replay/hash
     // readouts instead of exposing StateStore or inventing a TS JSON hatch.
     let doc = minimal_doc();
@@ -139,7 +139,7 @@ fn ecrp_project_bundle_scene_bootstrap_seeds_session_capability_state() {
 
     assert_eq!(record.replay_unit_label(), "scene.bootstrap");
     assert_eq!(record.world_id, WorldId::new(44));
-    assert_eq!(record.world_hash, world.hash());
+    assert_eq!(record.spatial_session_hash, world.hash());
     assert_eq!(record.source_trace.len(), 2);
 
     let mesh_entity = world.entity_for_node(SceneNodeId::new(2)).unwrap();
@@ -191,7 +191,7 @@ fn runtime_transform_diverges_without_mutating_scene_document() {
         world.transform(entity).unwrap().translation,
         Vec3::new(99.0, 99.0, 99.0)
     );
-    assert_ne!(world.hash(), record.world_hash);
+    assert_ne!(world.hash(), record.spatial_session_hash);
     // ...but the authored document is untouched.
     assert_eq!(doc, minimal_doc());
     assert_eq!(doc.nodes[1].transform.translation, Vec3::new(2.0, 0.0, 0.0));

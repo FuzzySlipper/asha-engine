@@ -465,12 +465,12 @@ pub fn static_room_collision_family() -> EntityStore {
 }
 
 /// The #2484 mixed-world **save** fixture: one store holding every fixture
-/// vocabulary class a runtime world-state snapshot must persist in a single save —
+/// vocabulary class a runtime session-state snapshot must persist in a single save —
 /// a runtime-created spatial rendered entity, a spatial non-rendered collider, a
 /// non-spatial logical entity, a containment relation, a transform attachment, an
 /// asset-bound import, a source-ancestry trace, a scene-sourced entity whose
 /// runtime transform has diverged from its authored origin, and a tombstone. It is
-/// the canonical input for the world-state snapshot codec round-trip and the
+/// the canonical input for the session-state snapshot codec round-trip and the
 /// committed equivalence golden.
 pub fn mixed_world_save_fixture() -> EntityStore {
     use crate::relation::RelationCommand;

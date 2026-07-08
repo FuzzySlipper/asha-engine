@@ -1,4 +1,4 @@
-//! Std-only canonical JSON codec for the runtime world-state snapshot
+//! Std-only canonical JSON codec for the runtime session-state snapshot
 //! (post-launchable-02, Den task #2484).
 //!
 //! [`EntityStore::snapshot`](crate::store::EntityStore::snapshot) already produces
@@ -28,7 +28,7 @@ use crate::core::{EntityCore, EntityLifecycle, EntitySource};
 use crate::store::{EntityRecord, EntitySnapshot};
 use crate::value::{Aabb, EntityTransform, Quat};
 
-/// Compatibility marker for the on-disk world-state snapshot. A snapshot whose
+/// Compatibility marker for the on-disk session-state snapshot. A snapshot whose
 /// schema version is newer than this build understands fails closed at decode.
 pub const SNAPSHOT_SCHEMA_VERSION: u32 = 1;
 
@@ -231,7 +231,7 @@ fn fmt_f32(v: f32) -> String {
 
 // ── Decode ──────────────────────────────────────────────────────────────────--
 
-/// Why decoding a world-state snapshot failed. Every variant is fail-closed: a
+/// Why decoding a session-state snapshot failed. Every variant is fail-closed: a
 /// rejected snapshot never partially mutates a store.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SnapshotDecodeError {
@@ -267,7 +267,7 @@ impl core::fmt::Display for SnapshotDecodeError {
 
 impl std::error::Error for SnapshotDecodeError {}
 
-/// Decode canonical world-state-snapshot JSON into an [`EntitySnapshot`]. The
+/// Decode canonical spatial-session-state-snapshot JSON into an [`EntitySnapshot`]. The
 /// result is suitable for [`EntityStore::from_snapshot`](crate::store::EntityStore::from_snapshot).
 /// Fails closed on schema mismatch, malformed structure, or unknown discriminants.
 pub fn decode_snapshot(input: &str) -> Result<EntitySnapshot, SnapshotDecodeError> {
@@ -786,7 +786,7 @@ mod tests {
     use core_math::Vec3;
 
     /// Build a mixed-world store exercising every fixture vocabulary class the
-    /// world-state snapshot must persist (Den task #2484): a runtime-created
+    /// session-state snapshot must persist (Den task #2484): a runtime-created
     /// spatial rendered entity, a spatial non-rendered collider, a non-spatial
     /// logical entity, a containment relation, a transform attachment, and an
     /// asset-bound import plus a diverged transform.

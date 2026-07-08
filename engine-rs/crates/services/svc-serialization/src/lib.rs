@@ -272,7 +272,7 @@ mod tests {
         let writes = vec![
             ArtifactEntry::durable(
                 "world/state.snapshot",
-                ArtifactRole::WorldStateSnapshot,
+                ArtifactRole::SessionStateSnapshot,
                 b"s",
             ),
             ArtifactEntry::generated(

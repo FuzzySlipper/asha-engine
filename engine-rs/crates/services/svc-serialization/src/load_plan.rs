@@ -32,10 +32,10 @@ pub enum LoadStage {
     TerrainGeneration,
     VoxelEdits,
     Bootstrap,
-    /// Restore a runtime-diverged world-state snapshot over the bootstrapped scene
+    /// Restore a runtime-diverged session-state snapshot over the bootstrapped scene
     /// baseline. Optional: present only when the save carried runtime divergence
     /// (post-launchable-02, #2484).
-    WorldStateSnapshot,
+    SessionStateSnapshot,
     FinalValidation,
 }
 
@@ -49,7 +49,7 @@ impl LoadStage {
             LoadStage::TerrainGeneration => 3,
             LoadStage::VoxelEdits => 4,
             LoadStage::Bootstrap => 5,
-            LoadStage::WorldStateSnapshot => 6,
+            LoadStage::SessionStateSnapshot => 6,
             LoadStage::FinalValidation => 7,
         }
     }
@@ -63,7 +63,7 @@ impl LoadStage {
             LoadStage::TerrainGeneration => "terrainGeneration",
             LoadStage::VoxelEdits => "voxelEdits",
             LoadStage::Bootstrap => "bootstrap",
-            LoadStage::WorldStateSnapshot => "worldStateSnapshot",
+            LoadStage::SessionStateSnapshot => "sessionStateSnapshot",
             LoadStage::FinalValidation => "finalValidation",
         }
     }
@@ -95,9 +95,9 @@ pub enum LoadStep {
     },
     /// Atomically bootstrap runtime entities from the scene document.
     BootstrapScene { scene: SceneId, world: WorldId },
-    /// Restore the runtime-diverged world-state snapshot from its artifact, over
+    /// Restore the runtime-diverged session-state snapshot from its artifact, over
     /// the bootstrapped scene baseline (#2484).
-    RestoreWorldState { artifact: String },
+    RestoreSessionState { artifact: String },
     /// Validate final state (hashes, required assets, source traces).
     ValidateFinalState,
 }
@@ -112,7 +112,7 @@ impl LoadStep {
             LoadStep::GenerateTerrain { .. } => LoadStage::TerrainGeneration,
             LoadStep::ApplyVoxelEdits { .. } => LoadStage::VoxelEdits,
             LoadStep::BootstrapScene { .. } => LoadStage::Bootstrap,
-            LoadStep::RestoreWorldState { .. } => LoadStage::WorldStateSnapshot,
+            LoadStep::RestoreSessionState { .. } => LoadStage::SessionStateSnapshot,
             LoadStep::ValidateFinalState => LoadStage::FinalValidation,
         }
     }
@@ -177,11 +177,12 @@ impl LoadPlan {
 
         let edit_logs = artifacts_with_role(manifest, &ArtifactRole::VoxelEditLog);
         let snapshots = artifacts_with_role(manifest, &ArtifactRole::VoxelChunkSnapshot);
-        // The runtime world-state snapshot is optional: a save only carries one
+        // The runtime session-state snapshot is optional: a save only carries one
         // when runtime authority diverged from the bootstrapped scene (#2484).
-        let world_state_snapshot = artifacts_with_role(manifest, &ArtifactRole::WorldStateSnapshot)
-            .into_iter()
-            .next();
+        let session_state_snapshot =
+            artifacts_with_role(manifest, &ArtifactRole::SessionStateSnapshot)
+                .into_iter()
+                .next();
 
         let mut steps = vec![
             LoadStep::ValidateVersions {
@@ -210,8 +211,8 @@ impl LoadPlan {
                 world: manifest.world.id,
             },
         ];
-        if let Some(artifact) = world_state_snapshot {
-            steps.push(LoadStep::RestoreWorldState { artifact });
+        if let Some(artifact) = session_state_snapshot {
+            steps.push(LoadStep::RestoreSessionState { artifact });
         }
         steps.push(LoadStep::ValidateFinalState);
 
@@ -297,7 +298,7 @@ fn render_step(step: &LoadStep) -> String {
         LoadStep::BootstrapScene { scene, world } => {
             format!("scene={} world={}", scene.raw(), world.raw())
         }
-        LoadStep::RestoreWorldState { artifact } => artifact.clone(),
+        LoadStep::RestoreSessionState { artifact } => artifact.clone(),
         LoadStep::ValidateFinalState => String::new(),
     }
 }

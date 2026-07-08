@@ -22,7 +22,7 @@ export interface RuntimeStatus {
     readonly schemaVersion: number | null;
     readonly capabilities: readonly CapabilityStatus[];
 }
-/** Last persistence operation readout (from the bundle/world-state panels). */
+/** Last persistence operation readout (from the bundle/spatial-session-state panels). */
 export interface PersistenceReadout {
     readonly operation: 'save' | 'load' | 'replay';
     readonly status: 'ok' | 'failed';
