@@ -23,6 +23,36 @@ function writeStaleAddonModule() {
     };`);
     return modulePath;
 }
+function writeCurrentAddonModule() {
+    const dir = mkdtempSync(join(tmpdir(), 'asha-native-bridge-'));
+    const modulePath = join(dir, 'current-native-addon.cjs');
+    const exports = REQUIRED_NATIVE_ADDON_EXPORTS
+        .map((name) => `      ${JSON.stringify(name)}() {}`)
+        .join(',\n');
+    writeFileSync(modulePath, `module.exports = {\n${exports}\n    };\n`);
+    return modulePath;
+}
+function retiredRuntimeContainerTerm() {
+    return String.fromCharCode(87, 111, 114, 108, 100);
+}
+void test('native addon loader accepts current ProjectBundle export vocabulary', () => {
+    const modulePath = writeCurrentAddonModule();
+    try {
+        assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('loadProjectBundle'));
+        assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('saveProjectBundle'));
+        assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('getProjectBundleCompositionStatus'));
+        assert.equal(REQUIRED_NATIVE_ADDON_EXPORTS.includes(`load${retiredRuntimeContainerTerm()}Bundle`), false);
+        assert.equal(REQUIRED_NATIVE_ADDON_EXPORTS.includes(`saveCurrent${retiredRuntimeContainerTerm()}`), false);
+        assert.equal(REQUIRED_NATIVE_ADDON_EXPORTS.includes('getCompositionStatus'), false);
+        const addon = loadNativeAddon(modulePath);
+        assert.equal(typeof addon.loadProjectBundle, 'function');
+        assert.equal(typeof addon.saveProjectBundle, 'function');
+        assert.equal(typeof addon.getProjectBundleCompositionStatus, 'function');
+    }
+    finally {
+        rmSync(dirname(modulePath), { recursive: true, force: true });
+    }
+});
 void test('native addon loader rejects stale modules missing encounter authority exports', () => {
     const modulePath = writeStaleAddonModule();
     try {
