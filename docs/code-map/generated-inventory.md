@@ -139,9 +139,10 @@ Source metadata:
 - [`@asha/script-host`](../../ts/packages/script-host/package.json) — active
 - [`@asha/script-sdk`](../../ts/packages/script-sdk/package.json) — active
 
-### ts-shell (13)
+### ts-shell (14)
 
 - [`@asha/app`](../../ts/packages/app/package.json) — active
+- [`@asha/browser-host`](../../ts/packages/browser-host/package.json) — active
 - [`@asha/cosmetic`](../../ts/packages/cosmetic/package.json) — active
 - [`@asha/editor-tools`](../../ts/packages/editor-tools/package.json) — active
 - [`@asha/electron-main`](../../ts/packages/electron-main/package.json) — active
@@ -162,6 +163,7 @@ Source metadata:
 ## Public Surface Manifest Summary
 
 - [`@asha/app`](../../ts/packages/app/package.json) — internal; roles: none
+- [`@asha/browser-host`](../../ts/packages/browser-host/package.json) — unstable; roles: asha-demo
 - [`@asha/catalog-core`](../../ts/packages/catalog-core/package.json) — unstable; roles: asha-testing, asha-demo, asha-studio
 - [`@asha/catalog-examples`](../../ts/packages/catalog-examples/package.json) — internal; roles: none
 - [`@asha/command-registry`](../../ts/packages/command-registry/package.json) — unstable; roles: asha-studio, asha-demo

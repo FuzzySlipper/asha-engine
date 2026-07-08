@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "surface": "@asha/browser-host",
+  "compatibilityVersion": "browser-host.v0",
+  "packageVersion": "0.1.0",
+  "sourceOfTruth": "ts/packages/browser-host/src/index.ts plus @asha/runtime-bridge native provider contract",
+  "changelog": "docs/consumer-compatibility.md#browser-host-compatibility-log",
+  "migrationNoteTemplate": "docs/consumer-compatibility.md#migration-note-template",
+  "failClosedPolicy": "Consumers must stop on missing or spoofed native Rust RuntimeBridge providers. The browser host must install globalThis.ashaRuntimeBridge before the downstream app boots and must not fall back to reference/mock authority.",
+  "pinningGuidance": "Record ASHA git commit, browser-host.v0, and runtime-bridge.v0 in downstream browser-host evidence until registry/version publishing exists.",
+  "breakingChangeRequires": [
+    "browser-host compatibility log entry",
+    "runtime bridge provider compatibility review when provider metadata changes",
+    "downstream asha-demo migration notes when command shape changes"
+  ]
+}

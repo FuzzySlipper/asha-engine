@@ -50,6 +50,7 @@ metadata while their consumer role is still being ratified.
 | `@asha/contracts` | `public` | `ts/packages/contracts/compatibility.json` | `contracts.v0` | Generated semantic DTO/type border from Rust protocol crates. |
 | `@asha/runtime-bridge` | `public` | `ts/packages/runtime-bridge/compatibility.json` | `runtime-bridge.v0` | Transport-neutral runtime facade, manifest-backed operation vocabulary, typed errors. |
 | `@asha/runtime-session` | `unstable` | `ts/packages/runtime-session/compatibility.json` | `runtime-session.v0` | Transport-neutral RuntimeSession semantic readouts, proposal envelopes, and domain helper projections. |
+| `@asha/browser-host` | `unstable` | `ts/packages/browser-host/compatibility.json` | `browser-host.v0` | Browser/dev static UI host that installs the native Rust RuntimeBridge provider before app boot. |
 | `@asha/catalog-core` | `unstable` | none | none | Typed gameplay preset/catalog validation surface for consumer-owned FPS tuning data; not runtime authority. |
 | `@asha/command-registry` | `unstable` | `ts/packages/command-registry/src/manifest.golden.json` | `command-registry.v0` | Studio command/evidence metadata registry. |
 | `@asha/devtools` | `unstable` | `ts/packages/devtools/compatibility.json` | `devtools-protocol.v0` | Observational attach/readout protocol for tools and testing harnesses. |
@@ -61,6 +62,7 @@ metadata while their consumer role is still being ratified.
 Additional unstable package statuses:
 
 - `@asha/catalog-core` is an unstable gameplay preset/catalog validation package. It may expose root-level typed tuning schemas and readouts for consumer-owned data, but it does not execute runtime authority, own generated contracts, or validate commands.
+- `@asha/browser-host` is the unstable host surface for ASHA Game Projects that need human-playable browser/dev runs with native Rust RuntimeBridge authority. It serves a built UI root, installs `globalThis.ashaRuntimeBridge` with provider kind `asha.runtime_bridge.native_rust_provider.v1`, and fails closed for missing/spoofed providers instead of falling back to reference authority.
 - `@asha/editor-tools` is an unstable Studio/editor helper package. It is editor-local state only, not authority.
 - `@asha/runtime-session` is the unstable semantic RuntimeSession package introduced by #4547. It owns transport-neutral readout/proposal/helper vocabulary such as runtime action intents, generated tunnel readouts, combat/nav/encounter readouts, combat feedback projection, enemy policy proposal shapes, and ECRP render target identity. During the migration window, `@asha/runtime-bridge` re-exports this surface for compatibility while retaining bridge transports, native access, render decode, launchers, and bridge-backed facade adapters.
 - `@asha/renderer-host` is the unstable browser render surface host for human-facing demos. It exposes backend-neutral mount/lifecycle/projection handles and may use `@asha/renderer-three` internally while that remains the selected browser backend.
@@ -351,6 +353,33 @@ Compatibility posture:
 - Consumers may import these semantic readout/proposal surfaces from `@asha/runtime-session` root.
 - Existing `@asha/runtime-bridge` root imports remain supported by compatibility re-export shims during the transition.
 - Bridge-backed `RuntimeSessionFacade` construction, native transport access, reference helpers, launchers, render decode, and generated bridge operation conformance remain in `@asha/runtime-bridge` until later #4547 phases move or wrap them deliberately.
+
+## Browser host compatibility log
+
+### `browser-host.v0` — native browser/dev RuntimeBridge provider host
+
+Status: unstable ASHA Game Project host surface introduced by #4878.
+
+Initial root exports:
+
+- `describeNativeBrowserHostCommand()`;
+- `installNativeBrowserHostProvider()`;
+- `readNativeBrowserHostProviderStatus()`;
+- `launchNativeBrowserHost()`;
+- `startNativeBrowserHost()`.
+
+The host command shape is:
+
+```sh
+asha-browser-host --ui-root dist/ui --host 0.0.0.0 --port 5173
+```
+
+The host installs `globalThis.ashaRuntimeBridge` with provider kind
+`asha.runtime_bridge.native_rust_provider.v1` through the public
+`@asha/runtime-bridge` package root before downstream app boot. Provider status
+reports `rust_authority` only after the runtime bridge resolver accepts the
+provider and required operations. Missing or spoofed providers report
+`missing_rust_backend` with typed diagnostics and no reference fallback.
 
 ## Command registry compatibility log
 

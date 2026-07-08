@@ -663,6 +663,15 @@ implementation_status = "active"
 may_import = ["@asha/contracts"]
 may_not_import = ["@asha/native-bridge", "@asha/renderer-three", "@asha/ui-dom", "@asha/wasm-replay-bridge", "@asha/policy-core", "@asha/policy-examples", "@asha/script-host", "@asha/electron-main"]
 
+# Scaffolded by ts/scripts/new-package.mjs. Replace this comment with package-specific boundary notes before widening imports.
+[package."ts/packages/browser-host"]
+lane = "ts-shell"
+type = "shell"
+layer = "shell"
+implementation_status = "active"
+may_import = ["@asha/runtime-bridge"]
+may_not_import = ["@asha/native-bridge", "@asha/renderer-three", "@asha/ui-dom", "@asha/policy-core", "@asha/policy-examples", "@asha/script-host", "@asha/wasm-replay-bridge", "@asha/electron-main", "@asha/app"]
+
 # Rust: bridge layer (between wasm and tools).
 [crate."engine-rs/crates/bridge/runtime-bridge-api"]
 lane = "rust-bridge"

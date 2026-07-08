@@ -8,6 +8,7 @@
         "@asha/runtime-bridge",
         "@asha/runtime-session",
         "@asha/game-workspace",
+        "@asha/browser-host",
         "@asha/catalog-core",
         "@asha/render-projection",
         "@asha/renderer-host",
@@ -110,6 +111,15 @@
       "allowedConsumerRoles": ["asha-testing", "asha-demo", "asha-studio"],
       "compatibilityMarker": "contracts.v0",
       "changelog": "docs/consumer-compatibility.md#generated-contract-compatibility-log"
+    },
+    {
+      "package": "@asha/browser-host",
+      "status": "unstable",
+      "ownershipKey": "ts/packages/browser-host",
+      "intendedConsumerRole": "Browser/dev host command and provider boot surface for ASHA Game Projects that need native Rust RuntimeBridge authority before app boot.",
+      "allowedConsumerRoles": ["asha-demo"],
+      "compatibilityMarker": "browser-host.v0",
+      "changelog": "docs/consumer-compatibility.md#browser-host-compatibility-log"
     },
     {
       "package": "@asha/runtime-bridge",

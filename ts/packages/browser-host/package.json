@@ -1,0 +1,33 @@
+{
+  "name": "@asha/browser-host",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Public ASHA browser/dev host for native Rust RuntimeBridge provider boot.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "asha-browser-host": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "asha": {
+    "compatibility": {
+      "version": "browser-host.v0",
+      "metadataFile": "compatibility.json",
+      "changelog": "docs/consumer-compatibility.md#browser-host-compatibility-log"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build",
+    "test": "tsc --build && node --test 'dist/**/*.test.js'"
+  },
+  "dependencies": {
+    "@asha/runtime-bridge": "workspace:*"
+  }
+}
