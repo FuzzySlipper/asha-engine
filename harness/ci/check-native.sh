@@ -49,6 +49,17 @@ assert.deepEqual(a.getProjectBundleCompositionStatus(h), { loadedProjectBundle: 
 
 const bridge = createNativeRuntimeBridge('$DEST');
 bridge.initializeEngine({ seed: 1 });
+const camera = bridge.createCamera({
+  initialPose: { position: [0, 1.6, 0], yawDegrees: 0, pitchDegrees: 0 },
+  projection: { fovYDegrees: 60, near: 0.1, far: 1000 },
+  viewport: { width: 1280, height: 720 },
+});
+assert.equal(camera.camera, 1);
+assert.equal(camera.pose.position.length, 3);
+assert.ok(Math.abs(camera.pose.position[0] - 0) < 0.00001);
+assert.ok(Math.abs(camera.pose.position[1] - 1.6) < 0.00001);
+assert.ok(Math.abs(camera.pose.position[2] - 0) < 0.00001);
+assert.equal(camera.viewport.width, 1280);
 const registrationRequest = {
   source: {
     assetId: 'mesh/check-native-registered-triangle',

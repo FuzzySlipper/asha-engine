@@ -3,6 +3,7 @@ export const REQUIRED_NATIVE_ADDON_EXPORTS = [
     'loadProjectBundle',
     'submitCommands',
     'stepSimulation',
+    'createCamera',
     'applyEnemyDirectNavMovement',
     'loadFpsRuntimeSession',
     'readFpsRuntimeSession',

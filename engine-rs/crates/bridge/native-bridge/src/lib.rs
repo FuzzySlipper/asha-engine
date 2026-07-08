@@ -17,16 +17,17 @@ use std::sync::{Mutex, OnceLock};
 
 use napi_derive::napi;
 use runtime_bridge_api::{
-    set_voxel_command, CommandBatch, EnemyDirectNavMovementRequest, EngineConfig,
-    FpsBridgeBoundsCapability, FpsBridgeHealth, FpsBridgePolicyBinding, FpsBridgeRole,
-    FpsBridgeStoredEntityDefinition, FpsBridgeTransformCapability, FpsBridgeWeaponMount,
-    FpsEncounterDirectorSnapshot, FpsEncounterLifecycleInput, FpsEncounterStateReadout,
-    FpsEncounterTransitionRequest, FpsEncounterTransitionResult, FpsPrimaryFireRequest,
-    FpsPrimaryFireResult, FpsRuntimeSessionLoadRequest, FpsRuntimeSessionRestartRequest,
-    FpsRuntimeSessionSnapshot, GameExtensionWeaponEffectInvocationRequest, GameRuleCatalog,
-    GameRuleEffectIntentRequest, GameRuleModuleManifest, GameRuleResolutionRequest,
-    ProjectBundleLoadRequest, ReferenceBridge, RuntimeBridge, RuntimeBridgeError,
-    RuntimeBridgeErrorKind, StepInputEnvelope, VoxelConversionApplyRequest,
+    set_voxel_command, CameraCreateRequest, CameraPose, CommandBatch,
+    EnemyDirectNavMovementRequest, EngineConfig, FpsBridgeBoundsCapability, FpsBridgeHealth,
+    FpsBridgePolicyBinding, FpsBridgeRole, FpsBridgeStoredEntityDefinition,
+    FpsBridgeTransformCapability, FpsBridgeWeaponMount, FpsEncounterDirectorSnapshot,
+    FpsEncounterLifecycleInput, FpsEncounterStateReadout, FpsEncounterTransitionRequest,
+    FpsEncounterTransitionResult, FpsPrimaryFireRequest, FpsPrimaryFireResult,
+    FpsRuntimeSessionLoadRequest, FpsRuntimeSessionRestartRequest, FpsRuntimeSessionSnapshot,
+    GameExtensionWeaponEffectInvocationRequest, GameRuleCatalog, GameRuleEffectIntentRequest,
+    GameRuleModuleManifest, GameRuleResolutionRequest, ProjectBundleLoadRequest, ReferenceBridge,
+    RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind, StepInputEnvelope,
+    VoxelConversionApplyRequest,
     VoxelConversionEvidenceRef, VoxelConversionMeshAssetRegistrationRequest,
     VoxelConversionPlanRequest, VoxelConversionPreviewRequest,
     VoxelConversionSourceRegistrationRequest, VoxelModelInfoRequest, VoxelVolumeAssetExportRequest,
@@ -172,6 +173,163 @@ impl From<runtime_bridge_api::ProjectBundleSaveSummary> for NativeProjectBundleS
             artifacts_written: value.artifacts_written,
             compacted_edits: value.compacted_edits,
             retained_edits: value.retained_edits,
+        }
+    }
+}
+
+#[napi(object)]
+pub struct NativeCameraPose {
+    pub position: Vec<f64>,
+    pub yaw_degrees: f64,
+    pub pitch_degrees: f64,
+}
+
+impl NativeCameraPose {
+    fn into_bridge(self, field: &str) -> napi::Result<CameraPose> {
+        if self.position.len() != 3 || self.position.iter().any(|value| !value.is_finite()) {
+            return Err(to_napi(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                format!("{field}.position must contain exactly three finite coordinates"),
+            )));
+        }
+        if !self.yaw_degrees.is_finite() || !self.pitch_degrees.is_finite() {
+            return Err(to_napi(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                format!("{field} yaw/pitch must be finite"),
+            )));
+        }
+        Ok(CameraPose {
+            position: [
+                self.position[0] as f32,
+                self.position[1] as f32,
+                self.position[2] as f32,
+            ],
+            yaw_degrees: self.yaw_degrees as f32,
+            pitch_degrees: self.pitch_degrees as f32,
+        })
+    }
+}
+
+impl From<runtime_bridge_api::CameraPose> for NativeCameraPose {
+    fn from(value: runtime_bridge_api::CameraPose) -> Self {
+        Self {
+            position: value.position.into_iter().map(f64::from).collect(),
+            yaw_degrees: f64::from(value.yaw_degrees),
+            pitch_degrees: f64::from(value.pitch_degrees),
+        }
+    }
+}
+
+#[napi(object)]
+pub struct NativeCameraBasis {
+    pub forward: Vec<f64>,
+    pub right: Vec<f64>,
+    pub up: Vec<f64>,
+}
+
+impl From<runtime_bridge_api::CameraBasis> for NativeCameraBasis {
+    fn from(value: runtime_bridge_api::CameraBasis) -> Self {
+        Self {
+            forward: value.forward.into_iter().map(f64::from).collect(),
+            right: value.right.into_iter().map(f64::from).collect(),
+            up: value.up.into_iter().map(f64::from).collect(),
+        }
+    }
+}
+
+#[napi(object)]
+pub struct NativePerspectiveProjection {
+    pub fov_y_degrees: f64,
+    pub near: f64,
+    pub far: f64,
+}
+
+impl NativePerspectiveProjection {
+    fn into_bridge(self, field: &str) -> napi::Result<runtime_bridge_api::PerspectiveProjection> {
+        if !self.fov_y_degrees.is_finite() || !self.near.is_finite() || !self.far.is_finite() {
+            return Err(to_napi(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                format!("{field} must contain finite values"),
+            )));
+        }
+        Ok(runtime_bridge_api::PerspectiveProjection {
+            fov_y_degrees: self.fov_y_degrees as f32,
+            near: self.near as f32,
+            far: self.far as f32,
+        })
+    }
+}
+
+impl From<runtime_bridge_api::PerspectiveProjection> for NativePerspectiveProjection {
+    fn from(value: runtime_bridge_api::PerspectiveProjection) -> Self {
+        Self {
+            fov_y_degrees: f64::from(value.fov_y_degrees),
+            near: f64::from(value.near),
+            far: f64::from(value.far),
+        }
+    }
+}
+
+#[napi(object)]
+pub struct NativeViewportSize {
+    pub width: u32,
+    pub height: u32,
+}
+
+impl From<NativeViewportSize> for runtime_bridge_api::ViewportSize {
+    fn from(value: NativeViewportSize) -> Self {
+        runtime_bridge_api::ViewportSize {
+            width: value.width,
+            height: value.height,
+        }
+    }
+}
+
+impl From<runtime_bridge_api::ViewportSize> for NativeViewportSize {
+    fn from(value: runtime_bridge_api::ViewportSize) -> Self {
+        Self {
+            width: value.width,
+            height: value.height,
+        }
+    }
+}
+
+#[napi(object)]
+pub struct NativeCameraCreateRequest {
+    pub initial_pose: NativeCameraPose,
+    pub projection: NativePerspectiveProjection,
+    pub viewport: NativeViewportSize,
+}
+
+impl NativeCameraCreateRequest {
+    fn into_bridge(self) -> napi::Result<CameraCreateRequest> {
+        Ok(CameraCreateRequest {
+            initial_pose: self.initial_pose.into_bridge("initial_pose")?,
+            projection: self.projection.into_bridge("projection")?,
+            viewport: self.viewport.into(),
+        })
+    }
+}
+
+#[napi(object)]
+pub struct NativeCameraSnapshot {
+    pub camera: i64,
+    pub tick: i64,
+    pub pose: NativeCameraPose,
+    pub basis: NativeCameraBasis,
+    pub projection: NativePerspectiveProjection,
+    pub viewport: NativeViewportSize,
+}
+
+impl From<runtime_bridge_api::CameraSnapshot> for NativeCameraSnapshot {
+    fn from(value: runtime_bridge_api::CameraSnapshot) -> Self {
+        Self {
+            camera: value.camera.raw() as i64,
+            tick: value.tick as i64,
+            pose: value.pose.into(),
+            basis: value.basis.into(),
+            projection: value.projection.into(),
+            viewport: value.viewport.into(),
         }
     }
 }
@@ -1021,6 +1179,20 @@ pub fn apply_enemy_direct_nav_movement(
                 max_step_units: max_step_units as f32,
             })
             .map(NativeEnemyDirectNavMovementResult::from)
+            .map_err(to_napi)
+    })
+}
+
+#[napi]
+pub fn create_camera(
+    handle: i64,
+    request: NativeCameraCreateRequest,
+) -> napi::Result<NativeCameraSnapshot> {
+    let request = request.into_bridge()?;
+    with_bridge(handle, |bridge| {
+        bridge
+            .create_camera(request)
+            .map(NativeCameraSnapshot::from)
             .map_err(to_napi)
     })
 }

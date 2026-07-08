@@ -41,6 +41,7 @@ void test('native addon loader accepts current ProjectBundle export vocabulary',
         assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('loadProjectBundle'));
         assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('saveProjectBundle'));
         assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('getProjectBundleCompositionStatus'));
+        assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('createCamera'));
         assert.equal(REQUIRED_NATIVE_ADDON_EXPORTS.includes(`load${retiredRuntimeContainerTerm()}Bundle`), false);
         assert.equal(REQUIRED_NATIVE_ADDON_EXPORTS.includes(`saveCurrent${retiredRuntimeContainerTerm()}`), false);
         assert.equal(REQUIRED_NATIVE_ADDON_EXPORTS.includes('getCompositionStatus'), false);
@@ -65,6 +66,7 @@ void test('native addon loader rejects stale modules missing encounter authority
         assert.throws(() => loadNativeAddon(modulePath), (error) => error instanceof NativeAddonUnavailable &&
             error.message.includes('readFpsEncounterDirector') &&
             error.message.includes('applyFpsEncounterTransition') &&
+            error.message.includes('createCamera') &&
             error.message.includes('planVoxelConversion') &&
             error.message.includes('registerVoxelConversionSource') &&
             error.message.includes('exportVoxelConversionEvidence'));

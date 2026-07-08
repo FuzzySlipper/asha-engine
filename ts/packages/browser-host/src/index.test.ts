@@ -147,6 +147,34 @@ void test('browser host preserves native RuntimeBridge receiver binding over HTT
       assert.equal(invocation.status, 200);
       assert.deepEqual(await invocation.json(), { result: 123 });
       assert.deepEqual(calls, ['initialize:23']);
+
+      const cameraInvocation = await fetch(`${host.url}/asha/browser-host/runtime-bridge/createCamera`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          args: [{
+            initialPose: { position: [0, 1.6, 0], yawDegrees: 0, pitchDegrees: 0 },
+            projection: { fovYDegrees: 60, near: 0.1, far: 1000 },
+            viewport: { width: 1280, height: 720 },
+          }],
+        }),
+      });
+
+      assert.equal(cameraInvocation.status, 200);
+      const cameraPayload = await cameraInvocation.json() as Record<string, unknown>;
+      assert.deepEqual(cameraPayload['result'], {
+        camera: 1,
+        tick: 0,
+        pose: { position: [0, 1.6, 0], yawDegrees: 0, pitchDegrees: 0 },
+        basis: {
+          forward: [0, 0, -1],
+          right: [1, 0, 0],
+          up: [0, 1, 0],
+        },
+        projection: { fovYDegrees: 60, near: 0.1, far: 1000 },
+        viewport: { width: 1280, height: 720 },
+      });
+      assert.deepEqual(calls, ['initialize:23', 'createCamera']);
     } finally {
       await host.close();
     }
@@ -272,6 +300,21 @@ function createFakeNativeRuntimeBridge(calls: string[]): RuntimeBridge {
       calls.push(`initialize:${seed}`);
       return seed + 100;
     },
-  } as ConstructorParameters<typeof NativeRuntimeBridge>[0];
+    createCamera: (_handle: number, request: Parameters<RuntimeBridge['createCamera']>[0]) => {
+      calls.push('createCamera');
+      return {
+        camera: 1,
+        tick: 0,
+        pose: request.initialPose,
+        basis: {
+          forward: [0, 0, -1],
+          right: [1, 0, 0],
+          up: [0, 1, 0],
+        },
+        projection: request.projection,
+        viewport: request.viewport,
+      };
+    },
+  } as unknown as ConstructorParameters<typeof NativeRuntimeBridge>[0];
   return new NativeRuntimeBridge(addon);
 }

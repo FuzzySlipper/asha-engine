@@ -1,4 +1,4 @@
-import type { CommandResult, RenderFrameDiff } from '@asha/contracts';
+import type { CameraCreateRequest, CameraSnapshot, CommandResult, RenderFrameDiff } from '@asha/contracts';
 export interface NativeVec3 {
     readonly x: number;
     readonly y: number;
@@ -174,6 +174,7 @@ export interface NativeAddon {
     };
     submitCommands(handle: number, commandsJson: string): CommandResult;
     stepSimulation(handle: number, tick: number): number;
+    createCamera(handle: number, request: CameraCreateRequest): CameraSnapshot;
     applyEnemyDirectNavMovement(handle: number, entity: number, seedPosition: NativeVec3, target: NativeVec3, maxStepUnits: number): NativeEnemyDirectNavMovementResult;
     loadFpsRuntimeSession(handle: number, projectBundle: string, definitions: readonly NativeFpsStoredEntityDefinition[], gameRuleModulesJson: string): NativeFpsRuntimeSessionSnapshot;
     readFpsRuntimeSession(handle: number): NativeFpsRuntimeSessionSnapshot;
@@ -208,6 +209,6 @@ export interface NativeAddon {
     saveVoxelVolumeAsset(handle: number, requestJson: string): string;
     loadVoxelVolumeAsset(handle: number, requestJson: string): string;
 }
-export declare const REQUIRED_NATIVE_ADDON_EXPORTS: readonly ["initializeEngine", "loadProjectBundle", "submitCommands", "stepSimulation", "applyEnemyDirectNavMovement", "loadFpsRuntimeSession", "readFpsRuntimeSession", "applyFpsPrimaryFire", "invokeGameExtensionWeaponEffect", "validateGameRuleCatalog", "submitGameRuleEffectIntent", "readGameRuleRuntimeReadout", "restartFpsRuntimeSession", "readFpsEncounterDirector", "applyFpsEncounterTransition", "readRenderDiffs", "saveProjectBundle", "getProjectBundleCompositionStatus", "planVoxelConversion", "registerVoxelConversionSource", "registerVoxelConversionMeshAsset", "previewVoxelConversion", "applyVoxelConversion", "exportVoxelConversionEvidence", "readVoxelModelInfo", "exportVoxelVolumeAsset", "saveVoxelVolumeAsset", "loadVoxelVolumeAsset"];
+export declare const REQUIRED_NATIVE_ADDON_EXPORTS: readonly ["initializeEngine", "loadProjectBundle", "submitCommands", "stepSimulation", "createCamera", "applyEnemyDirectNavMovement", "loadFpsRuntimeSession", "readFpsRuntimeSession", "applyFpsPrimaryFire", "invokeGameExtensionWeaponEffect", "validateGameRuleCatalog", "submitGameRuleEffectIntent", "readGameRuleRuntimeReadout", "restartFpsRuntimeSession", "readFpsEncounterDirector", "applyFpsEncounterTransition", "readRenderDiffs", "saveProjectBundle", "getProjectBundleCompositionStatus", "planVoxelConversion", "registerVoxelConversionSource", "registerVoxelConversionMeshAsset", "previewVoxelConversion", "applyVoxelConversion", "exportVoxelConversionEvidence", "readVoxelModelInfo", "exportVoxelVolumeAsset", "saveVoxelVolumeAsset", "loadVoxelVolumeAsset"];
 export {};
 //# sourceMappingURL=native-addon.d.ts.map

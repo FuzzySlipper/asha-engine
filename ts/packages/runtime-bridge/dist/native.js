@@ -23,6 +23,7 @@ export const NATIVE_WIRED_OPERATIONS = new Set([
     'load_project_bundle',
     'submit_commands',
     'step_simulation',
+    'create_camera',
     'apply_enemy_direct_nav_movement',
     'load_fps_runtime_session',
     'read_fps_runtime_session',
@@ -515,8 +516,9 @@ export class NativeRuntimeBridge {
     readVoxelMeshEvidence() {
         throw nativeUnimplemented('read_voxel_mesh_evidence');
     }
-    createCamera() {
-        throw nativeUnimplemented('create_camera');
+    createCamera(request) {
+        const handle = this.#requireHandle('createCamera');
+        return callNative(() => this.#addon.createCamera(handle, request));
     }
     applyFirstPersonCameraInput() {
         throw nativeUnimplemented('apply_first_person_camera_input');

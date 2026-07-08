@@ -1,5 +1,6 @@
 import type {
   CameraCollisionSnapshot,
+  CameraCreateRequest,
   CameraProjectionSnapshot,
   CameraSnapshot,
   CommandBatch,
@@ -98,6 +99,7 @@ export const NATIVE_WIRED_OPERATIONS: ReadonlySet<string> = new Set<string>([
   'load_project_bundle',
   'submit_commands',
   'step_simulation',
+  'create_camera',
   'apply_enemy_direct_nav_movement',
   'load_fps_runtime_session',
   'read_fps_runtime_session',
@@ -726,8 +728,9 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     throw nativeUnimplemented('read_voxel_mesh_evidence');
   }
 
-  createCamera(): CameraSnapshot {
-    throw nativeUnimplemented('create_camera');
+  createCamera(request: CameraCreateRequest): CameraSnapshot {
+    const handle = this.#requireHandle('createCamera');
+    return callNative(() => this.#addon.createCamera(handle, request));
   }
 
   applyFirstPersonCameraInput(): CameraSnapshot {

@@ -10,6 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import type {
+  CameraCreateRequest,
   VoxelConversionApplyRequest,
   VoxelConversionMeshAssetRegistrationRequest,
   VoxelConversionPlanRequest,
@@ -89,6 +90,7 @@ const REQUIRED_NATIVE_CONFORMANCE_OPS = [
   'load_project_bundle',
   'submit_commands',
   'step_simulation',
+  'create_camera',
   'apply_enemy_direct_nav_movement',
   'load_fps_runtime_session',
   'read_fps_runtime_session',
@@ -359,6 +361,21 @@ function fakeAddon(calls: string[] = []): NativeAddon {
     stepSimulation: (_handle: number, tick: number) => {
       calls.push(`step:${tick}`);
       return 9;
+    },
+    createCamera: (_handle: number, request: CameraCreateRequest) => {
+      calls.push(`createCamera:${request.initialPose.position.join(',')}`);
+      return {
+        camera: 1,
+        tick: 0,
+        pose: request.initialPose,
+        basis: {
+          forward: [0, 0, -1],
+          right: [1, 0, 0],
+          up: [0, 1, 0],
+        },
+        projection: request.projection,
+        viewport: request.viewport,
+      };
     },
     applyEnemyDirectNavMovement: (
       _handle: number,
@@ -1086,6 +1103,18 @@ void test('native conformance sequence routes through the addon without mock fal
     { accepted: 1, rejected: 0, rejections: [] },
   );
   assert.deepEqual(bridge.stepSimulation({ tick: 6 }), { tick: 6, diffCount: 9 });
+  assert.deepEqual(bridge.createCamera(CAMERA_CREATE_REQUEST), {
+    camera: 1,
+    tick: 0,
+    pose: CAMERA_CREATE_REQUEST.initialPose,
+    basis: {
+      forward: [0, 0, -1],
+      right: [1, 0, 0],
+      up: [0, 1, 0],
+    },
+    projection: CAMERA_CREATE_REQUEST.projection,
+    viewport: CAMERA_CREATE_REQUEST.viewport,
+  });
   assert.deepEqual(bridge.applyEnemyDirectNavMovement({
     entity: 777,
     seedPosition: [0, 0.5, -2.6],
@@ -1170,6 +1199,7 @@ void test('native conformance sequence routes through the addon without mock fal
     'load:1:1:1001',
     'submit:[{"op":"setVoxel","grid":1,"coord":{"x":0,"y":0,"z":0},"value":{"kind":"solid","material":1}}]',
     'step:6',
+    'createCamera:0,1.6,0',
     'enemyMove:777:0,0.5,-2.6:0,1.62,1.25:0.35',
     'fpsLoad:custom-demo:2:0',
     'fpsNativeShape:true:true:0',

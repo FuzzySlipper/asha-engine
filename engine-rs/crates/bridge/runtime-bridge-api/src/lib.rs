@@ -58,13 +58,16 @@ pub(crate) use protocol_render::{
 };
 #[cfg(test)]
 pub(crate) use protocol_view::CameraCollisionPolicy;
+pub use protocol_view::{
+    CameraBasis, CameraCreateRequest, CameraPose, CameraSnapshot, PerspectiveProjection,
+    ViewportSize,
+};
 pub(crate) use protocol_view::{
     CameraCollisionEvidence, CameraCollisionPolicyMode, CameraCollisionShape,
-    CameraCollisionSnapshot, CameraCreateRequest, CameraPose, CameraProjectionRequest,
-    CameraProjectionSnapshot, CameraSnapshot, CollisionAabbEvidence, CollisionAxis,
-    CollisionConstrainedCameraInputEnvelope, FirstPersonCameraInput,
-    FirstPersonCameraInputEnvelope, PickRaySnapshot, ScreenPoint, ScreenPointSpace,
-    ScreenPointToPickRayRequest, ViewportSize, VoxelSelectionOutcome, VoxelSelectionSnapshot,
+    CameraCollisionSnapshot, CameraProjectionRequest, CameraProjectionSnapshot,
+    CollisionAabbEvidence, CollisionAxis, CollisionConstrainedCameraInputEnvelope,
+    FirstPersonCameraInput, FirstPersonCameraInputEnvelope, PickRaySnapshot, ScreenPoint,
+    ScreenPointSpace, ScreenPointToPickRayRequest, VoxelSelectionOutcome, VoxelSelectionSnapshot,
 };
 pub(crate) use protocol_voxel_asset::{
     VoxelAssetAuthoringMetadata, VoxelAssetBounds, VoxelAssetContentHashes, VoxelAssetCoord,
