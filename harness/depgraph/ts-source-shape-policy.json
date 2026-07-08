@@ -3,7 +3,7 @@
   "fileLineExemptions": {
     "ts/packages/runtime-bridge/src/runtime-session.ts": {
       "maxLines": 1800,
-      "justification": "RuntimeSessionFacade remains the consolidated public runtime boundary while additive generated-contract and game-extension methods land; split focused capability modules when the facade decomposition task is scheduled."
+      "justification": "RuntimeSessionFacade remains the bridge-backed adapter while semantic readouts/proposals live in @asha/runtime-session; this is a shrink-only cap until transport-neutral facade types and focused capability adapters are extracted."
     }
   },
   "rootBarrelExemptions": {

@@ -4,11 +4,15 @@ Status: current public semantic facade. Rust-backed RuntimeSession authority is 
 
 ## Public Import Path
 
-Consumers import facade types and product/live launcher types from the package root. Reference/mock helpers live behind the explicit reference entrypoint and carry a fixture-only backend profile:
+Consumers import semantic RuntimeSession readouts, proposal envelopes, and helper
+projections from `@asha/runtime-session`. Product/live bridge-backed facade
+construction, launcher types, and transport surfaces stay on the
+`@asha/runtime-bridge` package root. Reference/mock helpers live behind the
+explicit reference entrypoint and carry a fixture-only backend profile:
 
 ```ts
-import { type RuntimeSessionFacade } from '@asha/runtime-bridge';
 import { type RuntimeActionIntentEnvelope } from '@asha/runtime-session';
+import { createRuntimeSessionFacade, type RuntimeSessionFacade } from '@asha/runtime-bridge';
 import {
   REFERENCE_RUNTIME_BACKEND_PROFILE,
   createMockRuntimeSession,
@@ -21,12 +25,17 @@ Game-rules reference readouts are compatibility fixtures; product/live authority
 is the Rust-backed bridge path through `svc-game-rules` and the modifier rule
 substrate.
 
-#4547 starts the package split: transport-neutral RuntimeSession semantic
-readouts, proposal envelopes, and helper projections can now be imported from
-`@asha/runtime-session`. `@asha/runtime-bridge` re-exports those surfaces during
-the migration window while retaining bridge-backed facade construction, native
-transport access, launchers, render decode, reference helpers, and generated
-bridge operation conformance.
+#4547 started the package split and #4749 tightens the boundary:
+transport-neutral RuntimeSession semantic readouts, proposal envelopes, and
+helper projections are owned by `@asha/runtime-session` and exported through its
+package root. `@asha/runtime-bridge` keeps a single documented compatibility
+re-export for runtime-bridge.v0 callers, but new consumers should use
+`@asha/runtime-session` for semantic surfaces. The bridge package retains
+bridge-backed facade construction, native transport access, launchers, render
+decode, reference helpers, and generated bridge operation conformance. The
+remaining extraction target is the transport-neutral `RuntimeSessionFacade` type
+surface; the implementation stays in `@asha/runtime-bridge` while it requires
+bridge transport calls.
 
 The cross-surface consumer proof for #4053 lives in
 `ts/packages/smoke/src/public-consumer-compat.test.ts`. It intentionally imports
