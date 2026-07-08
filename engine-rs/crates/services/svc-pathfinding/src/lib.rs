@@ -86,10 +86,118 @@ pub struct NavPathReadout {
     pub path_hash: u64,
 }
 
+/// Which query substrate produced a path readout.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NavQueryMode {
+    PlanarSurface,
+    Volumetric3d,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NavPathOutcome {
     Reached,
     NoPath,
+}
+
+/// A voxel-space agent volume used by opt-in volumetric navigation.
+///
+/// `find_volumetric_path` treats the query coordinate as the minimum corner of
+/// this axis-aligned volume. Dimensions are measured in whole voxels.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VolumetricAgentVolume {
+    pub size_x: u32,
+    pub size_y: u32,
+    pub size_z: u32,
+}
+
+impl VolumetricAgentVolume {
+    pub const fn single_cell() -> Self {
+        Self {
+            size_x: 1,
+            size_y: 1,
+            size_z: 1,
+        }
+    }
+
+    pub const fn is_valid(self) -> bool {
+        self.size_x > 0 && self.size_y > 0 && self.size_z > 0
+    }
+}
+
+impl Default for VolumetricAgentVolume {
+    fn default() -> Self {
+        Self::single_cell()
+    }
+}
+
+/// Deterministic neighbor set for opt-in volumetric navigation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VolumetricNeighborSet {
+    /// Four horizontal face neighbors in the same X/Z order as planar nav.
+    Planar4,
+    /// Six axis-aligned face neighbors: planar X/Z first, then +Y, then -Y.
+    Faces6,
+}
+
+/// Whether vertical steps are allowed when the neighbor set contains them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VolumetricVerticalPolicy {
+    DisallowVertical,
+    AllowVertical,
+}
+
+/// Which resident voxel values may be traversed by volumetric navigation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VolumetricTraversalRule {
+    EmptyCells,
+    SolidCells,
+}
+
+/// Explicit opt-in configuration for 3D/volumetric pathfinding.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VolumetricNavConfig {
+    pub agent_volume: VolumetricAgentVolume,
+    pub neighbor_set: VolumetricNeighborSet,
+    pub vertical_policy: VolumetricVerticalPolicy,
+    pub traversal_rule: VolumetricTraversalRule,
+}
+
+impl Default for VolumetricNavConfig {
+    fn default() -> Self {
+        Self {
+            agent_volume: VolumetricAgentVolume::single_cell(),
+            neighbor_set: VolumetricNeighborSet::Faces6,
+            vertical_policy: VolumetricVerticalPolicy::AllowVertical,
+            traversal_rule: VolumetricTraversalRule::EmptyCells,
+        }
+    }
+}
+
+/// Opt-in bounded 3D query over resident voxel authority.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VolumetricNavQuery {
+    pub start: VoxelCoord,
+    pub goal: VoxelCoord,
+    pub max_visited: usize,
+    pub config: VolumetricNavConfig,
+}
+
+/// Deterministic opt-in 3D path readout.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VolumetricNavReadout {
+    pub mode: NavQueryMode,
+    pub outcome: VolumetricNavOutcome,
+    pub visited: usize,
+    pub path_len: usize,
+    pub path: Vec<VoxelCoord>,
+    pub path_hash: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VolumetricNavOutcome {
+    Reached,
+    NoPath,
+    BudgetExhausted,
 }
 
 /// Why nav projection/query failed.
@@ -99,6 +207,15 @@ pub enum NavError {
     InvalidQueryBudget,
     StartNotWalkable { start: VoxelCoord },
     GoalNotWalkable { goal: VoxelCoord },
+}
+
+/// Why an opt-in volumetric path query failed validation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VolumetricNavError {
+    InvalidAgentVolume,
+    InvalidQueryBudget,
+    StartNotTraversable { start: VoxelCoord },
+    GoalNotTraversable { goal: VoxelCoord },
 }
 
 /// A bounded live-position path request for an authority caller.
@@ -201,6 +318,17 @@ impl NavError {
             NavError::InvalidQueryBudget => "invalidQueryBudget",
             NavError::StartNotWalkable { .. } => "startNotWalkable",
             NavError::GoalNotWalkable { .. } => "goalNotWalkable",
+        }
+    }
+}
+
+impl VolumetricNavError {
+    pub const fn label(self) -> &'static str {
+        match self {
+            VolumetricNavError::InvalidAgentVolume => "invalidAgentVolume",
+            VolumetricNavError::InvalidQueryBudget => "invalidQueryBudget",
+            VolumetricNavError::StartNotTraversable { .. } => "startNotTraversable",
+            VolumetricNavError::GoalNotTraversable { .. } => "goalNotTraversable",
         }
     }
 }
@@ -317,6 +445,76 @@ pub fn find_path(
         path: Vec::new(),
         path_hash: hash_path(&[]),
     })
+}
+
+/// Query a deterministic, bounded 3D path through resident voxel space.
+///
+/// This is intentionally separate from [`find_path`]: planar walkable-surface
+/// navigation remains the default runtime movement substrate, while this opt-in
+/// query exists for procgen/conformance checks that need vertical connectivity.
+/// Missing/unloaded chunks are non-traversable so searches cannot leak into
+/// infinite implicit empty space.
+pub fn find_volumetric_path(
+    world: &VoxelWorld,
+    query: VolumetricNavQuery,
+) -> Result<VolumetricNavReadout, VolumetricNavError> {
+    if !query.config.agent_volume.is_valid() {
+        return Err(VolumetricNavError::InvalidAgentVolume);
+    }
+    if query.max_visited == 0 {
+        return Err(VolumetricNavError::InvalidQueryBudget);
+    }
+    if !is_volumetric_traversable(world, query.start, query.config) {
+        return Err(VolumetricNavError::StartNotTraversable { start: query.start });
+    }
+    if !is_volumetric_traversable(world, query.goal, query.config) {
+        return Err(VolumetricNavError::GoalNotTraversable { goal: query.goal });
+    }
+    if query.start == query.goal {
+        let path = vec![query.start];
+        return Ok(volumetric_readout(VolumetricNavOutcome::Reached, 1, path));
+    }
+
+    let mut queue = VecDeque::new();
+    let mut visited = BTreeSet::new();
+    let mut came_from = BTreeMap::new();
+    queue.push_back(query.start);
+    visited.insert(query.start);
+
+    while let Some(current) = queue.pop_front() {
+        for next in volumetric_neighbors(current, query.config) {
+            if visited.contains(&next) {
+                continue;
+            }
+            if !is_volumetric_traversable(world, next, query.config) {
+                continue;
+            }
+            if visited.len() >= query.max_visited {
+                return Ok(volumetric_readout(
+                    VolumetricNavOutcome::BudgetExhausted,
+                    visited.len(),
+                    Vec::new(),
+                ));
+            }
+            came_from.insert(next, current);
+            visited.insert(next);
+            if next == query.goal {
+                let path = reconstruct_path(query.start, query.goal, &came_from);
+                return Ok(volumetric_readout(
+                    VolumetricNavOutcome::Reached,
+                    visited.len(),
+                    path,
+                ));
+            }
+            queue.push_back(next);
+        }
+    }
+
+    Ok(volumetric_readout(
+        VolumetricNavOutcome::NoPath,
+        visited.len(),
+        Vec::new(),
+    ))
 }
 
 /// Propose one deterministic, bounded waypoint toward a live target position.
@@ -458,6 +656,75 @@ fn nav_neighbors(coord: VoxelCoord) -> [VoxelCoord; 4] {
         VoxelCoord::new(coord.x - 1, coord.y, coord.z),
         VoxelCoord::new(coord.x, coord.y, coord.z - 1),
     ]
+}
+
+fn volumetric_neighbors(
+    coord: VoxelCoord,
+    config: VolumetricNavConfig,
+) -> impl Iterator<Item = VoxelCoord> {
+    let mut neighbors = Vec::with_capacity(6);
+    neighbors.extend(nav_neighbors(coord));
+    if config.neighbor_set == VolumetricNeighborSet::Faces6
+        && config.vertical_policy == VolumetricVerticalPolicy::AllowVertical
+    {
+        neighbors.push(VoxelCoord::new(coord.x, coord.y + 1, coord.z));
+        neighbors.push(VoxelCoord::new(coord.x, coord.y - 1, coord.z));
+    }
+    neighbors.into_iter()
+}
+
+fn is_volumetric_traversable(
+    world: &VoxelWorld,
+    coord: VoxelCoord,
+    config: VolumetricNavConfig,
+) -> bool {
+    let volume = config.agent_volume;
+    for dz in 0..volume.size_z {
+        for dy in 0..volume.size_y {
+            for dx in 0..volume.size_x {
+                let check = VoxelCoord::new(
+                    coord.x + dx as i64,
+                    coord.y + dy as i64,
+                    coord.z + dz as i64,
+                );
+                if !voxel_matches_traversal_rule(world, check, config.traversal_rule) {
+                    return false;
+                }
+            }
+        }
+    }
+    true
+}
+
+fn voxel_matches_traversal_rule(
+    world: &VoxelWorld,
+    coord: VoxelCoord,
+    rule: VolumetricTraversalRule,
+) -> bool {
+    let grid = world.grid();
+    let (chunk, local) = grid.voxel_to_chunk_local(coord);
+    world
+        .get(chunk)
+        .and_then(|data| data.get(local))
+        .is_some_and(|value| match rule {
+            VolumetricTraversalRule::EmptyCells => value.is_empty(),
+            VolumetricTraversalRule::SolidCells => value.is_solid(),
+        })
+}
+
+fn volumetric_readout(
+    outcome: VolumetricNavOutcome,
+    visited: usize,
+    path: Vec<VoxelCoord>,
+) -> VolumetricNavReadout {
+    VolumetricNavReadout {
+        mode: NavQueryMode::Volumetric3d,
+        outcome,
+        visited,
+        path_len: path.len(),
+        path_hash: hash_path(&path),
+        path,
+    }
 }
 
 fn reconstruct_path(
@@ -604,7 +871,10 @@ fn world_pos_to_vec3(value: WorldPos) -> Vec3 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use core_space::{ChunkCoord, ChunkDims, GridId, LocalVoxelCoord, VoxelGridSpec};
+    use core_voxel::VoxelValue;
     use svc_levelgen::{generate_tunnel, TunnelGeneratorConfig};
+    use svc_volume::VoxelChunk;
 
     fn projection() -> NavProjection {
         let tunnel = generate_tunnel(TunnelGeneratorConfig::tiny_enclosed(17)).expect("tunnel");
@@ -613,6 +883,47 @@ mod tests {
 
     fn cell_center(projection: &NavProjection, coord: VoxelCoord) -> Vec3 {
         world_pos_to_vec3(projection.grid().voxel_center_world(coord))
+    }
+
+    fn test_grid() -> VoxelGridSpec {
+        VoxelGridSpec::new(GridId::new(99), 1.0, ChunkDims::cubic(8).unwrap()).unwrap()
+    }
+
+    fn solid_test_world() -> VoxelWorld {
+        let grid = test_grid();
+        let mut world = VoxelWorld::new(grid);
+        world.insert(
+            ChunkCoord::ORIGIN,
+            VoxelChunk::filled(grid.id(), grid.chunk_dims(), VoxelValue::solid_raw(1)),
+        );
+        world
+    }
+
+    fn set_test_voxel(world: &mut VoxelWorld, coord: VoxelCoord, value: VoxelValue) {
+        let grid = world.grid();
+        let (chunk, local) = grid.voxel_to_chunk_local(coord);
+        world
+            .get_mut(chunk)
+            .expect("resident test chunk")
+            .set(LocalVoxelCoord::new(local.x, local.y, local.z), value)
+            .expect("local coordinate in bounds");
+    }
+
+    fn carve_empty(world: &mut VoxelWorld, coord: VoxelCoord) {
+        set_test_voxel(world, coord, VoxelValue::EMPTY);
+    }
+
+    fn volumetric_query(
+        start: VoxelCoord,
+        goal: VoxelCoord,
+        max_visited: usize,
+    ) -> VolumetricNavQuery {
+        VolumetricNavQuery {
+            start,
+            goal,
+            max_visited,
+            config: VolumetricNavConfig::default(),
+        }
     }
 
     #[test]
@@ -685,6 +996,207 @@ mod tests {
             describe_nav_path(&projection, &readout),
             include_str!("../../../../../harness/fixtures/nav/generated-tunnel-path.snapshot.txt")
         );
+    }
+
+    #[test]
+    fn volumetric_path_reaches_vertical_connected_space() {
+        let mut world = solid_test_world();
+        let vertical_path = [
+            VoxelCoord::new(1, 1, 1),
+            VoxelCoord::new(1, 2, 1),
+            VoxelCoord::new(1, 3, 1),
+            VoxelCoord::new(1, 4, 1),
+        ];
+        for coord in vertical_path {
+            carve_empty(&mut world, coord);
+        }
+
+        let readout = find_volumetric_path(
+            &world,
+            volumetric_query(vertical_path[0], vertical_path[3], 16),
+        )
+        .expect("vertical volumetric path");
+
+        assert_eq!(readout.mode, NavQueryMode::Volumetric3d);
+        assert_eq!(readout.outcome, VolumetricNavOutcome::Reached);
+        assert_eq!(readout.path, vertical_path);
+        assert_eq!(readout.path_len, 4);
+        assert_eq!(readout.visited, 4);
+        assert_ne!(readout.path_hash, 0);
+    }
+
+    #[test]
+    fn volumetric_path_reports_unreachable_separated_volumes() {
+        let mut world = solid_test_world();
+        let start = VoxelCoord::new(1, 1, 1);
+        let goal = VoxelCoord::new(3, 1, 1);
+        carve_empty(&mut world, start);
+        carve_empty(&mut world, goal);
+
+        let readout =
+            find_volumetric_path(&world, volumetric_query(start, goal, 16)).expect("no path");
+
+        assert_eq!(readout.outcome, VolumetricNavOutcome::NoPath);
+        assert_eq!(readout.visited, 1);
+        assert_eq!(readout.path_len, 0);
+        assert!(readout.path.is_empty());
+    }
+
+    #[test]
+    fn volumetric_path_reports_budget_exhaustion() {
+        let mut world = solid_test_world();
+        let line = [
+            VoxelCoord::new(1, 1, 1),
+            VoxelCoord::new(2, 1, 1),
+            VoxelCoord::new(3, 1, 1),
+            VoxelCoord::new(4, 1, 1),
+            VoxelCoord::new(5, 1, 1),
+        ];
+        for coord in line {
+            carve_empty(&mut world, coord);
+        }
+
+        let readout =
+            find_volumetric_path(&world, volumetric_query(line[0], line[4], 3)).expect("budget");
+
+        assert_eq!(readout.outcome, VolumetricNavOutcome::BudgetExhausted);
+        assert_eq!(readout.visited, 3);
+        assert_eq!(readout.path_len, 0);
+        assert!(readout.path.is_empty());
+    }
+
+    #[test]
+    fn volumetric_path_rejects_invalid_or_non_traversable_endpoints() {
+        let mut world = solid_test_world();
+        let start = VoxelCoord::new(1, 1, 1);
+        let goal = VoxelCoord::new(2, 1, 1);
+        carve_empty(&mut world, goal);
+
+        assert_eq!(
+            find_volumetric_path(&world, volumetric_query(start, goal, 16)),
+            Err(VolumetricNavError::StartNotTraversable { start })
+        );
+
+        carve_empty(&mut world, start);
+        set_test_voxel(&mut world, goal, VoxelValue::solid_raw(1));
+        assert_eq!(
+            find_volumetric_path(&world, volumetric_query(start, goal, 16)),
+            Err(VolumetricNavError::GoalNotTraversable { goal })
+        );
+
+        assert_eq!(
+            find_volumetric_path(
+                &world,
+                VolumetricNavQuery {
+                    max_visited: 0,
+                    ..volumetric_query(start, start, 16)
+                },
+            ),
+            Err(VolumetricNavError::InvalidQueryBudget)
+        );
+        assert_eq!(
+            find_volumetric_path(
+                &world,
+                VolumetricNavQuery {
+                    config: VolumetricNavConfig {
+                        agent_volume: VolumetricAgentVolume {
+                            size_x: 1,
+                            size_y: 0,
+                            size_z: 1,
+                        },
+                        ..VolumetricNavConfig::default()
+                    },
+                    ..volumetric_query(start, start, 16)
+                },
+            ),
+            Err(VolumetricNavError::InvalidAgentVolume)
+        );
+    }
+
+    #[test]
+    fn volumetric_agent_volume_requires_empty_occupied_cells() {
+        let mut world = solid_test_world();
+        let start = VoxelCoord::new(1, 1, 1);
+        let goal = VoxelCoord::new(2, 1, 1);
+        carve_empty(&mut world, start);
+        carve_empty(&mut world, goal);
+        carve_empty(&mut world, VoxelCoord::new(2, 2, 1));
+
+        assert_eq!(
+            find_volumetric_path(
+                &world,
+                VolumetricNavQuery {
+                    config: VolumetricNavConfig {
+                        agent_volume: VolumetricAgentVolume {
+                            size_x: 1,
+                            size_y: 2,
+                            size_z: 1,
+                        },
+                        ..VolumetricNavConfig::default()
+                    },
+                    ..volumetric_query(start, goal, 16)
+                },
+            ),
+            Err(VolumetricNavError::StartNotTraversable { start })
+        );
+    }
+
+    #[test]
+    fn volumetric_vertical_policy_can_disable_vertical_neighbors() {
+        let mut world = solid_test_world();
+        let start = VoxelCoord::new(1, 1, 1);
+        let goal = VoxelCoord::new(1, 2, 1);
+        carve_empty(&mut world, start);
+        carve_empty(&mut world, goal);
+
+        let readout = find_volumetric_path(
+            &world,
+            VolumetricNavQuery {
+                config: VolumetricNavConfig {
+                    vertical_policy: VolumetricVerticalPolicy::DisallowVertical,
+                    ..VolumetricNavConfig::default()
+                },
+                ..volumetric_query(start, goal, 16)
+            },
+        )
+        .expect("vertical disallowed");
+
+        assert_eq!(readout.outcome, VolumetricNavOutcome::NoPath);
+        assert_eq!(readout.visited, 1);
+    }
+
+    #[test]
+    fn volumetric_path_output_is_deterministic_and_planar_defaults_hold() {
+        let projection = projection();
+        let planar = find_path(
+            &projection,
+            NavPathQuery {
+                start: VoxelCoord::new(3, 1, 7),
+                goal: VoxelCoord::new(1, 1, 1),
+                max_visited: 128,
+            },
+        )
+        .expect("planar path");
+        assert_eq!(projection.projection_hash(), 0xd1f6_ac3e_051d_6b6e);
+        assert_eq!(planar.path_hash, 0xe8e1_ea7a_0981_1ced);
+
+        let mut world = solid_test_world();
+        let path = [
+            VoxelCoord::new(1, 1, 1),
+            VoxelCoord::new(2, 1, 1),
+            VoxelCoord::new(3, 1, 1),
+        ];
+        for coord in path {
+            carve_empty(&mut world, coord);
+        }
+        let query = volumetric_query(path[0], path[2], 16);
+        let first = find_volumetric_path(&world, query).expect("first volumetric path");
+        let second = find_volumetric_path(&world, query).expect("second volumetric path");
+
+        assert_eq!(first, second);
+        assert_eq!(first.outcome, VolumetricNavOutcome::Reached);
+        assert_eq!(first.path, path);
+        assert_ne!(first.path_hash, planar.path_hash);
     }
 
     #[test]

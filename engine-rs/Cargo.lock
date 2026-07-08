@@ -1005,8 +1005,10 @@ version = "0.1.0"
 dependencies = [
  "core-math",
  "core-space",
+ "core-voxel",
  "svc-levelgen",
  "svc-spatial",
+ "svc-volume",
 ]
 
 [[package]]

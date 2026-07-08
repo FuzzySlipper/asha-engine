@@ -266,7 +266,7 @@ may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 [crate."engine-rs/crates/services/svc-pathfinding"]
 lane = "rust-service"
-may_depend_on = ["core-math", "core-space", "svc-spatial", "svc-levelgen"]
+may_depend_on = ["core-math", "core-space", "core-voxel", "svc-spatial", "svc-levelgen", "svc-volume"]
 may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 [crate."engine-rs/crates/services/svc-serialization"]
