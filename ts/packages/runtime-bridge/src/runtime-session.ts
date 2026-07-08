@@ -649,7 +649,7 @@ export interface RuntimeSessionCameraCollisionInputReceipt {
   readonly snapshot: CameraCollisionSnapshot;
   readonly collided: boolean;
   readonly blockedAxes: readonly CollisionAxis[];
-  readonly worldHash: string;
+  readonly collisionSourceHash: string;
   readonly collisionProjectionHash: string;
   readonly movementHash: string;
   readonly sessionHashBefore: string;
@@ -1045,7 +1045,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
       snapshot,
       collided: snapshot.collision.collided,
       blockedAxes: snapshot.collision.blockedAxes,
-      worldHash: snapshot.collision.worldHash,
+      collisionSourceHash: snapshot.collision.collisionSourceHash,
       collisionProjectionHash: snapshot.collision.collisionProjectionHash,
       movementHash: snapshot.movementHash,
       sessionHashBefore: before,

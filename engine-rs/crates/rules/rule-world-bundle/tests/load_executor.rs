@@ -96,8 +96,8 @@ fn stage_summary_matches_golden() {
          stage assetLock artifact=assets/lock.json expectedAssets=1\n\
          stage sceneDocument artifact=scene/scene.json nodes=2\n\
          stage bootstrap runtimeSession=7 entities=2\n\
-         stage finalValidation worldHash={spatial_session_hash:016x} ok\n\
-         result entities=2 voxel=false worldHash={spatial_session_hash:016x}\n\
+         stage finalValidation spatialSessionHash={spatial_session_hash:016x} ok\n\
+         result entities=2 voxel=false spatialSessionHash={spatial_session_hash:016x}\n\
          runtimeEntities none\n\
          sourceTrace count=2\n"
     );

@@ -70,7 +70,7 @@ export interface CapabilityStatus {
 export interface RuntimeStatus {
   readonly mode: RuntimeMode;
   readonly loadedProjectBundleId: number | null;
-  readonly worldHash: string | null;
+  readonly runtimeSessionHash: string | null;
   readonly protocolVersion: number | null;
   readonly schemaVersion: number | null;
   readonly capabilities: readonly CapabilityStatus[];
@@ -82,7 +82,7 @@ export interface RuntimeStatus {
 export interface PersistenceReadout {
   readonly operation: 'save' | 'load' | 'replay';
   readonly status: 'ok' | 'failed';
-  readonly worldHash: string | null;
+  readonly spatialSessionHash: string | null;
   /** Artifact roles touched (e.g. sceneDocument, sessionStateSnapshot, voxelEditLog). */
   readonly artifactRoles: readonly string[];
   /** Classified divergence/compaction summary, when relevant. */
@@ -231,7 +231,7 @@ export function formatOperatorConsole(model: OperatorConsoleModel): string[] {
   const lines: string[] = [];
   const r = model.runtime;
   lines.push(
-    `runtime mode=${r.mode} world=${r.loadedProjectBundleId ?? '-'} hash=${r.worldHash ?? '-'} ` +
+    `runtime mode=${r.mode} world=${r.loadedProjectBundleId ?? '-'} hash=${r.runtimeSessionHash ?? '-'} ` +
       `protocol=${r.protocolVersion ?? '-'} schema=${r.schemaVersion ?? '-'} ready=${model.ready}`,
   );
   for (const cap of r.capabilities) {
@@ -252,7 +252,7 @@ export function formatOperatorConsole(model: OperatorConsoleModel): string[] {
   }
   if (model.persistence) {
     const p = model.persistence;
-    lines.push(`persistence ${p.operation} ${p.status} hash=${p.worldHash ?? '-'} roles=[${p.artifactRoles.join(',')}]`);
+    lines.push(`persistence ${p.operation} ${p.status} hash=${p.spatialSessionHash ?? '-'} roles=[${p.artifactRoles.join(',')}]`);
   }
   if (model.policy) {
     lines.push(`policy tick=${model.policy.tick} proposed=${model.policy.totalProposed} accepted=${model.policy.accepted} rejected=${model.policy.rejected}`);

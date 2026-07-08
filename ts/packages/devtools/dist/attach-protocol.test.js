@@ -14,7 +14,7 @@ void test('golden fixtures cover handshake and projection pull protocol messages
     assert.equal(fixtures.handshakeResponse.compatibility.protocolVersion, ASHA_DEVTOOLS_PROTOCOL_VERSION);
     assert.equal(clientType(fixtures.projectionPull), 'projection.pull');
     assert.equal(serverType(fixtures.projectionSnapshot), 'projection.snapshot');
-    assert.equal(fixtures.projectionSnapshot.summary.worldHash, 'world:demo:1');
+    assert.equal(fixtures.projectionSnapshot.summary.runtimeSessionSummaryHash, 'runtime-session:demo:1');
 });
 void test('command proposal fixtures model accepted and rejected authority results', () => {
     const fixtures = buildDevtoolsProtocolGoldenFixtures();

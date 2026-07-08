@@ -103,7 +103,7 @@ void test('game runtime launcher public DTOs compile as package-root consumer fi
     };
     const projection = {
         sequenceId: 0,
-        worldHash: 'world:minimal:0',
+        runtimeSessionSummaryHash: 'runtime-session:minimal:0',
         authorityHash: 'authority:minimal:0',
         loadedProjectBundle: config.projectBundle.sceneId,
         fatalCount: 0,

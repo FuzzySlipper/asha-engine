@@ -110,14 +110,14 @@ weak-/same-host trend unless you explicitly choose to compare the GPU host with 
 
 Each record is `{ ok, meta, timings, counters, invariants }` (schema in `perf.ts`,
 `schema: 1`). `meta` carries `commit / branch / hostLabel / runtimeMode / smokeMode /
-fixtureId / fixtureWorldHash` plus host basics (`node / platform / arch / cpus /
+fixtureId / fixtureVoxelStateHash` plus host basics (`node / platform / arch / cpus /
 cpuModel / totalMemMb`) and a `timestamp`.
 
 ## Comparing runs over time
 
 1. **Group by `meta.hostLabel`** (and `runtimeMode`/`smokeMode`). Only compare within a
    group — cross-host millisecond comparison is meaningless.
-2. **Anchor on the stable fields.** `meta.fixtureWorldHash`, the counters, and the
+2. **Anchor on the stable fields.** `meta.fixtureVoxelStateHash`, the counters, and the
    invariant set should be **identical** run-to-run for the same commit; a change there
    is a real structural shift, not noise. Treat those as the regression signal.
 3. **Read timings as trends, not thresholds.** Watch a phase's `ms` (or `edit-render-cycles`
@@ -129,7 +129,7 @@ cpuModel / totalMemMb`) and a `timestamp`.
 
 | Field | Stable enough to assert? | Use |
 |---|---|---|
-| `counters.*`, `invariants[*].held`, `meta.fixtureWorldHash` | Yes — deterministic | Regression gate (the harness already fails on the invariants) |
+| `counters.*`, `invariants[*].held`, `meta.fixtureVoxelStateHash` | Yes — deterministic | Regression gate (the harness already fails on the invariants) |
 | `meta` host/runtime descriptors | Yes (per host) | Grouping key |
 | `timings[*].ms`, `edit-render-cycles` mean | No — noisy per run | Trend only, same host, over many runs |
 | `meta.timestamp` | No | Ordering only; never compare |

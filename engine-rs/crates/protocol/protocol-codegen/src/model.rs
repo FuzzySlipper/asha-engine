@@ -3543,7 +3543,7 @@ pub fn view_module() -> Module {
                 f("blockedAxes", TsType::array(r("CollisionAxis"))),
                 f("correction", tuple3()),
                 f("queriedAabb", r("CollisionAabbEvidence")),
-                f("worldHash", string()),
+                f("collisionSourceHash", string()),
                 f("collisionProjectionHash", string()),
             ],
         ),

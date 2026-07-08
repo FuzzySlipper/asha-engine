@@ -1959,7 +1959,7 @@ fn mesh_evidence_reports_fixture_chunks_and_changes_after_edit() {
         })
         .unwrap();
     assert_eq!(before.fixture_id, "basic-voxel-landscape-interaction");
-    assert_eq!(before.world_hash, "27f89a36b51a8cb7");
+    assert_eq!(before.voxel_state_hash, "27f89a36b51a8cb7");
     assert_eq!(before.meshing_strategy, "visible-face");
     assert_eq!(before.chunks.len(), 1);
     let before_chunk = &before.chunks[0];
@@ -1981,7 +1981,7 @@ fn mesh_evidence_reports_fixture_chunks_and_changes_after_edit() {
         })
         .unwrap();
     let after_chunk = &after.chunks[0];
-    assert_ne!(after.world_hash, before.world_hash);
+    assert_ne!(after.voxel_state_hash, before.voxel_state_hash);
     assert_ne!(after_chunk.mesh_hash.as_ref().unwrap(), &before_hash);
     assert_eq!(after_chunk.material_slots, vec![1, 2]);
     assert!(after_chunk.stats.unwrap().quads > before_chunk.stats.unwrap().quads);

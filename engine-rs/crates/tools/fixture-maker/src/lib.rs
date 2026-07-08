@@ -20,7 +20,7 @@
 //! # Payload
 //!
 //! - `voxel-world.manifest.json` — grid, materials, and the chunk table (each chunk
-//!   with its content hash + snapshot artifact hash) plus a world hash.
+//!   with its content hash + snapshot artifact hash) plus a voxel state hash.
 //! - `chunk_<x>_<y>_<z>.snapshot` — one RLE chunk snapshot per chunk, in the
 //!   `rule-voxel-edit::persist` text format (reused, not duplicated).
 //!
@@ -192,7 +192,7 @@ pub fn render_interaction_fixture() -> Vec<GeneratedArtifact> {
     let world = build_world();
     let spec = world.grid();
     let (rows, _) = render_chunk_rows(&world);
-    let world_hash_hex = world_hash(&rows).to_hex();
+    let voxel_state_hash_hex = voxel_state_hash(&rows).to_hex();
     let camera = basic_interaction_camera_pose();
     let ray = center_pick_ray_from_camera(camera);
     let hit = CollisionProjection::build(&world)
@@ -202,7 +202,7 @@ pub fn render_interaction_fixture() -> Vec<GeneratedArtifact> {
 
     vec![GeneratedArtifact {
         rel_path: INTERACTION_MANIFEST_NAME.to_string(),
-        contents: render_interaction_manifest(spec, &world_hash_hex, camera, ray, hit, edit_anchor),
+        contents: render_interaction_manifest(spec, &voxel_state_hash_hex, camera, ray, hit, edit_anchor),
     }]
 }
 
@@ -239,8 +239,8 @@ fn chunk_artifact_name(coord: ChunkCoord) -> String {
     format!("chunk_{}_{}_{}.snapshot", coord.x, coord.y, coord.z)
 }
 
-/// A deterministic world hash folding each chunk's coord + content hash.
-fn world_hash(rows: &[ChunkRow]) -> BundleHash {
+/// A deterministic voxel state hash folding each chunk's coord + content hash.
+fn voxel_state_hash(rows: &[ChunkRow]) -> BundleHash {
     let mut buf = String::new();
     for r in rows {
         buf.push_str(&format!(
@@ -289,8 +289,8 @@ fn render_manifest(spec: VoxelGridSpec, rows: &[ChunkRow]) -> String {
     }
     s.push_str("  ],\n");
     s.push_str(&format!(
-        "  \"worldHash\": \"{}\"\n",
-        world_hash(rows).to_hex()
+        "  \"voxelStateHash\": \"{}\"\n",
+        voxel_state_hash(rows).to_hex()
     ));
     s.push_str("}\n");
     s
@@ -332,7 +332,7 @@ fn chunk_json(coord: ChunkCoord) -> String {
 
 fn render_interaction_manifest(
     spec: VoxelGridSpec,
-    world_hash_hex: &str,
+    voxel_state_hash_hex: &str,
     camera: InteractionCameraPose,
     ray: Ray,
     hit: svc_collision::VoxelHit,
@@ -372,7 +372,7 @@ fn render_interaction_manifest(
     );
     s.push_str("    \"abstract material ids only; no product block taxonomy\"\n");
     s.push_str("  ],\n");
-    s.push_str(&format!("  \"worldHash\": {:?},\n", world_hash_hex));
+    s.push_str(&format!("  \"voxelStateHash\": {:?},\n", voxel_state_hash_hex));
     s.push_str("  \"camera\": {\n");
     s.push_str(&format!(
         "    \"initialPose\": {{ \"position\": [{}, {}, {}], \"yawDegrees\": {}, \"pitchDegrees\": {} }},\n",
@@ -489,7 +489,7 @@ mod tests {
         let manifest = &artifacts[0].contents;
         assert!(manifest.contains("\"scenario\": \"basic-voxel-landscape-interaction\""));
         assert!(manifest.contains("\"sourceFixture\": \"canonical-voxel-world\""));
-        assert!(manifest.contains("\"worldHash\": \"27f89a36b51a8cb7\""));
+        assert!(manifest.contains("\"voxelStateHash\": \"27f89a36b51a8cb7\""));
         assert!(manifest.contains("\"voxel\": { \"x\": 1, \"y\": 1, \"z\": 0 }"));
         assert!(manifest.contains("\"face\": \"posZ\""));
         assert!(manifest.contains("\"editAnchor\": { \"x\": 1, \"y\": 1, \"z\": 1 }"));

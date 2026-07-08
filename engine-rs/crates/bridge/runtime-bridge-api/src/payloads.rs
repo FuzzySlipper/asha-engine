@@ -265,7 +265,7 @@ pub struct VoxelMeshChunkEvidence {
 pub struct VoxelMeshEvidenceSnapshot {
     pub grid: u64,
     pub fixture_id: String,
-    pub world_hash: String,
+    pub voxel_state_hash: String,
     pub meshing_strategy: String,
     pub chunks: Vec<VoxelMeshChunkEvidence>,
     pub diagnostics: Vec<String>,

@@ -220,11 +220,11 @@ const STATIC_ROOM_COLLIDERS: readonly StaticRoomCollider[] = [
   { id: 'static-room.target.04', min: [0.63, 0, 0.88], max: [1.07, 0.75, 1.32] },
 ];
 
-const STATIC_ROOM_WORLD_HASH = `fnv1a64:${fnv1a64(
+const STATIC_ROOM_COLLISION_SOURCE_HASH = `fnv1a64:${fnv1a64(
   STATIC_ROOM_COLLIDERS.map((collider) => `${collider.id}:${collider.min.join(',')}:${collider.max.join(',')}`).join('|'),
 )}`;
 const STATIC_ROOM_COLLISION_PROJECTION_HASH = `fnv1a64:${fnv1a64(
-  `${STATIC_ROOM_WORLD_HASH}|axis-separable-static-room|${STATIC_ROOM_COLLIDERS.length}`,
+  `${STATIC_ROOM_COLLISION_SOURCE_HASH}|axis-separable-static-room|${STATIC_ROOM_COLLIDERS.length}`,
 )}`;
 
 interface AabbEvidence {
@@ -1113,11 +1113,11 @@ export class MockRuntimeBridge implements RuntimeBridge {
         blockedAxes,
         correction,
         queriedAabb,
-        worldHash: STATIC_ROOM_WORLD_HASH,
+        collisionSourceHash: STATIC_ROOM_COLLISION_SOURCE_HASH,
         collisionProjectionHash: STATIC_ROOM_COLLISION_PROJECTION_HASH,
       },
       movementHash: `fnv1a64:${fnv1a64(
-        `${input.camera}|${input.tick}|${JSON.stringify(before.pose)}|${JSON.stringify(attempted.pose)}|${JSON.stringify(after.pose)}|${STATIC_ROOM_WORLD_HASH}|${STATIC_ROOM_COLLISION_PROJECTION_HASH}`,
+        `${input.camera}|${input.tick}|${JSON.stringify(before.pose)}|${JSON.stringify(attempted.pose)}|${JSON.stringify(after.pose)}|${STATIC_ROOM_COLLISION_SOURCE_HASH}|${STATIC_ROOM_COLLISION_PROJECTION_HASH}`,
       )}`,
     };
   }
@@ -1208,7 +1208,7 @@ export class MockRuntimeBridge implements RuntimeBridge {
     return {
       grid: request.grid,
       fixtureId: 'basic-voxel-landscape-interaction',
-      worldHash: 'mock-voxel-world',
+      voxelStateHash: 'mock-voxel-state',
       meshingStrategy: 'visible-face',
       chunks: chunks.map((coord) => ({
         coord,

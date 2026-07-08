@@ -158,7 +158,7 @@ impl RuntimeBridge for ReferenceBridge {
         self.cameras.insert(envelope.camera.raw(), after);
         let (min, max) = Self::aabb_for_pose(after.pose, envelope.shape);
         let collision_projection_hash = Self::collision_projection_hash(world, &projection);
-        let world_hash = Self::world_hash(world);
+        let collision_source_hash = Self::voxel_state_hash(world);
         let correction = [
             after.pose.position[0] - attempted.pose.position[0],
             after.pose.position[1] - attempted.pose.position[1],
@@ -173,7 +173,7 @@ impl RuntimeBridge for ReferenceBridge {
                 before.pose,
                 attempted.pose,
                 after.pose,
-                world_hash,
+                collision_source_hash,
                 collision_projection_hash
             ))
         );
@@ -194,7 +194,7 @@ impl RuntimeBridge for ReferenceBridge {
                     min: [min.x as f32, min.y as f32, min.z as f32],
                     max: [max.x as f32, max.y as f32, max.z as f32],
                 },
-                world_hash,
+                collision_source_hash,
                 collision_projection_hash,
             },
             movement_hash,
@@ -297,7 +297,7 @@ impl RuntimeBridge for ReferenceBridge {
         Ok(VoxelMeshEvidenceSnapshot {
             grid: request.grid,
             fixture_id: "basic-voxel-landscape-interaction".to_string(),
-            world_hash: Self::world_hash(world),
+            voxel_state_hash: Self::voxel_state_hash(world),
             meshing_strategy: "visible-face".to_string(),
             chunks,
             diagnostics,

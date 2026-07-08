@@ -1,4 +1,4 @@
 equivalence equivalent=true entitiesB=2 entitiesC=2 traceB=2 traceC=2
-worldHashB=9d281709bd588a99 worldHashC=9d281709bd588a99
+spatialSessionHashB=9d281709bd588a99 spatialSessionHashC=9d281709bd588a99
 voxelHashB=a93cb674d2caea27 voxelHashC=a93cb674d2caea27
 diagnostics count=0 maxSeverity=none blocksLoad=false

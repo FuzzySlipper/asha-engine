@@ -23,7 +23,7 @@ pub fn render(record: &BootstrapRecord) -> String {
     out.push_str(&format!("  \"nodeCount\": {},\n", record.node_count));
     out.push_str(&format!("  \"entityCount\": {},\n", record.entity_count));
     out.push_str(&format!(
-        "  \"worldHash\": {},\n",
+        "  \"spatialSessionHash\": {},\n",
         record.spatial_session_hash.0
     ));
     out.push_str("  \"sourceTrace\": [\n");

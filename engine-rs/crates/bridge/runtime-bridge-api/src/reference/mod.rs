@@ -1432,7 +1432,7 @@ impl ReferenceBridge {
             .collect()
     }
 
-    fn world_hash(world: &VoxelWorld) -> String {
+    fn voxel_state_hash(world: &VoxelWorld) -> String {
         let mut buf = String::new();
         for (coord, chunk) in world.resident_chunks() {
             buf.push_str(&format!(
@@ -2536,7 +2536,7 @@ impl ReferenceBridge {
             .join(";");
         let key = format!(
             "{}|v{}|n{}|{}",
-            Self::world_hash(world),
+            Self::voxel_state_hash(world),
             projection.version(),
             projection.collider_count(),
             chunks

@@ -308,7 +308,7 @@ export interface VoxelMeshChunkEvidence {
 export interface VoxelMeshEvidenceSnapshot {
     readonly grid: number;
     readonly fixtureId: string;
-    readonly worldHash: string;
+    readonly voxelStateHash: string;
     readonly meshingStrategy: string;
     readonly chunks: readonly VoxelMeshChunkEvidence[];
     readonly diagnostics: readonly string[];

@@ -1283,7 +1283,7 @@ void test('RuntimeSession applies collision-constrained camera input against the
   assert.ok(blocked.snapshot.attempted.pose.position[2] < -90);
   assert.equal(blocked.snapshot.after.pose.yawDegrees, 10);
   assert.equal(blocked.snapshot.after.pose.pitchDegrees, -2);
-  assert.ok(blocked.worldHash.startsWith('fnv1a64:'));
+  assert.ok(blocked.collisionSourceHash.startsWith('fnv1a64:'));
   assert.ok(blocked.collisionProjectionHash.startsWith('fnv1a64:'));
   assert.ok(blocked.movementHash.startsWith('fnv1a64:'));
 

@@ -134,7 +134,7 @@ impl WorldLoadResult {
             out.push_str(&format!("stage {} {}\n", s.stage.label(), s.detail));
         }
         out.push_str(&format!(
-            "result entities={} voxel={} worldHash={:016x}\n",
+            "result entities={} voxel={} spatialSessionHash={:016x}\n",
             self.world.entity_count(),
             self.voxel.is_some(),
             self.spatial_session_hash.0
@@ -438,7 +438,7 @@ pub fn execute_load_plan(
                 }
                 stages.push(StageOutcome {
                     stage: LoadStage::FinalValidation,
-                    detail: format!("worldHash={:016x} ok", state.hash().0),
+                    detail: format!("spatialSessionHash={:016x} ok", state.hash().0),
                 });
             }
         }

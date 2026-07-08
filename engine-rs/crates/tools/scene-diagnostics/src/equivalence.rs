@@ -76,7 +76,7 @@ impl BundleEquivalenceReport {
             self.source_trace_c,
         ));
         out.push_str(&format!(
-            "worldHashB={:016x} worldHashC={:016x}\n",
+            "spatialSessionHashB={:016x} spatialSessionHashC={:016x}\n",
             self.spatial_session_hash_b.0, self.spatial_session_hash_c.0
         ));
         out.push_str(&format!(

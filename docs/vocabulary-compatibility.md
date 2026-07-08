@@ -27,7 +27,7 @@ changed only through protocol/codegen tooling.
 | Current symbol/path | Target vocabulary | Owner crate/package | Current consumers | Migration stance | Downstream demo implication |
 |---|---|---|---|---|---|
 | `core_scene::SpatialSessionState` in `engine-rs/crates/state/core-scene/src/spatial_session.rs` | Current precise name for the spatial runtime authority slice inside a broader future `RuntimeSession`/`SessionState` | `core-scene` / rust-state | `core-scene` bootstrap/tests, `render-bridge` scene projection, `rule-world-bundle` session-state snapshot/load, diagnostics/goldens | Migrated from `WorldState` as a breaking rename. Do not reintroduce a `WorldState` alias; a future full `SessionState` should compose this spatial slice rather than casually rename it. | `asha-demo` must not treat `SpatialSessionState` as the public game/runtime container. Demo docs should say RuntimeSession/SessionState and link to `SpatialSessionState` only as the current spatial implementation scope. |
-| `SpatialSessionHash` / `SpatialSessionState::hash` in `core-scene` | Current precise hash for the spatial runtime authority slice | `core-scene` / rust-state | Session-state goldens, render/scene bootstrap tests, replay/equivalence docs | Migrated from `WorldHash`. Broader public `worldHash` readouts still need semantic classification in a follow-up because not every one is a spatial session hash. | Demo proof language should avoid "world hash" for end-user project state; use replay/session hash language unless referencing current fixtures. |
+| `SpatialSessionHash` / `SpatialSessionState::hash` in `core-scene` | Current precise hash for the spatial runtime authority slice | `core-scene` / rust-state | Session-state goldens, render/scene bootstrap tests, replay/equivalence docs | Migrated from `WorldHash`. Public hash readouts are split by authority domain: spatial session, voxel state, collision source, and runtime-session summary. | Demo proof language should avoid "world hash" for end-user project state; use replay/session hash language unless referencing current fixtures. |
 | `ProjectId` / `RuntimeSessionId` in `core-ids`; `WorldSection` in `svc-serialization` | `ProjectId` for stored ProjectBundle identity; `RuntimeSessionId` for live bootstrap/session handles | `core-ids`, `svc-serialization` | Manifests, bootstrap, serialization, bridge DTOs | ID taxonomy migrated as a breaking split. Lower serialization still owns the old `WorldSection` struct name until the ProjectBundle manifest slice lands, but its stored id is now `ProjectId` and load plans derive an explicit `RuntimeSessionId` for bootstrap. | Do not introduce new demo-local IDs to paper over this. Use ASHA Game Project IDs in demo manifests and runtime-session IDs only for live loaded authority. |
 | `WorldBundleManifest` in `engine-rs/crates/services/svc-serialization/src/manifest.rs` | `ProjectBundleManifest` | `svc-serialization` / rust-service | JSON encode/decode, manifest/load-plan goldens, runtime bridge load/save | Future rust-service rename. The generated contract/source protocol lane has moved to `ProjectBundleManifest`; the serialization implementation is the remaining old source. | A future `asha-demo` manifest should be described as a ProjectBundle or ASHA Game Project manifest. |
 | `protocol-project-bundle` and generated `ts/packages/contracts/src/generated/projectBundle.ts` | Current target contract lane | `protocol-project-bundle`, `@asha/contracts` / contract-steward | `@asha/contracts` smoke, `@asha/devtools`, `@asha/runtime-bridge`, contract governance docs | Migrated as a breaking protocol/codegen rename. Do not reintroduce generated `worldBundle.ts` or `WorldBundleManifest` aliases. | `asha-demo` may import `@asha/contracts` only at package root. It must not import generated file paths. |
@@ -41,11 +41,14 @@ changed only through protocol/codegen tooling.
 
 ## Follow-Up Code Tasks
 
-Smallest useful follow-ups, in order:
+Current hash taxonomy:
 
-1. Audit remaining public `worldHash`/`world_hash` readouts and rename them by
-   actual authority domain (spatial session, voxel state, collision projection,
-   runtime session summary, or fixture-only evidence).
+- `spatialSessionHash` labels `SpatialSessionState::hash()` readouts and
+  load/equivalence goldens.
+- `voxelStateHash` labels voxel fixture/mesh state fingerprints.
+- `collisionSourceHash` labels the voxel/collision source fingerprint used by
+  camera collision receipts.
+- `runtimeSessionSummaryHash` labels launcher/devtools projection summaries.
 
 ## Search Readback
 

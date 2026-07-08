@@ -47,7 +47,7 @@ export function buildDevtoolsProtocolGoldenFixtures() {
             type: 'projection.snapshot',
             summary: {
                 tick: 1,
-                worldHash: 'world:demo:1',
+                runtimeSessionSummaryHash: 'runtime-session:demo:1',
                 entityCount: 1,
                 sceneCount: 1,
                 selectedEntityId: null,
@@ -174,7 +174,7 @@ export async function runDevtoolsProtocolConformance(endpoint) {
         }
     }
     const projection = await endpoint.exchange(fixtures.projectionPull);
-    if (projection.type === 'projection.snapshot' && projection.summary.worldHash.length > 0) {
+    if (projection.type === 'projection.snapshot' && projection.summary.runtimeSessionSummaryHash.length > 0) {
         checks.push('projection');
     }
     else {

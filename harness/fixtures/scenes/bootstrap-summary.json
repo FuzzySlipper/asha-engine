@@ -4,7 +4,7 @@
   "schemaVersion": 1,
   "nodeCount": 4,
   "entityCount": 4,
-  "worldHash": 13128220659608123074,
+  "spatialSessionHash": 13128220659608123074,
   "sourceTrace": [
     { "node": 1, "entity": 1 },
     { "node": 2, "entity": 2 },

@@ -170,7 +170,7 @@ class ReferenceRuntimeSessionFacade {
             snapshot,
             collided: snapshot.collision.collided,
             blockedAxes: snapshot.collision.blockedAxes,
-            worldHash: snapshot.collision.worldHash,
+            collisionSourceHash: snapshot.collision.collisionSourceHash,
             collisionProjectionHash: snapshot.collision.collisionProjectionHash,
             movementHash: snapshot.movementHash,
             sessionHashBefore: before,

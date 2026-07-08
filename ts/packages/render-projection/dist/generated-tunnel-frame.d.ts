@@ -41,7 +41,7 @@ export interface TunnelViewportMaterialPalette {
 export interface FirstPersonTunnelViewportCollisionDebug {
     readonly collided: boolean;
     readonly blockedAxes: readonly CollisionAxis[];
-    readonly worldHash: string;
+    readonly collisionSourceHash: string;
     readonly collisionProjectionHash: string;
     readonly movementHash: string;
 }

@@ -104,8 +104,8 @@ const STATIC_ROOM_COLLIDERS = [
     { id: 'static-room.target.03', min: [-1.41, 0, -1.16], max: [-0.89, 1.05, -0.64] },
     { id: 'static-room.target.04', min: [0.63, 0, 0.88], max: [1.07, 0.75, 1.32] },
 ];
-const STATIC_ROOM_WORLD_HASH = `fnv1a64:${fnv1a64(STATIC_ROOM_COLLIDERS.map((collider) => `${collider.id}:${collider.min.join(',')}:${collider.max.join(',')}`).join('|'))}`;
-const STATIC_ROOM_COLLISION_PROJECTION_HASH = `fnv1a64:${fnv1a64(`${STATIC_ROOM_WORLD_HASH}|axis-separable-static-room|${STATIC_ROOM_COLLIDERS.length}`)}`;
+const STATIC_ROOM_COLLISION_SOURCE_HASH = `fnv1a64:${fnv1a64(STATIC_ROOM_COLLIDERS.map((collider) => `${collider.id}:${collider.min.join(',')}:${collider.max.join(',')}`).join('|'))}`;
+const STATIC_ROOM_COLLISION_PROJECTION_HASH = `fnv1a64:${fnv1a64(`${STATIC_ROOM_COLLISION_SOURCE_HASH}|axis-separable-static-room|${STATIC_ROOM_COLLIDERS.length}`)}`;
 function aabbForPose(pose, shape) {
     return {
         min: [
@@ -922,10 +922,10 @@ export class MockRuntimeBridge {
                 blockedAxes,
                 correction,
                 queriedAabb,
-                worldHash: STATIC_ROOM_WORLD_HASH,
+                collisionSourceHash: STATIC_ROOM_COLLISION_SOURCE_HASH,
                 collisionProjectionHash: STATIC_ROOM_COLLISION_PROJECTION_HASH,
             },
-            movementHash: `fnv1a64:${fnv1a64(`${input.camera}|${input.tick}|${JSON.stringify(before.pose)}|${JSON.stringify(attempted.pose)}|${JSON.stringify(after.pose)}|${STATIC_ROOM_WORLD_HASH}|${STATIC_ROOM_COLLISION_PROJECTION_HASH}`)}`,
+            movementHash: `fnv1a64:${fnv1a64(`${input.camera}|${input.tick}|${JSON.stringify(before.pose)}|${JSON.stringify(attempted.pose)}|${JSON.stringify(after.pose)}|${STATIC_ROOM_COLLISION_SOURCE_HASH}|${STATIC_ROOM_COLLISION_PROJECTION_HASH}`)}`,
         };
     }
     selectVoxel(request) {
@@ -1012,7 +1012,7 @@ export class MockRuntimeBridge {
         return {
             grid: request.grid,
             fixtureId: 'basic-voxel-landscape-interaction',
-            worldHash: 'mock-voxel-world',
+            voxelStateHash: 'mock-voxel-state',
             meshingStrategy: 'visible-face',
             chunks: chunks.map((coord) => ({
                 coord,

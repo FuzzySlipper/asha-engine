@@ -74,7 +74,7 @@ export interface GameRuntimeIdentity {
 }
 export interface GameRuntimeProjectionSummary {
     readonly sequenceId: number;
-    readonly worldHash: string;
+    readonly runtimeSessionSummaryHash: string;
     readonly authorityHash: string;
     readonly loadedProjectBundle: number | null;
     readonly fatalCount: number;

@@ -121,7 +121,7 @@ export interface GameRuntimeIdentity {
 
 export interface GameRuntimeProjectionSummary {
   readonly sequenceId: number;
-  readonly worldHash: string;
+  readonly runtimeSessionSummaryHash: string;
   readonly authorityHash: string;
   readonly loadedProjectBundle: number | null;
   readonly fatalCount: number;
@@ -425,11 +425,11 @@ function projectionSummary(
   acceptedCommandCount: number,
 ): GameRuntimeProjectionSummary {
   const loadedProjectBundle = status.loadedProjectBundle;
-  const worldHash = `${runtimeMode}-world:${config.gameId}:${loadedProjectBundle ?? 'none'}:accepted:${acceptedCommandCount}`;
+  const runtimeSessionSummaryHash = `${runtimeMode}-runtime-session:${config.gameId}:${loadedProjectBundle ?? 'none'}:accepted:${acceptedCommandCount}`;
   const authorityHash = `${runtimeMode}-authority:${config.workspaceId}:${loadedProjectBundle ?? 'none'}:accepted:${acceptedCommandCount}`;
   return {
     sequenceId,
-    worldHash,
+    runtimeSessionSummaryHash,
     authorityHash,
     loadedProjectBundle,
     fatalCount: status.fatalCount,

@@ -94,7 +94,7 @@ export interface CameraCollisionEvidence {
     readonly blockedAxes: readonly CollisionAxis[];
     readonly correction: readonly [number, number, number];
     readonly queriedAabb: CollisionAabbEvidence;
-    readonly worldHash: string;
+    readonly collisionSourceHash: string;
     readonly collisionProjectionHash: string;
 }
 export interface CameraCollisionSnapshot {

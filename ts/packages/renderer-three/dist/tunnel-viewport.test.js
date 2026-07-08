@@ -82,7 +82,7 @@ void test('first-person tunnel viewport summary can carry optional collision deb
     const collision = {
         collided: true,
         blockedAxes: ['z'],
-        worldHash: 'fnv1a64:test-world',
+        collisionSourceHash: 'fnv1a64:test-collision-source',
         collisionProjectionHash: tunnel.collisionProjection.hash,
         movementHash: 'fnv1a64:test-move',
     };

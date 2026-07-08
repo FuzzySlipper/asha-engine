@@ -198,7 +198,7 @@ pub struct CameraCollisionEvidence {
     pub blocked_axes: Vec<CollisionAxis>,
     pub correction: [f32; 3],
     pub queried_aabb: CollisionAabbEvidence,
-    pub world_hash: String,
+    pub collision_source_hash: String,
     pub collision_projection_hash: String,
 }
 

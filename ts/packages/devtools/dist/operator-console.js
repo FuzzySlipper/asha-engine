@@ -95,7 +95,7 @@ export function toOperatorJson(model) {
 export function formatOperatorConsole(model) {
     const lines = [];
     const r = model.runtime;
-    lines.push(`runtime mode=${r.mode} world=${r.loadedProjectBundleId ?? '-'} hash=${r.worldHash ?? '-'} ` +
+    lines.push(`runtime mode=${r.mode} world=${r.loadedProjectBundleId ?? '-'} hash=${r.runtimeSessionHash ?? '-'} ` +
         `protocol=${r.protocolVersion ?? '-'} schema=${r.schemaVersion ?? '-'} ready=${model.ready}`);
     for (const cap of r.capabilities) {
         lines.push(`  capability ${cap.operation} available=${cap.available}${cap.note ? ` (${cap.note})` : ''}`);
@@ -113,7 +113,7 @@ export function formatOperatorConsole(model) {
     }
     if (model.persistence) {
         const p = model.persistence;
-        lines.push(`persistence ${p.operation} ${p.status} hash=${p.worldHash ?? '-'} roles=[${p.artifactRoles.join(',')}]`);
+        lines.push(`persistence ${p.operation} ${p.status} hash=${p.spatialSessionHash ?? '-'} roles=[${p.artifactRoles.join(',')}]`);
     }
     if (model.policy) {
         lines.push(`policy tick=${model.policy.tick} proposed=${model.policy.totalProposed} accepted=${model.policy.accepted} rejected=${model.policy.rejected}`);

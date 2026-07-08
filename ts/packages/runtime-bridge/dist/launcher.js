@@ -164,11 +164,11 @@ export function nativeBackendProfile(config) {
 }
 function projectionSummary(config, runtimeMode, status, sequenceId, acceptedCommandCount) {
     const loadedProjectBundle = status.loadedProjectBundle;
-    const worldHash = `${runtimeMode}-world:${config.gameId}:${loadedProjectBundle ?? 'none'}:accepted:${acceptedCommandCount}`;
+    const runtimeSessionSummaryHash = `${runtimeMode}-runtime-session:${config.gameId}:${loadedProjectBundle ?? 'none'}:accepted:${acceptedCommandCount}`;
     const authorityHash = `${runtimeMode}-authority:${config.workspaceId}:${loadedProjectBundle ?? 'none'}:accepted:${acceptedCommandCount}`;
     return {
         sequenceId,
-        worldHash,
+        runtimeSessionSummaryHash,
         authorityHash,
         loadedProjectBundle,
         fatalCount: status.fatalCount,

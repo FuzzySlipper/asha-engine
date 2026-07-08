@@ -8,5 +8,5 @@
     { "coord": [1, 0, 0], "material": 3, "artifact": "chunk_1_0_0.snapshot", "chunkHash": "093ce0556773cf77", "contentHash": "10a88c75f4d13c9f" },
     { "coord": [1, 1, 0], "material": 1, "artifact": "chunk_1_1_0.snapshot", "chunkHash": "ef6217917d6139b7", "contentHash": "d3bb7769318b97c9" }
   ],
-  "worldHash": "27f89a36b51a8cb7"
+  "voxelStateHash": "27f89a36b51a8cb7"
 }

@@ -380,7 +380,7 @@ export interface RuntimeSessionCameraCollisionInputReceipt {
     readonly snapshot: CameraCollisionSnapshot;
     readonly collided: boolean;
     readonly blockedAxes: readonly CollisionAxis[];
-    readonly worldHash: string;
+    readonly collisionSourceHash: string;
     readonly collisionProjectionHash: string;
     readonly movementHash: string;
     readonly sessionHashBefore: string;

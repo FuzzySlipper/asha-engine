@@ -35,7 +35,7 @@ function canonical() {
         runtime: {
             mode: 'reference',
             loadedProjectBundleId: 7,
-            worldHash: '9d281709bd588a99',
+            runtimeSessionHash: '9d281709bd588a99',
             protocolVersion: 1,
             schemaVersion: 1,
             capabilities: [
@@ -51,7 +51,7 @@ function canonical() {
         persistence: {
             operation: 'save',
             status: 'ok',
-            worldHash: '9d281709bd588a99',
+            spatialSessionHash: '9d281709bd588a99',
             artifactRoles: ['sceneDocument', 'sessionStateSnapshot'],
             detail: null,
         },

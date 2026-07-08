@@ -16,7 +16,7 @@ export interface DevtoolsRuntimeIdentity {
 }
 export interface DevtoolsProjectedStateSummary {
     readonly tick: number;
-    readonly worldHash: string;
+    readonly runtimeSessionSummaryHash: string;
     readonly entityCount: number;
     readonly sceneCount: number;
     readonly selectedEntityId: string | null;
