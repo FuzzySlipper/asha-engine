@@ -360,7 +360,7 @@ async function handleRuntimeBridgeInvocation(
   try {
     const invocation = await readInvocationBody(request);
     const method = bridge[methodName] as (...args: readonly unknown[]) => unknown;
-    const result = method(...(invocation.args ?? []));
+    const result = Reflect.apply(method, bridge, invocation.args ?? []);
     sendJson(response, 200, { result: result ?? null });
   } catch (error) {
     sendJson(response, 500, {

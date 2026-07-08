@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import type { RuntimeBridge } from '@asha/runtime-bridge';
+import { NativeRuntimeBridge, type RuntimeBridge } from '@asha/runtime-bridge';
 
 import {
   ASHA_BROWSER_HOST_COMMAND,
@@ -123,6 +123,38 @@ void test('browser host serves a downstream UI root with provider status evidenc
   }
 });
 
+void test('browser host preserves native RuntimeBridge receiver binding over HTTP', async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), 'asha-browser-host-'));
+  const calls: string[] = [];
+  try {
+    await writeFile(join(tempRoot, 'index.html'), '<!doctype html><title>ASHA demo</title>');
+    const host = await launchNativeBrowserHost({
+      uiRoot: tempRoot,
+      host: '127.0.0.1',
+      port: 0,
+      provider: {
+        globalScope: {},
+        createRuntimeBridge: () => createFakeNativeRuntimeBridge(calls),
+      },
+    });
+    try {
+      const invocation = await fetch(`${host.url}/asha/browser-host/runtime-bridge/initializeEngine`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ args: [{ seed: 23 }] }),
+      });
+
+      assert.equal(invocation.status, 200);
+      assert.deepEqual(await invocation.json(), { result: 123 });
+      assert.deepEqual(calls, ['initialize:23']);
+    } finally {
+      await host.close();
+    }
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 void test('browser host rejects raw traversal into sibling directories outside ui root', async () => {
   const tempRoot = await mkdtemp(join(tmpdir(), 'asha-browser-host-'));
   try {
@@ -232,4 +264,14 @@ function createFakeRuntimeBridge(): RuntimeBridge {
     loadReplayFixture: operation,
     runReplayStep: operation,
   };
+}
+
+function createFakeNativeRuntimeBridge(calls: string[]): RuntimeBridge {
+  const addon = {
+    initializeEngine: (seed: number) => {
+      calls.push(`initialize:${seed}`);
+      return seed + 100;
+    },
+  } as ConstructorParameters<typeof NativeRuntimeBridge>[0];
+  return new NativeRuntimeBridge(addon);
 }

@@ -243,7 +243,7 @@ async function handleRuntimeBridgeInvocation(request, response, bridge) {
     try {
         const invocation = await readInvocationBody(request);
         const method = bridge[methodName];
-        const result = method(...(invocation.args ?? []));
+        const result = Reflect.apply(method, bridge, invocation.args ?? []);
         sendJson(response, 200, { result: result ?? null });
     }
     catch (error) {
