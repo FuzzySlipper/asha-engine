@@ -30,7 +30,9 @@
             "sourceMaterialSlot": 1,
             "voxelMaterial": 5
           }
-        ]
+        ],
+        "textureAssets": [],
+        "textureBindings": []
       },
       "maxOutputVoxels": 16,
       "mode": "surface",
@@ -118,7 +120,9 @@
             "sourceMaterialSlot": 1,
             "voxelMaterial": 5
           }
-        ]
+        ],
+        "textureAssets": [],
+        "textureBindings": []
       },
       "maxOutputVoxels": 16,
       "mode": "surface",

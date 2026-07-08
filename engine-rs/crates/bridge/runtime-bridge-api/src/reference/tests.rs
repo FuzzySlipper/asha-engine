@@ -296,6 +296,8 @@ fn project_voxel_conversion_request(grid: u64) -> VoxelConversionPlanRequest {
                     source_material_id: Some("material/surface-a".to_string()),
                     voxel_material: 3,
                 }],
+                texture_assets: Vec::new(),
+                texture_bindings: Vec::new(),
                 default_voxel_material: None,
             },
         },

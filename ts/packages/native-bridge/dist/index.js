@@ -6,6 +6,8 @@
 // definitions — it is transport glue. It is imported ONLY by `@asha/runtime-bridge`
 // (enforced by governance/ownership.toml); app/UI/renderer never import it.
 import { createRequire } from 'node:module';
+import { REQUIRED_NATIVE_ADDON_EXPORTS } from './native-addon.js';
+export { REQUIRED_NATIVE_ADDON_EXPORTS };
 /** Raised when the native addon cannot be loaded (missing build / ABI mismatch). */
 export class NativeAddonUnavailable extends Error {
     constructor(message) {
@@ -13,36 +15,6 @@ export class NativeAddonUnavailable extends Error {
         this.name = 'NativeAddonUnavailable';
     }
 }
-export const REQUIRED_NATIVE_ADDON_EXPORTS = [
-    'initializeEngine',
-    'loadWorldBundle',
-    'submitCommands',
-    'stepSimulation',
-    'applyEnemyDirectNavMovement',
-    'loadFpsRuntimeSession',
-    'readFpsRuntimeSession',
-    'applyFpsPrimaryFire',
-    'invokeGameExtensionWeaponEffect',
-    'validateGameRuleCatalog',
-    'submitGameRuleEffectIntent',
-    'readGameRuleRuntimeReadout',
-    'restartFpsRuntimeSession',
-    'readFpsEncounterDirector',
-    'applyFpsEncounterTransition',
-    'readRenderDiffs',
-    'saveCurrentWorld',
-    'getCompositionStatus',
-    'planVoxelConversion',
-    'registerVoxelConversionSource',
-    'registerVoxelConversionMeshAsset',
-    'previewVoxelConversion',
-    'applyVoxelConversion',
-    'exportVoxelConversionEvidence',
-    'readVoxelModelInfo',
-    'exportVoxelVolumeAsset',
-    'saveVoxelVolumeAsset',
-    'loadVoxelVolumeAsset',
-];
 const REQUIRED_EXPORTS = REQUIRED_NATIVE_ADDON_EXPORTS;
 /**
  * Attempt to load the compiled addon. Returns a typed handle or throws a

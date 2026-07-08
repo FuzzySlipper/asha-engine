@@ -817,12 +817,8 @@ export interface RuntimeSessionFacade {
   requestGeneratedTunnelOperation(
     request: GeneratedTunnelOperationRequest,
   ): RuntimeSessionGeneratedTunnelOperationReceipt;
-  registerVoxelConversionSource(
-    request: VoxelConversionSourceRegistrationRequest,
-  ): VoxelConversionSourceRegistration;
-  registerVoxelConversionMeshAsset(
-    request: VoxelConversionMeshAssetRegistrationRequest,
-  ): VoxelConversionSourceRegistration;
+  registerVoxelConversionSource(request: VoxelConversionSourceRegistrationRequest): VoxelConversionSourceRegistration;
+  registerVoxelConversionMeshAsset(request: VoxelConversionMeshAssetRegistrationRequest): VoxelConversionSourceRegistration;
   planVoxelConversion(request: VoxelConversionPlanRequest): VoxelConversionPlan;
   previewVoxelConversion(request: VoxelConversionPreviewRequest): VoxelConversionPreview;
   applyVoxelConversion(request: VoxelConversionApplyRequest): VoxelConversionReceipt;
@@ -1519,17 +1515,13 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     throw new RuntimeBridgeError('operation_unimplemented', 'Voxel conversion authority is not wired into the reference RuntimeSession');
   }
 
-  registerVoxelConversionSource(
-    _request: VoxelConversionSourceRegistrationRequest,
-  ): VoxelConversionSourceRegistration {
+  registerVoxelConversionSource(_request: VoxelConversionSourceRegistrationRequest): VoxelConversionSourceRegistration {
     void _request;
     this.#requireInitialized('registerVoxelConversionSource');
     throw new RuntimeBridgeError('operation_unimplemented', 'Voxel conversion source registration is not wired into the reference RuntimeSession');
   }
 
-  registerVoxelConversionMeshAsset(
-    _request: VoxelConversionMeshAssetRegistrationRequest,
-  ): VoxelConversionSourceRegistration {
+  registerVoxelConversionMeshAsset(_request: VoxelConversionMeshAssetRegistrationRequest): VoxelConversionSourceRegistration {
     void _request;
     this.#requireInitialized('registerVoxelConversionMeshAsset');
     throw new RuntimeBridgeError('operation_unimplemented', 'Voxel conversion mesh asset registration is not wired into the reference RuntimeSession');
@@ -1547,9 +1539,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     throw new RuntimeBridgeError('operation_unimplemented', 'Voxel conversion apply is not wired into the reference RuntimeSession');
   }
 
-  exportVoxelConversionEvidence(
-    _evidence: readonly VoxelConversionEvidenceRef[],
-  ): readonly VoxelConversionEvidenceRef[] {
+  exportVoxelConversionEvidence(_evidence: readonly VoxelConversionEvidenceRef[]): readonly VoxelConversionEvidenceRef[] {
     void _evidence;
     this.#requireInitialized('exportVoxelConversionEvidence');
     throw new RuntimeBridgeError('operation_unimplemented', 'Voxel conversion evidence export is not wired into the reference RuntimeSession');
