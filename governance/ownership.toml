@@ -683,10 +683,12 @@ lane = "rust-bridge"
 # invokes the public game-rule-extension trait for declared game-owned modules (#4517),
 # and routes RuntimeSession voxel conversion through generated diagnostics/DTOs
 # plus svc-voxel-conversion while preserving command-based authority apply (#4479).
+# Voxel-volume asset export/load/save routes generated stored-asset DTOs through
+# svc-voxel-asset validation/canonical hashing at the RuntimeSession bridge (#4908).
 # The game-rules RuntimeSession verbs added in #4531 route generated
 # protocol-game-rules DTOs into svc-game-rules for bounded validation,
 # resolution receipts, and readout evidence.
-may_depend_on = ["core-ids", "core-error", "core-math", "core-space", "core-voxel", "core-commands", "core-entity", "svc-spatial", "svc-volume", "svc-collision", "svc-mesh", "svc-serialization", "svc-pathfinding", "svc-combat", "svc-voxel-conversion", "svc-game-rules", "rule-voxel-edit", "rule-lifecycle", "game-rule-extension", "protocol-diagnostics", "protocol-view", "protocol-render", "protocol-script", "protocol-replay", "protocol-entity-authoring", "protocol-voxel-conversion", "protocol-game-rules"]
+may_depend_on = ["core-ids", "core-error", "core-math", "core-space", "core-voxel", "core-commands", "core-entity", "svc-spatial", "svc-volume", "svc-collision", "svc-mesh", "svc-serialization", "svc-pathfinding", "svc-combat", "svc-voxel-conversion", "svc-voxel-asset", "svc-game-rules", "rule-voxel-edit", "rule-lifecycle", "game-rule-extension", "protocol-diagnostics", "protocol-view", "protocol-render", "protocol-script", "protocol-replay", "protocol-entity-authoring", "protocol-voxel-conversion", "protocol-voxel-asset", "protocol-game-rules"]
 may_not_depend_on = ["napi", "wasm-bindgen"]
 
 [crate."engine-rs/crates/bridge/native-bridge"]
