@@ -1,7 +1,7 @@
 //! Shared sample manifest for the golden drift test and the regenerator example.
 //! Abstract fixture nouns only (no product-domain content).
 
-use core_ids::{SceneId, WorldId};
+use core_ids::{ProjectId, SceneId};
 use svc_serialization::{
     ArtifactEntry, ArtifactRole, AssetLockSection, GeneratorMetadata, SceneSection,
     WorldBundleManifest, WorldSection, BUNDLE_SCHEMA_VERSION, SUPPORTED_PROTOCOL_VERSION,
@@ -14,7 +14,7 @@ pub fn sample_manifest() -> WorldBundleManifest {
         bundle_schema_version: BUNDLE_SCHEMA_VERSION,
         protocol_version: SUPPORTED_PROTOCOL_VERSION,
         world: WorldSection {
-            id: WorldId::new(7),
+            id: ProjectId::new(7),
             name: Some("sample-world".into()),
         },
         scene: SceneSection {

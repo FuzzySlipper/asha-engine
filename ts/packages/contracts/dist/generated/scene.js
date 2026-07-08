@@ -5,7 +5,8 @@
 //
 // Manual edits will be overwritten and are rejected by CI
 // (harness/ci/check-contracts.sh).
+export const projectId = (raw) => raw;
 export const sceneId = (raw) => raw;
-export const worldId = (raw) => raw;
+export const runtimeSessionId = (raw) => raw;
 export const sceneNodeId = (raw) => raw;
 //# sourceMappingURL=scene.js.map

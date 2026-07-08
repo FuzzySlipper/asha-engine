@@ -1052,7 +1052,7 @@ mod tests {
     use core_catalog::material::{
         MaterialAuthority, MaterialDef, MaterialStyle, Rgba, StructuralClass,
     };
-    use core_ids::{SceneId, WorldId};
+    use core_ids::{RuntimeSessionId, SceneId};
     use core_math::Vec3;
     use core_scene::bootstrap::BootstrapPlan;
     use core_scene::document::{NodeMetadata, SceneMetadata};
@@ -1105,7 +1105,7 @@ mod tests {
     }
 
     fn bootstrap(doc: &FlatSceneDocument) -> SpatialSessionState {
-        BootstrapPlan::prepare(doc, WorldId::new(1))
+        BootstrapPlan::prepare(doc, RuntimeSessionId::new(1))
             .expect("valid scene")
             .apply()
             .0
@@ -1169,7 +1169,7 @@ mod tests {
 
     /// An empty world: no scene node has been bootstrapped into a runtime entity.
     fn empty_world() -> SpatialSessionState {
-        SpatialSessionState::empty(WorldId::new(1))
+        SpatialSessionState::empty(RuntimeSessionId::new(1))
     }
 
     fn count_creates(frame: &RenderFrameDiff) -> usize {

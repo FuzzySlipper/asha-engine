@@ -6,7 +6,7 @@
 // Manual edits will be overwritten and are rejected by CI
 // (harness/ci/check-contracts.sh).
 
-import type { SceneId, WorldId } from './scene.js';
+import type { ProjectId, RuntimeSessionId, SceneId } from './scene.js';
 import type { VoxelCoord, VoxelValue } from './voxel.js';
 
 // An artifact's persistence guarantee.
@@ -38,7 +38,7 @@ export interface GeneratorMetadata {
 
 // The project identity section of a bundle manifest.
 export interface ProjectSection {
-  readonly id: WorldId;
+  readonly id: ProjectId;
   readonly name: string | null;
 }
 
@@ -86,7 +86,7 @@ export type LoadStep =
   | { readonly step: 'loadSceneDocument'; readonly artifact: string; readonly scene: SceneId }
   | { readonly step: 'generateTerrain'; readonly seed: number; readonly version: number; readonly params: string }
   | { readonly step: 'applyVoxelEdits'; readonly editLogs: readonly string[]; readonly snapshots: readonly string[] }
-  | { readonly step: 'bootstrapScene'; readonly scene: SceneId; readonly project: WorldId }
+  | { readonly step: 'bootstrapScene'; readonly scene: SceneId; readonly runtimeSession: RuntimeSessionId }
   | { readonly step: 'restoreSessionState'; readonly artifact: string }
   | { readonly step: 'validateFinalState' };
 

@@ -2302,12 +2302,17 @@ pub fn scene_module() -> Module {
 
     let items = vec![
         Item::BrandedId {
+            doc: "Stable identifier for a durable authored ASHA project.".to_string(),
+            name: "ProjectId".to_string(),
+        },
+        Item::BrandedId {
             doc: "Stable identifier for an authored, loadable scene document.".to_string(),
             name: "SceneId".to_string(),
         },
         Item::BrandedId {
-            doc: "Stable identifier for a live runtime world bootstrapped from a scene.".to_string(),
-            name: "WorldId".to_string(),
+            doc: "Stable identifier for a live runtime session bootstrapped from a scene."
+                .to_string(),
+            name: "RuntimeSessionId".to_string(),
         },
         Item::BrandedId {
             doc: "Stable identifier for one node within a scene document (never a render handle)."
@@ -2529,7 +2534,7 @@ pub fn scene_module() -> Module {
             "BootstrapRecord",
             vec![
                 f("sceneId", r("SceneId")),
-                f("worldId", r("WorldId")),
+                f("runtimeSessionId", r("RuntimeSessionId")),
                 f("schemaVersion", num()),
                 f("nodeCount", num()),
                 f("entityCount", num()),
@@ -2548,7 +2553,7 @@ pub fn scene_module() -> Module {
 
 pub fn project_bundle_module() -> Module {
     let imports = vec![
-        import("./scene.js", &["SceneId", "WorldId"]),
+        import("./scene.js", &["ProjectId", "RuntimeSessionId", "SceneId"]),
         import("./voxel.js", &["VoxelCoord", "VoxelValue"]),
     ];
 
@@ -2596,7 +2601,7 @@ pub fn project_bundle_module() -> Module {
         iface(
             "The project identity section of a bundle manifest.",
             "ProjectSection",
-            vec![f("id", r("WorldId")), f("name", TsType::nullable(string()))],
+            vec![f("id", r("ProjectId")), f("name", TsType::nullable(string()))],
         ),
         iface(
             "The scene section of a bundle manifest.",
@@ -2678,7 +2683,10 @@ pub fn project_bundle_module() -> Module {
                 ),
                 v(
                     "bootstrapScene",
-                    vec![f("scene", r("SceneId")), f("project", r("WorldId"))],
+                    vec![
+                        f("scene", r("SceneId")),
+                        f("runtimeSession", r("RuntimeSessionId")),
+                    ],
                 ),
                 v("restoreSessionState", vec![f("artifact", string())]),
                 v("validateFinalState", vec![]),

@@ -53,7 +53,7 @@ pub use save_plan::{CompactionPlan, SavePlan};
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core_ids::{SceneId, WorldId};
+    use core_ids::{ProjectId, SceneId};
 
     /// A minimal but representative manifest: scene + asset lock (durable),
     /// one generated chunk snapshot, one durable edit log, and one disposable
@@ -63,7 +63,7 @@ mod tests {
             bundle_schema_version: BUNDLE_SCHEMA_VERSION,
             protocol_version: SUPPORTED_PROTOCOL_VERSION,
             world: WorldSection {
-                id: WorldId::new(7),
+                id: ProjectId::new(7),
                 name: Some("sample-world".into()),
             },
             scene: SceneSection {

@@ -12,7 +12,10 @@ pub fn render(record: &BootstrapRecord) -> String {
     let mut out = String::new();
     out.push_str("{\n");
     out.push_str(&format!("  \"sceneId\": {},\n", record.scene_id.raw()));
-    out.push_str(&format!("  \"worldId\": {},\n", record.world_id.raw()));
+    out.push_str(&format!(
+        "  \"runtimeSessionId\": {},\n",
+        record.runtime_session_id.raw()
+    ));
     out.push_str(&format!(
         "  \"schemaVersion\": {},\n",
         record.schema_version

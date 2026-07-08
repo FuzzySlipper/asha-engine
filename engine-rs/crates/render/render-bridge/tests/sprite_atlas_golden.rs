@@ -14,7 +14,7 @@ use std::path::PathBuf;
 
 use core_assets::{AssetId, AssetReference, AssetVersionReq};
 use core_catalog::Catalog;
-use core_ids::{SceneId, SceneNodeId, WorldId};
+use core_ids::{RuntimeSessionId, SceneId, SceneNodeId};
 use core_scene::bootstrap::BootstrapPlan;
 use core_scene::document::{NodeMetadata, SceneMetadata};
 use core_scene::{FlatSceneDocument, SceneNode, SceneNodeKind, SceneTree, SpatialSessionState};
@@ -106,7 +106,7 @@ fn spark_atlas_source() -> SpriteAtlasSource {
 }
 
 fn bootstrap(doc: &FlatSceneDocument) -> SpatialSessionState {
-    BootstrapPlan::prepare(doc, WorldId::new(1))
+    BootstrapPlan::prepare(doc, RuntimeSessionId::new(1))
         .expect("valid scene")
         .apply()
         .0

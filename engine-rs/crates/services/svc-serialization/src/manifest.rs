@@ -9,7 +9,7 @@
 //! Validation fails **closed**: an unknown newer schema/protocol version is
 //! rejected with a classified diagnostic rather than guessed at.
 
-use core_ids::{SceneId, WorldId};
+use core_ids::{ProjectId, SceneId};
 
 use crate::artifact::{ArtifactClass, ArtifactEntry};
 use crate::hash::BundleHash;
@@ -33,10 +33,10 @@ pub struct GeneratorMetadata {
     pub params: String,
 }
 
-/// The world identity section.
+/// The project identity section.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorldSection {
-    pub id: WorldId,
+    pub id: ProjectId,
     pub name: Option<String>,
 }
 

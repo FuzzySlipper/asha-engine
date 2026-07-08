@@ -1305,8 +1305,9 @@ mod tests {
                 "missing validation code {code}"
             );
         }
+        assert!(s.contains("export type ProjectId ="));
         assert!(s.contains("export type SceneId ="));
-        assert!(s.contains("export type WorldId ="));
+        assert!(s.contains("export type RuntimeSessionId ="));
         assert!(s.contains("export type SceneNodeId ="));
         assert!(s.contains("export interface FlatSceneDocument {"));
         assert!(s.contains("export interface SceneNodeRecord {"));
@@ -1348,7 +1349,9 @@ mod tests {
         assert!(w.contains("export type LoadPlanError ="));
         assert!(w.contains("export interface SaveSummary {"));
         assert!(w.contains("export interface RegenConflictReport {"));
-        assert!(w.contains("import type { SceneId, WorldId } from './scene.js';"));
+        assert!(
+            w.contains("import type { ProjectId, RuntimeSessionId, SceneId } from './scene.js';")
+        );
         assert!(w.contains("import type { VoxelCoord, VoxelValue } from './voxel.js';"));
     }
 

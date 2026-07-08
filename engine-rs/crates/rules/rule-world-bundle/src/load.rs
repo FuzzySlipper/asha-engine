@@ -353,7 +353,10 @@ pub fn execute_load_plan(
                     ),
                 });
             }
-            LoadStep::BootstrapScene { scene, world } => {
+            LoadStep::BootstrapScene {
+                scene,
+                runtime_session,
+            } => {
                 let doc = scene_doc
                     .as_ref()
                     .ok_or(LoadExecutionError::FinalConsistency {
@@ -365,13 +368,13 @@ pub fn execute_load_plan(
                         found: doc.id,
                     });
                 }
-                let (state, record) =
-                    bootstrap_scene(doc, *world).map_err(LoadExecutionError::Bootstrap)?;
+                let (state, record) = bootstrap_scene(doc, *runtime_session)
+                    .map_err(LoadExecutionError::Bootstrap)?;
                 stages.push(StageOutcome {
                     stage: LoadStage::Bootstrap,
                     detail: format!(
-                        "world={} entities={}",
-                        record.world_id.raw(),
+                        "runtimeSession={} entities={}",
+                        record.runtime_session_id.raw(),
                         record.entity_count
                     ),
                 });

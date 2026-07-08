@@ -42,7 +42,7 @@
 use std::collections::BTreeMap;
 
 use core_entity::{EntityLifecycleCommand, EntitySource, EntityStore, EntityTransform, Quat};
-use core_ids::{EntityId, SceneNodeId, WorldId};
+use core_ids::{EntityId, RuntimeSessionId, SceneNodeId};
 
 use crate::transform::SceneTransform;
 
@@ -66,7 +66,7 @@ pub struct EntityRuntime {
 /// Live world authority: a composed entity store plus scene-node provenance index.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SpatialSessionState {
-    id: WorldId,
+    id: RuntimeSessionId,
     entities: EntityStore,
     /// Reverse trace: scene node (raw) → runtime entity.
     node_to_entity: BTreeMap<u64, EntityId>,
@@ -74,7 +74,7 @@ pub struct SpatialSessionState {
 
 impl SpatialSessionState {
     /// An empty world with no entities.
-    pub fn empty(id: WorldId) -> Self {
+    pub fn empty(id: RuntimeSessionId) -> Self {
         Self {
             id,
             entities: EntityStore::new(),
@@ -82,7 +82,7 @@ impl SpatialSessionState {
         }
     }
 
-    pub fn id(&self) -> WorldId {
+    pub fn id(&self) -> RuntimeSessionId {
         self.id
     }
 

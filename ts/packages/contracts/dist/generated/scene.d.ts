@@ -1,12 +1,16 @@
 import type { EntityId } from './ids.js';
+export type ProjectId = number & {
+    readonly __brand: 'ProjectId';
+};
+export declare const projectId: (raw: number) => ProjectId;
 export type SceneId = number & {
     readonly __brand: 'SceneId';
 };
 export declare const sceneId: (raw: number) => SceneId;
-export type WorldId = number & {
-    readonly __brand: 'WorldId';
+export type RuntimeSessionId = number & {
+    readonly __brand: 'RuntimeSessionId';
 };
-export declare const worldId: (raw: number) => WorldId;
+export declare const runtimeSessionId: (raw: number) => RuntimeSessionId;
 export type SceneNodeId = number & {
     readonly __brand: 'SceneNodeId';
 };
@@ -144,7 +148,7 @@ export interface SceneSourceTrace {
 }
 export interface BootstrapRecord {
     readonly sceneId: SceneId;
-    readonly worldId: WorldId;
+    readonly runtimeSessionId: RuntimeSessionId;
     readonly schemaVersion: number;
     readonly nodeCount: number;
     readonly entityCount: number;

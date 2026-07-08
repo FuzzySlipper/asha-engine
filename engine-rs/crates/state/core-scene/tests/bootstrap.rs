@@ -3,7 +3,7 @@
 
 use core_assets::{markers, AssetRef, AssetReference, AssetVersionReq};
 use core_entity::EntitySource;
-use core_ids::{EntityId, SceneId, SceneNodeId, WorldId};
+use core_ids::{EntityId, RuntimeSessionId, SceneId, SceneNodeId};
 use core_math::Vec3;
 use core_scene::{
     bootstrap_scene, BootstrapError, BootstrapPlan, FlatSceneDocument, NodeMetadata, SceneMetadata,
@@ -55,8 +55,8 @@ fn minimal_doc() -> FlatSceneDocument {
 #[test]
 fn bootstrap_from_valid_scene_is_deterministic() {
     let doc = minimal_doc();
-    let (world_a, rec_a) = bootstrap_scene(&doc, WorldId::new(7)).expect("valid scene");
-    let (world_b, rec_b) = bootstrap_scene(&doc, WorldId::new(7)).expect("valid scene");
+    let (world_a, rec_a) = bootstrap_scene(&doc, RuntimeSessionId::new(7)).expect("valid scene");
+    let (world_b, rec_b) = bootstrap_scene(&doc, RuntimeSessionId::new(7)).expect("valid scene");
 
     // Same input → identical authority state and fingerprint.
     assert_eq!(world_a, world_b);
@@ -88,7 +88,7 @@ fn invalid_scene_fails_before_producing_a_world() {
     // Collapse a scale axis → invalid transform.
     doc.nodes[1].transform.scale = Vec3::new(0.0, 1.0, 1.0);
 
-    match BootstrapPlan::prepare(&doc, WorldId::new(1)) {
+    match BootstrapPlan::prepare(&doc, RuntimeSessionId::new(1)) {
         Err(BootstrapError::Invalid(report)) => {
             assert!(report.errors.iter().any(|e| matches!(
                 e,
@@ -101,7 +101,7 @@ fn invalid_scene_fails_before_producing_a_world() {
         other => panic!("expected Invalid, got {other:?}"),
     }
     // The convenience path also refuses, with no world handed back.
-    assert!(bootstrap_scene(&doc, WorldId::new(1)).is_err());
+    assert!(bootstrap_scene(&doc, RuntimeSessionId::new(1)).is_err());
 }
 
 #[test]
@@ -109,7 +109,7 @@ fn unsupported_schema_version_fails_closed() {
     let mut doc = minimal_doc();
     doc.schema_version = 999;
     assert_eq!(
-        BootstrapPlan::prepare(&doc, WorldId::new(1)),
+        BootstrapPlan::prepare(&doc, RuntimeSessionId::new(1)),
         Err(BootstrapError::UnsupportedSchemaVersion {
             found: 999,
             supported: 1,
@@ -119,7 +119,7 @@ fn unsupported_schema_version_fails_closed() {
 
 #[test]
 fn replay_sees_one_bootstrap_unit() {
-    let (_world, record) = bootstrap_scene(&minimal_doc(), WorldId::new(3)).unwrap();
+    let (_world, record) = bootstrap_scene(&minimal_doc(), RuntimeSessionId::new(3)).unwrap();
     // One record stands in for the whole init — counts summarize it, not N events.
     assert_eq!(record.replay_unit_label(), "scene.bootstrap");
     assert_eq!(record.node_count, record.entity_count);
@@ -135,10 +135,10 @@ fn ecrp_project_bundle_scene_bootstrap_seeds_session_capability_state() {
     // The proof stays in Rust authority and uses deterministic replay/hash
     // readouts instead of exposing StateStore or inventing a TS JSON hatch.
     let doc = minimal_doc();
-    let (world, record) = bootstrap_scene(&doc, WorldId::new(44)).unwrap();
+    let (world, record) = bootstrap_scene(&doc, RuntimeSessionId::new(44)).unwrap();
 
     assert_eq!(record.replay_unit_label(), "scene.bootstrap");
-    assert_eq!(record.world_id, WorldId::new(44));
+    assert_eq!(record.runtime_session_id, RuntimeSessionId::new(44));
     assert_eq!(record.spatial_session_hash, world.hash());
     assert_eq!(record.source_trace.len(), 2);
 
@@ -177,7 +177,7 @@ fn ecrp_project_bundle_scene_bootstrap_seeds_session_capability_state() {
 #[test]
 fn runtime_transform_diverges_without_mutating_scene_document() {
     let doc = minimal_doc();
-    let (mut world, record) = bootstrap_scene(&doc, WorldId::new(5)).unwrap();
+    let (mut world, record) = bootstrap_scene(&doc, RuntimeSessionId::new(5)).unwrap();
     let entity = world.entity_for_node(SceneNodeId::new(2)).unwrap();
 
     let moved = SceneTransform {
@@ -199,7 +199,7 @@ fn runtime_transform_diverges_without_mutating_scene_document() {
 
 #[test]
 fn runtime_created_entity_has_no_scene_provenance() {
-    let (mut world, _) = bootstrap_scene(&minimal_doc(), WorldId::new(8)).unwrap();
+    let (mut world, _) = bootstrap_scene(&minimal_doc(), RuntimeSessionId::new(8)).unwrap();
     let scene_entity = world.entity_for_node(SceneNodeId::new(1)).unwrap();
     assert!(world.source_node(scene_entity).is_some());
 
@@ -214,7 +214,7 @@ fn allocation_order_is_canonical_regardless_of_input_order() {
     // Author nodes out of id order; allocation must still be ascending node id.
     let mut doc = minimal_doc();
     doc.nodes.reverse();
-    let plan = BootstrapPlan::prepare(&doc, WorldId::new(1)).unwrap();
+    let plan = BootstrapPlan::prepare(&doc, RuntimeSessionId::new(1)).unwrap();
     let allocs = plan.allocations();
     assert_eq!(allocs[0].node, SceneNodeId::new(1));
     assert_eq!(allocs[0].entity, EntityId::new(1));

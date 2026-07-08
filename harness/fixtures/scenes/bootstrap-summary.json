@@ -1,6 +1,6 @@
 {
   "sceneId": 100,
-  "worldId": 7,
+  "runtimeSessionId": 7,
   "schemaVersion": 1,
   "nodeCount": 4,
   "entityCount": 4,

@@ -54,7 +54,7 @@ separate governance change.
     runtime transforms are authority-owned and may diverge from the authored document.
   - `bootstrap` — atomic scene→authority initialization producing one `BootstrapRecord`
     replay unit with a deterministic world hash and a `scene node → entity` source trace.
-- `SceneId` / `WorldId` / `SceneNodeId` live in `core-ids` and are distinct from
+- `SceneId` / `RuntimeSessionId` / `SceneNodeId` live in `core-ids` and are distinct from
   `protocol-render::RenderHandle` (a derived projection handle, not authority).
 - Authored scene documents and asset references are Rust-validated. Their cross-boundary
   schema lives in `protocol-scene` (protocol layer, `core-ids`-only): the flat scene

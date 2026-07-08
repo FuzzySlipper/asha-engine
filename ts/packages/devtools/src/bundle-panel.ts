@@ -98,7 +98,7 @@ function describeLoadStep(step: LoadStep): string {
     case 'applyVoxelEdits':
       return `apply voxel edits (${step.editLogs.length} logs, ${step.snapshots.length} snapshots)`;
     case 'bootstrapScene':
-      return `bootstrap scene ${step.scene as number} -> project ${step.project as number}`;
+      return `bootstrap scene ${step.scene as number} -> runtime session ${step.runtimeSession as number}`;
     case 'restoreSessionState':
       return `restore runtime session state ${step.artifact}`;
     case 'validateFinalState':

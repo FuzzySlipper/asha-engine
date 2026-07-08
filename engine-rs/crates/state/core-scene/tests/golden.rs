@@ -11,7 +11,7 @@
 use std::path::PathBuf;
 
 use core_assets::{markers, AssetRef, AssetReference, AssetVersionReq};
-use core_ids::{SceneId, SceneNodeId, WorldId};
+use core_ids::{RuntimeSessionId, SceneId, SceneNodeId};
 use core_math::Vec3;
 use core_scene::{
     bootstrap_scene, decode, encode, validate, NodeMetadata, SceneMetadata, SceneNode,
@@ -115,7 +115,7 @@ fn invalid_cycle_fixture_is_classified_and_unbuildable() {
     // A cyclic document cannot be rebuilt into an authoring forest...
     assert!(doc.to_tree().is_none());
     // ...and bootstrap refuses it before producing any world.
-    assert!(bootstrap_scene(&doc, WorldId::new(1)).is_err());
+    assert!(bootstrap_scene(&doc, RuntimeSessionId::new(1)).is_err());
 }
 
 #[test]
@@ -123,7 +123,7 @@ fn bootstrap_summary_matches_committed_golden() {
     let committed = std::fs::read_to_string(scenes_dir().join("bootstrap-summary.json"))
         .expect("read bootstrap-summary.json");
     let doc = decode(&std::fs::read_to_string(fixture_path()).unwrap()).unwrap();
-    let (_world, record) = bootstrap_scene(&doc, WorldId::new(7)).expect("bootstrap");
+    let (_world, record) = bootstrap_scene(&doc, RuntimeSessionId::new(7)).expect("bootstrap");
     assert_eq!(
         bootstrap_summary_fmt::render(&record),
         committed,

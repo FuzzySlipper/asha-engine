@@ -22,7 +22,7 @@ use core_catalog::{
     Catalog, CatalogEntry,
 };
 use core_events::VoxelEditEvent;
-use core_ids::{SceneId, SceneNodeId, WorldId};
+use core_ids::{ProjectId, RuntimeSessionId, SceneId, SceneNodeId};
 use core_scene::document::{FlatSceneDocument, SceneMetadata, SceneNodeKind, SceneNodeRecord};
 use core_scene::transform::SceneTransform;
 use core_space::{ChunkCoord, ChunkDims, GridId, VoxelCoord, VoxelGridSpec};
@@ -121,7 +121,7 @@ fn manifest() -> WorldBundleManifest {
         bundle_schema_version: 1,
         protocol_version: 1,
         world: WorldSection {
-            id: WorldId::new(1),
+            id: ProjectId::new(1),
             name: None,
         },
         scene: SceneSection {
@@ -398,7 +398,7 @@ fn bundle_round_trip_equivalence_golden() {
     let report = world_bundle_round_trip(
         &scene_json,
         SceneId::new(100),
-        WorldId::new(7),
+        RuntimeSessionId::new(7),
         spec,
         &initial,
         &ticks,

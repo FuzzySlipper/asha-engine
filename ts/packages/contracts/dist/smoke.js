@@ -11,7 +11,7 @@
 //
 // It is value-level on purpose: constructing real union values exercises the
 // discriminants and field shapes, not just the type names.
-import { entityId, modeId, tagId, renderHandle, stepIndex, replayHash, REPLAY_FORMAT_VERSION, sceneId, worldId, sceneNodeId, cameraHandle, } from './index.js';
+import { entityId, modeId, tagId, renderHandle, stepIndex, replayHash, REPLAY_FORMAT_VERSION, projectId, sceneId, runtimeSessionId, sceneNodeId, cameraHandle, } from './index.js';
 // Branded IDs are nominally typed and built through their constructors.
 const entity = entityId(1);
 // A command authored the way a policy would author it.
@@ -213,7 +213,7 @@ const cycleReport = {
 // The atomic bootstrap record a scene→authority init produces, read-side typed.
 const bootstrap = {
     sceneId: sceneId(100),
-    worldId: worldId(7),
+    runtimeSessionId: runtimeSessionId(7),
     schemaVersion: 1,
     nodeCount: 2,
     entityCount: 2,
@@ -230,7 +230,7 @@ const bootstrap = {
 const manifest = {
     bundleSchemaVersion: 1,
     protocolVersion: 1,
-    project: { id: worldId(7), name: 'sample-project' },
+    project: { id: projectId(7), name: 'sample-project' },
     scene: { id: sceneId(100), schemaVersion: 1, artifact: 'scene/scene.json' },
     assetLock: { artifact: 'assets/lock.json', assetCount: 1 },
     generator: { seed: 42, version: 1, params: 'default' },
@@ -247,7 +247,7 @@ const loadPlan = {
         { step: 'loadAssetLock', artifact: 'assets/lock.json', assetCount: 1 },
         { step: 'loadSceneDocument', artifact: 'scene/scene.json', scene: sceneId(100) },
         { step: 'applyVoxelEdits', editLogs: ['voxel/edits.log'], snapshots: ['voxel/chunk_0_0_0.snapshot'] },
-        { step: 'bootstrapScene', scene: sceneId(100), project: worldId(7) },
+        { step: 'bootstrapScene', scene: sceneId(100), runtimeSession: runtimeSessionId(7) },
         { step: 'validateFinalState' },
     ],
 };

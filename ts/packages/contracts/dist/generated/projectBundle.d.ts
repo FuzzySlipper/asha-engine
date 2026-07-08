@@ -1,4 +1,4 @@
-import type { SceneId, WorldId } from './scene.js';
+import type { ProjectId, RuntimeSessionId, SceneId } from './scene.js';
 import type { VoxelCoord, VoxelValue } from './voxel.js';
 export type ArtifactClass = 'durable' | 'generated' | 'cache';
 export type KnownArtifactRole = 'sceneDocument' | 'assetLock' | 'sessionStateSnapshot' | 'voxelChunkSnapshot' | 'voxelEditLog' | 'replayRecord' | 'generatedMetadata' | 'cache';
@@ -16,7 +16,7 @@ export interface GeneratorMetadata {
     readonly params: string;
 }
 export interface ProjectSection {
-    readonly id: WorldId;
+    readonly id: ProjectId;
     readonly name: string | null;
 }
 export interface SceneSection {
@@ -83,7 +83,7 @@ export type LoadStep = {
 } | {
     readonly step: 'bootstrapScene';
     readonly scene: SceneId;
-    readonly project: WorldId;
+    readonly runtimeSession: RuntimeSessionId;
 } | {
     readonly step: 'restoreSessionState';
     readonly artifact: string;

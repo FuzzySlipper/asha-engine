@@ -6,7 +6,7 @@
 //! field order); [`decode`] parses it back. Encode∘decode is a fixed point on a
 //! canonicalized manifest, pinned by the golden-fixture test.
 
-use core_ids::{SceneId, WorldId};
+use core_ids::{ProjectId, SceneId};
 
 use crate::artifact::{ArtifactClass, ArtifactEntry, ArtifactRole};
 use crate::hash::BundleHash;
@@ -153,7 +153,7 @@ pub fn decode(input: &str) -> Result<WorldBundleManifest, ManifestDecodeError> {
 
     let world_j = field(&json, "world")?;
     let world = WorldSection {
-        id: WorldId::new(field_u64(world_j, "id")?),
+        id: ProjectId::new(field_u64(world_j, "id")?),
         name: opt_str(world_j, "name")?,
     };
 

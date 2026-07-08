@@ -5,7 +5,7 @@
 //! invalid scene, a missing asset lock, an unsupported version, and an
 //! out-of-order plan. A golden stage summary pins the executed-stage readback.
 
-use core_ids::{SceneId, SceneNodeId, WorldId};
+use core_ids::{RuntimeSessionId, SceneId, SceneNodeId};
 use core_scene::{encode, SceneMetadata, SceneNode, SceneNodeKind, SceneTree};
 use svc_serialization::{LoadPlan, LoadStage, LoadStep};
 
@@ -48,7 +48,7 @@ fn sample_plan() -> LoadPlan {
             },
             LoadStep::BootstrapScene {
                 scene: SceneId::new(100),
-                world: WorldId::new(7),
+                runtime_session: RuntimeSessionId::new(7),
             },
             LoadStep::ValidateFinalState,
         ],
@@ -67,7 +67,10 @@ fn minimal_valid_bundle_loads_into_authority() {
     // Two scene nodes → two runtime entities, each with a source trace.
     assert_eq!(result.world.entity_count(), 2);
     assert_eq!(result.bootstrap.source_trace.len(), 2);
-    assert_eq!(result.bootstrap.world_id, WorldId::new(7));
+    assert_eq!(
+        result.bootstrap.runtime_session_id,
+        RuntimeSessionId::new(7)
+    );
     assert!(result.voxel.is_none());
     // Every mandatory stage ran, in order.
     let stages: Vec<LoadStage> = result.stages.iter().map(|s| s.stage).collect();
@@ -92,7 +95,7 @@ fn stage_summary_matches_golden() {
         "stage versions schema=1 protocol=1\n\
          stage assetLock artifact=assets/lock.json expectedAssets=1\n\
          stage sceneDocument artifact=scene/scene.json nodes=2\n\
-         stage bootstrap world=7 entities=2\n\
+         stage bootstrap runtimeSession=7 entities=2\n\
          stage finalValidation worldHash={spatial_session_hash:016x} ok\n\
          result entities=2 voxel=false worldHash={spatial_session_hash:016x}\n\
          runtimeEntities none\n\
@@ -183,7 +186,7 @@ fn out_of_order_plan_is_rejected_before_execution() {
             },
             LoadStep::BootstrapScene {
                 scene: SceneId::new(100),
-                world: WorldId::new(7),
+                runtime_session: RuntimeSessionId::new(7),
             },
             LoadStep::LoadSceneDocument {
                 artifact: "scene/scene.json".into(),

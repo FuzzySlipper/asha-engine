@@ -8,13 +8,17 @@
 
 import type { EntityId } from './ids.js';
 
+// Stable identifier for a durable authored ASHA project.
+export type ProjectId = number & { readonly __brand: 'ProjectId' };
+export const projectId = (raw: number): ProjectId => raw as ProjectId;
+
 // Stable identifier for an authored, loadable scene document.
 export type SceneId = number & { readonly __brand: 'SceneId' };
 export const sceneId = (raw: number): SceneId => raw as SceneId;
 
-// Stable identifier for a live runtime world bootstrapped from a scene.
-export type WorldId = number & { readonly __brand: 'WorldId' };
-export const worldId = (raw: number): WorldId => raw as WorldId;
+// Stable identifier for a live runtime session bootstrapped from a scene.
+export type RuntimeSessionId = number & { readonly __brand: 'RuntimeSessionId' };
+export const runtimeSessionId = (raw: number): RuntimeSessionId => raw as RuntimeSessionId;
 
 // Stable identifier for one node within a scene document (never a render handle).
 export type SceneNodeId = number & { readonly __brand: 'SceneNodeId' };
@@ -163,7 +167,7 @@ export interface SceneSourceTrace {
 // The atomic bootstrap record: the single replay/audit unit of a scene to authority init.
 export interface BootstrapRecord {
   readonly sceneId: SceneId;
-  readonly worldId: WorldId;
+  readonly runtimeSessionId: RuntimeSessionId;
   readonly schemaVersion: number;
   readonly nodeCount: number;
   readonly entityCount: number;

@@ -179,7 +179,7 @@ pub fn regen_conflict_diagnostics(report: &RegenReplayReport) -> DiagnosticRepor
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core_ids::{SceneId, WorldId};
+    use core_ids::{ProjectId, SceneId};
     use svc_serialization::artifact::ArtifactRole;
     use svc_serialization::{
         ArtifactEntry, AssetLockSection, GeneratorMetadata, SceneSection, WorldSection,
@@ -192,7 +192,7 @@ mod tests {
             bundle_schema_version: 1,
             protocol_version: 1,
             world: WorldSection {
-                id: WorldId::new(1),
+                id: ProjectId::new(1),
                 name: None,
             },
             scene: SceneSection {

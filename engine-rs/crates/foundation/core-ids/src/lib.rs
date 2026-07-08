@@ -97,6 +97,14 @@ id_type!(
 // trace *record* type itself lands with bootstrap work (subtask #2316).
 
 id_type!(
+    /// Identifies a durable authored ASHA project.
+    ///
+    /// Project identity is stored bundle metadata. It is distinct from the live
+    /// runtime session id used once a project is loaded into authority state.
+    ProjectId
+);
+
+id_type!(
     /// Identifies an authored, loadable scene document (`SceneDocument`).
     ///
     /// Stable across project moves and independent of array position; never a
@@ -105,12 +113,11 @@ id_type!(
 );
 
 id_type!(
-    /// Identifies a live runtime world (`SpatialSessionState`) bootstrapped from a scene.
+    /// Identifies a live runtime session (`SpatialSessionState`) bootstrapped from a scene.
     ///
-    /// A scene document is loaded *into* a world; the two identities are kept
-    /// separate so a world save is authority-owned rather than tied to the
-    /// originating scene document.
-    WorldId
+    /// A project/scene is loaded *into* a runtime session; stored project
+    /// identity stays separate from the authority instance produced by a load.
+    RuntimeSessionId
 );
 
 id_type!(
@@ -135,26 +142,30 @@ mod tests {
         assert_eq!(ModeId::new(1).raw(), 1);
         assert_eq!(SignalId::new(99).raw(), 99);
         assert_eq!(TagId::new(7).raw(), 7);
+        assert_eq!(ProjectId::new(6).raw(), 6);
         assert_eq!(SceneId::new(3).raw(), 3);
-        assert_eq!(WorldId::new(4).raw(), 4);
+        assert_eq!(RuntimeSessionId::new(4).raw(), 4);
         assert_eq!(SceneNodeId::new(5).raw(), 5);
     }
 
-    /// Scene/world IDs are independent newtypes: a `SceneNodeId` cannot be passed
+    /// Scene/session IDs are independent newtypes: a `SceneNodeId` cannot be passed
     /// where an `EntityId` (or any other ID) is expected, which is what keeps a
     /// stable authored node identity from being confused with a runtime entity or
     /// a derived render handle.
     #[test]
     fn scene_ids_are_distinct_types() {
+        let project = ProjectId::new(1);
         let scene = SceneId::new(1);
-        let world = WorldId::new(1);
+        let runtime_session = RuntimeSessionId::new(1);
         let node = SceneNodeId::new(1);
-        assert_eq!(scene.raw(), world.raw());
+        assert_eq!(project.raw(), runtime_session.raw());
+        assert_eq!(scene.raw(), runtime_session.raw());
         assert_eq!(scene.raw(), node.raw());
-        // `assert_eq!(scene, world)` / `assert_eq!(node, EntityId::new(1))` would
+        // `assert_eq!(scene, runtime_session)` / `assert_eq!(node, EntityId::new(1))` would
         // be compile errors — the types do not unify.
+        assert_eq!(format!("{project:?}"), "ProjectId(1)");
         assert_eq!(format!("{scene:?}"), "SceneId(1)");
-        assert_eq!(format!("{world:?}"), "WorldId(1)");
+        assert_eq!(format!("{runtime_session:?}"), "RuntimeSessionId(1)");
         assert_eq!(format!("{node}"), "SceneNodeId(1)");
     }
 

@@ -16,7 +16,7 @@
 //! transforms. After bootstrap the world is authority-owned and free to diverge
 //! from the scene document (see [`SpatialSessionState::set_transform`]).
 
-use core_ids::{EntityId, SceneId, SceneNodeId, WorldId};
+use core_ids::{EntityId, RuntimeSessionId, SceneId, SceneNodeId};
 
 use crate::document::FlatSceneDocument;
 use crate::spatial_session::{SpatialSessionHash, SpatialSessionState};
@@ -55,7 +55,7 @@ pub struct PlannedEntity {
 #[derive(Debug, Clone, PartialEq)]
 pub struct BootstrapPlan {
     scene_id: SceneId,
-    world_id: WorldId,
+    runtime_session_id: RuntimeSessionId,
     schema_version: u32,
     /// Node→entity allocations in ascending scene-node id order.
     allocations: Vec<PlannedEntity>,
@@ -65,19 +65,19 @@ pub struct BootstrapPlan {
 
 impl BootstrapPlan {
     /// Validate `doc` and build a deterministic plan that bootstraps into
-    /// `world_id`, allocating entity ids from [`DEFAULT_BASE_ENTITY_ID`].
+    /// `runtime_session_id`, allocating entity ids from [`DEFAULT_BASE_ENTITY_ID`].
     pub fn prepare(
         doc: &FlatSceneDocument,
-        world_id: WorldId,
+        runtime_session_id: RuntimeSessionId,
     ) -> Result<BootstrapPlan, BootstrapError> {
-        Self::prepare_with_base(doc, world_id, DEFAULT_BASE_ENTITY_ID)
+        Self::prepare_with_base(doc, runtime_session_id, DEFAULT_BASE_ENTITY_ID)
     }
 
     /// Like [`BootstrapPlan::prepare`] but with an explicit base entity id, for
     /// callers threading their own allocator.
     pub fn prepare_with_base(
         doc: &FlatSceneDocument,
-        world_id: WorldId,
+        runtime_session_id: RuntimeSessionId,
         base_entity: EntityId,
     ) -> Result<BootstrapPlan, BootstrapError> {
         if doc.schema_version != SUPPORTED_SCHEMA_VERSION {
@@ -106,7 +106,7 @@ impl BootstrapPlan {
 
         Ok(BootstrapPlan {
             scene_id: doc.id,
-            world_id,
+            runtime_session_id,
             schema_version: doc.schema_version,
             allocations,
             doc,
@@ -122,7 +122,7 @@ impl BootstrapPlan {
     /// every scene-sourced entity (initial transforms copied in) and return it
     /// alongside the single [`BootstrapRecord`] for replay/audit.
     pub fn apply(&self) -> (SpatialSessionState, BootstrapRecord) {
-        let mut world = SpatialSessionState::empty(self.world_id);
+        let mut world = SpatialSessionState::empty(self.runtime_session_id);
         // `allocations` is parallel to `doc.nodes` (both canonical order).
         for (alloc, rec) in self.allocations.iter().zip(self.doc.nodes.iter()) {
             debug_assert_eq!(alloc.node, rec.id);
@@ -134,7 +134,7 @@ impl BootstrapPlan {
         }
         let record = BootstrapRecord {
             scene_id: self.scene_id,
-            world_id: self.world_id,
+            runtime_session_id: self.runtime_session_id,
             schema_version: self.schema_version,
             node_count: self.doc.nodes.len(),
             entity_count: world.entity_count(),
@@ -148,9 +148,9 @@ impl BootstrapPlan {
 /// Convenience: prepare and apply in one call. Errors if the scene is invalid.
 pub fn bootstrap_scene(
     doc: &FlatSceneDocument,
-    world_id: WorldId,
+    runtime_session_id: RuntimeSessionId,
 ) -> Result<(SpatialSessionState, BootstrapRecord), BootstrapError> {
-    Ok(BootstrapPlan::prepare(doc, world_id)?.apply())
+    Ok(BootstrapPlan::prepare(doc, runtime_session_id)?.apply())
 }
 
 /// The single replay/audit unit recorded for one scene bootstrap. Replay sees
@@ -158,7 +158,7 @@ pub fn bootstrap_scene(
 #[derive(Debug, Clone, PartialEq)]
 pub struct BootstrapRecord {
     pub scene_id: SceneId,
-    pub world_id: WorldId,
+    pub runtime_session_id: RuntimeSessionId,
     pub schema_version: u32,
     pub node_count: usize,
     pub entity_count: usize,

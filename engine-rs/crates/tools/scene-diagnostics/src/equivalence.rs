@@ -28,7 +28,7 @@
 //! `RestoreSessionState` stage for the load path.
 
 use core_events::VoxelEditEvent;
-use core_ids::{SceneId, WorldId};
+use core_ids::{RuntimeSessionId, SceneId};
 use core_scene::SpatialSessionHash;
 use core_space::VoxelGridSpec;
 use protocol_diagnostics::{
@@ -94,7 +94,11 @@ impl BundleEquivalenceReport {
 }
 
 /// The mandatory scene-only plan (no voxel stage).
-fn scene_plan(scene_artifact: &str, scene: SceneId, world: WorldId) -> Vec<LoadStep> {
+fn scene_plan(
+    scene_artifact: &str,
+    scene: SceneId,
+    runtime_session: RuntimeSessionId,
+) -> Vec<LoadStep> {
     vec![
         LoadStep::ValidateVersions {
             bundle_schema_version: 1,
@@ -108,7 +112,10 @@ fn scene_plan(scene_artifact: &str, scene: SceneId, world: WorldId) -> Vec<LoadS
             artifact: scene_artifact.into(),
             scene,
         },
-        LoadStep::BootstrapScene { scene, world },
+        LoadStep::BootstrapScene {
+            scene,
+            runtime_session,
+        },
         LoadStep::ValidateFinalState,
     ]
 }
@@ -138,7 +145,7 @@ fn with_voxel_stage(
 pub fn world_bundle_round_trip(
     scene_json: &str,
     scene: SceneId,
-    world: WorldId,
+    runtime_session: RuntimeSessionId,
     spec: VoxelGridSpec,
     initial_log: &[VoxelEditEvent],
     tick_edits: &[VoxelEditEvent],
@@ -154,7 +161,7 @@ pub fn world_bundle_round_trip(
         .with_artifact("voxel/edits.log", initial_log_text)
         .with_voxel_spec(spec);
     let plan_b = with_voxel_stage(
-        scene_plan("scene/scene.json", scene, world),
+        scene_plan("scene/scene.json", scene, runtime_session),
         vec!["voxel/edits.log".into()],
         vec![],
     );
@@ -192,7 +199,7 @@ pub fn world_bundle_round_trip(
         snapshot_paths.push(snap.path.clone());
     }
     let plan_c = with_voxel_stage(
-        scene_plan("scene/scene.json", scene, world),
+        scene_plan("scene/scene.json", scene, runtime_session),
         vec!["voxel/retained.log".into()],
         snapshot_paths,
     );

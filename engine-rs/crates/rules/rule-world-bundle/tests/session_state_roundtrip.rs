@@ -14,7 +14,7 @@ use core_entity::{
     ControllerCapability, EntityLifecycleCommand, EntitySource, EntityStore, EntityTransform,
     RelationCommand,
 };
-use core_ids::{EntityId, ProcessId, SceneId, SceneNodeId, SubjectId, TagId, WorldId};
+use core_ids::{EntityId, ProcessId, RuntimeSessionId, SceneId, SceneNodeId, SubjectId, TagId};
 use core_scene::{encode, SceneMetadata, SceneNode, SceneNodeKind, SceneTree};
 use svc_serialization::{LoadPlan, LoadStep};
 
@@ -166,7 +166,7 @@ fn plan_with_spatial_session_state() -> LoadPlan {
             },
             LoadStep::BootstrapScene {
                 scene: SceneId::new(100),
-                world: WorldId::new(7),
+                runtime_session: RuntimeSessionId::new(7),
             },
             LoadStep::RestoreSessionState {
                 artifact: SESSION_STATE_SNAPSHOT_PATH.into(),
@@ -297,7 +297,7 @@ fn voxel_edit_and_entity_change_survive_the_same_save() {
             },
             LoadStep::BootstrapScene {
                 scene: SceneId::new(100),
-                world: WorldId::new(7),
+                runtime_session: RuntimeSessionId::new(7),
             },
             LoadStep::RestoreSessionState {
                 artifact: SESSION_STATE_SNAPSHOT_PATH.into(),

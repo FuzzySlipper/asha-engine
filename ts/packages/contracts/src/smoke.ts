@@ -31,8 +31,9 @@ import {
   type DiagnosticReportSet,
   type SourceTrace,
   type RendererResourceReport,
+  projectId,
   sceneId,
-  worldId,
+  runtimeSessionId,
   sceneNodeId,
   type FlatSceneDocument,
   type SceneValidationReport,
@@ -275,7 +276,7 @@ const cycleReport: SceneValidationReport = {
 // The atomic bootstrap record a scene→authority init produces, read-side typed.
 const bootstrap: BootstrapRecord = {
   sceneId: sceneId(100),
-  worldId: worldId(7),
+  runtimeSessionId: runtimeSessionId(7),
   schemaVersion: 1,
   nodeCount: 2,
   entityCount: 2,
@@ -293,7 +294,7 @@ const bootstrap: BootstrapRecord = {
 const manifest: ProjectBundleManifest = {
   bundleSchemaVersion: 1,
   protocolVersion: 1,
-  project: { id: worldId(7), name: 'sample-project' },
+  project: { id: projectId(7), name: 'sample-project' },
   scene: { id: sceneId(100), schemaVersion: 1, artifact: 'scene/scene.json' },
   assetLock: { artifact: 'assets/lock.json', assetCount: 1 },
   generator: { seed: 42, version: 1, params: 'default' },
@@ -311,7 +312,7 @@ const loadPlan: LoadPlan = {
     { step: 'loadAssetLock', artifact: 'assets/lock.json', assetCount: 1 },
     { step: 'loadSceneDocument', artifact: 'scene/scene.json', scene: sceneId(100) },
     { step: 'applyVoxelEdits', editLogs: ['voxel/edits.log'], snapshots: ['voxel/chunk_0_0_0.snapshot'] },
-    { step: 'bootstrapScene', scene: sceneId(100), project: worldId(7) },
+    { step: 'bootstrapScene', scene: sceneId(100), runtimeSession: runtimeSessionId(7) },
     { step: 'validateFinalState' },
   ],
 };

@@ -8,7 +8,7 @@
 
 use std::path::PathBuf;
 
-use core_ids::WorldId;
+use core_ids::RuntimeSessionId;
 use core_scene::{bootstrap_scene, decode};
 
 fn main() {
@@ -18,7 +18,7 @@ fn main() {
         .unwrap()
         .join("harness/fixtures/scenes/sample-flat.json");
     let doc = decode(&std::fs::read_to_string(path).unwrap()).unwrap();
-    let (_world, record) = bootstrap_scene(&doc, WorldId::new(7)).unwrap();
+    let (_world, record) = bootstrap_scene(&doc, RuntimeSessionId::new(7)).unwrap();
     print!("{}", core_scene_bootstrap_summary::render(&record));
 }
 

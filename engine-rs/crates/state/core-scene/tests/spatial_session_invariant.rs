@@ -6,7 +6,7 @@
 //! into the fingerprint and cannot panic from a normal public API path.
 
 use core_assets::{markers, AssetRef, AssetReference, AssetVersionReq};
-use core_ids::{EntityId, SceneNodeId, WorldId};
+use core_ids::{EntityId, RuntimeSessionId, SceneNodeId};
 use core_math::Vec3;
 use core_scene::{
     bootstrap_scene, FlatSceneDocument, NodeMetadata, SceneMetadata, SceneNodeKind,
@@ -74,7 +74,7 @@ fn assert_spatial_invariant(world: &SpatialSessionState) {
 
 #[test]
 fn runtime_created_entities_always_have_a_transform() {
-    let mut world = SpatialSessionState::empty(WorldId::new(1));
+    let mut world = SpatialSessionState::empty(RuntimeSessionId::new(1));
     // The public constructor *requires* a transform argument — a transform-less
     // world entity is unconstructable through the API, not merely unused.
     assert!(world.create_runtime_entity(EntityId::new(10), at(1.0)));
@@ -85,7 +85,7 @@ fn runtime_created_entities_always_have_a_transform() {
 
 #[test]
 fn bootstrapped_world_satisfies_the_invariant() {
-    let (world, record) = bootstrap_scene(&minimal_doc(), WorldId::new(7)).unwrap();
+    let (world, record) = bootstrap_scene(&minimal_doc(), RuntimeSessionId::new(7)).unwrap();
     assert_spatial_invariant(&world);
     // The fingerprint computed here matches the one bootstrap recorded.
     assert_eq!(world.hash(), record.spatial_session_hash);
@@ -93,19 +93,19 @@ fn bootstrapped_world_satisfies_the_invariant() {
 
 #[test]
 fn empty_spatial_session_hash_does_not_panic_and_is_stable() {
-    let a = SpatialSessionState::empty(WorldId::new(42));
-    let b = SpatialSessionState::empty(WorldId::new(42));
+    let a = SpatialSessionState::empty(RuntimeSessionId::new(42));
+    let b = SpatialSessionState::empty(RuntimeSessionId::new(42));
     assert_eq!(a.hash(), b.hash());
     // A different world id yields a different fingerprint.
     assert_ne!(
         a.hash(),
-        SpatialSessionState::empty(WorldId::new(43)).hash()
+        SpatialSessionState::empty(RuntimeSessionId::new(43)).hash()
     );
 }
 
 #[test]
 fn set_transform_preserves_the_invariant_and_changes_the_hash() {
-    let mut world = SpatialSessionState::empty(WorldId::new(2));
+    let mut world = SpatialSessionState::empty(RuntimeSessionId::new(2));
     let e = EntityId::new(5);
     assert!(world.create_runtime_entity(e, at(0.0)));
     let before = world.hash();

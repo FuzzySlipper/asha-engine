@@ -33,7 +33,7 @@
 
 #![forbid(unsafe_code)]
 
-use core_ids::{EntityId, SceneId, SceneNodeId, WorldId};
+use core_ids::{EntityId, RuntimeSessionId, SceneId, SceneNodeId};
 
 // ── Stable string vocabularies (the contract) ─────────────────────────────────
 
@@ -443,7 +443,7 @@ pub struct SceneSourceTraceDto {
 #[derive(Debug, Clone, PartialEq)]
 pub struct BootstrapRecordDto {
     pub scene_id: SceneId,
-    pub world_id: WorldId,
+    pub runtime_session_id: RuntimeSessionId,
     pub schema_version: u32,
     pub node_count: u32,
     pub entity_count: u32,

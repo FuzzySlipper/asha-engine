@@ -17,7 +17,7 @@
 //! sequence with a classified diagnostic. Parallel *decoding* may happen
 //! internally, but final authority application must respect this order.
 
-use core_ids::{SceneId, WorldId};
+use core_ids::{RuntimeSessionId, SceneId};
 
 use crate::artifact::ArtifactRole;
 use crate::manifest::{ManifestError, WorldBundleManifest};
@@ -94,7 +94,10 @@ pub enum LoadStep {
         snapshots: Vec<String>,
     },
     /// Atomically bootstrap runtime entities from the scene document.
-    BootstrapScene { scene: SceneId, world: WorldId },
+    BootstrapScene {
+        scene: SceneId,
+        runtime_session: RuntimeSessionId,
+    },
     /// Restore the runtime-diverged session-state snapshot from its artifact, over
     /// the bootstrapped scene baseline (#2484).
     RestoreSessionState { artifact: String },
@@ -208,7 +211,7 @@ impl LoadPlan {
             },
             LoadStep::BootstrapScene {
                 scene: manifest.scene.id,
-                world: manifest.world.id,
+                runtime_session: RuntimeSessionId::new(manifest.world.id.raw()),
             },
         ];
         if let Some(artifact) = session_state_snapshot {
@@ -295,8 +298,15 @@ fn render_step(step: &LoadStep) -> String {
             edit_logs.join(","),
             snapshots.join(",")
         ),
-        LoadStep::BootstrapScene { scene, world } => {
-            format!("scene={} world={}", scene.raw(), world.raw())
+        LoadStep::BootstrapScene {
+            scene,
+            runtime_session,
+        } => {
+            format!(
+                "scene={} runtimeSession={}",
+                scene.raw(),
+                runtime_session.raw()
+            )
         }
         LoadStep::RestoreSessionState { artifact } => artifact.clone(),
         LoadStep::ValidateFinalState => String::new(),

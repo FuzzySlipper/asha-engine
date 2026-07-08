@@ -25,7 +25,7 @@ use core_catalog::material::{
     MaterialAuthority, MaterialDef, MaterialStyle, Rgba, StructuralClass,
 };
 use core_catalog::Catalog;
-use core_ids::{SceneId, SceneNodeId, WorldId};
+use core_ids::{RuntimeSessionId, SceneId, SceneNodeId};
 use core_math::Vec3;
 use core_scene::bootstrap::BootstrapPlan;
 use core_scene::document::{NodeMetadata, SceneMetadata};
@@ -153,7 +153,7 @@ fn showcase_catalog() -> Catalog {
 }
 
 fn bootstrap(doc: &FlatSceneDocument) -> SpatialSessionState {
-    BootstrapPlan::prepare(doc, WorldId::new(1))
+    BootstrapPlan::prepare(doc, RuntimeSessionId::new(1))
         .expect("valid scene")
         .apply()
         .0

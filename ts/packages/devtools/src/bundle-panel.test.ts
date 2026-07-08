@@ -4,8 +4,9 @@ import assert from 'node:assert/strict';
 import { RuntimeBridgeError, type RuntimeBridge } from '@asha/runtime-bridge';
 import { createMockRuntimeBridge } from '@asha/runtime-bridge/reference';
 import {
+  projectId,
   sceneId,
-  worldId,
+  runtimeSessionId,
   type DiagnosticReportSet,
   type GeneratorMismatch,
   type LoadPlan,
@@ -34,7 +35,7 @@ function manifest(): GeneratedProjectBundleManifest {
   return {
     bundleSchemaVersion: 1,
     protocolVersion: 1,
-    project: { id: worldId(7), name: 'fixture-project' },
+    project: { id: projectId(7), name: 'fixture-project' },
     scene: { id: sceneId(1001), schemaVersion: 1, artifact: 'scene.json' },
     assetLock: { artifact: 'lock.json', assetCount: 4 },
     generator: { seed: 42, version: 3, params: 'flat' },
@@ -73,7 +74,7 @@ void test('buildLoadPlanModel renders an ordered, human-readable plan', () => {
       { step: 'validateVersions', bundleSchemaVersion: 1, protocolVersion: 1 },
       { step: 'loadAssetLock', artifact: 'lock.json', assetCount: 4 },
       { step: 'loadSceneDocument', artifact: 'scene.json', scene: sceneId(1001) },
-      { step: 'bootstrapScene', scene: sceneId(1001), project: worldId(7) },
+      { step: 'bootstrapScene', scene: sceneId(1001), runtimeSession: runtimeSessionId(7) },
       { step: 'validateFinalState' },
     ],
   };
@@ -86,7 +87,7 @@ void test('buildLoadPlanModel renders an ordered, human-readable plan', () => {
     view.steps.map((s) => s.step),
     ['validateVersions', 'loadAssetLock', 'loadSceneDocument', 'bootstrapScene', 'validateFinalState'],
   );
-  assert.match(view.steps[3]!.summary, /bootstrap scene 1001 -> project 7/);
+  assert.match(view.steps[3]!.summary, /bootstrap scene 1001 -> runtime session 7/);
 });
 
 void test('buildSavePlanModel summarizes writes and compaction', () => {
