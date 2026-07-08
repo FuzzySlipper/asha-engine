@@ -18,6 +18,12 @@ lives behind `@asha/runtime-bridge`. `classifyDivergence(native, wasm)` is the t
 native-vs-WASM check — `match` / `hash_divergence` (with the first diverging step) /
 `length_divergence` — with WASM treated as authoritative.
 
+The actual compiled WASM authority is the `wasm-api` crate's replay-only export surface:
+`classify_divergence(expected, actual)` and `divergence_class_labels()`. Build and run it with
+`harness/ci/check-wasm-replay.sh`. If the module is absent, `@asha/wasm-replay-bridge` marks the
+WASM-authority tests as skipped; that skip preserves ordinary offline CI but is not a substitute
+for the opt-in WASM replay gate.
+
 ## Sources of non-determinism to eliminate
 
 | Source | Rule |
@@ -36,7 +42,9 @@ native-vs-WASM check — `match` / `hash_divergence` (with the first diverging s
 2. `core-time` provides tick-based time; wall-clock is not exposed to authoritative code.
 3. Replay golden tests run the same event sequence and assert the same state hash.
 4. CI `check-replays.sh` runs golden replays on every PR.
-5. Policy sandbox lint forbids `Date` and `Math.random`.
+5. The opt-in `check-wasm-replay.sh` gate builds the replay-only WASM module and runs the
+   classified WASM authority tests when the wasm32/wasm-bindgen toolchain is available.
+6. Policy sandbox lint forbids `Date` and `Math.random`.
 
 ## State hashing
 

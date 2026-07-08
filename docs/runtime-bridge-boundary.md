@@ -53,8 +53,9 @@ Rust (`engine-rs/crates/bridge/`, a new layer between `render`/`wasm` and `tools
   protocol↔boundary conversion stubs, and conformance helpers. No `napi` dependency itself.
 - `native-bridge` — **new.** The `napi-rs` `cdylib` addon. Depends on `runtime-bridge-api`
   plus the engine crates (sim/services/render). The only crate that depends on `napi`.
-- `wasm-api` — **existing.** Stays the WASM export surface; its scope narrows toward replay
-  (init, tick, command submit, replay/snapshot hooks, diff retrieval) per design §8.8.
+- `wasm-api` — **existing.** Stays the replay/golden WASM authority surface. Its scope is
+  replay decode/diff/classification only: no runtime init/tick, command submission,
+  render-diff retrieval, telemetry retrieval, or raw memory-view transport exports.
 
 Exact names are now fixed for the implementation tasks; the **dependency shape** below is the
 invariant that must not change even if a name is later revised.
@@ -148,11 +149,11 @@ Current importers to update: `renderer-three` (imports `decodeRenderFrameDiff` +
 `RenderDiffStream`), and any future `app`/`ui-dom`/`devtools` wiring. After migration they
 import `@asha/runtime-bridge`; `renderer-three` no longer depends on `@asha/wasm-bridge`.
 
-Rust side: `wasm-api/src/lib.rs` is currently empty and `render-bridge` already emits JSON
-fixtures consumed cross-language (`render-protocol.md` §"Phase 5 dataflow"). That JSON-fixture
-path is the **replay/golden** artifact and stays; it is not the runtime transport. No authority
-crate currently assumes a transport, so migration is additive (new crates/packages) rather than
-a rewrite.
+Rust side: `wasm-api/src/lib.rs` now exposes the narrow replay authority functions
+`classify_divergence` and `divergence_class_labels`, backed by `sim-replay` decode/diff logic
+compiled to `wasm32`. Render JSON fixtures remain render-protocol goldens; they are not WASM
+runtime transport payloads. No authority crate assumes a WASM runtime transport, so runtime work
+continues through the native bridge and the transport-agnostic `@asha/runtime-bridge` facade.
 
 ## 7. Affected files / packages (cold-start checklist)
 
@@ -164,12 +165,19 @@ Docs/config (this task, #2248):
 - `governance/boundary-rules.md`, `AGENTS.md`/`agents-project.md` repo-structure block — note
   the runtime/replay split.
 
-Later tasks (do not implement here):
+Historical implementation tasks:
 - #2249: bridge manifest file + owning crate, generated-glue plan, conformance test shape,
   guardrail check script.
 - #2250: `native-bridge` crate (`napi-rs`), `@asha/runtime-bridge` + mock, `@asha/native-bridge`.
 - #2251: repurpose `wasm-bridge` → `wasm-replay-bridge`; native-vs-WASM divergence classifier;
   ensure replay goldens run through the WASM path.
+
+Current WASM replay gate:
+- `harness/ci/check-wasm-replay.sh` builds `wasm-api` for `wasm32-unknown-unknown`, runs
+  `wasm-bindgen --target nodejs`, and runs `@asha/wasm-replay-bridge` tests with the module
+  present. It is intentionally opt-in because the wasm32 target and `wasm-bindgen` CLI are
+  external toolchain requirements; ordinary `check-all.sh`/GitHub CI may run the package tests
+  with authority tests classified as skipped when the module is absent.
 
 ## 8. Migration sequencing
 

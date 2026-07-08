@@ -21,6 +21,10 @@ For long-term golden regressions, accepted events plus snapshots/hashes are the 
 WASM semantics are the replay authority.
 Native builds are used for fast iteration and tooling only.
 If native and WASM produce different outputs, the divergence must be classified and tested explicitly.
+The current WASM authority surface is intentionally replay-only: `wasm-api` exports
+`classify_divergence` and `divergence_class_labels` over `sim-replay` artifacts. It is not a
+runtime transport and does not expose init, tick, command submission, render diffs, telemetry,
+or raw memory views.
 
 ## Determinism requirements
 
@@ -73,6 +77,12 @@ cargo run -p replay-tool -- show harness/goldens/replays/<name>.replay
 
 `harness/ci/check-replays.sh` builds `replay-tool` and checks every golden under
 `harness/goldens/replays/` with it.
+
+`harness/ci/check-wasm-replay.sh` is the authoritative opt-in WASM replay gate. It builds
+`wasm-api` for `wasm32-unknown-unknown`, runs `wasm-bindgen --target nodejs`, and reruns the
+`@asha/wasm-replay-bridge` tests against the real module. When that module has not been built,
+the package's WASM-authority tests skip with an explicit instruction to run
+`harness/ci/check-wasm-replay.sh`; those skips are not replay coverage.
 
 ## Divergence reports
 

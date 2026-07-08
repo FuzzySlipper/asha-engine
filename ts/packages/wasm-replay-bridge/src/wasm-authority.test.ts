@@ -7,6 +7,11 @@ import assert from 'node:assert/strict';
 
 import { WasmReplayUnavailable, loadWasmReplayAuthority } from './index.js';
 
+const WASM_AUTHORITY_SKIP_MESSAGE =
+  'WASM authority unavailable: wasm-api module not built; ' +
+  'this is a classified opt-in skip, not coverage. ' +
+  'Run harness/ci/check-wasm-replay.sh';
+
 // A real sim-replay artifact (same text format as harness/goldens/replays/*.replay).
 const GOLDEN = [
   'replay 1',
@@ -23,7 +28,7 @@ function authorityOrSkip(t: { skip: (m: string) => void }) {
     return loadWasmReplayAuthority();
   } catch (e) {
     if (e instanceof WasmReplayUnavailable) {
-      t.skip('wasm-api module not built (run harness/ci/check-wasm-replay.sh)');
+      t.skip(WASM_AUTHORITY_SKIP_MESSAGE);
       return null;
     }
     throw e;

@@ -599,19 +599,18 @@ They may know render concepts such as handles, transforms, materials, geometry p
 
 ### 8.8 WASM API crates
 
-The WASM API is narrow and boring.
+The WASM API is narrow and boring. In the current architecture it is a replay/golden
+verification surface, not the product runtime transport.
 
-It should expose:
+It exposes replay authority helpers only:
 
-- initialization
-- tick/run functions
-- command submission
-- replay/snapshot hooks
-- render diff retrieval
-- telemetry retrieval
-- memory view helpers
+- replay artifact decode/diff classification
+- stable divergence class labels
 
-It should not contain product-domain logic, renderer logic, or policy logic.
+It should not contain product-domain logic, renderer logic, policy logic, runtime init/tick
+exports, command submission, render-diff retrieval, telemetry retrieval, or raw memory view
+helpers. Runtime transport belongs behind the native bridge and the transport-agnostic
+`@asha/runtime-bridge` facade.
 
 ---
 
@@ -898,9 +897,6 @@ It should not contain product-domain logic, renderer logic, or policy logic.
         /wasm-api
           Cargo.toml
           src/lib.rs
-          src/exports.rs
-          src/memory.rs
-          src/panic_hook.rs
 
       /tools
         /replay-tool
