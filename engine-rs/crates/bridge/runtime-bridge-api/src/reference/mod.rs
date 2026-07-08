@@ -14,8 +14,8 @@ use crate::*;
 pub struct ReferenceBridge {
     engine: Option<EngineHandle>,
     buffers: buffer_provider::RuntimeBufferProvider,
-    /// The currently-loaded world's scene identity (the staged/live world).
-    loaded_world: Option<u64>,
+    /// The currently-loaded ProjectBundle scene identity.
+    loaded_project_bundle: Option<u64>,
     /// Live voxel authority for the launch/edit loop (launchable-voxel, #2436).
     /// Present once `initialize_engine` has set up the runtime.
     voxel: Option<VoxelWorld>,

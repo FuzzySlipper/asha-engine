@@ -116,7 +116,7 @@
         },
         {
           "kind": "runtime_bridge_operation",
-          "operation": "load_world_bundle"
+          "operation": "load_project_bundle"
         }
       ]
     },
@@ -173,7 +173,7 @@
       "runtimeRequirements": [
         {
           "kind": "runtime_bridge_operation",
-          "operation": "load_world_bundle"
+          "operation": "load_project_bundle"
         }
       ]
     },
@@ -346,7 +346,7 @@
       "runtimeRequirements": [
         {
           "kind": "runtime_bridge_operation",
-          "operation": "get_composition_status"
+          "operation": "get_project_bundle_composition_status"
         }
       ]
     },

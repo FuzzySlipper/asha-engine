@@ -15,12 +15,6 @@ engine-rs/crates/services/svc-serialization/
 engine-rs/crates/tools/scene-diagnostics/
 
 # Legacy touchpoints in otherwise-current crates
-engine-rs/crates/bridge/native-bridge/src/lib.rs
-engine-rs/crates/bridge/runtime-bridge-api/src/lib.rs
-engine-rs/crates/bridge/runtime-bridge-api/src/bridge.rs
-engine-rs/crates/bridge/runtime-bridge-api/src/payloads.rs
-engine-rs/crates/bridge/runtime-bridge-api/src/reference/runtime_bridge_impl.rs
-engine-rs/crates/bridge/runtime-bridge-api/src/reference/tests.rs
 engine-rs/crates/foundation/core-ids/src/lib.rs
 engine-rs/crates/protocol/protocol-codegen/src/lib.rs
 engine-rs/crates/protocol/protocol-codegen/src/model.rs
@@ -41,4 +35,3 @@ engine-rs/crates/state/core-scene/tests/world_invariant.rs
 ts/packages/command-registry/src/manifest.ts
 ts/packages/command-registry/src/types.ts
 ts/packages/contracts/src/smoke.ts
-ts/packages/native-bridge/src/index.ts

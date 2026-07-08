@@ -86,7 +86,7 @@ const CAMERA_INPUT = {
 
 const REQUIRED_NATIVE_CONFORMANCE_OPS = [
   'initialize_engine',
-  'load_world_bundle', // vocab-allow: raw Rust/native manifest operation remains until #5048.
+  'load_project_bundle',
   'submit_commands',
   'step_simulation',
   'apply_enemy_direct_nav_movement',
@@ -111,8 +111,8 @@ const REQUIRED_NATIVE_CONFORMANCE_OPS = [
   'save_voxel_volume_asset',
   'load_voxel_volume_asset',
   'read_render_diffs',
-  'save_current_world',
-  'get_composition_status',
+  'save_project_bundle',
+  'get_project_bundle_composition_status',
 ] as const;
 
 const HASH_A = 'fnv1a64:00000000000000aa';
@@ -347,9 +347,9 @@ function fakeAddon(calls: string[] = []): NativeAddon {
       calls.push(`initialize:${seed}`);
       return seed + 100;
     },
-    loadWorldBundle: (_handle: number, bundleSchemaVersion: number, protocolVersion: number, sceneId: number) => { // vocab-allow: raw fake addon symbol remains until #5048.
+    loadProjectBundle: (_handle: number, bundleSchemaVersion: number, protocolVersion: number, sceneId: number) => {
       calls.push(`load:${bundleSchemaVersion}:${protocolVersion}:${sceneId}`);
-      return { loadedWorld: sceneId + 1000, fatalCount: 0, totalCount: 0, blocksLoad: false }; // vocab-allow: raw fake addon payload remains until #5048.
+      return { loadedProjectBundle: sceneId + 1000, fatalCount: 0, totalCount: 0, blocksLoad: false };
     },
     submitCommands: (_handle: number, commandsJson: string) => {
       calls.push(`submit:${commandsJson}`);
@@ -654,15 +654,15 @@ function fakeAddon(calls: string[] = []): NativeAddon {
       calls.push(`render:${cursor}`);
       return { ops: [{ op: 'sentinel' }] } as never;
     },
-    saveCurrentWorld: (handle: number) => {
+    saveProjectBundle: (handle: number) => {
       void handle;
       calls.push('save');
       return { artifactsWritten: 5, compactedEdits: 2, retainedEdits: 3 };
     },
-    getCompositionStatus: (handle: number) => {
+    getProjectBundleCompositionStatus: (handle: number) => {
       void handle;
       calls.push('status');
-      return { loadedWorld: 2001, fatalCount: 0, totalCount: 0, blocksLoad: false }; // vocab-allow: raw fake addon payload remains until #5048.
+      return { loadedProjectBundle: 2001, fatalCount: 0, totalCount: 0, blocksLoad: false };
     },
     planVoxelConversion: (_handle: number, requestJson: string) => {
       calls.push(`voxelPlan:${requestJson}`);
@@ -1230,7 +1230,7 @@ void test('native facade defaults omitted FPS game-rule modules before addon con
 
 void test('native addon semantic errors are reclassified into RuntimeBridgeError', () => {
   const addon = fakeAddon();
-  addon.loadWorldBundle = () => { // vocab-allow: raw native addon symbol remains until #5048.
+  addon.loadProjectBundle = () => {
     throw new Error('InvalidInput: unsupported bundle schema 99 / protocol 1');
   };
   const bridge: RuntimeBridge = new NativeRuntimeBridge(addon);

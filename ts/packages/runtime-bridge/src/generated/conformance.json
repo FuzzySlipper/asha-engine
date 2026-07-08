@@ -299,7 +299,7 @@
       "errors": "RuntimeBridgeError"
     },
     {
-      "manifestName": "load_world_bundle",
+      "manifestName": "load_project_bundle",
       "facadeMethod": "loadProjectBundle",
       "surface": "stable",
       "input": "protocol_world_bundle::WorldBundleManifest",
@@ -307,7 +307,7 @@
       "errors": "RuntimeBridgeError"
     },
     {
-      "manifestName": "save_current_world",
+      "manifestName": "save_project_bundle",
       "facadeMethod": "saveProjectBundle",
       "surface": "stable",
       "input": "Unit",
@@ -315,7 +315,7 @@
       "errors": "RuntimeBridgeError"
     },
     {
-      "manifestName": "get_composition_status",
+      "manifestName": "get_project_bundle_composition_status",
       "facadeMethod": "getProjectBundleCompositionStatus",
       "surface": "stable",
       "input": "Unit",
@@ -323,7 +323,7 @@
       "errors": "RuntimeBridgeError"
     },
     {
-      "manifestName": "unload_world",
+      "manifestName": "unload_project_bundle",
       "facadeMethod": "unloadProjectBundle",
       "surface": "stable",
       "input": "Unit",

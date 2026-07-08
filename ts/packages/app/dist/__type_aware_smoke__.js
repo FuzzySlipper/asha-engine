@@ -1,7 +1,7 @@
 const indexOnly = {};
 export const badIndexSignatureAccess = indexOnly.missing;
 export function missingBoundaryReturnType(bridge) {
-    return bridge.getCompositionStatus();
+    return bridge.getProjectBundleCompositionStatus();
 }
 export function acceptsAny(value) {
     void value;

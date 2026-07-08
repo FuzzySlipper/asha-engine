@@ -329,14 +329,11 @@ summary = "Release a borrowed buffer; outstanding views must be copied out first
 # ── ProjectBundle load/save composition surface (#2363 vocabulary migration) ─
 # Curated, bounded verbs for loading a ProjectBundle into authority, saving the
 # current ProjectBundle/session content, and reading composition status/diagnostics.
-# The manifest operation names still carry the legacy Rust/native ABI vocabulary
-# until the Rust bridge migration lands, but the TypeScript RuntimeBridge facade
-# uses the target ProjectBundle names now. Inputs/outputs are generated protocol
-# types; the runtime never accepts a raw path or JSON blob here.
+# Inputs/outputs are generated protocol types; the runtime never accepts a raw
+# path or JSON blob here.
 
 [[operation]]
-name = "load_world_bundle"
-facade_method = "loadProjectBundle"
+name = "load_project_bundle"
 surface = "stable"
 input = "protocol_world_bundle::WorldBundleManifest"
 output = "protocol_diagnostics::DiagnosticReportSet"
@@ -344,8 +341,7 @@ errors = "RuntimeBridgeError"
 summary = "Load a ProjectBundle into authority via the staged executor. Returns the composition diagnostics (empty == loaded; a fatal report == failed, prior ProjectBundle/session state untouched)."
 
 [[operation]]
-name = "save_current_world"
-facade_method = "saveProjectBundle"
+name = "save_project_bundle"
 surface = "stable"
 input = "Unit"
 output = "protocol_world_bundle::SaveSummary"
@@ -353,8 +349,7 @@ errors = "RuntimeBridgeError"
 summary = "Save the current ProjectBundle/session content through the real save/compaction path. Fails closed with NotInitialized if no ProjectBundle is loaded."
 
 [[operation]]
-name = "get_composition_status"
-facade_method = "getProjectBundleCompositionStatus"
+name = "get_project_bundle_composition_status"
 surface = "stable"
 input = "Unit"
 output = "protocol_diagnostics::DiagnosticReportSet"
@@ -362,8 +357,7 @@ errors = "RuntimeBridgeError"
 summary = "Read the current load/save composition status and diagnostics without mutating authority."
 
 [[operation]]
-name = "unload_world"
-facade_method = "unloadProjectBundle"
+name = "unload_project_bundle"
 surface = "stable"
 input = "Unit"
 output = "Unit"

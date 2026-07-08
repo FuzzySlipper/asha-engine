@@ -90,14 +90,14 @@ impl EnemyDirectNavMovementError {
 }
 
 // PROTOTYPE NOTE: these stand in for the generated
-// `protocol_world_bundle::{WorldBundleManifest, SaveSummary}` /
+// `protocol_world_bundle::{WorldBundleManifest, SaveSummary}` / vocab-allow: legacy protocol crate names remain until #5049.
 // `protocol_diagnostics::DiagnosticReportSet` contract types named in the
 // manifest. The *shape* of the load/save verbs is the stable part.
 
-/// A bounded request to load a world bundle. Identifies the bundle and its
+/// A bounded request to load a ProjectBundle. Identifies the bundle and its
 /// versions; the runtime resolves artifacts itself (never a raw path or JSON).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WorldLoadRequest {
+pub struct ProjectBundleLoadRequest {
     pub bundle_schema_version: u32,
     pub protocol_version: u32,
     /// The scene identity the bundle bootstraps (stand-in for the full manifest).
@@ -107,8 +107,8 @@ pub struct WorldLoadRequest {
 /// A bounded composition status / diagnostics summary (load + save).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CompositionStatus {
-    /// The currently-loaded world's scene identity, or `None` if empty.
-    pub loaded_world: Option<u64>,
+    /// The currently-loaded ProjectBundle scene identity, or `None` if empty.
+    pub loaded_project_bundle: Option<u64>,
     /// Number of `Fatal` composition diagnostics.
     pub fatal_count: u32,
     /// Total composition diagnostics.
@@ -118,10 +118,10 @@ pub struct CompositionStatus {
 }
 
 impl CompositionStatus {
-    /// An empty, clean status (no world loaded, no diagnostics).
+    /// An empty, clean status (no ProjectBundle loaded, no diagnostics).
     pub fn empty() -> Self {
         Self {
-            loaded_world: None,
+            loaded_project_bundle: None,
             fatal_count: 0,
             total_count: 0,
             blocks_load: false,
@@ -131,7 +131,7 @@ impl CompositionStatus {
 
 /// A bounded summary of a save through the real save/compaction path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct WorldSaveSummary {
+pub struct ProjectBundleSaveSummary {
     pub artifacts_written: u32,
     pub compacted_edits: u32,
     pub retained_edits: u32,

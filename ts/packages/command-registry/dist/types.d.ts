@@ -58,7 +58,7 @@ export type ContractRef = {
     readonly package: '@asha/contracts';
     readonly exportName: 'VoxelConversionEvidenceRef';
 };
-export type RuntimeBridgeOperationRef = 'initialize_engine' | 'pick_voxel' | 'select_voxel' | 'submit_commands' | 'read_voxel_mesh_evidence' | 'read_render_diffs' | 'read_model_material_preview' | 'read_scene_object_snapshot' | 'apply_scene_object_command' | 'load_world_bundle' | 'save_current_world' | 'get_composition_status';
+export type RuntimeBridgeOperationRef = 'initialize_engine' | 'pick_voxel' | 'select_voxel' | 'submit_commands' | 'read_voxel_mesh_evidence' | 'read_render_diffs' | 'read_model_material_preview' | 'read_scene_object_snapshot' | 'apply_scene_object_command' | 'load_project_bundle' | 'save_project_bundle' | 'get_project_bundle_composition_status';
 export type RuntimeSessionFacadeMethodRef = 'planVoxelConversion' | 'previewVoxelConversion' | 'applyVoxelConversion' | 'exportVoxelConversionEvidence';
 export type SchemaScalarKind = 'string' | 'number' | 'boolean' | 'integer' | 'state_hash' | 'artifact_ref' | 'null';
 export type SchemaShape = {

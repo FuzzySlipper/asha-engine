@@ -166,9 +166,8 @@ interface NativeFpsEncounterTransitionResult extends NativeFpsEncounterDirectorS
  */
 export interface NativeAddon {
     initializeEngine(seed: number): number;
-    loadWorldBundle(// vocab-allow: legacy native ABI symbol; public facade wraps ProjectBundle load semantics.
-    handle: number, bundleSchemaVersion: number, protocolVersion: number, sceneId: number): {
-        loadedWorld: number | null;
+    loadProjectBundle(handle: number, bundleSchemaVersion: number, protocolVersion: number, sceneId: number): {
+        loadedProjectBundle: number | null;
         fatalCount: number;
         totalCount: number;
         blocksLoad: boolean;
@@ -187,13 +186,13 @@ export interface NativeAddon {
     readFpsEncounterDirector(handle: number, lifecycle: NativeFpsEncounterLifecycleInput): NativeFpsEncounterDirectorSnapshot;
     applyFpsEncounterTransition(handle: number, request: NativeFpsEncounterTransitionRequest): NativeFpsEncounterTransitionResult;
     readRenderDiffs(handle: number, cursor: number): RenderFrameDiff;
-    saveCurrentWorld(handle: number): {
+    saveProjectBundle(handle: number): {
         artifactsWritten: number;
         compactedEdits: number;
         retainedEdits: number;
     };
-    getCompositionStatus(handle: number): {
-        loadedWorld: number | null;
+    getProjectBundleCompositionStatus(handle: number): {
+        loadedProjectBundle: number | null;
         fatalCount: number;
         totalCount: number;
         blocksLoad: boolean;
@@ -209,6 +208,6 @@ export interface NativeAddon {
     saveVoxelVolumeAsset(handle: number, requestJson: string): string;
     loadVoxelVolumeAsset(handle: number, requestJson: string): string;
 }
-export declare const REQUIRED_NATIVE_ADDON_EXPORTS: readonly ["initializeEngine", "loadWorldBundle", "submitCommands", "stepSimulation", "applyEnemyDirectNavMovement", "loadFpsRuntimeSession", "readFpsRuntimeSession", "applyFpsPrimaryFire", "invokeGameExtensionWeaponEffect", "validateGameRuleCatalog", "submitGameRuleEffectIntent", "readGameRuleRuntimeReadout", "restartFpsRuntimeSession", "readFpsEncounterDirector", "applyFpsEncounterTransition", "readRenderDiffs", "saveCurrentWorld", "getCompositionStatus", "planVoxelConversion", "registerVoxelConversionSource", "registerVoxelConversionMeshAsset", "previewVoxelConversion", "applyVoxelConversion", "exportVoxelConversionEvidence", "readVoxelModelInfo", "exportVoxelVolumeAsset", "saveVoxelVolumeAsset", "loadVoxelVolumeAsset"];
+export declare const REQUIRED_NATIVE_ADDON_EXPORTS: readonly ["initializeEngine", "loadProjectBundle", "submitCommands", "stepSimulation", "applyEnemyDirectNavMovement", "loadFpsRuntimeSession", "readFpsRuntimeSession", "applyFpsPrimaryFire", "invokeGameExtensionWeaponEffect", "validateGameRuleCatalog", "submitGameRuleEffectIntent", "readGameRuleRuntimeReadout", "restartFpsRuntimeSession", "readFpsEncounterDirector", "applyFpsEncounterTransition", "readRenderDiffs", "saveProjectBundle", "getProjectBundleCompositionStatus", "planVoxelConversion", "registerVoxelConversionSource", "registerVoxelConversionMeshAsset", "previewVoxelConversion", "applyVoxelConversion", "exportVoxelConversionEvidence", "readVoxelModelInfo", "exportVoxelVolumeAsset", "saveVoxelVolumeAsset", "loadVoxelVolumeAsset"];
 export {};
 //# sourceMappingURL=native-addon.d.ts.map

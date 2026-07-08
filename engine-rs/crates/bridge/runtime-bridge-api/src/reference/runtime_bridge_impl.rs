@@ -1279,9 +1279,12 @@ impl RuntimeBridge for ReferenceBridge {
         self.buffers.dispose(handle)
     }
 
-    fn load_world_bundle(&mut self, request: WorldLoadRequest) -> BridgeResult<CompositionStatus> {
-        // Fail closed on a newer bundle; the prior loaded world is left untouched
-        // (we only mutate `loaded_world` on success — the staged commit/swap).
+    fn load_project_bundle(
+        &mut self,
+        request: ProjectBundleLoadRequest,
+    ) -> BridgeResult<CompositionStatus> {
+        // Fail closed on a newer bundle; the prior loaded ProjectBundle is left untouched
+        // (we only mutate `loaded_project_bundle` on success — the staged commit/swap).
         if request.bundle_schema_version > REFERENCE_SUPPORTED_VERSION
             || request.protocol_version > REFERENCE_SUPPORTED_VERSION
         {
@@ -1293,37 +1296,37 @@ impl RuntimeBridge for ReferenceBridge {
                 ),
             ));
         }
-        self.loaded_world = Some(request.scene_id);
+        self.loaded_project_bundle = Some(request.scene_id);
         Ok(CompositionStatus {
-            loaded_world: Some(request.scene_id),
+            loaded_project_bundle: Some(request.scene_id),
             ..CompositionStatus::empty()
         })
     }
 
-    fn save_current_world(&mut self) -> BridgeResult<WorldSaveSummary> {
-        if self.loaded_world.is_none() {
+    fn save_project_bundle(&mut self) -> BridgeResult<ProjectBundleSaveSummary> {
+        if self.loaded_project_bundle.is_none() {
             return Err(RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
-                "save_current_world called with no world loaded",
+                "save_project_bundle called with no ProjectBundle loaded",
             ));
         }
         // Deterministic stand-in for the real save/compaction summary.
-        Ok(WorldSaveSummary {
+        Ok(ProjectBundleSaveSummary {
             artifacts_written: 3,
             compacted_edits: 0,
             retained_edits: 0,
         })
     }
 
-    fn get_composition_status(&self) -> BridgeResult<CompositionStatus> {
+    fn get_project_bundle_composition_status(&self) -> BridgeResult<CompositionStatus> {
         Ok(CompositionStatus {
-            loaded_world: self.loaded_world,
+            loaded_project_bundle: self.loaded_project_bundle,
             ..CompositionStatus::empty()
         })
     }
 
-    fn unload_world(&mut self) -> BridgeResult<()> {
-        self.loaded_world = None;
+    fn unload_project_bundle(&mut self) -> BridgeResult<()> {
+        self.loaded_project_bundle = None;
         Ok(())
     }
 }

@@ -9,7 +9,7 @@ function writeStaleAddonModule() {
     const modulePath = join(dir, 'stale-native-addon.cjs');
     writeFileSync(modulePath, `module.exports = {
       initializeEngine() {},
-      loadWorldBundle() {}, // vocab-allow: stale native-addon fixture must name the legacy bridge operation.
+      loadProjectBundle() {},
       submitCommands() {},
       stepSimulation() {},
       applyEnemyDirectNavMovement() {},
@@ -18,8 +18,8 @@ function writeStaleAddonModule() {
       applyFpsPrimaryFire() {},
       restartFpsRuntimeSession() {},
       readRenderDiffs() {},
-      saveCurrentWorld() {},
-      getCompositionStatus() {}
+      saveProjectBundle() {},
+      getProjectBundleCompositionStatus() {}
     };`);
     return modulePath;
 }

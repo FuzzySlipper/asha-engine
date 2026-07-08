@@ -168,13 +168,13 @@ interface NativeFpsEncounterTransitionResult extends NativeFpsEncounterDirectorS
  */
 export interface NativeAddon {
   initializeEngine(seed: number): number;
-  loadWorldBundle( // vocab-allow: legacy native ABI symbol; public facade wraps ProjectBundle load semantics.
+  loadProjectBundle(
     handle: number,
     bundleSchemaVersion: number,
     protocolVersion: number,
     sceneId: number,
   ): {
-    loadedWorld: number | null;
+    loadedProjectBundle: number | null;
     fatalCount: number;
     totalCount: number;
     blocksLoad: boolean;
@@ -221,13 +221,13 @@ export interface NativeAddon {
     request: NativeFpsEncounterTransitionRequest,
   ): NativeFpsEncounterTransitionResult;
   readRenderDiffs(handle: number, cursor: number): RenderFrameDiff;
-  saveCurrentWorld(handle: number): {
+  saveProjectBundle(handle: number): {
     artifactsWritten: number;
     compactedEdits: number;
     retainedEdits: number;
   };
-  getCompositionStatus(handle: number): {
-    loadedWorld: number | null;
+  getProjectBundleCompositionStatus(handle: number): {
+    loadedProjectBundle: number | null;
     fatalCount: number;
     totalCount: number;
     blocksLoad: boolean;
@@ -246,7 +246,7 @@ export interface NativeAddon {
 
 export const REQUIRED_NATIVE_ADDON_EXPORTS = [
   'initializeEngine',
-  'loadWorldBundle', // vocab-allow: legacy native ABI symbol; public facade wraps ProjectBundle load semantics.
+  'loadProjectBundle',
   'submitCommands',
   'stepSimulation',
   'applyEnemyDirectNavMovement',
@@ -261,8 +261,8 @@ export const REQUIRED_NATIVE_ADDON_EXPORTS = [
   'readFpsEncounterDirector',
   'applyFpsEncounterTransition',
   'readRenderDiffs',
-  'saveCurrentWorld',
-  'getCompositionStatus',
+  'saveProjectBundle',
+  'getProjectBundleCompositionStatus',
   'planVoxelConversion',
   'registerVoxelConversionSource',
   'registerVoxelConversionMeshAsset',

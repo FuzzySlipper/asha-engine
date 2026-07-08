@@ -13,7 +13,7 @@ function writeStaleAddonModule(): string {
     modulePath,
     `module.exports = {
       initializeEngine() {},
-      loadWorldBundle() {}, // vocab-allow: stale native-addon fixture must name the legacy bridge operation.
+      loadProjectBundle() {},
       submitCommands() {},
       stepSimulation() {},
       applyEnemyDirectNavMovement() {},
@@ -22,8 +22,8 @@ function writeStaleAddonModule(): string {
       applyFpsPrimaryFire() {},
       restartFpsRuntimeSession() {},
       readRenderDiffs() {},
-      saveCurrentWorld() {},
-      getCompositionStatus() {}
+      saveProjectBundle() {},
+      getProjectBundleCompositionStatus() {}
     };`,
   );
   return modulePath;

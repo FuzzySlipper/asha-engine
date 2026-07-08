@@ -95,7 +95,7 @@ import {
  */
 export const NATIVE_WIRED_OPERATIONS: ReadonlySet<string> = new Set<string>([
   'initialize_engine',
-  'load_world_bundle', // vocab-allow: raw Rust/native manifest operation remains until #5048.
+  'load_project_bundle',
   'submit_commands',
   'step_simulation',
   'apply_enemy_direct_nav_movement',
@@ -120,8 +120,8 @@ export const NATIVE_WIRED_OPERATIONS: ReadonlySet<string> = new Set<string>([
   'save_voxel_volume_asset',
   'load_voxel_volume_asset',
   'read_render_diffs',
-  'save_current_world',
-  'get_composition_status',
+  'save_project_bundle',
+  'get_project_bundle_composition_status',
 ]);
 
 function nativeUnimplemented(manifestName: string): RuntimeBridgeError {
@@ -170,7 +170,7 @@ function parseNativeJson<T>(payload: string, field: string): T {
 }
 
 interface NativeProjectBundleCompositionStatus {
-  readonly loadedWorld: number | null; // vocab-allow: raw native payload field remains until #5048.
+  readonly loadedProjectBundle: number | null;
   readonly fatalCount: number;
   readonly totalCount: number;
   readonly blocksLoad: boolean;
@@ -180,7 +180,7 @@ function projectBundleCompositionStatusFromNative(
   status: NativeProjectBundleCompositionStatus,
 ): CompositionStatus {
   return {
-    loadedProjectBundle: status.loadedWorld, // vocab-allow: raw native payload field remains until #5048.
+    loadedProjectBundle: status.loadedProjectBundle,
     fatalCount: status.fatalCount,
     totalCount: status.totalCount,
     blocksLoad: status.blocksLoad,
@@ -422,7 +422,7 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     const protocolVersion = u32(request.protocolVersion, 'protocolVersion');
     const sceneId = nonNegativeSafeInteger(request.sceneId, 'sceneId');
     const status = callNative(() =>
-      this.#addon.loadWorldBundle(handle, bundleSchemaVersion, protocolVersion, sceneId), // vocab-allow: raw native addon symbol remains until #5048.
+      this.#addon.loadProjectBundle(handle, bundleSchemaVersion, protocolVersion, sceneId),
     );
     return projectBundleCompositionStatusFromNative(status);
   }
@@ -628,12 +628,12 @@ export class NativeRuntimeBridge implements RuntimeBridge {
 
   saveProjectBundle(): ProjectBundleSaveSummary {
     const handle = this.#requireHandle('saveProjectBundle');
-    return callNative(() => this.#addon.saveCurrentWorld(handle) as ProjectBundleSaveSummary);
+    return callNative(() => this.#addon.saveProjectBundle(handle) as ProjectBundleSaveSummary);
   }
 
   getProjectBundleCompositionStatus(): CompositionStatus {
     const handle = this.#requireHandle('getProjectBundleCompositionStatus');
-    const status = callNative(() => this.#addon.getCompositionStatus(handle));
+    const status = callNative(() => this.#addon.getProjectBundleCompositionStatus(handle));
     return projectBundleCompositionStatusFromNative(status);
   }
 
@@ -747,7 +747,7 @@ export class NativeRuntimeBridge implements RuntimeBridge {
   }
 
   unloadProjectBundle(): void {
-    throw nativeUnimplemented('unload_world');
+    throw nativeUnimplemented('unload_project_bundle');
   }
 
   loadReplayFixture(): ReplaySessionHandle {

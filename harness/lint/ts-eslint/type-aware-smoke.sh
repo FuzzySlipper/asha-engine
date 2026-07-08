@@ -20,7 +20,7 @@ const indexOnly: Record<string, string> = {};
 export const badIndexSignatureAccess: string | undefined = indexOnly.missing;
 
 export function missingBoundaryReturnType(bridge: RuntimeBridge) {
-  return bridge.getCompositionStatus();
+  return bridge.getProjectBundleCompositionStatus();
 }
 
 export function acceptsAny(value: any): void {

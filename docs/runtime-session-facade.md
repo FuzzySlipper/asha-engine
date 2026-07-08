@@ -118,7 +118,7 @@ Evidence lanes:
 
 ## Runtime Vocabulary
 
-The public facade uses `RuntimeSession` and `ProjectBundle` vocabulary. Internally, the current bridge still wraps older WorldBundle-shaped DTOs for compatibility (`WorldLoadRequest`), as documented in `docs/vocabulary-compatibility.md`.
+The public facade and bridge/native operation names use `RuntimeSession` and `ProjectBundle` vocabulary. The remaining legacy bundle vocabulary is in the protocol crate/wire DTO lane, as documented in `docs/vocabulary-compatibility.md`.
 
 ## Non-Claims
 

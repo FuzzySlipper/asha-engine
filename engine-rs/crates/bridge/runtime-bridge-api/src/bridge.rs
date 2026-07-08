@@ -173,14 +173,18 @@ pub trait RuntimeBridge {
     fn get_buffer(&self, handle: RuntimeBufferHandle) -> BridgeResult<RuntimeBufferView<'_>>;
     fn release_buffer(&mut self, handle: RuntimeBufferHandle) -> BridgeResult<()>;
 
-    // ── World load/save composition (#2363) ──
-    /// Load a world bundle into authority. Fails closed (and leaves any prior
-    /// world untouched) on an unsupported version.
-    fn load_world_bundle(&mut self, request: WorldLoadRequest) -> BridgeResult<CompositionStatus>;
-    /// Save the current world. Fails closed with `NotInitialized` if none loaded.
-    fn save_current_world(&mut self) -> BridgeResult<WorldSaveSummary>;
+    // ── ProjectBundle load/save composition (#2363) ──
+    /// Load a ProjectBundle into authority. Fails closed (and leaves any prior
+    /// RuntimeSession untouched) on an unsupported version.
+    fn load_project_bundle(
+        &mut self,
+        request: ProjectBundleLoadRequest,
+    ) -> BridgeResult<CompositionStatus>;
+    /// Save the current ProjectBundle/session content. Fails closed with
+    /// `NotInitialized` if none loaded.
+    fn save_project_bundle(&mut self) -> BridgeResult<ProjectBundleSaveSummary>;
     /// Read composition status/diagnostics without mutating authority.
-    fn get_composition_status(&self) -> BridgeResult<CompositionStatus>;
-    /// Unload the staged/live world, returning to an empty runtime.
-    fn unload_world(&mut self) -> BridgeResult<()>;
+    fn get_project_bundle_composition_status(&self) -> BridgeResult<CompositionStatus>;
+    /// Unload the staged/live ProjectBundle, returning to an empty runtime.
+    fn unload_project_bundle(&mut self) -> BridgeResult<()>;
 }

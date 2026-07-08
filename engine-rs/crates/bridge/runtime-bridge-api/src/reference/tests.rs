@@ -13,10 +13,16 @@ fn step_before_init_is_typed_error() {
 #[test]
 fn save_before_load_fails_closed() {
     let mut bridge = ReferenceBridge::new();
-    let err = bridge.save_current_world().unwrap_err();
+    let err = bridge.save_project_bundle().unwrap_err();
     assert_eq!(err.kind, RuntimeBridgeErrorKind::NotInitialized);
-    // And status reflects no loaded world.
-    assert_eq!(bridge.get_composition_status().unwrap().loaded_world, None);
+    // And status reflects no loaded ProjectBundle.
+    assert_eq!(
+        bridge
+            .get_project_bundle_composition_status()
+            .unwrap()
+            .loaded_project_bundle,
+        None
+    );
 }
 
 #[test]
@@ -185,28 +191,37 @@ fn camera_view_surface_round_trips_and_fails_closed() {
 fn load_save_status_unload_round_trip() {
     let mut bridge = ReferenceBridge::new();
     let status = bridge
-        .load_world_bundle(WorldLoadRequest {
+        .load_project_bundle(ProjectBundleLoadRequest {
             bundle_schema_version: 1,
             protocol_version: 1,
             scene_id: 100,
         })
         .unwrap();
-    assert_eq!(status.loaded_world, Some(100));
+    assert_eq!(status.loaded_project_bundle, Some(100));
     assert!(!status.blocks_load);
 
-    let save = bridge.save_current_world().unwrap();
+    let save = bridge.save_project_bundle().unwrap();
     assert_eq!(save.artifacts_written, 3);
 
     assert_eq!(
-        bridge.get_composition_status().unwrap().loaded_world,
+        bridge
+            .get_project_bundle_composition_status()
+            .unwrap()
+            .loaded_project_bundle,
         Some(100)
     );
 
-    bridge.unload_world().unwrap();
-    assert_eq!(bridge.get_composition_status().unwrap().loaded_world, None);
+    bridge.unload_project_bundle().unwrap();
+    assert_eq!(
+        bridge
+            .get_project_bundle_composition_status()
+            .unwrap()
+            .loaded_project_bundle,
+        None
+    );
     // Save after unload fails closed again.
     assert_eq!(
-        bridge.save_current_world().unwrap_err().kind,
+        bridge.save_project_bundle().unwrap_err().kind,
         RuntimeBridgeErrorKind::NotInitialized
     );
 }
@@ -214,17 +229,17 @@ fn load_save_status_unload_round_trip() {
 #[test]
 fn load_unsupported_version_fails_closed_without_mutating() {
     let mut bridge = ReferenceBridge::new();
-    // Load a valid world first.
+    // Load a valid ProjectBundle first.
     bridge
-        .load_world_bundle(WorldLoadRequest {
+        .load_project_bundle(ProjectBundleLoadRequest {
             bundle_schema_version: 1,
             protocol_version: 1,
             scene_id: 7,
         })
         .unwrap();
-    // A too-new bundle is rejected and must NOT replace the loaded world.
+    // A too-new bundle is rejected and must NOT replace the loaded ProjectBundle.
     let err = bridge
-        .load_world_bundle(WorldLoadRequest {
+        .load_project_bundle(ProjectBundleLoadRequest {
             bundle_schema_version: 99,
             protocol_version: 1,
             scene_id: 8,
@@ -232,9 +247,12 @@ fn load_unsupported_version_fails_closed_without_mutating() {
         .unwrap_err();
     assert_eq!(err.kind, RuntimeBridgeErrorKind::InvalidInput);
     assert_eq!(
-        bridge.get_composition_status().unwrap().loaded_world,
+        bridge
+            .get_project_bundle_composition_status()
+            .unwrap()
+            .loaded_project_bundle,
         Some(7),
-        "a failed load must not swap out the prior world"
+        "a failed load must not swap out the prior ProjectBundle"
     );
 }
 

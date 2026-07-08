@@ -116,9 +116,9 @@ export type RuntimeBridgeOperationRef =
   | 'read_model_material_preview'
   | 'read_scene_object_snapshot'
   | 'apply_scene_object_command'
-  | 'load_world_bundle'
-  | 'save_current_world'
-  | 'get_composition_status';
+  | 'load_project_bundle'
+  | 'save_project_bundle'
+  | 'get_project_bundle_composition_status';
 
 export type RuntimeSessionFacadeMethodRef =
   | 'planVoxelConversion'

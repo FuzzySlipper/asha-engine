@@ -1,6 +1,6 @@
 export const REQUIRED_NATIVE_ADDON_EXPORTS = [
     'initializeEngine',
-    'loadWorldBundle', // vocab-allow: legacy native ABI symbol; public facade wraps ProjectBundle load semantics.
+    'loadProjectBundle',
     'submitCommands',
     'stepSimulation',
     'applyEnemyDirectNavMovement',
@@ -15,8 +15,8 @@ export const REQUIRED_NATIVE_ADDON_EXPORTS = [
     'readFpsEncounterDirector',
     'applyFpsEncounterTransition',
     'readRenderDiffs',
-    'saveCurrentWorld',
-    'getCompositionStatus',
+    'saveProjectBundle',
+    'getProjectBundleCompositionStatus',
     'planVoxelConversion',
     'registerVoxelConversionSource',
     'registerVoxelConversionMeshAsset',

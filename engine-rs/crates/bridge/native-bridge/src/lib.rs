@@ -23,14 +23,14 @@ use runtime_bridge_api::{
     FpsEncounterDirectorSnapshot, FpsEncounterLifecycleInput, FpsEncounterStateReadout,
     FpsEncounterTransitionRequest, FpsEncounterTransitionResult, FpsPrimaryFireRequest,
     FpsPrimaryFireResult, FpsRuntimeSessionLoadRequest, FpsRuntimeSessionRestartRequest,
-    FpsRuntimeSessionSnapshot, GameExtensionWeaponEffectInvocationRequest, GameRuleModuleManifest,
-    GameRuleCatalog, GameRuleEffectIntentRequest, GameRuleResolutionRequest, ReferenceBridge,
-    RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind, StepInputEnvelope,
-    VoxelConversionApplyRequest, VoxelConversionEvidenceRef,
-    VoxelConversionMeshAssetRegistrationRequest, VoxelConversionPlanRequest,
-    VoxelConversionPreviewRequest, VoxelConversionSourceRegistrationRequest,
-    VoxelModelInfoRequest, VoxelVolumeAssetExportRequest, VoxelVolumeAssetLoadRequest,
-    VoxelVolumeAssetSaveRequest, WeaponEffectHookRequest, WorldLoadRequest,
+    FpsRuntimeSessionSnapshot, GameExtensionWeaponEffectInvocationRequest, GameRuleCatalog,
+    GameRuleEffectIntentRequest, GameRuleModuleManifest, GameRuleResolutionRequest,
+    ProjectBundleLoadRequest, ReferenceBridge, RuntimeBridge, RuntimeBridgeError,
+    RuntimeBridgeErrorKind, StepInputEnvelope, VoxelConversionApplyRequest,
+    VoxelConversionEvidenceRef, VoxelConversionMeshAssetRegistrationRequest,
+    VoxelConversionPlanRequest, VoxelConversionPreviewRequest,
+    VoxelConversionSourceRegistrationRequest, VoxelModelInfoRequest, VoxelVolumeAssetExportRequest,
+    VoxelVolumeAssetLoadRequest, VoxelVolumeAssetSaveRequest, WeaponEffectHookRequest,
 };
 use serde::{Deserialize, Serialize};
 
@@ -116,7 +116,7 @@ fn u64_input(value: i64, field: &str) -> napi::Result<u64> {
 
 #[napi(object)]
 pub struct NativeCompositionStatus {
-    pub loaded_world: Option<i64>,
+    pub loaded_project_bundle: Option<i64>,
     pub fatal_count: u32,
     pub total_count: u32,
     pub blocks_load: bool,
@@ -125,7 +125,7 @@ pub struct NativeCompositionStatus {
 impl From<runtime_bridge_api::CompositionStatus> for NativeCompositionStatus {
     fn from(value: runtime_bridge_api::CompositionStatus) -> Self {
         Self {
-            loaded_world: value.loaded_world.map(|v| v as i64),
+            loaded_project_bundle: value.loaded_project_bundle.map(|v| v as i64),
             fatal_count: value.fatal_count,
             total_count: value.total_count,
             blocks_load: value.blocks_load,
@@ -160,14 +160,14 @@ pub struct NativeRenderFrameDiff {
 }
 
 #[napi(object)]
-pub struct NativeWorldSaveSummary {
+pub struct NativeProjectBundleSaveSummary {
     pub artifacts_written: u32,
     pub compacted_edits: u32,
     pub retained_edits: u32,
 }
 
-impl From<runtime_bridge_api::WorldSaveSummary> for NativeWorldSaveSummary {
-    fn from(value: runtime_bridge_api::WorldSaveSummary) -> Self {
+impl From<runtime_bridge_api::ProjectBundleSaveSummary> for NativeProjectBundleSaveSummary {
+    fn from(value: runtime_bridge_api::ProjectBundleSaveSummary) -> Self {
         Self {
             artifacts_written: value.artifacts_written,
             compacted_edits: value.compacted_edits,
@@ -952,7 +952,7 @@ pub fn initialize_engine(seed: i64) -> napi::Result<i64> {
 }
 
 #[napi]
-pub fn load_world_bundle(
+pub fn load_project_bundle(
     handle: i64,
     bundle_schema_version: i64,
     protocol_version: i64,
@@ -963,7 +963,7 @@ pub fn load_world_bundle(
     let scene_id = u64_input(scene_id, "scene_id")?;
     with_bridge(handle, |bridge| {
         bridge
-            .load_world_bundle(WorldLoadRequest {
+            .load_project_bundle(ProjectBundleLoadRequest {
                 bundle_schema_version,
                 protocol_version,
                 scene_id,
@@ -1212,20 +1212,20 @@ pub fn read_render_diffs(handle: i64, _cursor: i64) -> napi::Result<NativeRender
 }
 
 #[napi]
-pub fn save_current_world(handle: i64) -> napi::Result<NativeWorldSaveSummary> {
+pub fn save_project_bundle(handle: i64) -> napi::Result<NativeProjectBundleSaveSummary> {
     with_bridge(handle, |bridge| {
         bridge
-            .save_current_world()
-            .map(NativeWorldSaveSummary::from)
+            .save_project_bundle()
+            .map(NativeProjectBundleSaveSummary::from)
             .map_err(to_napi)
     })
 }
 
 #[napi]
-pub fn get_composition_status(handle: i64) -> napi::Result<NativeCompositionStatus> {
+pub fn get_project_bundle_composition_status(handle: i64) -> napi::Result<NativeCompositionStatus> {
     with_bridge(handle, |bridge| {
         bridge
-            .get_composition_status()
+            .get_project_bundle_composition_status()
             .map(NativeCompositionStatus::from)
             .map_err(to_napi)
     })
@@ -1355,11 +1355,11 @@ mod tests {
         "applyVoxelConversion",
         "exportVoxelConversionEvidence",
         "exportVoxelVolumeAsset",
-        "getCompositionStatus",
+        "getProjectBundleCompositionStatus",
         "initializeEngine",
         "invokeGameExtensionWeaponEffect",
         "loadVoxelVolumeAsset",
-        "loadWorldBundle",
+        "loadProjectBundle",
         "loadFpsRuntimeSession",
         "planVoxelConversion",
         "readFpsEncounterDirector",
@@ -1369,7 +1369,7 @@ mod tests {
         "registerVoxelConversionSource",
         "registerVoxelConversionMeshAsset",
         "restartFpsRuntimeSession",
-        "saveCurrentWorld",
+        "saveProjectBundle",
         "saveVoxelVolumeAsset",
         "stepSimulation",
         "submitCommands",
@@ -1386,11 +1386,11 @@ mod tests {
                 "applyVoxelConversion",
                 "exportVoxelConversionEvidence",
                 "exportVoxelVolumeAsset",
-                "getCompositionStatus",
+                "getProjectBundleCompositionStatus",
                 "initializeEngine",
                 "invokeGameExtensionWeaponEffect",
                 "loadVoxelVolumeAsset",
-                "loadWorldBundle",
+                "loadProjectBundle",
                 "loadFpsRuntimeSession",
                 "planVoxelConversion",
                 "readFpsEncounterDirector",
@@ -1400,7 +1400,7 @@ mod tests {
                 "registerVoxelConversionSource",
                 "registerVoxelConversionMeshAsset",
                 "restartFpsRuntimeSession",
-                "saveCurrentWorld",
+                "saveProjectBundle",
                 "saveVoxelVolumeAsset",
                 "stepSimulation",
                 "submitCommands",
@@ -1513,8 +1513,8 @@ mod tests {
         let handle = initialize_engine(7).expect("engine initializes");
         assert!(handle > 0);
 
-        let loaded = load_world_bundle(handle, 1, 1, 1001).expect("world loads");
-        assert_eq!(loaded.loaded_world, Some(1001));
+        let loaded = load_project_bundle(handle, 1, 1, 1001).expect("ProjectBundle loads");
+        assert_eq!(loaded.loaded_project_bundle, Some(1001));
         assert_eq!(loaded.fatal_count, 0);
         assert_eq!(loaded.total_count, 0);
         assert!(!loaded.blocks_load);
@@ -1605,23 +1605,23 @@ mod tests {
         let frame = read_render_diffs(handle, 0).expect("render diff read is bounded");
         assert!(frame.ops.is_empty());
 
-        let saved = save_current_world(handle).expect("world saves");
+        let saved = save_project_bundle(handle).expect("ProjectBundle saves");
         assert_eq!(saved.artifacts_written, 3);
         assert_eq!(saved.compacted_edits, 0);
         assert_eq!(saved.retained_edits, 0);
 
-        let status = get_composition_status(handle).expect("composition reads");
-        assert_eq!(status.loaded_world, Some(1001));
+        let status = get_project_bundle_composition_status(handle).expect("composition reads");
+        assert_eq!(status.loaded_project_bundle, Some(1001));
         assert_eq!(status.fatal_count, 0);
     }
 
     #[test]
     fn native_bridge_rejects_invalid_inputs_without_fallback() {
         assert!(initialize_engine(-1).is_err());
-        assert!(get_composition_status(-99).is_err());
+        assert!(get_project_bundle_composition_status(-99).is_err());
 
         let handle = initialize_engine(11).expect("engine initializes");
-        assert!(load_world_bundle(handle, -1, 1, 1001).is_err());
+        assert!(load_project_bundle(handle, -1, 1, 1001).is_err());
         assert!(step_simulation(handle, -1).is_err());
         assert!(submit_commands(handle, r#"[{"op":"deleteEverything"}]"#.to_string()).is_err());
     }
