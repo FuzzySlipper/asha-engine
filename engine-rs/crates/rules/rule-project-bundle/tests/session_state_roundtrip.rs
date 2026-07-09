@@ -294,6 +294,7 @@ fn voxel_edit_and_entity_change_survive_the_same_save() {
             LoadStep::ApplyVoxelEdits {
                 edit_logs: vec!["voxel/edits.log".into()],
                 snapshots: vec![],
+                histories: vec![],
             },
             LoadStep::BootstrapScene {
                 scene: SceneId::new(100),

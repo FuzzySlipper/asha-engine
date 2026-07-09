@@ -133,6 +133,7 @@ fn with_voxel_stage(
         LoadStep::ApplyVoxelEdits {
             edit_logs,
             snapshots,
+            histories: Vec::new(),
         },
     );
     LoadPlan { steps }

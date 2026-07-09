@@ -32,7 +32,11 @@ use protocol_voxel_annotation::{
 use svc_serialization::{LoadPlan, LoadPlanError, LoadStage, LoadStep};
 use svc_spatial::VoxelWorld;
 
+use rule_voxel_edit::history::{
+    decode_project_bundle_history_with_material_hash, VoxelEditHistory,
+};
 use rule_voxel_edit::persist::{decode_edit_log, replay_edit_log};
+use rule_voxel_edit::voxel_world_hash;
 
 use crate::compose::{reconstruct, ChunkSnapshotArtifact, CompactedVoxelSave};
 
@@ -65,6 +69,13 @@ pub trait ArtifactSource {
     fn voxel_volume_data_hash(&self, _asset_id: &str) -> Option<&str> {
         None
     }
+
+    /// The material catalog hash associated with persisted voxel edit history.
+    /// History load fails closed when a history artifact is present and this
+    /// hash is absent or differs from the artifact header.
+    fn voxel_material_catalog_hash(&self) -> Option<&str> {
+        None
+    }
 }
 
 /// A simple in-memory artifact source: a map of bundle-relative path → text,
@@ -75,6 +86,7 @@ pub struct BundleArtifacts {
     texts: BTreeMap<String, String>,
     voxel_spec: Option<VoxelGridSpec>,
     voxel_volume_data_hashes: BTreeMap<String, String>,
+    voxel_material_catalog_hash: Option<String>,
 }
 
 impl BundleArtifacts {
@@ -106,6 +118,12 @@ impl BundleArtifacts {
             .insert(asset_id.into(), voxel_data_hash.into());
         self
     }
+
+    /// Declare the material catalog hash expected by voxel edit history.
+    pub fn with_voxel_material_catalog_hash(mut self, hash: impl Into<String>) -> Self {
+        self.voxel_material_catalog_hash = Some(hash.into());
+        self
+    }
 }
 
 impl ArtifactSource for BundleArtifacts {
@@ -121,6 +139,10 @@ impl ArtifactSource for BundleArtifacts {
         self.voxel_volume_data_hashes
             .get(asset_id)
             .map(String::as_str)
+    }
+
+    fn voxel_material_catalog_hash(&self) -> Option<&str> {
+        self.voxel_material_catalog_hash.as_deref()
     }
 }
 
@@ -147,6 +169,9 @@ pub struct ProjectBundleLoadResult {
     pub runtime_entities: Option<EntityStore>,
     /// Voxel authority, when the bundle carried a voxel section.
     pub voxel: Option<VoxelWorld>,
+    /// Voxel edit history/cursor authority, when the bundle carried a history
+    /// artifact alongside the voxel section.
+    pub voxel_history: Option<VoxelEditHistory>,
     /// Validated semantic annotation layers loaded from ProjectBundle artifacts.
     /// These are stored metadata/readout layers over target voxel-volume assets;
     /// they do not mutate voxel occupancy authority.
@@ -177,6 +202,16 @@ impl ProjectBundleLoadResult {
             "voxelAnnotations count={}\n",
             self.voxel_annotations.len()
         ));
+        match &self.voxel_history {
+            Some(history) => out.push_str(&format!(
+                "voxelHistory cursor={} undoDepth={} redoDepth={} worldHash={:016x}\n",
+                history.cursor().index,
+                history.cursor().undo_depth,
+                history.cursor().redo_depth,
+                history.current_world_hash()
+            )),
+            None => out.push_str("voxelHistory none\n"),
+        }
         match &self.runtime_entities {
             Some(store) => out.push_str(&format!(
                 "runtimeEntities count={} entityHash={:016x}\n",
@@ -225,6 +260,8 @@ pub enum LoadExecutionError {
     VoxelSpecMissing,
     /// Voxel replay/reconstruction rejected the edits.
     VoxelReplay { detail: String },
+    /// A voxel history artifact failed to decode or did not match loaded voxel state.
+    VoxelHistory { path: String, detail: String },
     /// A voxel annotation artifact failed to decode structurally.
     VoxelAnnotationDecode { path: String, detail: String },
     /// A voxel annotation layer targets a voxel-volume asset this source did not
@@ -314,6 +351,7 @@ pub fn execute_load_plan(
     let mut stages = Vec::new();
     let mut scene_doc: Option<FlatSceneDocument> = None;
     let mut voxel_state: Option<VoxelWorld> = None;
+    let mut voxel_history: Option<VoxelEditHistory> = None;
     let mut voxel_annotations: Vec<VoxelAnnotationLayer> = Vec::new();
     let mut spatial_session_and_record: Option<(SpatialSessionState, BootstrapRecord)> = None;
     let mut runtime_entities: Option<EntityStore> = None;
@@ -391,16 +429,20 @@ pub fn execute_load_plan(
             LoadStep::ApplyVoxelEdits {
                 edit_logs,
                 snapshots,
+                histories,
             } => {
-                let world = apply_voxel_section(artifacts, edit_logs, snapshots)?;
+                let (world, history) =
+                    apply_voxel_section(artifacts, edit_logs, snapshots, histories)?;
                 let applied = world.is_some();
                 voxel_state = world;
+                voxel_history = history;
                 stages.push(StageOutcome {
                     stage: LoadStage::VoxelEdits,
                     detail: format!(
-                        "editLogs={} snapshots={} applied={applied}",
+                        "editLogs={} snapshots={} histories={} applied={applied}",
                         edit_logs.len(),
-                        snapshots.len()
+                        snapshots.len(),
+                        histories.len()
                     ),
                 });
             }
@@ -522,6 +564,7 @@ pub fn execute_load_plan(
         spatial_session,
         runtime_entities,
         voxel: voxel_state,
+        voxel_history,
         voxel_annotations,
         bootstrap,
         spatial_session_hash,
@@ -556,9 +599,10 @@ fn apply_voxel_section(
     artifacts: &dyn ArtifactSource,
     edit_logs: &[String],
     snapshots: &[String],
-) -> Result<Option<VoxelWorld>, LoadExecutionError> {
-    if edit_logs.is_empty() && snapshots.is_empty() {
-        return Ok(None);
+    histories: &[String],
+) -> Result<(Option<VoxelWorld>, Option<VoxelEditHistory>), LoadExecutionError> {
+    if edit_logs.is_empty() && snapshots.is_empty() && histories.is_empty() {
+        return Ok((None, None));
     }
     // The voxel spec is bundle metadata; a voxel section without it is a load
     // failure rather than a guess.
@@ -589,6 +633,20 @@ fn apply_voxel_section(
         retained.extend(events);
     }
 
+    let history_base_world = if snapshot_artifacts.is_empty() {
+        VoxelWorld::new(spec)
+    } else {
+        let save = CompactedVoxelSave {
+            snapshots: snapshot_artifacts.clone(),
+            retained_edits: Vec::new(),
+            retained_log_text: String::new(),
+            compacted_edits: 0,
+        };
+        reconstruct(spec, &save).map_err(|e| LoadExecutionError::VoxelReplay {
+            detail: format!("{e:?}"),
+        })?
+    };
+
     let voxel_authority = if snapshot_artifacts.is_empty() {
         // Pure edit-log replay (chunks are created by ChunkGenerated events).
         replay_edit_log(spec, &retained).map_err(|e| LoadExecutionError::VoxelReplay {
@@ -605,7 +663,50 @@ fn apply_voxel_section(
             detail: format!("{e:?}"),
         })?
     };
-    Ok(Some(voxel_authority))
+
+    let history = load_voxel_history(artifacts, histories, history_base_world, &voxel_authority)?;
+    Ok((Some(voxel_authority), history))
+}
+
+fn load_voxel_history(
+    artifacts: &dyn ArtifactSource,
+    histories: &[String],
+    base_world: VoxelWorld,
+    voxel_authority: &VoxelWorld,
+) -> Result<Option<VoxelEditHistory>, LoadExecutionError> {
+    if histories.is_empty() {
+        return Ok(None);
+    }
+    if histories.len() > 1 {
+        return Err(LoadExecutionError::VoxelHistory {
+            path: histories.join(","),
+            detail: "multiple voxel history artifacts are not supported yet".into(),
+        });
+    }
+    let path = &histories[0];
+    let text = read_required(artifacts, LoadStage::VoxelEdits, path)?;
+    let material_hash = artifacts.voxel_material_catalog_hash().ok_or_else(|| {
+        LoadExecutionError::VoxelHistory {
+            path: path.clone(),
+            detail: "voxel history requires an expected material catalog hash".into(),
+        }
+    })?;
+    let history = decode_project_bundle_history_with_material_hash(text, base_world, material_hash)
+        .map_err(|detail| LoadExecutionError::VoxelHistory {
+            path: path.clone(),
+            detail,
+        })?;
+    let expected = voxel_world_hash(voxel_authority);
+    let actual = history.current_world_hash();
+    if expected != actual {
+        return Err(LoadExecutionError::VoxelHistory {
+            path: path.clone(),
+            detail: format!(
+                "history current voxel hash {actual:016x} does not match loaded voxel hash {expected:016x}"
+            ),
+        });
+    }
+    Ok(Some(history))
 }
 
 fn load_voxel_annotations(

@@ -25,7 +25,9 @@ pub mod regen;
 pub mod session_state;
 
 pub use compose::{
-    compact_voxel_save, reconstruct, voxel_save_plan, ChunkSnapshotArtifact, CompactedVoxelSave,
+    compact_voxel_save, compose_voxel_edit_history_artifact, reconstruct, voxel_save_plan,
+    voxel_save_plan_with_history, ChunkSnapshotArtifact, CompactedVoxelSave,
+    VoxelEditHistoryArtifact,
 };
 pub use durability::{
     build_durability_evidence, voxel_state_fingerprint, DurabilityError, DurabilityEvidence,

@@ -1,7 +1,7 @@
 import type { ProjectId, RuntimeSessionId, SceneId } from './scene.js';
 import type { VoxelCoord, VoxelValue } from './voxel.js';
 export type ArtifactClass = 'durable' | 'generated' | 'cache';
-export type KnownArtifactRole = 'sceneDocument' | 'assetLock' | 'sessionStateSnapshot' | 'voxelChunkSnapshot' | 'voxelEditLog' | 'voxelAnnotationLayer' | 'replayRecord' | 'generatedMetadata' | 'cache';
+export type KnownArtifactRole = 'sceneDocument' | 'assetLock' | 'sessionStateSnapshot' | 'voxelChunkSnapshot' | 'voxelEditLog' | 'voxelEditHistory' | 'voxelAnnotationLayer' | 'replayRecord' | 'generatedMetadata' | 'cache';
 export type LoadStage = 'versions' | 'assetLock' | 'sceneDocument' | 'terrainGeneration' | 'voxelEdits' | 'voxelAnnotations' | 'bootstrap' | 'sessionStateSnapshot' | 'finalValidation';
 export type SuggestedAction = 'keepEdit' | 'reviewConflict';
 export interface ArtifactEntry {
@@ -80,6 +80,7 @@ export type LoadStep = {
     readonly step: 'applyVoxelEdits';
     readonly editLogs: readonly string[];
     readonly snapshots: readonly string[];
+    readonly histories: readonly string[];
 } | {
     readonly step: 'loadVoxelAnnotations';
     readonly artifacts: readonly string[];

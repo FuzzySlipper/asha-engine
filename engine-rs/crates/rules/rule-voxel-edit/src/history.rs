@@ -8,7 +8,14 @@
 use core_events::VoxelEditEvent;
 use svc_spatial::VoxelWorld;
 
-use crate::{apply_all, voxel_world_hash, VoxelEditRejection, VoxelEditTransactionReceipt};
+use crate::{
+    apply_all,
+    persist::{decode_edit_log, encode_edit_log},
+    voxel_world_hash, VoxelEditRejection, VoxelEditTransactionMode, VoxelEditTransactionReceipt,
+};
+
+/// Canonical bundle-relative path for persisted voxel edit history.
+pub const VOXEL_EDIT_HISTORY_PATH: &str = "voxel/history.avhist";
 
 /// Guardrails for retained history and replay work.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -389,6 +396,48 @@ impl VoxelEditHistory {
             .sum()
     }
 
+    fn from_persisted(
+        base_world: VoxelWorld,
+        entries: Vec<VoxelEditHistoryEntry>,
+        cursor_index: usize,
+        next_transaction_id: u64,
+        limits: VoxelEditHistoryLimits,
+    ) -> Result<Self, VoxelEditHistoryRejection> {
+        if cursor_index > entries.len() {
+            return Err(VoxelEditHistoryRejection::InvalidCursor {
+                cursor_index,
+                entry_count: entries.len(),
+            });
+        }
+        if entries.len() > limits.max_entries {
+            return Err(VoxelEditHistoryRejection::EntryQuotaExceeded {
+                limit: limits.max_entries,
+                actual: entries.len(),
+            });
+        }
+        let event_count: usize = entries.iter().map(|entry| entry.receipt.events.len()).sum();
+        if event_count > limits.max_retained_events {
+            return Err(VoxelEditHistoryRejection::RetainedEventQuotaExceeded {
+                limit: limits.max_retained_events,
+                actual: event_count,
+            });
+        }
+        validate_parent_chain(&entries)?;
+        validate_entries_replay(&base_world, &entries, limits)?;
+
+        let mut history = Self {
+            current_world: base_world.clone(),
+            base_world,
+            entries,
+            cursor_index: 0,
+            next_transaction_id,
+            limits,
+        };
+        history.current_world = history.replay_to_cursor(cursor_index)?;
+        history.cursor_index = cursor_index;
+        Ok(history)
+    }
+
     fn history_hash_for_cursor(&self, cursor_index: usize, world_hash: u64) -> u64 {
         let mut hasher = Fnv1a::new();
         hasher.feed_usize(cursor_index);
@@ -403,6 +452,403 @@ impl VoxelEditHistory {
         }
         hasher.finish()
     }
+}
+
+/// Encode a ProjectBundle history artifact from the retained history entries.
+pub fn encode_project_bundle_history(
+    history: &VoxelEditHistory,
+    material_catalog_hash: &str,
+    compacted_entry_count: u64,
+) -> String {
+    let compacted_entries = usize::try_from(compacted_entry_count)
+        .unwrap_or(usize::MAX)
+        .min(history.entries.len())
+        .min(history.cursor_index);
+    let retained_entries = &history.entries[compacted_entries..];
+    let retained_cursor_index = history.cursor_index.saturating_sub(compacted_entries);
+    let persisted_base_hash = history
+        .replay_to_cursor(compacted_entries)
+        .map(|world| voxel_world_hash(&world))
+        .unwrap_or_else(|_| voxel_world_hash(&history.base_world));
+
+    let mut out = String::new();
+    out.push_str("asha_voxel_edit_history 1\n");
+    out.push_str(&format!("base_hash {persisted_base_hash:016x}\n"));
+    out.push_str(&format!(
+        "material_catalog_hash {}\n",
+        escape_token(material_catalog_hash)
+    ));
+    out.push_str(&format!("cursor_index {retained_cursor_index}\n"));
+    out.push_str(&format!("entry_count {}\n", retained_entries.len()));
+    out.push_str(&format!(
+        "next_transaction_id {}\n",
+        history.next_transaction_id
+    ));
+    out.push_str(&format!("compacted_entry_count {compacted_entries}\n"));
+    out.push_str("checkpoint none\n");
+    for (retained_index, entry) in retained_entries.iter().enumerate() {
+        let parent_transaction_id = if retained_index == 0 {
+            None
+        } else {
+            entry.parent_transaction_id
+        };
+        let cursor_id = cursor_id_for_index(retained_index + 1);
+        let parent_cursor_id = cursor_id_for_index(retained_index);
+        out.push_str(&format!(
+            "entry {} {} {} {} {} {} {} {} {} {} {}\n",
+            entry.transaction_id,
+            parent_transaction_id.unwrap_or(0),
+            cursor_id,
+            parent_cursor_id,
+            mode_token(entry.receipt.mode),
+            u8::from(entry.receipt.applied),
+            entry.receipt.accepted,
+            entry.receipt.rejected,
+            entry.receipt.touched_voxels,
+            entry.receipt.before_hash,
+            entry.receipt.after_hash
+        ));
+        out.push_str(&format!(
+            "entry_hashes {} {} {}\n",
+            entry.receipt.projected_hash,
+            entry.receipt.transaction_hash,
+            entry.receipt.events.len()
+        ));
+        out.push_str("events_begin\n");
+        out.push_str(&encode_edit_log(&entry.receipt.events));
+        out.push_str("events_end\n");
+    }
+    out.push_str("end_history\n");
+    out
+}
+
+/// Decode a ProjectBundle history artifact and replay its applied cursor.
+pub fn decode_project_bundle_history(
+    text: &str,
+    base_world: VoxelWorld,
+) -> Result<VoxelEditHistory, String> {
+    decode_project_bundle_history_with_limits(text, base_world, VoxelEditHistoryLimits::default())
+}
+
+pub fn decode_project_bundle_history_with_material_hash(
+    text: &str,
+    base_world: VoxelWorld,
+    expected_material_catalog_hash: &str,
+) -> Result<VoxelEditHistory, String> {
+    decode_project_bundle_history_with_material_hash_and_limits(
+        text,
+        base_world,
+        expected_material_catalog_hash,
+        VoxelEditHistoryLimits::default(),
+    )
+}
+
+pub fn decode_project_bundle_history_with_limits(
+    text: &str,
+    base_world: VoxelWorld,
+    limits: VoxelEditHistoryLimits,
+) -> Result<VoxelEditHistory, String> {
+    decode_project_bundle_history_internal(text, base_world, None, limits)
+}
+
+pub fn decode_project_bundle_history_with_material_hash_and_limits(
+    text: &str,
+    base_world: VoxelWorld,
+    expected_material_catalog_hash: &str,
+    limits: VoxelEditHistoryLimits,
+) -> Result<VoxelEditHistory, String> {
+    decode_project_bundle_history_internal(
+        text,
+        base_world,
+        Some(expected_material_catalog_hash),
+        limits,
+    )
+}
+
+fn decode_project_bundle_history_internal(
+    text: &str,
+    base_world: VoxelWorld,
+    expected_material_catalog_hash: Option<&str>,
+    limits: VoxelEditHistoryLimits,
+) -> Result<VoxelEditHistory, String> {
+    let mut lines = text.lines().peekable();
+    expect_line(lines.next(), "asha_voxel_edit_history 1")?;
+    let base_hash = parse_header_u64(lines.next(), "base_hash")?;
+    let actual_base_hash = voxel_world_hash(&base_world);
+    if base_hash != actual_base_hash {
+        return Err(format!(
+            "base hash mismatch: artifact={base_hash:016x} actual={actual_base_hash:016x}"
+        ));
+    }
+    let material_catalog_hash = parse_header_token(lines.next(), "material_catalog_hash")?;
+    if let Some(expected) = expected_material_catalog_hash {
+        if material_catalog_hash != expected {
+            return Err(format!(
+                "material catalog hash mismatch: artifact={material_catalog_hash} expected={expected}"
+            ));
+        }
+    }
+    let cursor_index = parse_header_usize(lines.next(), "cursor_index")?;
+    let entry_count = parse_header_usize(lines.next(), "entry_count")?;
+    let next_transaction_id = parse_header_u64(lines.next(), "next_transaction_id")?;
+    let _compacted_entry_count = parse_header_u64(lines.next(), "compacted_entry_count")?;
+    expect_prefix(lines.next(), "checkpoint ")?;
+
+    let mut entries = Vec::with_capacity(entry_count);
+    for _ in 0..entry_count {
+        let entry_line = lines.next().ok_or("missing entry line")?;
+        let mut parts = entry_line.split_whitespace();
+        expect_part(parts.next(), "entry")?;
+        let transaction_id = parse_u64_part(parts.next(), "transaction_id")?;
+        let parent_raw = parse_u64_part(parts.next(), "parent_transaction_id")?;
+        let cursor_id = parse_u64_part(parts.next(), "cursor_id")?;
+        let parent_cursor_id = parse_u64_part(parts.next(), "parent_cursor_id")?;
+        let mode = parse_mode(parts.next().ok_or("missing mode")?)?;
+        let applied = parse_u8_part(parts.next(), "applied")? != 0;
+        let accepted = parse_u32_part(parts.next(), "accepted")?;
+        let rejected = parse_u32_part(parts.next(), "rejected")?;
+        let touched_voxels = parse_u64_part(parts.next(), "touched_voxels")?;
+        let before_hash = parse_u64_part(parts.next(), "before_hash")?;
+        let after_hash = parse_u64_part(parts.next(), "after_hash")?;
+        if parts.next().is_some() {
+            return Err("entry line has trailing fields".into());
+        }
+
+        let hashes_line = lines.next().ok_or("missing entry_hashes line")?;
+        let mut hash_parts = hashes_line.split_whitespace();
+        expect_part(hash_parts.next(), "entry_hashes")?;
+        let projected_hash = parse_u64_part(hash_parts.next(), "projected_hash")?;
+        let transaction_hash = parse_u64_part(hash_parts.next(), "transaction_hash")?;
+        let expected_event_count = parse_usize_part(hash_parts.next(), "event_count")?;
+        if hash_parts.next().is_some() {
+            return Err("entry_hashes line has trailing fields".into());
+        }
+
+        expect_line(lines.next(), "events_begin")?;
+        let mut event_text = String::new();
+        loop {
+            let line = lines.next().ok_or("missing events_end")?;
+            if line == "events_end" {
+                break;
+            }
+            event_text.push_str(line);
+            event_text.push('\n');
+        }
+        let events = decode_edit_log(&event_text).map_err(|error| format!("{error}"))?;
+        if events.len() != expected_event_count {
+            return Err(format!(
+                "event count mismatch: expected {expected_event_count} actual {}",
+                events.len()
+            ));
+        }
+
+        let receipt = VoxelEditTransactionReceipt {
+            mode,
+            applied,
+            accepted,
+            rejected,
+            event_count: events.len().min(u32::MAX as usize) as u32,
+            touched_voxels,
+            before_hash,
+            projected_hash,
+            after_hash,
+            transaction_hash,
+            events,
+            rejections: Vec::new(),
+        };
+        entries.push(VoxelEditHistoryEntry {
+            transaction_id,
+            parent_transaction_id: (parent_raw != 0).then_some(parent_raw),
+            cursor_id,
+            parent_cursor_id,
+            receipt,
+        });
+    }
+    expect_line(lines.next(), "end_history")?;
+    if lines.next().is_some() {
+        return Err("trailing lines after end_history".into());
+    }
+
+    VoxelEditHistory::from_persisted(
+        base_world,
+        entries,
+        cursor_index,
+        next_transaction_id,
+        limits,
+    )
+    .map_err(|error| format!("{error:?}"))
+}
+
+fn validate_parent_chain(
+    entries: &[VoxelEditHistoryEntry],
+) -> Result<(), VoxelEditHistoryRejection> {
+    let mut previous = None;
+    for entry in entries {
+        if entry.parent_transaction_id != previous {
+            return Err(VoxelEditHistoryRejection::UnknownTransaction {
+                transaction_id: entry.parent_transaction_id.unwrap_or(0),
+            });
+        }
+        previous = Some(entry.transaction_id);
+    }
+    Ok(())
+}
+
+fn validate_entries_replay(
+    base_world: &VoxelWorld,
+    entries: &[VoxelEditHistoryEntry],
+    limits: VoxelEditHistoryLimits,
+) -> Result<(), VoxelEditHistoryRejection> {
+    if entries.len() > limits.max_replay_steps {
+        return Err(VoxelEditHistoryRejection::ReplayQuotaExceeded {
+            limit: limits.max_replay_steps,
+            actual: entries.len(),
+        });
+    }
+
+    let mut world = base_world.clone();
+    for entry in entries {
+        if !entry.receipt.applied {
+            return Err(VoxelEditHistoryRejection::ReceiptWasNotApplied);
+        }
+        if entry.receipt.rejected != 0 || !entry.receipt.rejections.is_empty() {
+            return Err(VoxelEditHistoryRejection::ReceiptHadRejections {
+                rejected: entry.receipt.rejected,
+            });
+        }
+
+        let before_hash = voxel_world_hash(&world);
+        if entry.receipt.before_hash != before_hash {
+            return Err(VoxelEditHistoryRejection::StaleCursorHash {
+                expected: before_hash,
+                actual: entry.receipt.before_hash,
+            });
+        }
+        apply_all(&mut world, &entry.receipt.events)
+            .map_err(VoxelEditHistoryRejection::ReplayFailed)?;
+        let after_hash = voxel_world_hash(&world);
+        if entry.receipt.after_hash != after_hash {
+            return Err(VoxelEditHistoryRejection::StaleCursorHash {
+                expected: entry.receipt.after_hash,
+                actual: after_hash,
+            });
+        }
+    }
+
+    Ok(())
+}
+
+fn mode_token(mode: VoxelEditTransactionMode) -> &'static str {
+    match mode {
+        VoxelEditTransactionMode::PreviewOnly => "preview",
+        VoxelEditTransactionMode::Apply => "apply",
+    }
+}
+
+fn parse_mode(token: &str) -> Result<VoxelEditTransactionMode, String> {
+    match token {
+        "preview" => Ok(VoxelEditTransactionMode::PreviewOnly),
+        "apply" => Ok(VoxelEditTransactionMode::Apply),
+        other => Err(format!("unknown transaction mode {other}")),
+    }
+}
+
+fn escape_token(value: &str) -> String {
+    value.replace('\\', "\\\\").replace(' ', "\\s")
+}
+
+fn unescape_token(value: &str) -> Result<String, String> {
+    let mut out = String::new();
+    let mut chars = value.chars();
+    while let Some(ch) = chars.next() {
+        if ch != '\\' {
+            out.push(ch);
+            continue;
+        }
+        match chars.next() {
+            Some('s') => out.push(' '),
+            Some('\\') => out.push('\\'),
+            Some(other) => return Err(format!("bad escape sequence \\{other}")),
+            None => return Err("trailing escape in token".into()),
+        }
+    }
+    Ok(out)
+}
+
+fn expect_line(line: Option<&str>, expected: &str) -> Result<(), String> {
+    match line {
+        Some(line) if line == expected => Ok(()),
+        Some(line) => Err(format!("expected `{expected}`, got `{line}`")),
+        None => Err(format!("expected `{expected}`, got EOF")),
+    }
+}
+
+fn expect_prefix(line: Option<&str>, expected: &str) -> Result<(), String> {
+    match line {
+        Some(line) if line.starts_with(expected) => Ok(()),
+        Some(line) => Err(format!("expected prefix `{expected}`, got `{line}`")),
+        None => Err(format!("expected prefix `{expected}`, got EOF")),
+    }
+}
+
+fn expect_part(part: Option<&str>, expected: &str) -> Result<(), String> {
+    match part {
+        Some(part) if part == expected => Ok(()),
+        Some(part) => Err(format!("expected `{expected}`, got `{part}`")),
+        None => Err(format!("expected `{expected}`, got end of line")),
+    }
+}
+
+fn parse_header_u64(line: Option<&str>, key: &str) -> Result<u64, String> {
+    parse_u64_token(&parse_header_value(line, key)?).map_err(|_| format!("bad {key}"))
+}
+
+fn parse_header_usize(line: Option<&str>, key: &str) -> Result<usize, String> {
+    parse_header_value(line, key)?
+        .parse()
+        .map_err(|_| format!("bad {key}"))
+}
+
+fn parse_header_token(line: Option<&str>, key: &str) -> Result<String, String> {
+    unescape_token(&parse_header_value(line, key)?)
+}
+
+fn parse_header_value(line: Option<&str>, key: &str) -> Result<String, String> {
+    let line = line.ok_or_else(|| format!("missing header {key}"))?;
+    let Some(value) = line.strip_prefix(&format!("{key} ")) else {
+        return Err(format!("expected header {key}, got `{line}`"));
+    };
+    Ok(value.to_string())
+}
+
+fn parse_u8_part(part: Option<&str>, name: &str) -> Result<u8, String> {
+    part.ok_or_else(|| format!("missing {name}"))?
+        .parse()
+        .map_err(|_| format!("bad {name}"))
+}
+
+fn parse_u32_part(part: Option<&str>, name: &str) -> Result<u32, String> {
+    part.ok_or_else(|| format!("missing {name}"))?
+        .parse()
+        .map_err(|_| format!("bad {name}"))
+}
+
+fn parse_u64_part(part: Option<&str>, name: &str) -> Result<u64, String> {
+    parse_u64_token(part.ok_or_else(|| format!("missing {name}"))?)
+        .map_err(|_| format!("bad {name}"))
+}
+
+fn parse_usize_part(part: Option<&str>, name: &str) -> Result<usize, String> {
+    part.ok_or_else(|| format!("missing {name}"))?
+        .parse()
+        .map_err(|_| format!("bad {name}"))
+}
+
+fn parse_u64_token(token: &str) -> Result<u64, ()> {
+    token
+        .parse()
+        .or_else(|_| u64::from_str_radix(token, 16))
+        .map_err(|_| ())
 }
 
 fn cursor_id_for_index(index: usize) -> u64 {
@@ -736,5 +1182,107 @@ mod tests {
                 actual: 1
             })
         ));
+    }
+
+    #[test]
+    fn project_bundle_history_round_trips_cursor_and_redo_tail() {
+        let mut external = resident_world();
+        let base = resident_world();
+        let mut history = VoxelEditHistory::new(base.clone());
+        history
+            .append_accepted(applied_receipt(&mut external, set_command(1, 1)))
+            .unwrap();
+        history
+            .append_accepted(applied_receipt(&mut external, set_command(2, 2)))
+            .unwrap();
+        history.undo_one().unwrap();
+
+        let text = encode_project_bundle_history(&history, "materials:demo", 0);
+        let loaded =
+            decode_project_bundle_history_with_material_hash(&text, base, "materials:demo")
+                .unwrap();
+
+        assert_eq!(loaded.cursor().index, 1);
+        assert_eq!(loaded.cursor().undo_depth, 1);
+        assert_eq!(loaded.cursor().redo_depth, 1);
+        assert_eq!(loaded.current_world_hash(), history.current_world_hash());
+    }
+
+    #[test]
+    fn compacted_project_bundle_history_rebases_retained_entries() {
+        let mut external = resident_world();
+        let base = resident_world();
+        let mut history = VoxelEditHistory::new(base);
+        history
+            .append_accepted(applied_receipt(&mut external, set_command(1, 1)))
+            .unwrap();
+        let compacted_base = external.clone();
+        history
+            .append_accepted(applied_receipt(&mut external, set_command(2, 2)))
+            .unwrap();
+
+        let text = encode_project_bundle_history(&history, "materials:demo", 1);
+        let loaded = decode_project_bundle_history_with_material_hash(
+            &text,
+            compacted_base,
+            "materials:demo",
+        )
+        .unwrap();
+
+        assert_eq!(loaded.entries().len(), 1);
+        assert_eq!(loaded.entries()[0].parent_transaction_id, None);
+        assert_eq!(loaded.cursor().index, 1);
+        assert_eq!(loaded.cursor().undo_depth, 1);
+        assert_eq!(
+            loaded.current_world_hash(),
+            history.current_world_hash(),
+            "the compacted base is not offered as an extra undo step"
+        );
+    }
+
+    #[test]
+    fn project_bundle_history_decode_fails_on_drift() {
+        let mut external = resident_world();
+        let base = resident_world();
+        let mut history = VoxelEditHistory::new(base.clone());
+        history
+            .append_accepted(applied_receipt(&mut external, set_command(1, 1)))
+            .unwrap();
+        history
+            .append_accepted(applied_receipt(&mut external, set_command(2, 2)))
+            .unwrap();
+        let text = encode_project_bundle_history(&history, "materials:demo", 0);
+
+        let material_err = decode_project_bundle_history_with_material_hash(
+            &text,
+            base.clone(),
+            "materials:other",
+        )
+        .unwrap_err();
+        assert!(material_err.contains("material catalog hash mismatch"));
+
+        let parent_err = decode_project_bundle_history_with_material_hash(
+            &text.replace("entry 2 1 ", "entry 2 999 "),
+            base.clone(),
+            "materials:demo",
+        )
+        .unwrap_err();
+        assert!(parent_err.contains("UnknownTransaction"));
+
+        let mut stale_text = String::new();
+        for line in text.lines() {
+            if line.starts_with("entry 2 ") {
+                let mut parts: Vec<String> = line.split_whitespace().map(str::to_string).collect();
+                parts[10] = "999".to_string();
+                stale_text.push_str(&parts.join(" "));
+            } else {
+                stale_text.push_str(line);
+            }
+            stale_text.push('\n');
+        }
+        let stale_err =
+            decode_project_bundle_history_with_material_hash(&stale_text, base, "materials:demo")
+                .unwrap_err();
+        assert!(stale_err.contains("StaleCursorHash"));
     }
 }

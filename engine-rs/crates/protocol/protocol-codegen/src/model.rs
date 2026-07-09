@@ -3355,6 +3355,7 @@ pub fn project_bundle_module() -> Module {
                     vec![
                         f("editLogs", TsType::array(string())),
                         f("snapshots", TsType::array(string())),
+                        f("histories", TsType::array(string())),
                     ],
                 ),
                 v(

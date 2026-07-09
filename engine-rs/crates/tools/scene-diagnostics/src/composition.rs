@@ -117,6 +117,14 @@ pub fn composition_failure_diagnostic(err: &LoadExecutionError) -> DiagnosticRep
             RemedyAction::Regenerate,
             "pin the old generator or run dev regenerate-and-replay to resolve the conflict",
         ),
+        LoadExecutionError::VoxelHistory { path, detail } => report(
+            DiagnosticCode::LoadStageFailed,
+            "voxelEdits",
+            DiagnosticSourceRef::empty().with_bundle_path(path.clone()),
+            format!("voxel edit history artifact `{path}` failed to load: {detail}"),
+            RemedyAction::RestoreArtifact,
+            "restore the voxel edit history artifact or reopen from a bundle whose voxel state and material catalog match it",
+        ),
         LoadExecutionError::VoxelAnnotationDecode { path, detail } => report(
             DiagnosticCode::CorruptBundleArtifact,
             "voxelAnnotations",
@@ -237,6 +245,10 @@ mod tests {
         let errs = [
             LoadExecutionError::VoxelSpecMissing,
             LoadExecutionError::VoxelReplay { detail: "x".into() },
+            LoadExecutionError::VoxelHistory {
+                path: "voxel/history.avhist".into(),
+                detail: "material catalog hash mismatch".into(),
+            },
             LoadExecutionError::SceneIdMismatch {
                 expected: core_ids_scene_id(1),
                 found: core_ids_scene_id(2),

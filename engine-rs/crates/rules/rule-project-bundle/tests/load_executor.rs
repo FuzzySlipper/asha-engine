@@ -10,7 +10,8 @@ use core_scene::{encode, SceneMetadata, SceneNode, SceneNodeKind, SceneTree};
 use svc_serialization::{LoadPlan, LoadStage, LoadStep};
 
 use rule_project_bundle::{
-    execute_load_plan, BundleArtifacts, LoadExecutionError, ProjectBundleStage,
+    compose_voxel_edit_history_artifact, execute_load_plan, BundleArtifacts, LoadExecutionError,
+    ProjectBundleStage,
 };
 
 /// A small, valid two-node scene (scene id 100), encoded as canonical JSON.
@@ -101,6 +102,7 @@ fn stage_summary_matches_golden() {
          stage finalValidation spatialSessionHash={spatial_session_hash:016x} ok\n\
          result entities=2 voxel=false spatialSessionHash={spatial_session_hash:016x}\n\
          voxelAnnotations count=0\n\
+         voxelHistory none\n\
          runtimeEntities none\n\
          sourceTrace count=2\n"
     );
@@ -236,6 +238,7 @@ fn voxel_section_reconstructs_authority() {
         LoadStep::ApplyVoxelEdits {
             edit_logs: vec!["voxel/edits.log".into()],
             snapshots: vec![],
+            histories: vec![],
         },
     );
 
@@ -251,6 +254,146 @@ fn voxel_section_reconstructs_authority() {
 }
 
 #[test]
+fn voxel_history_survives_bundle_reopen_with_redo_tail() {
+    use core_events::VoxelEditEvent;
+    use core_space::{ChunkCoord, ChunkDims, GridId, VoxelCoord, VoxelGridSpec};
+    use core_voxel::VoxelValue;
+    use rule_voxel_edit::history::VoxelEditHistory;
+    use rule_voxel_edit::persist::{encode_chunk_snapshot, encode_edit_log};
+    use rule_voxel_edit::{apply_all, voxel_world_hash, VoxelEditTransactionMode};
+    use svc_spatial::VoxelWorld;
+    use svc_volume::VoxelChunk;
+
+    fn accepted_receipt(
+        world: &mut VoxelWorld,
+        event: VoxelEditEvent,
+    ) -> rule_voxel_edit::VoxelEditTransactionReceipt {
+        let before_hash = voxel_world_hash(world);
+        let events = vec![event];
+        apply_all(world, &events).expect("event applies");
+        let after_hash = voxel_world_hash(world);
+        rule_voxel_edit::VoxelEditTransactionReceipt {
+            mode: VoxelEditTransactionMode::Apply,
+            applied: true,
+            accepted: 1,
+            rejected: 0,
+            event_count: events.len() as u32,
+            touched_voxels: 1,
+            before_hash,
+            projected_hash: after_hash,
+            after_hash,
+            transaction_hash: before_hash ^ after_hash,
+            events,
+            rejections: Vec::new(),
+        }
+    }
+
+    let spec = VoxelGridSpec::new(GridId::new(0), 1.0, ChunkDims::cubic(4).unwrap()).unwrap();
+    let chunk = ChunkCoord::new(0, 0, 0);
+    let mut base = VoxelWorld::new(spec);
+    base.insert(chunk, VoxelChunk::from_spec(&spec));
+    base.drain_dirty();
+
+    let mut external = base.clone();
+    let mut history = VoxelEditHistory::new(base.clone());
+    let first = accepted_receipt(
+        &mut external,
+        VoxelEditEvent::VoxelSet {
+            grid: GridId::new(0),
+            coord: VoxelCoord::new(0, 0, 0),
+            value: VoxelValue::solid_raw(1),
+        },
+    );
+    history.append_accepted(first.clone()).unwrap();
+    let second = accepted_receipt(
+        &mut external,
+        VoxelEditEvent::VoxelSet {
+            grid: GridId::new(0),
+            coord: VoxelCoord::new(1, 0, 0),
+            value: VoxelValue::solid_raw(2),
+        },
+    );
+    history.append_accepted(second).unwrap();
+    history.undo_one().unwrap();
+
+    let history_artifact = compose_voxel_edit_history_artifact(&history, "materials:test", 0);
+    let base_chunk = base.get(chunk).expect("base chunk present");
+    let mut plan = sample_plan();
+    plan.steps.insert(
+        3,
+        LoadStep::ApplyVoxelEdits {
+            edit_logs: vec!["voxel/edits.log".into()],
+            snapshots: vec!["voxel/chunk_0_0_0.snapshot".into()],
+            histories: vec![history_artifact.path.clone()],
+        },
+    );
+    let artifacts = sample_artifacts()
+        .with_artifact(
+            "voxel/chunk_0_0_0.snapshot",
+            encode_chunk_snapshot(base_chunk),
+        )
+        .with_artifact("voxel/edits.log", encode_edit_log(&first.events))
+        .with_artifact(history_artifact.path, history_artifact.text)
+        .with_voxel_spec(spec)
+        .with_voxel_material_catalog_hash("materials:test");
+
+    let result = execute_load_plan(&plan, &artifacts).expect("voxel history load succeeds");
+    let loaded_history = result.voxel_history.expect("history authority present");
+    let loaded_voxel = result.voxel.expect("voxel authority present");
+
+    assert_eq!(loaded_history.cursor().index, 1);
+    assert_eq!(loaded_history.cursor().redo_depth, 1);
+    assert_eq!(
+        loaded_history.current_world_hash(),
+        rule_voxel_edit::voxel_world_hash(&loaded_voxel)
+    );
+}
+
+#[test]
+fn voxel_history_material_hash_drift_fails_closed() {
+    use core_space::{ChunkCoord, ChunkDims, GridId, VoxelGridSpec};
+    use rule_voxel_edit::history::VoxelEditHistory;
+    use rule_voxel_edit::persist::encode_chunk_snapshot;
+    use svc_spatial::VoxelWorld;
+    use svc_volume::VoxelChunk;
+
+    let spec = VoxelGridSpec::new(GridId::new(0), 1.0, ChunkDims::cubic(4).unwrap()).unwrap();
+    let chunk = ChunkCoord::new(0, 0, 0);
+    let mut base = VoxelWorld::new(spec);
+    base.insert(chunk, VoxelChunk::from_spec(&spec));
+    base.drain_dirty();
+    let history = VoxelEditHistory::new(base.clone());
+    let history_artifact = compose_voxel_edit_history_artifact(&history, "materials:old", 0);
+    let base_chunk = base.get(chunk).expect("base chunk present");
+
+    let mut plan = sample_plan();
+    plan.steps.insert(
+        3,
+        LoadStep::ApplyVoxelEdits {
+            edit_logs: vec![],
+            snapshots: vec!["voxel/chunk_0_0_0.snapshot".into()],
+            histories: vec![history_artifact.path.clone()],
+        },
+    );
+    let artifacts = sample_artifacts()
+        .with_artifact(
+            "voxel/chunk_0_0_0.snapshot",
+            encode_chunk_snapshot(base_chunk),
+        )
+        .with_artifact(history_artifact.path, history_artifact.text)
+        .with_voxel_spec(spec)
+        .with_voxel_material_catalog_hash("materials:new");
+
+    let err = execute_load_plan(&plan, &artifacts).unwrap_err();
+    match err {
+        LoadExecutionError::VoxelHistory { detail, .. } => {
+            assert!(detail.contains("material catalog hash mismatch"));
+        }
+        other => panic!("expected material hash drift, got {other:?}"),
+    }
+}
+
+#[test]
 fn voxel_section_without_spec_fails_closed() {
     let mut plan = sample_plan();
     plan.steps.insert(
@@ -258,6 +401,7 @@ fn voxel_section_without_spec_fails_closed() {
         LoadStep::ApplyVoxelEdits {
             edit_logs: vec!["voxel/edits.log".into()],
             snapshots: vec![],
+            histories: vec![],
         },
     );
     // Provide the log but no voxel spec.

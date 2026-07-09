@@ -311,7 +311,12 @@ const loadPlan: LoadPlan = {
     { step: 'validateVersions', bundleSchemaVersion: 1, protocolVersion: 1 },
     { step: 'loadAssetLock', artifact: 'assets/lock.json', assetCount: 1 },
     { step: 'loadSceneDocument', artifact: 'scene/scene.json', scene: sceneId(100) },
-    { step: 'applyVoxelEdits', editLogs: ['voxel/edits.log'], snapshots: ['voxel/chunk_0_0_0.snapshot'] },
+    {
+      step: 'applyVoxelEdits',
+      editLogs: ['voxel/edits.log'],
+      snapshots: ['voxel/chunk_0_0_0.snapshot'],
+      histories: [],
+    },
     { step: 'bootstrapScene', scene: sceneId(100), runtimeSession: runtimeSessionId(7) },
     { step: 'validateFinalState' },
   ],

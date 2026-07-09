@@ -2,7 +2,7 @@
 1 assetLock assets/lock.json assets=1
 2 sceneDocument scene/scene.json scene=100
 3 terrainGeneration seed=42 version=1 params=default
-4 voxelEdits editLogs=[voxel/edits.log] snapshots=[voxel/chunk_0_0_0.snapshot]
+4 voxelEdits editLogs=[voxel/edits.log] snapshots=[voxel/chunk_0_0_0.snapshot] histories=[]
 5 voxelAnnotations artifacts=[annotations/semantic.avann.json]
 6 bootstrap scene=100 runtimeSession=7
 7 finalValidation

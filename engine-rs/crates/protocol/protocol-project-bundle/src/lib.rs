@@ -63,6 +63,7 @@ pub const KNOWN_ARTIFACT_ROLES: &[&str] = &[
     "sessionStateSnapshot",
     "voxelChunkSnapshot",
     "voxelEditLog",
+    "voxelEditHistory",
     "voxelAnnotationLayer",
     "replayRecord",
     "generatedMetadata",

@@ -11,6 +11,9 @@
 
 use core_events::VoxelEditEvent;
 use core_space::{ChunkCoord, VoxelGridSpec};
+use rule_voxel_edit::history::{
+    encode_project_bundle_history, VoxelEditHistory, VOXEL_EDIT_HISTORY_PATH,
+};
 use rule_voxel_edit::persist::{
     decode_chunk_snapshot, encode_chunk_snapshot, encode_edit_log, replay_edit_log,
 };
@@ -39,6 +42,29 @@ pub struct CompactedVoxelSave {
     pub retained_log_text: String,
     /// Count of edit events folded into the snapshots.
     pub compacted_edits: u32,
+}
+
+/// A composed durable voxel edit history artifact.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VoxelEditHistoryArtifact {
+    pub path: String,
+    pub text: String,
+    pub entry: ArtifactEntry,
+}
+
+pub fn compose_voxel_edit_history_artifact(
+    history: &VoxelEditHistory,
+    material_catalog_hash: &str,
+    compacted_entry_count: u64,
+) -> VoxelEditHistoryArtifact {
+    let text = encode_project_bundle_history(history, material_catalog_hash, compacted_entry_count);
+    let path = VOXEL_EDIT_HISTORY_PATH.to_string();
+    let entry = ArtifactEntry::durable(
+        path.clone(),
+        ArtifactRole::VoxelEditHistory,
+        text.as_bytes(),
+    );
+    VoxelEditHistoryArtifact { path, text, entry }
 }
 
 /// Compact a full edit log into chunk snapshots plus a retained recent-edit tail.
@@ -111,6 +137,15 @@ pub fn reconstruct(
 /// classified `generated` (reproducible) and the retained edit log `durable`. A
 /// disposable cache artifact may be appended by the caller; it never affects load.
 pub fn voxel_save_plan(save: &CompactedVoxelSave) -> SavePlan {
+    voxel_save_plan_with_history(save, None)
+}
+
+/// Build a declarative [`SavePlan`] for a compacted voxel save and optional
+/// durable history/cursor artifact.
+pub fn voxel_save_plan_with_history(
+    save: &CompactedVoxelSave,
+    history: Option<&VoxelEditHistoryArtifact>,
+) -> SavePlan {
     let mut writes: Vec<ArtifactEntry> = save
         .snapshots
         .iter()
@@ -127,6 +162,9 @@ pub fn voxel_save_plan(save: &CompactedVoxelSave) -> SavePlan {
         ArtifactRole::VoxelEditLog,
         save.retained_log_text.as_bytes(),
     ));
+    if let Some(history) = history {
+        writes.push(history.entry.clone());
+    }
 
     let snapshot_chunks = save
         .snapshots

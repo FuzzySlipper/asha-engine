@@ -94,10 +94,11 @@ pub enum LoadStep {
         params: String,
     },
     /// Apply voxel edit logs and/or load compacted chunk snapshots, in artifact
-    /// path order.
+    /// path order. Optional history artifacts restore undo/redo cursor authority.
     ApplyVoxelEdits {
         edit_logs: Vec<String>,
         snapshots: Vec<String>,
+        histories: Vec<String>,
     },
     /// Validate stored voxel annotation layer artifacts. The executor checks each
     /// layer against an authority-visible target voxel-volume asset hash and
@@ -191,6 +192,7 @@ impl LoadPlan {
 
         let edit_logs = artifacts_with_role(manifest, &ArtifactRole::VoxelEditLog);
         let snapshots = artifacts_with_role(manifest, &ArtifactRole::VoxelChunkSnapshot);
+        let histories = artifacts_with_role(manifest, &ArtifactRole::VoxelEditHistory);
         let voxel_annotations = artifacts_with_role(manifest, &ArtifactRole::VoxelAnnotationLayer);
         // The runtime session-state snapshot is optional: a save only carries one
         // when runtime authority diverged from the bootstrapped scene (#2484).
@@ -220,6 +222,7 @@ impl LoadPlan {
             LoadStep::ApplyVoxelEdits {
                 edit_logs,
                 snapshots,
+                histories,
             },
             LoadStep::LoadVoxelAnnotations {
                 artifacts: voxel_annotations,
@@ -313,10 +316,12 @@ fn render_step(step: &LoadStep) -> String {
         LoadStep::ApplyVoxelEdits {
             edit_logs,
             snapshots,
+            histories,
         } => format!(
-            "editLogs=[{}] snapshots=[{}]",
+            "editLogs=[{}] snapshots=[{}] histories=[{}]",
             edit_logs.join(","),
-            snapshots.join(",")
+            snapshots.join(","),
+            histories.join(",")
         ),
         LoadStep::LoadVoxelAnnotations { artifacts } => {
             format!("artifacts=[{}]", artifacts.join(","))

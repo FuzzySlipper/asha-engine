@@ -13,7 +13,7 @@ import type { VoxelCoord, VoxelValue } from './voxel.js';
 export type ArtifactClass = 'durable' | 'generated' | 'cache';
 
 // The artifact roles this build names. The wire role is an open string; unknown roles are carried verbatim. This is the known vocabulary for display.
-export type KnownArtifactRole = 'sceneDocument' | 'assetLock' | 'sessionStateSnapshot' | 'voxelChunkSnapshot' | 'voxelEditLog' | 'voxelAnnotationLayer' | 'replayRecord' | 'generatedMetadata' | 'cache';
+export type KnownArtifactRole = 'sceneDocument' | 'assetLock' | 'sessionStateSnapshot' | 'voxelChunkSnapshot' | 'voxelEditLog' | 'voxelEditHistory' | 'voxelAnnotationLayer' | 'replayRecord' | 'generatedMetadata' | 'cache';
 
 // A stage in the canonical, ordered authority load sequence.
 export type LoadStage = 'versions' | 'assetLock' | 'sceneDocument' | 'terrainGeneration' | 'voxelEdits' | 'voxelAnnotations' | 'bootstrap' | 'sessionStateSnapshot' | 'finalValidation';
@@ -85,7 +85,7 @@ export type LoadStep =
   | { readonly step: 'loadAssetLock'; readonly artifact: string; readonly assetCount: number }
   | { readonly step: 'loadSceneDocument'; readonly artifact: string; readonly scene: SceneId }
   | { readonly step: 'generateTerrain'; readonly seed: number; readonly version: number; readonly params: string }
-  | { readonly step: 'applyVoxelEdits'; readonly editLogs: readonly string[]; readonly snapshots: readonly string[] }
+  | { readonly step: 'applyVoxelEdits'; readonly editLogs: readonly string[]; readonly snapshots: readonly string[]; readonly histories: readonly string[] }
   | { readonly step: 'loadVoxelAnnotations'; readonly artifacts: readonly string[] }
   | { readonly step: 'bootstrapScene'; readonly scene: SceneId; readonly runtimeSession: RuntimeSessionId }
   | { readonly step: 'restoreSessionState'; readonly artifact: string }
