@@ -21,7 +21,10 @@ export interface VoxelAssetGrid {
 }
 export interface VoxelAssetMaterialBinding {
     readonly voxelMaterial: number;
+    readonly paletteEntryId: string;
+    readonly displayName: string | null;
     readonly materialAssetId: string;
+    readonly materialCatalogBindingId: string | null;
 }
 export interface VoxelAssetSparseRun {
     readonly start: VoxelAssetCoord;

@@ -284,7 +284,13 @@ const VOXEL_VOLUME_ASSET_LOAD_REQUEST = {
       kind: 'sparse_runs',
       sparseRuns: [{ start: { x: 0, y: 0, z: 0 }, length: 1, material: 3 }],
     },
-    materialPalette: [{ voxelMaterial: 3, materialAssetId: 'material/surface-a' }],
+    materialPalette: [{
+      voxelMaterial: 3,
+      paletteEntryId: 'voxel-material/surface-a',
+      displayName: 'Surface A',
+      materialAssetId: 'material/surface-a',
+      materialCatalogBindingId: 'catalog-binding/surface-a',
+    }],
     provenance: [{
       kind: 'runtime_export',
       uri: 'asha://runtime-session/voxel-volume-export/voxel-volume/native-export',
@@ -963,7 +969,13 @@ function fakeAddon(calls: string[] = []): NativeAddon {
           kind: 'sparse_runs',
           sparseRuns: [{ start: { x: 0, y: 0, z: 0 }, length: 1, material: 3 }],
         },
-        materialPalette: [{ voxelMaterial: 3, materialAssetId: 'mat/a' }],
+        materialPalette: [{
+          voxelMaterial: 3,
+          paletteEntryId: 'voxel-material/a',
+          displayName: 'A',
+          materialAssetId: 'mat/a',
+          materialCatalogBindingId: 'catalog-binding/a',
+        }],
         provenance: [{
           kind: 'runtime_export',
           uri: `asha://runtime-session/voxel-volume-export/${request.targetAssetId}`,
@@ -1007,7 +1019,13 @@ function fakeAddon(calls: string[] = []): NativeAddon {
           kind: 'sparse_runs',
           sparseRuns: [{ start: { x: 0, y: 0, z: 0 }, length: 1, material: 3 }],
         },
-        materialPalette: [{ voxelMaterial: 3, materialAssetId: 'mat/a' }],
+        materialPalette: [{
+          voxelMaterial: 3,
+          paletteEntryId: 'voxel-material/a',
+          displayName: 'A',
+          materialAssetId: 'mat/a',
+          materialCatalogBindingId: 'catalog-binding/a',
+        }],
         provenance: [{
           kind: 'runtime_export',
           uri: `asha://runtime-session/voxel-volume-export/${request.exportRequest.targetAssetId}`,

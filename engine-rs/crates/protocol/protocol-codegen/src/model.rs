@@ -1550,9 +1550,15 @@ pub fn voxel_asset_module() -> Module {
             ],
         ),
         iface(
-            "One compact voxel-material binding to a catalog material asset.",
+            "One compact voxel-material binding to a named ProjectBundle catalog entry.",
             "VoxelAssetMaterialBinding",
-            vec![f("voxelMaterial", num()), f("materialAssetId", string())],
+            vec![
+                f("voxelMaterial", num()),
+                f("paletteEntryId", string()),
+                f("displayName", TsType::nullable(string())),
+                f("materialAssetId", string()),
+                f("materialCatalogBindingId", TsType::nullable(string())),
+            ],
         ),
         iface(
             "One run of solid voxels along +X. Absence is empty space.",

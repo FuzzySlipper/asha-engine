@@ -492,7 +492,10 @@ fn hand_authored_voxel_volume_asset() -> VoxelVolumeAsset {
         },
         material_palette: vec![VoxelAssetMaterialBinding {
             voxel_material: 1,
+            palette_entry_id: "voxel-material/concrete".to_string(),
+            display_name: Some("Concrete".to_string()),
             material_asset_id: "material/concrete".to_string(),
+            material_catalog_binding_id: Some("catalog-binding/concrete".to_string()),
         }],
         provenance: vec![VoxelAssetProvenanceRef {
             kind: VoxelAssetProvenanceKind::Authored,

@@ -1071,6 +1071,9 @@ mod tests {
         }
 
         assert!(va.contains("export interface VoxelVolumeAsset {"));
+        assert!(va.contains("readonly paletteEntryId: string;"));
+        assert!(va.contains("readonly displayName: string | null;"));
+        assert!(va.contains("readonly materialCatalogBindingId: string | null;"));
         assert!(va.contains("readonly materialPalette: readonly VoxelAssetMaterialBinding[];"));
         assert!(va.contains("readonly validationDiagnostics: readonly VoxelAssetDiagnostic[];"));
         assert!(va.contains("readonly contentHashes: VoxelAssetContentHashes;"));

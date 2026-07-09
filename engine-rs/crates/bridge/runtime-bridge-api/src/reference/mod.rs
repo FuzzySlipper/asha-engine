@@ -1301,6 +1301,11 @@ impl ReferenceBridge {
                 .map(
                     |(voxel_material, material_asset_id)| VoxelAssetMaterialBinding {
                         voxel_material,
+                        palette_entry_id: Self::voxel_asset_palette_entry_id(&material_asset_id),
+                        display_name: None,
+                        material_catalog_binding_id: Some(Self::voxel_asset_catalog_binding_id(
+                            &material_asset_id,
+                        )),
                         material_asset_id,
                     },
                 )
@@ -1308,6 +1313,24 @@ impl ReferenceBridge {
         } else {
             Err(diagnostics)
         }
+    }
+
+    fn voxel_asset_palette_entry_id(material_asset_id: &str) -> String {
+        format!(
+            "voxel-material/{}",
+            material_asset_id
+                .strip_prefix("material/")
+                .unwrap_or(material_asset_id)
+        )
+    }
+
+    fn voxel_asset_catalog_binding_id(material_asset_id: &str) -> String {
+        format!(
+            "catalog-binding/{}",
+            material_asset_id
+                .strip_prefix("material/")
+                .unwrap_or(material_asset_id)
+        )
     }
 
     fn rejected_voxel_volume_asset_load(

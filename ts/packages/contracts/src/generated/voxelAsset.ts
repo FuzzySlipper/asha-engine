@@ -46,10 +46,13 @@ export interface VoxelAssetGrid {
   readonly coordinateSystem: string;
 }
 
-// One compact voxel-material binding to a catalog material asset.
+// One compact voxel-material binding to a named ProjectBundle catalog entry.
 export interface VoxelAssetMaterialBinding {
   readonly voxelMaterial: number;
+  readonly paletteEntryId: string;
+  readonly displayName: string | null;
   readonly materialAssetId: string;
+  readonly materialCatalogBindingId: string | null;
 }
 
 // One run of solid voxels along +X. Absence is empty space.

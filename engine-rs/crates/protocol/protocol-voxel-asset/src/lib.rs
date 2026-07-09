@@ -161,12 +161,15 @@ pub struct VoxelAssetGrid {
     pub coordinate_system: String,
 }
 
-/// One compact voxel-material binding to a catalog material asset.
+/// One compact voxel-material binding to a named ProjectBundle catalog entry.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VoxelAssetMaterialBinding {
     pub voxel_material: u16,
+    pub palette_entry_id: String,
+    pub display_name: Option<String>,
     pub material_asset_id: String,
+    pub material_catalog_binding_id: Option<String>,
 }
 
 /// One run of solid voxels along +X. Absence is empty space.

@@ -154,7 +154,13 @@ void test('persisted voxel asset public consumer proof saves, reloads, and recor
     };
     const invalidMaterialRef = {
         ...cloneAsset(saved.asset),
-        materialPalette: [{ voxelMaterial: 3, materialAssetId: 'texture/not-material' }],
+        materialPalette: [{
+                voxelMaterial: 3,
+                paletteEntryId: 'voxel-material/not-material',
+                displayName: 'Not material',
+                materialAssetId: 'texture/not-material',
+                materialCatalogBindingId: 'catalog-binding/not-material',
+            }],
     };
     const unsupportedSchema = {
         ...cloneAsset(saved.asset),

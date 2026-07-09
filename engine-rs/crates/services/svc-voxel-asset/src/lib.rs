@@ -219,6 +219,8 @@ fn validate_material_palette(
     diagnostics: &mut Vec<VoxelAssetDiagnostic>,
 ) -> BTreeSet<u16> {
     let mut palette = BTreeSet::new();
+    let mut palette_entries = BTreeSet::new();
+    let mut catalog_bindings = BTreeSet::new();
     for (index, binding) in asset.material_palette.iter().enumerate() {
         if !palette.insert(binding.voxel_material) {
             diagnostics.push(diagnostic(
@@ -229,6 +231,37 @@ fn validate_material_palette(
                     binding.voxel_material
                 ),
             ));
+        }
+        if binding.palette_entry_id.trim().is_empty() {
+            diagnostics.push(diagnostic(
+                VoxelAssetDiagnosticCode::InvalidMaterialReference,
+                format!("materialPalette[{index}].paletteEntryId"),
+                "palette entry id is required",
+            ));
+        } else if !palette_entries.insert(binding.palette_entry_id.as_str()) {
+            diagnostics.push(diagnostic(
+                VoxelAssetDiagnosticCode::DuplicateMaterialBinding,
+                format!("materialPalette[{index}].paletteEntryId"),
+                format!(
+                    "palette entry id {:?} is bound more than once",
+                    binding.palette_entry_id
+                ),
+            ));
+        }
+        if let Some(binding_id) = &binding.material_catalog_binding_id {
+            if binding_id.trim().is_empty() {
+                diagnostics.push(diagnostic(
+                    VoxelAssetDiagnosticCode::InvalidMaterialReference,
+                    format!("materialPalette[{index}].materialCatalogBindingId"),
+                    "material catalog binding id must be non-empty when provided",
+                ));
+            } else if !catalog_bindings.insert(binding_id.as_str()) {
+                diagnostics.push(diagnostic(
+                    VoxelAssetDiagnosticCode::DuplicateMaterialBinding,
+                    format!("materialPalette[{index}].materialCatalogBindingId"),
+                    format!("material catalog binding id {binding_id:?} is bound more than once"),
+                ));
+            }
         }
         match AssetId::parse(&binding.material_asset_id) {
             Ok(id) if id.kind() == AssetKind::Material => {}
@@ -460,11 +493,17 @@ mod tests {
             material_palette: vec![
                 VoxelAssetMaterialBinding {
                     voxel_material: 1,
+                    palette_entry_id: "voxel-material/concrete".to_string(),
+                    display_name: Some("Concrete".to_string()),
                     material_asset_id: "material/concrete".to_string(),
+                    material_catalog_binding_id: Some("catalog-binding/concrete".to_string()),
                 },
                 VoxelAssetMaterialBinding {
                     voxel_material: 2,
+                    palette_entry_id: "voxel-material/glass".to_string(),
+                    display_name: Some("Glass".to_string()),
                     material_asset_id: "material/glass".to_string(),
+                    material_catalog_binding_id: Some("catalog-binding/glass".to_string()),
                 },
             ],
             provenance: vec![VoxelAssetProvenanceRef {
@@ -534,6 +573,25 @@ mod tests {
         assert!(codes.contains(&VoxelAssetDiagnosticCode::InvalidBounds));
         assert!(codes.contains(&VoxelAssetDiagnosticCode::InvalidMaterialReference));
         assert!(codes.contains(&VoxelAssetDiagnosticCode::UnknownVoxelMaterial));
+        assert!(!report.is_valid());
+    }
+
+    #[test]
+    fn duplicate_material_palette_binding_ids_fail_closed() {
+        let mut asset = hand_authored_asset();
+        asset.material_palette[1].palette_entry_id =
+            asset.material_palette[0].palette_entry_id.clone();
+        asset.material_palette[1].material_catalog_binding_id = asset.material_palette[0]
+            .material_catalog_binding_id
+            .clone();
+
+        let report = validate_asset(&asset);
+        let duplicate_diagnostics = report
+            .diagnostics
+            .iter()
+            .filter(|d| d.code == VoxelAssetDiagnosticCode::DuplicateMaterialBinding)
+            .count();
+        assert_eq!(duplicate_diagnostics, 2);
         assert!(!report.is_valid());
     }
 

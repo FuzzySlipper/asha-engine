@@ -29,8 +29,9 @@ The top-level `VoxelVolumeAsset` records:
 - `grid`: origin, cell size, and coordinate-system tag.
 - `bounds`: inclusive stored voxel-space bounds.
 - `representation`: schema-v1 uses `sparse_runs`.
-- `materialPalette`: compact `u16` voxel material ids mapped to catalog
-  `material/...` asset ids.
+- `materialPalette`: compact `u16` voxel material ids mapped to named palette
+  entries, validated catalog `material/...` asset ids, and optional durable
+  material catalog binding ids.
 - `provenance`: authored, converted, runtime-export, or imported-reference
   evidence refs.
 - `authoring`: label/source-tool/editor metadata with no authority rights.
@@ -39,8 +40,8 @@ The top-level `VoxelVolumeAsset` records:
 
 The sparse-run payload stores solid voxels only. Empty space is absence. Each run
 starts at `start` and extends `length` cells along +X with one compact material
-id. Bounds, material palette membership, duplicate occupied coordinates, and hash
-consistency are Rust-validated.
+id. Bounds, material palette membership, duplicate palette/binding identifiers,
+duplicate occupied coordinates, and hash consistency are Rust-validated.
 
 ## Authority Rules
 
@@ -51,9 +52,12 @@ TypeScript may author JSON-shaped data and display diagnostics through generated
 DTOs. TypeScript must not decide whether a voxel asset is valid, mutate runtime
 SessionState directly, or read engine private crates/transports.
 
-Stored `VoxelVolumeAsset` data is durable ProjectBundle/catalog content. Runtime
-voxel SessionState is live authority. Moving runtime state into a stored asset is
-an explicit export operation:
+Stored `VoxelVolumeAsset` data is durable ProjectBundle/catalog content. Named
+voxel material palette entries live on the stored asset because they are
+authoring/catalog bindings, not live runtime authority. Runtime voxel
+SessionState consumes compact material ids through Rust-validated load/edit
+operations. Moving runtime state into a stored asset is an explicit export
+operation:
 
 1. Select a runtime volume/session source.
 2. Produce a proposed `VoxelVolumeAsset` with `runtime_export` provenance.
@@ -89,6 +93,11 @@ The follow-up Studio save/load/export workflow can now depend on:
 - `VOXEL_ASSET_SCHEMA_VERSION`
 - `VOXEL_ASSET_MEDIA_TYPE`
 - `VOXEL_ASSET_EXTENSION`
+
+Studio material choosing and named palette editing should project and mutate
+these public fields through generated contracts plus the public
+export/save/load facade. Studio must not keep its own hidden material-binding
+model for saved voxel assets.
 
 It must not import `svc-voxel-asset`, protocol crate internals, private bridge
 transports, or any VoxelForge `.vforge` parser.

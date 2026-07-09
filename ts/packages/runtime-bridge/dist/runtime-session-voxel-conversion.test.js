@@ -350,7 +350,13 @@ function createVoxelConversionBridge() {
                             kind: 'sparse_runs',
                             sparseRuns: [{ start: { x: 0, y: 0, z: 0 }, length: 1, material: 3 }],
                         },
-                        materialPalette: [{ voxelMaterial: 3, materialAssetId: 'material/surface-a' }],
+                        materialPalette: [{
+                                voxelMaterial: 3,
+                                paletteEntryId: 'voxel-material/surface-a',
+                                displayName: 'Surface A',
+                                materialAssetId: 'material/surface-a',
+                                materialCatalogBindingId: 'catalog-binding/surface-a',
+                            }],
                         provenance: availableEvidence.map((evidence) => ({
                             kind: 'converted',
                             uri: evidence.uri,
@@ -618,7 +624,13 @@ void test('Rust-backed RuntimeSession delegates voxel conversion to the bridge a
         { start: { x: 0, y: 0, z: 0 }, length: 1, material: 3 },
     ]);
     assert.deepEqual(exportedAsset.asset?.materialPalette, [
-        { voxelMaterial: 3, materialAssetId: 'material/surface-a' },
+        {
+            voxelMaterial: 3,
+            paletteEntryId: 'voxel-material/surface-a',
+            displayName: 'Surface A',
+            materialAssetId: 'material/surface-a',
+            materialCatalogBindingId: 'catalog-binding/surface-a',
+        },
     ]);
     assert.equal(exportedAsset.canonicalJsonHash, exportedAsset.asset?.contentHashes.canonicalJson);
     assert.equal(exportedAsset.voxelDataHash, exportedAsset.asset?.contentHashes.voxelData);
