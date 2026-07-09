@@ -208,6 +208,46 @@ errors = "RuntimeBridgeError"
 summary = "Export a loaded runtime voxel annotation layer back to the stored annotation DTO shape with authority hashes."
 
 [[operation]]
+name = "read_voxel_edit_history"
+surface = "stable"
+input = "protocol_voxel_edit_history::VoxelEditHistoryReadRequest"
+output = "protocol_voxel_edit_history::VoxelEditHistorySummary"
+errors = "RuntimeBridgeError"
+summary = "Read bounded Rust-owned voxel edit history/cursor state for a loaded history timeline; unavailable history fails closed instead of TS reconstruction."
+
+[[operation]]
+name = "preview_voxel_edit_revert"
+surface = "stable"
+input = "protocol_voxel_edit_history::VoxelEditHistoryRevertRequest"
+output = "protocol_voxel_edit_history::VoxelEditHistoryRevertReceipt"
+errors = "RuntimeBridgeError"
+summary = "Preview a Rust-owned voxel history revert target with bounded replay/diff evidence without mutating authority."
+
+[[operation]]
+name = "apply_voxel_edit_revert"
+surface = "stable"
+input = "protocol_voxel_edit_history::VoxelEditHistoryRevertRequest"
+output = "protocol_voxel_edit_history::VoxelEditHistoryRevertReceipt"
+errors = "RuntimeBridgeError"
+summary = "Apply a Rust-owned voxel history revert request after cursor/history hash guards and return generated receipt evidence."
+
+[[operation]]
+name = "undo_voxel_edit"
+surface = "stable"
+input = "protocol_voxel_edit_history::VoxelEditHistoryUndoRequest"
+output = "protocol_voxel_edit_history::VoxelEditHistoryUndoReceipt"
+errors = "RuntimeBridgeError"
+summary = "Undo one retained voxel edit transaction through Rust-owned history cursor authority."
+
+[[operation]]
+name = "redo_voxel_edit"
+surface = "stable"
+input = "protocol_voxel_edit_history::VoxelEditHistoryRedoRequest"
+output = "protocol_voxel_edit_history::VoxelEditHistoryRedoReceipt"
+errors = "RuntimeBridgeError"
+summary = "Redo one retained voxel edit transaction from the Rust-owned history redo tail."
+
+[[operation]]
 name = "load_fps_runtime_session"
 surface = "stable"
 input = "protocol_runtime::FpsRuntimeSessionLoadRequest"

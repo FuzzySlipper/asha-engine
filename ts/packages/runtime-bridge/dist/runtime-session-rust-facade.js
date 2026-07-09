@@ -623,6 +623,26 @@ export class RustBackedRuntimeSessionFacade {
         this.#requireInitialized('exportVoxelAnnotationLayer');
         return this.#bridge.exportVoxelAnnotationLayer(request);
     }
+    readVoxelEditHistory(request) {
+        this.#requireInitialized('readVoxelEditHistory');
+        return this.#bridge.readVoxelEditHistory(request);
+    }
+    previewVoxelEditRevert(request) {
+        this.#requireInitialized('previewVoxelEditRevert');
+        return this.#bridge.previewVoxelEditRevert(request);
+    }
+    applyVoxelEditRevert(request) {
+        this.#requireInitialized('applyVoxelEditRevert');
+        return this.#bridge.applyVoxelEditRevert(request);
+    }
+    undoVoxelEdit(request) {
+        this.#requireInitialized('undoVoxelEdit');
+        return this.#bridge.undoVoxelEdit(request);
+    }
+    redoVoxelEdit(request) {
+        this.#requireInitialized('redoVoxelEdit');
+        return this.#bridge.redoVoxelEdit(request);
+    }
     readEcrpRuntimeReadout() {
         const identity = this.#requireInitialized('readEcrpRuntimeReadout');
         const snapshot = this.#requireSnapshot();

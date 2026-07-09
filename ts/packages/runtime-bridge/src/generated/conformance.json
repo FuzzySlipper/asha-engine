@@ -187,6 +187,46 @@
       "errors": "RuntimeBridgeError"
     },
     {
+      "manifestName": "read_voxel_edit_history",
+      "facadeMethod": "readVoxelEditHistory",
+      "surface": "stable",
+      "input": "protocol_voxel_edit_history::VoxelEditHistoryReadRequest",
+      "output": "protocol_voxel_edit_history::VoxelEditHistorySummary",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "preview_voxel_edit_revert",
+      "facadeMethod": "previewVoxelEditRevert",
+      "surface": "stable",
+      "input": "protocol_voxel_edit_history::VoxelEditHistoryRevertRequest",
+      "output": "protocol_voxel_edit_history::VoxelEditHistoryRevertReceipt",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "apply_voxel_edit_revert",
+      "facadeMethod": "applyVoxelEditRevert",
+      "surface": "stable",
+      "input": "protocol_voxel_edit_history::VoxelEditHistoryRevertRequest",
+      "output": "protocol_voxel_edit_history::VoxelEditHistoryRevertReceipt",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "undo_voxel_edit",
+      "facadeMethod": "undoVoxelEdit",
+      "surface": "stable",
+      "input": "protocol_voxel_edit_history::VoxelEditHistoryUndoRequest",
+      "output": "protocol_voxel_edit_history::VoxelEditHistoryUndoReceipt",
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "redo_voxel_edit",
+      "facadeMethod": "redoVoxelEdit",
+      "surface": "stable",
+      "input": "protocol_voxel_edit_history::VoxelEditHistoryRedoRequest",
+      "output": "protocol_voxel_edit_history::VoxelEditHistoryRedoReceipt",
+      "errors": "RuntimeBridgeError"
+    },
+    {
       "manifestName": "load_fps_runtime_session",
       "facadeMethod": "loadFpsRuntimeSession",
       "surface": "stable",

@@ -554,6 +554,26 @@ export class NativeRuntimeBridge {
     readVoxelMeshEvidence() {
         throw nativeUnimplemented('read_voxel_mesh_evidence');
     }
+    readVoxelEditHistory(_request) {
+        void _request;
+        throw nativeUnimplemented('read_voxel_edit_history');
+    }
+    previewVoxelEditRevert(_request) {
+        void _request;
+        throw nativeUnimplemented('preview_voxel_edit_revert');
+    }
+    applyVoxelEditRevert(_request) {
+        void _request;
+        throw nativeUnimplemented('apply_voxel_edit_revert');
+    }
+    undoVoxelEdit(_request) {
+        void _request;
+        throw nativeUnimplemented('undo_voxel_edit');
+    }
+    redoVoxelEdit(_request) {
+        void _request;
+        throw nativeUnimplemented('redo_voxel_edit');
+    }
     createCamera(request) {
         const handle = this.#requireHandle('createCamera');
         return callNative(() => this.#addon.createCamera(handle, request));

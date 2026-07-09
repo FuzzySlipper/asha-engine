@@ -64,6 +64,7 @@ PROTOCOL_MODULE_TO_GENERATED_FILE = {
     "protocol_voxel_annotation": "voxelAnnotation.ts",
     "protocol_voxel_asset": "voxelAsset.ts",
     "protocol_voxel_conversion": "voxelConversion.ts",
+    "protocol_voxel_edit_history": "voxelEditHistory.ts",
     "protocol_project_bundle": "projectBundle.ts",
 }
 EXPORT_RE = re.compile(r"export (?:interface|type|const|enum) ([A-Za-z0-9_]+)")

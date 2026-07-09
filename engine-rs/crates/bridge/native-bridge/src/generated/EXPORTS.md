@@ -30,6 +30,11 @@ operations are replay/devtools-only.
 | `read_voxel_annotation_query` | stable | `protocol_voxel_annotation::VoxelAnnotationQueryRequest` | `protocol_voxel_annotation::VoxelAnnotationQueryReadout` | `RuntimeBridgeError` |
 | `apply_voxel_annotation_edit` | stable | `protocol_voxel_annotation::VoxelAnnotationEditRequest` | `protocol_voxel_annotation::VoxelAnnotationEditReceipt` | `RuntimeBridgeError` |
 | `export_voxel_annotation_layer` | stable | `protocol_voxel_annotation::VoxelAnnotationLayerExportRequest` | `protocol_voxel_annotation::VoxelAnnotationLayerExportReceipt` | `RuntimeBridgeError` |
+| `read_voxel_edit_history` | stable | `protocol_voxel_edit_history::VoxelEditHistoryReadRequest` | `protocol_voxel_edit_history::VoxelEditHistorySummary` | `RuntimeBridgeError` |
+| `preview_voxel_edit_revert` | stable | `protocol_voxel_edit_history::VoxelEditHistoryRevertRequest` | `protocol_voxel_edit_history::VoxelEditHistoryRevertReceipt` | `RuntimeBridgeError` |
+| `apply_voxel_edit_revert` | stable | `protocol_voxel_edit_history::VoxelEditHistoryRevertRequest` | `protocol_voxel_edit_history::VoxelEditHistoryRevertReceipt` | `RuntimeBridgeError` |
+| `undo_voxel_edit` | stable | `protocol_voxel_edit_history::VoxelEditHistoryUndoRequest` | `protocol_voxel_edit_history::VoxelEditHistoryUndoReceipt` | `RuntimeBridgeError` |
+| `redo_voxel_edit` | stable | `protocol_voxel_edit_history::VoxelEditHistoryRedoRequest` | `protocol_voxel_edit_history::VoxelEditHistoryRedoReceipt` | `RuntimeBridgeError` |
 | `load_fps_runtime_session` | stable | `protocol_runtime::FpsRuntimeSessionLoadRequest` | `protocol_runtime::FpsRuntimeSessionSnapshot` | `RuntimeBridgeError` |
 | `read_fps_runtime_session` | stable | `Unit` | `protocol_runtime::FpsRuntimeSessionSnapshot` | `RuntimeBridgeError` |
 | `apply_fps_primary_fire` | stable | `protocol_runtime::FpsPrimaryFireRequest` | `protocol_runtime::FpsPrimaryFireResult` | `RuntimeBridgeError` |

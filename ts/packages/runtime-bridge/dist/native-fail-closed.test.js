@@ -333,6 +333,37 @@ const VOXEL_ANNOTATION_EXPORT_REQUEST = {
     expectedLayerHash: 'fnv1a64:0000000000000115',
     includeDiagnostics: true,
 };
+const VOXEL_EDIT_HISTORY_READ_REQUEST = {
+    historyId: 'history/native-fixture',
+    cursorId: null,
+    maxEntries: 4,
+    includeRedoTail: true,
+    expectedHistoryHash: null,
+};
+const VOXEL_EDIT_HISTORY_REVERT_REQUEST = {
+    historyId: 'history/native-fixture',
+    mode: 'preview_revert',
+    target: { transactionId: null, cursorId: 'cursor/0', cursorIndex: 0 },
+    expectedHistoryHash: 'fnv1a64:history',
+    expectedCursorHash: 'fnv1a64:cursor',
+    maxReplaySteps: 16,
+    maxDiffVoxels: 32,
+    includeSampleWindow: false,
+};
+const VOXEL_EDIT_HISTORY_UNDO_REQUEST = {
+    historyId: 'history/native-fixture',
+    expectedHistoryHash: 'fnv1a64:history',
+    expectedCursorHash: 'fnv1a64:cursor',
+    maxReplaySteps: 16,
+    maxDiffVoxels: 32,
+};
+const VOXEL_EDIT_HISTORY_REDO_REQUEST = {
+    historyId: 'history/native-fixture',
+    expectedHistoryHash: 'fnv1a64:history',
+    expectedCursorHash: 'fnv1a64:cursor',
+    maxReplaySteps: 16,
+    maxDiffVoxels: 32,
+};
 function parseJsonFixture(payload) {
     return JSON.parse(payload);
 }
@@ -1136,6 +1167,14 @@ const INVOKE = new Map([
     ['readVoxelAnnotationQuery', (b) => b.readVoxelAnnotationQuery(VOXEL_ANNOTATION_QUERY_REQUEST)],
     ['applyVoxelAnnotationEdit', (b) => b.applyVoxelAnnotationEdit(VOXEL_ANNOTATION_EDIT_REQUEST)],
     ['exportVoxelAnnotationLayer', (b) => b.exportVoxelAnnotationLayer(VOXEL_ANNOTATION_EXPORT_REQUEST)],
+    ['readVoxelEditHistory', (b) => b.readVoxelEditHistory(VOXEL_EDIT_HISTORY_READ_REQUEST)],
+    ['previewVoxelEditRevert', (b) => b.previewVoxelEditRevert(VOXEL_EDIT_HISTORY_REVERT_REQUEST)],
+    [
+        'applyVoxelEditRevert',
+        (b) => b.applyVoxelEditRevert({ ...VOXEL_EDIT_HISTORY_REVERT_REQUEST, mode: 'apply_revert' }),
+    ],
+    ['undoVoxelEdit', (b) => b.undoVoxelEdit(VOXEL_EDIT_HISTORY_UNDO_REQUEST)],
+    ['redoVoxelEdit', (b) => b.redoVoxelEdit(VOXEL_EDIT_HISTORY_REDO_REQUEST)],
     ['readModelMaterialPreview', (b) => b.readModelMaterialPreview(MODEL_MATERIAL_PREVIEW_REQUEST)],
     ['readSceneObjectSnapshot', (b) => b.readSceneObjectSnapshot()],
     [

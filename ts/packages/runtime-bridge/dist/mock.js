@@ -1100,6 +1100,11 @@ export class MockRuntimeBridge {
     readVoxelAnnotationQuery(_request) { void _request; return this.#unsupportedAfterInit('readVoxelAnnotationQuery', 'mock bridge does not own voxel annotation query authority'); }
     applyVoxelAnnotationEdit(_request) { void _request; return this.#unsupportedAfterInit('applyVoxelAnnotationEdit', 'mock bridge does not own voxel annotation edit authority'); }
     exportVoxelAnnotationLayer(_request) { void _request; return this.#unsupportedAfterInit('exportVoxelAnnotationLayer', 'mock bridge does not own voxel annotation export authority'); }
+    readVoxelEditHistory(_request) { void _request; return this.#unsupportedAfterInit('readVoxelEditHistory', 'mock bridge does not own voxel edit history authority'); }
+    previewVoxelEditRevert(_request) { void _request; return this.#unsupportedAfterInit('previewVoxelEditRevert', 'mock bridge does not own voxel edit history authority'); }
+    applyVoxelEditRevert(_request) { void _request; return this.#unsupportedAfterInit('applyVoxelEditRevert', 'mock bridge does not own voxel edit history authority'); }
+    undoVoxelEdit(_request) { void _request; return this.#unsupportedAfterInit('undoVoxelEdit', 'mock bridge does not own voxel edit history authority'); }
+    redoVoxelEdit(_request) { void _request; return this.#unsupportedAfterInit('redoVoxelEdit', 'mock bridge does not own voxel edit history authority'); }
     readModelMaterialPreview(request) {
         if (this.#engine === null) {
             throw new RuntimeBridgeError('not_initialized', 'readModelMaterialPreview before initializeEngine');

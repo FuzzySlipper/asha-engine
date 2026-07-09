@@ -752,6 +752,7 @@ dependencies = [
  "protocol-voxel-annotation",
  "protocol-voxel-asset",
  "protocol-voxel-conversion",
+ "protocol-voxel-edit-history",
  "rule-lifecycle",
  "rule-voxel-edit",
  "serde",

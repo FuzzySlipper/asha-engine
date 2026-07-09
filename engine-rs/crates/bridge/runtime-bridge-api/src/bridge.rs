@@ -133,6 +133,31 @@ pub trait RuntimeBridge {
         &self,
         request: VoxelAnnotationLayerExportRequest,
     ) -> BridgeResult<VoxelAnnotationLayerExportReceipt>;
+    /// Read bounded voxel edit history/cursor authority for a loaded timeline.
+    fn read_voxel_edit_history(
+        &self,
+        request: VoxelEditHistoryReadRequest,
+    ) -> BridgeResult<VoxelEditHistorySummary>;
+    /// Preview a revert target without mutating voxel authority.
+    fn preview_voxel_edit_revert(
+        &self,
+        request: VoxelEditHistoryRevertRequest,
+    ) -> BridgeResult<VoxelEditHistoryRevertReceipt>;
+    /// Apply a guarded revert target through Rust-owned history authority.
+    fn apply_voxel_edit_revert(
+        &mut self,
+        request: VoxelEditHistoryRevertRequest,
+    ) -> BridgeResult<VoxelEditHistoryRevertReceipt>;
+    /// Undo one retained voxel edit transaction through Rust-owned history.
+    fn undo_voxel_edit(
+        &mut self,
+        request: VoxelEditHistoryUndoRequest,
+    ) -> BridgeResult<VoxelEditHistoryUndoReceipt>;
+    /// Redo one retained voxel edit transaction through Rust-owned history.
+    fn redo_voxel_edit(
+        &mut self,
+        request: VoxelEditHistoryRedoRequest,
+    ) -> BridgeResult<VoxelEditHistoryRedoReceipt>;
     /// Load an FPS/ECRP ProjectBundle-shaped session through Rust authority.
     /// Stored definitions are validated/bootstraped by rule-lifecycle and
     /// svc-entity-authoring; failure leaves any prior FPS session untouched.

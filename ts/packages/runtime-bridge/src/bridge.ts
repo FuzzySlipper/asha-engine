@@ -52,6 +52,14 @@ import type {
   VoxelAnnotationLayerValidationRequest,
   VoxelAnnotationQueryReadout,
   VoxelAnnotationQueryRequest,
+  VoxelEditHistoryReadRequest,
+  VoxelEditHistoryRedoReceipt,
+  VoxelEditHistoryRedoRequest,
+  VoxelEditHistoryRevertReceipt,
+  VoxelEditHistoryRevertRequest,
+  VoxelEditHistorySummary,
+  VoxelEditHistoryUndoReceipt,
+  VoxelEditHistoryUndoRequest,
   VoxelVolumeAssetExportReceipt,
   VoxelVolumeAssetExportRequest,
   VoxelVolumeAssetLoadReceipt,
@@ -450,6 +458,11 @@ export interface RuntimeBridge {
   readVoxelAnnotationQuery(request: VoxelAnnotationQueryRequest): VoxelAnnotationQueryReadout;
   applyVoxelAnnotationEdit(request: VoxelAnnotationEditRequest): VoxelAnnotationEditReceipt;
   exportVoxelAnnotationLayer(request: VoxelAnnotationLayerExportRequest): VoxelAnnotationLayerExportReceipt;
+  readVoxelEditHistory(request: VoxelEditHistoryReadRequest): VoxelEditHistorySummary;
+  previewVoxelEditRevert(request: VoxelEditHistoryRevertRequest): VoxelEditHistoryRevertReceipt;
+  applyVoxelEditRevert(request: VoxelEditHistoryRevertRequest): VoxelEditHistoryRevertReceipt;
+  undoVoxelEdit(request: VoxelEditHistoryUndoRequest): VoxelEditHistoryUndoReceipt;
+  redoVoxelEdit(request: VoxelEditHistoryRedoRequest): VoxelEditHistoryRedoReceipt;
   loadFpsRuntimeSession(request: FpsRuntimeSessionLoadRequest): FpsRuntimeSessionSnapshot;
   readFpsRuntimeSession(): FpsRuntimeSessionSnapshot;
   applyFpsPrimaryFire(request: FpsPrimaryFireRequest): FpsPrimaryFireResult;

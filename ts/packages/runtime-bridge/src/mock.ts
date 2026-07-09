@@ -51,6 +51,9 @@ import type {
   VoxelAnnotationLayerValidationRequest,
   VoxelAnnotationQueryReadout,
   VoxelAnnotationQueryRequest,
+  VoxelEditHistoryReadRequest, VoxelEditHistoryRedoReceipt, VoxelEditHistoryRedoRequest,
+  VoxelEditHistoryRevertReceipt, VoxelEditHistoryRevertRequest, VoxelEditHistorySummary,
+  VoxelEditHistoryUndoReceipt, VoxelEditHistoryUndoRequest,
   VoxelVolumeAssetExportReceipt,
   VoxelVolumeAssetExportRequest,
   VoxelVolumeAssetLoadReceipt,
@@ -1334,6 +1337,16 @@ export class MockRuntimeBridge implements RuntimeBridge {
   applyVoxelAnnotationEdit(_request: VoxelAnnotationEditRequest): VoxelAnnotationEditReceipt { void _request; return this.#unsupportedAfterInit('applyVoxelAnnotationEdit', 'mock bridge does not own voxel annotation edit authority'); }
 
   exportVoxelAnnotationLayer(_request: VoxelAnnotationLayerExportRequest): VoxelAnnotationLayerExportReceipt { void _request; return this.#unsupportedAfterInit('exportVoxelAnnotationLayer', 'mock bridge does not own voxel annotation export authority'); }
+
+  readVoxelEditHistory(_request: VoxelEditHistoryReadRequest): VoxelEditHistorySummary { void _request; return this.#unsupportedAfterInit('readVoxelEditHistory', 'mock bridge does not own voxel edit history authority'); }
+
+  previewVoxelEditRevert(_request: VoxelEditHistoryRevertRequest): VoxelEditHistoryRevertReceipt { void _request; return this.#unsupportedAfterInit('previewVoxelEditRevert', 'mock bridge does not own voxel edit history authority'); }
+
+  applyVoxelEditRevert(_request: VoxelEditHistoryRevertRequest): VoxelEditHistoryRevertReceipt { void _request; return this.#unsupportedAfterInit('applyVoxelEditRevert', 'mock bridge does not own voxel edit history authority'); }
+
+  undoVoxelEdit(_request: VoxelEditHistoryUndoRequest): VoxelEditHistoryUndoReceipt { void _request; return this.#unsupportedAfterInit('undoVoxelEdit', 'mock bridge does not own voxel edit history authority'); }
+
+  redoVoxelEdit(_request: VoxelEditHistoryRedoRequest): VoxelEditHistoryRedoReceipt { void _request; return this.#unsupportedAfterInit('redoVoxelEdit', 'mock bridge does not own voxel edit history authority'); }
 
   readModelMaterialPreview(request: ModelMaterialPreviewRequest): ModelMaterialPreviewSnapshot {
     if (this.#engine === null) {

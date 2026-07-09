@@ -34,12 +34,12 @@ import {
   type VoxelAnnotationLayerValidationRequest,
   type VoxelAnnotationQueryReadout,
   type VoxelAnnotationQueryRequest,
-  type VoxelVolumeAssetExportReceipt,
-  type VoxelVolumeAssetExportRequest,
-  type VoxelVolumeAssetLoadReceipt,
-  type VoxelVolumeAssetLoadRequest,
-  type VoxelVolumeAssetSaveReceipt,
-  type VoxelVolumeAssetSaveRequest,
+  type VoxelEditHistoryReadRequest, type VoxelEditHistoryRedoReceipt, type VoxelEditHistoryRedoRequest,
+  type VoxelEditHistoryRevertReceipt, type VoxelEditHistoryRevertRequest, type VoxelEditHistorySummary,
+  type VoxelEditHistoryUndoReceipt, type VoxelEditHistoryUndoRequest,
+  type VoxelVolumeAssetExportReceipt, type VoxelVolumeAssetExportRequest,
+  type VoxelVolumeAssetLoadReceipt, type VoxelVolumeAssetLoadRequest,
+  type VoxelVolumeAssetSaveReceipt, type VoxelVolumeAssetSaveRequest,
   type GameRuleModuleManifest,
   type GameExtensionHookReceipt,
   type GameExtensionReplayEvidence,
@@ -842,6 +842,9 @@ export interface RuntimeSessionFacade {
   readVoxelAnnotationQuery(request: VoxelAnnotationQueryRequest): VoxelAnnotationQueryReadout;
   applyVoxelAnnotationEdit(request: VoxelAnnotationEditRequest): VoxelAnnotationEditReceipt;
   exportVoxelAnnotationLayer(request: VoxelAnnotationLayerExportRequest): VoxelAnnotationLayerExportReceipt;
+  readVoxelEditHistory(request: VoxelEditHistoryReadRequest): VoxelEditHistorySummary;
+  previewVoxelEditRevert(request: VoxelEditHistoryRevertRequest): VoxelEditHistoryRevertReceipt; applyVoxelEditRevert(request: VoxelEditHistoryRevertRequest): VoxelEditHistoryRevertReceipt;
+  undoVoxelEdit(request: VoxelEditHistoryUndoRequest): VoxelEditHistoryUndoReceipt; redoVoxelEdit(request: VoxelEditHistoryRedoRequest): VoxelEditHistoryRedoReceipt;
   readEcrpRuntimeReadout(): RuntimeSessionEcrpReadout;
   readCameraProjection(request: CameraProjectionRequest): RuntimeSessionCameraProjectionReadout;
   readProjection(): RuntimeSessionProjectionSummary;
@@ -1560,6 +1563,12 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
   applyVoxelAnnotationEdit(_request: VoxelAnnotationEditRequest): VoxelAnnotationEditReceipt { void _request; return this.#unsupportedOperation('applyVoxelAnnotationEdit', 'Voxel annotation edit is not wired into the reference RuntimeSession'); }
 
   exportVoxelAnnotationLayer(_request: VoxelAnnotationLayerExportRequest): VoxelAnnotationLayerExportReceipt { void _request; return this.#unsupportedOperation('exportVoxelAnnotationLayer', 'Voxel annotation export is not wired into the reference RuntimeSession'); }
+
+  readVoxelEditHistory(_request: VoxelEditHistoryReadRequest): VoxelEditHistorySummary { void _request; return this.#unsupportedOperation('readVoxelEditHistory', 'Voxel edit history authority is not wired into the reference RuntimeSession'); }
+  previewVoxelEditRevert(_request: VoxelEditHistoryRevertRequest): VoxelEditHistoryRevertReceipt { void _request; return this.#unsupportedOperation('previewVoxelEditRevert', 'Voxel edit history authority is not wired into the reference RuntimeSession'); }
+  applyVoxelEditRevert(_request: VoxelEditHistoryRevertRequest): VoxelEditHistoryRevertReceipt { void _request; return this.#unsupportedOperation('applyVoxelEditRevert', 'Voxel edit history authority is not wired into the reference RuntimeSession'); }
+  undoVoxelEdit(_request: VoxelEditHistoryUndoRequest): VoxelEditHistoryUndoReceipt { void _request; return this.#unsupportedOperation('undoVoxelEdit', 'Voxel edit history authority is not wired into the reference RuntimeSession'); }
+  redoVoxelEdit(_request: VoxelEditHistoryRedoRequest): VoxelEditHistoryRedoReceipt { void _request; return this.#unsupportedOperation('redoVoxelEdit', 'Voxel edit history authority is not wired into the reference RuntimeSession'); }
 
   readEcrpRuntimeReadout(): RuntimeSessionEcrpReadout {
     const identity = this.#requireInitialized('readEcrpRuntimeReadout');

@@ -713,7 +713,9 @@ lane = "rust-bridge"
 # The game-rules RuntimeSession verbs added in #4531 route generated
 # protocol-game-rules DTOs into svc-game-rules for bounded validation,
 # resolution receipts, and readout evidence.
-may_depend_on = ["core-ids", "core-error", "core-math", "core-space", "core-voxel", "core-commands", "core-entity", "svc-spatial", "svc-volume", "svc-collision", "svc-mesh", "svc-serialization", "svc-pathfinding", "svc-combat", "svc-voxel-conversion", "svc-voxel-asset", "svc-voxel-annotation", "svc-game-rules", "rule-voxel-edit", "rule-lifecycle", "game-rule-extension", "protocol-diagnostics", "protocol-view", "protocol-render", "protocol-script", "protocol-replay", "protocol-entity-authoring", "protocol-voxel-conversion", "protocol-voxel-asset", "protocol-voxel-annotation", "protocol-game-rules"]
+# Voxel edit history/revert verbs expose generated history DTOs at the same
+# bridge boundary; actual authority remains in Rust rule/service crates (#5283).
+may_depend_on = ["core-ids", "core-error", "core-math", "core-space", "core-voxel", "core-commands", "core-entity", "svc-spatial", "svc-volume", "svc-collision", "svc-mesh", "svc-serialization", "svc-pathfinding", "svc-combat", "svc-voxel-conversion", "svc-voxel-asset", "svc-voxel-annotation", "svc-game-rules", "rule-voxel-edit", "rule-lifecycle", "game-rule-extension", "protocol-diagnostics", "protocol-view", "protocol-render", "protocol-script", "protocol-replay", "protocol-entity-authoring", "protocol-voxel-conversion", "protocol-voxel-asset", "protocol-voxel-annotation", "protocol-voxel-edit-history", "protocol-game-rules"]
 may_not_depend_on = ["napi", "wasm-bindgen"]
 
 [crate."engine-rs/crates/bridge/native-bridge"]

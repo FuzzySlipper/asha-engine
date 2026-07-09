@@ -1012,6 +1012,61 @@ impl RuntimeBridge for ReferenceBridge {
         self.export_voxel_annotation_layer_reference(request)
     }
 
+    fn read_voxel_edit_history(
+        &self,
+        _request: VoxelEditHistoryReadRequest,
+    ) -> BridgeResult<VoxelEditHistorySummary> {
+        self.require_initialized("read_voxel_edit_history")?;
+        Err(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::NotInitialized,
+            "voxel edit history authority is not loaded in the reference bridge",
+        ))
+    }
+
+    fn preview_voxel_edit_revert(
+        &self,
+        _request: VoxelEditHistoryRevertRequest,
+    ) -> BridgeResult<VoxelEditHistoryRevertReceipt> {
+        self.require_initialized("preview_voxel_edit_revert")?;
+        Err(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::NotInitialized,
+            "voxel edit history authority is not loaded in the reference bridge",
+        ))
+    }
+
+    fn apply_voxel_edit_revert(
+        &mut self,
+        _request: VoxelEditHistoryRevertRequest,
+    ) -> BridgeResult<VoxelEditHistoryRevertReceipt> {
+        self.require_initialized("apply_voxel_edit_revert")?;
+        Err(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::NotInitialized,
+            "voxel edit history authority is not loaded in the reference bridge",
+        ))
+    }
+
+    fn undo_voxel_edit(
+        &mut self,
+        _request: VoxelEditHistoryUndoRequest,
+    ) -> BridgeResult<VoxelEditHistoryUndoReceipt> {
+        self.require_initialized("undo_voxel_edit")?;
+        Err(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::NotInitialized,
+            "voxel edit history authority is not loaded in the reference bridge",
+        ))
+    }
+
+    fn redo_voxel_edit(
+        &mut self,
+        _request: VoxelEditHistoryRedoRequest,
+    ) -> BridgeResult<VoxelEditHistoryRedoReceipt> {
+        self.require_initialized("redo_voxel_edit")?;
+        Err(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::NotInitialized,
+            "voxel edit history authority is not loaded in the reference bridge",
+        ))
+    }
+
     fn load_fps_runtime_session(
         &mut self,
         request: FpsRuntimeSessionLoadRequest,

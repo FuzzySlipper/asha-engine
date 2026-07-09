@@ -101,6 +101,11 @@ pub use protocol_voxel_conversion::{
     VoxelModelMaterialCount, VoxelModelWindowReadout, VoxelModelWindowRequest,
     VoxelModelWindowSample,
 };
+pub use protocol_voxel_edit_history::{
+    VoxelEditHistoryReadRequest, VoxelEditHistoryRedoReceipt, VoxelEditHistoryRedoRequest,
+    VoxelEditHistoryRevertReceipt, VoxelEditHistoryRevertRequest, VoxelEditHistorySummary,
+    VoxelEditHistoryUndoReceipt, VoxelEditHistoryUndoRequest,
+};
 pub(crate) use rule_lifecycle::{
     load_fps_project_bundle, FpsEncounterLastTransition,
     FpsEncounterLifecycleInput as RuleFpsEncounterLifecycleInput, FpsEncounterState,

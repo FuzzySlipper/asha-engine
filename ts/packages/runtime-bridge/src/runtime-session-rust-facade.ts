@@ -28,6 +28,14 @@ import type {
   VoxelAnnotationLayerValidationRequest,
   VoxelAnnotationQueryReadout,
   VoxelAnnotationQueryRequest,
+  VoxelEditHistoryReadRequest,
+  VoxelEditHistoryRedoReceipt,
+  VoxelEditHistoryRedoRequest,
+  VoxelEditHistoryRevertReceipt,
+  VoxelEditHistoryRevertRequest,
+  VoxelEditHistorySummary,
+  VoxelEditHistoryUndoReceipt,
+  VoxelEditHistoryUndoRequest,
   VoxelVolumeAssetExportReceipt,
   VoxelVolumeAssetExportRequest,
   VoxelVolumeAssetLoadReceipt,
@@ -875,6 +883,31 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   exportVoxelAnnotationLayer(request: VoxelAnnotationLayerExportRequest): VoxelAnnotationLayerExportReceipt {
     this.#requireInitialized('exportVoxelAnnotationLayer');
     return this.#bridge.exportVoxelAnnotationLayer(request);
+  }
+
+  readVoxelEditHistory(request: VoxelEditHistoryReadRequest): VoxelEditHistorySummary {
+    this.#requireInitialized('readVoxelEditHistory');
+    return this.#bridge.readVoxelEditHistory(request);
+  }
+
+  previewVoxelEditRevert(request: VoxelEditHistoryRevertRequest): VoxelEditHistoryRevertReceipt {
+    this.#requireInitialized('previewVoxelEditRevert');
+    return this.#bridge.previewVoxelEditRevert(request);
+  }
+
+  applyVoxelEditRevert(request: VoxelEditHistoryRevertRequest): VoxelEditHistoryRevertReceipt {
+    this.#requireInitialized('applyVoxelEditRevert');
+    return this.#bridge.applyVoxelEditRevert(request);
+  }
+
+  undoVoxelEdit(request: VoxelEditHistoryUndoRequest): VoxelEditHistoryUndoReceipt {
+    this.#requireInitialized('undoVoxelEdit');
+    return this.#bridge.undoVoxelEdit(request);
+  }
+
+  redoVoxelEdit(request: VoxelEditHistoryRedoRequest): VoxelEditHistoryRedoReceipt {
+    this.#requireInitialized('redoVoxelEdit');
+    return this.#bridge.redoVoxelEdit(request);
   }
 
   readEcrpRuntimeReadout(): RuntimeSessionEcrpReadout {

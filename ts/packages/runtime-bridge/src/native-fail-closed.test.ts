@@ -24,6 +24,10 @@ import type {
   VoxelAnnotationLayerLoadRequest,
   VoxelAnnotationLayerValidationRequest,
   VoxelAnnotationQueryRequest,
+  VoxelEditHistoryReadRequest,
+  VoxelEditHistoryRedoRequest,
+  VoxelEditHistoryRevertRequest,
+  VoxelEditHistoryUndoRequest,
   VoxelVolumeAssetExportRequest,
   VoxelVolumeAssetLoadRequest,
   VoxelVolumeAssetSaveRequest,
@@ -388,6 +392,41 @@ const VOXEL_ANNOTATION_EXPORT_REQUEST = {
   expectedLayerHash: 'fnv1a64:0000000000000115',
   includeDiagnostics: true,
 } satisfies VoxelAnnotationLayerExportRequest;
+
+const VOXEL_EDIT_HISTORY_READ_REQUEST = {
+  historyId: 'history/native-fixture',
+  cursorId: null,
+  maxEntries: 4,
+  includeRedoTail: true,
+  expectedHistoryHash: null,
+} satisfies VoxelEditHistoryReadRequest;
+
+const VOXEL_EDIT_HISTORY_REVERT_REQUEST = {
+  historyId: 'history/native-fixture',
+  mode: 'preview_revert',
+  target: { transactionId: null, cursorId: 'cursor/0', cursorIndex: 0 },
+  expectedHistoryHash: 'fnv1a64:history',
+  expectedCursorHash: 'fnv1a64:cursor',
+  maxReplaySteps: 16,
+  maxDiffVoxels: 32,
+  includeSampleWindow: false,
+} satisfies VoxelEditHistoryRevertRequest;
+
+const VOXEL_EDIT_HISTORY_UNDO_REQUEST = {
+  historyId: 'history/native-fixture',
+  expectedHistoryHash: 'fnv1a64:history',
+  expectedCursorHash: 'fnv1a64:cursor',
+  maxReplaySteps: 16,
+  maxDiffVoxels: 32,
+} satisfies VoxelEditHistoryUndoRequest;
+
+const VOXEL_EDIT_HISTORY_REDO_REQUEST = {
+  historyId: 'history/native-fixture',
+  expectedHistoryHash: 'fnv1a64:history',
+  expectedCursorHash: 'fnv1a64:cursor',
+  maxReplaySteps: 16,
+  maxDiffVoxels: 32,
+} satisfies VoxelEditHistoryRedoRequest;
 
 function parseJsonFixture<T>(payload: string): T {
   return JSON.parse(payload) as T;
@@ -1222,6 +1261,14 @@ const INVOKE = new Map<string, (b: RuntimeBridge) => unknown>([
   ['readVoxelAnnotationQuery', (b) => b.readVoxelAnnotationQuery(VOXEL_ANNOTATION_QUERY_REQUEST)],
   ['applyVoxelAnnotationEdit', (b) => b.applyVoxelAnnotationEdit(VOXEL_ANNOTATION_EDIT_REQUEST)],
   ['exportVoxelAnnotationLayer', (b) => b.exportVoxelAnnotationLayer(VOXEL_ANNOTATION_EXPORT_REQUEST)],
+  ['readVoxelEditHistory', (b) => b.readVoxelEditHistory(VOXEL_EDIT_HISTORY_READ_REQUEST)],
+  ['previewVoxelEditRevert', (b) => b.previewVoxelEditRevert(VOXEL_EDIT_HISTORY_REVERT_REQUEST)],
+  [
+    'applyVoxelEditRevert',
+    (b) => b.applyVoxelEditRevert({ ...VOXEL_EDIT_HISTORY_REVERT_REQUEST, mode: 'apply_revert' }),
+  ],
+  ['undoVoxelEdit', (b) => b.undoVoxelEdit(VOXEL_EDIT_HISTORY_UNDO_REQUEST)],
+  ['redoVoxelEdit', (b) => b.redoVoxelEdit(VOXEL_EDIT_HISTORY_REDO_REQUEST)],
   ['readModelMaterialPreview', (b) => b.readModelMaterialPreview(MODEL_MATERIAL_PREVIEW_REQUEST)],
   ['readSceneObjectSnapshot', (b) => b.readSceneObjectSnapshot()],
   [

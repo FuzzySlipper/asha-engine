@@ -36,6 +36,14 @@ import type {
   VoxelAnnotationLayerValidationRequest,
   VoxelAnnotationQueryReadout,
   VoxelAnnotationQueryRequest,
+  VoxelEditHistoryReadRequest,
+  VoxelEditHistoryRedoReceipt,
+  VoxelEditHistoryRedoRequest,
+  VoxelEditHistoryRevertReceipt,
+  VoxelEditHistoryRevertRequest,
+  VoxelEditHistorySummary,
+  VoxelEditHistoryUndoReceipt,
+  VoxelEditHistoryUndoRequest,
   VoxelVolumeAssetExportReceipt,
   VoxelVolumeAssetExportRequest,
   VoxelVolumeAssetLoadReceipt,
@@ -784,6 +792,31 @@ export class NativeRuntimeBridge implements RuntimeBridge {
 
   readVoxelMeshEvidence(): VoxelMeshEvidenceSnapshot {
     throw nativeUnimplemented('read_voxel_mesh_evidence');
+  }
+
+  readVoxelEditHistory(_request: VoxelEditHistoryReadRequest): VoxelEditHistorySummary {
+    void _request;
+    throw nativeUnimplemented('read_voxel_edit_history');
+  }
+
+  previewVoxelEditRevert(_request: VoxelEditHistoryRevertRequest): VoxelEditHistoryRevertReceipt {
+    void _request;
+    throw nativeUnimplemented('preview_voxel_edit_revert');
+  }
+
+  applyVoxelEditRevert(_request: VoxelEditHistoryRevertRequest): VoxelEditHistoryRevertReceipt {
+    void _request;
+    throw nativeUnimplemented('apply_voxel_edit_revert');
+  }
+
+  undoVoxelEdit(_request: VoxelEditHistoryUndoRequest): VoxelEditHistoryUndoReceipt {
+    void _request;
+    throw nativeUnimplemented('undo_voxel_edit');
+  }
+
+  redoVoxelEdit(_request: VoxelEditHistoryRedoRequest): VoxelEditHistoryRedoReceipt {
+    void _request;
+    throw nativeUnimplemented('redo_voxel_edit');
   }
 
   createCamera(request: CameraCreateRequest): CameraSnapshot {

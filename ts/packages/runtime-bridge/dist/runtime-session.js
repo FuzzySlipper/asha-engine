@@ -596,6 +596,11 @@ class ReferenceRuntimeSessionFacade {
     readVoxelAnnotationQuery(_request) { void _request; return this.#unsupportedOperation('readVoxelAnnotationQuery', 'Voxel annotation query is not wired into the reference RuntimeSession'); }
     applyVoxelAnnotationEdit(_request) { void _request; return this.#unsupportedOperation('applyVoxelAnnotationEdit', 'Voxel annotation edit is not wired into the reference RuntimeSession'); }
     exportVoxelAnnotationLayer(_request) { void _request; return this.#unsupportedOperation('exportVoxelAnnotationLayer', 'Voxel annotation export is not wired into the reference RuntimeSession'); }
+    readVoxelEditHistory(_request) { void _request; return this.#unsupportedOperation('readVoxelEditHistory', 'Voxel edit history authority is not wired into the reference RuntimeSession'); }
+    previewVoxelEditRevert(_request) { void _request; return this.#unsupportedOperation('previewVoxelEditRevert', 'Voxel edit history authority is not wired into the reference RuntimeSession'); }
+    applyVoxelEditRevert(_request) { void _request; return this.#unsupportedOperation('applyVoxelEditRevert', 'Voxel edit history authority is not wired into the reference RuntimeSession'); }
+    undoVoxelEdit(_request) { void _request; return this.#unsupportedOperation('undoVoxelEdit', 'Voxel edit history authority is not wired into the reference RuntimeSession'); }
+    redoVoxelEdit(_request) { void _request; return this.#unsupportedOperation('redoVoxelEdit', 'Voxel edit history authority is not wired into the reference RuntimeSession'); }
     readEcrpRuntimeReadout() {
         const identity = this.#requireInitialized('readEcrpRuntimeReadout');
         return buildEcrpRuntimeReadout({
