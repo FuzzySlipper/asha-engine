@@ -130,8 +130,7 @@ The first implementation should define these generated DTOs:
 - `VoxelAnnotationLayerExportRequest`
 - `VoxelAnnotationLayerExportReceipt`
 
-The runtime bridge should eventually expose stable verbs rather than a generic
-JSON method:
+The runtime bridge exposes stable verbs rather than a generic JSON method:
 
 - `validate_voxel_annotation_layer`
 - `load_voxel_annotation_layer`
@@ -139,9 +138,12 @@ JSON method:
 - `apply_voxel_annotation_edit`
 - `export_voxel_annotation_layer`
 
-The `RuntimeSessionFacade` can then expose camelCase wrappers through
-`@asha/runtime-bridge`, while pure readout/helper projections can later move to
-`@asha/runtime-session` if they are transport-neutral.
+`RuntimeSessionFacade` exposes the matching camelCase wrappers through the
+`@asha/runtime-bridge` package root. Consumers use generated annotation DTOs from
+`@asha/contracts` and these facade methods only; they must not import generated
+file paths, raw native transports, Rust crates, Studio private transports, or
+arbitrary JSON method tunnels. Pure readout/helper projections can later move to
+`@asha/runtime-session` if they become transport-neutral.
 
 ## Validation Rules
 
@@ -184,10 +186,15 @@ Both must remain quota guarded and Rust-owned.
 
 ## Implementation Path
 
-1. Add `protocol-voxel-annotation` plus generated TypeScript contracts.
+1. Add `protocol-voxel-annotation` plus generated TypeScript contracts. **Done.**
 2. Add `svc-voxel-annotation` for validation, canonical hashing, sparse-run
    normalization, and query helpers.
+   **Done.**
 3. Integrate annotation layer artifacts into ProjectBundle load/save metadata.
-4. Add runtime bridge verbs and RuntimeSession facade wrappers.
-5. Add package-root consumer proof and compatibility docs.
+   **Done.**
+4. Add runtime bridge verbs and RuntimeSession facade wrappers. **Done.**
+5. Add package-root consumer proof and compatibility docs. **Done.** The proof is
+   `pnpm --filter @asha/smoke test:voxel-annotation-proof`; when the native Rust
+   bridge is built, it validates, loads, queries, edits, and exports annotations
+   through `@asha/contracts` and `@asha/runtime-bridge` roots only.
 6. Let Studio build UI only after the engine DTOs and receipts exist.

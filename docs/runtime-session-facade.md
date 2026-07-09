@@ -83,6 +83,11 @@ Rust-capable bridge and `mode: 'rust'`; reference fixtures use
 - `exportVoxelVolumeAsset(request)`: exports a complete resident converted voxel model as an Asha-native `VoxelVolumeAsset` receipt with Rust-owned sparse runs, material palette, provenance refs, canonical JSON, and `svc-voxel-asset` hashes. Missing models, stale session hashes, export limits, and unrepresentable material refs fail closed through typed voxel-asset diagnostics.
 - `saveVoxelVolumeAsset(request)`: validates an explicit runtime-to-stored voxel asset transaction for a ProjectBundle target path, returning a stored-asset diff and canonical payload for host persistence. The operation fails closed for stale runtime hashes, invalid paths/asset ids, representation/hash mismatches, export limits, and missing material refs without silently promoting SessionState into stored content.
 - `loadVoxelVolumeAsset(request)`: validates a stored `VoxelVolumeAsset` through `svc-voxel-asset` and explicitly loads it into runtime voxel authority with a receipt/readback. Invalid hashes, schema/media mismatches, material refs, and target grid mismatches fail closed before runtime mutation.
+- `validateVoxelAnnotationLayer(request)`: validates a generated `VoxelAnnotationLayer` DTO against its target voxel-volume asset id/hash, bounds, sparse-run membership, quotas, parent tree, and canonical hashes through Rust annotation authority. Empty submitted hashes are treated as authored draft input and the report returns computed hashes; mismatched explicit hashes return typed diagnostics.
+- `loadVoxelAnnotationLayer(request)`: explicitly loads a validated annotation layer into runtime annotation authority for a loaded voxel-volume asset. Target session hash mismatches, missing target volumes, invalid layer content, and replace conflicts return typed annotation diagnostics without mutating runtime annotation state.
+- `readVoxelAnnotationQuery(request)`: reads a loaded runtime annotation layer by cell, bounds, region id, or layer summary with `maxRegions` and optional expected-layer-hash guards. Missing layers, out-of-bounds queries, stale hashes, and quota truncation are represented in generated typed readouts.
+- `applyVoxelAnnotationEdit(request)`: applies one typed annotation edit operation to a loaded layer after checking the expected layer hash. Stale hashes, unknown regions, invalid edits, and post-edit validation failures return typed diagnostics; accepted edits return before/after layer hashes.
+- `exportVoxelAnnotationLayer(request)`: explicitly exports a loaded runtime annotation layer back to stored DTO/canonical JSON form after an expected-hash check. Runtime-to-stored promotion is receipt-driven and never implicit.
 - `readProjection()`: returns a render/projection summary from public render diff contracts.
 - `readEcrpRuntimeReadout()`: returns live Entity/CapabilityState/event readouts derived from the selected backend. Rust-backed readouts identify `mode: 'rust'`, `source: 'rust_bridge'`, authority surface, and declared read sets.
 - `readTelemetry()`: returns sequence/tick/composition/command/replay/hash summary.
@@ -116,6 +121,7 @@ Evidence lanes:
 - `pnpm --filter @asha/runtime-bridge test:evidence:reference` proves the reference RuntimeSession fixture lane remains explicitly non-product authority.
 - `pnpm --filter @asha/runtime-bridge test:evidence:rust` proves the public Rust-backed facade reports backend provenance for collision, combat, lifecycle, encounter, and restart.
 - `pnpm --filter @asha/smoke test:evidence:reference` and `pnpm --filter @asha/smoke test:evidence:authority` split smoke evidence into reference and authority lanes.
+- `pnpm --filter @asha/smoke test:voxel-annotation-proof` proves root-only consumer use of voxel annotation DTOs and RuntimeSession facade verbs when the native Rust bridge is built; without native bridge support it skips with an explicit native-unavailable reason.
 
 ## Runtime Vocabulary
 
