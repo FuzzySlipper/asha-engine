@@ -204,6 +204,447 @@ pub fn preview(
     validate(cmd, world, materials)
 }
 
+// ── Bulk transactions (bounded, atomic authority surface) ──────────────────────
+
+/// Whether a bulk voxel edit transaction mutates authority or only computes its
+/// accepted event log and projected state hash.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VoxelEditTransactionMode {
+    /// Validate, quota-check, and project the result without mutating `world`.
+    PreviewOnly,
+    /// Validate and apply atomically. Any rejection leaves `world` unchanged.
+    Apply,
+}
+
+/// Broad enough for authored model-building operations, bounded enough to catch
+/// runaway tools before they become load-bearing runtime behavior.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VoxelEditTransactionLimits {
+    pub max_commands: u32,
+    pub max_events: u32,
+    pub max_touched_voxels: u64,
+}
+
+impl VoxelEditTransactionLimits {
+    pub const fn new(max_commands: u32, max_events: u32, max_touched_voxels: u64) -> Self {
+        Self {
+            max_commands,
+            max_events,
+            max_touched_voxels,
+        }
+    }
+}
+
+impl Default for VoxelEditTransactionLimits {
+    fn default() -> Self {
+        Self::new(10_000, 20_000, 1_000_000)
+    }
+}
+
+/// A bulk edit request over the canonical generated voxel command union.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VoxelEditTransaction<'a> {
+    pub mode: VoxelEditTransactionMode,
+    pub commands: &'a [VoxelCommand],
+    pub limits: VoxelEditTransactionLimits,
+}
+
+impl<'a> VoxelEditTransaction<'a> {
+    pub fn preview(commands: &'a [VoxelCommand]) -> Self {
+        Self {
+            mode: VoxelEditTransactionMode::PreviewOnly,
+            commands,
+            limits: VoxelEditTransactionLimits::default(),
+        }
+    }
+
+    pub fn apply(commands: &'a [VoxelCommand]) -> Self {
+        Self {
+            mode: VoxelEditTransactionMode::Apply,
+            commands,
+            limits: VoxelEditTransactionLimits::default(),
+        }
+    }
+
+    pub fn with_limits(mut self, limits: VoxelEditTransactionLimits) -> Self {
+        self.limits = limits;
+        self
+    }
+}
+
+/// Why a bulk transaction was refused. Command-level failures retain the existing
+/// authoritative voxel edit rejection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VoxelEditTransactionRejection {
+    CommandQuotaExceeded {
+        limit: u32,
+        actual: u32,
+    },
+    EventQuotaExceeded {
+        limit: u32,
+        actual: u32,
+    },
+    TouchedVoxelQuotaExceeded {
+        limit: u64,
+        actual: u64,
+    },
+    InvalidCommand {
+        index: u32,
+        rejection: VoxelEditRejection,
+    },
+    ApplyFailed {
+        index: u32,
+        rejection: VoxelEditRejection,
+    },
+}
+
+/// The deterministic receipt for a bulk transaction attempt.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VoxelEditTransactionReceipt {
+    pub mode: VoxelEditTransactionMode,
+    pub applied: bool,
+    pub accepted: u32,
+    pub rejected: u32,
+    pub event_count: u32,
+    pub touched_voxels: u64,
+    pub before_hash: u64,
+    pub projected_hash: u64,
+    pub after_hash: u64,
+    pub transaction_hash: u64,
+    pub events: Vec<VoxelEditEvent>,
+    pub rejections: Vec<VoxelEditTransactionRejection>,
+}
+
+/// Validate and optionally apply a bulk voxel transaction atomically.
+///
+/// Validation runs sequentially on a scratch world, so a transaction may generate
+/// a chunk and then edit that chunk. The real `world` is replaced only when the
+/// full transaction is accepted and `mode == Apply`.
+pub fn execute_transaction(
+    world: &mut VoxelWorld,
+    materials: &MaterialCatalog,
+    tx: &VoxelEditTransaction<'_>,
+) -> VoxelEditTransactionReceipt {
+    let before_hash = voxel_world_hash(world);
+    let command_count = tx.commands.len().min(u32::MAX as usize) as u32;
+    let mut events = Vec::<VoxelEditEvent>::new();
+    let mut rejections = Vec::<VoxelEditTransactionRejection>::new();
+
+    if command_count > tx.limits.max_commands {
+        rejections.push(VoxelEditTransactionRejection::CommandQuotaExceeded {
+            limit: tx.limits.max_commands,
+            actual: command_count,
+        });
+        return transaction_receipt(PendingTransactionReceipt {
+            mode: tx.mode,
+            applied: false,
+            accepted: 0,
+            touched_voxels: 0,
+            before_hash,
+            projected_hash: before_hash,
+            after_hash: before_hash,
+            events,
+            rejections,
+        });
+    }
+
+    let mut scratch = world.clone();
+    let mut accepted = 0u32;
+    let mut touched_voxels = 0u64;
+
+    for (index, command) in tx.commands.iter().enumerate() {
+        let index = index.min(u32::MAX as usize) as u32;
+        match validate(command, &scratch, materials) {
+            Ok(command_events) => {
+                for event in &command_events {
+                    if let Err(rejection) = apply(&mut scratch, event) {
+                        rejections
+                            .push(VoxelEditTransactionRejection::ApplyFailed { index, rejection });
+                    }
+                }
+                accepted = accepted.saturating_add(1);
+                touched_voxels =
+                    touched_voxels.saturating_add(command_touched_voxels(command, scratch.grid()));
+                events.extend(command_events);
+            }
+            Err(rejection) => {
+                rejections.push(VoxelEditTransactionRejection::InvalidCommand { index, rejection });
+            }
+        }
+    }
+
+    let event_count = events.len().min(u32::MAX as usize) as u32;
+    if event_count > tx.limits.max_events {
+        rejections.push(VoxelEditTransactionRejection::EventQuotaExceeded {
+            limit: tx.limits.max_events,
+            actual: event_count,
+        });
+    }
+    if touched_voxels > tx.limits.max_touched_voxels {
+        rejections.push(VoxelEditTransactionRejection::TouchedVoxelQuotaExceeded {
+            limit: tx.limits.max_touched_voxels,
+            actual: touched_voxels,
+        });
+    }
+
+    let projected_hash = if rejections.is_empty() {
+        voxel_world_hash(&scratch)
+    } else {
+        before_hash
+    };
+    let applied = rejections.is_empty() && tx.mode == VoxelEditTransactionMode::Apply;
+    if applied {
+        *world = scratch;
+    }
+    let after_hash = voxel_world_hash(world);
+
+    transaction_receipt(PendingTransactionReceipt {
+        mode: tx.mode,
+        applied,
+        accepted,
+        touched_voxels,
+        before_hash,
+        projected_hash,
+        after_hash,
+        events,
+        rejections,
+    })
+}
+
+struct PendingTransactionReceipt {
+    mode: VoxelEditTransactionMode,
+    applied: bool,
+    accepted: u32,
+    touched_voxels: u64,
+    before_hash: u64,
+    projected_hash: u64,
+    after_hash: u64,
+    events: Vec<VoxelEditEvent>,
+    rejections: Vec<VoxelEditTransactionRejection>,
+}
+
+fn transaction_receipt(parts: PendingTransactionReceipt) -> VoxelEditTransactionReceipt {
+    let event_count = parts.events.len().min(u32::MAX as usize) as u32;
+    let rejected = parts.rejections.len().min(u32::MAX as usize) as u32;
+    let mut receipt = VoxelEditTransactionReceipt {
+        mode: parts.mode,
+        applied: parts.applied,
+        accepted: parts.accepted,
+        rejected,
+        event_count,
+        touched_voxels: parts.touched_voxels,
+        before_hash: parts.before_hash,
+        projected_hash: parts.projected_hash,
+        after_hash: parts.after_hash,
+        transaction_hash: 0,
+        events: parts.events,
+        rejections: parts.rejections,
+    };
+    receipt.transaction_hash = transaction_hash(&receipt);
+    receipt
+}
+
+fn command_touched_voxels(command: &VoxelCommand, spec: VoxelGridSpec) -> u64 {
+    match *command {
+        VoxelCommand::SetVoxel { .. } => 1,
+        VoxelCommand::FillRegion { min, max, .. } => region_volume(min, max).unwrap_or(u64::MAX),
+        VoxelCommand::GenerateChunk { .. } => spec.chunk_dims().volume(),
+    }
+}
+
+fn region_volume(min: VoxelCoord, max: VoxelCoord) -> Option<u64> {
+    let dx = u64::try_from(max.x.checked_sub(min.x)?).ok()?;
+    let dy = u64::try_from(max.y.checked_sub(min.y)?).ok()?;
+    let dz = u64::try_from(max.z.checked_sub(min.z)?).ok()?;
+    dx.checked_mul(dy)?.checked_mul(dz)
+}
+
+fn voxel_world_hash(world: &VoxelWorld) -> u64 {
+    let mut hasher = Fnv1a::new();
+    for (coord, chunk) in world.resident_chunks() {
+        hasher.feed_i64(coord.x);
+        hasher.feed_i64(coord.y);
+        hasher.feed_i64(coord.z);
+        hasher.feed_u64(chunk.content_hash().0);
+    }
+    hasher.finish()
+}
+
+fn transaction_hash(receipt: &VoxelEditTransactionReceipt) -> u64 {
+    let mut hasher = Fnv1a::new();
+    hasher.feed_u8(match receipt.mode {
+        VoxelEditTransactionMode::PreviewOnly => 0,
+        VoxelEditTransactionMode::Apply => 1,
+    });
+    hasher.feed_u8(u8::from(receipt.applied));
+    hasher.feed_u32(receipt.accepted);
+    hasher.feed_u32(receipt.rejected);
+    hasher.feed_u64(receipt.touched_voxels);
+    hasher.feed_u64(receipt.before_hash);
+    hasher.feed_u64(receipt.projected_hash);
+    hasher.feed_u64(receipt.after_hash);
+    for event in &receipt.events {
+        feed_event_hash(&mut hasher, event);
+    }
+    for rejection in &receipt.rejections {
+        feed_transaction_rejection_hash(&mut hasher, rejection);
+    }
+    hasher.finish()
+}
+
+fn feed_event_hash(hasher: &mut Fnv1a, event: &VoxelEditEvent) {
+    match *event {
+        VoxelEditEvent::VoxelSet { grid, coord, value } => {
+            hasher.feed_u8(0);
+            hasher.feed_u32(grid.raw());
+            feed_coord_hash(hasher, coord);
+            hasher.feed_u32(value.to_encoded());
+        }
+        VoxelEditEvent::VoxelRegionFilled {
+            grid,
+            min,
+            max,
+            value,
+        } => {
+            hasher.feed_u8(1);
+            hasher.feed_u32(grid.raw());
+            feed_coord_hash(hasher, min);
+            feed_coord_hash(hasher, max);
+            hasher.feed_u32(value.to_encoded());
+        }
+        VoxelEditEvent::ChunkGenerated {
+            grid,
+            chunk,
+            seed,
+            generator_version,
+            hash,
+        } => {
+            hasher.feed_u8(2);
+            hasher.feed_u32(grid.raw());
+            hasher.feed_i64(chunk.x);
+            hasher.feed_i64(chunk.y);
+            hasher.feed_i64(chunk.z);
+            hasher.feed_u64(seed);
+            hasher.feed_u32(generator_version);
+            hasher.feed_u64(hash);
+        }
+    }
+}
+
+fn feed_transaction_rejection_hash(hasher: &mut Fnv1a, rejection: &VoxelEditTransactionRejection) {
+    match *rejection {
+        VoxelEditTransactionRejection::CommandQuotaExceeded { limit, actual } => {
+            hasher.feed_u8(0);
+            hasher.feed_u32(limit);
+            hasher.feed_u32(actual);
+        }
+        VoxelEditTransactionRejection::EventQuotaExceeded { limit, actual } => {
+            hasher.feed_u8(1);
+            hasher.feed_u32(limit);
+            hasher.feed_u32(actual);
+        }
+        VoxelEditTransactionRejection::TouchedVoxelQuotaExceeded { limit, actual } => {
+            hasher.feed_u8(2);
+            hasher.feed_u64(limit);
+            hasher.feed_u64(actual);
+        }
+        VoxelEditTransactionRejection::InvalidCommand { index, rejection } => {
+            hasher.feed_u8(3);
+            hasher.feed_u32(index);
+            feed_edit_rejection_hash(hasher, rejection);
+        }
+        VoxelEditTransactionRejection::ApplyFailed { index, rejection } => {
+            hasher.feed_u8(4);
+            hasher.feed_u32(index);
+            feed_edit_rejection_hash(hasher, rejection);
+        }
+    }
+}
+
+fn feed_edit_rejection_hash(hasher: &mut Fnv1a, rejection: VoxelEditRejection) {
+    match rejection {
+        VoxelEditRejection::UnknownMaterial(id) => {
+            hasher.feed_u8(0);
+            hasher.feed_u16(id.raw());
+        }
+        VoxelEditRejection::EmptyRegion { min, max } => {
+            hasher.feed_u8(1);
+            feed_coord_hash(hasher, min);
+            feed_coord_hash(hasher, max);
+        }
+        VoxelEditRejection::ChunkNotResident { chunk } => {
+            hasher.feed_u8(2);
+            hasher.feed_i64(chunk.x);
+            hasher.feed_i64(chunk.y);
+            hasher.feed_i64(chunk.z);
+        }
+        VoxelEditRejection::GenerationDivergence {
+            chunk,
+            expected,
+            actual,
+        } => {
+            hasher.feed_u8(3);
+            hasher.feed_i64(chunk.x);
+            hasher.feed_i64(chunk.y);
+            hasher.feed_i64(chunk.z);
+            hasher.feed_u64(expected);
+            hasher.feed_u64(actual);
+        }
+    }
+}
+
+fn feed_coord_hash(hasher: &mut Fnv1a, coord: VoxelCoord) {
+    hasher.feed_i64(coord.x);
+    hasher.feed_i64(coord.y);
+    hasher.feed_i64(coord.z);
+}
+
+struct Fnv1a {
+    value: u64,
+}
+
+impl Fnv1a {
+    const OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+    const PRIME: u64 = 0x0000_0100_0000_01b3;
+
+    fn new() -> Self {
+        Self {
+            value: Self::OFFSET,
+        }
+    }
+
+    fn feed(&mut self, bytes: &[u8]) {
+        for byte in bytes {
+            self.value ^= u64::from(*byte);
+            self.value = self.value.wrapping_mul(Self::PRIME);
+        }
+    }
+
+    fn feed_u8(&mut self, value: u8) {
+        self.feed(&value.to_le_bytes());
+    }
+
+    fn feed_u16(&mut self, value: u16) {
+        self.feed(&value.to_le_bytes());
+    }
+
+    fn feed_u32(&mut self, value: u32) {
+        self.feed(&value.to_le_bytes());
+    }
+
+    fn feed_u64(&mut self, value: u64) {
+        self.feed(&value.to_le_bytes());
+    }
+
+    fn feed_i64(&mut self, value: i64) {
+        self.feed(&value.to_le_bytes());
+    }
+
+    fn finish(self) -> u64 {
+        self.value
+    }
+}
+
 fn check_material(
     materials: &MaterialCatalog,
     value: VoxelValue,
@@ -518,6 +959,225 @@ mod tests {
                 .unwrap()
                 .get(LocalVoxelCoord::new(0, 0, 0)),
             Some(VoxelValue::solid_raw(1))
+        );
+    }
+
+    #[test]
+    fn bulk_preview_reports_projected_hash_without_mutating() {
+        let mut world = resident_world();
+        let before = world.get(ChunkCoord::new(0, 0, 0)).unwrap().content_hash();
+        let commands = vec![
+            VoxelCommand::SetVoxel {
+                grid: GridId::new(0),
+                coord: VoxelCoord::new(1, 1, 1),
+                value: VoxelValue::solid_raw(1),
+            },
+            VoxelCommand::FillRegion {
+                grid: GridId::new(0),
+                min: VoxelCoord::new(2, 0, 0),
+                max: VoxelCoord::new(4, 1, 1),
+                value: VoxelValue::solid_raw(2),
+            },
+        ];
+
+        let receipt = execute_transaction(
+            &mut world,
+            &materials(),
+            &VoxelEditTransaction::preview(&commands),
+        );
+
+        assert!(!receipt.applied);
+        assert_eq!(receipt.accepted, 2);
+        assert_eq!(receipt.rejected, 0);
+        assert_eq!(receipt.event_count, 2);
+        assert_eq!(receipt.touched_voxels, 3);
+        assert_eq!(receipt.after_hash, receipt.before_hash);
+        assert_ne!(receipt.projected_hash, receipt.before_hash);
+        assert_eq!(
+            world.get(ChunkCoord::new(0, 0, 0)).unwrap().content_hash(),
+            before
+        );
+        assert_eq!(receipt.transaction_hash, receipt.transaction_hash);
+    }
+
+    #[test]
+    fn bulk_apply_is_atomic_and_supports_generate_then_edit() {
+        let mut world = VoxelWorld::new(spec());
+        let chunk = ChunkCoord::new(0, 0, 0);
+        let commands = vec![
+            VoxelCommand::GenerateChunk {
+                grid: GridId::new(0),
+                chunk,
+                seed: 77,
+                generator_version: 1,
+            },
+            VoxelCommand::SetVoxel {
+                grid: GridId::new(0),
+                coord: VoxelCoord::new(0, 0, 0),
+                value: VoxelValue::solid_raw(2),
+            },
+        ];
+
+        let receipt = execute_transaction(
+            &mut world,
+            &materials(),
+            &VoxelEditTransaction::apply(&commands),
+        );
+
+        assert!(receipt.applied);
+        assert_eq!(receipt.accepted, 2);
+        assert_eq!(receipt.rejected, 0);
+        assert_eq!(receipt.projected_hash, receipt.after_hash);
+        assert_ne!(receipt.before_hash, receipt.after_hash);
+        assert_eq!(
+            world.get(chunk).unwrap().get(LocalVoxelCoord::new(0, 0, 0)),
+            Some(VoxelValue::solid_raw(2))
+        );
+    }
+
+    #[test]
+    fn bulk_transaction_rejects_material_and_leaves_world_unchanged() {
+        let mut world = resident_world();
+        let before = world.get(ChunkCoord::new(0, 0, 0)).unwrap().content_hash();
+        let commands = vec![
+            VoxelCommand::SetVoxel {
+                grid: GridId::new(0),
+                coord: VoxelCoord::new(1, 1, 1),
+                value: VoxelValue::solid_raw(1),
+            },
+            VoxelCommand::SetVoxel {
+                grid: GridId::new(0),
+                coord: VoxelCoord::new(2, 2, 2),
+                value: VoxelValue::solid_raw(9),
+            },
+        ];
+
+        let receipt = execute_transaction(
+            &mut world,
+            &materials(),
+            &VoxelEditTransaction::apply(&commands),
+        );
+
+        assert!(!receipt.applied);
+        assert_eq!(receipt.accepted, 1);
+        assert_eq!(receipt.rejected, 1);
+        assert!(matches!(
+            receipt.rejections.as_slice(),
+            [VoxelEditTransactionRejection::InvalidCommand {
+                index: 1,
+                rejection: VoxelEditRejection::UnknownMaterial(id)
+            }] if *id == VoxelMaterialId::new(9)
+        ));
+        assert_eq!(receipt.after_hash, receipt.before_hash);
+        assert_eq!(
+            world.get(ChunkCoord::new(0, 0, 0)).unwrap().content_hash(),
+            before
+        );
+    }
+
+    #[test]
+    fn bulk_transaction_rejects_bounds_and_quotas() {
+        let mut world = resident_world();
+        let empty_region = vec![VoxelCommand::FillRegion {
+            grid: GridId::new(0),
+            min: VoxelCoord::new(2, 2, 2),
+            max: VoxelCoord::new(2, 3, 3),
+            value: VoxelValue::solid_raw(1),
+        }];
+
+        let empty_receipt = execute_transaction(
+            &mut world,
+            &materials(),
+            &VoxelEditTransaction::apply(&empty_region),
+        );
+        assert!(matches!(
+            empty_receipt.rejections.as_slice(),
+            [VoxelEditTransactionRejection::InvalidCommand {
+                rejection: VoxelEditRejection::EmptyRegion { .. },
+                ..
+            }]
+        ));
+
+        let too_many_commands = vec![
+            VoxelCommand::SetVoxel {
+                grid: GridId::new(0),
+                coord: VoxelCoord::new(0, 0, 0),
+                value: VoxelValue::solid_raw(1),
+            },
+            VoxelCommand::SetVoxel {
+                grid: GridId::new(0),
+                coord: VoxelCoord::new(1, 0, 0),
+                value: VoxelValue::solid_raw(1),
+            },
+        ];
+        let command_quota = execute_transaction(
+            &mut world,
+            &materials(),
+            &VoxelEditTransaction::apply(&too_many_commands)
+                .with_limits(VoxelEditTransactionLimits::new(1, 10, 10)),
+        );
+        assert!(matches!(
+            command_quota.rejections.as_slice(),
+            [VoxelEditTransactionRejection::CommandQuotaExceeded {
+                limit: 1,
+                actual: 2
+            }]
+        ));
+
+        let too_many_voxels = vec![VoxelCommand::FillRegion {
+            grid: GridId::new(0),
+            min: VoxelCoord::new(0, 0, 0),
+            max: VoxelCoord::new(4, 4, 4),
+            value: VoxelValue::solid_raw(1),
+        }];
+        let voxel_quota = execute_transaction(
+            &mut world,
+            &materials(),
+            &VoxelEditTransaction::apply(&too_many_voxels)
+                .with_limits(VoxelEditTransactionLimits::new(10, 10, 10)),
+        );
+        assert!(matches!(
+            voxel_quota.rejections.as_slice(),
+            [VoxelEditTransactionRejection::TouchedVoxelQuotaExceeded {
+                limit: 10,
+                actual: 64
+            }]
+        ));
+        assert!(!voxel_quota.applied);
+    }
+
+    #[test]
+    fn bulk_transaction_events_persist_and_replay() {
+        let mut world = VoxelWorld::new(spec());
+        let chunk = ChunkCoord::new(0, 0, 0);
+        let commands = vec![
+            VoxelCommand::GenerateChunk {
+                grid: GridId::new(0),
+                chunk,
+                seed: 11,
+                generator_version: 1,
+            },
+            VoxelCommand::FillRegion {
+                grid: GridId::new(0),
+                min: VoxelCoord::new(0, 0, 0),
+                max: VoxelCoord::new(3, 2, 1),
+                value: VoxelValue::solid_raw(2),
+            },
+        ];
+
+        let receipt = execute_transaction(
+            &mut world,
+            &materials(),
+            &VoxelEditTransaction::apply(&commands),
+        );
+        assert!(receipt.applied);
+
+        let log = persist::encode_edit_log(&receipt.events);
+        let decoded = persist::decode_edit_log(&log).unwrap();
+        let replayed = persist::replay_edit_log(spec(), &decoded).unwrap();
+        assert_eq!(
+            replayed.get(chunk).unwrap().content_hash(),
+            world.get(chunk).unwrap().content_hash()
         );
     }
 
