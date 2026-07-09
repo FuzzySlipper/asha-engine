@@ -181,6 +181,18 @@ impl VoxelEditHistory {
         voxel_world_hash(&self.current_world)
     }
 
+    pub fn base_world_hash(&self) -> u64 {
+        voxel_world_hash(&self.base_world)
+    }
+
+    pub fn cursor_at_index(
+        &self,
+        cursor_index: usize,
+    ) -> Result<VoxelEditHistoryCursor, VoxelEditHistoryRejection> {
+        let world = self.replay_to_cursor(cursor_index)?;
+        Ok(self.cursor_at(cursor_index, voxel_world_hash(&world)))
+    }
+
     /// Append one accepted applied receipt at the current cursor.
     ///
     /// If the cursor is not at the end, the redo tail is invalidated before the

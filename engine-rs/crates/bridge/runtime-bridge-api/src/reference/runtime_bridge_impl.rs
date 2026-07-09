@@ -19,7 +19,7 @@ impl RuntimeBridge for ReferenceBridge {
         // chunk so edits land, plus the launch material catalog. Start clean so a
         // later submit's dirty marking is observable.
         let world = Self::launch_world();
-        self.voxel = Some(world);
+        self.reset_voxel_edit_history(world);
         self.materials = MaterialCatalog::new([1, 2, 3].into_iter().map(VoxelMaterialId::new));
         self.cameras.clear();
         self.next_camera = 1;
@@ -43,15 +43,7 @@ impl RuntimeBridge for ReferenceBridge {
     }
 
     fn submit_commands(&mut self, batch: CommandBatch) -> BridgeResult<CommandResult> {
-        let materials = &self.materials;
-        let world = self.voxel.as_mut().ok_or_else(|| {
-            RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::NotInitialized,
-                "submit_commands called before initialize_engine",
-            )
-        })?;
-
-        Self::apply_command_batch_to_world(&batch, world, materials)
+        self.submit_commands_with_voxel_history(batch)
     }
 
     fn pick_voxel(&self, ray: PickRay) -> BridgeResult<PickResult> {
@@ -523,7 +515,7 @@ impl RuntimeBridge for ReferenceBridge {
                 )],
             );
         } else {
-            self.voxel = Some(candidate);
+            self.reset_voxel_edit_history(candidate);
             self.remember_voxel_model_info(&target, &planned, &receipt);
         }
         self.remember_voxel_conversion_evidence(receipt.evidence.clone());
@@ -1017,7 +1009,7 @@ impl RuntimeBridge for ReferenceBridge {
         let info = Self::loaded_voxel_asset_info(&request, &target);
         let receipt =
             Self::voxel_volume_asset_load_receipt(&request, &target, &info, true, Vec::new());
-        self.voxel = Some(candidate);
+        self.reset_voxel_edit_history(candidate);
         self.voxel_conversion_targets.insert(
             Self::voxel_model_key(info.grid, &info.volume_asset_id),
             target,
@@ -1066,57 +1058,37 @@ impl RuntimeBridge for ReferenceBridge {
 
     fn read_voxel_edit_history(
         &self,
-        _request: VoxelEditHistoryReadRequest,
+        request: VoxelEditHistoryReadRequest,
     ) -> BridgeResult<VoxelEditHistorySummary> {
-        self.require_initialized("read_voxel_edit_history")?;
-        Err(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::NotInitialized,
-            "voxel edit history authority is not loaded in the reference bridge",
-        ))
+        self.read_voxel_edit_history_reference(request)
     }
 
     fn preview_voxel_edit_revert(
         &self,
-        _request: VoxelEditHistoryRevertRequest,
+        request: VoxelEditHistoryRevertRequest,
     ) -> BridgeResult<VoxelEditHistoryRevertReceipt> {
-        self.require_initialized("preview_voxel_edit_revert")?;
-        Err(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::NotInitialized,
-            "voxel edit history authority is not loaded in the reference bridge",
-        ))
+        self.preview_voxel_edit_revert_reference(request)
     }
 
     fn apply_voxel_edit_revert(
         &mut self,
-        _request: VoxelEditHistoryRevertRequest,
+        request: VoxelEditHistoryRevertRequest,
     ) -> BridgeResult<VoxelEditHistoryRevertReceipt> {
-        self.require_initialized("apply_voxel_edit_revert")?;
-        Err(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::NotInitialized,
-            "voxel edit history authority is not loaded in the reference bridge",
-        ))
+        self.apply_voxel_edit_revert_reference(request)
     }
 
     fn undo_voxel_edit(
         &mut self,
-        _request: VoxelEditHistoryUndoRequest,
+        request: VoxelEditHistoryUndoRequest,
     ) -> BridgeResult<VoxelEditHistoryUndoReceipt> {
-        self.require_initialized("undo_voxel_edit")?;
-        Err(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::NotInitialized,
-            "voxel edit history authority is not loaded in the reference bridge",
-        ))
+        self.undo_voxel_edit_reference(request)
     }
 
     fn redo_voxel_edit(
         &mut self,
-        _request: VoxelEditHistoryRedoRequest,
+        request: VoxelEditHistoryRedoRequest,
     ) -> BridgeResult<VoxelEditHistoryRedoReceipt> {
-        self.require_initialized("redo_voxel_edit")?;
-        Err(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::NotInitialized,
-            "voxel edit history authority is not loaded in the reference bridge",
-        ))
+        self.redo_voxel_edit_reference(request)
     }
 
     fn load_fps_runtime_session(

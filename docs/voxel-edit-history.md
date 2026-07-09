@@ -1,7 +1,8 @@
 # Voxel Edit History, Undo, And Revert
 
-Status: proposed by #5270. This is a design posture for future implementation,
-not yet a shipped protocol or RuntimeSession surface.
+Status: implemented as Rust-owned timeline, ProjectBundle persistence, generated
+protocol, and RuntimeBridge read/revert/undo/redo surfaces. Studio remains a
+projection and intent client; it does not own the undo stack.
 
 ## Decision
 

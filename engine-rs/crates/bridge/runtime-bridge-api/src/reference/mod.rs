@@ -19,6 +19,8 @@ pub struct ReferenceBridge {
     /// Live voxel authority for the launch/edit loop (launchable-voxel, #2436).
     /// Present once `initialize_engine` has set up the runtime.
     voxel: Option<VoxelWorld>,
+    /// Rust-owned accepted voxel transaction timeline for the live voxel authority.
+    voxel_edit_history: Option<rule_voxel_edit::history::VoxelEditHistory>,
     /// The material catalog voxel edits validate against.
     materials: MaterialCatalog,
     /// Bridge-owned runtime view cameras (view/projection evidence, not gameplay authority).
@@ -3724,5 +3726,10 @@ mod runtime_bridge_impl;
 
 #[cfg(test)]
 mod game_extension_tests;
+
+mod voxel_history;
+
 #[cfg(test)]
 pub(super) mod tests;
+#[cfg(test)]
+mod voxel_history_tests;
