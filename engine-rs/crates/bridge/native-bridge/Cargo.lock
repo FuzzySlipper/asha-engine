@@ -524,6 +524,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "protocol-voxel-edit-history"
+version = "0.1.0"
+dependencies = [
+ "protocol-diagnostics",
+ "serde",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -626,6 +634,7 @@ dependencies = [
  "protocol-voxel-annotation",
  "protocol-voxel-asset",
  "protocol-voxel-conversion",
+ "protocol-voxel-edit-history",
  "rule-lifecycle",
  "rule-voxel-edit",
  "serde",
