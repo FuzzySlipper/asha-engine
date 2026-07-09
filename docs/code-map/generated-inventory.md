@@ -11,7 +11,7 @@ Source metadata:
 
 ## Rust Crates By Lane
 
-### contract-steward (17)
+### contract-steward (18)
 
 - [`protocol-assets`](../../engine-rs/crates/protocol/protocol-assets/Cargo.toml) — active
 - [`protocol-codegen`](../../engine-rs/crates/protocol/protocol-codegen/Cargo.toml) — active
@@ -28,6 +28,7 @@ Source metadata:
 - [`protocol-script`](../../engine-rs/crates/protocol/protocol-script/Cargo.toml) — active
 - [`protocol-telemetry`](../../engine-rs/crates/protocol/protocol-telemetry/Cargo.toml) — active
 - [`protocol-view`](../../engine-rs/crates/protocol/protocol-view/Cargo.toml) — active
+- [`protocol-voxel-annotation`](../../engine-rs/crates/protocol/protocol-voxel-annotation/Cargo.toml) — active
 - [`protocol-voxel-asset`](../../engine-rs/crates/protocol/protocol-voxel-asset/Cargo.toml) — active
 - [`protocol-voxel-conversion`](../../engine-rs/crates/protocol/protocol-voxel-conversion/Cargo.toml) — active
 

@@ -1754,6 +1754,308 @@ pub fn voxel_asset_module() -> Module {
     }
 }
 
+// ── voxelAnnotation.ts — semantic voxel region annotation DTOs ───────────────
+//
+// Mirrors the border-only `protocol-voxel-annotation` crate. Runtime services
+// own validation, canonicalization, query/edit, and export authority; this
+// generated surface only carries typed stored and runtime receipt DTOs.
+
+pub fn voxel_annotation_module() -> Module {
+    let imports = vec![import("./diagnostics.js", &["DiagnosticSeverity"])];
+
+    let items = vec![
+        Item::Const {
+            doc: "Current supported ASHA voxel annotation layer schema.".to_string(),
+            name: "VOXEL_ANNOTATION_SCHEMA_VERSION".to_string(),
+            value: protocol_voxel_annotation::VOXEL_ANNOTATION_SCHEMA_VERSION.to_string(),
+        },
+        Item::Const {
+            doc: "Canonical media type for the JSON annotation layer envelope.".to_string(),
+            name: "VOXEL_ANNOTATION_MEDIA_TYPE".to_string(),
+            value: format!(
+                "{:?}",
+                protocol_voxel_annotation::VOXEL_ANNOTATION_MEDIA_TYPE
+            ),
+        },
+        Item::Const {
+            doc: "Canonical filename extension for this JSON envelope.".to_string(),
+            name: "VOXEL_ANNOTATION_EXTENSION".to_string(),
+            value: format!(
+                "{:?}",
+                protocol_voxel_annotation::VOXEL_ANNOTATION_EXTENSION
+            ),
+        },
+        string_enum(
+            "Semantic region kind.",
+            "VoxelAnnotationKind",
+            protocol_voxel_annotation::VOXEL_ANNOTATION_KINDS,
+        ),
+        string_enum(
+            "Voxel annotation provenance kind.",
+            "VoxelAnnotationProvenanceKind",
+            protocol_voxel_annotation::VOXEL_ANNOTATION_PROVENANCE_KINDS,
+        ),
+        string_enum(
+            "Classified voxel annotation diagnostic code.",
+            "VoxelAnnotationDiagnosticCode",
+            protocol_voxel_annotation::VOXEL_ANNOTATION_DIAGNOSTIC_CODES,
+        ),
+        string_enum(
+            "Runtime annotation edit operation.",
+            "VoxelAnnotationEditOperation",
+            protocol_voxel_annotation::VOXEL_ANNOTATION_EDIT_OPERATIONS,
+        ),
+        string_enum(
+            "Runtime annotation query mode.",
+            "VoxelAnnotationQueryMode",
+            protocol_voxel_annotation::VOXEL_ANNOTATION_QUERY_MODES,
+        ),
+        iface(
+            "Integer coordinate in stored voxel space.",
+            "VoxelAnnotationCoord",
+            vec![f("x", num()), f("y", num()), f("z", num())],
+        ),
+        iface(
+            "Inclusive stored voxel-space bounds.",
+            "VoxelAnnotationBounds",
+            vec![
+                f("min", r("VoxelAnnotationCoord")),
+                f("max", r("VoxelAnnotationCoord")),
+            ],
+        ),
+        iface(
+            "One annotation membership run along +X. Absence means not selected.",
+            "VoxelAnnotationSparseRun",
+            vec![f("start", r("VoxelAnnotationCoord")), f("length", num())],
+        ),
+        iface(
+            "Compact annotation membership payload.",
+            "VoxelAnnotationSelection",
+            vec![f(
+                "sparseRuns",
+                TsType::array(r("VoxelAnnotationSparseRun")),
+            )],
+        ),
+        iface(
+            "Provenance/evidence reference for stored annotation layers.",
+            "VoxelAnnotationProvenanceRef",
+            vec![
+                f("kind", r("VoxelAnnotationProvenanceKind")),
+                f("uri", string()),
+                f("contentHash", string()),
+            ],
+        ),
+        iface(
+            "Canonical hashes recorded with an annotation layer.",
+            "VoxelAnnotationContentHashes",
+            vec![f("canonicalJson", string()), f("membershipData", string())],
+        ),
+        iface(
+            "One classified validation/runtime diagnostic for voxel annotations.",
+            "VoxelAnnotationDiagnostic",
+            vec![
+                f("code", r("VoxelAnnotationDiagnosticCode")),
+                f("severity", r("DiagnosticSeverity")),
+                f("reference", string()),
+                f("message", string()),
+            ],
+        ),
+        iface(
+            "One semantic region inside a voxel annotation layer.",
+            "VoxelAnnotationRegion",
+            vec![
+                f("regionId", string()),
+                f("label", string()),
+                f("kind", r("VoxelAnnotationKind")),
+                f("tags", TsType::array(string())),
+                f("parentRegionId", TsType::nullable(string())),
+                f("bounds", r("VoxelAnnotationBounds")),
+                f("selection", r("VoxelAnnotationSelection")),
+            ],
+        ),
+        iface(
+            "A complete ASHA-native stored voxel annotation layer.",
+            "VoxelAnnotationLayer",
+            vec![
+                f("layerId", string()),
+                f("schemaVersion", num()),
+                f("mediaType", string()),
+                f("targetVoxelVolumeAssetId", string()),
+                f("targetVoxelDataHash", string()),
+                f("targetBounds", r("VoxelAnnotationBounds")),
+                f("regions", TsType::array(r("VoxelAnnotationRegion"))),
+                f(
+                    "provenance",
+                    TsType::array(r("VoxelAnnotationProvenanceRef")),
+                ),
+                f("contentHashes", r("VoxelAnnotationContentHashes")),
+                f(
+                    "validationDiagnostics",
+                    TsType::array(r("VoxelAnnotationDiagnostic")),
+                ),
+            ],
+        ),
+        iface(
+            "Request to validate and canonicalize a stored annotation layer.",
+            "VoxelAnnotationLayerValidationRequest",
+            vec![
+                f("layer", r("VoxelAnnotationLayer")),
+                f(
+                    "expectedTargetVoxelVolumeAssetId",
+                    TsType::nullable(string()),
+                ),
+                f("expectedTargetVoxelDataHash", TsType::nullable(string())),
+                f("maxRegions", num()),
+                f("maxSparseRunsPerRegion", num()),
+                f("maxTotalAssignedCells", num()),
+            ],
+        ),
+        iface(
+            "Validation and canonicalization report for a stored annotation layer.",
+            "VoxelAnnotationLayerValidationReport",
+            vec![
+                f("layerId", string()),
+                f("valid", boolean()),
+                f("canonicalJsonHash", TsType::nullable(string())),
+                f("membershipDataHash", TsType::nullable(string())),
+                f("regionCount", num()),
+                f("sparseRunCount", num()),
+                f("assignedCellCount", num()),
+                f("diagnostics", TsType::array(r("VoxelAnnotationDiagnostic"))),
+            ],
+        ),
+        iface(
+            "Explicit request to load a validated annotation layer into runtime.",
+            "VoxelAnnotationLayerLoadRequest",
+            vec![
+                f("layer", r("VoxelAnnotationLayer")),
+                f("targetGrid", num()),
+                f("replaceExisting", boolean()),
+                f("expectedSessionHash", TsType::nullable(string())),
+            ],
+        ),
+        iface(
+            "Receipt/readback for loading an annotation layer into runtime.",
+            "VoxelAnnotationLayerLoadReceipt",
+            vec![
+                f("requestLayerId", string()),
+                f("loaded", boolean()),
+                f("runtimeLayerId", TsType::nullable(string())),
+                f("targetVoxelVolumeAssetId", string()),
+                f("targetVoxelDataHash", string()),
+                f("regionCount", num()),
+                f("assignedCellCount", num()),
+                f("layerHash", TsType::nullable(string())),
+                f("sessionHash", string()),
+                f("replayHash", string()),
+                f("diagnostics", TsType::array(r("VoxelAnnotationDiagnostic"))),
+            ],
+        ),
+        iface(
+            "Request to query a loaded runtime annotation layer.",
+            "VoxelAnnotationQueryRequest",
+            vec![
+                f("runtimeLayerId", TsType::nullable(string())),
+                f("layerId", string()),
+                f("mode", r("VoxelAnnotationQueryMode")),
+                f("cell", TsType::nullable(r("VoxelAnnotationCoord"))),
+                f("bounds", TsType::nullable(r("VoxelAnnotationBounds"))),
+                f("regionId", TsType::nullable(string())),
+                f("maxRegions", num()),
+                f("expectedLayerHash", TsType::nullable(string())),
+            ],
+        ),
+        iface(
+            "Compact region readout returned by annotation queries.",
+            "VoxelAnnotationRegionReadout",
+            vec![
+                f("regionId", string()),
+                f("label", string()),
+                f("kind", r("VoxelAnnotationKind")),
+                f("tags", TsType::array(string())),
+                f("parentRegionId", TsType::nullable(string())),
+                f("bounds", r("VoxelAnnotationBounds")),
+                f("assignedCellCount", num()),
+            ],
+        ),
+        iface(
+            "Query readout for a loaded runtime annotation layer.",
+            "VoxelAnnotationQueryReadout",
+            vec![
+                f("request", r("VoxelAnnotationQueryRequest")),
+                f(
+                    "matchedRegions",
+                    TsType::array(r("VoxelAnnotationRegionReadout")),
+                ),
+                f("regionCount", num()),
+                f("truncated", boolean()),
+                f("layerHash", TsType::nullable(string())),
+                f("diagnostics", TsType::array(r("VoxelAnnotationDiagnostic"))),
+            ],
+        ),
+        iface(
+            "Typed runtime annotation edit request.",
+            "VoxelAnnotationEditRequest",
+            vec![
+                f("runtimeLayerId", TsType::nullable(string())),
+                f("layerId", string()),
+                f("expectedLayerHash", string()),
+                f("operation", r("VoxelAnnotationEditOperation")),
+                f("regionId", TsType::nullable(string())),
+                f("region", TsType::nullable(r("VoxelAnnotationRegion"))),
+                f("sparseRuns", TsType::array(r("VoxelAnnotationSparseRun"))),
+                f("tags", TsType::array(string())),
+                f("label", TsType::nullable(string())),
+                f("kind", TsType::nullable(r("VoxelAnnotationKind"))),
+                f("parentRegionId", TsType::nullable(string())),
+            ],
+        ),
+        iface(
+            "Receipt for an accepted/rejected runtime annotation edit.",
+            "VoxelAnnotationEditReceipt",
+            vec![
+                f("request", r("VoxelAnnotationEditRequest")),
+                f("edited", boolean()),
+                f("layerHashBefore", string()),
+                f("layerHashAfter", TsType::nullable(string())),
+                f("regionCount", num()),
+                f("assignedCellCount", num()),
+                f("diagnostics", TsType::array(r("VoxelAnnotationDiagnostic"))),
+                f("replayHash", string()),
+            ],
+        ),
+        iface(
+            "Request to export a runtime annotation layer back to stored DTO form.",
+            "VoxelAnnotationLayerExportRequest",
+            vec![
+                f("runtimeLayerId", TsType::nullable(string())),
+                f("layerId", string()),
+                f("expectedLayerHash", string()),
+                f("includeDiagnostics", boolean()),
+            ],
+        ),
+        iface(
+            "Receipt for explicit runtime-to-stored annotation layer export.",
+            "VoxelAnnotationLayerExportReceipt",
+            vec![
+                f("request", r("VoxelAnnotationLayerExportRequest")),
+                f("exported", boolean()),
+                f("layer", TsType::nullable(r("VoxelAnnotationLayer"))),
+                f("canonicalJson", TsType::nullable(string())),
+                f("canonicalJsonHash", TsType::nullable(string())),
+                f("membershipDataHash", TsType::nullable(string())),
+                f("diagnostics", TsType::array(r("VoxelAnnotationDiagnostic"))),
+            ],
+        ),
+    ];
+
+    Module {
+        name: "voxelAnnotation",
+        imports,
+        items,
+    }
+}
+
 // ── gameRules.ts — generic effect/modifier catalog DTOs ──────────────────────
 //
 // Mirrors the border-only `protocol-game-rules` crate. Game rules authority and
@@ -3695,6 +3997,9 @@ pub fn index_module() -> Module {
                 from: "./voxelAsset.js".to_string(),
             },
             Item::ReExport {
+                from: "./voxelAnnotation.js".to_string(),
+            },
+            Item::ReExport {
                 from: "./gameRules.js".to_string(),
             },
             Item::ReExport {
@@ -3738,6 +4043,7 @@ pub fn all_modules() -> Vec<Module> {
         voxel_module(),
         voxel_conversion_module(),
         voxel_asset_module(),
+        voxel_annotation_module(),
         game_rules_module(),
         game_extension_module(),
         scene_module(),

@@ -419,6 +419,7 @@ dependencies = [
  "protocol-scene",
  "protocol-telemetry",
  "protocol-view",
+ "protocol-voxel-annotation",
  "protocol-voxel-asset",
  "protocol-voxel-conversion",
  "serde_json",
@@ -533,6 +534,15 @@ name = "protocol-view"
 version = "0.1.0"
 dependencies = [
  "core-space",
+]
+
+[[package]]
+name = "protocol-voxel-annotation"
+version = "0.1.0"
+dependencies = [
+ "protocol-diagnostics",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

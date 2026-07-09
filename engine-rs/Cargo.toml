@@ -37,6 +37,7 @@ members = [
     "crates/protocol/protocol-entity-authoring",
     "crates/protocol/protocol-voxel-conversion",
     "crates/protocol/protocol-voxel-asset",
+    "crates/protocol/protocol-voxel-annotation",
     "crates/protocol/protocol-game-rules",
     "crates/protocol/protocol-game-extension",
     "crates/protocol/protocol-codegen",

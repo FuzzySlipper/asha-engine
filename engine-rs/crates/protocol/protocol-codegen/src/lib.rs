@@ -160,6 +160,7 @@ mod tests {
                 format!("{OUTPUT_DIR}/voxel.ts"),
                 format!("{OUTPUT_DIR}/voxelConversion.ts"),
                 format!("{OUTPUT_DIR}/voxelAsset.ts"),
+                format!("{OUTPUT_DIR}/voxelAnnotation.ts"),
                 format!("{OUTPUT_DIR}/gameRules.ts"),
                 format!("{OUTPUT_DIR}/gameExtension.ts"),
                 format!("{OUTPUT_DIR}/scene.ts"),
@@ -378,6 +379,26 @@ mod tests {
             interface_coverage_key("voxelAsset", "VoxelVolumeAssetSaveReceipt"),
             interface_coverage_key("voxelAsset", "VoxelVolumeAssetLoadRequest"),
             interface_coverage_key("voxelAsset", "VoxelVolumeAssetLoadReceipt"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationCoord"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationBounds"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationSparseRun"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationSelection"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationProvenanceRef"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationContentHashes"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationDiagnostic"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationRegion"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationLayer"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationLayerValidationRequest"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationLayerValidationReport"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationLayerLoadRequest"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationLayerLoadReceipt"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationQueryRequest"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationRegionReadout"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationQueryReadout"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationEditRequest"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationEditReceipt"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationLayerExportRequest"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationLayerExportReceipt"),
         ]
         .into_iter()
         .collect()
@@ -1031,6 +1052,61 @@ mod tests {
         assert!(va.contains("readonly materialPalette: readonly VoxelAssetMaterialBinding[];"));
         assert!(va.contains("readonly validationDiagnostics: readonly VoxelAssetDiagnostic[];"));
         assert!(va.contains("readonly contentHashes: VoxelAssetContentHashes;"));
+    }
+
+    /// Focused behavior test for the `voxelAnnotation` family: schema/media
+    /// constants, stable vocabularies, and camelCase DTO fields are sourced from
+    /// `protocol-voxel-annotation` and exposed through generated contracts.
+    /// Guard for #5274.
+    #[test]
+    fn voxel_annotation_family_emits_storage_and_runtime_contracts() {
+        let va = file("voxelAnnotation.ts");
+        assert!(va.contains("import type { DiagnosticSeverity } from './diagnostics.js';"));
+        assert!(va.contains("export const VOXEL_ANNOTATION_SCHEMA_VERSION = 1;"));
+        assert!(va.contains(
+            "export const VOXEL_ANNOTATION_MEDIA_TYPE = \"application/vnd.asha.voxel-annotation+json;version=1\";"
+        ));
+        assert!(va.contains("export const VOXEL_ANNOTATION_EXTENSION = \"avann.json\";"));
+        for kind in protocol_voxel_annotation::VOXEL_ANNOTATION_KINDS {
+            assert!(
+                va.contains(&format!("'{kind}'")),
+                "missing annotation kind {kind}"
+            );
+        }
+        for kind in protocol_voxel_annotation::VOXEL_ANNOTATION_PROVENANCE_KINDS {
+            assert!(
+                va.contains(&format!("'{kind}'")),
+                "missing provenance kind {kind}"
+            );
+        }
+        for code in protocol_voxel_annotation::VOXEL_ANNOTATION_DIAGNOSTIC_CODES {
+            assert!(va.contains(&format!("'{code}'")), "missing code {code}");
+        }
+        for operation in protocol_voxel_annotation::VOXEL_ANNOTATION_EDIT_OPERATIONS {
+            assert!(
+                va.contains(&format!("'{operation}'")),
+                "missing edit operation {operation}"
+            );
+        }
+        for mode in protocol_voxel_annotation::VOXEL_ANNOTATION_QUERY_MODES {
+            assert!(
+                va.contains(&format!("'{mode}'")),
+                "missing query mode {mode}"
+            );
+        }
+
+        assert!(va.contains("export interface VoxelAnnotationLayer {"));
+        assert!(va.contains("readonly targetVoxelVolumeAssetId: string;"));
+        assert!(va.contains("readonly targetVoxelDataHash: string;"));
+        assert!(
+            va.contains("readonly validationDiagnostics: readonly VoxelAnnotationDiagnostic[];")
+        );
+        assert!(va.contains("export interface VoxelAnnotationLayerValidationRequest {"));
+        assert!(va.contains("readonly maxSparseRunsPerRegion: number;"));
+        assert!(va.contains("export interface VoxelAnnotationQueryReadout {"));
+        assert!(va.contains("readonly matchedRegions: readonly VoxelAnnotationRegionReadout[];"));
+        assert!(va.contains("export interface VoxelAnnotationEditReceipt {"));
+        assert!(va.contains("export interface VoxelAnnotationLayerExportReceipt {"));
     }
 
     #[test]

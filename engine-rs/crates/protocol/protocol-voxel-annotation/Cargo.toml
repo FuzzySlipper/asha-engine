@@ -1,0 +1,16 @@
+[package]
+name = "protocol-voxel-annotation"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Border-only crate for ASHA-native voxel annotation and semantic region DTOs.
+# Validation, canonicalization, query, edit, and runtime load/export authority
+# live in later Rust service/bridge crates; this crate carries only contracts
+# and stable vocabularies mirrored to TypeScript by protocol-codegen.
+[dependencies]
+protocol-diagnostics = { path = "../protocol-diagnostics" }
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"
