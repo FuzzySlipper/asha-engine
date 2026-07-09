@@ -317,9 +317,17 @@ async function main() {
     path.join(fixtureDir, 'kenney-retro-character-medium.manifest.json'),
     `${JSON.stringify(manifest, null, 2)}\n`,
   );
-  fs.copyFileSync(
-    path.join(sourceRoot, sourceFiles.license.path),
+  const licenseText = fs
+    .readFileSync(path.join(sourceRoot, sourceFiles.license.path), 'utf8')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+$/u, ''))
+    .join('\n')
+    .replace(/\n*$/u, '\n');
+  fs.writeFileSync(
     path.join(fixtureDir, 'LICENSE.Kenney-Animated-Characters-Retro.txt'),
+    licenseText,
+    'utf8',
   );
   console.log(JSON.stringify({ glbPath, contentHash, clips: manifest.clips }, null, 2));
 }
