@@ -23,6 +23,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod history;
 pub mod persist;
 pub mod picking;
 
@@ -459,7 +460,7 @@ fn region_volume(min: VoxelCoord, max: VoxelCoord) -> Option<u64> {
     dx.checked_mul(dy)?.checked_mul(dz)
 }
 
-fn voxel_world_hash(world: &VoxelWorld) -> u64 {
+pub fn voxel_world_hash(world: &VoxelWorld) -> u64 {
     let mut hasher = Fnv1a::new();
     for (coord, chunk) in world.resident_chunks() {
         hasher.feed_i64(coord.x);
