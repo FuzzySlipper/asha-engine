@@ -6,6 +6,7 @@ import type { GeneratedTunnelOperationRequest, GeneratedTunnelReadout, Generated
 import type { EncounterDirectorReadout, EncounterDirectorReadoutRequest, EncounterTransitionRequest, RuntimeSessionEncounterTransitionReceipt } from './encounter-director.js';
 import type { NavPathQueryRequest, NavPathReadout, NavPolicyViewReadout, NavProjectionReadout } from './nav-readout.js';
 import type { RuntimeActionIntentEnvelope } from './runtime-action.js';
+import { type RuntimeSessionAnimationIntentReadout } from './runtime-session-animation.js';
 import type { RuntimeSessionActionIntentReceipt, RuntimeSessionAutonomousPolicyTickInput, RuntimeSessionAutonomousPolicyTickReadout, RuntimeSessionCameraCollisionInputReceipt, RuntimeSessionCameraCreateReceipt, RuntimeSessionCameraInputReceipt, RuntimeSessionCameraProjectionReadout, RuntimeSessionCommandReceipt, RuntimeSessionCombatFeedbackProjectionRequest, RuntimeSessionCombatReadoutRequest, RuntimeSessionEcrpProjectLoadInput, RuntimeSessionEcrpProjectLoadReceipt, RuntimeSessionEcrpReadout, RuntimeSessionFacade, RuntimeSessionGeneratedTunnelOperationReceipt, RuntimeSessionGameRuleCatalogValidationReceipt, RuntimeSessionGameRuleEffectIntentReceipt, RuntimeSessionGameExtensionWeaponEffectReceipt, RuntimeSessionInitializeInput, RuntimeSessionLifecycleRestartReceipt, RuntimeSessionLifecycleStatusReadout, RuntimeSessionLifecycleStatusRequest, RuntimeSessionProjectionSummary, RuntimeSessionRestartIntent, RuntimeSessionRestartResult, RuntimeSessionStateSummary, RuntimeSessionTelemetrySummary, RuntimeSessionTickInput, RuntimeSessionTickResult } from './runtime-session.js';
 export declare class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     #private;
@@ -57,6 +58,7 @@ export declare class RustBackedRuntimeSessionFacade implements RuntimeSessionFac
     redoVoxelEdit(request: VoxelEditHistoryRedoRequest): VoxelEditHistoryRedoReceipt;
     readEcrpRuntimeReadout(): RuntimeSessionEcrpReadout;
     readCameraProjection(request: CameraProjectionRequest): RuntimeSessionCameraProjectionReadout;
+    readAnimationIntent(): RuntimeSessionAnimationIntentReadout;
     readProjection(): RuntimeSessionProjectionSummary;
     readTelemetry(): RuntimeSessionTelemetrySummary;
     restart(): RuntimeSessionRestartResult;

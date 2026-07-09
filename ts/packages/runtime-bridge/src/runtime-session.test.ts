@@ -589,7 +589,6 @@ void test('Rust-backed RuntimeSession routes ECRP load, primary fire, and restar
   assert.equal(lifecycle.outcome.kind, 'won');
   assert.equal(lifecycle.enemy.health.entity, 202);
   assert.equal(lifecycle.enemy.health.dead, true);
-
   const pendingEncounter = session.readEncounterDirector();
   assert.equal(pendingEncounter.authority.source, 'rust_bridge');
   assert.equal(pendingEncounter.authority.surface, 'runtime_session.fps.encounter_director.v0');

@@ -171,6 +171,7 @@ import {
   stableHash,
 } from './runtime-session-hash.js';
 import { RustBackedRuntimeSessionFacade } from './runtime-session-rust-facade.js';
+import { buildRuntimeSessionAnimationIntentReadout, type RuntimeSessionAnimationIntentReadout } from './runtime-session-animation.js';
 
 export type {
   RuntimeSessionAutonomousPolicyCombatSummary,
@@ -847,7 +848,7 @@ export interface RuntimeSessionFacade {
   undoVoxelEdit(request: VoxelEditHistoryUndoRequest): VoxelEditHistoryUndoReceipt; redoVoxelEdit(request: VoxelEditHistoryRedoRequest): VoxelEditHistoryRedoReceipt;
   readEcrpRuntimeReadout(): RuntimeSessionEcrpReadout;
   readCameraProjection(request: CameraProjectionRequest): RuntimeSessionCameraProjectionReadout;
-  readProjection(): RuntimeSessionProjectionSummary;
+  readAnimationIntent(): RuntimeSessionAnimationIntentReadout; readProjection(): RuntimeSessionProjectionSummary;
   readTelemetry(): RuntimeSessionTelemetrySummary;
   restart(): RuntimeSessionRestartResult;
 }
@@ -1593,7 +1594,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
       projectionHash: snapshot.projectionHash,
     };
   }
-
+  readAnimationIntent(): RuntimeSessionAnimationIntentReadout { this.#requireInitialized('readAnimationIntent'); return buildRuntimeSessionAnimationIntentReadout({ sequenceId: this.#sequenceId, tick: this.#tick, lifecycleState: this.#lifecycleState }); }
   readProjection(): RuntimeSessionProjectionSummary {
     this.#requireInitialized('readProjection');
     const cursor = frameCursor(this.#sequenceId);

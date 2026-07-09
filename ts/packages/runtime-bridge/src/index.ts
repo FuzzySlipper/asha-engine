@@ -184,6 +184,12 @@ export * from './browser-fps-input.js';
 // New consumers import these from @asha/runtime-session; keep the bridge root
 // re-export only for runtime-bridge.v0 callers while the migration closes.
 export * from '@asha/runtime-session';
+export type {
+  RuntimeSessionAnimationIntentAuthority,
+  RuntimeSessionAnimationIntentNonClaim,
+  RuntimeSessionAnimationIntentReadout,
+  RuntimeSessionAnimationSelectionReason,
+} from './runtime-session-animation.js';
 export * from './native-runtime-provider.js';
 export * from './playable-encounter-tick.js';
 export * from './playable-loop-state.js';

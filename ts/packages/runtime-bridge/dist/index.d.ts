@@ -9,6 +9,7 @@ export type { GameRuntimeBackendMode, GameRuntimeBackendProfile, GameRuntimeBack
 export * from './native.js';
 export * from './browser-fps-input.js';
 export * from '@asha/runtime-session';
+export type { RuntimeSessionAnimationIntentAuthority, RuntimeSessionAnimationIntentNonClaim, RuntimeSessionAnimationIntentReadout, RuntimeSessionAnimationSelectionReason, } from './runtime-session-animation.js';
 export * from './native-runtime-provider.js';
 export * from './playable-encounter-tick.js';
 export * from './playable-loop-state.js';

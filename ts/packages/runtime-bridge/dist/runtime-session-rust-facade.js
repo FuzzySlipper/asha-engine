@@ -3,6 +3,7 @@ import { createGeneratedTunnelEnemyPolicyFixture, validateEnemyPolicySource, } f
 import { buildEncounterDirectorReadout, buildEncounterTransitionReceipt, validateEncounterDirectorReadoutRequest, validateEncounterTransitionRequest, } from './encounter-director.js';
 import { GENERATED_TUNNEL_NAV_POLICY_VIEW, GENERATED_TUNNEL_NO_PATH, GENERATED_TUNNEL_REACHABLE_PATH, } from './nav-readout.js';
 import { buildRuntimeSessionEnemyNavPath, ecrpActorPosition, ecrpEntityTransform, } from './runtime-session-enemy-authority.js';
+import { buildRuntimeSessionAnimationIntentReadout, } from './runtime-session-animation.js';
 import { buildEcrpProjectState, buildEcrpRuntimeReadout, defaultRuntimeSessionEcrpProjectLoadInput, validateEcrpProjectLoadInput, } from './runtime-session-ecrp.js';
 import { acceptedAutonomousMovementReceipt, lifecycleStatusReadout, lifecycleStatusToEncounterLifecycle, rejectedAutonomousPolicyProposalReceipt, runtimeActionReceiptToAutonomousReceipt, validateAutonomousPolicyProposal, validateAutonomousPolicyTickInput, validateInitializeInput, validateLifecycleStatusRequest, validateRestartIntent, validateRuntimeActionIntentEnvelope, } from './runtime-session-lifecycle.js';
 import { compositionHashRecord, identityHashRecord, renderFrameHashRecord, stableHash, } from './runtime-session-hash.js';
@@ -671,6 +672,15 @@ export class RustBackedRuntimeSessionFacade {
             snapshot,
             projectionHash: snapshot.projectionHash,
         };
+    }
+    readAnimationIntent() {
+        this.#requireInitialized('readAnimationIntent');
+        const snapshot = this.#requireSnapshot();
+        return buildRuntimeSessionAnimationIntentReadout({
+            sequenceId: this.#sequenceId,
+            tick: this.#tick,
+            lifecycleState: lifecycleStateFromFpsSnapshot(snapshot),
+        });
     }
     readProjection() {
         this.#requireInitialized('readProjection');

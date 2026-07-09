@@ -11,6 +11,7 @@ import { buildEcrpProjectState, buildEcrpRuntimeReadout, defaultRuntimeSessionEc
 import { acceptedAutonomousMovementReceipt, applyReferenceCombatReadoutToLifecycleState, buildReferenceRuntimeSessionPrimaryFireReadout, combatReadoutTick, generatedTunnelEnemyDefeatedLifecycleState, generatedTunnelPlayerDefeatedLifecycleState, initialRuntimeSessionLifecycleState, lifecycleStatusReadout, lifecycleStatusToEncounterLifecycle, rejectedAutonomousPolicyProposalReceipt, runtimeActionReceiptToAutonomousReceipt, validateAutonomousPolicyProposal, validateAutonomousPolicyTickInput, validateGeneratedTunnelOperationRequest, validateGeneratedTunnelReadoutRequest, validateInitializeInput, validateLifecycleStatusRequest, validateRestartIntent, validateRuntimeActionIntentEnvelope, } from './runtime-session-lifecycle.js';
 import { compositionHashRecord, encounterStateHashRecord, identityHashRecord, lifecycleStateHashRecord, referenceRuntimeSessionNonClaims, renderFrameHashRecord, stableHash, } from './runtime-session-hash.js';
 import { RustBackedRuntimeSessionFacade } from './runtime-session-rust-facade.js';
+import { buildRuntimeSessionAnimationIntentReadout } from './runtime-session-animation.js';
 export function createRuntimeSessionFacade(options) {
     if (options.mode === 'reference') {
         return new ReferenceRuntimeSessionFacade(options.bridge);
@@ -623,6 +624,7 @@ class ReferenceRuntimeSessionFacade {
             projectionHash: snapshot.projectionHash,
         };
     }
+    readAnimationIntent() { this.#requireInitialized('readAnimationIntent'); return buildRuntimeSessionAnimationIntentReadout({ sequenceId: this.#sequenceId, tick: this.#tick, lifecycleState: this.#lifecycleState }); }
     readProjection() {
         this.#requireInitialized('readProjection');
         const cursor = frameCursor(this.#sequenceId);

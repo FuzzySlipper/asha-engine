@@ -110,6 +110,10 @@ import {
   ecrpEntityTransform,
 } from './runtime-session-enemy-authority.js';
 import {
+  buildRuntimeSessionAnimationIntentReadout,
+  type RuntimeSessionAnimationIntentReadout,
+} from './runtime-session-animation.js';
+import {
   buildEcrpProjectState,
   buildEcrpRuntimeReadout,
   defaultRuntimeSessionEcrpProjectLoadInput,
@@ -939,6 +943,16 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       snapshot,
       projectionHash: snapshot.projectionHash,
     };
+  }
+
+  readAnimationIntent(): RuntimeSessionAnimationIntentReadout {
+    this.#requireInitialized('readAnimationIntent');
+    const snapshot = this.#requireSnapshot();
+    return buildRuntimeSessionAnimationIntentReadout({
+      sequenceId: this.#sequenceId,
+      tick: this.#tick,
+      lifecycleState: lifecycleStateFromFpsSnapshot(snapshot),
+    });
   }
 
   readProjection(): RuntimeSessionProjectionSummary {

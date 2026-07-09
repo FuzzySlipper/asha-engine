@@ -9,6 +9,7 @@ import { type EncounterDirectorReadout, type EncounterDirectorReadoutRequest, ty
 import { type NavPathQueryRequest, type NavPathReadout, type NavPathScenario, type NavPolicyViewReadout, type NavProjectionReadout } from './nav-readout.js';
 import type { RuntimeActionIntentEnvelope, RuntimeActionIntentRejection, RuntimeActionIntentStatus } from './runtime-action.js';
 import { type RuntimeSessionAutonomousPolicyCombatSummary, type RuntimeSessionAutonomousPolicyMovementSummary, type RuntimeSessionAutonomousPolicyProposalReceipt, type RuntimeSessionAutonomousPolicyProposalRejection } from './runtime-session-lifecycle.js';
+import { type RuntimeSessionAnimationIntentReadout } from './runtime-session-animation.js';
 export type { RuntimeSessionAutonomousPolicyCombatSummary, RuntimeSessionAutonomousPolicyMovementSummary, RuntimeSessionAutonomousPolicyProposalReceipt, RuntimeSessionAutonomousPolicyProposalRejection, RuntimeSessionAutonomousPolicyProposalRejectionReason, RuntimeSessionAutonomousPolicyProposalStatus, } from './runtime-session-lifecycle.js';
 export type RuntimeSessionMode = 'reference' | 'rust';
 export interface RuntimeSessionProjectIdentity {
@@ -547,6 +548,7 @@ export interface RuntimeSessionFacade {
     redoVoxelEdit(request: VoxelEditHistoryRedoRequest): VoxelEditHistoryRedoReceipt;
     readEcrpRuntimeReadout(): RuntimeSessionEcrpReadout;
     readCameraProjection(request: CameraProjectionRequest): RuntimeSessionCameraProjectionReadout;
+    readAnimationIntent(): RuntimeSessionAnimationIntentReadout;
     readProjection(): RuntimeSessionProjectionSummary;
     readTelemetry(): RuntimeSessionTelemetrySummary;
     restart(): RuntimeSessionRestartResult;
