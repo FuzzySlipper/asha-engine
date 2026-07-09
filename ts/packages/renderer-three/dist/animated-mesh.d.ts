@@ -14,6 +14,7 @@ export interface AnimatedMeshAssetSource {
 export interface AnimatedMeshPlaybackReadout {
     readonly handle: RenderHandle;
     readonly asset: string;
+    readonly status: 'not_started' | 'playing' | 'paused' | 'stopped';
     readonly currentClip: string | null;
     readonly mixerTimeSeconds: number;
     readonly actionTimeSeconds: number | null;
@@ -23,6 +24,13 @@ export interface AnimatedMeshPlaybackReadout {
     readonly speed: number | null;
     readonly weight: number | null;
     readonly commandSelected: boolean;
+    readonly poseSample: AnimatedMeshPoseSample;
+    readonly diagnostics: readonly string[];
+}
+export interface AnimatedMeshPoseSample {
+    readonly rootTranslation: readonly [number, number, number];
+    readonly rootRotation: readonly [number, number, number, number];
+    readonly rootScale: readonly [number, number, number];
 }
 interface AnimatedMeshInstanceRecord {
     readonly handle: RenderHandle;
@@ -32,6 +40,7 @@ interface AnimatedMeshInstanceRecord {
     readonly actions: ReadonlyMap<string, THREE.AnimationAction>;
     currentClip: string | null;
     commandSelected: boolean;
+    status: AnimatedMeshPlaybackReadout['status'];
     loop: AnimatedMeshPlaybackReadout['loop'];
     speed: number | null;
     weight: number | null;

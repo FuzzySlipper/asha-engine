@@ -69,6 +69,7 @@ export class AnimatedMeshRegistry {
             actions,
             currentClip: null,
             commandSelected: false,
+            status: 'not_started',
             loop: null,
             speed: null,
             weight: null,
@@ -101,6 +102,7 @@ export class AnimatedMeshRegistry {
         return {
             handle,
             asset: instance.asset,
+            status: instance.status,
             currentClip: instance.currentClip,
             mixerTimeSeconds: instance.mixer.time,
             actionTimeSeconds: action?.time ?? null,
@@ -110,6 +112,8 @@ export class AnimatedMeshRegistry {
             speed: instance.speed,
             weight: instance.weight,
             commandSelected: instance.commandSelected,
+            poseSample: poseSample(instance.object),
+            diagnostics: playbackDiagnostics(instance, action),
         };
     }
     release(handle) {
@@ -153,6 +157,7 @@ function applyPlaybackCommand(instance, command) {
             stopCurrent(instance, command.fadeSeconds);
             instance.currentClip = null;
             instance.commandSelected = true;
+            instance.status = 'stopped';
             instance.loop = null;
             instance.speed = null;
             instance.weight = null;
@@ -160,12 +165,14 @@ function applyPlaybackCommand(instance, command) {
         case 'pause':
             currentAction(instance, 'pause').paused = true;
             instance.commandSelected = true;
+            instance.status = 'paused';
             return;
         case 'resume': {
             const action = currentAction(instance, 'resume');
             action.paused = false;
             action.play();
             instance.commandSelected = true;
+            instance.status = 'playing';
             return;
         }
     }
@@ -196,6 +203,7 @@ function playClip(instance, command) {
     action.play();
     instance.currentClip = command.clip;
     instance.commandSelected = true;
+    instance.status = 'playing';
     instance.loop = command.loop;
     instance.speed = command.speed;
     instance.weight = command.weight;
@@ -228,5 +236,24 @@ function toThreeLoop(loop) {
         case 'pingPong':
             return THREE.LoopPingPong;
     }
+}
+function poseSample(object) {
+    return {
+        rootTranslation: [object.position.x, object.position.y, object.position.z],
+        rootRotation: [object.quaternion.x, object.quaternion.y, object.quaternion.z, object.quaternion.w],
+        rootScale: [object.scale.x, object.scale.y, object.scale.z],
+    };
+}
+function playbackDiagnostics(instance, action) {
+    if (!instance.commandSelected) {
+        return ['animation_not_started'];
+    }
+    if (instance.status === 'stopped') {
+        return ['animation_stopped'];
+    }
+    if (action?.paused || instance.status === 'paused') {
+        return ['animation_paused'];
+    }
+    return [];
 }
 //# sourceMappingURL=animated-mesh.js.map

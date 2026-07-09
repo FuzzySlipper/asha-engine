@@ -660,7 +660,11 @@ function animatedMeshAsset(over = {}) {
 function testAnimatedMeshSource(asset = animatedMeshAsset()) {
     const scene = new THREE.Group();
     scene.name = 'animated-fixture-root';
-    const clips = asset.clips.map((clip) => new THREE.AnimationClip(clip.id, clip.durationSeconds ?? 1, []));
+    const clips = asset.clips.map((clip) => {
+        const duration = clip.durationSeconds ?? 1;
+        const tracks = clip.id === 'run' ? [new THREE.VectorKeyframeTrack('.position', [0, duration], [0, 0, 0, 1, 0, 0])] : [];
+        return new THREE.AnimationClip(clip.id, duration, tracks);
+    });
     return new MapAnimatedMeshAssetSource([{ asset: asset.asset, scene, clips }]);
 }
 void test('loads the committed animated GLB fixture and exposes named clips', async () => {
@@ -700,8 +704,11 @@ void test('animated mesh playback is command-selected and advances through rende
             metadata: { source: null, tags: [], label: 'animated character' },
         },
     });
-    assert.equal(r.animatedMeshPlayback(handle)?.currentClip, null);
-    assert.equal(r.animatedMeshPlayback(handle)?.commandSelected, false);
+    const initial = r.animatedMeshPlayback(handle);
+    assert.equal(initial?.currentClip, null);
+    assert.equal(initial?.commandSelected, false);
+    assert.equal(initial?.status, 'not_started');
+    assert.deepEqual(initial?.diagnostics, ['animation_not_started']);
     r.applyDiff({
         op: 'setAnimatedMeshPlayback',
         handle,
@@ -711,12 +718,22 @@ void test('animated mesh playback is command-selected and advances through rende
     assert.equal(selected?.currentClip, 'run');
     assert.equal(selected?.commandSelected, true);
     assert.equal(selected?.loop, 'repeat');
+    assert.equal(selected?.status, 'playing');
+    assert.deepEqual(selected?.diagnostics, []);
     r.advanceAnimation(0.25);
     const advanced = r.animatedMeshPlayback(handle);
     assert.equal(advanced?.currentClip, 'run');
     assert.equal(advanced?.running, true);
     assert.ok((advanced?.mixerTimeSeconds ?? 0) > 0);
     assert.ok((advanced?.actionTimeSeconds ?? 0) > 0);
+    assert.notDeepEqual(advanced?.poseSample.rootTranslation, selected?.poseSample.rootTranslation);
+    assert.ok((advanced?.poseSample.rootTranslation[0] ?? 0) > (selected?.poseSample.rootTranslation[0] ?? 0));
+    r.applyDiff({ op: 'setAnimatedMeshPlayback', handle, playback: { action: 'pause' } });
+    assert.equal(r.animatedMeshPlayback(handle)?.status, 'paused');
+    assert.deepEqual(r.animatedMeshPlayback(handle)?.diagnostics, ['animation_paused']);
+    r.applyDiff({ op: 'setAnimatedMeshPlayback', handle, playback: { action: 'stop', fadeSeconds: null } });
+    assert.equal(r.animatedMeshPlayback(handle)?.status, 'stopped');
+    assert.deepEqual(r.animatedMeshPlayback(handle)?.diagnostics, ['animation_stopped']);
 });
 void test('animated mesh adapter fails closed for missing resources and clips', () => {
     const asset = animatedMeshAsset();
