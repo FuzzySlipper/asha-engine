@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { cameraHandle } from '@asha/contracts';
-import { RuntimeBridgeError, createRuntimeSessionFacade, } from './index.js';
+import { RuntimeBridgeError, createRuntimeSessionFacade, readRuntimeSessionPlayableLoopState, } from './index.js';
 import { createMockRuntimeBridge } from './mock.js';
 import { stableHash } from './runtime-session-hash.js';
 function sessionInput() {
@@ -67,6 +67,7 @@ function snapshot(input) {
 function enemyFireBridgeDouble() {
     const base = createMockRuntimeBridge();
     const fireCalls = [];
+    const loadRequests = [];
     let player = 10;
     let enemy = 20;
     let playerHealth = 100;
@@ -83,6 +84,7 @@ function enemyFireBridgeDouble() {
         get(target, property, receiver) {
             if (property === 'loadFpsRuntimeSession') {
                 return (request) => {
+                    loadRequests.push(request);
                     player = request.definitions.find((definition) => definition.role === 'player')?.entity ?? player;
                     enemy = request.definitions.find((definition) => definition.role === 'enemy')?.entity ?? enemy;
                     playerHealth = request.definitions.find((definition) => definition.entity === player)?.health?.current ?? playerHealth;
@@ -151,12 +153,24 @@ function enemyFireBridgeDouble() {
             return value;
         },
     });
-    return { bridge, fireCalls };
+    return { bridge, fireCalls, loadRequests };
 }
 void test('Rust-backed RuntimeSession autonomous enemy fire can defeat the player through bridge authority', () => {
-    const { bridge, fireCalls } = enemyFireBridgeDouble();
+    const { bridge, fireCalls, loadRequests } = enemyFireBridgeDouble();
     const session = createRuntimeSessionFacade({ bridge, mode: 'rust' });
     session.initialize(sessionInput());
+    const loaded = loadRequests[0];
+    assert.ok(loaded !== undefined);
+    const playerDefinition = loaded.definitions.find((definition) => definition.role === 'player');
+    const enemyDefinition = loaded.definitions.find((definition) => definition.role === 'enemy');
+    assert.deepEqual(playerDefinition?.bounds, {
+        min: [-0.5, 0.2200000000000002, -0.5],
+        max: [0.5, 3.02, 0.5],
+    });
+    assert.deepEqual(enemyDefinition?.bounds, {
+        min: [-0.7, -0.7, -4.2],
+        max: [0.7, 2.9000000000000004, -2.8],
+    });
     let latest = session.runAutonomousPolicyTick({
         targetCamera: cameraHandle(1),
         tick: 1,
@@ -181,5 +195,9 @@ void test('Rust-backed RuntimeSession autonomous enemy fire can defeat the playe
     assert.equal(lifecycle.player.dead, true);
     assert.equal(lifecycle.player.health.current, 0);
     assert.equal(lifecycle.enemy.dead, false);
+    const playable = readRuntimeSessionPlayableLoopState(session);
+    assert.equal(playable.counters.shotsFired, 0);
+    assert.equal(playable.counters.actionTick, 0);
+    assert.equal(playable.health.player.dead, true);
 });
 //# sourceMappingURL=runtime-session-rust-enemy-fire.test.js.map

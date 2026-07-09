@@ -36,6 +36,7 @@ import {
   type FpsEncounterLifecycleInput,
   type FpsEncounterStateReadout,
   type FpsEncounterTransitionResult,
+  type FpsBoundsCapability,
   type EngineHandle,
   type FpsPrimaryFireRequest,
   type FpsPrimaryFireResult,
@@ -341,7 +342,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#sequenceId += 1;
 
     if (envelope.action !== 'primary_fire' || envelope.phase !== 'pressed') {
-      this.#record('submitRuntimeActionIntent');
+      this.#record('submitRuntimeActionIntent', undefined, envelope.source);
       return {
         sequenceId: this.#sequenceId,
         envelope,
@@ -365,7 +366,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       direction: [0, 0, -1],
     });
     this.#snapshot = this.#bridge.readFpsRuntimeSession();
-    this.#record('submitRuntimeActionIntent', fire.replayHash);
+    this.#record('submitRuntimeActionIntent', fire.replayHash, envelope.source);
     return {
       sequenceId: this.#sequenceId,
       envelope,
@@ -994,7 +995,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       targetRole: 'player',
     });
     this.#snapshot = this.#bridge.readFpsRuntimeSession();
-    this.#record('submitRuntimeActionIntent', fire.replayHash);
+    this.#record('submitRuntimeActionIntent', fire.replayHash, envelope.source);
     return {
       sequenceId: this.#sequenceId,
       envelope,
@@ -1040,12 +1041,18 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     };
   }
 
-  #record(kind: RuntimeSessionReplayRecord['kind'], authorityHash?: string): void {
+  #record(
+    kind: RuntimeSessionReplayRecord['kind'],
+    authorityHash?: string,
+    actionSource?: RuntimeActionIntentEnvelope['source'],
+  ): void {
     this.#replayRecords.push({
       sequenceId: this.#sequenceId,
       kind,
+      ...(actionSource === undefined ? {} : { actionSource }),
       recordHash: authorityHash ?? stableHash({
         kind,
+        ...(actionSource === undefined ? {} : { actionSource }),
         sequenceId: this.#sequenceId,
         tick: this.#tick,
         composition: compositionHashRecord(this.#bridge.getProjectBundleCompositionStatus()),
@@ -1122,12 +1129,7 @@ function fpsStoredEntityDefinition(entity: RuntimeSessionEcrpEntityState): FpsSt
     ],
     role: entity.role,
     transform: transform?.kind === 'transform' ? fpsTransform(transform) : null,
-    bounds: collisionBody?.kind === 'collisionBody'
-      ? {
-          min: [-collisionBody.halfExtents[0], -collisionBody.halfExtents[1], -collisionBody.halfExtents[2]],
-          max: [collisionBody.halfExtents[0], collisionBody.halfExtents[1], collisionBody.halfExtents[2]],
-        }
-      : null,
+    bounds: collisionBody?.kind === 'collisionBody' ? fpsWorldBounds(transform, collisionBody) : null,
     renderVisible: renderProjection?.kind === 'renderProjection' ? renderProjection.visible ?? true : null,
     staticCollider: collisionBody?.kind === 'collisionBody' ? collisionBody.staticCollider ?? false : null,
     health: health?.kind === 'health' ? { current: health.current, max: health.max } : null,
@@ -1160,6 +1162,25 @@ function fpsTransform(
     translation: capability.initial.position,
     rotation: [0, 0, 0, 1],
     scale: [1, 1, 1],
+  };
+}
+
+function fpsWorldBounds(
+  transform: RuntimeSessionEcrpProjectCapabilityDefinition | undefined,
+  collisionBody: Extract<RuntimeSessionEcrpProjectCapabilityDefinition, { readonly kind: 'collisionBody' }>,
+): FpsBoundsCapability {
+  const position = transform?.kind === 'transform' ? transform.initial.position : [0, 0, 0] as const;
+  return {
+    min: [
+      position[0] - collisionBody.halfExtents[0],
+      position[1] - collisionBody.halfExtents[1],
+      position[2] - collisionBody.halfExtents[2],
+    ],
+    max: [
+      position[0] + collisionBody.halfExtents[0],
+      position[1] + collisionBody.halfExtents[1],
+      position[2] + collisionBody.halfExtents[2],
+    ],
   };
 }
 

@@ -263,6 +263,7 @@ export interface RuntimeSessionReplayRecord {
     | 'requestEncounterTransition'
     | 'requestSessionRestart'
     | 'restart';
+  readonly actionSource?: RuntimeActionIntentEnvelope['source'];
   readonly recordHash: string;
 }
 
@@ -1059,7 +1060,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     validateRuntimeActionIntentEnvelope(envelope);
     const before = this.#sessionHash();
     this.#sequenceId += 1;
-    this.#record('submitRuntimeActionIntent');
+    this.#record('submitRuntimeActionIntent', envelope.source);
     const combatReadout =
       envelope.action === 'primary_fire' && envelope.phase === 'pressed'
         ? buildReferenceRuntimeSessionPrimaryFireReadout({
@@ -1746,12 +1747,14 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     };
   }
 
-  #record(kind: RuntimeSessionReplayRecord['kind']): void {
+  #record(kind: RuntimeSessionReplayRecord['kind'], actionSource?: RuntimeActionIntentEnvelope['source']): void {
     this.#replayRecords.push({
       sequenceId: this.#sequenceId,
       kind,
+      ...(actionSource === undefined ? {} : { actionSource }),
       recordHash: stableHash({
         kind,
+        ...(actionSource === undefined ? {} : { actionSource }),
         sequenceId: this.#sequenceId,
         tick: this.#tick,
         acceptedCommandCount: this.#acceptedCommandCount,

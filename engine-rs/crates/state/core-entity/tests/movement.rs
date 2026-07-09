@@ -106,6 +106,32 @@ fn movement_slides_along_a_blocked_axis() {
 }
 
 #[test]
+fn non_static_collider_does_not_block_other_movers() {
+    let mut store = EntityStore::new();
+    let mover = movable(&mut store, 1, Vec3::ZERO);
+    let actor = movable(&mut store, 2, Vec3::new(1.0, 0.0, 0.0));
+
+    let event = store
+        .apply_movement(MovementCommand {
+            id: mover,
+            delta: Vec3::new(1.0, 0.0, 0.0),
+        })
+        .unwrap();
+
+    assert_eq!(
+        event.outcome,
+        MovementOutcome::Moved {
+            to: Vec3::new(1.0, 0.0, 0.0)
+        }
+    );
+    assert_eq!(event.hit, None);
+    assert_eq!(
+        store.transform(actor).unwrap().transform.translation,
+        Vec3::new(1.0, 0.0, 0.0)
+    );
+}
+
+#[test]
 fn non_spatial_entity_rejects_movement() {
     let mut store = fixtures::movement_family();
     assert_eq!(

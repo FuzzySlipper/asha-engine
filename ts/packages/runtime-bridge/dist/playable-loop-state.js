@@ -14,7 +14,7 @@ export function readRuntimeSessionPlayableLoopState(session, request = {}) {
     const enemy = playableHealth(lifecycle.enemy.health);
     const target = readEnemyRenderTarget(ecrp.entities.flatMap((entity) => entity.capabilities));
     const blockedReasons = commandBlockReasons({ shellPaused: shell.paused, playerDead: player.dead, enemyDead: enemy.dead });
-    const shotsFired = currentEpochRecords.filter((record) => record.kind === 'submitRuntimeActionIntent').length;
+    const shotsFired = currentEpochRecords.filter(isPlayerFireRecord).length;
     const hits = enemy.max > enemy.current ? Math.min(shotsFired, 1) : 0;
     return {
         kind: 'runtime_session.playable_loop_state.v0',
@@ -46,6 +46,9 @@ export function readRuntimeSessionPlayableLoopState(session, request = {}) {
         diagnostics: [],
         nonClaims: ['not_ui_authority', 'not_replay_history_counter', 'not_demo_local_authority'],
     };
+}
+function isPlayerFireRecord(record) {
+    return record.kind === 'submitRuntimeActionIntent' && record.actionSource !== 'enemy_policy';
 }
 function missingRuntimeSessionPlayableLoopState(shell, unavailableReason) {
     const player = playableHealth({ current: 0, max: 1, dead: true });

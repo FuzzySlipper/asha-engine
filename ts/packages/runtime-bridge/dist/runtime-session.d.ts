@@ -68,6 +68,7 @@ export interface RuntimeSessionProjectionSummary {
 export interface RuntimeSessionReplayRecord {
     readonly sequenceId: number;
     readonly kind: 'initialize' | 'submitCommands' | 'tick' | 'createCamera' | 'applyFirstPersonCameraInput' | 'applyCollisionConstrainedCameraInput' | 'loadEcrpProject' | 'submitRuntimeActionIntent' | 'submitGameExtensionWeaponEffect' | 'validateGameRuleCatalog' | 'submitGameRuleEffectIntent' | 'lifecycleDeath' | 'runAutonomousPolicyTick' | 'requestGeneratedTunnelOperation' | 'requestEncounterTransition' | 'requestSessionRestart' | 'restart';
+    readonly actionSource?: RuntimeActionIntentEnvelope['source'];
     readonly recordHash: string;
 }
 export interface RuntimeSessionTelemetrySummary {

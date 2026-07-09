@@ -182,7 +182,7 @@ class ReferenceRuntimeSessionFacade {
         validateRuntimeActionIntentEnvelope(envelope);
         const before = this.#sessionHash();
         this.#sequenceId += 1;
-        this.#record('submitRuntimeActionIntent');
+        this.#record('submitRuntimeActionIntent', envelope.source);
         const combatReadout = envelope.action === 'primary_fire' && envelope.phase === 'pressed'
             ? buildReferenceRuntimeSessionPrimaryFireReadout({
                 projectState: this.#ecrpProjectState,
@@ -780,12 +780,14 @@ class ReferenceRuntimeSessionFacade {
             sessionHash: this.#sessionHash(),
         };
     }
-    #record(kind) {
+    #record(kind, actionSource) {
         this.#replayRecords.push({
             sequenceId: this.#sequenceId,
             kind,
+            ...(actionSource === undefined ? {} : { actionSource }),
             recordHash: stableHash({
                 kind,
+                ...(actionSource === undefined ? {} : { actionSource }),
                 sequenceId: this.#sequenceId,
                 tick: this.#tick,
                 acceptedCommandCount: this.#acceptedCommandCount,

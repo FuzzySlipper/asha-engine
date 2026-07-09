@@ -95,7 +95,7 @@ export function readRuntimeSessionPlayableLoopState(
   const enemy = playableHealth(lifecycle.enemy.health);
   const target = readEnemyRenderTarget(ecrp.entities.flatMap((entity) => entity.capabilities));
   const blockedReasons = commandBlockReasons({ shellPaused: shell.paused, playerDead: player.dead, enemyDead: enemy.dead });
-  const shotsFired = currentEpochRecords.filter((record) => record.kind === 'submitRuntimeActionIntent').length;
+  const shotsFired = currentEpochRecords.filter(isPlayerFireRecord).length;
   const hits = enemy.max > enemy.current ? Math.min(shotsFired, 1) : 0;
 
   return {
@@ -128,6 +128,10 @@ export function readRuntimeSessionPlayableLoopState(
     diagnostics: [],
     nonClaims: ['not_ui_authority', 'not_replay_history_counter', 'not_demo_local_authority'],
   };
+}
+
+function isPlayerFireRecord(record: RuntimeSessionReplayRecord): boolean {
+  return record.kind === 'submitRuntimeActionIntent' && record.actionSource !== 'enemy_policy';
 }
 
 function missingRuntimeSessionPlayableLoopState(
