@@ -49,8 +49,7 @@ import {
   type FpsPrimaryFireResult,
   type GameRuleCatalogValidationReceipt,
   type GameRuleRuntimeReadout,
-  type RuntimeBridge,
-  type StepResult,
+  type RuntimeBridge, type StepResult,
   type ProjectBundleLoadRequest,
 } from './bridge.js';
 import type { RuntimeSessionEcrpRenderTargetIdentity } from './ecrp-render-target.js';
@@ -266,7 +265,6 @@ export interface RuntimeSessionReplayRecord {
   readonly actionSource?: RuntimeActionIntentEnvelope['source'];
   readonly recordHash: string;
 }
-
 export interface RuntimeSessionTelemetrySummary {
   readonly sequenceId: number;
   readonly tick: number;
@@ -1746,7 +1744,6 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
       sessionHash: this.#sessionHash(),
     };
   }
-
   #record(kind: RuntimeSessionReplayRecord['kind'], actionSource?: RuntimeActionIntentEnvelope['source']): void {
     this.#replayRecords.push({
       sequenceId: this.#sequenceId,
