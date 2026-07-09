@@ -226,6 +226,68 @@ fn game_extension_weapon_effect_invokes_downstream_registered_module_ref() {
 }
 
 #[test]
+fn game_extension_weapon_effect_commits_lethal_demo_damage_to_session_readout() {
+    let mut bridge = init_bridge();
+    let mut request = fps_load_request_with_downstream_game_rule(40);
+    request.definitions[0]
+        .weapon
+        .as_mut()
+        .expect("player weapon")
+        .damage = 40;
+    bridge
+        .load_fps_runtime_session(request)
+        .expect("fps session loads with downstream module declaration");
+
+    let result = bridge
+        .invoke_game_extension_weapon_effect(GameExtensionWeaponEffectInvocationRequest {
+            hook: downstream_weapon_effect_request(11),
+            primary_fire: FpsPrimaryFireRequest {
+                tick: 11,
+                origin: [2.5, 1.5, 1.5],
+                direction: [0.0, 0.0, -1.0],
+                shooter_role: Some(FpsBridgeRole::Player),
+                target_role: Some(FpsBridgeRole::Enemy),
+            },
+        })
+        .expect("downstream extension hook invokes and applies");
+    let primary_fire = result.primary_fire.expect("accepted primary fire");
+
+    assert_eq!(primary_fire.target, Some(777));
+    assert_eq!(
+        primary_fire.target_health_before,
+        Some(FpsBridgeHealth {
+            current: 40,
+            max: 40
+        })
+    );
+    assert_eq!(
+        primary_fire.target_health_after,
+        Some(FpsBridgeHealth {
+            current: 0,
+            max: 40
+        })
+    );
+    let snapshot = bridge
+        .read_fps_runtime_session()
+        .expect("session readout reflects committed damage");
+    assert_eq!(
+        snapshot
+            .health
+            .iter()
+            .find(|entry| entry.entity == 777)
+            .map(|entry| (entry.current, entry.max)),
+        Some((0, 40))
+    );
+    assert!(matches!(
+        snapshot.lifecycle_status,
+        FpsBridgeLifecycleStatus::EnemyDefeated {
+            entity: 777,
+            tick: 11
+        }
+    ));
+}
+
+#[test]
 fn game_extension_weapon_effect_rejects_incompatible_downstream_manifest() {
     let mut bridge = init_bridge();
     let mut request = fps_load_request(75);

@@ -220,6 +220,8 @@ export interface NativeAddon {
     tick: number,
     origin: NativeVec3,
     direction: NativeVec3,
+    shooterRole?: NativeFpsRole,
+    targetRole?: NativeFpsRole,
   ): NativeGameExtensionWeaponEffectInvocationResult;
   validateGameRuleCatalog(handle: number, catalogJson: string): string;
   submitGameRuleEffectIntent(handle: number, catalogJson: string, requestJson: string): string;

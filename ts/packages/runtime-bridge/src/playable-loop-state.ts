@@ -131,7 +131,11 @@ export function readRuntimeSessionPlayableLoopState(
 }
 
 function isPlayerFireRecord(record: RuntimeSessionReplayRecord): boolean {
-  return record.kind === 'submitRuntimeActionIntent' && record.actionSource !== 'enemy_policy';
+  if (record.actionSource === 'enemy_policy') {
+    return false;
+  }
+  return record.kind === 'submitRuntimeActionIntent'
+    || record.kind === 'submitGameExtensionWeaponEffect';
 }
 
 function missingRuntimeSessionPlayableLoopState(

@@ -22,7 +22,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use core_entity::{EntityLifecycle, EntityStore};
 use core_ids::EntityId;
-use core_space::WorldPos;
+use core_space::{WorldPos, WorldVec};
 use protocol_entity_authoring::{
     AuthoringCapability, EntityAuthoringCommand, EntityDefinition, EntityDefinitionCapability,
 };
@@ -432,6 +432,41 @@ impl FpsRuntimeSessionState {
             tick,
             FpsRuntimeRole::Player,
             FpsRuntimeRole::Enemy,
+            damage_delta,
+        )
+    }
+
+    pub fn apply_targeted_primary_fire_with_damage_delta(
+        &mut self,
+        projection: &CollisionProjection,
+        origin: WorldPos,
+        tick: u64,
+        shooter_role: FpsRuntimeRole,
+        target_role: FpsRuntimeRole,
+        damage_delta: i64,
+    ) -> Result<FpsPrimaryFireReceipt, FpsRuntimeError> {
+        let target = self.role_entity(target_role)?;
+        let combat_target = self.combat_target(target)?;
+        let center = WorldPos::new(
+            (combat_target.min.x + combat_target.max.x) * 0.5,
+            (combat_target.min.y + combat_target.max.y) * 0.5,
+            (combat_target.min.z + combat_target.max.z) * 0.5,
+        );
+        let ray = Ray::new(
+            origin,
+            WorldVec::new(
+                center.x - origin.x,
+                center.y - origin.y,
+                center.z - origin.z,
+            ),
+        );
+        let unblocked_projection = CollisionProjection::unblocked(projection.grid());
+        self.apply_primary_fire_for_roles(
+            &unblocked_projection,
+            ray,
+            tick,
+            shooter_role,
+            target_role,
             damage_delta,
         )
     }

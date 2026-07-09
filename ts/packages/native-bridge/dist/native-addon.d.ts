@@ -181,7 +181,7 @@ export interface NativeAddon {
     loadFpsRuntimeSession(handle: number, projectBundle: string, definitions: readonly NativeFpsStoredEntityDefinition[], gameRuleModulesJson: string): NativeFpsRuntimeSessionSnapshot;
     readFpsRuntimeSession(handle: number): NativeFpsRuntimeSessionSnapshot;
     applyFpsPrimaryFire(handle: number, tick: number, origin: NativeVec3, direction: NativeVec3, shooterRole?: NativeFpsRole, targetRole?: NativeFpsRole): NativeFpsPrimaryFireResult;
-    invokeGameExtensionWeaponEffect(handle: number, hookJson: string, tick: number, origin: NativeVec3, direction: NativeVec3): NativeGameExtensionWeaponEffectInvocationResult;
+    invokeGameExtensionWeaponEffect(handle: number, hookJson: string, tick: number, origin: NativeVec3, direction: NativeVec3, shooterRole?: NativeFpsRole, targetRole?: NativeFpsRole): NativeGameExtensionWeaponEffectInvocationResult;
     validateGameRuleCatalog(handle: number, catalogJson: string): string;
     submitGameRuleEffectIntent(handle: number, catalogJson: string, requestJson: string): string;
     readGameRuleRuntimeReadout(handle: number): string;

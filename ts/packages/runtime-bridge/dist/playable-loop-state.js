@@ -48,7 +48,11 @@ export function readRuntimeSessionPlayableLoopState(session, request = {}) {
     };
 }
 function isPlayerFireRecord(record) {
-    return record.kind === 'submitRuntimeActionIntent' && record.actionSource !== 'enemy_policy';
+    if (record.actionSource === 'enemy_policy') {
+        return false;
+    }
+    return record.kind === 'submitRuntimeActionIntent'
+        || record.kind === 'submitGameExtensionWeaponEffect';
 }
 function missingRuntimeSessionPlayableLoopState(shell, unavailableReason) {
     const player = playableHealth({ current: 0, max: 1, dead: true });

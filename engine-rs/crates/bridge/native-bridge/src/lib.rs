@@ -1583,11 +1583,15 @@ pub fn invoke_game_extension_weapon_effect(
     tick: i64,
     origin: NativeVec3,
     direction: NativeVec3,
+    shooter_role: Option<String>,
+    target_role: Option<String>,
 ) -> napi::Result<NativeGameExtensionWeaponEffectInvocationResult> {
     let hook = parse_weapon_effect_hook_request(&hook_json)?;
     let tick = u64_input(tick, "tick")?;
     let origin = origin.to_vec3("origin")?;
     let direction = direction.to_vec3("direction")?;
+    let shooter_role = optional_native_fps_role(shooter_role, "shooterRole")?;
+    let target_role = optional_native_fps_role(target_role, "targetRole")?;
     with_bridge(handle, |bridge| {
         let result = bridge
             .invoke_game_extension_weapon_effect(GameExtensionWeaponEffectInvocationRequest {
@@ -1604,8 +1608,8 @@ pub fn invoke_game_extension_weapon_effect(
                         f64::from(direction.y),
                         f64::from(direction.z),
                     ],
-                    shooter_role: None,
-                    target_role: None,
+                    shooter_role,
+                    target_role,
                 },
             })
             .map_err(to_napi)?;

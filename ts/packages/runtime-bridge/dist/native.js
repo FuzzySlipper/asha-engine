@@ -391,7 +391,13 @@ export class NativeRuntimeBridge {
         const tick = nonNegativeSafeInteger(request.primaryFire.tick, 'primaryFire.tick');
         const origin = nativeVec3(request.primaryFire.origin, 'primaryFire.origin');
         const direction = nativeVec3(request.primaryFire.direction, 'primaryFire.direction');
-        const result = callNative(() => this.#addon.invokeGameExtensionWeaponEffect(handle, JSON.stringify(request.hook), tick, origin, direction));
+        const shooterRole = request.primaryFire.shooterRole === undefined
+            ? undefined
+            : fpsRole(request.primaryFire.shooterRole);
+        const targetRole = request.primaryFire.targetRole === undefined
+            ? undefined
+            : fpsRole(request.primaryFire.targetRole);
+        const result = callNative(() => this.#addon.invokeGameExtensionWeaponEffect(handle, JSON.stringify(request.hook), tick, origin, direction, shooterRole, targetRole));
         return {
             hookReceipt: parseNativeJson(result.hookReceiptJson, 'game extension hook receipt'),
             replayEvidence: parseNativeJson(result.replayEvidenceJson, 'game extension replay evidence'),

@@ -199,6 +199,16 @@ impl CollisionProjection {
         proj
     }
 
+    /// Build an explicit unblocked projection for authority paths that validate
+    /// a target through a different rule surface before applying an effect.
+    pub fn unblocked(grid: VoxelGridSpec) -> Self {
+        Self {
+            grid,
+            chunks: BTreeMap::new(),
+            version: 1,
+        }
+    }
+
     pub fn grid(&self) -> VoxelGridSpec {
         self.grid
     }

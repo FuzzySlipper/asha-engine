@@ -1174,7 +1174,16 @@ impl RuntimeBridge for ReferenceBridge {
                 });
             }
         };
-        let ray = Self::ray_from_primary_fire(request.primary_fire)?;
+        let primary_fire = request.primary_fire;
+        let shooter_role = primary_fire
+            .shooter_role
+            .map(Self::fps_runtime_role)
+            .unwrap_or(FpsRuntimeRole::Player);
+        let target_role = primary_fire
+            .target_role
+            .map(Self::fps_runtime_role)
+            .unwrap_or(FpsRuntimeRole::Enemy);
+        let ray = Self::ray_from_primary_fire(primary_fire)?;
         let world = self.voxel.as_ref().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
@@ -1184,10 +1193,12 @@ impl RuntimeBridge for ReferenceBridge {
         let projection = CollisionProjection::build(world);
         let receipt = self
             .fps_session_mut("invoke_game_extension_weapon_effect")?
-            .apply_primary_fire_with_damage_delta(
+            .apply_targeted_primary_fire_with_damage_delta(
                 &projection,
-                ray,
-                request.primary_fire.tick,
+                ray.origin,
+                primary_fire.tick,
+                shooter_role,
+                target_role,
                 damage_delta,
             )
             .map_err(Self::fps_runtime_error)?;
