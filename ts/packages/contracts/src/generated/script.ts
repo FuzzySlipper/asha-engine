@@ -8,19 +8,19 @@
 
 import type { EntityId, SubjectId, ProcessId, ModeId, SignalId, TagId } from './ids.js';
 
-// One entity as seen by a policy: its identity and current tags.
+// One entity as seen by a policy: its identity and the tags currently on it.
 export interface EntityView {
   readonly id: EntityId;
   readonly tags: readonly TagId[];
 }
 
-// One process as seen by a policy: its identity and current mode.
+// One process as seen by a policy: its identity and current mode, if any.
 export interface ProcessView {
   readonly id: ProcessId;
   readonly mode: ModeId | null;
 }
 
-// The complete read-only projection handed to a policy for one tick.
+// The complete read-only projection handed to a policy script for one tick.  This is deliberately a flat, owned snapshot rather than a borrow of live state: a policy may not mutate the world, and the border may not leak authority-core internals. Collections are expected to be ID-sorted by the host so the view is comparable and deterministic.
 export interface ScriptView {
   readonly entities: readonly EntityView[];
   readonly subjects: readonly SubjectId[];
@@ -30,40 +30,40 @@ export interface ScriptView {
   readonly tags: readonly TagId[];
 }
 
-// Proposed commands that operate on an entity.
+// Commands that operate on [`EntityId`] fixtures.
 export type EntityCommand =
   | { readonly kind: 'create'; readonly id: EntityId }
   | { readonly kind: 'addTag'; readonly id: EntityId; readonly tag: TagId }
   | { readonly kind: 'removeTag'; readonly id: EntityId; readonly tag: TagId }
   | { readonly kind: 'delete'; readonly id: EntityId };
 
-// Proposed commands that operate on a subject.
+// Commands that operate on [`SubjectId`] fixtures.
 export type SubjectCommand =
   | { readonly kind: 'create'; readonly id: SubjectId }
   | { readonly kind: 'delete'; readonly id: SubjectId };
 
-// Proposed commands that operate on a process.
+// Commands that operate on [`ProcessId`] fixtures.
 export type ProcessCommand =
   | { readonly kind: 'start'; readonly id: ProcessId }
   | { readonly kind: 'setMode'; readonly id: ProcessId; readonly mode: ModeId }
   | { readonly kind: 'stop'; readonly id: ProcessId };
 
-// Proposed commands that define or undefine a mode.
+// Commands that define or undefine [`ModeId`] fixtures.
 export type ModeCommand =
   | { readonly kind: 'define'; readonly id: ModeId }
   | { readonly kind: 'undefine'; readonly id: ModeId };
 
-// Proposed commands that define or undefine a signal.
+// Commands that define or undefine [`SignalId`] fixtures.
 export type SignalCommand =
   | { readonly kind: 'define'; readonly id: SignalId }
   | { readonly kind: 'undefine'; readonly id: SignalId };
 
-// Proposed commands that define or undefine a tag.
+// Commands that define or undefine [`TagId`] fixtures.
 export type TagCommand =
   | { readonly kind: 'define'; readonly id: TagId }
   | { readonly kind: 'undefine'; readonly id: TagId };
 
-// The full proposed-command union, grouped by fixture noun.
+// All Phase 1 command variants, grouped by fixture noun.  A validator receives a `Command` and produces either an error or a batch of `DomainEvent`s. Keeping the enum explicit (rather than a stringly-typed bus) means the compiler enforces exhaustive handling.
 export type Command =
   | { readonly domain: 'entity'; readonly command: EntityCommand }
   | { readonly domain: 'subject'; readonly command: SubjectCommand }
@@ -75,13 +75,13 @@ export type Command =
 // Origin category of a proposed command.
 export type CommandKind = 'input' | 'policy' | 'system';
 
-// A proposed command paired with its origin kind.
+// A [`Command`] with its origin kind attached.  The envelope is what the validator receives; it can apply different validation rules depending on [`CommandKind`].
 export interface CommandEnvelope {
   readonly kind: CommandKind;
   readonly command: Command;
 }
 
-// The border form of a command rejection.
+// The border form of a command rejection.  When a policy proposes a [`Command`] that the authority core refuses, the reason is reported back to TypeScript as one of these variants. Each variant carries the offending references so the policy can explain or recover.  This mirrors the Phase 1 internal `sim-validator::ValidationError`; that type is the producer and this is the published contract. They are intentionally separate so the validator can evolve its internal reasons while the border stays a stable, generated promise.
 export type ScriptRejection =
   | { readonly reason: 'entityAlreadyExists'; readonly id: EntityId }
   | { readonly reason: 'entityNotFound'; readonly id: EntityId }
@@ -99,7 +99,7 @@ export type ScriptRejection =
   | { readonly reason: 'tagAlreadyDefined'; readonly id: TagId }
   | { readonly reason: 'tagDefinitionNotFound'; readonly id: TagId };
 
-// The outcome the authority core reports for one proposed command.
+// The outcome the authority core reports for a single proposed command: either the command was accepted or it was rejected with a reason.
 export type ScriptOutcome =
   | { readonly status: 'accepted' }
   | { readonly status: 'rejected'; readonly rejection: ScriptRejection };

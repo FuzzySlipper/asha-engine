@@ -407,6 +407,7 @@ name = "protocol-codegen"
 version = "0.1.0"
 dependencies = [
  "core-ids",
+ "proc-macro2",
  "protocol-assets",
  "protocol-diagnostics",
  "protocol-entity-authoring",
@@ -425,6 +426,7 @@ dependencies = [
  "protocol-voxel-conversion",
  "protocol-voxel-edit-history",
  "serde_json",
+ "syn",
 ]
 
 [[package]]

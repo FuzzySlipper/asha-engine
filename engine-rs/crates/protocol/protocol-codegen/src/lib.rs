@@ -9,19 +9,18 @@
 //!
 //! # What this does
 //!
-//! The Rust protocol crates (`protocol-ids`, `protocol-script`,
-//! `protocol-render`, `protocol-replay`) are the source of truth for the border
-//! shapes. [`crate::model`] describes those shapes as a small TypeScript IR
+//! The Rust protocol crates are the source of truth for border shapes.
+//! [`crate::source`] parses their declarations into a small TypeScript IR
 //! ([`crate::schema`]), and [`generated_files`] renders that IR to deterministic
 //! `.ts` source. The generator never reads the existing TypeScript; it produces
-//! the canonical bytes from scratch every time, so output is reproducible.
+//! canonical bytes from Rust source every time, so output is reproducible.
 //!
 //! The binary (`src/main.rs`) writes those files in *generate* mode or compares
 //! them against what is committed in *check* mode (`--check`), which is the
 //! entrypoint `harness/ci/check-contracts.sh` builds on.
 
-pub mod model;
 pub mod schema;
+pub mod source;
 
 use std::path::{Path, PathBuf};
 
@@ -41,7 +40,7 @@ pub struct GeneratedFile {
 /// Render every generated contract file. Pure and deterministic: calling this
 /// twice yields byte-identical results and it touches no filesystem.
 pub fn generated_files() -> Vec<GeneratedFile> {
-    model::all_modules()
+    source::all_modules()
         .iter()
         .map(|module| GeneratedFile {
             rel_path: format!("{OUTPUT_DIR}/{}.ts", module.name),
@@ -130,6 +129,7 @@ fn first_diff_line(a: &str, b: &str) -> usize {
 mod tests {
     use super::*;
     use crate::schema::{Item, Module, TsType, Variant};
+    use crate::source as model;
     use serde_json::{json, Value};
     use std::collections::{BTreeMap, BTreeSet};
 
@@ -192,7 +192,7 @@ mod tests {
     }
 
     fn module(name: &str) -> Module {
-        model::all_modules()
+        source::all_modules()
             .into_iter()
             .find(|module| module.name == name)
             .unwrap_or_else(|| panic!("no IR module {name}"))

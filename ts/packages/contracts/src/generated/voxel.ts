@@ -6,26 +6,26 @@
 // Manual edits will be overwritten and are rejected by CI
 // (harness/ci/check-contracts.sh).
 
-// An integer voxel cell coordinate within a grid.
+// An integer voxel cell coordinate within *some* voxel grid.  Which grid it belongs to is contextual (held by the caller / the owning [`crate::VoxelGridSpec`]); this type does not bake in a voxel size.
 export interface VoxelCoord {
   readonly x: number;
   readonly y: number;
   readonly z: number;
 }
 
-// An integer chunk coordinate.
+// An integer chunk coordinate (which chunk, not which voxel).
 export interface ChunkCoord {
   readonly x: number;
   readonly y: number;
   readonly z: number;
 }
 
-// The value of a voxel cell: empty space or a solid of some material.
+// The value of a single voxel cell: either empty space or a solid of some material. Small, `Copy`, with stable equality/ordering/hash and a stable encoding for replay/snapshot artifacts.
 export type VoxelValue =
   | { readonly kind: 'empty' }
   | { readonly kind: 'solid'; readonly material: number };
 
-// A proposed voxel edit/generation command (authority-owned).
+// A proposed change to voxel data, awaiting validation by `rule-voxel-edit`.
 export type VoxelCommand =
   | { readonly op: 'setVoxel'; readonly grid: number; readonly coord: VoxelCoord; readonly value: VoxelValue }
   | { readonly op: 'fillRegion'; readonly grid: number; readonly min: VoxelCoord; readonly max: VoxelCoord; readonly value: VoxelValue }
@@ -37,34 +37,34 @@ export type VoxelEditEvent =
   | { readonly event: 'voxelRegionFilled'; readonly grid: number; readonly min: VoxelCoord; readonly max: VoxelCoord; readonly value: VoxelValue }
   | { readonly event: 'chunkGenerated'; readonly grid: number; readonly chunk: ChunkCoord; readonly seed: number; readonly generatorVersion: number; readonly hash: number };
 
-// Why a proposed voxel edit was refused.
+// Why a proposed voxel edit was refused. The authoritative rejection surface.
 export type VoxelEditRejection =
   | { readonly reason: 'unknownMaterial'; readonly material: number }
   | { readonly reason: 'emptyRegion'; readonly min: VoxelCoord; readonly max: VoxelCoord }
   | { readonly reason: 'chunkNotResident'; readonly chunk: ChunkCoord }
   | { readonly reason: 'generationDivergence'; readonly chunk: ChunkCoord; readonly expected: number; readonly actual: number };
 
-// A batch of proposed voxel commands submitted to Rust authority for validation + apply (the runtime facade `submitCommands` input).
+// A batch of proposed voxel commands awaiting Rust-side validation + apply.
 export interface CommandBatch {
   readonly commands: readonly VoxelCommand[];
 }
 
-// The classified outcome of a submitted command batch: how many commands authority accepted/rejected, plus one classified rejection per refused command in submission order. Accepted commands have already mutated authority and marked their chunks dirty.
+// The classified outcome of a [`RuntimeBridge::submit_commands`] batch: how many commands authority accepted/rejected, plus the classified rejection for each refused command (never a silent drop). Accepted commands have already mutated authority voxel state and marked their chunks dirty.
 export interface CommandResult {
   readonly accepted: number;
   readonly rejected: number;
   readonly rejections: readonly VoxelEditRejection[];
 }
 
-// A cube face / axis-aligned outward normal direction.
+// One of the six axis-aligned directions / outward face normals.
 export type Face = 'posX' | 'negX' | 'posY' | 'negY' | 'posZ' | 'negZ';
 
-// Why an authority-revalidated renderer pick was refused (picking).
+// Why a renderer pick hint was refused by authoritative revalidation.
 export type PickRejection =
   | { readonly reason: 'noHit' }
   | { readonly reason: 'hitMismatch'; readonly authoritativeVoxel: VoxelCoord; readonly authoritativeFace: Face; readonly claimedVoxel: VoxelCoord; readonly claimedFace: Face };
 
-// A world-space pick ray built by the renderer/UI from camera + pointer. The ray is plain geometry; Rust authority owns the voxel-grid raycast.
+// A world-space pick ray. `grid` selects which authority grid to cast against; `origin`/`direction` are world-space `[x, y, z]`; `max_distance` bounds the cast.
 export interface PickRay {
   readonly grid: number;
   readonly origin: readonly [number, number, number];
@@ -72,7 +72,7 @@ export interface PickRay {
   readonly maxDistance: number;
 }
 
-// An authoritative voxel ray hit: the solid voxel struck, its chunk, the struck face (outward normal — the anchor a place edit builds against), and the world-space impact point + distance along the ray. Derived from authority voxel state; a renderer pick is only a hint until revalidated.
+// An authoritative voxel ray hit (the border mirror of `svc_collision::VoxelHit`, carrying the grid id so the border is self-describing).
 export interface VoxelHit {
   readonly grid: number;
   readonly voxel: VoxelCoord;
@@ -82,7 +82,7 @@ export interface VoxelHit {
   readonly distance: number;
 }
 
-// The classified outcome of an authority voxel pick: a hit, or a classified miss carrying the PickRejection reason.
+// The classified outcome of an authority voxel pick.
 export type PickResult =
   | { readonly outcome: 'hit'; readonly hit: VoxelHit }
   | { readonly outcome: 'miss'; readonly rejection: PickRejection };

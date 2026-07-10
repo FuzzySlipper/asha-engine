@@ -9,18 +9,18 @@
 import type { EntityId, TagId } from './ids.js';
 import type { CatalogEntry, MaterialProjection } from './assets.js';
 
-// Stable identifier for a node in the retained render scene.
+// Stable identifier for a node in the retained render scene.  A handle is allocated when a node is created and stays valid until the node is destroyed. It is distinct from an [`EntityId`]: many render nodes may project a single sim entity, and some nodes (overlays, gizmos) project none.
 export type RenderHandle = number & { readonly __brand: 'RenderHandle' };
 export const renderHandle = (raw: number): RenderHandle => raw as RenderHandle;
 
-// Minimal affine transform for a render node.
+// Minimal affine transform for a render node.  Translation, a quaternion rotation, and a non-uniform scale. Enough to place a node; deliberately not a full transform hierarchy or matrix type.
 export interface Transform {
   readonly translation: readonly [number, number, number];
   readonly rotation: readonly [number, number, number, number];
   readonly scale: readonly [number, number, number];
 }
 
-// An abstract primitive shape; extents come from the node transform.
+// An abstract primitive shape. Concrete extents come from the node's [`Transform`] scale; primitives are unit-sized in local space.  This is intentionally a tiny, product-agnostic vocabulary — enough to draw boxes, markers, and debug lines, not a mesh/asset system.
 export type Geometry =
   | { readonly shape: 'cube' }
   | { readonly shape: 'sphere' }
@@ -28,7 +28,7 @@ export type Geometry =
   | { readonly shape: 'point' }
   | { readonly shape: 'line'; readonly a: readonly [number, number, number]; readonly b: readonly [number, number, number] };
 
-// Placeholder appearance: flat linear-RGBA colour and a wireframe flag.
+// Placeholder visual appearance for a node: a flat linear-RGBA colour and an optional wireframe flag. No textures, shaders, or PBR — that is out of scope for the abstract border.
 export interface Material {
   readonly color: readonly [number, number, number, number];
   readonly wireframe: boolean;
@@ -37,14 +37,14 @@ export interface Material {
 // Which retained layer a node belongs to.
 export type RenderLayer = 'scene' | 'debug';
 
-// Descriptive metadata carried on a render node.
+// Descriptive metadata carried on a render node.  Links a node back to the abstract sim vocabulary (an optional source entity and any descriptive tags) plus a human label for inspection/overlay text.
 export interface RenderMetadata {
   readonly source: EntityId | null;
   readonly tags: readonly TagId[];
   readonly label: string | null;
 }
 
-// The full description of a node at creation time.
+// The full description of a node at creation time.  Geometry is fixed for a node's lifetime — changing the primitive means destroy + create. Everything else (transform, material, visibility, metadata) is independently mutable via [`RenderDiff::Update`].
 export interface RenderNode {
   readonly geometry: Geometry;
   readonly material: Material;
@@ -54,10 +54,10 @@ export interface RenderNode {
   readonly metadata: RenderMetadata;
 }
 
-// Vertex attribute element type (only f32 today).
+// A vertex attribute stream's element type. Only `f32` today; the enum leaves room for future attribute encodings without a shape break.
 export type MeshAttributeKind = 'f32';
 
-// Which vertex attribute a stream carries (uv/color reserved).
+// Which vertex attribute a stream carries. `Uv`/`Color` are reserved for the terrain-atlas and per-vertex-colour material strategies (unused initially).
 export type MeshAttributeName = 'position' | 'normal' | 'uv' | 'color';
 
 // One declared vertex attribute stream.
@@ -67,10 +67,10 @@ export interface MeshAttribute {
   readonly kind: MeshAttributeKind;
 }
 
-// Index buffer element width (u32 everywhere today).
+// Index buffer element width. `u32` everywhere today (u16 optimisation deferred).
 export type MeshIndexWidth = 'u32';
 
-// Buffer layout for BufferGeometry upload without transcoding.
+// The buffer layout a renderer needs to wrap bytes as typed arrays without transcoding (separate attribute streams; `BufferGeometry`-compatible).
 export interface MeshBufferLayout {
   readonly vertexCount: number;
   readonly indexCount: number;
@@ -78,7 +78,7 @@ export interface MeshBufferLayout {
   readonly attributes: readonly MeshAttribute[];
 }
 
-// One material-slot draw group over a contiguous index range.
+// One material-slot draw group over a contiguous index range (→ `addGroup`).
 export interface MeshGroupDescriptor {
   readonly materialSlot: number;
   readonly start: number;
@@ -91,15 +91,15 @@ export interface MeshBoundsDescriptor {
   readonly max: readonly [number, number, number];
 }
 
-// Which source produced a mesh payload (voxel chunk vs authored static asset).
+// Which authoring/generation source produced a mesh payload.  A voxel chunk remesh and an authored static-mesh asset share **one** [`MeshPayloadDescriptor`] and one upload path; they differ only by this provenance tag, so a renderer / source-trace can attribute an uploaded mesh without duplicating the upload protocol per source (render-asset-04).
 export type MeshProvenance = 'voxelChunk' | 'staticAsset' | 'generated' | 'debug';
 
-// Where the bulk vertex/index bytes live: inline (fixtures) or by handle (runtime).
+// Where the bulk vertex/index bytes live: `Inline` for small golden fixtures, `Handle` for runtime (bridge-owned buffer referenced by handle + byte offsets, per ADR 0006 — the renderer wraps the bytes as typed-array views).
 export type MeshPayloadSource =
   | { readonly kind: 'inline'; readonly positions: readonly number[]; readonly normals: readonly number[]; readonly indices: readonly number[] }
   | { readonly kind: 'handle'; readonly buffer: number; readonly positionsByteOffset: number; readonly normalsByteOffset: number; readonly indicesByteOffset: number };
 
-// The full mesh-payload border: layout + groups + bounds + source + provenance.
+// The full mesh-payload border: layout, material groups, bounds, data source, and provenance. Source-agnostic: voxel chunks and authored static meshes share this one shape and differ only by [`MeshProvenance`].
 export interface MeshPayloadDescriptor {
   readonly layout: MeshBufferLayout;
   readonly groups: readonly MeshGroupDescriptor[];
@@ -108,19 +108,19 @@ export interface MeshPayloadDescriptor {
   readonly provenance: MeshProvenance;
 }
 
-// One material slot of a static mesh, bound to a catalog material asset id.
+// One material slot of a static mesh: the slot index that mesh groups reference, bound to a catalog material asset id.  Asset ids are border **strings** (the renderer maps them to a `RenderMaterial` via its registry). The render border never carries collision authority — a material's solid/collidable flags stay on the collision side (boundary 18).
 export interface MeshMaterialSlot {
   readonly slot: number;
   readonly material: string;
 }
 
-// Collision policy for a static mesh (visual-only, explicit proxy, or AABB fallback).
+// Collision policy for a static mesh. A *visual-only* mesh skips collision; a *physical* mesh must either carry an explicit collision proxy or opt into the payload-AABB fallback. A physical mesh with neither is a classified error.
 export type MeshCollisionPolicy =
   | { readonly kind: 'visualOnly' }
   | { readonly kind: 'proxy'; readonly proxyAsset: string }
   | { readonly kind: 'aabbFallback' };
 
-// An authored static mesh asset: shared geometry payload, material slots, collision.
+// An authored static mesh asset: one shared geometry payload (one initial LOD), its material slots, and its collision policy. Uploaded once per asset id; many [`StaticMeshInstanceDescriptor`]s reference it and share its geometry.
 export interface StaticMeshAsset {
   readonly asset: string;
   readonly payload: MeshPayloadDescriptor;
@@ -128,7 +128,7 @@ export interface StaticMeshAsset {
   readonly collision: MeshCollisionPolicy;
 }
 
-// One placed instance of a static mesh asset (shared geometry, own transform/overrides).
+// One placed instance of a static mesh asset. Instances share the asset's geometry and own their transform, optional per-slot material overrides, and metadata / source trace.
 export interface StaticMeshInstanceDescriptor {
   readonly asset: string;
   readonly transform: Transform;
@@ -136,7 +136,7 @@ export interface StaticMeshInstanceDescriptor {
   readonly metadata: RenderMetadata;
 }
 
-// Runtime container format for an animated mesh asset.
+// Runtime container format for an animated mesh asset. The first supported format is GLB; FBX stays an import/source format, not a runtime render diff payload.
 export type AnimatedMeshRuntimeFormat = 'glb';
 
 // Looping policy for visual animation playback.
@@ -149,7 +149,7 @@ export interface AnimationClipDescriptor {
   readonly durationSeconds: number | null;
 }
 
-// An authored animated mesh asset descriptor: identity, runtime format, clips, material slots, and bounds. Binary data resolves through a renderer asset provider, not arbitrary URLs.
+// An authored animated mesh asset descriptor. This registers identity and clip vocabulary only; binary GLB data is resolved by the renderer asset provider.
 export interface AnimatedMeshAsset {
   readonly asset: string;
   readonly runtimeFormat: AnimatedMeshRuntimeFormat;
@@ -160,14 +160,14 @@ export interface AnimatedMeshAsset {
   readonly bounds: MeshBoundsDescriptor;
 }
 
-// Projection-only animation playback command for a renderer mixer. Gameplay authority never reads mixer progress.
+// Projection-only animation playback command. These are renderer mixer inputs, never gameplay authority.
 export type AnimatedMeshPlaybackCommand =
   | { readonly action: 'play'; readonly clip: string; readonly loop: AnimationLoopMode; readonly speed: number; readonly weight: number; readonly restart: boolean; readonly fadeSeconds: number | null }
   | { readonly action: 'stop'; readonly fadeSeconds: number | null }
   | { readonly action: 'pause' }
   | { readonly action: 'resume' };
 
-// One placed instance of an animated mesh asset. Playback is optional and projection-only.
+// One placed instance of an animated mesh asset.
 export interface AnimatedMeshInstanceDescriptor {
   readonly asset: string;
   readonly transform: Transform;
@@ -176,19 +176,19 @@ export interface AnimatedMeshInstanceDescriptor {
   readonly metadata: RenderMetadata;
 }
 
-// How a sprite size is interpreted (world units vs screen pixels).
+// How a sprite's [`SpriteInstanceDescriptor::size`] is interpreted.
 export type SpriteSizeMode = 'world' | 'pixel';
 
 // Billboarding behaviour for a sprite plane.
 export type BillboardMode = 'none' | 'spherical' | 'cylindrical';
 
-// Depth handling for a sprite (reserves overlay/no-write modes).
+// Depth handling for a sprite. Reserves room for overlay sprites that must not write/test depth without forcing that on the common case.
 export type SpriteDepthPolicy = 'default' | 'depthTestOff' | 'depthWriteOff';
 
-// Reserved sprite shading mode (unlit implemented; lit/shadow/custom reserved).
+// Reserved shading mode for a sprite material. The initial renderer implements `Unlit`; the other modes are validated/reserved so the descriptor does not bake in an unlit-only assumption (lighting/shadow/custom-shader headroom, render-asset-06). Full shader systems are deliberately deferred.
 export type SpriteShading = 'unlit' | 'lit' | 'shadowed' | 'custom';
 
-// Where a sprite is attached in authority terms (source ids, not render handles).
+// Where a sprite is attached in **authority** terms (render-asset-06).  References source scene/entity IDs and a named attachment point — never a durable [`RenderHandle`], because handles are derived projection, not save authority (boundary rule 12).
 export interface SpriteAttachment {
   readonly sourceEntity: EntityId | null;
   readonly sourceSceneNode: number | null;
@@ -212,7 +212,7 @@ export interface SpriteInstanceDescriptor {
   readonly metadata: RenderMetadata;
 }
 
-// A renderer-side sprite pick hit traced to authority identity (renderer never acts).
+// A renderer-side sprite pick hit traced to authority identity. The renderer reports this trace; authority revalidates it before acting.
 export interface SpritePickHit {
   readonly handle: RenderHandle;
   readonly sourceEntity: EntityId | null;
@@ -221,19 +221,19 @@ export interface SpritePickHit {
   readonly attachmentPoint: string | null;
 }
 
-// A renderer-side mesh pick hint mapping a render handle to the authority source (provenance) that produced its mesh. Only a hint — authority picking (pickVoxel) revalidates before any selection/edit acts on it.
+// A renderer-side mesh pick hint mapping a render handle to the authority source that produced its mesh. Authority revalidates the hint before acting.
 export interface MeshPickHit {
   readonly handle: RenderHandle;
   readonly provenance: MeshProvenance;
 }
 
-// Texture sampling filter policy.
+// Texture sampling filter. The border carries the *policy*; the renderer maps it to its GPU equivalent. Pixel bytes are not in the descriptor — they load through a renderer-side texture provider, never ambiently from policy code.
 export type TextureFilter = 'nearest' | 'linear';
 
-// Texture wrap/addressing policy outside [0,1].
+// Texture wrap/addressing policy outside `[0,1]`.
 export type TextureWrap = 'clamp' | 'repeat';
 
-// A texture asset descriptor (identity, dimensions, sampling policy, content metadata). Carries no pixel bytes — those load through a renderer texture provider.
+// A texture asset descriptor: identity, pixel dimensions, sampling policy, and content metadata. Carries **no pixel bytes** — the renderer loads those through an explicit texture provider (the file-loading seam), so authority/policy code never touches the filesystem (boundary: file loading is a renderer concern).
 export interface TextureDescriptor {
   readonly id: string;
   readonly width: number;
@@ -244,24 +244,24 @@ export interface TextureDescriptor {
   readonly version: number;
 }
 
-// One atlas frame: its sprite frame id and normalized UV sub-rectangle in [0,1].
+// One atlas frame: its sprite frame id and its **normalized** UV sub-rectangle in `[0,1]` (origin bottom-left). Normalized UVs keep the rect texture-resolution independent and let the renderer map a sprite frame straight onto plane UVs.
 export interface SpriteFrameRect {
   readonly frame: number;
   readonly uvMin: readonly [number, number];
   readonly uvMax: readonly [number, number];
 }
 
-// A sprite atlas descriptor: the texture it samples and its frame rects. The renderer resolves a sprite frame to one of these rects deterministically.
+// A sprite atlas/sheet descriptor: the texture it samples and its frame rects. The renderer resolves a `SpriteInstanceDescriptor::frame` to one of these rects deterministically; a frame id absent here is a classified miss, not a guess.
 export interface SpriteAtlasDescriptor {
   readonly id: string;
   readonly texture: string;
   readonly frames: readonly SpriteFrameRect[];
 }
 
-// How a material samples colour across geometry (visual projection only).
+// How a material samples colour across geometry. Mirrors `core_catalog::material::UvStrategy` — the *visual* projection only; no collision/authority field ever appears here.
 export type MaterialUvStrategy = 'flat' | 'planar' | 'atlas';
 
-// The renderer-facing projection of a catalog material, keyed by asset id. The VISUAL projection only — no collision/authority field ever appears here.
+// The renderer-facing projection of a catalog material, keyed by its asset id so the renderer can resolve a static-mesh slot or a sprite ref to a real material descriptor instead of a placeholder colour (render-material-01, #2373).  This is the **visual** projection: a linear-RGBA colour, an optional bound texture id, scalar roughness/emissive, and a UV strategy. It carries **no** collision/authority field (`solid`/`collidable`/`occludes`/`structural_class` live on the disjoint `CollisionMaterial` projection) — a boundary leak is a type error here, not a review nit (boundary 18).
 export interface RenderMaterialDescriptor {
   readonly id: string;
   readonly color: readonly [number, number, number, number];
@@ -271,7 +271,7 @@ export interface RenderMaterialDescriptor {
   readonly uvStrategy: MaterialUvStrategy;
 }
 
-// A single retained-mode change against the render scene.
+// A single retained-mode change against the render scene.  `Update` carries optional fields so a tick can change only a transform, only visibility, only material, or only metadata, without re-sending the node.
 export type RenderDiff =
   | { readonly op: 'create'; readonly handle: RenderHandle; readonly parent: RenderHandle | null; readonly node: RenderNode }
   | { readonly op: 'update'; readonly handle: RenderHandle; readonly transform: Transform | null; readonly material: Material | null; readonly visible: boolean | null; readonly metadata: RenderMetadata | null }
@@ -288,14 +288,14 @@ export type RenderDiff =
   | { readonly op: 'createSprite'; readonly handle: RenderHandle; readonly parent: RenderHandle | null; readonly sprite: SpriteInstanceDescriptor }
   | { readonly op: 'updateSprite'; readonly handle: RenderHandle; readonly frame: number | null; readonly tint: readonly [number, number, number, number] | null; readonly renderOrder: number | null; readonly visible: boolean | null };
 
-// Request to derive/read a model/material preview using public catalog/material and static-mesh DTOs.
+// Request to derive/read a model/material preview using public catalog/material and static-mesh DTOs. This is a protocol-owned envelope for the stable `read_model_material_preview` bridge operation; transports must not replace it with local facade-only wrapper types.
 export interface ModelMaterialPreviewRequest {
   readonly catalogEntry: CatalogEntry;
   readonly meshAsset: StaticMeshAsset;
   readonly instanceHandle: RenderHandle;
 }
 
-// Snapshot returned by read_model_material_preview: public material/model DTOs plus retained-mode render-diff evidence.
+// Snapshot returned by `read_model_material_preview`: public material/model DTOs plus retained-mode render-diff evidence and classified diagnostics.
 export interface ModelMaterialPreviewSnapshot {
   readonly catalogEntry: CatalogEntry;
   readonly material: MaterialProjection;
@@ -305,7 +305,7 @@ export interface ModelMaterialPreviewSnapshot {
   readonly diagnostics: readonly string[];
 }
 
-// All retained-mode changes emitted for a single tick, in apply order.
+// All retained-mode changes emitted for a single tick, in apply order.  Order is significant: a `Create` of a parent must precede a `Create` of its child, and a `Destroy` is the last word on a handle within the frame.
 export interface RenderFrameDiff {
   readonly ops: readonly RenderDiff[];
 }

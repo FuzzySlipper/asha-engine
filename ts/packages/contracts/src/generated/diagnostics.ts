@@ -6,16 +6,16 @@
 // Manual edits will be overwritten and are rejected by CI
 // (harness/ci/check-contracts.sh).
 
-// How serious a diagnostic is, and which recovery path applies (only 'fatal' blocks a load).
+// How serious a diagnostic is, and therefore which recovery path applies.  Ordering (via [`DiagnosticSeverity::rank`]) is `Info < Warning < Error < Fatal`; only `Fatal` blocks a load.
 export type DiagnosticSeverity = 'info' | 'warning' | 'error' | 'fatal';
 
-// Which subsystem / lane a diagnostic belongs to.
+// Which subsystem a diagnostic belongs to — the lane an agent should route it back to.
 export type DiagnosticScope = 'scene' | 'assetCatalog' | 'projectBundle' | 'renderProjection' | 'rendererResources' | 'worldComposition';
 
-// A stable, machine-routable diagnostic code. The string form is a contract.
+// A stable, machine-routable diagnostic code.  The string form ([`DiagnosticCode::as_str`]) is the contract: it is what crosses to TypeScript and what external workflow systems key on. Add variants; never rename an existing string.
 export type DiagnosticCode = 'duplicateSceneId' | 'invalidSceneParent' | 'sceneParentCycle' | 'invalidSceneTransform' | 'sceneAssetMissing' | 'sceneAssetWrongKind' | 'duplicateAssetId' | 'catalogStructuralError' | 'missingAsset' | 'staleAsset' | 'wrongKindAssetRef' | 'assetCycle' | 'manifestProtocolMismatch' | 'corruptBundleArtifact' | 'missingCacheWarning' | 'generatorMismatch' | 'fallbackUsed' | 'missingSourceTrace' | 'rendererResourceSummary' | 'suspectedResourceLeak' | 'loadStageFailed' | 'finalConsistencyMismatch' | 'roundTripMismatch';
 
-// A suggested next action (advisory only — diagnostics never authorize mutation).
+// A suggested next action. Advisory only — diagnostics never authorize an automatic mutation; a separate repair tool would act on these.
 export type RemedyAction = 'inspect' | 'provideAsset' | 'fixReference' | 'breakCycle' | 'regenerate' | 'restoreArtifact' | 'refreshCache' | 'acceptFallback';
 
 // A suggested remedy: a categorized action plus a human-readable detail.
@@ -24,7 +24,7 @@ export interface SuggestedRemedy {
   readonly detail: string;
 }
 
-// Where a diagnostic points in authority terms; absent hops are null.
+// Where a diagnostic points in authority terms. Every field is optional; fields are populated where the data exists and left `None` where the hop is not applicable, so a consumer can tell "no scene node" from "unknown".
 export interface DiagnosticSourceRef {
   readonly sceneNodeId: number | null;
   readonly runtimeEntityId: number | null;
@@ -34,7 +34,7 @@ export interface DiagnosticSourceRef {
   readonly bundlePath: string | null;
 }
 
-// One structured diagnostic: scope + severity + stable code + locus + remedy.
+// One structured diagnostic. The agent-legible unit: scope + severity + stable code + where it points + what to do.
 export interface DiagnosticReport {
   readonly scope: DiagnosticScope;
   readonly severity: DiagnosticSeverity;
@@ -45,12 +45,12 @@ export interface DiagnosticReport {
   readonly remedy: SuggestedRemedy | null;
 }
 
-// A collection of diagnostic reports.
+// A collection of reports plus the aggregate severity policy over them.
 export interface DiagnosticReportSet {
   readonly reports: readonly DiagnosticReport[];
 }
 
-// A render-handle to scene-node to entity to asset trace; absent hops are null.
+// A render-handle → scene-node → entity → asset trace. The highest-value projection diagnostic. Hops that do not apply are `None`; `asset_resolved` records whether the asset ref resolved against the catalog.
 export interface SourceTrace {
   readonly renderHandle: number;
   readonly sceneNodeId: number | null;
@@ -59,7 +59,7 @@ export interface SourceTrace {
   readonly assetResolved: boolean;
 }
 
-// An observational snapshot of renderer resource usage (counts only).
+// An observational snapshot of renderer resource usage. Counts only — the renderer never gains authority by reporting; consumers route, they do not act.
 export interface RendererResourceReport {
   readonly liveHandles: number;
   readonly geometries: number;

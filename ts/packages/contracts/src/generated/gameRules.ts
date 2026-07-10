@@ -9,32 +9,25 @@
 import type { EntityId } from './ids.js';
 import type { DiagnosticSeverity } from './diagnostics.js';
 
-// Stable kind tags for generic game-rule effect operations.
 export type GameRuleEffectOpKind = 'applyDelta' | 'restore' | 'spend' | 'grant' | 'applyModifier' | 'removeModifier' | 'schedulePeriodicEffect' | 'cancelResolution' | 'emitTrace';
 
-// Stable kind tags for modifier stack policies.
 export type GameRuleStackPolicyKind = 'refresh' | 'stack' | 'rejectDuplicate' | 'replaceIfStronger';
 
-// Stable classified diagnostic/error code for game-rule catalogs and resolution.
 export type GameRuleDiagnosticCode = 'unknownEffectOp' | 'invalidBoundedValue' | 'invalidAmount' | 'invalidDuration' | 'invalidCadence' | 'invalidStackPolicy' | 'undeclaredValueChannel' | 'unknownModifier' | 'cyclicPeriodicSchedule';
 
-// Role of an exported game-rule evidence artifact.
 export type GameRuleEvidenceKind = 'catalogValidation' | 'resolutionReceipt' | 'trace' | 'replaySummary';
 
-// Catalog identity and immutable content/version evidence.
 export interface GameRuleCatalogRef {
   readonly catalogId: string;
   readonly version: string;
   readonly contentHash: string;
 }
 
-// A declared value channel, such as health or stamina.
 export interface GameRuleValueChannelRef {
   readonly channelId: string;
   readonly displayName: string | null;
 }
 
-// A bounded runtime value snapshot for one channel.
 export interface GameRuleBoundedValue {
   readonly channelId: string;
   readonly min: number;
@@ -42,31 +35,26 @@ export interface GameRuleBoundedValue {
   readonly max: number;
 }
 
-// A pending value delta emitted by resolution.
 export interface GameRuleValueDelta {
   readonly channelId: string;
   readonly amount: number;
 }
 
-// Duration policy for a modifier or effect.
 export type GameRuleDuration =
   | { readonly kind: 'instant' }
   | { readonly kind: 'ticks'; readonly ticks: number }
   | { readonly kind: 'infinite' };
 
-// Periodic tick cadence for scheduled effects.
 export interface GameRuleTickCadence {
   readonly periodTicks: number;
 }
 
-// How repeated applications of a modifier combine.
 export type GameRuleStackPolicy =
   | { readonly kind: 'refresh' }
   | { readonly kind: 'stack'; readonly maxStacks: number }
   | { readonly kind: 'rejectDuplicate' }
   | { readonly kind: 'replaceIfStronger' };
 
-// Generic effect operation IR for authored action/effect bundles.
 export type GameRuleEffectOp =
   | { readonly kind: 'applyDelta'; readonly opId: string; readonly channelId: string; readonly amount: number; readonly tags: readonly string[] }
   | { readonly kind: 'restore'; readonly opId: string; readonly channelId: string; readonly amount: number; readonly tags: readonly string[] }
@@ -78,7 +66,6 @@ export type GameRuleEffectOp =
   | { readonly kind: 'cancelResolution'; readonly opId: string; readonly reason: string; readonly tags: readonly string[] }
   | { readonly kind: 'emitTrace'; readonly opId: string; readonly code: string; readonly message: string; readonly tags: readonly string[] };
 
-// One modifier definition in a game-rule catalog.
 export interface GameRuleModifierDefinition {
   readonly modifierId: string;
   readonly stackPolicy: GameRuleStackPolicy;
@@ -89,7 +76,6 @@ export interface GameRuleModifierDefinition {
   readonly sourceHash: string;
 }
 
-// Authored action/effect bundle expressed through generic effect operations.
 export interface GameRuleEffectBundle {
   readonly bundleId: string;
   readonly effectOps: readonly GameRuleEffectOp[];
@@ -98,14 +84,12 @@ export interface GameRuleEffectBundle {
   readonly sourceHash: string;
 }
 
-// Complete game-rule catalog DTO.
 export interface GameRuleCatalog {
   readonly catalog: GameRuleCatalogRef;
   readonly valueChannels: readonly GameRuleValueChannelRef[];
   readonly bundles: readonly GameRuleEffectBundle[];
 }
 
-// One classified catalog or resolution diagnostic.
 export interface GameRuleDiagnostic {
   readonly code: GameRuleDiagnosticCode;
   readonly severity: DiagnosticSeverity;
@@ -113,20 +97,17 @@ export interface GameRuleDiagnostic {
   readonly message: string;
 }
 
-// Reference to an inspectable game-rule artifact.
 export interface GameRuleEvidenceRef {
   readonly kind: GameRuleEvidenceKind;
   readonly uri: string;
   readonly contentHash: string;
 }
 
-// One structured trace key/value pair.
 export interface GameRuleTraceRef {
   readonly key: string;
   readonly value: string;
 }
 
-// One ordered resolution trace entry.
 export interface GameRuleTraceEntry {
   readonly step: number;
   readonly code: string;
@@ -134,7 +115,6 @@ export interface GameRuleTraceEntry {
   readonly refs: readonly GameRuleTraceRef[];
 }
 
-// Runtime readout for one applied modifier.
 export interface GameRuleModifierState {
   readonly modifierId: string;
   readonly source: EntityId;
@@ -146,7 +126,6 @@ export interface GameRuleModifierState {
   readonly sourceHash: string;
 }
 
-// Request to resolve one authored effect bundle against source and target entities.
 export interface GameRuleResolutionRequest {
   readonly catalog: GameRuleCatalogRef;
   readonly bundleId: string;
@@ -156,7 +135,6 @@ export interface GameRuleResolutionRequest {
   readonly tick: number;
 }
 
-// Resolution receipt carrying authority-ready deltas, modifier readouts, diagnostics, traces, and replay evidence.
 export interface GameRuleResolutionReceipt {
   readonly accepted: boolean;
   readonly requestHash: string;

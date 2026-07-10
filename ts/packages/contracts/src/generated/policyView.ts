@@ -8,34 +8,34 @@
 
 import type { EntityId, TagId } from './ids.js';
 
-// A runtime transform as a policy sees it (translation, rotation xyzw, scale).
+// A runtime transform as a policy sees it. Mirrors the render border's tuple order (`translation`, `rotation` xyzw, `scale`) so the projection is a copy.
 export interface PolicyTransform {
   readonly translation: readonly [number, number, number];
   readonly rotation: readonly [number, number, number, number];
   readonly scale: readonly [number, number, number];
 }
 
-// Lifecycle states a policy may observe. Tombstoned entities are omitted, never shown.
+// The lifecycle states a policy may observe. `Tombstoned` is intentionally absent: retired entities are omitted from the view, not shown as a state.
 export type PolicyEntityLifecycle = 'active' | 'disabled';
 
-// Where an entity came from, as a policy sees it. DiagnosticTooling is redacted entirely.
+// Where an entity came from, as a policy sees it. `DiagnosticTooling` has no variant here: those entities are redacted entirely by the projector.
 export type PolicyEntitySource =
   | { readonly kind: 'sceneNode'; readonly node: number }
   | { readonly kind: 'runtime' }
   | { readonly kind: 'imported'; readonly asset: string }
   | { readonly kind: 'policy' };
 
-// Catalog resolution status of an asset a policy may reference.
+// The resolution status of an asset a policy might reference. Cached/renderer state is never the source of truth here — this is the catalog's classification.
 export type PolicyAssetStatus = 'resolved' | 'missing' | 'stale';
 
-// One asset a policy may reason about: id, kind, and resolution status.
+// One asset a policy may reason about: its id, kind, and resolution status.
 export interface PolicyAssetView {
   readonly id: string;
   readonly kind: string;
   readonly status: PolicyAssetStatus;
 }
 
-// One entity as a policy sees it: identity, lifecycle, optional transform, source, labels, spatiality.
+// One entity as a policy sees it: identity, lifecycle, optional transform, source, labels, and whether it occupies space (has a transform capability).
 export interface PolicyEntityView {
   readonly id: EntityId;
   readonly lifecycle: PolicyEntityLifecycle;
@@ -62,24 +62,24 @@ export interface PolicyWorldView {
   readonly summary: PolicyWorldSummary;
 }
 
-// The narrow, safe set of world/entity actions a policy may propose. Each is a request; authority validates and applies or rejects.
+// The narrow, safe set of world/entity actions a policy may propose. Each is a *request*: authority validates and applies, or rejects. Nothing here mutates.
 export type PolicyWorldCommand =
   | { readonly kind: 'requestSetTransform'; readonly entity: EntityId; readonly transform: PolicyTransform }
   | { readonly kind: 'requestAddLabel'; readonly entity: EntityId; readonly label: TagId }
   | { readonly kind: 'requestDisable'; readonly entity: EntityId }
   | { readonly kind: 'noopMarker'; readonly note: string };
 
-// The accepted domain event a validated command becomes. Distinct from the command and the rejection.
+// The accepted domain event a validated command becomes. Distinct from the command (proposal) and from the rejection — the three never share a type.
 export type PolicyWorldEvent =
   | { readonly kind: 'transformSet'; readonly entity: EntityId; readonly transform: PolicyTransform }
   | { readonly kind: 'labelAdded'; readonly entity: EntityId; readonly label: TagId }
   | { readonly kind: 'disabled'; readonly entity: EntityId }
   | { readonly kind: 'noopRecorded'; readonly note: string };
 
-// The classified reason authority refused a proposed command. A policy reflects this; it never decides acceptance.
+// The classified reason authority refused a proposed command. Stable string form is a contract; a policy never decides acceptance, it reflects this.
 export type PolicyWorldRejection = 'unknownEntity' | 'entityDisabled' | 'notSpatial' | 'immovable' | 'invalidTransform' | 'labelAlreadyPresent' | 'alreadyDisabled';
 
-// The outcome authority reports for one proposed command: accepted (with its event) or rejected (with the reason).
+// The outcome authority reports for one proposed command: accepted (with its event) or rejected (with the classified reason).
 export type PolicyWorldOutcome =
   | { readonly status: 'accepted'; readonly event: PolicyWorldEvent }
   | { readonly status: 'rejected'; readonly rejection: PolicyWorldRejection };

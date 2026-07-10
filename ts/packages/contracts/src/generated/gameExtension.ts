@@ -9,26 +9,20 @@
 import type { EntityId } from './ids.js';
 import type { DiagnosticSeverity } from './diagnostics.js';
 
-// Stable extension hook kinds a game-owned Rust module may declare.
 export type GameExtensionHookKind = 'weaponEffect' | 'interactionEffect' | 'spawnCondition';
 
-// Stable proposal kinds returned by game-owned Rust modules.
 export type GameExtensionProposalKind = 'damageModifier' | 'effectBundle' | 'reject' | 'noop';
 
-// Status of a game-owned Rust hook receipt before RuntimeSession validation.
 export type GameExtensionReceiptStatus = 'proposed' | 'rejectedByModule' | 'unsupportedHook';
 
-// Stable diagnostic code for game-owned Rust extension manifests and hook output.
 export type GameExtensionDiagnosticCode = 'unsupportedHook' | 'incompatibleContract' | 'invalidModuleManifest' | 'nondeterministicInput' | 'invalidProposal';
 
-// Compiled game rule module identity and compatibility evidence.
 export interface GameRuleModuleRef {
   readonly moduleId: string;
   readonly version: string;
   readonly contractHash: string;
 }
 
-// One deterministic hook declared by a compiled game rule module.
 export interface GameRuleHookDeclaration {
   readonly hookId: string;
   readonly kind: GameExtensionHookKind;
@@ -37,7 +31,6 @@ export interface GameRuleHookDeclaration {
   readonly requiredCapabilities: readonly string[];
 }
 
-// Manifest compiled with a downstream game-owned Rust rule module.
 export interface GameRuleModuleManifest {
   readonly moduleRef: GameRuleModuleRef;
   readonly declaredHooks: readonly GameRuleHookDeclaration[];
@@ -45,7 +38,6 @@ export interface GameRuleModuleManifest {
   readonly sourceHash: string;
 }
 
-// One classified extension manifest or proposal diagnostic.
 export interface GameExtensionDiagnostic {
   readonly code: GameExtensionDiagnosticCode;
   readonly severity: DiagnosticSeverity;
@@ -53,7 +45,6 @@ export interface GameExtensionDiagnostic {
   readonly message: string;
 }
 
-// Deterministic weapon-effect hook input supplied by ASHA RuntimeSession.
 export interface WeaponEffectHookRequest {
   readonly moduleRef: GameRuleModuleRef;
   readonly hookId: string;
@@ -67,14 +58,12 @@ export interface WeaponEffectHookRequest {
   readonly inputHash: string;
 }
 
-// Typed pending proposal returned by a game-owned Rust rule module.
 export type GameExtensionProposal =
   | { readonly kind: 'damageModifier'; readonly proposalId: string; readonly target: EntityId; readonly channelId: string; readonly amountDelta: number; readonly tags: readonly string[]; readonly proposalHash: string }
   | { readonly kind: 'effectBundle'; readonly proposalId: string; readonly bundleId: string; readonly tags: readonly string[]; readonly proposalHash: string }
   | { readonly kind: 'reject'; readonly proposalId: string; readonly code: GameExtensionDiagnosticCode; readonly message: string; readonly proposalHash: string }
   | { readonly kind: 'noop'; readonly proposalId: string; readonly proposalHash: string };
 
-// One deterministic trace entry emitted by a game-owned Rust hook.
 export interface GameExtensionTraceEntry {
   readonly step: number;
   readonly code: string;
@@ -82,7 +71,6 @@ export interface GameExtensionTraceEntry {
   readonly refs: readonly string[];
 }
 
-// Hook receipt before RuntimeSession validates/applies any proposal.
 export interface GameExtensionHookReceipt {
   readonly moduleRef: GameRuleModuleRef;
   readonly hookId: string;
@@ -95,7 +83,6 @@ export interface GameExtensionHookReceipt {
   readonly proposalHash: string;
 }
 
-// Replay evidence tying a hook invocation to validation and authority output hashes.
 export interface GameExtensionReplayEvidence {
   readonly moduleRef: GameRuleModuleRef;
   readonly hookId: string;

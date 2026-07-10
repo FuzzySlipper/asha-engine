@@ -7,6 +7,6 @@
 // (harness/ci/check-contracts.sh).
 export const stepIndex = (raw) => raw;
 export const replayHash = (raw) => raw;
-// Compatibility marker for the replay record wire format.
+// Compatibility marker for the replay record wire format.  Increment when the meaning or layout of [`ReplayRecord`] changes so old records can be detected and migrated rather than silently misread.
 export const REPLAY_FORMAT_VERSION = 1;
 //# sourceMappingURL=replay.js.map

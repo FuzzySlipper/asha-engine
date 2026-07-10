@@ -8,25 +8,25 @@
 
 import type { AssetReference } from './scene.js';
 
-// Stable kind-prefix tag for an asset kind.
+// Stable kind-prefix tags for every asset kind, sourced from `core_assets::AssetKind::prefix` (see the drift test below).
 export type AssetKind = 'material' | 'mesh' | 'sprite' | 'sprite-sheet' | 'texture' | 'voxel-volume' | 'voxel-object' | 'script' | 'scene';
 
-// Structural role for authority/collision (no visual meaning).
+// Stable structural-class tags (authority/collision side of a material).
 export type StructuralClass = 'decorative' | 'solid' | 'structural';
 
-// How a material samples colour across geometry (visual only).
+// Stable uv-strategy tags (visual side of a material).
 export type UvStrategy = 'flat' | 'planar' | 'atlas';
 
-// Stable classified catalog-validation code.
+// Stable classified catalog-validation codes. Mirrors `core_catalog::CatalogValidationError::label`.
 export type CatalogValidationCode = 'duplicate-asset-id' | 'material-payload-missing' | 'material-payload-on-non-material' | 'wrong-kind-reference' | 'unknown-dependency' | 'dependency-cycle' | 'empty-source-path';
 
-// Stable classified asset-lock issue code.
+// Stable classified asset-lock issue codes. Mirrors `core_catalog::LockIssue::label`.
 export type LockIssueCode = 'missing' | 'wrong-kind' | 'stale-version' | 'stale-hash' | 'dependency-drift' | 'new-in-catalog';
 
-// The context a missing asset is used in (dominates fallback policy).
+// Stable fallback-context tags. Mirrors `core_catalog::AssetContext`.
 export type FallbackContext = 'debugOverlay' | 'cosmeticSurface' | 'collisionCritical' | 'backgroundDecoration';
 
-// A concrete debug placeholder a fallback resolves to.
+// The concrete debug placeholder a fallback resolves to.
 export type FallbackVisual = 'magentaSquare' | 'greyMaterial';
 
 // A linear RGBA colour (0..=1 per channel).
@@ -37,7 +37,7 @@ export interface Rgba {
   readonly a: number;
 }
 
-// The renderer-facing projection of a material. NO collision class.
+// The renderer-facing projection of a material. No collision class.
 export interface RenderMaterial {
   readonly color: Rgba;
   readonly texture: AssetReference | null;
@@ -46,7 +46,7 @@ export interface RenderMaterial {
   readonly uvStrategy: UvStrategy;
 }
 
-// The collision/authority-facing projection of a material. NO texture or colour.
+// The collision/authority-facing projection of a material. No texture or colour.
 export interface CollisionMaterial {
   readonly solid: boolean;
   readonly collidable: boolean;
@@ -54,7 +54,7 @@ export interface CollisionMaterial {
   readonly structuralClass: StructuralClass;
 }
 
-// A read-only devtools bundle of both disjoint material projections. The pure render path consumes only `render`; authority consumes only `collision`.
+// A read-only bundle of both disjoint material projections.
 export interface MaterialProjection {
   readonly render: RenderMaterial;
   readonly collision: CollisionMaterial;
@@ -77,7 +77,7 @@ export interface Catalog {
   readonly entries: readonly CatalogEntry[];
 }
 
-// One classified catalog-validation failure; absent loci are null. `cyclePath` is non-empty only for dependency-cycle.
+// One classified catalog-validation failure on the public border.
 export interface CatalogValidationError {
   readonly code: CatalogValidationCode;
   readonly id: string | null;
@@ -91,12 +91,12 @@ export interface CatalogValidationError {
   readonly cyclePath: readonly string[];
 }
 
-// A full catalog-validation report: every classified error.
+// Complete catalog validation readout.
 export interface CatalogValidationReport {
   readonly errors: readonly CatalogValidationError[];
 }
 
-// One asset-lock entry: the resolved identity a save pinned.
+// One pinned asset-lock entry.
 export interface AssetLockEntry {
   readonly id: string;
   readonly kind: AssetKind;
@@ -105,12 +105,12 @@ export interface AssetLockEntry {
   readonly dependencies: readonly string[];
 }
 
-// A project-bundle asset lock.
+// Durable project-bundle asset lock.
 export interface AssetLock {
   readonly entries: readonly AssetLockEntry[];
 }
 
-// One asset's classified lock-drift finding; absent detail fields are null.
+// One classified asset-lock drift finding.
 export interface LockFinding {
   readonly id: string;
   readonly code: LockIssueCode;
@@ -124,12 +124,12 @@ export interface LockFinding {
   readonly removedDependencies: readonly string[];
 }
 
-// A full asset-lock validation report: classified drift, never a silent re-lock.
+// Complete asset-lock validation readout.
 export interface LockValidationReport {
   readonly findings: readonly LockFinding[];
 }
 
-// What to do when a referenced asset is missing in a given context.
+// Public fallback decision DTO.
 export type FallbackDecision =
   | { readonly outcome: 'useFallback'; readonly reason: string; readonly visual: FallbackVisual }
   | { readonly outcome: 'failClosed'; readonly reason: string }

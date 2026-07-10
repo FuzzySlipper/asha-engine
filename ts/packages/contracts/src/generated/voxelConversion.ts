@@ -9,19 +9,19 @@
 import type { DiagnosticSeverity } from './diagnostics.js';
 import type { VoxelCoord } from './voxel.js';
 
-// How source geometry is converted into occupied voxel cells.
+// Conversion modes Rust authority may execute.
 export type VoxelConversionMode = 'surface' | 'solid';
 
-// How source bounds fit into the requested target resolution.
+// How the source bounds fit into the requested target resolution.
 export type VoxelConversionFitPolicy = 'contain' | 'cover' | 'stretch';
 
 // How converted voxel coordinates are anchored.
 export type VoxelConversionOriginPolicy = 'source_origin' | 'target_min' | 'centered';
 
-// Stable classified diagnostic/error code for voxel conversion.
+// Classified conversion diagnostic/error code.
 export type VoxelConversionDiagnosticCode = 'voxel_conversion_unavailable' | 'operation_unimplemented' | 'invalid_query_bounds' | 'query_quota_exceeded' | 'unsupported_source_asset' | 'source_hash_mismatch' | 'invalid_material_map' | 'missing_texture_source' | 'texture_hash_mismatch' | 'missing_uv_attribute' | 'unsupported_texture_format' | 'unsupported_sampling_policy' | 'invalid_texture_material_rule' | 'output_limit_exceeded' | 'non_manifold_or_ambiguous_solid' | 'stale_authority_snapshot' | 'conversion_replay_mismatch';
 
-// Role of an exported conversion evidence artifact.
+// Role of an exported evidence artifact.
 export type VoxelConversionEvidenceKind = 'plan' | 'preview' | 'apply_receipt' | 'diagnostics' | 'source_snapshot' | 'output_snapshot';
 
 // Source asset and authority snapshot identity for conversion.
@@ -178,7 +178,7 @@ export interface VoxelConversionTextureBinding {
   readonly materialMode: string;
 }
 
-// Material-map DTO. Default material is null when unmapped slots fail closed.
+// Material-map DTO. `default_voxel_material` is used only when authority accepts unmapped source slots for the chosen conversion policy.
 export interface VoxelConversionMaterialMap {
   readonly entries: readonly VoxelConversionMaterialMapEntry[];
   readonly textureAssets: readonly VoxelConversionTextureSampleAsset[];
@@ -309,7 +309,7 @@ export interface VoxelModelInfoReadout {
   readonly diagnostics: readonly VoxelConversionDiagnostic[];
 }
 
-// Quota-guarded voxel-space window read request for an authority-owned model.
+// Request for a bounded voxel-space window readback.
 export interface VoxelModelWindowRequest {
   readonly grid: number;
   readonly volumeAssetId: string | null;
@@ -319,14 +319,14 @@ export interface VoxelModelWindowRequest {
   readonly maxSamples: number;
 }
 
-// One sampled voxel cell returned by a bounded authority-owned model window.
+// One sampled voxel cell from an authority-owned model window.
 export interface VoxelModelWindowSample {
   readonly coord: VoxelCoord;
   readonly occupied: boolean;
   readonly material: number | null;
 }
 
-// Bounded authority-owned voxel-space window readout for Studio and agents.
+// Bounded model-window readback for Studio and agents.
 export interface VoxelModelWindowReadout {
   readonly request: VoxelModelWindowRequest;
   readonly resident: boolean;

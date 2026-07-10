@@ -9,18 +9,18 @@
 import type { EntityId, SubjectId, ProcessId, ModeId, SignalId, TagId } from './ids.js';
 import type { CommandEnvelope } from './script.js';
 
-// Zero-based position of a step within a replay record.
+// Zero-based position of a step within a [`ReplayRecord`].
 export type StepIndex = number & { readonly __brand: 'StepIndex' };
 export const stepIndex = (raw: number): StepIndex => raw as StepIndex;
 
-// A deterministic state fingerprint at a point in a replay.
+// A deterministic state fingerprint at a point in a replay.  This is the border carrier for the `u64` produced by `core-snapshot`'s FNV-1a state hash. It is opaque here; the border records hashes, it does not compute or interpret them.
 export type ReplayHash = number & { readonly __brand: 'ReplayHash' };
 export const replayHash = (raw: number): ReplayHash => raw as ReplayHash;
 
-// Compatibility marker for the replay record wire format.
+// Compatibility marker for the replay record wire format.  Increment when the meaning or layout of [`ReplayRecord`] changes so old records can be detected and migrated rather than silently misread.
 export const REPLAY_FORMAT_VERSION = 1;
 
-// Authoritative record of an accepted state change.
+// Authoritative record of an accepted state change.  Each variant maps one-to-one to a command outcome. No variant carries render or telemetry data; those concerns live in separate protocol crates.
 export type DomainEvent =
   | { readonly event: 'entityCreated'; readonly id: EntityId }
   | { readonly event: 'entityTagAdded'; readonly id: EntityId; readonly tag: TagId }
@@ -38,12 +38,12 @@ export type DomainEvent =
   | { readonly event: 'tagDefined'; readonly id: TagId }
   | { readonly event: 'tagUndefined'; readonly id: TagId };
 
-// What the authority core decided about a proposed command.
+// What the authority core decided about a proposed command.  A sum type rather than an "events + maybe-rejection" struct: a rejected proposal *structurally* carries no accepted events, so the record can never claim a rejected command also produced events.
 export type StepOutcome =
   | { readonly status: 'accepted'; readonly events: readonly DomainEvent[] }
   | { readonly status: 'rejected'; readonly summary: string };
 
-// One recorded step: input command, the authority outcome, and post-step hash.
+// One recorded step: an input command, the authority core's [`StepOutcome`], and the state hash immediately after the step.  Replaying re-applies `command` to the prior state and checks that the result reproduces `outcome` and `post_hash`. A mismatch is a divergence (Phase 4). For a rejected step `post_hash` equals the pre-step hash (state is unchanged).
 export interface ReplayStep {
   readonly index: StepIndex;
   readonly command: CommandEnvelope;
@@ -51,14 +51,14 @@ export interface ReplayStep {
   readonly postHash: ReplayHash;
 }
 
-// Marks that a full state snapshot was captured at a given step.
+// Marks that a full state snapshot was captured at a given step.  Snapshots let a replay resume or verify from an interior point instead of re-running from step zero. The metadata records *where* and *what hash*; the snapshot payload itself is owned by `core-snapshot`.
 export interface SnapshotMeta {
   readonly step: StepIndex;
   readonly hash: ReplayHash;
   readonly snapshotVersion: number;
 }
 
-// A complete recorded run: initial state plus ordered steps and snapshots.
+// A complete recorded run: an initial state plus the ordered steps that evolved it, with any snapshot markers taken along the way.  Determinism contract: re-applying `steps` in order to a world whose initial state hashes to `initial_hash` must reproduce every `post_hash`.
 export interface ReplayRecord {
   readonly formatVersion: number;
   readonly initialHash: ReplayHash;

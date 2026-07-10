@@ -8,59 +8,59 @@
 
 import type { EntityId } from './ids.js';
 
-// Stable identifier for a durable authored ASHA project.
+// Branded `ProjectId` border identifier.
 export type ProjectId = number & { readonly __brand: 'ProjectId' };
 export const projectId = (raw: number): ProjectId => raw as ProjectId;
 
-// Stable identifier for an authored, loadable scene document.
+// Branded `SceneId` border identifier.
 export type SceneId = number & { readonly __brand: 'SceneId' };
 export const sceneId = (raw: number): SceneId => raw as SceneId;
 
-// Stable identifier for a live runtime session bootstrapped from a scene.
+// Branded `RuntimeSessionId` border identifier.
 export type RuntimeSessionId = number & { readonly __brand: 'RuntimeSessionId' };
 export const runtimeSessionId = (raw: number): RuntimeSessionId => raw as RuntimeSessionId;
 
-// Stable identifier for one node within a scene document (never a render handle).
+// Branded `SceneNodeId` border identifier.
 export type SceneNodeId = number & { readonly __brand: 'SceneNodeId' };
 export const sceneNodeId = (raw: number): SceneNodeId => raw as SceneNodeId;
 
-// Stable tag for a scene-node kind. Asset-backed kinds carry an AssetReference.
+// The scene-node kind tag as a closed enum with a stable string form.
 export type SceneNodeKindTag = 'emptyGroup' | 'staticMesh' | 'sprite' | 'voxelVolume';
 
-// Stable classified scene-validation code. The string form is a contract.
+// Stable classified scene-validation codes. Mirrors `core_scene::SceneValidationError::label`; the string form is a contract.
 export type SceneValidationCode = 'duplicate-node-id' | 'unknown-parent' | 'cycle' | 'invalid-transform' | 'asset-kind-mismatch';
 
-// Stable classified scene-object command rejection code. The string form is a contract.
+// Stable scene-object command rejection codes. Mirrors `core_scene::SceneObjectCommandRejection::label`; the string form is a contract.
 export type SceneObjectCommandRejectionCode = 'stale-scene-object-snapshot' | 'invalid-scene-before-command' | 'invalid-scene-after-command' | 'missing-scene-object' | 'duplicate-scene-object' | 'missing-scene-object-parent' | 'scene-object-self-parent' | 'blank-scene-object-label' | 'invalid-scene-object-transform' | 'readonly-scene-object-transform';
 
-// An asset version requirement.
+// Border form of an asset version requirement. Mirrors the `{ "req": … }` wire object `core_scene::json` reads/writes.
 export type AssetVersionReq =
   | { readonly req: 'any' }
   | { readonly req: 'exact'; readonly value: number }
   | { readonly req: 'atLeast'; readonly value: number };
 
-// A kind-erased reference to an authored asset.
+// Border form of a kind-erased asset reference.
 export interface AssetReference {
   readonly id: string;
   readonly version: AssetVersionReq;
   readonly hash: string | null;
 }
 
-// A scene node's initial transform (authority owns runtime transforms after bootstrap).
+// Border form of a scene node's initial transform: fixed-width tuples, no validation (Rust validates the authority form).
 export interface SceneTransform {
   readonly translation: readonly [number, number, number];
   readonly rotation: readonly [number, number, number, number];
   readonly scale: readonly [number, number, number];
 }
 
-// A scene node's kind. Only asset-backed kinds carry an AssetReference; the discriminant values are the SceneNodeKindTag vocabulary.
+// Border form of a scene node's kind. Only asset-backed kinds carry an asset, mirroring the generated TypeScript discriminated union (so an "empty group with an asset" is unrepresentable rather than merely discouraged).
 export type SceneNodeKind =
   | { readonly kind: 'emptyGroup' }
   | { readonly kind: 'staticMesh'; readonly asset: AssetReference }
   | { readonly kind: 'sprite'; readonly asset: AssetReference }
   | { readonly kind: 'voxelVolume'; readonly asset: AssetReference };
 
-// One node in the canonical flat scene document.
+// Border form of one canonical flat scene-node record.
 export interface SceneNodeRecord {
   readonly id: SceneNodeId;
   readonly parent: SceneNodeId | null;
@@ -71,13 +71,13 @@ export interface SceneNodeRecord {
   readonly kind: SceneNodeKind;
 }
 
-// Document-level scene metadata (never affects authority semantics).
+// Border form of document-level metadata.
 export interface SceneMetadata {
   readonly name: string | null;
   readonly authoringFormatVersion: number;
 }
 
-// The canonical flat scene document: the form TS authors and Rust validates.
+// Border form of the canonical flat scene document — the shape TS authors and Rust validates.
 export interface FlatSceneDocument {
   readonly schemaVersion: number;
   readonly id: SceneId;
@@ -86,7 +86,7 @@ export interface FlatSceneDocument {
   readonly nodes: readonly SceneNodeRecord[];
 }
 
-// One classified scene-validation failure; absent loci are null.
+// Border form of one classified validation failure. Optional fields are populated per code (e.g. `parent` for `unknown-parent`, `cycle_path` for `cycle`), so TS can render the failure precisely without parsing prose.
 export interface SceneValidationError {
   readonly code: SceneValidationCode;
   readonly node: SceneNodeId | null;
@@ -97,12 +97,12 @@ export interface SceneValidationError {
   readonly cyclePath: readonly SceneNodeId[];
 }
 
-// A full scene-validation report: every classified error.
+// Border form of a full validation report: every classified error.
 export interface SceneValidationReport {
   readonly errors: readonly SceneValidationError[];
 }
 
-// One canonical scene object projected from a flat scene document.
+// Border projection of one canonical scene object. Scene objects are authored scene nodes, never runtime entities or render handles.
 export interface SceneObjectRecord {
   readonly id: SceneNodeId;
   readonly parent: SceneNodeId | null;
@@ -112,13 +112,13 @@ export interface SceneObjectRecord {
   readonly hasRenderableAsset: boolean;
 }
 
-// A deterministic scene-object hierarchy snapshot.
+// Border projection of the deterministic hierarchy snapshot.
 export interface SceneObjectSnapshot {
   readonly documentHash: number;
   readonly objects: readonly SceneObjectRecord[];
 }
 
-// Explicit scene-object hierarchy command.
+// Explicit scene-object hierarchy commands. Selection is included so GUI and agent surfaces share the same command identity.
 export type SceneObjectCommand =
   | { readonly kind: 'create'; readonly record: SceneNodeRecord }
   | { readonly kind: 'delete'; readonly id: SceneNodeId }
@@ -128,7 +128,7 @@ export type SceneObjectCommand =
   | { readonly kind: 'rotate'; readonly id: SceneNodeId; readonly rotation: readonly [number, number, number, number] }
   | { readonly kind: 'select'; readonly id: SceneNodeId | null };
 
-// A classified scene-object command rejection.
+// Border form of a scene-object command rejection.
 export interface SceneObjectCommandRejection {
   readonly code: SceneObjectCommandRejectionCode;
   readonly id: SceneNodeId | null;
@@ -138,7 +138,7 @@ export interface SceneObjectCommandRejection {
   readonly validationErrors: readonly SceneValidationError[];
 }
 
-// A successful scene-object command application.
+// Border form of a successful scene-object command.
 export interface SceneObjectCommandOutcome {
   readonly document: FlatSceneDocument;
   readonly snapshot: SceneObjectSnapshot;
@@ -158,13 +158,13 @@ export interface SceneObjectCommandResult {
   readonly rejection: SceneObjectCommandRejection | null;
 }
 
-// One hop in the scene-node to runtime-entity source trace.
+// Border form of one hop in the `scene node → runtime entity` source trace.
 export interface SceneSourceTrace {
   readonly sceneNodeId: SceneNodeId;
   readonly runtimeEntityId: EntityId;
 }
 
-// The atomic bootstrap record: the single replay/audit unit of a scene to authority init.
+// Border form of the atomic bootstrap record — the single replay/audit unit a scene→authority initialization produces.
 export interface BootstrapRecord {
   readonly sceneId: SceneId;
   readonly runtimeSessionId: RuntimeSessionId;

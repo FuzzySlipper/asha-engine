@@ -38,6 +38,9 @@
 use core_ids::{EntityId, TagId};
 use protocol_assets::{CatalogEntry, MaterialProjection};
 
+mod pick;
+pub use pick::{MeshPickHit, SpritePickHit};
+
 // ── Handles ───────────────────────────────────────────────────────────────────
 
 /// Stable identifier for a node in the retained render scene.
@@ -859,7 +862,7 @@ pub struct AnimatedMeshInstanceDescriptor {
 pub enum AnimatedMeshPlaybackCommand {
     Play {
         clip: String,
-        loop_mode: AnimationLoopMode,
+        r#loop: AnimationLoopMode,
         speed: f32,
         weight: f32,
         restart: bool,
@@ -1200,22 +1203,6 @@ impl SpriteAtlasDescriptor {
     pub fn frame_rect(&self, frame: u32) -> Option<&SpriteFrameRect> {
         self.frames.iter().find(|r| r.frame == frame)
     }
-}
-
-/// A renderer-side sprite pick hit, traced to **authority identity** for the
-/// authority to interpret (render-asset-06).
-///
-/// Carries the render handle, source entity/scene-node ids, the asset ref, and
-/// any attachment point. The renderer never decides a gameplay action from a
-/// pick — it only reports this trace; authority revalidates and acts (rule 12).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SpritePickHit {
-    pub handle: RenderHandle,
-    pub source_entity: Option<EntityId>,
-    pub source_scene_node: Option<u64>,
-    /// The sprite asset id that was hit.
-    pub asset: String,
-    pub attachment_point: Option<String>,
 }
 
 /// All retained-mode changes emitted for a single tick, in apply order.

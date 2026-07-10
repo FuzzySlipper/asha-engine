@@ -402,7 +402,7 @@ fn encode_animated_mesh_playback(out: &mut String, playback: &AnimatedMeshPlayba
     match playback {
         AnimatedMeshPlaybackCommand::Play {
             clip,
-            loop_mode,
+            r#loop,
             speed,
             weight,
             restart,
@@ -411,7 +411,7 @@ fn encode_animated_mesh_playback(out: &mut String, playback: &AnimatedMeshPlayba
             out.push_str(&format!(
                 "{{ \"action\": \"play\", \"clip\": {}, \"loop\": \"{}\", \"speed\": {}, \"weight\": {}, \"restart\": {}, \"fadeSeconds\": ",
                 encode_json_string(clip),
-                loop_mode.label(),
+                r#loop.label(),
                 speed,
                 weight,
                 restart

@@ -9,14 +9,14 @@
 import type { EntityId, TagId, ProcessId, SubjectId } from './ids.js';
 import type { SceneNodeId } from './scene.js';
 
-// A runtime transform on the authoring border (translation, rotation xyzw, scale).
+// A runtime transform on the authoring border: translation, rotation `(x,y,z,w)`, scale. Mirrors `protocol_policy_view::PolicyTransform` so the two borders agree.
 export interface AuthoringTransform {
   readonly translation: readonly [number, number, number];
   readonly rotation: readonly [number, number, number, number];
   readonly scale: readonly [number, number, number];
 }
 
-// Where an authored entity comes from. Mirrors core-entity's EntitySource on the wire.
+// Where an authored entity comes from. Mirrors `core_entity::EntitySource` on the wire (the asset reference is carried as its canonical id string).
 export type AuthoringSource =
   | { readonly kind: 'sceneBootstrap'; readonly node: SceneNodeId }
   | { readonly kind: 'runtimeCreated'; readonly by: ProcessId | null }
@@ -24,7 +24,7 @@ export type AuthoringSource =
   | { readonly kind: 'diagnosticTooling' }
   | { readonly kind: 'policyProposed'; readonly by: SubjectId };
 
-// A capability an attachCapability command establishes on a live entity.
+// The capability an `attachCapability` command attaches. Capability attach is an authoring op on a live entity (it does not validate transform-eligibility — it *establishes* it); the value-carrying transform attach is its own verb.
 export type AuthoringCapability =
   | { readonly kind: 'transform'; readonly transform: AuthoringTransform }
   | { readonly kind: 'render'; readonly visible: boolean }
@@ -37,13 +37,13 @@ export interface EntityDefinitionSourceTrace {
   readonly relativePath: string;
 }
 
-// Small string metadata entry for Studio/project readout.
+// Small string metadata entry for Studio/project readout. This is intentionally display/authoring metadata, not arbitrary runtime authority state.
 export interface EntityDefinitionMetadataEntry {
   readonly key: string;
   readonly value: string;
 }
 
-// A stored capability declaration with an initial value.
+// A stored capability declaration with an initial value. `Unknown` exists so decoded or hand-authored bad data can be represented and rejected explicitly instead of disappearing before validation.
 export type EntityDefinitionCapability =
   | { readonly kind: 'transform'; readonly transform: AuthoringTransform }
   | { readonly kind: 'render'; readonly visible: boolean }
@@ -51,7 +51,7 @@ export type EntityDefinitionCapability =
   | { readonly kind: 'bounds'; readonly min: readonly [number, number, number]; readonly max: readonly [number, number, number] }
   | { readonly kind: 'unknown'; readonly capabilityKind: string };
 
-// Durable stored entity definition authored in a ProjectBundle/catalog.
+// Durable stored entity definition authored in a ProjectBundle/catalog and later validated by Rust authority before it can seed runtime CapabilityState.
 export interface EntityDefinition {
   readonly stableId: string;
   readonly displayName: string;
@@ -76,7 +76,7 @@ export type EntityDefinitionValidationOutcome =
   | { readonly status: 'valid' }
   | { readonly status: 'invalid'; readonly diagnostics: readonly EntityDefinitionDiagnostic[] };
 
-// A proposed generic entity authoring change. Proposal-only: authority validates and applies or rejects.
+// A proposed generic entity authoring change. Proposal-only: authority validates and applies or rejects (atomic, fail-closed). One verb per atomic authority op.
 export type EntityAuthoringCommand =
   | { readonly kind: 'create'; readonly id: EntityId; readonly source: AuthoringSource; readonly labels: readonly TagId[] }
   | { readonly kind: 'destroy'; readonly id: EntityId }
@@ -93,7 +93,7 @@ export type EntityAuthoringCommand =
   | { readonly kind: 'clearContainment'; readonly member: EntityId }
   | { readonly kind: 'setDerivedFrom'; readonly derived: EntityId; readonly origin: EntityId };
 
-// The kind of accepted authoring change (compact; re-read the snapshot for full detail).
+// The kind of accepted authoring change (compact; the inspector re-reads the store snapshot for full detail).
 export type AuthoringEventKind = 'created' | 'destroyed' | 'disabled' | 'enabled' | 'labelAdded' | 'labelRemoved' | 'capabilityAttached' | 'transformSet' | 'moved' | 'relationSet' | 'relationCleared';
 
 // The accepted authoring event: what happened, to which entity.

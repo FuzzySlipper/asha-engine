@@ -2,8 +2,8 @@
 //!
 //! The IR is intentionally small: it covers exactly the shapes the ASHA
 //! protocol border uses (branded IDs, interfaces, discriminated unions, string
-//! enums, simple constants) and nothing more. Codegen builds this IR by hand in
-//! [`crate::model`] to mirror the Rust protocol crates, then emits it here.
+//! enums, maps, and simple constants) and nothing more. Codegen derives this IR
+//! from Rust declarations through [`crate::source`] and then emits it here.
 //!
 //! Determinism is the whole point: emission depends only on the IR, uses fixed
 //! two-space indentation and LF newlines, preserves declaration order, and ends
@@ -40,6 +40,8 @@ pub enum TsType {
     Tuple(Vec<TsType>),
     /// `T | null` — the border form of a Rust `Option<T>`.
     Nullable(Box<TsType>),
+    /// `Readonly<Record<K, V>>` — the border form of a Rust map.
+    Map(Box<TsType>, Box<TsType>),
     /// A union of string literals, e.g. `'input' | 'policy' | 'system'`.
     StringEnum(Vec<String>),
 }
@@ -76,6 +78,9 @@ impl TsType {
                 format!("readonly [{inner}]")
             }
             TsType::Nullable(inner) => format!("{} | null", inner.render()),
+            TsType::Map(key, value) => {
+                format!("Readonly<Record<{}, {}>>", key.render(), value.render())
+            }
             TsType::StringEnum(values) => values
                 .iter()
                 .map(|v| format!("'{v}'"))
@@ -212,20 +217,20 @@ fn render_item(item: &Item) -> String {
         Item::BrandedId { doc, name } => {
             let ctor = lower_first(name);
             format!(
-                "// {doc}\n\
-                 export type {name} = number & {{ readonly __brand: '{name}' }};\n\
-                 export const {ctor} = (raw: number): {name} => raw as {name};"
+                "{}export type {name} = number & {{ readonly __brand: '{name}' }};\n\
+                 export const {ctor} = (raw: number): {name} => raw as {name};",
+                doc_prefix(doc)
             )
         }
         Item::Alias { doc, name, ty } => {
-            format!("// {doc}\nexport type {name} = {};", ty.render())
+            format!("{}export type {name} = {};", doc_prefix(doc), ty.render())
         }
         Item::Interface { doc, name, fields } => {
             let body: String = fields
                 .iter()
                 .map(|f| format!("  {};\n", f.render()))
                 .collect();
-            format!("// {doc}\nexport interface {name} {{\n{body}}}")
+            format!("{}export interface {name} {{\n{body}}}", doc_prefix(doc))
         }
         Item::Union {
             doc,
@@ -237,12 +242,24 @@ fn render_item(item: &Item) -> String {
                 .iter()
                 .map(|v| render_variant(discriminant, v))
                 .collect();
-            format!("// {doc}\nexport type {name} =\n{};", arms.join("\n"))
+            format!(
+                "{}export type {name} =\n{};",
+                doc_prefix(doc),
+                arms.join("\n")
+            )
         }
         Item::Const { doc, name, value } => {
-            format!("// {doc}\nexport const {name} = {value};")
+            format!("{}export const {name} = {value};", doc_prefix(doc))
         }
         Item::ReExport { from } => format!("export * from '{from}';"),
+    }
+}
+
+fn doc_prefix(doc: &str) -> String {
+    if doc.is_empty() {
+        String::new()
+    } else {
+        format!("// {doc}\n")
     }
 }
 

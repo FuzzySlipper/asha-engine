@@ -31,6 +31,8 @@ protocol-voxel-annotation = { path = "../protocol-voxel-annotation" }
 protocol-voxel-edit-history = { path = "../protocol-voxel-edit-history" }
 protocol-game-rules = { path = "../protocol-game-rules" }
 protocol-game-extension = { path = "../protocol-game-extension" }
+syn = { version = "2", features = ["full", "parsing", "extra-traits"] }
+proc-macro2 = "1"
 
 [dev-dependencies]
 core-ids = { path = "../../foundation/core-ids" }

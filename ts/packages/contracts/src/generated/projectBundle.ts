@@ -9,19 +9,19 @@
 import type { ProjectId, RuntimeSessionId, SceneId } from './scene.js';
 import type { VoxelCoord, VoxelValue } from './voxel.js';
 
-// An artifact's persistence guarantee.
+// What an artifact's persistence guarantee is.
 export type ArtifactClass = 'durable' | 'generated' | 'cache';
 
-// The artifact roles this build names. The wire role is an open string; unknown roles are carried verbatim. This is the known vocabulary for display.
+// The artifact roles this build names. The wire role is an open string (unknown roles are carried verbatim by `svc_serialization::ArtifactRole::Other`), so the border types the field as `string`; this table is the *known* vocabulary for routing/display. Mirrors `svc_serialization::ArtifactRole::tag`.
 export type KnownArtifactRole = 'sceneDocument' | 'assetLock' | 'sessionStateSnapshot' | 'voxelChunkSnapshot' | 'voxelEditLog' | 'voxelEditHistory' | 'voxelAnnotationLayer' | 'replayRecord' | 'generatedMetadata' | 'cache';
 
-// A stage in the canonical, ordered authority load sequence.
+// One ordered stage of an authority load.
 export type LoadStage = 'versions' | 'assetLock' | 'sceneDocument' | 'terrainGeneration' | 'voxelEdits' | 'voxelAnnotations' | 'bootstrap' | 'sessionStateSnapshot' | 'finalValidation';
 
 // What to do about an edit whose generated context changed under a new generator.
 export type SuggestedAction = 'keepEdit' | 'reviewConflict';
 
-// One row of the manifest artifact table. `role` is an open string (see KnownArtifactRole).
+// One row of the manifest artifact table.
 export interface ArtifactEntry {
   readonly path: string;
   readonly class: ArtifactClass;
@@ -36,26 +36,26 @@ export interface GeneratorMetadata {
   readonly params: string;
 }
 
-// The project identity section of a bundle manifest.
+// Project identity in a bundle manifest.
 export interface ProjectSection {
   readonly id: ProjectId;
   readonly name: string | null;
 }
 
-// The scene section of a bundle manifest.
+// Scene identity and artifact location in a bundle manifest.
 export interface SceneSection {
   readonly id: SceneId;
   readonly schemaVersion: number;
   readonly artifact: string;
 }
 
-// The asset-lock section of a bundle manifest.
+// Asset-lock artifact metadata.
 export interface AssetLockSection {
   readonly artifact: string;
   readonly assetCount: number;
 }
 
-// The inspectable project-bundle manifest: identity, versions, and the artifact table.
+// Inspectable project-bundle manifest border.
 export interface ProjectBundleManifest {
   readonly bundleSchemaVersion: number;
   readonly protocolVersion: number;
@@ -66,7 +66,7 @@ export interface ProjectBundleManifest {
   readonly artifacts: readonly ArtifactEntry[];
 }
 
-// One classified manifest-validation / version-compatibility failure.
+// Classified manifest validation failure.
 export type ManifestError =
   | { readonly code: 'unsupportedSchema'; readonly found: number; readonly supported: number }
   | { readonly code: 'unsupportedProtocol'; readonly found: number; readonly supported: number }
@@ -74,12 +74,12 @@ export type ManifestError =
   | { readonly code: 'missingArtifact'; readonly role: string; readonly path: string }
   | { readonly code: 'durableMissingHash'; readonly path: string };
 
-// A manifest validation / version-compatibility report: every classified error.
+// All manifest errors produced by one validation pass.
 export interface ManifestValidationReport {
   readonly errors: readonly ManifestError[];
 }
 
-// One ordered step of a load plan, carrying the typed inputs it consumes.
+// One ordered authority load-plan step.
 export type LoadStep =
   | { readonly step: 'validateVersions'; readonly bundleSchemaVersion: number; readonly protocolVersion: number }
   | { readonly step: 'loadAssetLock'; readonly artifact: string; readonly assetCount: number }
@@ -91,7 +91,7 @@ export type LoadStep =
   | { readonly step: 'restoreSessionState'; readonly artifact: string }
   | { readonly step: 'validateFinalState' };
 
-// A deterministic, ordered authority load plan.
+// Deterministic ordered authority load plan.
 export interface LoadPlan {
   readonly steps: readonly LoadStep[];
 }
@@ -103,26 +103,26 @@ export type LoadPlanError =
   | { readonly code: 'outOfOrder'; readonly step: LoadStage; readonly after: LoadStage }
   | { readonly code: 'missingStage'; readonly stage: LoadStage };
 
-// Save-time compaction summary: how many edits were folded vs retained.
+// Save-time compaction summary.
 export interface CompactionSummary {
   readonly compactedEdits: number;
   readonly retainedEdits: number;
   readonly snapshotChunks: readonly string[];
 }
 
-// A save summary: the artifacts written plus the compaction outcome.
+// Artifacts written by save plus compaction evidence.
 export interface SaveSummary {
   readonly writes: readonly ArtifactEntry[];
   readonly compaction: CompactionSummary;
 }
 
-// A fail-closed generator version mismatch between a save and the current build.
+// Fail-closed generator version mismatch.
 export interface GeneratorMismatch {
   readonly savedVersion: number;
   readonly currentVersion: number;
 }
 
-// One edit whose authored generated context changed under a new generator.
+// One authored edit whose generated context changed.
 export interface EditConflict {
   readonly eventId: number;
   readonly coord: VoxelCoord;
@@ -132,7 +132,7 @@ export interface EditConflict {
   readonly suggested: SuggestedAction;
 }
 
-// The outcome of a regenerate-and-replay diagnostic (never rewrites a save).
+// Regenerate-and-replay diagnostic outcome.
 export interface RegenConflictReport {
   readonly savedVersion: number;
   readonly newVersion: number;

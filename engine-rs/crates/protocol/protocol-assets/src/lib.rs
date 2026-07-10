@@ -147,6 +147,72 @@ pub struct Catalog {
     pub entries: Vec<CatalogEntry>,
 }
 
+/// One classified catalog-validation failure on the public border.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CatalogValidationError {
+    pub code: String,
+    pub id: Option<String>,
+    pub kind: Option<String>,
+    pub from: Option<String>,
+    pub slot: Option<String>,
+    pub expected: Option<String>,
+    pub actual: Option<String>,
+    pub reference: Option<String>,
+    pub dependency: Option<String>,
+    pub cycle_path: Vec<String>,
+}
+
+/// Complete catalog validation readout.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CatalogValidationReport {
+    pub errors: Vec<CatalogValidationError>,
+}
+
+/// One pinned asset-lock entry.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssetLockEntry {
+    pub id: String,
+    pub kind: String,
+    pub version: u64,
+    pub hash: Option<String>,
+    pub dependencies: Vec<String>,
+}
+
+/// Durable project-bundle asset lock.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssetLock {
+    pub entries: Vec<AssetLockEntry>,
+}
+
+/// One classified asset-lock drift finding.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LockFinding {
+    pub id: String,
+    pub code: String,
+    pub locked_kind: Option<String>,
+    pub current_kind: Option<String>,
+    pub locked_version: Option<u64>,
+    pub current_version: Option<u64>,
+    pub locked_hash: Option<String>,
+    pub current_hash: Option<String>,
+    pub added_dependencies: Vec<String>,
+    pub removed_dependencies: Vec<String>,
+}
+
+/// Complete asset-lock validation readout.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LockValidationReport {
+    pub findings: Vec<LockFinding>,
+}
+
+/// Public fallback decision DTO.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FallbackDecision {
+    UseFallback { reason: String, visual: String },
+    FailClosed { reason: String },
+    Skip { reason: String },
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

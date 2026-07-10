@@ -12,7 +12,7 @@ import type { Face, VoxelCoord } from './voxel.js';
 export type CameraHandle = number & { readonly __brand: 'CameraHandle' };
 export const cameraHandle = (raw: number): CameraHandle => raw as CameraHandle;
 
-// Camera pose in world units/degrees; deterministic view state, not gameplay authority.
+// Camera pose in world units/degrees.
 export interface CameraPose {
   readonly position: readonly [number, number, number];
   readonly yawDegrees: number;
@@ -26,7 +26,7 @@ export interface CameraBasis {
   readonly up: readonly [number, number, number];
 }
 
-// Perspective projection parameters for runtime view evidence.
+// Perspective projection parameters.
 export interface PerspectiveProjection {
   readonly fovYDegrees: number;
   readonly near: number;
@@ -64,7 +64,7 @@ export interface FirstPersonCameraInputEnvelope {
   readonly tick: number;
 }
 
-// Request to read current projection evidence for a camera. Null viewport means use the camera viewport.
+// Request to read current projection evidence for a camera.
 export interface CameraProjectionRequest {
   readonly camera: CameraHandle;
   readonly viewport: ViewportSize | null;
@@ -80,7 +80,7 @@ export interface CameraSnapshot {
   readonly viewport: ViewportSize;
 }
 
-// Camera pose plus deterministic column-major 4x4 projection matrices.
+// Camera pose plus deterministic projection matrices.
 export interface CameraProjectionSnapshot {
   readonly camera: CameraHandle;
   readonly tick: number;

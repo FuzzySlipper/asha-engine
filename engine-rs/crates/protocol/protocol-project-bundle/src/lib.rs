@@ -192,6 +192,190 @@ impl SuggestedAction {
 pub const ALL_SUGGESTED_ACTIONS: &[SuggestedAction] =
     &[SuggestedAction::KeepEdit, SuggestedAction::ReviewConflict];
 
+// The DTOs below are the source-owned project-bundle border. Authority services
+// may use richer internal types, but generated consumers derive only from these
+// inert declarations.
+
+use core_ids::{ProjectId, RuntimeSessionId, SceneId};
+
+/// Project-bundle border form of a voxel coordinate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProjectBundleVoxelCoord {
+    pub x: i64,
+    pub y: i64,
+    pub z: i64,
+}
+
+/// Project-bundle border form of a voxel value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProjectBundleVoxelValue {
+    Empty,
+    Solid { material: u16 },
+}
+
+/// One row of the manifest artifact table.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArtifactEntry {
+    pub path: String,
+    pub class: ArtifactClass,
+    pub role: String,
+    pub content_hash: Option<String>,
+}
+
+/// Terrain generator provenance.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GeneratorMetadata {
+    pub seed: u64,
+    pub version: u32,
+    pub params: String,
+}
+
+/// Project identity in a bundle manifest.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectSection {
+    pub id: ProjectId,
+    pub name: Option<String>,
+}
+
+/// Scene identity and artifact location in a bundle manifest.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SceneSection {
+    pub id: SceneId,
+    pub schema_version: u32,
+    pub artifact: String,
+}
+
+/// Asset-lock artifact metadata.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssetLockSection {
+    pub artifact: String,
+    pub asset_count: u32,
+}
+
+/// Inspectable project-bundle manifest border.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectBundleManifest {
+    pub bundle_schema_version: u32,
+    pub protocol_version: u32,
+    pub project: ProjectSection,
+    pub scene: SceneSection,
+    pub asset_lock: AssetLockSection,
+    pub generator: GeneratorMetadata,
+    pub artifacts: Vec<ArtifactEntry>,
+}
+
+/// Classified manifest validation failure.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ManifestError {
+    UnsupportedSchema { found: u32, supported: u32 },
+    UnsupportedProtocol { found: u32, supported: u32 },
+    DuplicateArtifact { path: String },
+    MissingArtifact { role: String, path: String },
+    DurableMissingHash { path: String },
+}
+
+/// All manifest errors produced by one validation pass.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ManifestValidationReport {
+    pub errors: Vec<ManifestError>,
+}
+
+/// One ordered authority load-plan step.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LoadStep {
+    ValidateVersions {
+        bundle_schema_version: u32,
+        protocol_version: u32,
+    },
+    LoadAssetLock {
+        artifact: String,
+        asset_count: u32,
+    },
+    LoadSceneDocument {
+        artifact: String,
+        scene: SceneId,
+    },
+    GenerateTerrain {
+        seed: u64,
+        version: u32,
+        params: String,
+    },
+    ApplyVoxelEdits {
+        edit_logs: Vec<String>,
+        snapshots: Vec<String>,
+        histories: Vec<String>,
+    },
+    LoadVoxelAnnotations {
+        artifacts: Vec<String>,
+    },
+    BootstrapScene {
+        scene: SceneId,
+        runtime_session: RuntimeSessionId,
+    },
+    RestoreSessionState {
+        artifact: String,
+    },
+    ValidateFinalState,
+}
+
+/// Deterministic ordered authority load plan.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LoadPlan {
+    pub steps: Vec<LoadStep>,
+}
+
+/// Why a load plan could not be built or verified.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LoadPlanError {
+    Manifest { error: ManifestError },
+    MissingPrerequisiteArtifact { role: String },
+    OutOfOrder { step: LoadStage, after: LoadStage },
+    MissingStage { stage: LoadStage },
+}
+
+/// Save-time compaction summary.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompactionSummary {
+    pub compacted_edits: u64,
+    pub retained_edits: u64,
+    pub snapshot_chunks: Vec<String>,
+}
+
+/// Artifacts written by save plus compaction evidence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SaveSummary {
+    pub writes: Vec<ArtifactEntry>,
+    pub compaction: CompactionSummary,
+}
+
+/// Fail-closed generator version mismatch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GeneratorMismatch {
+    pub saved_version: u32,
+    pub current_version: u32,
+}
+
+/// One authored edit whose generated context changed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EditConflict {
+    pub event_id: u64,
+    pub coord: ProjectBundleVoxelCoord,
+    pub old_generated: ProjectBundleVoxelValue,
+    pub new_generated: ProjectBundleVoxelValue,
+    pub edit_value: ProjectBundleVoxelValue,
+    pub suggested: SuggestedAction,
+}
+
+/// Regenerate-and-replay diagnostic outcome.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RegenConflictReport {
+    pub saved_version: u32,
+    pub new_version: u32,
+    pub conflicts: Vec<EditConflict>,
+    pub replayed_edits: u64,
+    pub staging_session_hash: u64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

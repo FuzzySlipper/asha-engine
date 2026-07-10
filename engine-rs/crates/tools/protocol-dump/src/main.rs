@@ -74,7 +74,7 @@ fn cmd_list<O: Write, E: Write>(args: &[String], out: &mut O, err: &mut E) -> u8
         return 2;
     }
 
-    let modules = protocol_codegen::model::all_modules();
+    let modules = protocol_codegen::source::all_modules();
     let total_items: usize = modules.iter().map(|module| module.items.len()).sum();
     let _ = writeln!(
         out,
@@ -108,7 +108,7 @@ fn cmd_show<O: Write, E: Write>(args: &[String], out: &mut O, err: &mut E) -> u8
         }
     };
 
-    let modules = protocol_codegen::model::all_modules();
+    let modules = protocol_codegen::source::all_modules();
     let Some(module) = modules.iter().find(|module| module.name == module_name) else {
         let _ = writeln!(err, "missing module: {module_name}");
         return 1;
@@ -266,6 +266,11 @@ fn format_type(ty: &TsType) -> String {
             format!("readonly [{inner}]")
         }
         TsType::Nullable(inner) => format!("{} | null", format_type(inner)),
+        TsType::Map(key, value) => format!(
+            "Readonly<Record<{}, {}>>",
+            format_type(key),
+            format_type(value)
+        ),
         TsType::StringEnum(values) => values
             .iter()
             .map(|value| format!("'{value}'"))
