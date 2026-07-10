@@ -56,4 +56,21 @@ export const TINY_GENERATED_TUNNEL_READOUT = {
     replayHash: 'fnv1a64:0821a0c2aea17dff',
     fixture: 'harness/fixtures/generated-levels/tiny-tunnel.snapshot.txt',
 };
+export function readTinyGeneratedTunnelSpawnMarker(markerId) {
+    const marker = TINY_GENERATED_TUNNEL_READOUT.spawnMarkers.find((candidate) => candidate.id === markerId);
+    if (marker === undefined) {
+        throw new TypeError(`Missing generated tunnel spawn marker: ${markerId}`);
+    }
+    return marker;
+}
+export function projectGeneratedTunnelMarkerToRuntimeWorld(marker, frame) {
+    return [
+        marker.world[0] + frame.worldOffset[0],
+        marker.world[1] + frame.worldOffset[1],
+        marker.world[2] + frame.worldOffset[2],
+    ];
+}
+export function projectGeneratedTunnelMarkerToNavCell(marker) {
+    return [marker.voxel[0], marker.voxel[1] - 1, marker.voxel[2]];
+}
 //# sourceMappingURL=generated-tunnel.js.map

@@ -107,4 +107,4 @@ Fixture values:
 
 - walkable cells `45`
 - projection hash `59b4093625b10e49`
-- path hash `e8e1ea7a09811ced`
+- path hash `09ed0284f7c175e1`

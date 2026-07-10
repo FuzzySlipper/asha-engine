@@ -881,6 +881,19 @@ mod tests {
         build_nav_projection(&tunnel.world, NavProjectionConfig::default()).expect("nav")
     }
 
+    fn generated_tunnel_nav_endpoints() -> (VoxelCoord, VoxelCoord) {
+        let tunnel = generate_tunnel(TunnelGeneratorConfig::tiny_enclosed(17)).expect("tunnel");
+        let marker_cell = |marker_id: &str| {
+            let marker = tunnel
+                .spawn_markers
+                .iter()
+                .find(|marker| marker.id == marker_id)
+                .expect("generated tunnel marker");
+            VoxelCoord::new(marker.voxel.x, marker.voxel.y - 1, marker.voxel.z)
+        };
+        (marker_cell("exit_hint"), marker_cell("player_start"))
+    }
+
     fn cell_center(projection: &NavProjection, coord: VoxelCoord) -> Vec3 {
         world_pos_to_vec3(projection.grid().voxel_center_world(coord))
     }
@@ -929,31 +942,33 @@ mod tests {
     #[test]
     fn generated_tunnel_has_reachable_player_path() {
         let projection = projection();
+        let (start, goal) = generated_tunnel_nav_endpoints();
         let readout = find_path(
             &projection,
             NavPathQuery {
-                start: VoxelCoord::new(3, 1, 7),
-                goal: VoxelCoord::new(1, 1, 1),
+                start,
+                goal,
                 max_visited: 128,
             },
         )
         .expect("path");
         assert_eq!(readout.outcome, NavPathOutcome::Reached);
-        assert_eq!(readout.path.first(), Some(&VoxelCoord::new(3, 1, 7)));
-        assert_eq!(readout.path.last(), Some(&VoxelCoord::new(1, 1, 1)));
+        assert_eq!(readout.path.first(), Some(&start));
+        assert_eq!(readout.path.last(), Some(&goal));
     }
 
     #[test]
     fn blocked_tunnel_reports_no_path() {
         let mut projection = projection();
+        let (start, goal) = generated_tunnel_nav_endpoints();
         for x in 1..=5 {
             projection = projection.without_walkable(VoxelCoord::new(x, 1, 4));
         }
         let readout = find_path(
             &projection,
             NavPathQuery {
-                start: VoxelCoord::new(3, 1, 7),
-                goal: VoxelCoord::new(1, 1, 1),
+                start,
+                goal,
                 max_visited: 128,
             },
         )
@@ -966,12 +981,13 @@ mod tests {
     #[test]
     fn invalid_query_rejects_unwalkable_start() {
         let projection = projection();
+        let (_, goal) = generated_tunnel_nav_endpoints();
         assert_eq!(
             find_path(
                 &projection,
                 NavPathQuery {
                     start: VoxelCoord::new(0, 1, 0),
-                    goal: VoxelCoord::new(1, 1, 1),
+                    goal,
                     max_visited: 128,
                 },
             ),
@@ -984,11 +1000,12 @@ mod tests {
     #[test]
     fn path_readout_matches_committed_golden() {
         let projection = projection();
+        let (start, goal) = generated_tunnel_nav_endpoints();
         let readout = find_path(
             &projection,
             NavPathQuery {
-                start: VoxelCoord::new(3, 1, 7),
-                goal: VoxelCoord::new(1, 1, 1),
+                start,
+                goal,
                 max_visited: 128,
             },
         )
@@ -1169,17 +1186,18 @@ mod tests {
     #[test]
     fn volumetric_path_output_is_deterministic_and_planar_defaults_hold() {
         let projection = projection();
+        let (start, goal) = generated_tunnel_nav_endpoints();
         let planar = find_path(
             &projection,
             NavPathQuery {
-                start: VoxelCoord::new(3, 1, 7),
-                goal: VoxelCoord::new(1, 1, 1),
+                start,
+                goal,
                 max_visited: 128,
             },
         )
         .expect("planar path");
         assert_eq!(projection.projection_hash(), 0x59b4_0936_25b1_0e49);
-        assert_eq!(planar.path_hash, 0xe8e1_ea7a_0981_1ced);
+        assert_eq!(planar.path_hash, 0x09ed_0284_f7c1_75e1);
 
         let mut world = solid_test_world();
         let path = [
@@ -1220,8 +1238,7 @@ mod tests {
     #[test]
     fn projected_direct_nav_movement_uses_nav_projection_path() {
         let projection = projection();
-        let start = VoxelCoord::new(3, 1, 7);
-        let goal = VoxelCoord::new(1, 1, 1);
+        let (start, goal) = generated_tunnel_nav_endpoints();
         let path = find_path(
             &projection,
             NavPathQuery {
@@ -1265,7 +1282,7 @@ mod tests {
     #[test]
     fn projected_direct_nav_movement_reports_reached_inside_same_cell() {
         let projection = projection();
-        let cell = VoxelCoord::new(3, 1, 7);
+        let (cell, _) = generated_tunnel_nav_endpoints();
         let from = cell_center(&projection, cell);
         let target = from + Vec3::new(0.125, 0.0, 0.0);
         let readout = propose_projected_direct_nav_movement(
@@ -1290,6 +1307,7 @@ mod tests {
     #[test]
     fn projected_direct_nav_movement_rejects_no_path() {
         let mut projection = projection();
+        let (start, goal) = generated_tunnel_nav_endpoints();
         for x in 1..=5 {
             projection = projection.without_walkable(VoxelCoord::new(x, 1, 4));
         }
@@ -1297,16 +1315,13 @@ mod tests {
             propose_projected_direct_nav_movement(
                 &projection,
                 ProjectedDirectNavMovementRequest {
-                    from: cell_center(&projection, VoxelCoord::new(3, 1, 7)),
-                    target: cell_center(&projection, VoxelCoord::new(1, 1, 1)),
+                    from: cell_center(&projection, start),
+                    target: cell_center(&projection, goal),
                     max_step_units: 1.0,
                     max_visited: 128,
                 },
             ),
-            Err(ProjectedDirectNavMovementError::NoPath {
-                start: VoxelCoord::new(3, 1, 7),
-                goal: VoxelCoord::new(1, 1, 1)
-            })
+            Err(ProjectedDirectNavMovementError::NoPath { start, goal })
         );
     }
 
@@ -1354,12 +1369,13 @@ mod tests {
     #[test]
     fn projected_direct_nav_movement_rejects_unwalkable_endpoints() {
         let projection = projection();
+        let (start, goal) = generated_tunnel_nav_endpoints();
         assert_eq!(
             propose_projected_direct_nav_movement(
                 &projection,
                 ProjectedDirectNavMovementRequest {
                     from: cell_center(&projection, VoxelCoord::new(0, 1, 0)),
-                    target: cell_center(&projection, VoxelCoord::new(1, 1, 1)),
+                    target: cell_center(&projection, goal),
                     max_step_units: 1.0,
                     max_visited: 128,
                 },
@@ -1372,7 +1388,7 @@ mod tests {
             propose_projected_direct_nav_movement(
                 &projection,
                 ProjectedDirectNavMovementRequest {
-                    from: cell_center(&projection, VoxelCoord::new(3, 1, 7)),
+                    from: cell_center(&projection, start),
                     target: cell_center(&projection, VoxelCoord::new(0, 1, 0)),
                     max_step_units: 1.0,
                     max_visited: 128,
@@ -1387,9 +1403,10 @@ mod tests {
     #[test]
     fn projected_direct_nav_movement_is_deterministic() {
         let projection = projection();
+        let (start, goal) = generated_tunnel_nav_endpoints();
         let request = ProjectedDirectNavMovementRequest {
-            from: cell_center(&projection, VoxelCoord::new(3, 1, 7)),
-            target: cell_center(&projection, VoxelCoord::new(1, 1, 1)),
+            from: cell_center(&projection, start),
+            target: cell_center(&projection, goal),
             max_step_units: 0.75,
             max_visited: 128,
         };
@@ -1401,7 +1418,7 @@ mod tests {
         assert_eq!(first, second);
         assert_ne!(first.movement_hash, 0);
         assert_eq!(first.projection_hash, 0x59b4_0936_25b1_0e49);
-        assert_eq!(first.path_hash, 0xe8e1_ea7a_0981_1ced);
+        assert_eq!(first.path_hash, 0x09ed_0284_f7c1_75e1);
     }
 
     #[test]

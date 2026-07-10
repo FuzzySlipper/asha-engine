@@ -1364,11 +1364,11 @@ void test('RuntimeSession exposes read-only nav projection, path, and policy vie
     assert.equal(projection.projectionHash, '59b4093625b10e49');
     const reachable = session.queryNavPath({ scenario: 'generated_tunnel_reachable' });
     assert.equal(reachable.outcome, 'reached');
-    assert.equal(reachable.visited, 45);
+    assert.equal(reachable.visited, 41);
     assert.equal(reachable.path.length, 9);
-    assert.deepEqual(reachable.path[0], [3, 1, 7]);
-    assert.deepEqual(reachable.path.at(-1), [1, 1, 1]);
-    assert.equal(reachable.pathHash, 'e8e1ea7a09811ced');
+    assert.deepEqual(reachable.path[0], [4, 1, 8]);
+    assert.deepEqual(reachable.path.at(-1), [2, 1, 2]);
+    assert.equal(reachable.pathHash, '09ed0284f7c175e1');
     const noPath = session.queryNavPath({ scenario: 'generated_tunnel_no_path' });
     assert.equal(noPath.outcome, 'no_path');
     assert.equal(noPath.rejectionReason, 'blocked');

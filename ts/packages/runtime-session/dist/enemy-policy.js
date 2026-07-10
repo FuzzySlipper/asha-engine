@@ -1,5 +1,6 @@
-const DEFAULT_ENEMY_POSITION = [3, 1, 7];
-const DEFAULT_TARGET_POSITION = [1, 1, 1];
+import { GENERATED_TUNNEL_NAV_MARKER_CELLS } from './nav-readout.js';
+const DEFAULT_ENEMY_POSITION = GENERATED_TUNNEL_NAV_MARKER_CELLS.exit_hint;
+const DEFAULT_TARGET_POSITION = GENERATED_TUNNEL_NAV_MARKER_CELLS.player_start;
 const FORBIDDEN_CAPABILITY_RULES = [
     { capability: 'clock', token: 'Date', pattern: /\bDate\s*\./ },
     { capability: 'random', token: 'Math.random', pattern: /\bMath\s*\.\s*random\s*\(/ },

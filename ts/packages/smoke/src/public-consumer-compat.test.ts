@@ -202,7 +202,7 @@ void test('asha-demo public roots cover RuntimeSession readouts and HUD/menu pro
   assert.equal(navProjection.projectionHash, '59b4093625b10e49');
   const reachable = session.queryNavPath({ scenario: 'generated_tunnel_reachable' });
   assert.equal(reachable.outcome, 'reached');
-  assert.equal(reachable.pathHash, 'e8e1ea7a09811ced');
+  assert.equal(reachable.pathHash, '09ed0284f7c175e1');
   const blocked = session.queryNavPath({ scenario: 'generated_tunnel_no_path' });
   assert.equal(blocked.outcome, 'no_path');
   assert.equal(blocked.rejectionReason, 'blocked');
@@ -229,7 +229,7 @@ void test('asha-demo public roots cover RuntimeSession readouts and HUD/menu pro
   assert.equal(autonomousTick.movementSummary?.authoritySource, 'seeded_from_request');
   assert.equal(autonomousTick.movementSummary?.authorityTransport, 'reference_bridge');
   assert.match(autonomousTick.movementSummary?.transformHash ?? '', /^fnv1a64:[0-9a-f]{16}$/);
-  assert.deepEqual(autonomousTick.movementSummary?.nextWaypoint, [2.863, 1.028, 6.679]);
+  assert.deepEqual(autonomousTick.movementSummary?.nextWaypoint, [3.844, 1.024, 7.688]);
   assert.match(autonomousTick.combatSummary?.healthHash ?? '', /^fnv1a64:[0-9a-f]{16}$/);
   assert.equal(autonomousTick.replay.lastRecordKind, 'runAutonomousPolicyTick');
   assert.ok(autonomousTick.tickHash.startsWith('fnv1a64:'));

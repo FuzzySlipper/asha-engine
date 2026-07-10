@@ -1,3 +1,8 @@
+import {
+  projectGeneratedTunnelMarkerToNavCell,
+  readTinyGeneratedTunnelSpawnMarker,
+} from './generated-tunnel.js';
+
 export type NavPathScenario = 'generated_tunnel_reachable' | 'generated_tunnel_no_path';
 
 export type NavPathEndpoint =
@@ -57,25 +62,34 @@ const DEFAULT_NAV_QUERY = {
   maxVisited: 128,
 } as const;
 
+export const GENERATED_TUNNEL_NAV_MARKER_CELLS = {
+  exit_hint: projectGeneratedTunnelMarkerToNavCell(
+    readTinyGeneratedTunnelSpawnMarker('exit_hint'),
+  ),
+  player_start: projectGeneratedTunnelMarkerToNavCell(
+    readTinyGeneratedTunnelSpawnMarker('player_start'),
+  ),
+} as const;
+
 export const GENERATED_TUNNEL_REACHABLE_PATH: NavPathReadout = {
   scenario: 'generated_tunnel_reachable',
   projection: GENERATED_TUNNEL_NAV_PROJECTION,
   query: DEFAULT_NAV_QUERY,
   outcome: 'reached',
   rejectionReason: null,
-  visited: 45,
+  visited: 41,
   path: [
-    [3, 1, 7],
+    GENERATED_TUNNEL_NAV_MARKER_CELLS.exit_hint,
+    [3, 1, 8],
+    [2, 1, 8],
     [2, 1, 7],
-    [1, 1, 7],
-    [1, 1, 6],
-    [1, 1, 5],
-    [1, 1, 4],
-    [1, 1, 3],
-    [1, 1, 2],
-    [1, 1, 1],
+    [2, 1, 6],
+    [2, 1, 5],
+    [2, 1, 4],
+    [2, 1, 3],
+    GENERATED_TUNNEL_NAV_MARKER_CELLS.player_start,
   ],
-  pathHash: 'e8e1ea7a09811ced',
+  pathHash: '09ed0284f7c175e1',
 };
 
 export const GENERATED_TUNNEL_NO_PATH: NavPathReadout = {

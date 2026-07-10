@@ -42,6 +42,10 @@ export interface NavPolicyViewReadout {
     readonly proposalOnly: true;
 }
 export declare const GENERATED_TUNNEL_NAV_PROJECTION: NavProjectionReadout;
+export declare const GENERATED_TUNNEL_NAV_MARKER_CELLS: {
+    readonly exit_hint: readonly [number, number, number];
+    readonly player_start: readonly [number, number, number];
+};
 export declare const GENERATED_TUNNEL_REACHABLE_PATH: NavPathReadout;
 export declare const GENERATED_TUNNEL_NO_PATH: NavPathReadout;
 export declare const GENERATED_TUNNEL_NAV_POLICY_VIEW: NavPolicyViewReadout;

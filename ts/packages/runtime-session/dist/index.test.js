@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { cameraHandle } from '@asha/contracts';
-import { GENERATED_TUNNEL_NAV_POLICY_VIEW, GENERATED_TUNNEL_NAV_PROJECTION, GENERATED_TUNNEL_FIRE_HIT_READOUT, TINY_GENERATED_TUNNEL_READOUT, buildEncounterDirectorReadout, buildCombatFeedbackProjection, createGeneratedTunnelEnemyPolicyFixture, defaultCombatFeedbackIntent, } from './index.js';
+import { GENERATED_TUNNEL_NAV_MARKER_CELLS, GENERATED_TUNNEL_NAV_POLICY_VIEW, GENERATED_TUNNEL_NAV_PROJECTION, GENERATED_TUNNEL_REACHABLE_PATH, GENERATED_TUNNEL_FIRE_HIT_READOUT, GENERATED_TUNNEL_SMALL_ENCOUNTER_CONFIG, TINY_GENERATED_TUNNEL_READOUT, buildEncounterDirectorReadout, buildCombatFeedbackProjection, createGeneratedTunnelEnemyPolicyFixture, defaultCombatFeedbackIntent, projectGeneratedTunnelMarkerToNavCell, projectGeneratedTunnelMarkerToRuntimeWorld, readTinyGeneratedTunnelSpawnMarker, } from './index.js';
 const facadeOwnershipCompiles = true;
 void test('@asha/runtime-session exposes semantic readouts without a bridge backend', () => {
     assert.equal(facadeOwnershipCompiles, true);
@@ -55,5 +55,15 @@ void test('@asha/runtime-session root owns generated-tunnel semantic helpers', (
     assert.equal(enemyPolicy.frame.proposals.length, 2);
     assert.equal(encounter.kind, 'runtime_session.encounter_director.v0');
     assert.equal(encounter.state.status, 'active');
+});
+void test('generated-tunnel encounter and nav projections correspond to source markers', () => {
+    const exitMarker = readTinyGeneratedTunnelSpawnMarker('exit_hint');
+    const playerStartMarker = readTinyGeneratedTunnelSpawnMarker('player_start');
+    const encounterSpawn = GENERATED_TUNNEL_SMALL_ENCOUNTER_CONFIG.spawnMarkerRefs[0];
+    assert.deepEqual(encounterSpawn?.world, projectGeneratedTunnelMarkerToRuntimeWorld(exitMarker, TINY_GENERATED_TUNNEL_READOUT.runtimeFrame));
+    assert.deepEqual(GENERATED_TUNNEL_NAV_MARKER_CELLS.exit_hint, projectGeneratedTunnelMarkerToNavCell(exitMarker));
+    assert.deepEqual(GENERATED_TUNNEL_NAV_MARKER_CELLS.player_start, projectGeneratedTunnelMarkerToNavCell(playerStartMarker));
+    assert.deepEqual(GENERATED_TUNNEL_REACHABLE_PATH.path[0], GENERATED_TUNNEL_NAV_MARKER_CELLS.exit_hint);
+    assert.deepEqual(GENERATED_TUNNEL_REACHABLE_PATH.path.at(-1), GENERATED_TUNNEL_NAV_MARKER_CELLS.player_start);
 });
 //# sourceMappingURL=index.test.js.map

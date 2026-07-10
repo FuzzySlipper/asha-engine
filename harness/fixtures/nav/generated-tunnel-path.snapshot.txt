@@ -2,7 +2,7 @@ nav-path 1
 walkable=45
 projection_hash=59b4093625b10e49
 outcome=Reached
-visited=45
+visited=41
 path_len=9
-path=3,1,7 -> 2,1,7 -> 1,1,7 -> 1,1,6 -> 1,1,5 -> 1,1,4 -> 1,1,3 -> 1,1,2 -> 1,1,1
-path_hash=e8e1ea7a09811ced
+path=4,1,8 -> 3,1,8 -> 2,1,8 -> 2,1,7 -> 2,1,6 -> 2,1,5 -> 2,1,4 -> 2,1,3 -> 2,1,2
+path_hash=09ed0284f7c175e1

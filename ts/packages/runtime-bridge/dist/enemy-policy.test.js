@@ -43,8 +43,8 @@ void test('enemy policy fixture proposes movement and typed fire intent from rea
     const moveProposal = fixture.frame.proposals.find((proposal) => proposal.kind === 'enemy_policy.move_toward_target.v0');
     assert.ok(moveProposal);
     assert.equal(moveProposal.actor, 'generated-tunnel.enemy.1');
-    assert.equal(moveProposal.pathHash, 'e8e1ea7a09811ced');
-    assert.deepEqual(moveProposal.nextWaypoint, [2, 1, 7]);
+    assert.equal(moveProposal.pathHash, '09ed0284f7c175e1');
+    assert.deepEqual(moveProposal.nextWaypoint, [3, 1, 8]);
     assert.equal(moveProposal.authority, 'rust_runtime_must_validate');
     const fireProposal = fixture.frame.proposals.find((proposal) => proposal.kind === 'enemy_policy.primary_fire_intent.v0');
     assert.ok(fireProposal);

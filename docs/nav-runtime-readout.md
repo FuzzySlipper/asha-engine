@@ -23,8 +23,8 @@ navigation projection:
 
 `RuntimeSessionFacade.queryNavPath()` exposes two typed readouts:
 
-- `generated_tunnel_reachable`: reached, visited `45`, path length `9`, path hash
-  `e8e1ea7a09811ced`
+- `generated_tunnel_reachable`: reached, visited `41`, path length `9`, path hash
+  `09ed0284f7c175e1`
 - `generated_tunnel_no_path`: no path, rejection reason `blocked`, empty path hash
   `a8c7f832281a39c5`
 

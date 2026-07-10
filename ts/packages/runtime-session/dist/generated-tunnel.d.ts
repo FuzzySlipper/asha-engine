@@ -1,4 +1,5 @@
 export type GeneratedTunnelPresetId = 'tiny-enclosed';
+export type GeneratedTunnelSpawnMarkerId = 'player_start' | 'exit_hint';
 export interface GeneratedTunnelReadoutRequest {
     readonly presetId?: GeneratedTunnelPresetId;
     readonly seed?: number;
@@ -30,7 +31,7 @@ export interface GeneratedTunnelRoomSummary {
     readonly count: 0;
 }
 export interface GeneratedTunnelSpawnMarkerSummary {
-    readonly id: 'player_start' | 'exit_hint';
+    readonly id: GeneratedTunnelSpawnMarkerId;
     readonly kind: 'player' | 'navigation';
     readonly voxel: readonly [number, number, number];
     readonly world: readonly [number, number, number];
@@ -89,4 +90,7 @@ export interface GeneratedTunnelAppliedOperationReceipt {
 }
 export type GeneratedTunnelOperationReceipt = GeneratedTunnelUnsupportedOperationReceipt | GeneratedTunnelAppliedOperationReceipt;
 export declare const TINY_GENERATED_TUNNEL_READOUT: GeneratedTunnelReadout;
+export declare function readTinyGeneratedTunnelSpawnMarker(markerId: GeneratedTunnelSpawnMarkerId): GeneratedTunnelSpawnMarkerSummary;
+export declare function projectGeneratedTunnelMarkerToRuntimeWorld(marker: GeneratedTunnelSpawnMarkerSummary, frame: GeneratedTunnelRuntimeFrameSummary): readonly [number, number, number];
+export declare function projectGeneratedTunnelMarkerToNavCell(marker: GeneratedTunnelSpawnMarkerSummary): readonly [number, number, number];
 //# sourceMappingURL=generated-tunnel.d.ts.map

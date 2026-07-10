@@ -47,7 +47,7 @@ void test('RuntimeSession exposes deterministic encounter director pending and a
     assert.equal(pending.config.source, 'project_bundle.encounter_preset');
     assert.equal(pending.config.configHash, GENERATED_TUNNEL_SMALL_ENCOUNTER_CONFIG.configHash);
     assert.equal(pending.config.spawnOrderHash, GENERATED_TUNNEL_SMALL_ENCOUNTER_CONFIG.spawnOrderHash);
-    assert.equal(pending.config.configHash, '3c8c9c0d0541935f');
+    assert.equal(pending.config.configHash, 'fa126400823f0e89');
     assert.equal(pending.config.spawnOrderHash, '68fafab271825648');
     assert.equal(pending.config.fixturePath, 'harness/fixtures/encounters/generated-tunnel-small-encounter.snapshot.txt');
     assert.equal(pending.state.status, 'pending');
@@ -58,12 +58,12 @@ void test('RuntimeSession exposes deterministic encounter director pending and a
         'encounter.generated_tunnel_small.wave_1.enemy_001',
     ]);
     assert.deepEqual(pending.spawns.map((spawn) => spawn.spawnMarker.markerId), ['exit_hint']);
-    assert.deepEqual(pending.spawns[0]?.spawnMarker.world, [3.5, 1.5, 7.5]);
+    assert.deepEqual(pending.spawns[0]?.spawnMarker.world, [1, 1.5, 3]);
     assert.equal(pending.spawns[0]?.enemy.definitionId, 'entity.enemy.generated_tunnel.basic.v0');
     assert.equal(pending.lifecycle.outcomeKind, 'in_progress');
     assert.equal(pending.hashes.spawnOrderHash, GENERATED_TUNNEL_SMALL_ENCOUNTER_CONFIG.spawnOrderHash);
-    assert.equal(pending.hashes.encounterHash, 'b0a61b9060f6cb3f');
-    assert.equal(pending.hashes.replayHash, '5a3bf9685c280cec');
+    assert.equal(pending.hashes.encounterHash, '680672a6f6334d30');
+    assert.equal(pending.hashes.replayHash, 'a0d3a17f073cd37e');
     const sameSeedSession = createMockRuntimeSession();
     sameSeedSession.initialize(sessionInput());
     const sameSeedPending = sameSeedSession.readEncounterDirector();
@@ -79,7 +79,7 @@ void test('RuntimeSession exposes deterministic encounter director pending and a
     assert.equal(activated.after.state.activeEnemyCount, 1);
     assert.equal(activated.after.state.pendingEnemyCount, 0);
     assert.equal(activated.after.spawns[0]?.status, 'spawned');
-    assert.equal(activated.hashes.transitionHash, '0fc329ac95377fa8');
+    assert.equal(activated.hashes.transitionHash, '44cff941f20f6b19');
     assert.notEqual(activated.hashes.sessionHashAfter, activated.hashes.sessionHashBefore);
     assert.equal(session.readTelemetry().replayRecords.at(-1)?.kind, 'requestEncounterTransition');
 });
@@ -106,7 +106,7 @@ void test('RuntimeSession encounter director syncs lifecycle clear/fail and rest
     assert.equal(cleared.after.spawns[0]?.status, 'defeated');
     assert.equal(cleared.after.lifecycle.outcomeKind, 'won');
     assert.equal(cleared.after.lifecycle.enemyDead, true);
-    assert.equal(cleared.hashes.transitionHash, '2b0132ff232c7bd0');
+    assert.equal(cleared.hashes.transitionHash, 'eb120e107cd105b9');
     session.restart();
     const reset = session.readEncounterDirector();
     assert.equal(reset.state.status, 'pending');
@@ -126,7 +126,7 @@ void test('RuntimeSession encounter director syncs lifecycle clear/fail and rest
     assert.equal(failed.after.state.failedReason, 'player_defeated');
     assert.equal(failed.after.lifecycle.outcomeKind, 'lost');
     assert.equal(failed.after.lifecycle.playerDead, true);
-    assert.equal(failed.hashes.transitionHash, '3dfdeccbed7fc1f9');
+    assert.equal(failed.hashes.transitionHash, 'e9ea7444d202d286');
 });
 void test('RuntimeSession encounter transition fails closed with typed rejection receipts', () => {
     const session = createMockRuntimeSession();

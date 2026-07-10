@@ -1,14 +1,20 @@
+import { projectGeneratedTunnelMarkerToRuntimeWorld, readTinyGeneratedTunnelSpawnMarker, TINY_GENERATED_TUNNEL_READOUT, } from './generated-tunnel.js';
 const ENCOUNTER_INSTANCE_ID = 'encounter.generated_tunnel_small.wave_1.enemy_001';
 const ENCOUNTER_ENTITY_REF = {
     source: 'project_bundle.entity_definition',
     definitionId: 'entity.enemy.generated_tunnel.basic.v0',
     entityDefinitionId: 'generated-tunnel.enemy.basic',
 };
+const ENCOUNTER_GENERATED_MARKER = readTinyGeneratedTunnelSpawnMarker('exit_hint');
+if (ENCOUNTER_GENERATED_MARKER.id !== 'exit_hint' ||
+    ENCOUNTER_GENERATED_MARKER.yawDegrees !== 180) {
+    throw new TypeError('Generated tunnel exit marker does not match the encounter preset contract');
+}
 const ENCOUNTER_SPAWN_MARKER = {
     source: 'generated_tunnel.spawn_marker',
-    markerId: 'exit_hint',
-    world: [3.5, 1.5, 7.5],
-    yawDegrees: 180,
+    markerId: ENCOUNTER_GENERATED_MARKER.id,
+    world: projectGeneratedTunnelMarkerToRuntimeWorld(ENCOUNTER_GENERATED_MARKER, TINY_GENERATED_TUNNEL_READOUT.runtimeFrame),
+    yawDegrees: ENCOUNTER_GENERATED_MARKER.yawDegrees,
 };
 const ENCOUNTER_CONFIG_BASE = {
     kind: 'encounter_config.generated_tunnel_small.v0',

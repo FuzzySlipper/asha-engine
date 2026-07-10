@@ -1,5 +1,6 @@
 import type { CameraHandle } from '@asha/contracts';
 
+import { GENERATED_TUNNEL_NAV_MARKER_CELLS } from './nav-readout.js';
 import type { NavPolicyViewReadout } from './nav-readout.js';
 import type { RuntimeActionIntentEnvelope } from './runtime-action.js';
 
@@ -115,8 +116,8 @@ interface ForbiddenCapabilityRule {
   readonly pattern: RegExp;
 }
 
-const DEFAULT_ENEMY_POSITION: EnemyPolicyVec3 = [3, 1, 7];
-const DEFAULT_TARGET_POSITION: EnemyPolicyVec3 = [1, 1, 1];
+const DEFAULT_ENEMY_POSITION: EnemyPolicyVec3 = GENERATED_TUNNEL_NAV_MARKER_CELLS.exit_hint;
+const DEFAULT_TARGET_POSITION: EnemyPolicyVec3 = GENERATED_TUNNEL_NAV_MARKER_CELLS.player_start;
 
 const FORBIDDEN_CAPABILITY_RULES: readonly ForbiddenCapabilityRule[] = [
   { capability: 'clock', token: 'Date', pattern: /\bDate\s*\./ },
