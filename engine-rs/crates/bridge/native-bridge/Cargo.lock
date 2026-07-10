@@ -705,6 +705,7 @@ dependencies = [
  "svc-combat",
  "svc-entity-authoring",
  "svc-game-rules",
+ "svc-pathfinding",
 ]
 
 [[package]]
