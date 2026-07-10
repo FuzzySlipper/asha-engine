@@ -1026,12 +1026,12 @@ impl RuntimeBridge for EngineBridge {
         }
 
         let key = Self::voxel_model_key(target.spec.id().raw() as u64, &target.volume_asset_id);
-        let info = Self::loaded_voxel_asset_info(
-            &request,
-            &target,
-            &prior_world,
-            self.voxel_model_infos.get(&key),
-        );
+        let existing = if request.replace_existing {
+            None
+        } else {
+            self.voxel_model_infos.get(&key)
+        };
+        let info = Self::loaded_voxel_asset_info(&request, &target, &prior_world, existing);
         let receipt =
             Self::voxel_volume_asset_load_receipt(&request, &target, &info, true, Vec::new());
         self.reset_voxel_edit_history(candidate);

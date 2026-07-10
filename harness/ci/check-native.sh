@@ -208,7 +208,7 @@ assert.equal(referenceMeshImport.materialSlots.length, 2);
 assert.deepEqual(referenceMeshImport.sourceBounds, { min: [-0.5, 0, -0.5], max: [0.5, 1, 0.5] });
 const referencePlan = bridge.planVoxelConversion({
   source: referenceMeshImport.source,
-  target: { grid: 1, volumeAssetId: 'voxel/generated', origin: { x: 0, y: 0, z: 0 } },
+  target: { grid: 2, volumeAssetId: 'voxel/generated', origin: { x: 0, y: 0, z: 0 } },
   settings: {
     mode: 'surface',
     fitPolicy: 'contain',
@@ -247,7 +247,7 @@ assert.equal(referenceMetadata.vertexCount, 48);
 assert.equal(referenceMetadata.triangleCount, 12);
 assert.equal(referenceMetadata.groups.length, 2);
 const referenceModel = bridge.readVoxelModelInfo({
-  grid: 1,
+  grid: 2,
   volumeAssetId: 'voxel/generated',
   includeMaterialCounts: true,
 });

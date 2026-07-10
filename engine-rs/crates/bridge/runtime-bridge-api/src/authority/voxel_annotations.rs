@@ -614,22 +614,6 @@ impl EngineBridge {
         runs.sort_by_key(|run| (run.start.z, run.start.y, run.start.x));
     }
 
-    pub(super) fn voxel_asset_material_counts(
-        asset: &VoxelVolumeAsset,
-    ) -> Vec<VoxelAssetMaterialCount> {
-        let mut counts = BTreeMap::<u16, u64>::new();
-        for run in &asset.representation.sparse_runs {
-            *counts.entry(run.material).or_insert(0) += u64::from(run.length);
-        }
-        counts
-            .into_iter()
-            .map(|(material, voxel_count)| VoxelAssetMaterialCount {
-                material,
-                voxel_count,
-            })
-            .collect()
-    }
-
     pub(super) fn voxel_state_hash(world: &VoxelWorld) -> String {
         let mut buf = String::new();
         for (coord, chunk) in world.resident_chunks() {
