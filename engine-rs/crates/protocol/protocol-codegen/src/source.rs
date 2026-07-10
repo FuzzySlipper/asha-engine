@@ -10,8 +10,9 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use syn::{
-    Attribute, Expr, ExprLit, Fields, GenericArgument, ItemConst, ItemEnum, ItemStruct, ItemType,
-    Lit, PathArguments, Type, Visibility,
+    parse::{Parse, ParseStream},
+    Attribute, Expr, ExprLit, Fields, GenericArgument, Ident, ItemConst, ItemEnum, ItemStruct,
+    ItemType, Lit, PathArguments, Type, Visibility,
 };
 
 #[derive(Debug, Clone)]
@@ -20,6 +21,23 @@ enum Declaration {
     Enum(ItemEnum),
     Alias(ItemType),
     Const(ItemConst),
+    MacroId,
+}
+
+#[derive(Debug, Clone)]
+struct MacroIdDeclaration {
+    ident: Ident,
+}
+
+impl Parse for MacroIdDeclaration {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let _attrs = Attribute::parse_outer(input)?;
+        let ident = input.parse()?;
+        if !input.is_empty() {
+            return Err(input.error("unexpected tokens in id_type! declaration"));
+        }
+        Ok(Self { ident })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -65,6 +83,16 @@ impl SourceIndex {
                     }
                     syn::Item::Const(item) if is_public(&item.vis) => {
                         (item.ident.to_string(), Declaration::Const(item))
+                    }
+                    syn::Item::Macro(item) if item.mac.path.is_ident("id_type") => {
+                        let declaration = syn::parse2::<MacroIdDeclaration>(item.mac.tokens)
+                            .map_err(|error| {
+                                format!(
+                                    "failed to parse id_type! declaration in {}: {error}",
+                                    path.display()
+                                )
+                            })?;
+                        (declaration.ident.to_string(), Declaration::MacroId)
                     }
                     _ => continue,
                 };
@@ -583,9 +611,11 @@ fn declaration_item(
                 let values = item
                     .variants
                     .iter()
-                    .filter_map(|variant| {
-                        let variant_options = serde_options(&variant.attrs).ok()?;
-                        (!variant_options.skip).then(|| {
+                    .map(|variant| {
+                        let variant_options = serde_options(&variant.attrs).map_err(|error| {
+                            format!("failed to derive enum variant `{}`: {error}", variant.ident)
+                        })?;
+                        Ok((!variant_options.skip).then(|| {
                             if output_name == "ScreenPointSpace" && variant.ident == "Normalized01"
                             {
                                 "normalized_0_1".to_string()
@@ -596,8 +626,11 @@ fn declaration_item(
                                     enum_rule,
                                 )
                             }
-                        })
+                        }))
                     })
+                    .collect::<Result<Vec<_>, String>>()?
+                    .into_iter()
+                    .flatten()
                     .collect();
                 Item::Alias {
                     doc: documentation(&item.attrs),
@@ -663,8 +696,47 @@ fn declaration_item(
         Declaration::Const(_) => {
             return Err(format!("`{output_name}` is a const, not a type"));
         }
+        Declaration::MacroId => {
+            return Err(format!(
+                "`{output_name}` is a macro-declared ID; use a brand plan"
+            ));
+        }
     };
     Ok(result)
+}
+
+fn branded_id_item(declaration: &LocatedDeclaration, output_name: &str) -> Result<Item, String> {
+    let attrs = match &declaration.declaration {
+        Declaration::Struct(item) => match &item.fields {
+            Fields::Unnamed(fields)
+                if fields.unnamed.len() == 1
+                    && ts_type(&fields.unnamed[0].ty) == Ok(TsType::Prim(TsPrim::Number)) =>
+            {
+                &item.attrs
+            }
+            _ => {
+                return Err(format!(
+                    "brand source `{}` must be a one-field numeric tuple struct",
+                    item.ident
+                ));
+            }
+        },
+        Declaration::MacroId => {
+            return Ok(Item::BrandedId {
+                doc: format!("Branded `{output_name}` border identifier."),
+                name: output_name.to_string(),
+            });
+        }
+        Declaration::Enum(_) | Declaration::Alias(_) | Declaration::Const(_) => {
+            return Err(format!(
+                "brand source `{output_name}` must be a one-field numeric tuple struct"
+            ));
+        }
+    };
+    Ok(Item::BrandedId {
+        doc: documentation(attrs),
+        name: output_name.to_string(),
+    })
 }
 
 fn constant_item(declaration: &LocatedDeclaration, output_name: &str) -> Result<Item, String> {
@@ -755,22 +827,14 @@ fn source_module(index: &SourceIndex, plan: ModulePlan) -> Result<Module, String
             return Err(format!("invalid declaration plan `{declaration_plan}`"));
         }
         if kind == "brand" {
-            let doc = index
-                .resolve(rust_name, plan.preferred_paths)
-                .ok()
-                .map(|declaration| {
-                    documentation(match &declaration.declaration {
-                        Declaration::Struct(item) => &item.attrs,
-                        Declaration::Alias(item) => &item.attrs,
-                        _ => &[],
-                    })
-                })
-                .filter(|doc| !doc.is_empty())
-                .unwrap_or_else(|| format!("Branded `{output_name}` border identifier."));
-            items.push(Item::BrandedId {
-                doc,
-                name: output_name.to_string(),
-            });
+            let declaration = index.resolve(rust_name, plan.preferred_paths)?;
+            let item = branded_id_item(declaration, output_name).map_err(|error| {
+                format!(
+                    "failed to derive `{output_name}` from {}: {error}",
+                    declaration.path.display()
+                )
+            })?;
+            items.push(item);
             continue;
         }
         let declaration = index.resolve(rust_name, plan.preferred_paths)?;
@@ -1085,6 +1149,28 @@ mod tests {
     use super::*;
     use std::collections::BTreeSet;
 
+    fn source_index_with(name: &str, path: &str, declaration: Declaration) -> SourceIndex {
+        let mut index = SourceIndex::default();
+        index
+            .declarations
+            .entry(name.to_string())
+            .or_default()
+            .push(LocatedDeclaration {
+                path: PathBuf::from(path),
+                declaration,
+            });
+        index
+    }
+
+    fn test_plan(declarations: &'static str) -> ModulePlan {
+        ModulePlan {
+            name: "test",
+            preferred_paths: &[],
+            imports: &[],
+            declarations,
+        }
+    }
+
     #[test]
     fn naming_rules_are_deterministic() {
         assert_eq!(to_camel_case("source_tool"), "sourceTool");
@@ -1112,6 +1198,110 @@ mod tests {
             .expect("representative unsupported Rust type parses");
         let error = ts_type(&rust_type).expect_err("unsupported generic must fail");
         assert!(error.contains("unsupported Rust type"), "{error}");
+    }
+
+    #[test]
+    fn brand_plans_require_one_numeric_rust_newtype() {
+        let missing = source_module(&SourceIndex::default(), test_plan("brand:MissingBrand"))
+            .expect_err("missing brand authority must fail");
+        assert!(
+            missing.contains("no public Rust declaration named `MissingBrand`"),
+            "{missing}"
+        );
+
+        let wrong_kind: ItemEnum =
+            syn::parse_str("pub enum NotAnId { Value }").expect("enum parses");
+        let index = source_index_with(
+            "NotAnId",
+            "authority/not_an_id.rs",
+            Declaration::Enum(wrong_kind),
+        );
+        let wrong_kind = source_module(&index, test_plan("brand:NotAnId"))
+            .expect_err("non-newtype brand authority must fail");
+        assert!(
+            wrong_kind.contains("authority/not_an_id.rs"),
+            "{wrong_kind}"
+        );
+        assert!(
+            wrong_kind.contains("must be a one-field numeric tuple struct"),
+            "{wrong_kind}"
+        );
+
+        let first: ItemStruct =
+            syn::parse_str("pub struct DuplicateId(pub u64);").expect("first newtype parses");
+        let second = first.clone();
+        let mut index = source_index_with(
+            "DuplicateId",
+            "authority/first.rs",
+            Declaration::Struct(first),
+        );
+        index
+            .declarations
+            .get_mut("DuplicateId")
+            .expect("first declaration exists")
+            .push(LocatedDeclaration {
+                path: PathBuf::from("authority/second.rs"),
+                declaration: Declaration::Struct(second),
+            });
+        let ambiguous = source_module(&index, test_plan("brand:DuplicateId"))
+            .expect_err("ambiguous brand authority must fail");
+        assert!(
+            ambiguous.contains("ambiguous Rust declaration `DuplicateId`"),
+            "{ambiguous}"
+        );
+    }
+
+    #[test]
+    fn unit_enum_variant_serde_errors_are_not_treated_as_skips() {
+        let enumeration: ItemEnum = syn::parse_str(
+            r#"
+                pub enum BrokenMode {
+                    Accepted,
+                    #[serde(rename_all = "kebab-case")]
+                    Malformed,
+                }
+            "#,
+        )
+        .expect("representative enum parses");
+        let index = source_index_with(
+            "BrokenMode",
+            "authority/broken_mode.rs",
+            Declaration::Enum(enumeration),
+        );
+        let error = source_module(&index, test_plan("type:BrokenMode"))
+            .expect_err("malformed variant serde metadata must fail");
+        assert!(error.contains("authority/broken_mode.rs"), "{error}");
+        assert!(error.contains("enum variant `Malformed`"), "{error}");
+        assert!(
+            error.contains("unsupported serde rename rule `kebab-case`"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn explicitly_skipped_unit_enum_variants_are_omitted() {
+        let enumeration: ItemEnum = syn::parse_str(
+            r#"
+                pub enum SupportedMode {
+                    Accepted,
+                    #[serde(skip)]
+                    IntentionallySkipped,
+                }
+            "#,
+        )
+        .expect("representative enum parses");
+        let located = LocatedDeclaration {
+            path: PathBuf::from("authority/supported_mode.rs"),
+            declaration: Declaration::Enum(enumeration),
+        };
+        let Item::Alias {
+            ty: TsType::StringEnum(values),
+            ..
+        } = declaration_item(&located, "SupportedMode", None).expect("enum derives")
+        else {
+            panic!("unit enum must derive a string union");
+        };
+        assert_eq!(values, ["accepted"]);
     }
 
     #[test]
