@@ -18,8 +18,17 @@ const MAX_HISTORY_READ_ENTRIES: u64 = 1_000;
 
 impl EngineBridge {
     pub(super) fn reset_voxel_edit_history(&mut self, world: VoxelWorld) {
+        self.reset_voxel_edit_history_with_collision_offset(world, [0.0; 3]);
+    }
+
+    pub(super) fn reset_voxel_edit_history_with_collision_offset(
+        &mut self,
+        world: VoxelWorld,
+        collision_world_offset: [f64; 3],
+    ) {
         self.voxel_edit_history = Some(AuthorityVoxelEditHistory::new(world.clone()));
         self.voxel = Some(world);
+        self.collision_world_offset = collision_world_offset;
     }
 
     pub(super) fn submit_commands_with_voxel_history(

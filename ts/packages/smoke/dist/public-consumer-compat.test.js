@@ -52,7 +52,7 @@ void test('asha-demo public roots cover RuntimeSession readouts and HUD/menu pro
     assert.equal(gameplayPreset.preset.playerController.moveSpeedUnitsPerSecond, 3);
     assert.equal(gameplayPreset.preset.weapon.damage, 40);
     assert.equal(gameplayPreset.preset.encounter.presetId, 'generated-tunnel-small-encounter');
-    assert.equal(gameplayPreset.hashes.presetHash, 'fnv1a64:9e75a96c48e71e22');
+    assert.equal(gameplayPreset.hashes.presetHash, 'fnv1a64:450137ad940ba1fb');
     const gameplayCatalog = readFpsGameplayPresetCatalog();
     assert.equal(gameplayCatalog.hashes.defaultPresetHash, gameplayPreset.hashes.presetHash);
     assert.ok(gameplayCatalog.consumerOwnership.gameOwned.includes('playerController'));

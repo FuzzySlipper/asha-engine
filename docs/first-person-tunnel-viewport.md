@@ -29,7 +29,7 @@ Pinned evidence in the current fixture:
 - fixture name: `generated-tunnel-first-person-viewport`
 - generated tunnel output hash: `a9b504096397f5b4`
 - generated tunnel render projection hash: `fnv1a64:21eb8696f6f3b5c4`
-- generated tunnel collision projection hash: `fnv1a64:5499053dc60a873b`
+- generated tunnel collision projection hash: `fnv1a64:b2312fbcfb060db3`
 - viewport frame hash: `fnv1a64:db081afd570c2f30`
 - viewport structural hash: `fnv1a64:35ad3bca1a9f1667`
 

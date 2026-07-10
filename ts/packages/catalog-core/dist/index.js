@@ -100,7 +100,7 @@ export const GENERATED_TUNNEL_DEFAULT_FPS_PRESET = {
         seed: 17,
         outputHash: 'a9b504096397f5b4',
         renderProjectionHash: 'fnv1a64:21eb8696f6f3b5c4',
-        collisionProjectionHash: 'fnv1a64:5499053dc60a873b',
+        collisionProjectionHash: 'fnv1a64:b2312fbcfb060db3',
     },
     ownership: DEFAULT_OWNERSHIP,
 };

@@ -179,6 +179,9 @@ struct ChunkCollider {
 /// A `parry3d`-backed collision world derived from a [`VoxelWorld`].
 pub struct CollisionProjection {
     grid: VoxelGridSpec,
+    /// Translation from canonical voxel coordinates into the runtime coordinate
+    /// frame queried by cameras, combat, and picking.
+    world_offset: WorldVec,
     /// Only chunks with at least one solid voxel appear here (deterministic order).
     chunks: BTreeMap<ChunkCoord, ChunkCollider>,
     /// Bumped on every (re)build so downstream can cheaply detect projection changes.
@@ -216,8 +219,18 @@ fn fnv1a64(bytes: &[u8]) -> u64 {
 impl CollisionProjection {
     /// Build a fresh projection over every resident chunk of `world`.
     pub fn build(world: &VoxelWorld) -> Self {
+        Self::build_with_offset(world, WorldVec::ZERO)
+    }
+
+    /// Build a projection translated into a runtime coordinate frame.
+    ///
+    /// The canonical voxel world remains unchanged. This is used when a generated
+    /// volume is authored in grid-local positive coordinates but its runtime room
+    /// frame is centered around the origin.
+    pub fn build_with_offset(world: &VoxelWorld, world_offset: WorldVec) -> Self {
         let mut proj = Self {
             grid: world.grid(),
+            world_offset,
             chunks: BTreeMap::new(),
             version: 0,
         };
@@ -226,16 +239,6 @@ impl CollisionProjection {
         }
         proj.version = 1;
         proj
-    }
-
-    /// Build an explicit unblocked projection for authority paths that validate
-    /// a target through a different rule surface before applying an effect.
-    pub fn unblocked(grid: VoxelGridSpec) -> Self {
-        Self {
-            grid,
-            chunks: BTreeMap::new(),
-            version: 1,
-        }
     }
 
     pub fn grid(&self) -> VoxelGridSpec {
@@ -281,11 +284,22 @@ impl CollisionProjection {
             .map(|coord| format!("{},{},{}", coord.x, coord.y, coord.z))
             .collect::<Vec<_>>()
             .join(";");
-        let projection_key = format!(
-            "{source_hash:016x}|v{}|n{}|{chunks}",
-            self.version(),
-            self.collider_count()
-        );
+        let projection_key = if self.world_offset == WorldVec::ZERO {
+            format!(
+                "{source_hash:016x}|v{}|n{}|{chunks}",
+                self.version(),
+                self.collider_count()
+            )
+        } else {
+            format!(
+                "{source_hash:016x}|v{}|n{}|o{:016x},{:016x},{:016x}|{chunks}",
+                self.version(),
+                self.collider_count(),
+                self.world_offset.x.to_bits(),
+                self.world_offset.y.to_bits(),
+                self.world_offset.z.to_bits(),
+            )
+        };
         CollisionProjectionIdentity {
             source_hash,
             projection_hash: fnv1a64(projection_key.as_bytes()),
@@ -295,7 +309,7 @@ impl CollisionProjection {
     /// Build/replace the collider for one chunk from its current voxels. Drops the
     /// entry if the chunk has become all-empty.
     fn set_chunk(&mut self, coord: ChunkCoord, chunk: &VoxelChunk) {
-        match build_chunk_shape(&self.grid, coord, chunk) {
+        match build_chunk_shape(&self.grid, self.world_offset, coord, chunk) {
             Some(shape) => {
                 self.chunks.insert(
                     coord,
@@ -344,7 +358,9 @@ impl CollisionProjection {
         match (self.chunks.get(&chunk), world.get(chunk)) {
             (Some(c), Some(data)) => c.source_hash != data.content_hash().0,
             // No collider but the chunk now has solids → stale (needs a build).
-            (None, Some(data)) => build_chunk_shape(&self.grid, chunk, data).is_some(),
+            (None, Some(data)) => {
+                build_chunk_shape(&self.grid, self.world_offset, chunk, data).is_some()
+            }
             // Have a collider but the chunk is gone/unloaded → stale (needs a drop).
             (Some(_), None) => true,
             (None, None) => false,
@@ -355,7 +371,7 @@ impl CollisionProjection {
     /// the projection (ray/shape queries follow in #2258). Routes to the single
     /// chunk that can contain `p`, then tests the projected cuboids.
     pub fn contains_point(&self, p: WorldPos) -> bool {
-        let voxel = self.grid.world_to_voxel(p);
+        let voxel = self.grid.world_to_voxel(p - self.world_offset);
         let chunk = self.grid.voxel_to_chunk(voxel);
         let Some(collider) = self.chunks.get(&chunk) else {
             return false;
@@ -412,7 +428,7 @@ impl CollisionProjection {
             point.y - normal.y * eps,
             point.z - normal.z * eps,
         );
-        let voxel = self.grid.world_to_voxel(inside);
+        let voxel = self.grid.world_to_voxel(inside - self.world_offset);
         Some(VoxelHit {
             voxel,
             chunk: self.grid.voxel_to_chunk(voxel),
@@ -440,8 +456,8 @@ impl CollisionProjection {
         ));
         let id = identity();
         // Chunk span the AABB covers (inclusive); `hi` is on a boundary so step in.
-        let vmin = self.grid.world_to_voxel(lo);
-        let vmax = self.grid.world_to_voxel(hi);
+        let vmin = self.grid.world_to_voxel(lo - self.world_offset);
+        let vmax = self.grid.world_to_voxel(hi - self.world_offset);
         let span = ChunkRegion::new(self.grid.voxel_to_chunk(vmin), {
             let c = self.grid.voxel_to_chunk(vmax);
             ChunkCoord::new(c.x + 1, c.y + 1, c.z + 1)
@@ -509,6 +525,7 @@ impl CollisionProjection {
 /// voxels, or `None` if the chunk has no solids.
 fn build_chunk_shape(
     spec: &VoxelGridSpec,
+    world_offset: WorldVec,
     coord: ChunkCoord,
     chunk: &VoxelChunk,
 ) -> Option<Compound> {
@@ -519,7 +536,7 @@ fn build_chunk_shape(
             continue;
         }
         let voxel = spec.chunk_local_to_voxel(coord, local);
-        let center = spec.voxel_center_world(voxel);
+        let center = spec.voxel_center_world(voxel) + world_offset;
         let pose = Pose::translation(center.x, center.y, center.z);
         parts.push((pose, SharedShape::cuboid(half, half, half)));
     }
@@ -782,7 +799,7 @@ mod tests {
 
     #[test]
     fn axis_swept_aabb_fails_closed_for_non_axis_translation() {
-        let projection = CollisionProjection::unblocked(spec());
+        let projection = CollisionProjection::build(&VoxelWorld::new(spec()));
         let min = WorldPos::new(0.0, 0.0, 0.0);
         let max = WorldPos::new(1.0, 1.0, 1.0);
 
@@ -792,6 +809,26 @@ mod tests {
             max,
             WorldVec::new(f64::INFINITY, 0.0, 0.0)
         ));
+    }
+
+    #[test]
+    fn translated_projection_queries_runtime_frame_and_reports_canonical_voxel() {
+        let world = world_with(ChunkCoord::ORIGIN, &[LocalVoxelCoord::new(2, 1, 4)]);
+        let offset = WorldVec::new(-2.5, -1.0, -4.5);
+        let projection = CollisionProjection::build_with_offset(&world, offset);
+        let runtime_center = WorldPos::new(0.0, 0.5, 0.0);
+
+        assert!(projection.contains_point(runtime_center));
+        assert!(!projection.contains_point(WorldPos::new(2.5, 1.5, 4.5)));
+
+        let hit = projection
+            .raycast(
+                Ray::new(WorldPos::new(0.0, 0.5, -2.0), WorldVec::new(0.0, 0.0, 1.0)),
+                4.0,
+            )
+            .expect("translated collider is hit in the runtime frame");
+        assert_eq!(hit.voxel, VoxelCoord::new(2, 1, 4));
+        assert_eq!(hit.point, WorldPos::new(0.0, 0.5, -0.5));
     }
 
     #[test]

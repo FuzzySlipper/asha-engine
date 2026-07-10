@@ -241,7 +241,7 @@ fn game_extension_weapon_effect_commits_lethal_demo_damage_to_session_readout() 
             primary_fire: FpsPrimaryFireRequest {
                 tick: 11,
                 origin: [2.5, 1.5, 1.5],
-                direction: [0.0, 0.0, -1.0],
+                direction: [0.0, 0.0, 1.0],
                 shooter_role: Some(FpsBridgeRole::Player),
                 target_role: Some(FpsBridgeRole::Enemy),
             },

@@ -21,7 +21,11 @@ import { createMockRuntimeSession } from '@asha/runtime-bridge/reference';
 - output hash `a9b504096397f5b4`
 - replay hash `fnv1a64:0821a0c2aea17dff`
 - render projection hash `fnv1a64:21eb8696f6f3b5c4`
-- collision projection hash `fnv1a64:5499053dc60a873b`
+- collision projection hash `fnv1a64:b2312fbcfb060db3`
+
+The collision projection identity includes the generator-owned centered runtime
+room offset, so camera, picking, and combat queries address the same coordinates
+as the first-person room projection while canonical voxel coordinates stay intact.
 - spawn markers `player_start` and `exit_hint`
 
 On a Rust-backed session, call

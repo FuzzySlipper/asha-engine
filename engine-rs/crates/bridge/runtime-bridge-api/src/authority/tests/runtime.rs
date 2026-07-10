@@ -294,7 +294,7 @@ fn generated_tunnel_apply_installs_collision_authority_for_loaded_fps_session() 
     assert_eq!(applied.collision_source_hash, "47e4c52bb98a5f36");
     assert_eq!(
         applied.collision_projection_hash,
-        "fnv1a64:5499053dc60a873b"
+        "fnv1a64:b2312fbcfb060db3"
     );
 
     let camera = bridge

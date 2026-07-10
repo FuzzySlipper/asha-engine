@@ -1319,7 +1319,7 @@ void test('RuntimeSession exposes the generated tunnel fixture readout and fail-
         'accent:3',
     ]);
     assert.equal(readout.renderProjection.hash, 'fnv1a64:21eb8696f6f3b5c4');
-    assert.equal(readout.collisionProjection.hash, 'fnv1a64:5499053dc60a873b');
+    assert.equal(readout.collisionProjection.hash, 'fnv1a64:b2312fbcfb060db3');
     const operation = session.requestGeneratedTunnelOperation({
         operation: 'regenerate',
         presetId: 'tiny-enclosed',

@@ -39,7 +39,7 @@ function tinyGeneratedTunnelReadout() {
             hash: 'fnv1a64:21eb8696f6f3b5c4',
         },
         collisionProjection: {
-            hash: 'fnv1a64:5499053dc60a873b',
+            hash: 'fnv1a64:b2312fbcfb060db3',
         },
         replayHash: 'fnv1a64:0821a0c2aea17dff',
     };

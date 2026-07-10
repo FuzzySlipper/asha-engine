@@ -11,7 +11,7 @@
 
 use core_events::VoxelEditEvent;
 use core_space::{
-    ChunkCoord, ChunkDims, GridId, LocalVoxelCoord, VoxelCoord, VoxelGridSpec, WorldPos,
+    ChunkCoord, ChunkDims, GridId, LocalVoxelCoord, VoxelCoord, VoxelGridSpec, WorldPos, WorldVec,
 };
 use core_voxel::{VoxelMaterialId, VoxelValue};
 use svc_rng::{RngSeed, ScopedRng};
@@ -180,6 +180,18 @@ pub struct GeneratedTunnel {
     pub collision_aabbs: Vec<GeneratedCollisionAabb>,
     pub render_chunks: Vec<GeneratedRenderChunk>,
     pub record: TunnelGenerationRecord,
+}
+
+impl GeneratedTunnel {
+    /// Translation from canonical positive voxel coordinates into the centered
+    /// runtime room frame used by first-person cameras and combat.
+    pub fn centered_runtime_world_offset(&self) -> WorldVec {
+        WorldVec::new(
+            -(f64::from(self.config.width) * self.config.voxel_size * 0.5),
+            -self.config.voxel_size,
+            -(f64::from(self.config.length) * self.config.voxel_size * 0.5),
+        )
+    }
 }
 
 /// Generate the validated tunnel fixture.
@@ -583,6 +595,26 @@ mod tests {
         let identity = projection.identity(&tunnel.world);
         assert_eq!(identity.source_hash_hex(), "47e4c52bb98a5f36");
         assert_eq!(identity.projection_hash_label(), "fnv1a64:5499053dc60a873b");
+    }
+
+    #[test]
+    fn centered_runtime_collision_frame_matches_first_person_room_coordinates() {
+        let tunnel = generate_tunnel(TunnelGeneratorConfig::tiny_enclosed(17)).expect("generate");
+        assert_eq!(
+            tunnel.centered_runtime_world_offset(),
+            WorldVec::new(-2.5, -1.0, -4.5)
+        );
+        let projection = CollisionProjection::build_with_offset(
+            &tunnel.world,
+            tunnel.centered_runtime_world_offset(),
+        );
+
+        assert!(projection.contains_point(WorldPos::new(0.0, -0.5, 0.0)));
+        assert!(!projection.contains_point(WorldPos::new(0.0, 0.5, 0.0)));
+        assert_eq!(
+            projection.identity(&tunnel.world).projection_hash_label(),
+            "fnv1a64:b2312fbcfb060db3"
+        );
     }
 
     #[test]

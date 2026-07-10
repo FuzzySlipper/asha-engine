@@ -1,5 +1,37 @@
 use super::*;
 
+fn centered_tunnel_fps_load_request(enemy_health: u32) -> FpsRuntimeSessionLoadRequest {
+    let mut request = fps_load_request(enemy_health);
+    for definition in &mut request.definitions {
+        match definition.role {
+            FpsBridgeRole::Player => {
+                definition.transform = Some(FpsBridgeTransformCapability {
+                    translation: [0.0, 1.62, 1.5],
+                    rotation: [0.0, 0.0, 0.0, 1.0],
+                    scale: [1.0, 1.0, 1.0],
+                });
+                definition.bounds = Some(FpsBridgeBoundsCapability {
+                    min: [-0.25, 0.92, 1.25],
+                    max: [0.25, 2.32, 1.75],
+                });
+            }
+            FpsBridgeRole::Enemy => {
+                definition.transform = Some(FpsBridgeTransformCapability {
+                    translation: [0.0, 0.5, -2.6],
+                    rotation: [0.0, 0.0, 0.0, 1.0],
+                    scale: [1.0, 1.0, 1.0],
+                });
+                definition.bounds = Some(FpsBridgeBoundsCapability {
+                    min: [-0.25, 0.0, -2.85],
+                    max: [0.25, 1.0, -2.35],
+                });
+            }
+            FpsBridgeRole::Neutral => {}
+        }
+    }
+    request
+}
+
 #[test]
 fn fps_runtime_session_loads_project_bundle_through_rust_authority() {
     let mut bridge = init_bridge();
@@ -96,7 +128,7 @@ fn fps_primary_fire_receipt_comes_from_rust_combat_lifecycle_and_replay() {
 fn generated_tunnel_preserves_explicit_role_targeted_enemy_damage() {
     let mut bridge = init_bridge();
     bridge
-        .load_fps_runtime_session(fps_load_request(75))
+        .load_fps_runtime_session(centered_tunnel_fps_load_request(75))
         .unwrap();
     bridge
         .apply_generated_tunnel_to_runtime_world(GeneratedTunnelRuntimeApplyRequest {
@@ -109,7 +141,7 @@ fn generated_tunnel_preserves_explicit_role_targeted_enemy_damage() {
         .apply_fps_primary_fire(FpsPrimaryFireRequest {
             tick: 6,
             origin: [0.0, 0.5, -2.6],
-            direction: [2.5, 1.0, 4.7],
+            direction: [0.0, 1.12, 4.1],
             shooter_role: Some(FpsBridgeRole::Enemy),
             target_role: Some(FpsBridgeRole::Player),
         })
@@ -139,6 +171,41 @@ fn generated_tunnel_preserves_explicit_role_targeted_enemy_damage() {
             .find(|health| health.entity == 101)
             .map(|health| health.current),
         Some(78)
+    );
+}
+
+#[test]
+fn explicit_role_pair_does_not_disable_generated_tunnel_occlusion() {
+    let mut bridge = init_bridge();
+    bridge
+        .load_fps_runtime_session(centered_tunnel_fps_load_request(75))
+        .unwrap();
+    bridge
+        .apply_generated_tunnel_to_runtime_world(GeneratedTunnelRuntimeApplyRequest {
+            preset: GeneratedTunnelPreset::TinyEnclosed,
+            seed: 17,
+        })
+        .unwrap();
+
+    let receipt = bridge
+        .apply_fps_primary_fire(FpsPrimaryFireRequest {
+            tick: 6,
+            origin: [0.0, 0.0, 0.0],
+            direction: [0.0, 1.62, 1.5],
+            shooter_role: Some(FpsBridgeRole::Enemy),
+            target_role: Some(FpsBridgeRole::Player),
+        })
+        .expect("explicit roles select identities without bypassing tunnel geometry");
+
+    assert_eq!(receipt.shooter, 777);
+    assert_eq!(receipt.target, None);
+    assert_eq!(receipt.target_health_before, receipt.target_health_after);
+    assert_eq!(
+        receipt.target_health_after,
+        Some(FpsBridgeHealth {
+            current: 88,
+            max: 88,
+        })
     );
 }
 

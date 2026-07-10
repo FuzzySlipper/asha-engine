@@ -17,6 +17,9 @@ pub struct EngineBridge {
     /// Live voxel authority for the launch/edit loop (launchable-voxel, #2436).
     /// Present once `initialize_engine` has set up the runtime.
     voxel: Option<VoxelWorld>,
+    /// Translation from canonical voxel coordinates into the active runtime
+    /// room frame. Generic voxel worlds use zero; generated centered rooms set it.
+    collision_world_offset: [f64; 3],
     /// Rust-owned accepted voxel transaction timeline for the live voxel authority.
     voxel_edit_history: Option<rule_voxel_edit::history::VoxelEditHistory>,
     /// The material catalog voxel edits validate against.

@@ -65,7 +65,7 @@ impl RuntimeBridge for EngineBridge {
         // Authority owns the raycast: build the collision projection from authority
         // voxel state and cast. The engine bridge currently rebuilds per pick; a
         // future authority optimization may cache the projection.
-        let projection = CollisionProjection::build(world);
+        let projection = self.collision_projection(world);
         let origin = WorldPos::new(ray.origin[0], ray.origin[1], ray.origin[2]);
         let dir = WorldVec::new(ray.direction[0], ray.direction[1], ray.direction[2]);
         match projection.raycast(Ray::new(origin, dir), ray.max_distance) {
@@ -123,7 +123,7 @@ impl RuntimeBridge for EngineBridge {
                 Self::integrate_camera_snapshot(before, envelope.input, envelope.tick)
             }
         };
-        let projection = CollisionProjection::build(world);
+        let projection = self.collision_projection(world);
         let (after_pose, blocked_axes) = Self::resolve_collision_camera_pose(
             &projection,
             before.pose,
@@ -202,7 +202,15 @@ impl RuntimeBridge for EngineBridge {
                 format!("generated tunnel request was rejected: {error}"),
             )
         })?;
-        let projection = CollisionProjection::build(&tunnel.world);
+        let collision_world_offset = tunnel.centered_runtime_world_offset().to_array();
+        let projection = CollisionProjection::build_with_offset(
+            &tunnel.world,
+            WorldVec::new(
+                collision_world_offset[0],
+                collision_world_offset[1],
+                collision_world_offset[2],
+            ),
+        );
         let collision_identity = projection.identity(&tunnel.world);
         let receipt = GeneratedTunnelRuntimeApplyReceipt {
             preset: request.preset,
@@ -213,7 +221,7 @@ impl RuntimeBridge for EngineBridge {
             collision_source_hash: collision_identity.source_hash_hex(),
             collision_projection_hash: collision_identity.projection_hash_label(),
         };
-        self.reset_voxel_edit_history(tunnel.world);
+        self.reset_voxel_edit_history_with_collision_offset(tunnel.world, collision_world_offset);
         Ok(receipt)
     }
 
@@ -1160,8 +1168,6 @@ impl RuntimeBridge for EngineBridge {
             .target_role
             .map(Self::fps_runtime_role)
             .unwrap_or(FpsRuntimeRole::Enemy);
-        let has_explicit_role_pair =
-            request.shooter_role.is_some() && request.target_role.is_some();
         let ray = Self::ray_from_primary_fire(request)?;
         let world = self.voxel.as_ref().ok_or_else(|| {
             RuntimeBridgeError::new(
@@ -1169,28 +1175,11 @@ impl RuntimeBridge for EngineBridge {
                 "apply_fps_primary_fire called before initialize_engine",
             )
         })?;
-        let projection = CollisionProjection::build(world);
-        let session = self.fps_session_mut("apply_fps_primary_fire")?;
-        let receipt = if has_explicit_role_pair {
-            session.apply_targeted_primary_fire_with_damage_delta(
-                &projection,
-                ray.origin,
-                tick,
-                shooter_role,
-                target_role,
-                0,
-            )
-        } else {
-            session.apply_primary_fire_for_roles(
-                &projection,
-                ray,
-                tick,
-                shooter_role,
-                target_role,
-                0,
-            )
-        }
-        .map_err(Self::fps_runtime_error)?;
+        let projection = self.collision_projection(world);
+        let receipt = self
+            .fps_session_mut("apply_fps_primary_fire")?
+            .apply_primary_fire_for_roles(&projection, ray, tick, shooter_role, target_role, 0)
+            .map_err(Self::fps_runtime_error)?;
         Ok(Self::primary_fire_result(receipt))
     }
 
@@ -1261,12 +1250,12 @@ impl RuntimeBridge for EngineBridge {
                 "invoke_game_extension_weapon_effect called before initialize_engine",
             )
         })?;
-        let projection = CollisionProjection::build(world);
+        let projection = self.collision_projection(world);
         let receipt = self
             .fps_session_mut("invoke_game_extension_weapon_effect")?
-            .apply_targeted_primary_fire_with_damage_delta(
+            .apply_primary_fire_for_roles(
                 &projection,
-                ray.origin,
+                ray,
                 primary_fire.tick,
                 shooter_role,
                 target_role,

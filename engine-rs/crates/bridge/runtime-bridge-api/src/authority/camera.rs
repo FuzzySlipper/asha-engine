@@ -3,6 +3,17 @@ use super::*;
 const MAX_COLLISION_CAMERA_AXIS_TRAVEL: f32 = 256.0;
 
 impl EngineBridge {
+    pub(super) fn collision_projection(&self, world: &VoxelWorld) -> CollisionProjection {
+        CollisionProjection::build_with_offset(
+            world,
+            WorldVec::new(
+                self.collision_world_offset[0],
+                self.collision_world_offset[1],
+                self.collision_world_offset[2],
+            ),
+        )
+    }
+
     pub(super) fn basis_from_pose(pose: protocol_view::CameraPose) -> protocol_view::CameraBasis {
         let yaw = pose.yaw_degrees.to_radians();
         let pitch = pose.pitch_degrees.to_radians();
