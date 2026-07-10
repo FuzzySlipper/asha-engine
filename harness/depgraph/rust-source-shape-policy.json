@@ -1,11 +1,29 @@
 {
   "maxSourceLines": 1600,
   "fileLineExemptions": {
-    "engine-rs/crates/bridge/native-bridge/src/lib.rs": "Native-bridge is the hand-written napi transport facade for the current generated RuntimeBridge operation set; split operation families into generated/native submodules during the next bridge-shape cleanup rather than blocking voxel-asset governance.",
-    "engine-rs/crates/bridge/runtime-bridge-api/src/reference/mod.rs": "ReferenceBridge is the consolidated conformance implementation for stable RuntimeBridge operations, including the #4517 game-rule invocation harness; split operation families into focused reference modules in the next bridge-shape cleanup before raising this further.",
-    "engine-rs/crates/bridge/runtime-bridge-api/src/reference/tests.rs": "RuntimeBridge reference tests intentionally aggregate stable operation conformance, including voxel conversion and voxel asset round-trips; split voxel asset/conversion tests into focused modules during the next bridge-shape cleanup.",
-    "engine-rs/crates/protocol/protocol-codegen/src/model.rs": "Protocol-codegen still owns the hand-maintained Rust-to-TS IR registry while the R3-4 completeness/derive follow-up is pending; split generated-contract families or derive the IR before removing this exemption.",
-    "engine-rs/crates/protocol/protocol-render/src/lib.rs": "Protocol-render is an older consolidated border DTO crate; split render material, texture, sprite, mesh, and diff shape families during the next protocol-surface module pass.",
-    "engine-rs/crates/services/svc-voxel-conversion/src/lib.rs": "Voxel conversion service currently keeps registration, planning, preview, apply, diagnostics, quotas, and model-info evidence in one authority file after the native coverage hardening slices; split conversion topology, rasterization, guardrail, and readout modules in the next service-shape cleanup."
+    "engine-rs/crates/bridge/native-bridge/src/lib.rs": {
+      "maxLines": 2332,
+      "justification": "Native-bridge is the hand-written napi transport facade for the current generated RuntimeBridge operation set; split operation families into generated/native submodules during the next bridge-shape cleanup rather than blocking voxel-asset governance."
+    },
+    "engine-rs/crates/bridge/runtime-bridge-api/src/reference/mod.rs": {
+      "maxLines": 3736,
+      "justification": "ReferenceBridge is the consolidated conformance implementation for stable RuntimeBridge operations, including the #4517 game-rule invocation harness; split operation families into focused reference modules in the next bridge-shape cleanup before raising this further."
+    },
+    "engine-rs/crates/bridge/runtime-bridge-api/src/reference/tests.rs": {
+      "maxLines": 2498,
+      "justification": "RuntimeBridge reference tests intentionally aggregate stable operation conformance, including voxel conversion and voxel asset round-trips; split voxel asset/conversion tests into focused modules during the next bridge-shape cleanup."
+    },
+    "engine-rs/crates/protocol/protocol-codegen/src/model.rs": {
+      "maxLines": 4547,
+      "justification": "Protocol-codegen still owns the hand-maintained Rust-to-TS IR registry while the R3-4 completeness/derive follow-up is pending; split generated-contract families or derive the IR before removing this exemption."
+    },
+    "engine-rs/crates/protocol/protocol-render/src/lib.rs": {
+      "maxLines": 1941,
+      "justification": "Protocol-render is an older consolidated border DTO crate; split render material, texture, sprite, mesh, and diff shape families during the next protocol-surface module pass."
+    },
+    "engine-rs/crates/services/svc-voxel-conversion/src/lib.rs": {
+      "maxLines": 2064,
+      "justification": "Voxel conversion service currently keeps registration, planning, preview, apply, diagnostics, quotas, and model-info evidence in one authority file after the native coverage hardening slices; split conversion topology, rasterization, guardrail, and readout modules in the next service-shape cleanup."
+    }
   }
 }

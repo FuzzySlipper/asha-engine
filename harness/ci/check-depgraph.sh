@@ -9,6 +9,9 @@ bash "$REPO_ROOT/harness/depgraph/verify-rust-deps.sh"
 echo "==> Rust source shape guard"
 node "$REPO_ROOT/harness/depgraph/check-rust-source-shape.mjs" "$REPO_ROOT"
 
+echo "==> Rust source shape fixtures"
+node "$REPO_ROOT/harness/depgraph/check-rust-source-shape-fixtures.mjs" "$REPO_ROOT"
+
 echo "==> Verifying TypeScript dependency graph"
 bash "$REPO_ROOT/harness/depgraph/verify-ts-deps.sh"
 
