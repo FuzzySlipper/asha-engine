@@ -1447,8 +1447,9 @@ impl RuntimeBridge for EngineBridge {
     ) -> BridgeResult<EnemyDirectNavMovementResult> {
         self.require_initialized("apply_enemy_direct_nav_movement")?;
         let entity = Self::enemy_entity_id(request.entity)?;
+        let entities = self.enemy_runtime_entities_mut(entity);
         let (authority_source, current_transform) =
-            Self::seed_or_read_enemy_transform(&mut self.entities, entity, request.seed_position)?;
+            Self::seed_or_read_enemy_transform(entities, entity, request.seed_position)?;
         let from = current_transform.translation;
         let nav = propose_direct_nav_movement(DirectNavMovementRequest {
             from,
@@ -1468,8 +1469,7 @@ impl RuntimeBridge for EngineBridge {
             translation: nav.next_waypoint,
             ..current_transform
         };
-        let transform_event = self
-            .entities
+        let transform_event = entities
             .apply_transform(TransformCommand::Set {
                 id: entity,
                 transform: next_transform,

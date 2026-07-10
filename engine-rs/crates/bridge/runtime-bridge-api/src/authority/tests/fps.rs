@@ -210,6 +210,72 @@ fn explicit_role_pair_does_not_disable_generated_tunnel_occlusion() {
 }
 
 #[test]
+fn autonomous_enemy_movement_moves_authoritative_combat_bounds() {
+    let mut bridge = init_bridge();
+    bridge
+        .load_fps_runtime_session(centered_tunnel_fps_load_request(75))
+        .unwrap();
+    bridge
+        .apply_generated_tunnel_to_runtime_world(GeneratedTunnelRuntimeApplyRequest {
+            preset: GeneratedTunnelPreset::TinyEnclosed,
+            seed: 17,
+        })
+        .unwrap();
+
+    let authored_pose_receipt = bridge
+        .apply_fps_primary_fire(FpsPrimaryFireRequest {
+            tick: 5,
+            origin: [0.0, 1.62, 1.5],
+            direction: [0.0, 0.0, -1.0],
+            shooter_role: None,
+            target_role: None,
+        })
+        .expect("ray above the authored enemy bounds remains a miss");
+    assert_eq!(authored_pose_receipt.target, None);
+    assert_eq!(
+        authored_pose_receipt.target_health_after,
+        Some(FpsBridgeHealth {
+            current: 75,
+            max: 75,
+        })
+    );
+
+    let moved = bridge
+        .apply_enemy_direct_nav_movement(EnemyDirectNavMovementRequest {
+            entity: 777,
+            seed_position: Vec3::new(0.0, 0.5, -2.6),
+            target: Vec3::new(0.0, 1.62, 1.15),
+            max_step_units: 8.0,
+        })
+        .expect("autonomous movement applies through the loaded FPS entity store");
+    assert_eq!(
+        moved.authority_source,
+        EnemyDirectNavAuthoritySource::RustEntityStore
+    );
+    assert_eq!(moved.next_waypoint, Vec3::new(0.0, 1.62, 1.15));
+    assert!(moved.reached);
+
+    let receipt = bridge
+        .apply_fps_primary_fire(FpsPrimaryFireRequest {
+            tick: 6,
+            origin: [0.0, 1.62, 1.5],
+            direction: [0.0, 0.0, -1.0],
+            shooter_role: None,
+            target_role: None,
+        })
+        .expect("primary fire raycasts against the moved enemy bounds");
+
+    assert_eq!(receipt.target, Some(777));
+    assert_eq!(
+        receipt.target_health_after,
+        Some(FpsBridgeHealth {
+            current: 0,
+            max: 75,
+        })
+    );
+}
+
+#[test]
 fn fps_encounter_transition_is_rule_lifecycle_authority() {
     let mut bridge = init_bridge();
     bridge

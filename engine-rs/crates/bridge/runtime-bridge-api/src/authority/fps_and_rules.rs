@@ -761,6 +761,22 @@ impl EngineBridge {
         Ok((EnemyDirectNavAuthoritySource::SeededFromRequest, transform))
     }
 
+    pub(super) fn enemy_runtime_entities_mut(&mut self, entity: EntityId) -> &mut EntityStore {
+        let belongs_to_fps_session = self
+            .fps_session
+            .as_ref()
+            .is_some_and(|session| session.entities.contains(entity));
+        if belongs_to_fps_session {
+            &mut self
+                .fps_session
+                .as_mut()
+                .expect("FPS session presence was checked")
+                .entities
+        } else {
+            &mut self.entities
+        }
+    }
+
     pub(super) fn transform_hash(entity: EntityId, transform: EntityTransform) -> u64 {
         let key = format!(
             "{}|{:.3},{:.3},{:.3}|{:.3},{:.3},{:.3},{:.3}|{:.3},{:.3},{:.3}",

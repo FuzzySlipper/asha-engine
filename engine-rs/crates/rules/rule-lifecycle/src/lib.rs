@@ -593,10 +593,37 @@ impl FpsRuntimeSessionState {
                 _ => None,
             })
             .ok_or(FpsRuntimeError::MissingEnemyBounds { entity })?;
+        let authored_translation = definition
+            .definition
+            .capabilities
+            .iter()
+            .find_map(|capability| match capability {
+                EntityDefinitionCapability::Transform { transform } => Some(transform.translation),
+                _ => None,
+            })
+            .unwrap_or([0.0, 0.0, 0.0]);
+        let runtime_translation = self
+            .entities
+            .transform(entity)
+            .map(|capability| capability.transform.translation.to_array())
+            .unwrap_or(authored_translation);
+        let translation_delta = [
+            (runtime_translation[0] - authored_translation[0]) as f64,
+            (runtime_translation[1] - authored_translation[1]) as f64,
+            (runtime_translation[2] - authored_translation[2]) as f64,
+        ];
         Ok(CombatTarget {
             entity,
-            min: WorldPos::new(bounds.0[0] as f64, bounds.0[1] as f64, bounds.0[2] as f64),
-            max: WorldPos::new(bounds.1[0] as f64, bounds.1[1] as f64, bounds.1[2] as f64),
+            min: WorldPos::new(
+                bounds.0[0] as f64 + translation_delta[0],
+                bounds.0[1] as f64 + translation_delta[1],
+                bounds.0[2] as f64 + translation_delta[2],
+            ),
+            max: WorldPos::new(
+                bounds.1[0] as f64 + translation_delta[0],
+                bounds.1[1] as f64 + translation_delta[1],
+                bounds.1[2] as f64 + translation_delta[2],
+            ),
         })
     }
 }
