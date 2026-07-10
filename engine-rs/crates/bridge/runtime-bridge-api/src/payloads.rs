@@ -150,6 +150,14 @@ pub struct CommandBatch {
     pub commands: Vec<VoxelCommand>,
 }
 
+/// Native JSON guardrails. These are deliberately roomy for desktop authoring,
+/// but finite so compact commands cannot amplify into unbounded parser or edit work.
+pub const VOXEL_COMMAND_BATCH_MAX_REQUEST_BYTES: usize = 2 * 1024 * 1024;
+pub const VOXEL_COMMAND_BATCH_MAX_COMMANDS: usize =
+    rule_voxel_edit::DEFAULT_VOXEL_EDIT_MAX_COMMANDS as usize;
+pub const VOXEL_COMMAND_BATCH_MAX_TOUCHED_VOXELS: u64 =
+    rule_voxel_edit::DEFAULT_VOXEL_EDIT_MAX_TOUCHED_VOXELS;
+
 /// The classified outcome of a [`RuntimeBridge::submit_commands`] batch: how many
 /// commands authority accepted/rejected, plus the classified rejection for each
 /// refused command (never a silent drop). Accepted commands have already mutated
@@ -208,6 +216,57 @@ enum VoxelValueJson {
     Solid { material: u16 },
 }
 
+struct BoundedVoxelCommandBatchJson(Vec<VoxelCommandJson>);
+
+impl<'de> serde::Deserialize<'de> for BoundedVoxelCommandBatchJson {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct BatchVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for BatchVisitor {
+            type Value = BoundedVoxelCommandBatchJson;
+
+            fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                write!(formatter, "a bounded array of generated voxel commands")
+            }
+
+            fn visit_seq<A>(self, mut sequence: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                if let Some(size_hint) = sequence.size_hint() {
+                    if size_hint > VOXEL_COMMAND_BATCH_MAX_COMMANDS {
+                        return Err(<A::Error as serde::de::Error>::custom(format!(
+                            "voxel command batch exceeds command limit {} (actual {size_hint})",
+                            VOXEL_COMMAND_BATCH_MAX_COMMANDS
+                        )));
+                    }
+                }
+                let capacity = sequence
+                    .size_hint()
+                    .unwrap_or(0)
+                    .min(VOXEL_COMMAND_BATCH_MAX_COMMANDS);
+                let mut commands = Vec::with_capacity(capacity);
+                while let Some(command) = sequence.next_element::<VoxelCommandJson>()? {
+                    if commands.len() == VOXEL_COMMAND_BATCH_MAX_COMMANDS {
+                        return Err(<A::Error as serde::de::Error>::custom(format!(
+                            "voxel command batch exceeds command limit {} (actual at least {})",
+                            VOXEL_COMMAND_BATCH_MAX_COMMANDS,
+                            VOXEL_COMMAND_BATCH_MAX_COMMANDS + 1
+                        )));
+                    }
+                    commands.push(command);
+                }
+                Ok(BoundedVoxelCommandBatchJson(commands))
+            }
+        }
+
+        deserializer.deserialize_seq(BatchVisitor)
+    }
+}
+
 impl VoxelValueJson {
     fn into_voxel_value(self) -> VoxelValue {
         match self {
@@ -221,12 +280,23 @@ impl VoxelValueJson {
 /// Rust command union. Transport adapters use this bounded parser rather than
 /// maintaining their own command model.
 pub fn parse_voxel_command_batch_json(commands_json: &str) -> BridgeResult<CommandBatch> {
-    let inputs: Vec<VoxelCommandJson> = serde_json::from_str(commands_json).map_err(|error| {
-        RuntimeBridgeError::new(
+    if commands_json.len() > VOXEL_COMMAND_BATCH_MAX_REQUEST_BYTES {
+        return Err(RuntimeBridgeError::new(
             RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid command batch JSON: {error}"),
-        )
-    })?;
+            format!(
+                "voxel command batch exceeds request byte limit {} (actual {})",
+                VOXEL_COMMAND_BATCH_MAX_REQUEST_BYTES,
+                commands_json.len()
+            ),
+        ));
+    }
+    let BoundedVoxelCommandBatchJson(inputs) =
+        serde_json::from_str(commands_json).map_err(|error| {
+            RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                format!("invalid command batch JSON: {error}"),
+            )
+        })?;
     let commands = inputs
         .into_iter()
         .map(|input| match input {
@@ -258,7 +328,21 @@ pub fn parse_voxel_command_batch_json(commands_json: &str) -> BridgeResult<Comma
                 generator_version,
             },
         })
-        .collect();
+        .collect::<Vec<_>>();
+    let known_touched_voxels = commands.iter().fold(0u64, |total, command| {
+        total.saturating_add(
+            rule_voxel_edit::command_touched_voxels_without_grid(command).unwrap_or(0),
+        )
+    });
+    if known_touched_voxels > VOXEL_COMMAND_BATCH_MAX_TOUCHED_VOXELS {
+        return Err(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::InvalidInput,
+            format!(
+                "voxel command batch exceeds expanded touched-voxel limit {} (actual {})",
+                VOXEL_COMMAND_BATCH_MAX_TOUCHED_VOXELS, known_touched_voxels
+            ),
+        ));
+    }
     Ok(CommandBatch { commands })
 }
 
@@ -321,6 +405,54 @@ mod voxel_command_json_tests {
             assert_eq!(error.kind, RuntimeBridgeErrorKind::InvalidInput);
             assert!(error.message.starts_with("invalid command batch JSON:"));
         }
+    }
+
+    #[test]
+    fn voxel_command_json_byte_limit_is_exact_and_fails_before_parsing() {
+        let at_limit = format!(
+            "[]{}",
+            " ".repeat(VOXEL_COMMAND_BATCH_MAX_REQUEST_BYTES - 2)
+        );
+        assert!(parse_voxel_command_batch_json(&at_limit).is_ok());
+
+        let over_limit = format!("{at_limit} ");
+        let error = parse_voxel_command_batch_json(&over_limit).expect_err("limit + 1 rejects");
+        assert_eq!(error.kind, RuntimeBridgeErrorKind::InvalidInput);
+        assert!(error.message.contains("exceeds request byte limit"));
+    }
+
+    #[test]
+    fn voxel_command_json_command_limit_is_exact() {
+        let command =
+            r#"{"op":"setVoxel","grid":1,"coord":{"x":0,"y":0,"z":0},"value":{"kind":"empty"}}"#;
+        let at_limit = format!(
+            "[{}]",
+            vec![command; VOXEL_COMMAND_BATCH_MAX_COMMANDS].join(",")
+        );
+        assert!(at_limit.len() <= VOXEL_COMMAND_BATCH_MAX_REQUEST_BYTES);
+        assert_eq!(
+            parse_voxel_command_batch_json(&at_limit)
+                .expect("exact command limit parses")
+                .commands
+                .len(),
+            VOXEL_COMMAND_BATCH_MAX_COMMANDS
+        );
+
+        let over_limit = format!("{},{command}]", &at_limit[..at_limit.len() - 1]);
+        let error = parse_voxel_command_batch_json(&over_limit).expect_err("limit + 1 rejects");
+        assert_eq!(error.kind, RuntimeBridgeErrorKind::InvalidInput);
+        assert!(error.message.contains("exceeds command limit"));
+    }
+
+    #[test]
+    fn voxel_command_json_expanded_touched_limit_is_exact() {
+        let at_limit = r#"[{"op":"fillRegion","grid":1,"min":{"x":0,"y":0,"z":0},"max":{"x":1000000,"y":1,"z":1},"value":{"kind":"empty"}}]"#;
+        assert!(parse_voxel_command_batch_json(at_limit).is_ok());
+
+        let over_limit = r#"[{"op":"fillRegion","grid":1,"min":{"x":0,"y":0,"z":0},"max":{"x":1000001,"y":1,"z":1},"value":{"kind":"empty"}}]"#;
+        let error = parse_voxel_command_batch_json(over_limit).expect_err("limit + 1 rejects");
+        assert_eq!(error.kind, RuntimeBridgeErrorKind::InvalidInput);
+        assert!(error.message.contains("expanded touched-voxel limit"));
     }
 }
 

@@ -110,6 +110,48 @@ fn mixed_batches_preserve_partial_acceptance_and_record_one_accepted_transaction
 }
 
 #[test]
+fn command_and_expanded_work_quotas_reject_without_world_or_history_mutation() {
+    let mut bridge = init_bridge();
+    let world_hash_before = rule_voxel_edit::voxel_world_hash(bridge.voxel.as_ref().unwrap());
+    let history_before = bridge.read_voxel_edit_history(read_request()).unwrap();
+
+    let command_error = bridge
+        .submit_commands(CommandBatch {
+            commands: vec![
+                set_voxel(VoxelCoord::new(1, 1, 1), 2);
+                rule_voxel_edit::DEFAULT_VOXEL_EDIT_MAX_COMMANDS as usize + 1
+            ],
+        })
+        .expect_err("command limit + 1 rejects before staging");
+    assert_eq!(command_error.kind, RuntimeBridgeErrorKind::InvalidInput);
+    assert!(command_error.message.contains("command limit"));
+
+    let touched_error = bridge
+        .submit_commands(CommandBatch {
+            commands: vec![VoxelCommand::FillRegion {
+                grid: GridId::new(1),
+                min: VoxelCoord::new(0, 0, 0),
+                max: VoxelCoord::new(1_000_001, 1, 1),
+                value: VoxelValue::EMPTY,
+            }],
+        })
+        .expect_err("expanded touched limit + 1 rejects before staging");
+    assert_eq!(touched_error.kind, RuntimeBridgeErrorKind::InvalidInput);
+    assert!(touched_error
+        .message
+        .contains("expanded touched-voxel limit"));
+
+    assert_eq!(
+        rule_voxel_edit::voxel_world_hash(bridge.voxel.as_ref().unwrap()),
+        world_hash_before
+    );
+    assert_eq!(
+        bridge.read_voxel_edit_history(read_request()).unwrap(),
+        history_before
+    );
+}
+
+#[test]
 fn preview_then_apply_revert_uses_rust_replay_without_preview_mutation() {
     let mut bridge = init_bridge();
     let base_hash = rule_voxel_edit::voxel_world_hash(bridge.voxel.as_ref().unwrap());

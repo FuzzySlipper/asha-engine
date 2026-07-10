@@ -11,7 +11,10 @@ use rule_voxel_edit::history::{
     VoxelEditHistoryRejection as AuthorityVoxelEditHistoryRejection,
     VoxelEditHistoryRevertReceipt as AuthorityVoxelEditHistoryRevertReceipt,
 };
-use rule_voxel_edit::{execute_transaction, persist::encode_edit_log, VoxelEditTransaction};
+use rule_voxel_edit::{
+    execute_transaction, persist::encode_edit_log, preflight_transaction, VoxelEditTransaction,
+    VoxelEditTransactionLimits, VoxelEditTransactionRejection,
+};
 
 const DEFAULT_VOXEL_EDIT_HISTORY_ID: &str = "history/default";
 const MAX_HISTORY_READ_ENTRIES: u64 = 1_000;
@@ -36,12 +39,24 @@ impl EngineBridge {
         batch: CommandBatch,
     ) -> BridgeResult<CommandResult> {
         self.require_initialized("submit_commands")?;
-        let current_world = self.voxel.as_ref().cloned().ok_or_else(|| {
+        let current_grid = self.voxel.as_ref().map(VoxelWorld::grid).ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
                 "submit_commands called before voxel authority was initialized",
             )
         })?;
+        preflight_transaction(
+            &batch.commands,
+            current_grid,
+            VoxelEditTransactionLimits::default(),
+        )
+        .map_err(Self::voxel_command_batch_preflight_error)?;
+
+        let current_world = self
+            .voxel
+            .as_ref()
+            .expect("voxel authority checked before resource preflight")
+            .clone();
         let current_history = self.voxel_edit_history()?.clone();
 
         let mut validation_world = current_world.clone();
@@ -103,6 +118,27 @@ impl EngineBridge {
         self.voxel = Some(next_world);
         self.voxel_edit_history = Some(next_history);
         Ok(result)
+    }
+
+    fn voxel_command_batch_preflight_error(
+        rejection: VoxelEditTransactionRejection,
+    ) -> RuntimeBridgeError {
+        let detail = match rejection {
+            VoxelEditTransactionRejection::CommandQuotaExceeded { limit, actual } => {
+                format!("command limit {limit} (actual {actual})")
+            }
+            VoxelEditTransactionRejection::EventQuotaExceeded { limit, actual } => {
+                format!("event limit {limit} (upper bound {actual})")
+            }
+            VoxelEditTransactionRejection::TouchedVoxelQuotaExceeded { limit, actual } => {
+                format!("expanded touched-voxel limit {limit} (actual {actual})")
+            }
+            other => format!("unexpected preflight rejection {other:?}"),
+        };
+        RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::InvalidInput,
+            format!("voxel command batch resource preflight rejected: {detail}"),
+        )
     }
 
     pub(super) fn read_voxel_edit_history_authority(

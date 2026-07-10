@@ -226,6 +226,10 @@ pub struct VoxelEditTransactionLimits {
     pub max_touched_voxels: u64,
 }
 
+pub const DEFAULT_VOXEL_EDIT_MAX_COMMANDS: u32 = 10_000;
+pub const DEFAULT_VOXEL_EDIT_MAX_EVENTS: u32 = 20_000;
+pub const DEFAULT_VOXEL_EDIT_MAX_TOUCHED_VOXELS: u64 = 1_000_000;
+
 impl VoxelEditTransactionLimits {
     pub const fn new(max_commands: u32, max_events: u32, max_touched_voxels: u64) -> Self {
         Self {
@@ -238,8 +242,19 @@ impl VoxelEditTransactionLimits {
 
 impl Default for VoxelEditTransactionLimits {
     fn default() -> Self {
-        Self::new(10_000, 20_000, 1_000_000)
+        Self::new(
+            DEFAULT_VOXEL_EDIT_MAX_COMMANDS,
+            DEFAULT_VOXEL_EDIT_MAX_EVENTS,
+            DEFAULT_VOXEL_EDIT_MAX_TOUCHED_VOXELS,
+        )
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VoxelEditTransactionCost {
+    pub command_count: u32,
+    pub event_upper_bound: u32,
+    pub touched_voxels: u64,
 }
 
 /// A bulk edit request over the canonical generated voxel command union.
@@ -299,6 +314,47 @@ pub enum VoxelEditTransactionRejection {
     },
 }
 
+/// Compute transaction amplification before cloning, hashing, validation, or
+/// mutation. Exact-limit requests are accepted; arithmetic overflow saturates
+/// and therefore fails closed against any finite touched-voxel limit.
+pub fn preflight_transaction(
+    commands: &[VoxelCommand],
+    spec: VoxelGridSpec,
+    limits: VoxelEditTransactionLimits,
+) -> Result<VoxelEditTransactionCost, VoxelEditTransactionRejection> {
+    let command_count = commands.len().min(u32::MAX as usize) as u32;
+    if command_count > limits.max_commands {
+        return Err(VoxelEditTransactionRejection::CommandQuotaExceeded {
+            limit: limits.max_commands,
+            actual: command_count,
+        });
+    }
+
+    let event_upper_bound = command_count;
+    if event_upper_bound > limits.max_events {
+        return Err(VoxelEditTransactionRejection::EventQuotaExceeded {
+            limit: limits.max_events,
+            actual: event_upper_bound,
+        });
+    }
+
+    let touched_voxels = commands.iter().fold(0u64, |total, command| {
+        total.saturating_add(command_preflight_touched_voxels(command, spec))
+    });
+    if touched_voxels > limits.max_touched_voxels {
+        return Err(VoxelEditTransactionRejection::TouchedVoxelQuotaExceeded {
+            limit: limits.max_touched_voxels,
+            actual: touched_voxels,
+        });
+    }
+
+    Ok(VoxelEditTransactionCost {
+        command_count,
+        event_upper_bound,
+        touched_voxels,
+    })
+}
+
 /// The deterministic receipt for a bulk transaction attempt.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VoxelEditTransactionReceipt {
@@ -326,28 +382,13 @@ pub fn execute_transaction(
     materials: &MaterialCatalog,
     tx: &VoxelEditTransaction<'_>,
 ) -> VoxelEditTransactionReceipt {
+    match preflight_transaction(tx.commands, world.grid(), tx.limits) {
+        Ok(_) => {}
+        Err(rejection) => return preflight_rejection_receipt(tx.mode, rejection),
+    }
     let before_hash = voxel_world_hash(world);
-    let command_count = tx.commands.len().min(u32::MAX as usize) as u32;
     let mut events = Vec::<VoxelEditEvent>::new();
     let mut rejections = Vec::<VoxelEditTransactionRejection>::new();
-
-    if command_count > tx.limits.max_commands {
-        rejections.push(VoxelEditTransactionRejection::CommandQuotaExceeded {
-            limit: tx.limits.max_commands,
-            actual: command_count,
-        });
-        return transaction_receipt(PendingTransactionReceipt {
-            mode: tx.mode,
-            applied: false,
-            accepted: 0,
-            touched_voxels: 0,
-            before_hash,
-            projected_hash: before_hash,
-            after_hash: before_hash,
-            events,
-            rejections,
-        });
-    }
 
     let mut scratch = world.clone();
     let mut accepted = 0u32;
@@ -412,6 +453,27 @@ pub fn execute_transaction(
     })
 }
 
+fn preflight_rejection_receipt(
+    mode: VoxelEditTransactionMode,
+    rejection: VoxelEditTransactionRejection,
+) -> VoxelEditTransactionReceipt {
+    let touched_voxels = match rejection {
+        VoxelEditTransactionRejection::TouchedVoxelQuotaExceeded { actual, .. } => actual,
+        _ => 0,
+    };
+    transaction_receipt(PendingTransactionReceipt {
+        mode,
+        applied: false,
+        accepted: 0,
+        touched_voxels,
+        before_hash: 0,
+        projected_hash: 0,
+        after_hash: 0,
+        events: Vec::new(),
+        rejections: vec![rejection],
+    })
+}
+
 struct PendingTransactionReceipt {
     mode: VoxelEditTransactionMode,
     applied: bool,
@@ -450,6 +512,32 @@ fn command_touched_voxels(command: &VoxelCommand, spec: VoxelGridSpec) -> u64 {
         VoxelCommand::SetVoxel { .. } => 1,
         VoxelCommand::FillRegion { min, max, .. } => region_volume(min, max).unwrap_or(u64::MAX),
         VoxelCommand::GenerateChunk { .. } => spec.chunk_dims().volume(),
+    }
+}
+
+fn command_preflight_touched_voxels(command: &VoxelCommand, spec: VoxelGridSpec) -> u64 {
+    command_touched_voxels_without_grid(command).unwrap_or(spec.chunk_dims().volume())
+}
+
+/// Expanded touched-voxel cost that does not require an active grid. Generated
+/// chunks return `None` because their exact volume comes from the grid spec.
+pub fn command_touched_voxels_without_grid(command: &VoxelCommand) -> Option<u64> {
+    match *command {
+        VoxelCommand::SetVoxel { .. } => Some(1),
+        VoxelCommand::FillRegion { min, max, .. } => {
+            let extents = [
+                i128::from(max.x) - i128::from(min.x),
+                i128::from(max.y) - i128::from(min.y),
+                i128::from(max.z) - i128::from(min.z),
+            ];
+            if extents.iter().any(|extent| *extent <= 0) {
+                return Some(0);
+            }
+            Some(extents.iter().fold(1u64, |volume, extent| {
+                volume.saturating_mul(u64::try_from(*extent).unwrap_or(u64::MAX))
+            }))
+        }
+        VoxelCommand::GenerateChunk { .. } => None,
     }
 }
 
@@ -1145,6 +1233,94 @@ mod tests {
             }]
         ));
         assert!(!voxel_quota.applied);
+    }
+
+    #[test]
+    fn transaction_preflight_accepts_exact_limits_and_rejects_limit_plus_one() {
+        let set = VoxelCommand::SetVoxel {
+            grid: GridId::new(0),
+            coord: VoxelCoord::new(0, 0, 0),
+            value: VoxelValue::solid_raw(1),
+        };
+        let exact_commands = [set, set];
+        let exact = preflight_transaction(
+            &exact_commands,
+            spec(),
+            VoxelEditTransactionLimits::new(2, 2, 2),
+        )
+        .expect("exact command/event/touched limits pass");
+        assert_eq!(exact.command_count, 2);
+        assert_eq!(exact.event_upper_bound, 2);
+        assert_eq!(exact.touched_voxels, 2);
+
+        assert!(matches!(
+            preflight_transaction(
+                &[set, set, set],
+                spec(),
+                VoxelEditTransactionLimits::new(2, 3, 3)
+            ),
+            Err(VoxelEditTransactionRejection::CommandQuotaExceeded {
+                limit: 2,
+                actual: 3
+            })
+        ));
+
+        let fill = VoxelCommand::FillRegion {
+            grid: GridId::new(0),
+            min: VoxelCoord::new(0, 0, 0),
+            max: VoxelCoord::new(101, 1, 1),
+            value: VoxelValue::solid_raw(1),
+        };
+        assert!(matches!(
+            preflight_transaction(&[fill], spec(), VoxelEditTransactionLimits::new(1, 1, 100)),
+            Err(VoxelEditTransactionRejection::TouchedVoxelQuotaExceeded {
+                limit: 100,
+                actual: 101
+            })
+        ));
+    }
+
+    #[test]
+    fn transaction_preflight_charges_generated_chunk_before_hash_or_clone() {
+        let mut world = resident_world();
+        let hash_before = voxel_world_hash(&world);
+        let generate = VoxelCommand::GenerateChunk {
+            grid: GridId::new(0),
+            chunk: ChunkCoord::new(1, 0, 0),
+            seed: 17,
+            generator_version: 1,
+        };
+        let chunk_volume = spec().chunk_dims().volume();
+
+        assert_eq!(
+            preflight_transaction(
+                &[generate],
+                spec(),
+                VoxelEditTransactionLimits::new(1, 1, chunk_volume)
+            )
+            .expect("exact generated chunk volume passes")
+            .touched_voxels,
+            chunk_volume
+        );
+
+        let receipt =
+            execute_transaction(
+                &mut world,
+                &materials(),
+                &VoxelEditTransaction::apply(&[generate])
+                    .with_limits(VoxelEditTransactionLimits::new(1, 1, chunk_volume - 1)),
+            );
+        assert!(matches!(
+            receipt.rejections.as_slice(),
+            [VoxelEditTransactionRejection::TouchedVoxelQuotaExceeded {
+                limit,
+                actual
+            }] if *limit == chunk_volume - 1 && *actual == chunk_volume
+        ));
+        assert_eq!(receipt.before_hash, 0);
+        assert_eq!(receipt.projected_hash, 0);
+        assert_eq!(receipt.after_hash, 0);
+        assert_eq!(voxel_world_hash(&world), hash_before);
     }
 
     #[test]

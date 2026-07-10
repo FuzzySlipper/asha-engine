@@ -39,15 +39,16 @@ use runtime_bridge_api::{
     VoxelConversionMeshAssetRegistrationRequest, VoxelConversionPlanRequest,
     VoxelConversionPreviewRequest, VoxelConversionSourceMetadataRequest,
     VoxelConversionSourceRegistrationRequest, VoxelEditHistoryReadRequest,
-    VoxelEditHistoryRedoRequest, VoxelEditHistoryRevertRequest, VoxelEditHistorySummary,
-    VoxelEditHistoryUndoRequest, VoxelModelInfoRequest, VoxelModelWindowRequest,
-    VoxelVolumeAssetExportRequest, VoxelVolumeAssetLoadRequest,
-    VoxelVolumeAssetPaletteUpdateRequest, VoxelVolumeAssetSaveRequest, WeaponEffectHookRequest,
-    VOXEL_PALETTE_UPDATE_MAX_REQUEST_BYTES,
+    VoxelEditHistoryRedoRequest, VoxelEditHistoryRevertRequest, VoxelEditHistoryUndoRequest,
+    VoxelModelInfoRequest, VoxelModelWindowRequest, VoxelVolumeAssetExportRequest,
+    VoxelVolumeAssetLoadRequest, VoxelVolumeAssetPaletteUpdateRequest, VoxelVolumeAssetSaveRequest,
+    WeaponEffectHookRequest, VOXEL_PALETTE_UPDATE_MAX_REQUEST_BYTES,
 };
 use serde::Serialize;
 
 mod generated_tunnel;
+#[cfg(test)]
+mod resource_limit_tests;
 mod voxel_assets;
 pub use generated_tunnel::apply_generated_tunnel_to_runtime_world;
 
@@ -1941,6 +1942,7 @@ pub fn redo_voxel_edit(handle: i64, request_json: String) -> napi::Result<String
 #[cfg(test)]
 mod tests {
     use super::*;
+    use runtime_bridge_api::VoxelEditHistorySummary;
 
     const WIRED_NAPI_EXPORTS: &[&str] = &[
         "applyCollisionConstrainedCameraInput",
