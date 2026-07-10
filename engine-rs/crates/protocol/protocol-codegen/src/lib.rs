@@ -404,7 +404,18 @@ mod tests {
             interface_coverage_key("voxelAnnotation", "VoxelAnnotationContentHashes"),
             interface_coverage_key("voxelAnnotation", "VoxelAnnotationDiagnostic"),
             interface_coverage_key("voxelAnnotation", "VoxelAnnotationRegion"),
+            interface_coverage_key("voxelAnnotation", "VoxelAnnotationLayerDraft"),
             interface_coverage_key("voxelAnnotation", "VoxelAnnotationLayer"),
+            variant_coverage_key(
+                "voxelAnnotation",
+                "VoxelAnnotationLayerValidationInput",
+                "draft",
+            ),
+            variant_coverage_key(
+                "voxelAnnotation",
+                "VoxelAnnotationLayerValidationInput",
+                "finalized",
+            ),
             interface_coverage_key("voxelAnnotation", "VoxelAnnotationLayerValidationRequest"),
             interface_coverage_key("voxelAnnotation", "VoxelAnnotationLayerValidationReport"),
             interface_coverage_key("voxelAnnotation", "VoxelAnnotationLayerLoadRequest"),
@@ -1139,12 +1150,18 @@ mod tests {
         }
 
         assert!(va.contains("export interface VoxelAnnotationLayer {"));
+        assert!(va.contains("export interface VoxelAnnotationLayerDraft {"));
+        assert!(va.contains("export type VoxelAnnotationLayerValidationInput ="));
+        assert!(va.contains("readonly kind: 'draft'"));
+        assert!(va.contains("readonly kind: 'finalized'"));
         assert!(va.contains("readonly targetVoxelVolumeAssetId: string;"));
         assert!(va.contains("readonly targetVoxelDataHash: string;"));
         assert!(
             va.contains("readonly validationDiagnostics: readonly VoxelAnnotationDiagnostic[];")
         );
         assert!(va.contains("export interface VoxelAnnotationLayerValidationRequest {"));
+        assert!(va.contains("readonly input: VoxelAnnotationLayerValidationInput;"));
+        assert!(va.contains("readonly normalizedLayer: VoxelAnnotationLayer | null;"));
         assert!(va.contains("readonly maxSparseRunsPerRegion: number;"));
         assert!(va.contains("export interface VoxelAnnotationQueryReadout {"));
         assert!(va.contains("readonly matchedRegions: readonly VoxelAnnotationRegionReadout[];"));

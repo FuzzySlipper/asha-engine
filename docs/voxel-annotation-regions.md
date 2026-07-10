@@ -44,6 +44,14 @@ Add a future `protocol-voxel-annotation` contract family with a top-level
 - `contentHashes`: canonical JSON hash and membership-data hash.
 - `validationDiagnostics`: persisted observational diagnostics.
 
+Authored input uses a distinct `VoxelAnnotationLayerDraft` with the same
+identity, target, bounds, regions, and provenance fields but no content hashes
+or validation diagnostics. `validateVoxelAnnotationLayer` accepts a tagged
+`draft` or `finalized` input. A valid draft returns a normalized
+`VoxelAnnotationLayer` whose hashes are computed by Rust; a finalized input is
+checked against its submitted hashes. Unknown or mixed lifecycle fields fail
+closed at the generated protocol border.
+
 Each `VoxelAnnotationRegion` should carry:
 
 - `regionId`: stable id unique inside the layer.
@@ -114,6 +122,8 @@ migration/repair operation accepts the mismatch.
 The first implementation should define these generated DTOs:
 
 - `VoxelAnnotationLayer`
+- `VoxelAnnotationLayerDraft`
+- `VoxelAnnotationLayerValidationInput`
 - `VoxelAnnotationRegion`
 - `VoxelAnnotationSelection`
 - `VoxelAnnotationSparseRun`
@@ -138,11 +148,12 @@ The runtime bridge exposes stable verbs rather than a generic JSON method:
 - `apply_voxel_annotation_edit`
 - `export_voxel_annotation_layer`
 
-`RuntimeSessionFacade` exposes the matching camelCase wrappers through the
-`@asha/runtime-bridge` package root. Consumers use generated annotation DTOs from
-`@asha/contracts` and these facade methods only; they must not import generated
-file paths, raw native transports, Rust crates, Studio private transports, or
-arbitrary JSON method tunnels. Pure readout/helper projections can later move to
+`RuntimeSessionFacade` exposes the matching semantic camelCase contract through
+the `@asha/runtime-session` package root; concrete session construction remains
+on `@asha/runtime-bridge`. Consumers use generated annotation DTOs from
+`@asha/contracts` and these public package roots only; they must not import
+generated file paths, raw native transports, Rust crates, Studio private
+transports, or arbitrary JSON method tunnels. Pure readout/helper projections can later move to
 `@asha/runtime-session` if they become transport-neutral.
 
 ## Validation Rules

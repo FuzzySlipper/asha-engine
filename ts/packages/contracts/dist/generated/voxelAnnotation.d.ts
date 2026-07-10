@@ -47,6 +47,16 @@ export interface VoxelAnnotationRegion {
     readonly bounds: VoxelAnnotationBounds;
     readonly selection: VoxelAnnotationSelection;
 }
+export interface VoxelAnnotationLayerDraft {
+    readonly layerId: string;
+    readonly schemaVersion: number;
+    readonly mediaType: string;
+    readonly targetVoxelVolumeAssetId: string;
+    readonly targetVoxelDataHash: string;
+    readonly targetBounds: VoxelAnnotationBounds;
+    readonly regions: readonly VoxelAnnotationRegion[];
+    readonly provenance: readonly VoxelAnnotationProvenanceRef[];
+}
 export interface VoxelAnnotationLayer {
     readonly layerId: string;
     readonly schemaVersion: number;
@@ -59,8 +69,15 @@ export interface VoxelAnnotationLayer {
     readonly contentHashes: VoxelAnnotationContentHashes;
     readonly validationDiagnostics: readonly VoxelAnnotationDiagnostic[];
 }
-export interface VoxelAnnotationLayerValidationRequest {
+export type VoxelAnnotationLayerValidationInput = {
+    readonly kind: 'draft';
+    readonly draft: VoxelAnnotationLayerDraft;
+} | {
+    readonly kind: 'finalized';
     readonly layer: VoxelAnnotationLayer;
+};
+export interface VoxelAnnotationLayerValidationRequest {
+    readonly input: VoxelAnnotationLayerValidationInput;
     readonly expectedTargetVoxelVolumeAssetId: string | null;
     readonly expectedTargetVoxelDataHash: string | null;
     readonly maxRegions: number;
@@ -70,6 +87,7 @@ export interface VoxelAnnotationLayerValidationRequest {
 export interface VoxelAnnotationLayerValidationReport {
     readonly layerId: string;
     readonly valid: boolean;
+    readonly normalizedLayer: VoxelAnnotationLayer | null;
     readonly canonicalJsonHash: string | null;
     readonly membershipDataHash: string | null;
     readonly regionCount: number;

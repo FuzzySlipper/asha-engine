@@ -27,7 +27,8 @@ use core_scene::{
 };
 use core_space::{ChunkCoord, VoxelGridSpec};
 use protocol_voxel_annotation::{
-    VoxelAnnotationDiagnostic, VoxelAnnotationLayer, VoxelAnnotationLayerValidationRequest,
+    VoxelAnnotationDiagnostic, VoxelAnnotationLayer, VoxelAnnotationLayerValidationInput,
+    VoxelAnnotationLayerValidationRequest,
 };
 use svc_serialization::{LoadPlan, LoadPlanError, LoadStage, LoadStep};
 use svc_spatial::VoxelWorld;
@@ -728,7 +729,7 @@ fn load_voxel_annotations(
                 asset_id: layer.target_voxel_volume_asset_id.clone(),
             })?;
         let request = VoxelAnnotationLayerValidationRequest {
-            layer,
+            input: VoxelAnnotationLayerValidationInput::Finalized { layer },
             expected_target_voxel_volume_asset_id: None,
             expected_target_voxel_data_hash: Some(target_hash.to_string()),
             max_regions: svc_voxel_annotation::DEFAULT_MAX_REGIONS,
@@ -743,7 +744,11 @@ fn load_voxel_annotations(
                 diagnostics: report.diagnostics,
             });
         }
-        layers.push(request.layer);
+        layers.push(
+            report
+                .normalized_layer
+                .expect("valid annotation report has a normalized layer"),
+        );
     }
     Ok(layers)
 }

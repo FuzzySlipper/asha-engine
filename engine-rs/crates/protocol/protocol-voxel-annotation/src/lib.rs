@@ -324,6 +324,21 @@ pub struct VoxelAnnotationRegion {
     pub selection: VoxelAnnotationSelection,
 }
 
+/// Authored voxel annotation input before Rust authority assigns content hashes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct VoxelAnnotationLayerDraft {
+    pub layer_id: String,
+    pub schema_version: u32,
+    pub media_type: String,
+    pub target_voxel_volume_asset_id: String,
+    pub target_voxel_data_hash: String,
+    pub target_bounds: VoxelAnnotationBounds,
+    pub regions: Vec<VoxelAnnotationRegion>,
+    pub provenance: Vec<VoxelAnnotationProvenanceRef>,
+}
+
 /// A complete ASHA-native stored voxel annotation layer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -341,12 +356,25 @@ pub struct VoxelAnnotationLayer {
     pub validation_diagnostics: Vec<VoxelAnnotationDiagnostic>,
 }
 
+/// Explicit lifecycle input for annotation validation and normalization.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
+pub enum VoxelAnnotationLayerValidationInput {
+    Draft { draft: VoxelAnnotationLayerDraft },
+    Finalized { layer: VoxelAnnotationLayer },
+}
+
 /// Request to validate and canonicalize a stored annotation layer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct VoxelAnnotationLayerValidationRequest {
-    pub layer: VoxelAnnotationLayer,
+    pub input: VoxelAnnotationLayerValidationInput,
     pub expected_target_voxel_volume_asset_id: Option<String>,
     pub expected_target_voxel_data_hash: Option<String>,
     pub max_regions: u64,
@@ -361,6 +389,7 @@ pub struct VoxelAnnotationLayerValidationRequest {
 pub struct VoxelAnnotationLayerValidationReport {
     pub layer_id: String,
     pub valid: bool,
+    pub normalized_layer: Option<VoxelAnnotationLayer>,
     pub canonical_json_hash: Option<String>,
     pub membership_data_hash: Option<String>,
     pub region_count: u64,
@@ -664,6 +693,56 @@ mod tests {
             "sha256:membership"
         );
         assert_eq!(value["validationDiagnostics"][0]["code"], "quota_exceeded");
+    }
+
+    #[test]
+    fn validation_input_lifecycles_round_trip_without_mixed_hash_ownership() {
+        let draft = VoxelAnnotationLayerDraft {
+            layer_id: "voxel-annotation/demo/draft".to_string(),
+            schema_version: VOXEL_ANNOTATION_SCHEMA_VERSION,
+            media_type: VOXEL_ANNOTATION_MEDIA_TYPE.to_string(),
+            target_voxel_volume_asset_id: "voxel-volume/demo/tunnel".to_string(),
+            target_voxel_data_hash: "fnv1a64:target".to_string(),
+            target_bounds: bounds(0, 0, 0, 1, 0, 0),
+            regions: Vec::new(),
+            provenance: Vec::new(),
+        };
+        let finalized = VoxelAnnotationLayer {
+            layer_id: draft.layer_id.clone(),
+            schema_version: draft.schema_version,
+            media_type: draft.media_type.clone(),
+            target_voxel_volume_asset_id: draft.target_voxel_volume_asset_id.clone(),
+            target_voxel_data_hash: draft.target_voxel_data_hash.clone(),
+            target_bounds: draft.target_bounds,
+            regions: draft.regions.clone(),
+            provenance: draft.provenance.clone(),
+            content_hashes: VoxelAnnotationContentHashes {
+                canonical_json: "fnv1a64:canonical".to_string(),
+                membership_data: "fnv1a64:membership".to_string(),
+            },
+            validation_diagnostics: Vec::new(),
+        };
+
+        for (expected_kind, input) in [
+            (
+                "draft",
+                VoxelAnnotationLayerValidationInput::Draft {
+                    draft: draft.clone(),
+                },
+            ),
+            (
+                "finalized",
+                VoxelAnnotationLayerValidationInput::Finalized {
+                    layer: finalized.clone(),
+                },
+            ),
+        ] {
+            let value = serde_json::to_value(&input).expect("serializes");
+            assert_eq!(value["kind"], expected_kind);
+            let decoded: VoxelAnnotationLayerValidationInput =
+                serde_json::from_value(value).expect("round trips");
+            assert_eq!(decoded, input);
+        }
     }
 
     fn coord(x: i64, y: i64, z: i64) -> VoxelAnnotationCoord {

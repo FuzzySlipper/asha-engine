@@ -7,6 +7,8 @@ import assert from 'node:assert/strict';
 
 import type {
   VoxelAnnotationLayer,
+  VoxelAnnotationLayerDraft,
+  VoxelAnnotationLayerValidationInput,
   VoxelAnnotationLayerValidationRequest,
   VoxelAnnotationRegion,
   VoxelAnnotationSparseRun,
@@ -163,7 +165,7 @@ function firstRegionFromAsset(asset: VoxelVolumeAsset): {
 }
 
 function annotationLayer(asset: VoxelVolumeAsset): {
-  readonly layer: VoxelAnnotationLayer;
+  readonly layer: VoxelAnnotationLayerDraft;
   readonly queryCell: { readonly x: number; readonly y: number; readonly z: number };
 } {
   const { region, queryCell } = firstRegionFromAsset(asset);
@@ -182,20 +184,19 @@ function annotationLayer(asset: VoxelVolumeAsset): {
         uri: 'asha://smoke/voxel-annotation-consumer-proof',
         contentHash: 'fnv1a64:annotation-consumer-proof-source',
       }],
-      contentHashes: {
-        canonicalJson: '',
-        membershipData: '',
-      },
-      validationDiagnostics: [],
     },
   };
 }
 
-function validationRequest(layer: VoxelAnnotationLayer): VoxelAnnotationLayerValidationRequest {
+function validationRequest(
+  input: VoxelAnnotationLayerValidationInput,
+  targetVoxelVolumeAssetId: string,
+  targetVoxelDataHash: string,
+): VoxelAnnotationLayerValidationRequest {
   return {
-    layer,
-    expectedTargetVoxelVolumeAssetId: layer.targetVoxelVolumeAssetId,
-    expectedTargetVoxelDataHash: layer.targetVoxelDataHash,
+    input,
+    expectedTargetVoxelVolumeAssetId: targetVoxelVolumeAssetId,
+    expectedTargetVoxelDataHash: targetVoxelDataHash,
     maxRegions: 16,
     maxSparseRunsPerRegion: 16,
     maxTotalAssignedCells: 32,
@@ -218,20 +219,22 @@ void test('voxel annotation public consumer proof validates loads queries edits 
   assert.equal(volumeLoad.voxelDataHash, asset.contentHashes.voxelData);
 
   const { layer: draftLayer, queryCell } = annotationLayer(asset);
-  const draftValidation = session.validateVoxelAnnotationLayer(validationRequest(draftLayer));
-  assert.equal(draftValidation.valid, false);
-  assert.equal(draftValidation.diagnostics[0]?.code, 'stale_layer_hash');
+  const draftValidation = session.validateVoxelAnnotationLayer(validationRequest(
+    { kind: 'draft', draft: draftLayer },
+    draftLayer.targetVoxelVolumeAssetId,
+    draftLayer.targetVoxelDataHash,
+  ));
+  assert.equal(draftValidation.valid, true, JSON.stringify(draftValidation.diagnostics));
+  assert.ok(draftValidation.normalizedLayer !== null);
   assert.match(draftValidation.canonicalJsonHash ?? '', /^fnv1a64:/);
   assert.match(draftValidation.membershipDataHash ?? '', /^fnv1a64:/);
 
-  const layer: VoxelAnnotationLayer = {
-    ...draftLayer,
-    contentHashes: {
-      canonicalJson: draftValidation.canonicalJsonHash ?? '',
-      membershipData: draftValidation.membershipDataHash ?? '',
-    },
-  };
-  const validation = session.validateVoxelAnnotationLayer(validationRequest(layer));
+  const layer: VoxelAnnotationLayer = draftValidation.normalizedLayer;
+  const validation = session.validateVoxelAnnotationLayer(validationRequest(
+    { kind: 'finalized', layer },
+    layer.targetVoxelVolumeAssetId,
+    layer.targetVoxelDataHash,
+  ));
   assert.equal(validation.valid, true, JSON.stringify(validation.diagnostics));
   assert.equal(validation.regionCount, 1);
   assert.ok(validation.assignedCellCount >= 1);
@@ -239,7 +242,11 @@ void test('voxel annotation public consumer proof validates loads queries edits 
   assert.match(validation.membershipDataHash ?? '', /^fnv1a64:/);
 
   const quotaReport = session.validateVoxelAnnotationLayer({
-    ...validationRequest(layer),
+    ...validationRequest(
+      { kind: 'finalized', layer },
+      layer.targetVoxelVolumeAssetId,
+      layer.targetVoxelDataHash,
+    ),
     maxTotalAssignedCells: 0,
   });
   assert.equal(quotaReport.valid, false);
@@ -324,7 +331,7 @@ void test('voxel annotation public consumer proof validates loads queries edits 
     schemaVersion: 1,
     project: 'asha',
     consumer: '@asha/smoke',
-    publicImports: ['@asha/contracts', '@asha/runtime-bridge'],
+    publicImports: ['@asha/contracts', '@asha/runtime-bridge', '@asha/runtime-session'],
     engineCommit: gitValue(['rev-parse', 'HEAD']),
     engineRef: gitValue(['rev-parse', '--abbrev-ref', 'HEAD']),
     targetAssetId: asset.assetId,
@@ -345,7 +352,11 @@ void test('voxel annotation public consumer proof validates loads queries edits 
   mkdirSync(dirname(proofPath), { recursive: true });
   writeFileSync(proofPath, `${JSON.stringify(proof, null, 2)}\n`);
 
-  assert.deepEqual(proof.publicImports, ['@asha/contracts', '@asha/runtime-bridge']);
+  assert.deepEqual(proof.publicImports, [
+    '@asha/contracts',
+    '@asha/runtime-bridge',
+    '@asha/runtime-session',
+  ]);
   assert.match(proof.engineCommit, /^[0-9a-f]{40}$/u);
   assert.deepEqual(proof.queryMatchedRegions, ['region/annotation-proof-room']);
 });

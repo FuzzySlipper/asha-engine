@@ -311,7 +311,7 @@ const VOXEL_ANNOTATION_LAYER = {
     validationDiagnostics: [],
 };
 const VOXEL_ANNOTATION_VALIDATION_REQUEST = {
-    layer: VOXEL_ANNOTATION_LAYER,
+    input: { kind: 'finalized', layer: VOXEL_ANNOTATION_LAYER },
     expectedTargetVoxelVolumeAssetId: 'voxel/generated',
     expectedTargetVoxelDataHash: 'fnv1a64:0000000000000109',
     maxRegions: 16,
@@ -1072,12 +1072,14 @@ function fakeAddon(calls = []) {
         validateVoxelAnnotationLayer: (_handle, requestJson) => {
             calls.push(`voxelAnnotationValidate:${requestJson}`);
             const request = parseJsonFixture(requestJson);
+            const layer = request.input.kind === 'finalized' ? request.input.layer : VOXEL_ANNOTATION_LAYER;
             return JSON.stringify({
-                layerId: request.layer.layerId,
+                layerId: layer.layerId,
                 valid: true,
-                canonicalJsonHash: request.layer.contentHashes.canonicalJson,
-                membershipDataHash: request.layer.contentHashes.membershipData,
-                regionCount: request.layer.regions.length,
+                normalizedLayer: layer,
+                canonicalJsonHash: layer.contentHashes.canonicalJson,
+                membershipDataHash: layer.contentHashes.membershipData,
+                regionCount: layer.regions.length,
                 sparseRunCount: 1,
                 assignedCellCount: 1,
                 diagnostics: [],

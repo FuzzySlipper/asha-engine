@@ -74,8 +74,9 @@ pub(crate) use protocol_voxel_annotation::{
 };
 pub use protocol_voxel_annotation::{
     VoxelAnnotationEditReceipt, VoxelAnnotationEditRequest, VoxelAnnotationLayer,
-    VoxelAnnotationLayerExportReceipt, VoxelAnnotationLayerExportRequest,
-    VoxelAnnotationLayerLoadReceipt, VoxelAnnotationLayerLoadRequest,
+    VoxelAnnotationLayerDraft, VoxelAnnotationLayerExportReceipt,
+    VoxelAnnotationLayerExportRequest, VoxelAnnotationLayerLoadReceipt,
+    VoxelAnnotationLayerLoadRequest, VoxelAnnotationLayerValidationInput,
     VoxelAnnotationLayerValidationReport, VoxelAnnotationLayerValidationRequest,
     VoxelAnnotationQueryReadout, VoxelAnnotationQueryRequest, VoxelAnnotationRegion,
     VoxelAnnotationSelection, VoxelAnnotationSparseRun,

@@ -15,6 +15,7 @@ use protocol_diagnostics::DiagnosticSeverity;
 use protocol_voxel_annotation::{
     VoxelAnnotationBounds, VoxelAnnotationContentHashes, VoxelAnnotationCoord,
     VoxelAnnotationDiagnostic, VoxelAnnotationDiagnosticCode, VoxelAnnotationLayer,
+    VoxelAnnotationLayerDraft, VoxelAnnotationLayerValidationInput,
     VoxelAnnotationLayerValidationReport, VoxelAnnotationLayerValidationRequest,
     VoxelAnnotationQueryMode, VoxelAnnotationQueryReadout, VoxelAnnotationQueryRequest,
     VoxelAnnotationRegion, VoxelAnnotationRegionReadout, VoxelAnnotationSparseRun,
@@ -56,12 +57,12 @@ impl std::error::Error for VoxelAnnotationDecodeError {}
 pub fn validate_layer(
     request: &VoxelAnnotationLayerValidationRequest,
 ) -> VoxelAnnotationLayerValidationReport {
-    let layer = &request.layer;
+    let (layer, validate_hashes) = validation_input_layer(&request.input);
     let mut diagnostics = Vec::new();
 
-    validate_version_and_media(layer, &mut diagnostics);
-    validate_layer_id(layer, &mut diagnostics);
-    validate_target(request, &mut diagnostics);
+    validate_version_and_media(&layer, &mut diagnostics);
+    validate_layer_id(&layer, &mut diagnostics);
+    validate_target(request, &layer, &mut diagnostics);
     validate_bounds("targetBounds", &layer.target_bounds, &mut diagnostics);
 
     let mut region_ids = BTreeSet::new();
@@ -69,15 +70,15 @@ pub fn validate_layer(
     let mut sparse_run_count = 0u64;
     let mut assigned_cell_count = 0u64;
 
-    validate_region_quota(request, &mut diagnostics);
+    validate_region_quota(request, &layer, &mut diagnostics);
     for (index, region) in layer.regions.iter().enumerate() {
         validate_region_header(index, region, &mut region_ids, &mut diagnostics);
         parent_by_region.insert(region.region_id.clone(), region.parent_region_id.clone());
-        validate_region_bounds(index, layer, region, &mut diagnostics);
+        validate_region_bounds(index, &layer, region, &mut diagnostics);
         validate_region_selection(
             index,
             request,
-            layer,
+            &layer,
             region,
             &mut sparse_run_count,
             &mut assigned_cell_count,
@@ -85,13 +86,25 @@ pub fn validate_layer(
         );
     }
     validate_parent_tree(&parent_by_region, &mut diagnostics);
-    validate_content_hashes(layer, &mut diagnostics);
+    if validate_hashes {
+        validate_content_hashes(&layer, &mut diagnostics);
+    }
+
+    let valid = diagnostics_are_valid(&diagnostics);
+    let normalized_layer = valid.then(|| with_computed_hashes(&layer));
+    let canonical_json_hash = normalized_layer
+        .as_ref()
+        .map(|layer| layer.content_hashes.canonical_json.clone());
+    let membership_data_hash = normalized_layer
+        .as_ref()
+        .map(|layer| layer.content_hashes.membership_data.clone());
 
     VoxelAnnotationLayerValidationReport {
         layer_id: layer.layer_id.clone(),
-        valid: diagnostics_are_valid(&diagnostics),
-        canonical_json_hash: Some(canonical_json_hash(layer)),
-        membership_data_hash: Some(membership_data_hash(layer)),
+        valid,
+        normalized_layer,
+        canonical_json_hash,
+        membership_data_hash,
         region_count: layer.regions.len() as u64,
         sparse_run_count,
         assigned_cell_count,
@@ -113,6 +126,33 @@ pub fn with_computed_hashes(layer: &VoxelAnnotationLayer) -> VoxelAnnotationLaye
     normalized
 }
 
+fn validation_input_layer(
+    input: &VoxelAnnotationLayerValidationInput,
+) -> (VoxelAnnotationLayer, bool) {
+    match input {
+        VoxelAnnotationLayerValidationInput::Draft { draft } => (layer_from_draft(draft), false),
+        VoxelAnnotationLayerValidationInput::Finalized { layer } => (layer.clone(), true),
+    }
+}
+
+fn layer_from_draft(draft: &VoxelAnnotationLayerDraft) -> VoxelAnnotationLayer {
+    VoxelAnnotationLayer {
+        layer_id: draft.layer_id.clone(),
+        schema_version: draft.schema_version,
+        media_type: draft.media_type.clone(),
+        target_voxel_volume_asset_id: draft.target_voxel_volume_asset_id.clone(),
+        target_voxel_data_hash: draft.target_voxel_data_hash.clone(),
+        target_bounds: draft.target_bounds,
+        regions: draft.regions.clone(),
+        provenance: draft.provenance.clone(),
+        content_hashes: VoxelAnnotationContentHashes {
+            canonical_json: String::new(),
+            membership_data: String::new(),
+        },
+        validation_diagnostics: Vec::new(),
+    }
+}
+
 /// Encode canonical JSON after validation.
 pub fn encode_layer(
     request: &VoxelAnnotationLayerValidationRequest,
@@ -121,7 +161,12 @@ pub fn encode_layer(
     if !report.valid {
         return Err(Box::new(report));
     }
-    Ok(canonical_json(&request.layer))
+    Ok(canonical_json(
+        report
+            .normalized_layer
+            .as_ref()
+            .expect("valid validation report has a normalized layer"),
+    ))
 }
 
 /// Decode JSON and validate before returning the annotation layer.
@@ -133,7 +178,7 @@ pub fn decode_layer(
     let layer: VoxelAnnotationLayer =
         serde_json::from_str(text).map_err(|e| VoxelAnnotationDecodeError::Json(e.to_string()))?;
     let request = VoxelAnnotationLayerValidationRequest {
-        layer,
+        input: VoxelAnnotationLayerValidationInput::Finalized { layer },
         expected_target_voxel_volume_asset_id,
         expected_target_voxel_data_hash,
         max_regions: DEFAULT_MAX_REGIONS,
@@ -142,7 +187,9 @@ pub fn decode_layer(
     };
     let report = validate_layer(&request);
     if report.valid {
-        Ok(request.layer)
+        Ok(report
+            .normalized_layer
+            .expect("valid validation report has a normalized layer"))
     } else {
         Err(VoxelAnnotationDecodeError::Invalid(Box::new(report)))
     }
@@ -154,7 +201,9 @@ pub fn query_layer(
     request: &VoxelAnnotationQueryRequest,
 ) -> VoxelAnnotationQueryReadout {
     let validation_request = VoxelAnnotationLayerValidationRequest {
-        layer: layer.clone(),
+        input: VoxelAnnotationLayerValidationInput::Finalized {
+            layer: layer.clone(),
+        },
         expected_target_voxel_volume_asset_id: Some(layer.target_voxel_volume_asset_id.clone()),
         expected_target_voxel_data_hash: Some(layer.target_voxel_data_hash.clone()),
         max_regions: DEFAULT_MAX_REGIONS,
@@ -259,9 +308,9 @@ fn validate_layer_id(
 
 fn validate_target(
     request: &VoxelAnnotationLayerValidationRequest,
+    layer: &VoxelAnnotationLayer,
     diagnostics: &mut Vec<VoxelAnnotationDiagnostic>,
 ) {
-    let layer = &request.layer;
     match AssetId::parse(&layer.target_voxel_volume_asset_id) {
         Ok(id) if id.kind() == AssetKind::VoxelVolume => {}
         Ok(id) => diagnostics.push(diagnostic(
@@ -325,15 +374,16 @@ fn validate_bounds(
 
 fn validate_region_quota(
     request: &VoxelAnnotationLayerValidationRequest,
+    layer: &VoxelAnnotationLayer,
     diagnostics: &mut Vec<VoxelAnnotationDiagnostic>,
 ) {
-    if request.layer.regions.len() as u64 > request.max_regions {
+    if layer.regions.len() as u64 > request.max_regions {
         diagnostics.push(diagnostic(
             VoxelAnnotationDiagnosticCode::QuotaExceeded,
             "regions",
             format!(
                 "region count {} exceeds maxRegions {}",
-                request.layer.regions.len(),
+                layer.regions.len(),
                 request.max_regions
             ),
         ));
@@ -840,7 +890,7 @@ mod tests {
 
     fn request(layer: VoxelAnnotationLayer) -> VoxelAnnotationLayerValidationRequest {
         VoxelAnnotationLayerValidationRequest {
-            layer,
+            input: VoxelAnnotationLayerValidationInput::Finalized { layer },
             expected_target_voxel_volume_asset_id: Some("voxel-volume/test-room".to_string()),
             expected_target_voxel_data_hash: Some("fnv1a64:target".to_string()),
             max_regions: DEFAULT_MAX_REGIONS,
@@ -898,6 +948,53 @@ mod tests {
             },
             validation_diagnostics: Vec::new(),
         }
+    }
+
+    fn draft(layer: &VoxelAnnotationLayer) -> VoxelAnnotationLayerDraft {
+        VoxelAnnotationLayerDraft {
+            layer_id: layer.layer_id.clone(),
+            schema_version: layer.schema_version,
+            media_type: layer.media_type.clone(),
+            target_voxel_volume_asset_id: layer.target_voxel_volume_asset_id.clone(),
+            target_voxel_data_hash: layer.target_voxel_data_hash.clone(),
+            target_bounds: layer.target_bounds,
+            regions: layer.regions.clone(),
+            provenance: layer.provenance.clone(),
+        }
+    }
+
+    #[test]
+    fn normalizes_unhashed_draft_and_rejects_wrong_finalized_hashes() {
+        let draft_request = VoxelAnnotationLayerValidationRequest {
+            input: VoxelAnnotationLayerValidationInput::Draft {
+                draft: draft(&base_layer()),
+            },
+            expected_target_voxel_volume_asset_id: Some("voxel-volume/test-room".to_string()),
+            expected_target_voxel_data_hash: Some("fnv1a64:target".to_string()),
+            max_regions: DEFAULT_MAX_REGIONS,
+            max_sparse_runs_per_region: DEFAULT_MAX_SPARSE_RUNS_PER_REGION,
+            max_total_assigned_cells: DEFAULT_MAX_TOTAL_ASSIGNED_CELLS,
+        };
+        let report = validate_layer(&draft_request);
+        assert!(report.valid, "{:?}", report.diagnostics);
+        let normalized = report.normalized_layer.expect("normalized layer");
+        assert_eq!(
+            report.canonical_json_hash.as_deref(),
+            Some(normalized.content_hashes.canonical_json.as_str())
+        );
+        assert_eq!(
+            report.membership_data_hash.as_deref(),
+            Some(normalized.content_hashes.membership_data.as_str())
+        );
+
+        let mut wrong = normalized;
+        wrong.content_hashes.canonical_json = "fnv1a64:wrong".to_string();
+        let wrong_report = validate_layer(&request(wrong));
+        assert!(!wrong_report.valid);
+        assert!(wrong_report.normalized_layer.is_none());
+        assert!(wrong_report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == VoxelAnnotationDiagnosticCode::StaleLayerHash
+        }));
     }
 
     #[test]

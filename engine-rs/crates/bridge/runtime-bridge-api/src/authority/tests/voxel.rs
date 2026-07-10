@@ -568,7 +568,7 @@ fn voxel_volume_asset_load_accepts_hand_authored_asset_and_rejects_invalid_asset
 #[test]
 fn voxel_annotation_layer_runtime_bridge_validates_loads_queries_edits_and_exports() {
     let asset = hand_authored_voxel_volume_asset();
-    let layer = hand_authored_voxel_annotation_layer(&asset);
+    let finalized_fixture = hand_authored_voxel_annotation_layer(&asset);
     let mut bridge = init_bridge();
     let volume_load = bridge
         .load_voxel_volume_asset(VoxelVolumeAssetLoadRequest {
@@ -583,7 +583,20 @@ fn voxel_annotation_layer_runtime_bridge_validates_loads_queries_edits_and_expor
 
     let validation = bridge
         .validate_voxel_annotation_layer(VoxelAnnotationLayerValidationRequest {
-            layer: layer.clone(),
+            input: VoxelAnnotationLayerValidationInput::Draft {
+                draft: VoxelAnnotationLayerDraft {
+                    layer_id: finalized_fixture.layer_id.clone(),
+                    schema_version: finalized_fixture.schema_version,
+                    media_type: finalized_fixture.media_type.clone(),
+                    target_voxel_volume_asset_id: finalized_fixture
+                        .target_voxel_volume_asset_id
+                        .clone(),
+                    target_voxel_data_hash: finalized_fixture.target_voxel_data_hash.clone(),
+                    target_bounds: finalized_fixture.target_bounds,
+                    regions: finalized_fixture.regions.clone(),
+                    provenance: finalized_fixture.provenance.clone(),
+                },
+            },
             expected_target_voxel_volume_asset_id: Some(asset.asset_id.clone()),
             expected_target_voxel_data_hash: Some(asset.content_hashes.voxel_data.clone()),
             max_regions: 16,
@@ -593,6 +606,7 @@ fn voxel_annotation_layer_runtime_bridge_validates_loads_queries_edits_and_expor
         .unwrap();
     assert!(validation.valid);
     assert_eq!(validation.assigned_cell_count, 2);
+    let layer = validation.normalized_layer.expect("normalized layer");
     assert_eq!(
         validation.canonical_json_hash.as_deref(),
         Some(layer.content_hashes.canonical_json.as_str())

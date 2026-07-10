@@ -48,7 +48,9 @@ impl EngineBridge {
         }
         let validation =
             svc_voxel_annotation::validate_layer(&VoxelAnnotationLayerValidationRequest {
-                layer: request.layer.clone(),
+                input: VoxelAnnotationLayerValidationInput::Finalized {
+                    layer: request.layer.clone(),
+                },
                 expected_target_voxel_volume_asset_id: Some(
                     request.layer.target_voxel_volume_asset_id.clone(),
                 ),
@@ -171,7 +173,9 @@ impl EngineBridge {
         candidate = svc_voxel_annotation::with_computed_hashes(&candidate);
         let validation =
             svc_voxel_annotation::validate_layer(&VoxelAnnotationLayerValidationRequest {
-                layer: candidate.clone(),
+                input: VoxelAnnotationLayerValidationInput::Finalized {
+                    layer: candidate.clone(),
+                },
                 expected_target_voxel_volume_asset_id: Some(
                     candidate.target_voxel_volume_asset_id.clone(),
                 ),
@@ -234,7 +238,9 @@ impl EngineBridge {
         }
         let validation =
             svc_voxel_annotation::validate_layer(&VoxelAnnotationLayerValidationRequest {
-                layer: layer.clone(),
+                input: VoxelAnnotationLayerValidationInput::Finalized {
+                    layer: layer.clone(),
+                },
                 expected_target_voxel_volume_asset_id: Some(
                     layer.target_voxel_volume_asset_id.clone(),
                 ),
@@ -252,7 +258,9 @@ impl EngineBridge {
         }
         let canonical_json = svc_voxel_annotation::encode_layer(
             &VoxelAnnotationLayerValidationRequest {
-                layer: layer.clone(),
+                input: VoxelAnnotationLayerValidationInput::Finalized {
+                    layer: layer.clone(),
+                },
                 expected_target_voxel_volume_asset_id: Some(
                     layer.target_voxel_volume_asset_id.clone(),
                 ),

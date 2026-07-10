@@ -88,6 +88,18 @@ export interface VoxelAnnotationRegion {
   readonly selection: VoxelAnnotationSelection;
 }
 
+// Authored voxel annotation input before Rust authority assigns content hashes.
+export interface VoxelAnnotationLayerDraft {
+  readonly layerId: string;
+  readonly schemaVersion: number;
+  readonly mediaType: string;
+  readonly targetVoxelVolumeAssetId: string;
+  readonly targetVoxelDataHash: string;
+  readonly targetBounds: VoxelAnnotationBounds;
+  readonly regions: readonly VoxelAnnotationRegion[];
+  readonly provenance: readonly VoxelAnnotationProvenanceRef[];
+}
+
 // A complete ASHA-native stored voxel annotation layer.
 export interface VoxelAnnotationLayer {
   readonly layerId: string;
@@ -102,9 +114,14 @@ export interface VoxelAnnotationLayer {
   readonly validationDiagnostics: readonly VoxelAnnotationDiagnostic[];
 }
 
+// Explicit lifecycle input for annotation validation and normalization.
+export type VoxelAnnotationLayerValidationInput =
+  | { readonly kind: 'draft'; readonly draft: VoxelAnnotationLayerDraft }
+  | { readonly kind: 'finalized'; readonly layer: VoxelAnnotationLayer };
+
 // Request to validate and canonicalize a stored annotation layer.
 export interface VoxelAnnotationLayerValidationRequest {
-  readonly layer: VoxelAnnotationLayer;
+  readonly input: VoxelAnnotationLayerValidationInput;
   readonly expectedTargetVoxelVolumeAssetId: string | null;
   readonly expectedTargetVoxelDataHash: string | null;
   readonly maxRegions: number;
@@ -116,6 +133,7 @@ export interface VoxelAnnotationLayerValidationRequest {
 export interface VoxelAnnotationLayerValidationReport {
   readonly layerId: string;
   readonly valid: boolean;
+  readonly normalizedLayer: VoxelAnnotationLayer | null;
   readonly canonicalJsonHash: string | null;
   readonly membershipDataHash: string | null;
   readonly regionCount: number;
