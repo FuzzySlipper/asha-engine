@@ -428,12 +428,19 @@ impl EngineBridge {
     pub(super) fn seeded_voxel_conversion_targets(
     ) -> BTreeMap<(u64, Option<String>), VoxelConversionTargetAuthority> {
         let launch = Self::launch_grid();
+        let studio_grid =
+            VoxelGridSpec::new(GridId::new(2), launch.voxel_size(), launch.chunk_dims())
+                .expect("positive Studio target voxel size");
         let authored_grid =
             VoxelGridSpec::new(GridId::new(7), launch.voxel_size(), launch.chunk_dims())
                 .expect("positive authored target voxel size");
         [
             VoxelConversionTargetAuthority {
                 spec: launch,
+                volume_asset_id: Some("voxel/generated".to_string()),
+            },
+            VoxelConversionTargetAuthority {
+                spec: studio_grid,
                 volume_asset_id: Some("voxel/generated".to_string()),
             },
             VoxelConversionTargetAuthority {

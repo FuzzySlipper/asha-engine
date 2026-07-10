@@ -1,6 +1,16 @@
 use super::*;
 
 #[test]
+fn native_runtime_seeds_default_studio_and_authored_voxel_targets() {
+    let bridge = init_bridge();
+    for grid in [1, 2, 7] {
+        assert!(bridge
+            .voxel_conversion_targets
+            .contains_key(&(grid, Some("voxel/generated".to_string()))));
+    }
+}
+
+#[test]
 fn voxel_conversion_plan_preview_apply_uses_rust_authority_and_commands() {
     let mut bridge = init_bridge();
     let request = project_voxel_conversion_request(7);

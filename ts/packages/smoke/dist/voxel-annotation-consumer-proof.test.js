@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { RuntimeBridgeError, createNativeRuntimeBridge, createRuntimeSessionFacade, } from '@asha/runtime-bridge';
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
 const proofPath = resolve(repoRoot, 'harness/smoke-out/voxel-annotation-consumer-proof.json');
+const TARGET_GRID = 2;
 function gitValue(args) {
     return execFileSync('git', [...args], { cwd: repoRoot, encoding: 'utf8' }).trim();
 }
@@ -61,7 +62,7 @@ function createVoxelAsset(session) {
     const plan = session.planVoxelConversion({
         source: registration.source,
         target: {
-            grid: 7,
+            grid: TARGET_GRID,
             volumeAssetId: 'voxel/generated',
             origin: { x: 0, y: 0, z: 0 },
         },
@@ -94,13 +95,13 @@ function createVoxelAsset(session) {
     });
     assert.equal(receipt.applied, true, JSON.stringify(receipt.diagnostics));
     const modelInfo = session.readVoxelModelInfo({
-        grid: 7,
+        grid: TARGET_GRID,
         volumeAssetId: 'voxel/generated',
         includeMaterialCounts: true,
     });
     assert.equal(modelInfo.resident, true);
     const exported = session.exportVoxelVolumeAsset({
-        grid: 7,
+        grid: TARGET_GRID,
         volumeAssetId: 'voxel/generated',
         targetAssetId: 'voxel-volume/annotation-consumer-proof',
         label: 'Voxel annotation consumer proof',
@@ -171,7 +172,7 @@ void test('voxel annotation public consumer proof validates loads queries edits 
     const asset = createVoxelAsset(session);
     const volumeLoad = session.loadVoxelVolumeAsset({
         asset,
-        targetGrid: 7,
+        targetGrid: TARGET_GRID,
         targetVolumeAssetId: asset.assetId,
         replaceExisting: true,
         includeMaterialCounts: true,
@@ -199,7 +200,7 @@ void test('voxel annotation public consumer proof validates loads queries edits 
     assert.equal(quotaReport.diagnostics[0]?.code, 'quota_exceeded');
     const staleLoad = session.loadVoxelAnnotationLayer({
         layer,
-        targetGrid: 7,
+        targetGrid: TARGET_GRID,
         replaceExisting: true,
         expectedSessionHash: 'fnv1a64:0000000000000000',
     });
@@ -207,7 +208,7 @@ void test('voxel annotation public consumer proof validates loads queries edits 
     assert.equal(staleLoad.diagnostics[0]?.code, 'target_voxel_hash_mismatch');
     const load = session.loadVoxelAnnotationLayer({
         layer,
-        targetGrid: 7,
+        targetGrid: TARGET_GRID,
         replaceExisting: true,
         expectedSessionHash: volumeLoad.sessionHash,
     });
@@ -274,6 +275,7 @@ void test('voxel annotation public consumer proof validates loads queries edits 
         engineCommit: gitValue(['rev-parse', 'HEAD']),
         engineRef: gitValue(['rev-parse', '--abbrev-ref', 'HEAD']),
         targetAssetId: asset.assetId,
+        targetGrid: TARGET_GRID,
         targetVoxelDataHash: asset.contentHashes.voxelData,
         runtimeLayerId: load.runtimeLayerId,
         layerHashBeforeEdit: edit.layerHashBefore,
