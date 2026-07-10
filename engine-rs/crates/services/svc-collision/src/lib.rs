@@ -27,9 +27,10 @@
 //! Queries are the **one shared vocabulary** for picking, camera, and placement:
 //! [`CollisionProjection::contains_point`] (occupancy), [`CollisionProjection::raycast`]
 //! (nearest authoritative [`VoxelHit`] with face/distance), and
-//! [`CollisionProjection::aabb_overlaps_solid`] (placement/camera shape test). There
-//! is no separate renderer-owned authoritative raycast; renderer picks are hints
-//! revalidated here (#2259).
+//! [`CollisionProjection::aabb_overlaps_solid`] (placement/camera shape test), and
+//! [`CollisionProjection::axis_swept_aabb_overlaps_solid`] (continuous axis-aligned
+//! camera movement). There is no separate renderer-owned authoritative raycast;
+//! renderer picks are hints revalidated here (#2259).
 
 #![forbid(unsafe_code)]
 
@@ -396,6 +397,54 @@ impl CollisionProjection {
         }
         false
     }
+
+    /// Whether an AABB translated along one axis intersects any solid collider
+    /// anywhere on its path. The swept volume of an axis-aligned box moving on a
+    /// single axis is itself an AABB, so this continuous query cannot tunnel past
+    /// an intervening voxel the way an endpoint-only overlap test can.
+    ///
+    /// Callers must pass a translation with at most one non-zero component. The
+    /// query is intentionally conservative and returns `true` for invalid vectors;
+    /// authority callers validate and bound movement before reaching this service.
+    pub fn axis_swept_aabb_overlaps_solid(
+        &self,
+        min: WorldPos,
+        max: WorldPos,
+        translation: WorldVec,
+    ) -> bool {
+        let components = [translation.x, translation.y, translation.z];
+        if !components.iter().all(|component| component.is_finite())
+            || components
+                .iter()
+                .filter(|component| **component != 0.0)
+                .count()
+                > 1
+        {
+            return true;
+        }
+        let destination_min = WorldPos::new(
+            min.x + translation.x,
+            min.y + translation.y,
+            min.z + translation.z,
+        );
+        let destination_max = WorldPos::new(
+            max.x + translation.x,
+            max.y + translation.y,
+            max.z + translation.z,
+        );
+        self.aabb_overlaps_solid(
+            WorldPos::new(
+                min.x.min(destination_min.x),
+                min.y.min(destination_min.y),
+                min.z.min(destination_min.z),
+            ),
+            WorldPos::new(
+                max.x.max(destination_max.x),
+                max.y.max(destination_max.y),
+                max.z.max(destination_max.z),
+            ),
+        )
+    }
 }
 
 /// Build the parry `Compound` of world-positioned cuboids for one chunk's solid
@@ -653,6 +702,38 @@ mod tests {
         assert!(
             proj.aabb_overlaps_solid(WorldPos::new(7.5, 0.5, 0.5), WorldPos::new(8.5, 0.5, 0.5))
         );
+    }
+
+    #[test]
+    fn axis_swept_aabb_detects_intervening_solid_without_endpoint_overlap() {
+        let world = world_with(ChunkCoord::new(0, 0, 0), &[LocalVoxelCoord::new(2, 0, 0)]);
+        let proj = CollisionProjection::build(&world);
+        let min = WorldPos::new(0.1, 0.1, 0.1);
+        let max = WorldPos::new(0.9, 0.9, 0.9);
+
+        assert!(
+            !proj.aabb_overlaps_solid(WorldPos::new(4.1, 0.1, 0.1), WorldPos::new(4.9, 0.9, 0.9))
+        );
+        assert!(proj.axis_swept_aabb_overlaps_solid(min, max, WorldVec::new(4.0, 0.0, 0.0)));
+        assert!(!proj.axis_swept_aabb_overlaps_solid(
+            WorldPos::new(0.1, 2.1, 0.1),
+            WorldPos::new(0.9, 2.9, 0.9),
+            WorldVec::new(4.0, 0.0, 0.0)
+        ));
+    }
+
+    #[test]
+    fn axis_swept_aabb_fails_closed_for_non_axis_translation() {
+        let projection = CollisionProjection::unblocked(spec());
+        let min = WorldPos::new(0.0, 0.0, 0.0);
+        let max = WorldPos::new(1.0, 1.0, 1.0);
+
+        assert!(projection.axis_swept_aabb_overlaps_solid(min, max, WorldVec::new(1.0, 1.0, 0.0)));
+        assert!(projection.axis_swept_aabb_overlaps_solid(
+            min,
+            max,
+            WorldVec::new(f64::INFINITY, 0.0, 0.0)
+        ));
     }
 
     #[test]

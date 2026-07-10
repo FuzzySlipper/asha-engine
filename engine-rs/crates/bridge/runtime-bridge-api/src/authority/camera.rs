@@ -1,5 +1,7 @@
 use super::*;
 
+const MAX_COLLISION_CAMERA_AXIS_TRAVEL: f32 = 256.0;
+
 impl EngineBridge {
     pub(super) fn basis_from_pose(pose: protocol_view::CameraPose) -> protocol_view::CameraBasis {
         let yaw = pose.yaw_degrees.to_radians();
@@ -183,6 +185,63 @@ impl EngineBridge {
             ));
         }
         Ok(())
+    }
+
+    pub(super) fn validate_collision_camera_travel(delta: [f32; 3]) -> BridgeResult<()> {
+        if delta
+            .iter()
+            .any(|component| component.abs() > MAX_COLLISION_CAMERA_AXIS_TRAVEL)
+        {
+            return Err(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                format!(
+                    "collision camera input exceeds the maximum axis travel of {MAX_COLLISION_CAMERA_AXIS_TRAVEL} units per command"
+                ),
+            ));
+        }
+        Ok(())
+    }
+
+    pub(super) fn resolve_collision_camera_pose(
+        projection: &CollisionProjection,
+        before: CameraPose,
+        attempted: CameraPose,
+        shape: CameraCollisionShape,
+    ) -> BridgeResult<(CameraPose, Vec<CollisionAxis>)> {
+        let delta = [
+            attempted.position[0] - before.position[0],
+            attempted.position[1] - before.position[1],
+            attempted.position[2] - before.position[2],
+        ];
+        Self::validate_collision_camera_travel(delta)?;
+        let mut after = CameraPose {
+            position: before.position,
+            yaw_degrees: attempted.yaw_degrees,
+            pitch_degrees: attempted.pitch_degrees,
+        };
+        let mut blocked_axes = Vec::new();
+        for (idx, axis) in [
+            (0usize, CollisionAxis::X),
+            (1, CollisionAxis::Y),
+            (2, CollisionAxis::Z),
+        ] {
+            if delta[idx] == 0.0 {
+                continue;
+            }
+            let (min, max) = Self::aabb_for_pose(after, shape);
+            let mut translation = [0.0_f64; 3];
+            translation[idx] = f64::from(delta[idx]);
+            if projection.axis_swept_aabb_overlaps_solid(
+                min,
+                max,
+                WorldVec::new(translation[0], translation[1], translation[2]),
+            ) {
+                blocked_axes.push(axis);
+            } else {
+                after.position[idx] += delta[idx];
+            }
+        }
+        Ok((after, blocked_axes))
     }
 
     pub(super) fn integrate_camera_snapshot(

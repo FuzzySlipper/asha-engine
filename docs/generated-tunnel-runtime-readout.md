@@ -32,7 +32,10 @@ receipt exposes the authoritative grid plus config, output, collision-source,
 and runtime collision-projection hashes; consumers pass that grid to
 `applyCollisionConstrainedCameraInput` instead of hardcoding it. `regenerate`
 remains an unsupported authoring operation, and reference sessions do not claim
-runtime collision authority.
+runtime collision authority. Collision-constrained camera movement uses a
+continuous axis sweep so a command cannot tunnel through intervening voxels.
+Each command is limited to 256 world units of travel per axis; larger proposals
+fail closed as invalid input without mutating the camera.
 
 Non-claims:
 

@@ -124,34 +124,12 @@ impl RuntimeBridge for EngineBridge {
             }
         };
         let projection = CollisionProjection::build(world);
-        let mut after_pose = CameraPose {
-            position: before.pose.position,
-            yaw_degrees: attempted.pose.yaw_degrees,
-            pitch_degrees: attempted.pose.pitch_degrees,
-        };
-        let delta = [
-            attempted.pose.position[0] - before.pose.position[0],
-            attempted.pose.position[1] - before.pose.position[1],
-            attempted.pose.position[2] - before.pose.position[2],
-        ];
-        let mut blocked_axes = Vec::new();
-        for (idx, axis) in [
-            (0usize, CollisionAxis::X),
-            (1, CollisionAxis::Y),
-            (2, CollisionAxis::Z),
-        ] {
-            if delta[idx] == 0.0 {
-                continue;
-            }
-            let mut candidate = after_pose;
-            candidate.position[idx] += delta[idx];
-            let (min, max) = Self::aabb_for_pose(candidate, envelope.shape);
-            if projection.aabb_overlaps_solid(min, max) {
-                blocked_axes.push(axis);
-            } else {
-                after_pose.position[idx] = candidate.position[idx];
-            }
-        }
+        let (after_pose, blocked_axes) = Self::resolve_collision_camera_pose(
+            &projection,
+            before.pose,
+            attempted.pose,
+            envelope.shape,
+        )?;
         let after = CameraSnapshot {
             tick: envelope.tick,
             pose: after_pose,

@@ -297,7 +297,7 @@ fn generated_tunnel_apply_installs_collision_authority_for_loaded_fps_session() 
     let camera = bridge
         .create_camera(CameraCreateRequest {
             initial_pose: CameraPose {
-                position: [1.5, 1.62, 1.5],
+                position: [0.0, 1.62, 1.5],
                 yaw_degrees: 0.0,
                 pitch_degrees: 0.0,
             },
@@ -323,8 +323,8 @@ fn generated_tunnel_apply_installs_collision_authority_for_loaded_fps_session() 
                 move_up: 0.0,
                 yaw_delta_degrees: 0.0,
                 pitch_delta_degrees: 0.0,
-                dt_seconds: 1.0,
-                move_speed_units_per_second: 1.0,
+                dt_seconds: 3.0,
+                move_speed_units_per_second: 3.0,
             },
             tick: 1,
             shape: CameraCollisionShape {
@@ -336,6 +336,8 @@ fn generated_tunnel_apply_installs_collision_authority_for_loaded_fps_session() 
             },
         })
         .unwrap();
+    assert_eq!(movement.attempted.pose.position, [0.0, 1.62, -7.5]);
+    assert_eq!(movement.after.pose.position, [0.0, 1.62, 1.5]);
     assert!(movement.collision.collided);
     assert_eq!(movement.collision.grid, applied.grid);
     assert_eq!(movement.collision.blocked_axes, vec![CollisionAxis::Z]);
@@ -346,6 +348,94 @@ fn generated_tunnel_apply_installs_collision_authority_for_loaded_fps_session() 
     assert_eq!(
         movement.collision.collision_projection_hash,
         applied.collision_projection_hash
+    );
+}
+
+#[test]
+fn collision_camera_travel_limit_accepts_boundary_and_rejects_over_limit_without_mutation() {
+    use protocol_view::{CameraPose, PerspectiveProjection, ViewportSize};
+
+    let mut bridge = init_bridge();
+    let create_camera = |bridge: &mut EngineBridge| {
+        bridge
+            .create_camera(CameraCreateRequest {
+                initial_pose: CameraPose {
+                    position: [1000.0, 1000.0, 1000.0],
+                    yaw_degrees: 0.0,
+                    pitch_degrees: 0.0,
+                },
+                projection: PerspectiveProjection {
+                    fov_y_degrees: 60.0,
+                    near: 0.1,
+                    far: 2000.0,
+                },
+                viewport: ViewportSize {
+                    width: 1280,
+                    height: 720,
+                },
+            })
+            .unwrap()
+    };
+    let shape = CameraCollisionShape {
+        half_extents: [0.25, 0.25, 0.25],
+    };
+    let policy = CameraCollisionPolicy {
+        mode: CameraCollisionPolicyMode::AxisSeparableSlide,
+        max_iterations: 3,
+    };
+    let boundary_camera = create_camera(&mut bridge);
+    let boundary = bridge
+        .apply_collision_constrained_camera_input(CollisionConstrainedCameraInputEnvelope {
+            camera: boundary_camera.camera,
+            grid: 1,
+            movement_mode: FirstPersonMovementMode::Grounded,
+            input: FirstPersonCameraInput {
+                move_forward: 1.0,
+                move_right: 0.0,
+                move_up: 0.0,
+                yaw_delta_degrees: 0.0,
+                pitch_delta_degrees: 0.0,
+                dt_seconds: 1.0,
+                move_speed_units_per_second: 256.0,
+            },
+            tick: 1,
+            shape,
+            policy,
+        })
+        .unwrap();
+    assert_eq!(boundary.after.pose.position, [1000.0, 1000.0, 744.0]);
+    assert!(!boundary.collision.collided);
+
+    let rejected_camera = create_camera(&mut bridge);
+    let rejected = bridge
+        .apply_collision_constrained_camera_input(CollisionConstrainedCameraInputEnvelope {
+            camera: rejected_camera.camera,
+            grid: 1,
+            movement_mode: FirstPersonMovementMode::Grounded,
+            input: FirstPersonCameraInput {
+                move_forward: 1.0,
+                move_right: 0.0,
+                move_up: 0.0,
+                yaw_delta_degrees: 0.0,
+                pitch_delta_degrees: 0.0,
+                dt_seconds: 1.0,
+                move_speed_units_per_second: 256.5,
+            },
+            tick: 1,
+            shape,
+            policy,
+        })
+        .unwrap_err();
+    assert_eq!(rejected.kind, RuntimeBridgeErrorKind::InvalidInput);
+    assert!(rejected.message.contains("maximum axis travel of 256"));
+    assert_eq!(
+        bridge
+            .cameras
+            .get(&rejected_camera.camera.raw())
+            .unwrap()
+            .pose
+            .position,
+        [1000.0, 1000.0, 1000.0]
     );
 }
 
