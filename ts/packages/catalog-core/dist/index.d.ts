@@ -47,9 +47,9 @@ export interface FpsEncounterTuning {
 export interface FpsGeneratorPresetRef {
     readonly presetId: 'tiny-enclosed';
     readonly seed: 17;
-    readonly outputHash: 'a9b504096397f5b4';
+    readonly outputHash: '1471496d88d70647';
     readonly renderProjectionHash: 'fnv1a64:21eb8696f6f3b5c4';
-    readonly collisionProjectionHash: 'fnv1a64:b2312fbcfb060db3';
+    readonly collisionProjectionHash: 'fnv1a64:627389be013a3154';
 }
 export interface FpsGameplayOwnership {
     readonly gameOwned: readonly [

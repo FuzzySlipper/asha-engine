@@ -103,6 +103,11 @@ export interface NativeGeneratedTunnelRuntimeApplyReceipt {
     readonly outputHash: string;
     readonly collisionSourceHash: string;
     readonly collisionProjectionHash: string;
+    readonly runtimeFrame: {
+        readonly worldOffset: readonly number[];
+        readonly playableMin: readonly number[];
+        readonly playableMax: readonly number[];
+    };
 }
 interface NativeFpsPrimaryFireResult {
     readonly backend: string;

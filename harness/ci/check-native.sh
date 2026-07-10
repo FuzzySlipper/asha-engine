@@ -78,13 +78,18 @@ const tunnel = session.requestGeneratedTunnelOperation({
 });
 assert.equal(tunnel.status, 'applied');
 assert.equal(tunnel.grid, 0);
-assert.equal(tunnel.outputHash, 'a9b504096397f5b4');
+assert.equal(tunnel.outputHash, '1471496d88d70647');
+assert.deepEqual(tunnel.runtimeFrame, {
+  worldOffset: [-3.5, -1, -5.5],
+  playableMin: [-2.5, 0, -4.5],
+  playableMax: [2.5, 4, 4.5],
+});
 const tunnelCamera = session.createCamera({
-  initialPose: { position: [1.5, 1.62, 1.5], yawDegrees: 0, pitchDegrees: -45 },
+  initialPose: { position: [0, 1.62, 1.5], yawDegrees: 0, pitchDegrees: 0 },
   projection: { fovYDegrees: 60, near: 0.1, far: 1000 },
   viewport: { width: 1280, height: 720 },
 }).snapshot.camera;
-const tunnelMovement = session.applyCollisionConstrainedCameraInput({
+const openTunnelMovement = session.applyCollisionConstrainedCameraInput({
   camera: tunnelCamera,
   grid: tunnel.grid,
   movementMode: 'grounded',
@@ -94,22 +99,42 @@ const tunnelMovement = session.applyCollisionConstrainedCameraInput({
     moveUp: 0,
     yawDeltaDegrees: 0,
     pitchDeltaDegrees: 0,
-    dtSeconds: 1,
-    moveSpeedUnitsPerSecond: 1,
+    dtSeconds: 0.1,
+    moveSpeedUnitsPerSecond: 3,
   },
   tick: 1,
-  shape: { halfExtents: [0.25, 0.25, 0.25] },
+  shape: { halfExtents: [0.25, 0.7, 0.25] },
   policy: { mode: 'axis_separable_slide', maxIterations: 3 },
 });
-assert.equal(tunnelMovement.collided, true);
-assert.deepEqual(tunnelMovement.blockedAxes, ['z']);
-assert.equal(tunnelMovement.snapshot.collision.movementMode, 'grounded');
-assert.equal(tunnelMovement.snapshot.attempted.pose.position[1], tunnelMovement.snapshot.before.pose.position[1]);
-assert.equal(tunnelMovement.snapshot.after.pose.position[1], tunnelMovement.snapshot.before.pose.position[1]);
-assert.equal(tunnelMovement.snapshot.after.pose.position[2], 1.5);
-assert.equal(tunnelMovement.snapshot.collision.grid, tunnel.grid);
-assert.equal(tunnelMovement.snapshot.collision.collisionSourceHash, tunnel.collisionSourceHash);
-assert.equal(tunnelMovement.snapshot.collision.collisionProjectionHash, tunnel.collisionProjectionHash);
+assert.equal(openTunnelMovement.collided, false);
+assert.deepEqual(openTunnelMovement.blockedAxes, []);
+assert.ok(Math.abs(openTunnelMovement.snapshot.after.pose.position[2] - 1.2) < 0.00001);
+const shellMovement = session.applyCollisionConstrainedCameraInput({
+  camera: tunnelCamera,
+  grid: tunnel.grid,
+  movementMode: 'grounded',
+  input: {
+    moveForward: 1,
+    moveRight: 0,
+    moveUp: 0,
+    yawDeltaDegrees: 0,
+    pitchDeltaDegrees: 0,
+    dtSeconds: 3,
+    moveSpeedUnitsPerSecond: 3,
+  },
+  tick: 2,
+  shape: { halfExtents: [0.25, 0.7, 0.25] },
+  policy: { mode: 'axis_separable_slide', maxIterations: 3 },
+});
+assert.equal(shellMovement.collided, true);
+assert.deepEqual(shellMovement.blockedAxes, ['z']);
+assert.equal(shellMovement.snapshot.collision.movementMode, 'grounded');
+assert.equal(shellMovement.snapshot.attempted.pose.position[1], shellMovement.snapshot.before.pose.position[1]);
+assert.equal(shellMovement.snapshot.after.pose.position[1], shellMovement.snapshot.before.pose.position[1]);
+assert.ok(Math.abs(shellMovement.snapshot.after.pose.position[2] - 1.2) < 0.00001);
+assert.equal(shellMovement.snapshot.collision.grid, tunnel.grid);
+assert.equal(shellMovement.snapshot.collision.collisionSourceHash, tunnel.collisionSourceHash);
+assert.equal(shellMovement.snapshot.collision.collisionProjectionHash, tunnel.collisionProjectionHash);
 const registrationRequest = {
   source: {
     assetId: 'mesh/check-native-registered-triangle',

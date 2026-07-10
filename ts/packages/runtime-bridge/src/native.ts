@@ -266,6 +266,13 @@ function bridgeVec3(
   return [value.x, value.y, value.z];
 }
 
+function bridgeVec3Array(value: readonly number[], field: string): readonly [number, number, number] {
+  if (value.length !== 3 || value.some((component) => !Number.isFinite(component))) {
+    throw new RuntimeBridgeError('internal', 'native ' + field + ' was not a finite vec3');
+  }
+  return [value[0]!, value[1]!, value[2]!];
+}
+
 function isTypedArray<T>(value: readonly T[] | null | undefined): value is readonly T[] {
   return Array.isArray(value);
 }
@@ -869,6 +876,11 @@ export class NativeRuntimeBridge implements RuntimeBridge {
         receipt.collisionProjectionHash,
         'generatedTunnel.collisionProjectionHash',
       ),
+      runtimeFrame: {
+        worldOffset: bridgeVec3Array(receipt.runtimeFrame.worldOffset, 'generatedTunnel.runtimeFrame.worldOffset'),
+        playableMin: bridgeVec3Array(receipt.runtimeFrame.playableMin, 'generatedTunnel.runtimeFrame.playableMin'),
+        playableMax: bridgeVec3Array(receipt.runtimeFrame.playableMax, 'generatedTunnel.runtimeFrame.playableMax'),
+      },
     };
   }
 

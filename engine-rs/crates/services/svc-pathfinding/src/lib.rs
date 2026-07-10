@@ -946,7 +946,7 @@ mod tests {
     #[test]
     fn blocked_tunnel_reports_no_path() {
         let mut projection = projection();
-        for x in 1..=3 {
+        for x in 1..=5 {
             projection = projection.without_walkable(VoxelCoord::new(x, 1, 4));
         }
         let readout = find_path(
@@ -959,6 +959,7 @@ mod tests {
         )
         .expect("no path readout");
         assert_eq!(readout.outcome, NavPathOutcome::NoPath);
+        assert_eq!(readout.visited, 25);
         assert!(readout.path.is_empty());
     }
 
@@ -1177,7 +1178,7 @@ mod tests {
             },
         )
         .expect("planar path");
-        assert_eq!(projection.projection_hash(), 0xd1f6_ac3e_051d_6b6e);
+        assert_eq!(projection.projection_hash(), 0x59b4_0936_25b1_0e49);
         assert_eq!(planar.path_hash, 0xe8e1_ea7a_0981_1ced);
 
         let mut world = solid_test_world();
@@ -1289,7 +1290,7 @@ mod tests {
     #[test]
     fn projected_direct_nav_movement_rejects_no_path() {
         let mut projection = projection();
-        for x in 1..=3 {
+        for x in 1..=5 {
             projection = projection.without_walkable(VoxelCoord::new(x, 1, 4));
         }
         assert_eq!(
@@ -1399,7 +1400,7 @@ mod tests {
 
         assert_eq!(first, second);
         assert_ne!(first.movement_hash, 0);
-        assert_eq!(first.projection_hash, 0xd1f6_ac3e_051d_6b6e);
+        assert_eq!(first.projection_hash, 0x59b4_0936_25b1_0e49);
         assert_eq!(first.path_hash, 0xe8e1_ea7a_0981_1ced);
     }
 

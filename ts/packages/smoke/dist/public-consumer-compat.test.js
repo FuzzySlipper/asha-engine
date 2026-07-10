@@ -52,7 +52,7 @@ void test('asha-demo public roots cover RuntimeSession readouts and HUD/menu pro
     assert.equal(gameplayPreset.preset.playerController.moveSpeedUnitsPerSecond, 3);
     assert.equal(gameplayPreset.preset.weapon.damage, 40);
     assert.equal(gameplayPreset.preset.encounter.presetId, 'generated-tunnel-small-encounter');
-    assert.equal(gameplayPreset.hashes.presetHash, 'fnv1a64:450137ad940ba1fb');
+    assert.equal(gameplayPreset.hashes.presetHash, 'fnv1a64:b39b8794318889a7');
     const gameplayCatalog = readFpsGameplayPresetCatalog();
     assert.equal(gameplayCatalog.hashes.defaultPresetHash, gameplayPreset.hashes.presetHash);
     assert.ok(gameplayCatalog.consumerOwnership.gameOwned.includes('playerController'));
@@ -166,7 +166,7 @@ void test('asha-demo public roots cover RuntimeSession readouts and HUD/menu pro
     assert.equal('payload' in unsupportedUse, false);
     const navProjection = session.readNavProjection();
     assert.equal(navProjection.available, true);
-    assert.equal(navProjection.projectionHash, 'd1f6ac3e051d6b6e');
+    assert.equal(navProjection.projectionHash, '59b4093625b10e49');
     const reachable = session.queryNavPath({ scenario: 'generated_tunnel_reachable' });
     assert.equal(reachable.outcome, 'reached');
     assert.equal(reachable.pathHash, 'e8e1ea7a09811ced');

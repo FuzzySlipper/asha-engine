@@ -202,7 +202,8 @@ impl RuntimeBridge for EngineBridge {
                 format!("generated tunnel request was rejected: {error}"),
             )
         })?;
-        let collision_world_offset = tunnel.centered_runtime_world_offset().to_array();
+        let runtime_frame = tunnel.runtime_frame();
+        let collision_world_offset = runtime_frame.world_offset.to_array();
         let projection = CollisionProjection::build_with_offset(
             &tunnel.world,
             WorldVec::new(
@@ -220,6 +221,11 @@ impl RuntimeBridge for EngineBridge {
             output_hash: format!("{:016x}", tunnel.record.output_hash),
             collision_source_hash: collision_identity.source_hash_hex(),
             collision_projection_hash: collision_identity.projection_hash_label(),
+            runtime_frame: GeneratedTunnelRuntimeFrame {
+                world_offset: collision_world_offset,
+                playable_min: runtime_frame.playable_min.to_array(),
+                playable_max: runtime_frame.playable_max.to_array(),
+            },
         };
         self.reset_voxel_edit_history_with_collision_offset(tunnel.world, collision_world_offset);
         Ok(receipt)

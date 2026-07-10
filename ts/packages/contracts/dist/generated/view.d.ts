@@ -79,6 +79,11 @@ export interface GeneratedTunnelRuntimeApplyRequest {
     readonly preset: GeneratedTunnelPreset;
     readonly seed: number;
 }
+export interface GeneratedTunnelRuntimeFrame {
+    readonly worldOffset: readonly [number, number, number];
+    readonly playableMin: readonly [number, number, number];
+    readonly playableMax: readonly [number, number, number];
+}
 export interface GeneratedTunnelRuntimeApplyReceipt {
     readonly preset: GeneratedTunnelPreset;
     readonly seed: number;
@@ -87,6 +92,7 @@ export interface GeneratedTunnelRuntimeApplyReceipt {
     readonly outputHash: string;
     readonly collisionSourceHash: string;
     readonly collisionProjectionHash: string;
+    readonly runtimeFrame: GeneratedTunnelRuntimeFrame;
 }
 export interface CollisionConstrainedCameraInputEnvelope {
     readonly camera: CameraHandle;

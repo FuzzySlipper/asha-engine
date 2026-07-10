@@ -44,11 +44,11 @@ void test('first-person tunnel viewport renders generated tunnel frame from runt
     assert.deepEqual(result.summary.tunnel.materialRoles, ['wall:1', 'floor:2', 'accent:3']);
     assert.equal(result.summary.debug.generatorHash, 'fnv1a64:0821a0c2aea17dff');
     assert.equal(result.summary.debug.renderProjectionHash, 'fnv1a64:21eb8696f6f3b5c4');
-    assert.equal(result.summary.debug.collisionProjectionHash, 'fnv1a64:b2312fbcfb060db3');
+    assert.equal(result.summary.debug.collisionProjectionHash, 'fnv1a64:627389be013a3154');
     assert.equal(result.summary.scene.opCount, 18);
     assert.equal(result.summary.scene.instanceCount, 8);
     assert.equal(result.summary.scene.frameHash, 'fnv1a64:db081afd570c2f30');
-    assert.equal(result.summary.scene.structuralHash, 'fnv1a64:19a01ed0663548e8');
+    assert.equal(result.summary.scene.structuralHash, 'fnv1a64:3abd4f9fa73fea4c');
     assert.equal(result.projection.handleCount, 8);
     assert.equal(result.renderer.handleCount, 8);
     assert.equal(result.renderer.instanceCountFor('mesh/generated-tunnel-wall'), 3);

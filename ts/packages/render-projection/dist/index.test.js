@@ -20,15 +20,15 @@ function tinyGeneratedTunnelReadout() {
             presetId: 'tiny-enclosed',
             seed: 17,
             generationHash: 'fnv1a64:0821a0c2aea17dff',
-            outputHash: 'a9b504096397f5b4',
+            outputHash: '1471496d88d70647',
         },
         volume: {
             tunnelDims: [5, 4, 9],
             solidVoxels: 178,
         },
         spawnMarkers: [
-            { id: 'player_start', kind: 'player', world: [1.5, 1.5, 1.5] },
-            { id: 'exit_hint', kind: 'exit', world: [3.5, 1.5, 7.5] },
+            { id: 'player_start', kind: 'player', world: [2.5, 2.5, 2.5] },
+            { id: 'exit_hint', kind: 'exit', world: [4.5, 2.5, 8.5] },
         ],
         materials: [
             { role: 'wall', material: 1 },
@@ -39,7 +39,12 @@ function tinyGeneratedTunnelReadout() {
             hash: 'fnv1a64:21eb8696f6f3b5c4',
         },
         collisionProjection: {
-            hash: 'fnv1a64:b2312fbcfb060db3',
+            hash: 'fnv1a64:627389be013a3154',
+        },
+        runtimeFrame: {
+            worldOffset: [-3.5, -1, -5.5],
+            playableMin: [-2.5, 0, -4.5],
+            playableMax: [2.5, 4, 4.5],
         },
         replayHash: 'fnv1a64:0821a0c2aea17dff',
     };

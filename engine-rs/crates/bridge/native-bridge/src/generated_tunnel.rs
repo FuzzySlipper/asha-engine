@@ -15,6 +15,14 @@ pub struct NativeGeneratedTunnelRuntimeApplyReceipt {
     pub output_hash: String,
     pub collision_source_hash: String,
     pub collision_projection_hash: String,
+    pub runtime_frame: NativeGeneratedTunnelRuntimeFrame,
+}
+
+#[napi(object)]
+pub struct NativeGeneratedTunnelRuntimeFrame {
+    pub world_offset: Vec<f64>,
+    pub playable_min: Vec<f64>,
+    pub playable_max: Vec<f64>,
 }
 
 impl From<GeneratedTunnelRuntimeApplyReceipt> for NativeGeneratedTunnelRuntimeApplyReceipt {
@@ -29,6 +37,11 @@ impl From<GeneratedTunnelRuntimeApplyReceipt> for NativeGeneratedTunnelRuntimeAp
             output_hash: value.output_hash,
             collision_source_hash: value.collision_source_hash,
             collision_projection_hash: value.collision_projection_hash,
+            runtime_frame: NativeGeneratedTunnelRuntimeFrame {
+                world_offset: value.runtime_frame.world_offset.to_vec(),
+                playable_min: value.runtime_frame.playable_min.to_vec(),
+                playable_max: value.runtime_frame.playable_max.to_vec(),
+            },
         }
     }
 }

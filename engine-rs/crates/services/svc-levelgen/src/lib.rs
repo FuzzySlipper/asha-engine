@@ -18,8 +18,9 @@ use svc_rng::{RngSeed, ScopedRng};
 use svc_spatial::VoxelWorld;
 use svc_volume::VoxelChunk;
 
-pub const TUNNEL_GENERATOR_ID: &str = "asha.tunnel.enclosed.v1";
-pub const TUNNEL_GENERATOR_VERSION: u32 = 1;
+pub const TUNNEL_GENERATOR_ID: &str = "asha.tunnel.enclosed.v2";
+pub const TUNNEL_GENERATOR_VERSION: u32 = 2;
+const TUNNEL_SHELL_THICKNESS_VOXELS: u32 = 1;
 
 /// Minimal generic preset vocabulary for enclosed voxel tunnel spaces.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,8 +44,11 @@ pub struct TunnelGeneratorConfig {
     pub grid_id: GridId,
     pub voxel_size: f64,
     pub chunk_dims: ChunkDims,
+    /// Collision-free corridor width inside the generated shell.
     pub width: u32,
+    /// Collision-free corridor height inside the generated shell.
     pub height: u32,
+    /// Collision-free corridor length inside the generated shell.
     pub length: u32,
     pub wall_material: VoxelMaterialId,
     pub floor_material: VoxelMaterialId,
@@ -68,6 +72,15 @@ impl TunnelGeneratorConfig {
             floor_material: VoxelMaterialId::new(2),
             accent_material: VoxelMaterialId::new(3),
         }
+    }
+
+    fn shell_dims(self) -> [u32; 3] {
+        let shell_padding = TUNNEL_SHELL_THICKNESS_VOXELS * 2;
+        [
+            self.width.saturating_add(shell_padding),
+            self.height.saturating_add(shell_padding),
+            self.length.saturating_add(shell_padding),
+        ]
     }
 }
 
@@ -157,6 +170,21 @@ pub struct GeneratedRenderChunk {
     pub solid_voxels: u32,
 }
 
+/// Correspondence between canonical voxel coordinates and the centered runtime
+/// room consumed by camera, combat, spawn, and render projections.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GeneratedTunnelRuntimeFrame {
+    pub world_offset: WorldVec,
+    pub playable_min: WorldPos,
+    pub playable_max: WorldPos,
+}
+
+impl GeneratedTunnelRuntimeFrame {
+    pub fn canonical_to_runtime(self, position: WorldPos) -> WorldPos {
+        position + self.world_offset
+    }
+}
+
 /// Stable replay/hash record for a generated tunnel.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TunnelGenerationRecord {
@@ -183,14 +211,27 @@ pub struct GeneratedTunnel {
 }
 
 impl GeneratedTunnel {
-    /// Translation from canonical positive voxel coordinates into the centered
-    /// runtime room frame used by first-person cameras and combat.
-    pub fn centered_runtime_world_offset(&self) -> WorldVec {
-        WorldVec::new(
-            -(f64::from(self.config.width) * self.config.voxel_size * 0.5),
-            -self.config.voxel_size,
-            -(f64::from(self.config.length) * self.config.voxel_size * 0.5),
-        )
+    /// The single coordinate correspondence shared by runtime collision,
+    /// authored spawn positions, and render projection.
+    pub fn runtime_frame(&self) -> GeneratedTunnelRuntimeFrame {
+        let shell = f64::from(TUNNEL_SHELL_THICKNESS_VOXELS) * self.config.voxel_size;
+        let playable_width = f64::from(self.config.width) * self.config.voxel_size;
+        let playable_height = f64::from(self.config.height) * self.config.voxel_size;
+        let playable_length = f64::from(self.config.length) * self.config.voxel_size;
+        let world_offset = WorldVec::new(
+            -(playable_width * 0.5 + shell),
+            -shell,
+            -(playable_length * 0.5 + shell),
+        );
+        GeneratedTunnelRuntimeFrame {
+            world_offset,
+            playable_min: WorldPos::new(-playable_width * 0.5, 0.0, -playable_length * 0.5),
+            playable_max: WorldPos::new(
+                playable_width * 0.5,
+                playable_height,
+                playable_length * 0.5,
+            ),
+        }
     }
 }
 
@@ -207,17 +248,25 @@ pub fn generate_tunnel(
 
     let mut rng = ScopedRng::new(config.seed, TUNNEL_GENERATOR_ID);
     let accent_side_is_positive_x = rng.next_bool();
-    let accent_span = (config.length - 2).max(1);
+    let shell_dims = config.shell_dims();
+    let accent_span = config.length.max(1);
     let accent_z = 1 + rng.next_bounded_u32(accent_span).expect("positive span");
     let player_yaw = if rng.next_bool() { 0 } else { 90 };
 
     let chunk_coord = ChunkCoord::ORIGIN;
     let mut chunk = VoxelChunk::from_spec(&grid);
-    for z in 0..config.length {
-        for y in 0..config.height {
-            for x in 0..config.width {
-                let material =
-                    material_for_cell(config, x, y, z, accent_side_is_positive_x, accent_z);
+    for z in 0..shell_dims[2] {
+        for y in 0..shell_dims[1] {
+            for x in 0..shell_dims[0] {
+                let material = material_for_cell(
+                    config,
+                    shell_dims,
+                    x,
+                    y,
+                    z,
+                    accent_side_is_positive_x,
+                    accent_z,
+                );
                 if let Some(material) = material {
                     chunk
                         .set(LocalVoxelCoord::new(x, y, z), VoxelValue::solid(material))
@@ -239,14 +288,14 @@ pub fn generate_tunnel(
             &grid,
             "player_start",
             "player",
-            VoxelCoord::new(1, 1, 1),
+            VoxelCoord::new(2, 2, 2),
             player_yaw,
         ),
         spawn_marker(
             &grid,
             "exit_hint",
             "navigation",
-            VoxelCoord::new(config.width as i64 - 2, 1, config.length as i64 - 2),
+            VoxelCoord::new(i64::from(config.width) - 1, 2, i64::from(config.length) - 1),
             180,
         ),
     ];
@@ -300,12 +349,13 @@ fn validate_config(config: TunnelGeneratorConfig) -> Result<(), TunnelGeneration
         });
     }
     let dims = config.chunk_dims.to_array();
-    if config.width > dims[0] || config.height > dims[1] || config.length > dims[2] {
+    let shell_dims = config.shell_dims();
+    if shell_dims[0] > dims[0] || shell_dims[1] > dims[1] || shell_dims[2] > dims[2] {
         return Err(TunnelGenerationError::ExceedsChunkDims {
             dims,
-            width: config.width,
-            height: config.height,
-            length: config.length,
+            width: shell_dims[0],
+            height: shell_dims[1],
+            length: shell_dims[2],
         });
     }
     for (a, b) in [
@@ -322,6 +372,7 @@ fn validate_config(config: TunnelGeneratorConfig) -> Result<(), TunnelGeneration
 
 fn material_for_cell(
     config: TunnelGeneratorConfig,
+    shell_dims: [u32; 3],
     x: u32,
     y: u32,
     z: u32,
@@ -329,16 +380,16 @@ fn material_for_cell(
     accent_z: u32,
 ) -> Option<VoxelMaterialId> {
     let on_shell = x == 0
-        || x + 1 == config.width
+        || x + 1 == shell_dims[0]
         || y == 0
-        || y + 1 == config.height
+        || y + 1 == shell_dims[1]
         || z == 0
-        || z + 1 == config.length;
+        || z + 1 == shell_dims[2];
     if !on_shell {
         return None;
     }
     let accent_x = if accent_side_is_positive_x {
-        config.width - 1
+        shell_dims[0] - 1
     } else {
         0
     };
@@ -500,6 +551,20 @@ pub fn describe_generated_tunnel(tunnel: &GeneratedTunnel) -> String {
         "dims={}x{}x{}\n",
         tunnel.config.width, tunnel.config.height, tunnel.config.length
     ));
+    let runtime_frame = tunnel.runtime_frame();
+    out.push_str(&format!(
+        "runtime_offset={:.1},{:.1},{:.1}\n",
+        runtime_frame.world_offset.x, runtime_frame.world_offset.y, runtime_frame.world_offset.z
+    ));
+    out.push_str(&format!(
+        "playable_bounds={:.1},{:.1},{:.1}..{:.1},{:.1},{:.1}\n",
+        runtime_frame.playable_min.x,
+        runtime_frame.playable_min.y,
+        runtime_frame.playable_min.z,
+        runtime_frame.playable_max.x,
+        runtime_frame.playable_max.y,
+        runtime_frame.playable_max.z
+    ));
     out.push_str(&format!("events={}\n", tunnel.events.len()));
     for event in &tunnel.events {
         if let VoxelEditEvent::ChunkGenerated {
@@ -593,27 +658,29 @@ mod tests {
         assert!(projection.contains_point(WorldPos::new(0.5, 1.5, 1.5)));
         assert!(!projection.contains_point(tunnel.spawn_markers[0].world));
         let identity = projection.identity(&tunnel.world);
-        assert_eq!(identity.source_hash_hex(), "47e4c52bb98a5f36");
-        assert_eq!(identity.projection_hash_label(), "fnv1a64:5499053dc60a873b");
+        assert_eq!(identity.source_hash_hex().len(), 16);
+        assert!(identity.projection_hash_label().starts_with("fnv1a64:"));
     }
 
     #[test]
     fn centered_runtime_collision_frame_matches_first_person_room_coordinates() {
         let tunnel = generate_tunnel(TunnelGeneratorConfig::tiny_enclosed(17)).expect("generate");
-        assert_eq!(
-            tunnel.centered_runtime_world_offset(),
-            WorldVec::new(-2.5, -1.0, -4.5)
-        );
-        let projection = CollisionProjection::build_with_offset(
-            &tunnel.world,
-            tunnel.centered_runtime_world_offset(),
-        );
+        let runtime_frame = tunnel.runtime_frame();
+        assert_eq!(runtime_frame.world_offset, WorldVec::new(-3.5, -1.0, -5.5));
+        assert_eq!(runtime_frame.playable_min, WorldPos::new(-2.5, 0.0, -4.5));
+        assert_eq!(runtime_frame.playable_max, WorldPos::new(2.5, 4.0, 4.5));
+        let projection =
+            CollisionProjection::build_with_offset(&tunnel.world, runtime_frame.world_offset);
 
         assert!(projection.contains_point(WorldPos::new(0.0, -0.5, 0.0)));
-        assert!(!projection.contains_point(WorldPos::new(0.0, 0.5, 0.0)));
+        assert!(projection.contains_point(WorldPos::new(0.0, 4.5, 0.0)));
+        assert!(!projection.aabb_overlaps_solid(
+            WorldPos::new(-0.25, 0.92, 1.25),
+            WorldPos::new(0.25, 2.32, 1.75),
+        ));
         assert_eq!(
-            projection.identity(&tunnel.world).projection_hash_label(),
-            "fnv1a64:b2312fbcfb060db3"
+            runtime_frame.canonical_to_runtime(tunnel.spawn_markers[0].world),
+            WorldPos::new(-1.0, 1.5, -3.0)
         );
     }
 

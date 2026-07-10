@@ -290,11 +290,19 @@ fn generated_tunnel_apply_installs_collision_authority_for_loaded_fps_session() 
         .unwrap();
     assert_eq!(applied.grid, 0);
     assert_eq!(applied.config_hash, "e1d156c6b55137a7");
-    assert_eq!(applied.output_hash, "a9b504096397f5b4");
-    assert_eq!(applied.collision_source_hash, "47e4c52bb98a5f36");
+    assert_eq!(applied.output_hash, "1471496d88d70647");
+    assert_eq!(applied.collision_source_hash, "205242bd77238525");
     assert_eq!(
         applied.collision_projection_hash,
-        "fnv1a64:b2312fbcfb060db3"
+        "fnv1a64:627389be013a3154"
+    );
+    assert_eq!(
+        applied.runtime_frame,
+        GeneratedTunnelRuntimeFrame {
+            world_offset: [-3.5, -1.0, -5.5],
+            playable_min: [-2.5, 0.0, -4.5],
+            playable_max: [2.5, 4.0, 4.5],
+        }
     );
 
     let camera = bridge
@@ -315,7 +323,58 @@ fn generated_tunnel_apply_installs_collision_authority_for_loaded_fps_session() 
             },
         })
         .unwrap();
-    let movement = bridge
+    let shape = CameraCollisionShape {
+        half_extents: [0.25, 0.7, 0.25],
+    };
+    let policy = CameraCollisionPolicy {
+        mode: CameraCollisionPolicyMode::AxisSeparableSlide,
+        max_iterations: 3,
+    };
+    let open_right = bridge
+        .apply_collision_constrained_camera_input(CollisionConstrainedCameraInputEnvelope {
+            camera: camera.camera,
+            grid: applied.grid,
+            movement_mode: FirstPersonMovementMode::Grounded,
+            input: FirstPersonCameraInput {
+                move_forward: 0.0,
+                move_right: 1.0,
+                move_up: 0.0,
+                yaw_delta_degrees: 0.0,
+                pitch_delta_degrees: 0.0,
+                dt_seconds: 0.1,
+                move_speed_units_per_second: 3.0,
+            },
+            tick: 1,
+            shape,
+            policy,
+        })
+        .unwrap();
+    assert_eq!(open_right.after.pose.position, [0.3, 1.62, 1.5]);
+    assert!(!open_right.collision.collided);
+
+    let open_forward = bridge
+        .apply_collision_constrained_camera_input(CollisionConstrainedCameraInputEnvelope {
+            camera: camera.camera,
+            grid: applied.grid,
+            movement_mode: FirstPersonMovementMode::Grounded,
+            input: FirstPersonCameraInput {
+                move_forward: 1.0,
+                move_right: 0.0,
+                move_up: 0.0,
+                yaw_delta_degrees: 0.0,
+                pitch_delta_degrees: 0.0,
+                dt_seconds: 0.1,
+                move_speed_units_per_second: 3.0,
+            },
+            tick: 2,
+            shape,
+            policy,
+        })
+        .unwrap();
+    assert_eq!(open_forward.after.pose.position, [0.3, 1.62, 1.2]);
+    assert!(!open_forward.collision.collided);
+
+    let shell = bridge
         .apply_collision_constrained_camera_input(CollisionConstrainedCameraInputEnvelope {
             camera: camera.camera,
             grid: applied.grid,
@@ -329,27 +388,22 @@ fn generated_tunnel_apply_installs_collision_authority_for_loaded_fps_session() 
                 dt_seconds: 3.0,
                 move_speed_units_per_second: 3.0,
             },
-            tick: 1,
-            shape: CameraCollisionShape {
-                half_extents: [0.25, 0.25, 0.25],
-            },
-            policy: CameraCollisionPolicy {
-                mode: CameraCollisionPolicyMode::AxisSeparableSlide,
-                max_iterations: 3,
-            },
+            tick: 3,
+            shape,
+            policy,
         })
         .unwrap();
-    assert_eq!(movement.attempted.pose.position, [0.0, 1.62, -7.5]);
-    assert_eq!(movement.after.pose.position, [0.0, 1.62, 1.5]);
-    assert!(movement.collision.collided);
-    assert_eq!(movement.collision.grid, applied.grid);
-    assert_eq!(movement.collision.blocked_axes, vec![CollisionAxis::Z]);
+    assert_eq!(shell.attempted.pose.position, [0.3, 1.62, -7.8]);
+    assert_eq!(shell.after.pose.position, [0.3, 1.62, 1.2]);
+    assert!(shell.collision.collided);
+    assert_eq!(shell.collision.grid, applied.grid);
+    assert_eq!(shell.collision.blocked_axes, vec![CollisionAxis::Z]);
     assert_eq!(
-        movement.collision.collision_source_hash,
+        shell.collision.collision_source_hash,
         applied.collision_source_hash
     );
     assert_eq!(
-        movement.collision.collision_projection_hash,
+        shell.collision.collision_projection_hash,
         applied.collision_projection_hash
     );
 }

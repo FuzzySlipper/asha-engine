@@ -17,13 +17,13 @@ import { createMockRuntimeSession } from '@asha/runtime-bridge/reference';
 navigation projection:
 
 - projection id `generated_tunnel_nav_projection`
-- walkable cells `66`
-- projection hash `d1f6ac3e051d6b6e`
+- walkable cells `45`
+- projection hash `59b4093625b10e49`
 - fixture `harness/fixtures/nav/generated-tunnel-path.snapshot.txt`
 
 `RuntimeSessionFacade.queryNavPath()` exposes two typed readouts:
 
-- `generated_tunnel_reachable`: reached, visited `21`, path length `9`, path hash
+- `generated_tunnel_reachable`: reached, visited `45`, path length `9`, path hash
   `e8e1ea7a09811ced`
 - `generated_tunnel_no_path`: no path, rejection reason `blocked`, empty path hash
   `a8c7f832281a39c5`

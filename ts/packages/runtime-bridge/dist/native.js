@@ -140,6 +140,12 @@ function bridgeVec3(value, field) {
     }
     return [value.x, value.y, value.z];
 }
+function bridgeVec3Array(value, field) {
+    if (value.length !== 3 || value.some((component) => !Number.isFinite(component))) {
+        throw new RuntimeBridgeError('internal', 'native ' + field + ' was not a finite vec3');
+    }
+    return [value[0], value[1], value[2]];
+}
 function isTypedArray(value) {
     return Array.isArray(value);
 }
@@ -601,6 +607,11 @@ export class NativeRuntimeBridge {
             outputHash: hexHashString(receipt.outputHash, 'generatedTunnel.outputHash'),
             collisionSourceHash: hexHashString(receipt.collisionSourceHash, 'generatedTunnel.collisionSourceHash'),
             collisionProjectionHash: hashString(receipt.collisionProjectionHash, 'generatedTunnel.collisionProjectionHash'),
+            runtimeFrame: {
+                worldOffset: bridgeVec3Array(receipt.runtimeFrame.worldOffset, 'generatedTunnel.runtimeFrame.worldOffset'),
+                playableMin: bridgeVec3Array(receipt.runtimeFrame.playableMin, 'generatedTunnel.runtimeFrame.playableMin'),
+                playableMax: bridgeVec3Array(receipt.runtimeFrame.playableMax, 'generatedTunnel.runtimeFrame.playableMax'),
+            },
         };
     }
     selectVoxel() {

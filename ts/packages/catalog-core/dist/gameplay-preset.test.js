@@ -20,9 +20,9 @@ void test('default FPS gameplay preset validates and exposes stable readout refe
     assert.equal(report.readout.fixturePath, 'harness/fixtures/gameplay-presets/generated-tunnel-default-fps.snapshot.txt');
     assert.equal(report.readout.migration.playerControllerConstants, 'BrowserFpsInputCollector options');
     assert.ok(report.readout.nonClaims.includes('not_arbitrary_json_catalog'));
-    assert.equal(report.readout.hashes.presetHash, 'fnv1a64:450137ad940ba1fb');
-    assert.equal(report.readout.hashes.tuningHash, 'fnv1a64:09e0d75a647d6617');
-    assert.equal(report.readout.hashes.referenceHash, 'fnv1a64:16fe3b71072981e3');
+    assert.equal(report.readout.hashes.presetHash, 'fnv1a64:b39b8794318889a7');
+    assert.equal(report.readout.hashes.tuningHash, 'fnv1a64:acbf1766f55dcba9');
+    assert.equal(report.readout.hashes.referenceHash, 'fnv1a64:aff976e05786ce21');
 });
 void test('FPS gameplay preset validator rejects invalid ranges and references deterministically', () => {
     const invalid = {
@@ -92,8 +92,8 @@ void test('FPS gameplay preset catalog readout lists consumer ownership and stab
         'policyExecution',
         'proceduralGeneration',
     ]);
-    assert.equal(catalog.hashes.catalogHash, 'fnv1a64:5a0603a299b79dc4');
-    assert.equal(catalog.hashes.defaultPresetHash, 'fnv1a64:450137ad940ba1fb');
+    assert.equal(catalog.hashes.catalogHash, 'fnv1a64:45a696e1e10c562f');
+    assert.equal(catalog.hashes.defaultPresetHash, 'fnv1a64:b39b8794318889a7');
 });
 void test('FPS gameplay preset validation is descriptive and cannot authorize runtime behavior', () => {
     const report = validateFpsGameplayPreset(GENERATED_TUNNEL_DEFAULT_FPS_PRESET);

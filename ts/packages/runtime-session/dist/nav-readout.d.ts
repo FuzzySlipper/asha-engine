@@ -15,8 +15,8 @@ export interface NavPathQueryRequest {
 export interface NavProjectionReadout {
     readonly id: 'generated_tunnel_nav_projection';
     readonly available: true;
-    readonly walkableCells: 66;
-    readonly projectionHash: 'd1f6ac3e051d6b6e';
+    readonly walkableCells: 45;
+    readonly projectionHash: '59b4093625b10e49';
     readonly sourceFixture: 'harness/fixtures/nav/generated-tunnel-path.snapshot.txt';
 }
 export interface NavPathReadout {

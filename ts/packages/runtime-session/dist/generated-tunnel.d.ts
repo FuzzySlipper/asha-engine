@@ -4,12 +4,12 @@ export interface GeneratedTunnelReadoutRequest {
     readonly seed?: number;
 }
 export interface GeneratedTunnelGeneratorSummary {
-    readonly generatorId: 'asha.tunnel.enclosed.v1';
-    readonly generatorVersion: 1;
+    readonly generatorId: 'asha.tunnel.enclosed.v2';
+    readonly generatorVersion: 2;
     readonly presetId: GeneratedTunnelPresetId;
     readonly seed: 17;
     readonly configHash: 'e1d156c6b55137a7';
-    readonly outputHash: 'a9b504096397f5b4';
+    readonly outputHash: '1471496d88d70647';
     readonly generationHash: 'fnv1a64:0821a0c2aea17dff';
 }
 export interface GeneratedTunnelVolumeSummary {
@@ -17,8 +17,8 @@ export interface GeneratedTunnelVolumeSummary {
     readonly voxelSize: 1;
     readonly chunkDims: readonly [8, 6, 12];
     readonly tunnelDims: readonly [5, 4, 9];
-    readonly solidVoxels: 138;
-    readonly collisionAabbCount: 138;
+    readonly solidVoxels: 282;
+    readonly collisionAabbCount: 282;
 }
 export interface GeneratedTunnelCorridorSummary {
     readonly count: 1;
@@ -44,6 +44,11 @@ export interface GeneratedTunnelProjectionAvailability {
     readonly available: true;
     readonly hash: string;
 }
+export interface GeneratedTunnelRuntimeFrameSummary {
+    readonly worldOffset: readonly [number, number, number];
+    readonly playableMin: readonly [number, number, number];
+    readonly playableMax: readonly [number, number, number];
+}
 export interface GeneratedTunnelReadout {
     readonly status: 'available';
     readonly generator: GeneratedTunnelGeneratorSummary;
@@ -54,6 +59,7 @@ export interface GeneratedTunnelReadout {
     readonly materials: readonly GeneratedTunnelMaterialSummary[];
     readonly renderProjection: GeneratedTunnelProjectionAvailability;
     readonly collisionProjection: GeneratedTunnelProjectionAvailability;
+    readonly runtimeFrame: GeneratedTunnelRuntimeFrameSummary;
     readonly replayHash: 'fnv1a64:0821a0c2aea17dff';
     readonly fixture: 'harness/fixtures/generated-levels/tiny-tunnel.snapshot.txt';
 }
@@ -79,6 +85,7 @@ export interface GeneratedTunnelAppliedOperationReceipt {
     readonly outputHash: string;
     readonly collisionSourceHash: string;
     readonly collisionProjectionHash: string;
+    readonly runtimeFrame: GeneratedTunnelRuntimeFrameSummary;
 }
 export type GeneratedTunnelOperationReceipt = GeneratedTunnelUnsupportedOperationReceipt | GeneratedTunnelAppliedOperationReceipt;
 export declare const TINY_GENERATED_TUNNEL_READOUT: GeneratedTunnelReadout;

@@ -2046,8 +2046,8 @@ mod tests {
                 transform: Some(NativeFpsTransformCapability {
                     translation: NativeVec3 {
                         x: 0.0,
-                        y: 1.5,
-                        z: 0.0,
+                        y: 1.62,
+                        z: 1.5,
                     },
                     rotation: vec![0.0, 0.0, 0.0, 1.0],
                     scale: NativeVec3 {
@@ -2058,14 +2058,14 @@ mod tests {
                 }),
                 bounds: Some(NativeFpsBoundsCapability {
                     min: NativeVec3 {
-                        x: 2.2,
-                        y: 1.0,
-                        z: 1.0,
+                        x: -0.25,
+                        y: 0.92,
+                        z: 1.25,
                     },
                     max: NativeVec3 {
-                        x: 2.8,
-                        y: 2.0,
-                        z: 2.0,
+                        x: 0.25,
+                        y: 2.32,
+                        z: 1.75,
                     },
                 }),
                 render_visible: Some(true),
@@ -2093,8 +2093,8 @@ mod tests {
                 transform: Some(NativeFpsTransformCapability {
                     translation: NativeVec3 {
                         x: 0.0,
-                        y: 1.5,
-                        z: 5.2,
+                        y: 0.5,
+                        z: -2.6,
                     },
                     rotation: vec![0.0, 0.0, 0.0, 1.0],
                     scale: NativeVec3 {
@@ -2105,14 +2105,14 @@ mod tests {
                 }),
                 bounds: Some(NativeFpsBoundsCapability {
                     min: NativeVec3 {
-                        x: 2.2,
-                        y: 1.0,
-                        z: 5.0,
+                        x: -0.25,
+                        y: 0.0,
+                        z: -2.85,
                     },
                     max: NativeVec3 {
-                        x: 2.8,
-                        y: 2.0,
-                        z: 5.8,
+                        x: 0.25,
+                        y: 1.0,
+                        z: -2.35,
                     },
                 }),
                 render_visible: Some(true),
@@ -2199,21 +2199,24 @@ mod tests {
                 .expect("generated tunnel collision authority applies");
         assert_eq!(tunnel.preset_id, "tiny-enclosed");
         assert_eq!(tunnel.grid, 0);
-        assert_eq!(tunnel.output_hash, "a9b504096397f5b4");
+        assert_eq!(tunnel.output_hash, "1471496d88d70647");
         assert!(tunnel.collision_projection_hash.starts_with("fnv1a64:"));
+        assert_eq!(tunnel.runtime_frame.world_offset, vec![-3.5, -1.0, -5.5]);
+        assert_eq!(tunnel.runtime_frame.playable_min, vec![-2.5, 0.0, -4.5]);
+        assert_eq!(tunnel.runtime_frame.playable_max, vec![2.5, 4.0, 4.5]);
 
         let fps_fire = apply_fps_primary_fire(
             handle,
             9,
             NativeVec3 {
-                x: 2.5,
-                y: 1.5,
+                x: 0.0,
+                y: 1.62,
                 z: 1.5,
             },
             NativeVec3 {
                 x: 0.0,
-                y: 0.0,
-                z: 1.0,
+                y: -1.12,
+                z: -4.1,
             },
             None,
             None,

@@ -39,9 +39,9 @@ encounter:
 generator:
   presetId: tiny-enclosed
   seed: 17
-  outputHash: a9b504096397f5b4
+  outputHash: 1471496d88d70647
   renderProjectionHash: fnv1a64:21eb8696f6f3b5c4
-  collisionProjectionHash: fnv1a64:b2312fbcfb060db3
+  collisionProjectionHash: fnv1a64:627389be013a3154
 
 ownership:
   gameOwned: displayName, playerController, weapon, enemyBehavior, encounter, generator
@@ -55,10 +55,10 @@ migration:
   generatorConstants: tiny-enclosed generated tunnel readout
 
 hashes:
-  presetHash: fnv1a64:450137ad940ba1fb
-  tuningHash: fnv1a64:09e0d75a647d6617
-  referenceHash: fnv1a64:16fe3b71072981e3
-  catalogHash: fnv1a64:5a0603a299b79dc4
+  presetHash: fnv1a64:b39b8794318889a7
+  tuningHash: fnv1a64:acbf1766f55dcba9
+  referenceHash: fnv1a64:aff976e05786ce21
+  catalogHash: fnv1a64:45a696e1e10c562f
 
 invalidFixture:
   rejectedHash: fnv1a64:f58279b2225614a0

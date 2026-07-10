@@ -45,6 +45,11 @@ export interface GeneratedTunnelFrameReadout {
   readonly collisionProjection: {
     readonly hash: string;
   };
+  readonly runtimeFrame: {
+    readonly worldOffset: TunnelViewportVec3;
+    readonly playableMin: TunnelViewportVec3;
+    readonly playableMax: TunnelViewportVec3;
+  };
   readonly replayHash: string;
 }
 
@@ -146,8 +151,15 @@ export function createGeneratedTunnelViewportFrame(
     ...DEFAULT_TUNNEL_VIEWPORT_MATERIALS,
     ...materials,
   };
-  const [width, height, length] = tunnel.volume.tunnelDims;
-  const center: TunnelViewportVec3 = [width / 2, height / 2, length / 2];
+  const { playableMin, playableMax, worldOffset } = tunnel.runtimeFrame;
+  const width = playableMax[0] - playableMin[0];
+  const height = playableMax[1] - playableMin[1];
+  const length = playableMax[2] - playableMin[2];
+  const center: TunnelViewportVec3 = [
+    (playableMin[0] + playableMax[0]) / 2,
+    (playableMin[1] + playableMax[1]) / 2,
+    (playableMin[2] + playableMax[2]) / 2,
+  ];
 
   return {
     ops: [
@@ -167,32 +179,32 @@ export function createGeneratedTunnelViewportFrame(
         op: 'defineStaticMesh',
         asset: cuboidAsset('mesh/generated-tunnel-exit-marker', 'material/generated-tunnel-exit-marker'),
       },
-      instance(100, 'mesh/generated-tunnel-floor', 'generated-tunnel-floor', [center[0], -0.05, center[2]], [
+      instance(100, 'mesh/generated-tunnel-floor', 'generated-tunnel-floor', [center[0], playableMin[1] - 0.05, center[2]], [
         width,
         0.1,
         length,
       ]),
-      instance(101, 'mesh/generated-tunnel-wall', 'generated-tunnel-ceiling', [center[0], height + 0.05, center[2]], [
+      instance(101, 'mesh/generated-tunnel-wall', 'generated-tunnel-ceiling', [center[0], playableMax[1] + 0.05, center[2]], [
         width,
         0.1,
         length,
       ]),
-      instance(102, 'mesh/generated-tunnel-wall', 'generated-tunnel-wall-west', [-0.05, center[1], center[2]], [
+      instance(102, 'mesh/generated-tunnel-wall', 'generated-tunnel-wall-west', [playableMin[0] - 0.05, center[1], center[2]], [
         0.1,
         height,
         length,
       ]),
-      instance(103, 'mesh/generated-tunnel-wall', 'generated-tunnel-wall-east', [width + 0.05, center[1], center[2]], [
+      instance(103, 'mesh/generated-tunnel-wall', 'generated-tunnel-wall-east', [playableMax[0] + 0.05, center[1], center[2]], [
         0.1,
         height,
         length,
       ]),
-      instance(104, 'mesh/generated-tunnel-accent', 'generated-tunnel-entrance-cap', [center[0], center[1], -0.05], [
+      instance(104, 'mesh/generated-tunnel-accent', 'generated-tunnel-entrance-cap', [center[0], center[1], playableMin[2] - 0.05], [
         width,
         height,
         0.1,
       ]),
-      instance(105, 'mesh/generated-tunnel-accent', 'generated-tunnel-exit-cap', [center[0], center[1], length + 0.05], [
+      instance(105, 'mesh/generated-tunnel-accent', 'generated-tunnel-exit-cap', [center[0], center[1], playableMax[2] + 0.05], [
         width,
         height,
         0.1,
@@ -202,7 +214,11 @@ export function createGeneratedTunnelViewportFrame(
           120 + index,
           marker.kind === 'player' ? 'mesh/generated-tunnel-player-marker' : 'mesh/generated-tunnel-exit-marker',
           `generated-tunnel-spawn-${marker.id}`,
-          marker.world,
+          [
+            marker.world[0] + worldOffset[0],
+            marker.world[1] + worldOffset[1],
+            marker.world[2] + worldOffset[2],
+          ],
           [0.35, 0.35, 0.35],
         ),
       ),
@@ -212,7 +228,6 @@ export function createGeneratedTunnelViewportFrame(
 
 export function createGeneratedTunnelRoomFrame(input: GeneratedTunnelRoomFrameInput): RenderFrameDiff {
   const base = createGeneratedTunnelViewportFrame(input.tunnel, input.materials);
-  const centeredBaseOps = base.ops.map((op) => offsetRenderOp(op, [-2.5, 0, -4.5]));
   const enemy = input.enemy ?? {
     label: 'generated-tunnel-enemy',
     position: [0, 1.1, -1.35] as const,
@@ -220,7 +235,7 @@ export function createGeneratedTunnelRoomFrame(input: GeneratedTunnelRoomFrameIn
   };
   return {
     ops: [
-      ...centeredBaseOps,
+      ...base.ops,
       ...generatedTunnelRoomDepthCueOps(),
       {
         op: 'create',
@@ -484,39 +499,6 @@ function generatedTunnelRoomDepthCueOps(): RenderDiff[] {
       ),
     },
   ];
-}
-
-function offsetRenderOp(op: RenderDiff, offset: TunnelViewportVec3): RenderDiff {
-  if (op.op === 'createStaticMeshInstance') {
-    return {
-      ...op,
-      instance: {
-        ...op.instance,
-        transform: offsetTransform(op.instance.transform, offset),
-      },
-    };
-  }
-  if (op.op === 'create') {
-    return {
-      ...op,
-      node: {
-        ...op.node,
-        transform: offsetTransform(op.node.transform, offset),
-      },
-    };
-  }
-  return op;
-}
-
-function offsetTransform(input: Transform, offset: TunnelViewportVec3): Transform {
-  return {
-    ...input,
-    translation: [
-      input.translation[0] + offset[0],
-      input.translation[1] + offset[1],
-      input.translation[2] + offset[2],
-    ],
-  };
 }
 
 function primitiveNode(

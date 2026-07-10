@@ -6,12 +6,12 @@ export interface GeneratedTunnelReadoutRequest {
 }
 
 export interface GeneratedTunnelGeneratorSummary {
-  readonly generatorId: 'asha.tunnel.enclosed.v1';
-  readonly generatorVersion: 1;
+  readonly generatorId: 'asha.tunnel.enclosed.v2';
+  readonly generatorVersion: 2;
   readonly presetId: GeneratedTunnelPresetId;
   readonly seed: 17;
   readonly configHash: 'e1d156c6b55137a7';
-  readonly outputHash: 'a9b504096397f5b4';
+  readonly outputHash: '1471496d88d70647';
   readonly generationHash: 'fnv1a64:0821a0c2aea17dff';
 }
 
@@ -20,8 +20,8 @@ export interface GeneratedTunnelVolumeSummary {
   readonly voxelSize: 1;
   readonly chunkDims: readonly [8, 6, 12];
   readonly tunnelDims: readonly [5, 4, 9];
-  readonly solidVoxels: 138;
-  readonly collisionAabbCount: 138;
+  readonly solidVoxels: 282;
+  readonly collisionAabbCount: 282;
 }
 
 export interface GeneratedTunnelCorridorSummary {
@@ -53,6 +53,12 @@ export interface GeneratedTunnelProjectionAvailability {
   readonly hash: string;
 }
 
+export interface GeneratedTunnelRuntimeFrameSummary {
+  readonly worldOffset: readonly [number, number, number];
+  readonly playableMin: readonly [number, number, number];
+  readonly playableMax: readonly [number, number, number];
+}
+
 export interface GeneratedTunnelReadout {
   readonly status: 'available';
   readonly generator: GeneratedTunnelGeneratorSummary;
@@ -63,6 +69,7 @@ export interface GeneratedTunnelReadout {
   readonly materials: readonly GeneratedTunnelMaterialSummary[];
   readonly renderProjection: GeneratedTunnelProjectionAvailability;
   readonly collisionProjection: GeneratedTunnelProjectionAvailability;
+  readonly runtimeFrame: GeneratedTunnelRuntimeFrameSummary;
   readonly replayHash: 'fnv1a64:0821a0c2aea17dff';
   readonly fixture: 'harness/fixtures/generated-levels/tiny-tunnel.snapshot.txt';
 }
@@ -92,6 +99,7 @@ export interface GeneratedTunnelAppliedOperationReceipt {
   readonly outputHash: string;
   readonly collisionSourceHash: string;
   readonly collisionProjectionHash: string;
+  readonly runtimeFrame: GeneratedTunnelRuntimeFrameSummary;
 }
 
 export type GeneratedTunnelOperationReceipt =
@@ -101,12 +109,12 @@ export type GeneratedTunnelOperationReceipt =
 export const TINY_GENERATED_TUNNEL_READOUT: GeneratedTunnelReadout = {
   status: 'available',
   generator: {
-    generatorId: 'asha.tunnel.enclosed.v1',
-    generatorVersion: 1,
+    generatorId: 'asha.tunnel.enclosed.v2',
+    generatorVersion: 2,
     presetId: 'tiny-enclosed',
     seed: 17,
     configHash: 'e1d156c6b55137a7',
-    outputHash: 'a9b504096397f5b4',
+    outputHash: '1471496d88d70647',
     generationHash: 'fnv1a64:0821a0c2aea17dff',
   },
   volume: {
@@ -114,8 +122,8 @@ export const TINY_GENERATED_TUNNEL_READOUT: GeneratedTunnelReadout = {
     voxelSize: 1,
     chunkDims: [8, 6, 12],
     tunnelDims: [5, 4, 9],
-    solidVoxels: 138,
-    collisionAabbCount: 138,
+    solidVoxels: 282,
+    collisionAabbCount: 282,
   },
   rooms: { count: 0 },
   corridors: { count: 1, width: 5, height: 4, length: 9 },
@@ -123,15 +131,15 @@ export const TINY_GENERATED_TUNNEL_READOUT: GeneratedTunnelReadout = {
     {
       id: 'player_start',
       kind: 'player',
-      voxel: [1, 1, 1],
-      world: [1.5, 1.5, 1.5],
+      voxel: [2, 2, 2],
+      world: [2.5, 2.5, 2.5],
       yawDegrees: 0,
     },
     {
       id: 'exit_hint',
       kind: 'navigation',
-      voxel: [3, 1, 7],
-      world: [3.5, 1.5, 7.5],
+      voxel: [4, 2, 8],
+      world: [4.5, 2.5, 8.5],
       yawDegrees: 180,
     },
   ],
@@ -146,7 +154,12 @@ export const TINY_GENERATED_TUNNEL_READOUT: GeneratedTunnelReadout = {
   },
   collisionProjection: {
     available: true,
-    hash: 'fnv1a64:b2312fbcfb060db3',
+    hash: 'fnv1a64:627389be013a3154',
+  },
+  runtimeFrame: {
+    worldOffset: [-3.5, -1, -5.5],
+    playableMin: [-2.5, 0, -4.5],
+    playableMax: [2.5, 4, 4.5],
   },
   replayHash: 'fnv1a64:0821a0c2aea17dff',
   fixture: 'harness/fixtures/generated-levels/tiny-tunnel.snapshot.txt',

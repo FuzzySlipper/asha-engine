@@ -1,8 +1,13 @@
 export declare const NATIVE_GENERATED_TUNNEL_RECEIPT: Readonly<{
     grid: 0;
     configHash: "e1d156c6b55137a7";
-    outputHash: "a9b504096397f5b4";
-    collisionSourceHash: "d32715988a716fb5";
-    collisionProjectionHash: "fnv1a64:0000000000000001";
+    outputHash: "1471496d88d70647";
+    collisionSourceHash: "205242bd77238525";
+    collisionProjectionHash: "fnv1a64:627389be013a3154";
+    runtimeFrame: {
+        worldOffset: number[];
+        playableMin: number[];
+        playableMax: number[];
+    };
 }>;
 //# sourceMappingURL=native-generated-tunnel-fixture.d.ts.map

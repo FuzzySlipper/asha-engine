@@ -590,6 +590,7 @@ export class RustBackedRuntimeSessionFacade {
             outputHash: applied.outputHash,
             collisionSourceHash: applied.collisionSourceHash,
             collisionProjectionHash: applied.collisionProjectionHash,
+            runtimeFrame: applied.runtimeFrame,
             sessionHashBefore: before,
             sessionHashAfter: this.#sessionHash(),
         };

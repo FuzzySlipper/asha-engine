@@ -60,8 +60,8 @@ pub(crate) use protocol_render::{
 pub(crate) use protocol_view::CameraCollisionPolicy;
 pub use protocol_view::{
     CameraBasis, CameraCreateRequest, CameraPose, CameraSnapshot, GeneratedTunnelPreset,
-    GeneratedTunnelRuntimeApplyReceipt, GeneratedTunnelRuntimeApplyRequest, PerspectiveProjection,
-    ViewportSize,
+    GeneratedTunnelRuntimeApplyReceipt, GeneratedTunnelRuntimeApplyRequest,
+    GeneratedTunnelRuntimeFrame, PerspectiveProjection, ViewportSize,
 };
 pub(crate) use protocol_view::{
     CameraCollisionEvidence, CameraCollisionPolicyMode, CameraCollisionShape,

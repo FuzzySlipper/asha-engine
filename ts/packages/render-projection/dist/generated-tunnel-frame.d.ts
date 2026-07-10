@@ -29,6 +29,11 @@ export interface GeneratedTunnelFrameReadout {
     readonly collisionProjection: {
         readonly hash: string;
     };
+    readonly runtimeFrame: {
+        readonly worldOffset: TunnelViewportVec3;
+        readonly playableMin: TunnelViewportVec3;
+        readonly playableMax: TunnelViewportVec3;
+    };
     readonly replayHash: string;
 }
 export interface TunnelViewportMaterialPalette {

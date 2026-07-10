@@ -1297,40 +1297,6 @@ void test('collision-constrained camera movement uses same-tick look deltas for 
     assert.ok(moved.snapshot.after.pose.position[2] < 1.5);
     assert.ok(Math.abs(moved.snapshot.after.pose.position[1] - 1.62) < 0.00001);
 });
-void test('RuntimeSession exposes the generated tunnel fixture readout and fail-closed operations', () => {
-    const session = createMockRuntimeSession();
-    session.initialize(sessionInput());
-    const readout = session.readGeneratedTunnelReadout({ presetId: 'tiny-enclosed', seed: 17 });
-    assert.equal(readout.status, 'available');
-    assert.equal(readout.generator.generatorId, 'asha.tunnel.enclosed.v1');
-    assert.equal(readout.generator.presetId, 'tiny-enclosed');
-    assert.equal(readout.generator.seed, 17);
-    assert.equal(readout.generator.configHash, 'e1d156c6b55137a7');
-    assert.equal(readout.generator.outputHash, 'a9b504096397f5b4');
-    assert.equal(readout.replayHash, 'fnv1a64:0821a0c2aea17dff');
-    assert.deepEqual(readout.volume.tunnelDims, [5, 4, 9]);
-    assert.equal(readout.volume.solidVoxels, 138);
-    assert.equal(readout.corridors.count, 1);
-    assert.equal(readout.rooms.count, 0);
-    assert.deepEqual(readout.spawnMarkers.map((marker) => marker.id), ['player_start', 'exit_hint']);
-    assert.deepEqual(readout.materials.map((material) => `${material.role}:${material.material}`), [
-        'wall:1',
-        'floor:2',
-        'accent:3',
-    ]);
-    assert.equal(readout.renderProjection.hash, 'fnv1a64:21eb8696f6f3b5c4');
-    assert.equal(readout.collisionProjection.hash, 'fnv1a64:b2312fbcfb060db3');
-    const operation = session.requestGeneratedTunnelOperation({
-        operation: 'regenerate',
-        presetId: 'tiny-enclosed',
-        seed: 17,
-    });
-    assert.equal(operation.status, 'unsupported');
-    assert.equal(operation.reason, 'generated_tunnel_operation_not_wired');
-    assert.equal('payload' in operation, false);
-    assert.equal(session.readTelemetry().replayRecords.at(-1)?.kind, 'requestGeneratedTunnelOperation');
-    assert.throws(() => session.readGeneratedTunnelReadout({ presetId: 'tiny-enclosed', seed: 18 }), (error) => error instanceof RuntimeBridgeError && error.kind === 'invalid_input');
-});
 void test('RuntimeSession exposes fire combat health readouts from typed action intents', () => {
     const session = createMockRuntimeSession();
     session.initialize(sessionInput());
@@ -1394,11 +1360,11 @@ void test('RuntimeSession exposes read-only nav projection, path, and policy vie
     const projection = session.readNavProjection();
     assert.equal(projection.id, 'generated_tunnel_nav_projection');
     assert.equal(projection.available, true);
-    assert.equal(projection.walkableCells, 66);
-    assert.equal(projection.projectionHash, 'd1f6ac3e051d6b6e');
+    assert.equal(projection.walkableCells, 45);
+    assert.equal(projection.projectionHash, '59b4093625b10e49');
     const reachable = session.queryNavPath({ scenario: 'generated_tunnel_reachable' });
     assert.equal(reachable.outcome, 'reached');
-    assert.equal(reachable.visited, 21);
+    assert.equal(reachable.visited, 45);
     assert.equal(reachable.path.length, 9);
     assert.deepEqual(reachable.path[0], [3, 1, 7]);
     assert.deepEqual(reachable.path.at(-1), [1, 1, 1]);

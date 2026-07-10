@@ -16,16 +16,25 @@ import { createMockRuntimeSession } from '@asha/runtime-bridge/reference';
 `tiny-enclosed` generated tunnel evidence:
 
 - seed `17`
-- generator `asha.tunnel.enclosed.v1` version `1`
+- generator `asha.tunnel.enclosed.v2` version `2`
 - config hash `e1d156c6b55137a7`
-- output hash `a9b504096397f5b4`
+- output hash `1471496d88d70647`
 - replay hash `fnv1a64:0821a0c2aea17dff`
 - render projection hash `fnv1a64:21eb8696f6f3b5c4`
-- collision projection hash `fnv1a64:b2312fbcfb060db3`
+- collision projection hash `fnv1a64:627389be013a3154`
 
-The collision projection identity includes the generator-owned centered runtime
-room offset, so camera, picking, and combat queries address the same coordinates
-as the first-person room projection while canonical voxel coordinates stay intact.
+The generator publishes one runtime frame for collision, rendering, and authored
+spawn correspondence:
+
+- canonical voxel-world offset `[-3.5, -1, -5.5]`
+- playable minimum `[-2.5, 0, -4.5]`
+- playable maximum `[2.5, 4, 4.5]`
+
+The advertised `5 x 4 x 9` dimensions are collision-free corridor dimensions.
+Rust generates a one-voxel shell around that playable volume. The collision
+projection identity includes the generator-owned offset, while renderer-neutral
+projection consumes the same playable bounds and transforms canonical spawn
+markers through the same offset.
 - spawn markers `player_start` and `exit_hint`
 
 On a Rust-backed session, call
@@ -33,7 +42,7 @@ On a Rust-backed session, call
 after loading the ECRP project. Rust regenerates the same `svc-levelgen` output
 and atomically installs its voxel world as collision authority. The `applied`
 receipt exposes the authoritative grid plus config, output, collision-source,
-and runtime collision-projection hashes; consumers pass that grid to
+runtime collision-projection hashes, and runtime frame; consumers pass that grid to
 `applyCollisionConstrainedCameraInput` instead of hardcoding it. `regenerate`
 remains an unsupported authoring operation, and reference sessions do not claim
 runtime collision authority. Collision-constrained camera movement uses a

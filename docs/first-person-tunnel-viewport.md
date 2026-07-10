@@ -27,11 +27,15 @@ summary.
 Pinned evidence in the current fixture:
 
 - fixture name: `generated-tunnel-first-person-viewport`
-- generated tunnel output hash: `a9b504096397f5b4`
+- generated tunnel output hash: `1471496d88d70647`
 - generated tunnel render projection hash: `fnv1a64:21eb8696f6f3b5c4`
-- generated tunnel collision projection hash: `fnv1a64:b2312fbcfb060db3`
+- generated tunnel collision projection hash: `fnv1a64:627389be013a3154`
 - viewport frame hash: `fnv1a64:db081afd570c2f30`
-- viewport structural hash: `fnv1a64:35ad3bca1a9f1667`
+- viewport structural hash: `fnv1a64:3abd4f9fa73fea4c`
+
+The frame helper positions shell planes from the Rust-authored playable bounds
+and transforms canonical spawn markers with the Rust-authored world offset. It
+does not maintain a renderer-local centering constant.
 
 Evidence:
 

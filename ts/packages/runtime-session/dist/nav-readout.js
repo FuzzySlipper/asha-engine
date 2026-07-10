@@ -1,8 +1,8 @@
 export const GENERATED_TUNNEL_NAV_PROJECTION = {
     id: 'generated_tunnel_nav_projection',
     available: true,
-    walkableCells: 66,
-    projectionHash: 'd1f6ac3e051d6b6e',
+    walkableCells: 45,
+    projectionHash: '59b4093625b10e49',
     sourceFixture: 'harness/fixtures/nav/generated-tunnel-path.snapshot.txt',
 };
 const DEFAULT_NAV_QUERY = {
@@ -16,7 +16,7 @@ export const GENERATED_TUNNEL_REACHABLE_PATH = {
     query: DEFAULT_NAV_QUERY,
     outcome: 'reached',
     rejectionReason: null,
-    visited: 21,
+    visited: 45,
     path: [
         [3, 1, 7],
         [2, 1, 7],
@@ -36,7 +36,7 @@ export const GENERATED_TUNNEL_NO_PATH = {
     query: DEFAULT_NAV_QUERY,
     outcome: 'no_path',
     rejectionReason: 'blocked',
-    visited: 18,
+    visited: 25,
     path: [],
     pathHash: 'a8c7f832281a39c5',
 };
