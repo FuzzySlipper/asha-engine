@@ -23,16 +23,16 @@ use protocol_view::{
 };
 use runtime_bridge_api::{
     set_voxel_command, CameraCreateRequest, CameraPose, CommandBatch,
-    EnemyDirectNavMovementRequest, EngineConfig, FpsBridgeBoundsCapability, FpsBridgeHealth,
-    FpsBridgePolicyBinding, FpsBridgeRole, FpsBridgeStoredEntityDefinition,
+    EnemyDirectNavMovementRequest, EngineBridge, EngineConfig, FpsBridgeBoundsCapability,
+    FpsBridgeHealth, FpsBridgePolicyBinding, FpsBridgeRole, FpsBridgeStoredEntityDefinition,
     FpsBridgeTransformCapability, FpsBridgeWeaponMount, FpsEncounterDirectorSnapshot,
     FpsEncounterLifecycleInput, FpsEncounterStateReadout, FpsEncounterTransitionRequest,
     FpsEncounterTransitionResult, FpsPrimaryFireRequest, FpsPrimaryFireResult,
     FpsRuntimeSessionLoadRequest, FpsRuntimeSessionRestartRequest, FpsRuntimeSessionSnapshot,
     GameExtensionWeaponEffectInvocationRequest, GameRuleCatalog, GameRuleEffectIntentRequest,
-    GameRuleModuleManifest, GameRuleResolutionRequest, ProjectBundleLoadRequest, EngineBridge,
-    RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind, StepInputEnvelope,
-    VoxelAnnotationEditRequest, VoxelAnnotationLayerExportRequest, VoxelAnnotationLayerLoadRequest,
+    GameRuleModuleManifest, GameRuleResolutionRequest, ProjectBundleLoadRequest, RuntimeBridge,
+    RuntimeBridgeError, RuntimeBridgeErrorKind, StepInputEnvelope, VoxelAnnotationEditRequest,
+    VoxelAnnotationLayerExportRequest, VoxelAnnotationLayerLoadRequest,
     VoxelAnnotationLayerValidationRequest, VoxelAnnotationQueryRequest,
     VoxelConversionApplyRequest, VoxelConversionEvidenceRef,
     VoxelConversionMeshAssetRegistrationRequest, VoxelConversionPlanRequest,
@@ -40,9 +40,12 @@ use runtime_bridge_api::{
     VoxelConversionSourceRegistrationRequest, VoxelEditHistoryReadRequest,
     VoxelEditHistoryRedoRequest, VoxelEditHistoryRevertRequest, VoxelEditHistoryUndoRequest,
     VoxelModelInfoRequest, VoxelModelWindowRequest, VoxelVolumeAssetExportRequest,
-    VoxelVolumeAssetLoadRequest, VoxelVolumeAssetSaveRequest, WeaponEffectHookRequest,
+    VoxelVolumeAssetLoadRequest, VoxelVolumeAssetPaletteUpdateRequest, VoxelVolumeAssetSaveRequest,
+    WeaponEffectHookRequest,
 };
 use serde::{Deserialize, Serialize};
+
+mod voxel_assets;
 
 #[derive(Debug, Default)]
 struct NativeSessions {
@@ -1248,28 +1251,6 @@ fn parse_voxel_model_window_request(request_json: &str) -> napi::Result<VoxelMod
     })
 }
 
-fn parse_voxel_volume_asset_export_request(
-    request_json: &str,
-) -> napi::Result<VoxelVolumeAssetExportRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel volume asset export request JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_voxel_volume_asset_load_request(
-    request_json: &str,
-) -> napi::Result<VoxelVolumeAssetLoadRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel volume asset load request JSON: {err}"),
-        ))
-    })
-}
-
 fn parse_voxel_annotation_validation_request(
     request_json: &str,
 ) -> napi::Result<VoxelAnnotationLayerValidationRequest> {
@@ -1881,44 +1862,6 @@ pub fn read_voxel_model_window(handle: i64, request_json: String) -> napi::Resul
     })
 }
 
-fn parse_voxel_volume_asset_save_request(
-    request_json: &str,
-) -> napi::Result<VoxelVolumeAssetSaveRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel volume asset save request JSON: {err}"),
-        ))
-    })
-}
-
-#[napi]
-pub fn export_voxel_volume_asset(handle: i64, request_json: String) -> napi::Result<String> {
-    let request = parse_voxel_volume_asset_export_request(&request_json)?;
-    with_bridge(handle, |bridge| {
-        let receipt = bridge.export_voxel_volume_asset(request).map_err(to_napi)?;
-        voxel_conversion_json(&receipt)
-    })
-}
-
-#[napi]
-pub fn save_voxel_volume_asset(handle: i64, request_json: String) -> napi::Result<String> {
-    let request = parse_voxel_volume_asset_save_request(&request_json)?;
-    with_bridge(handle, |bridge| {
-        let receipt = bridge.save_voxel_volume_asset(request).map_err(to_napi)?;
-        voxel_conversion_json(&receipt)
-    })
-}
-
-#[napi]
-pub fn load_voxel_volume_asset(handle: i64, request_json: String) -> napi::Result<String> {
-    let request = parse_voxel_volume_asset_load_request(&request_json)?;
-    with_bridge(handle, |bridge| {
-        let receipt = bridge.load_voxel_volume_asset(request).map_err(to_napi)?;
-        voxel_conversion_json(&receipt)
-    })
-}
-
 #[napi]
 pub fn validate_voxel_annotation_layer(handle: i64, request_json: String) -> napi::Result<String> {
     let request = parse_voxel_annotation_validation_request(&request_json)?;
@@ -2060,6 +2003,7 @@ mod tests {
         "stepSimulation",
         "submitCommands",
         "undoVoxelEdit",
+        "updateVoxelVolumeAssetPalette",
         "validateVoxelAnnotationLayer",
     ];
 
@@ -2104,6 +2048,7 @@ mod tests {
                 "stepSimulation",
                 "submitCommands",
                 "undoVoxelEdit",
+                "updateVoxelVolumeAssetPalette",
                 "validateVoxelAnnotationLayer",
             ]
         );

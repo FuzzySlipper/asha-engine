@@ -44,6 +44,8 @@ import type {
   VoxelVolumeAssetExportRequest,
   VoxelVolumeAssetLoadReceipt,
   VoxelVolumeAssetLoadRequest,
+  VoxelVolumeAssetPaletteUpdateReceipt,
+  VoxelVolumeAssetPaletteUpdateRequest,
   VoxelVolumeAssetSaveReceipt,
   VoxelVolumeAssetSaveRequest,
   WeaponEffectHookRequest,
@@ -155,6 +157,7 @@ export interface RuntimeSessionFacade {
   readVoxelModelWindow(request: VoxelModelWindowRequest): VoxelModelWindowReadout;
   exportVoxelVolumeAsset(request: VoxelVolumeAssetExportRequest): VoxelVolumeAssetExportReceipt;
   saveVoxelVolumeAsset(request: VoxelVolumeAssetSaveRequest): VoxelVolumeAssetSaveReceipt;
+  updateVoxelVolumeAssetPalette(request: VoxelVolumeAssetPaletteUpdateRequest): VoxelVolumeAssetPaletteUpdateReceipt;
   loadVoxelVolumeAsset(request: VoxelVolumeAssetLoadRequest): VoxelVolumeAssetLoadReceipt;
   validateVoxelAnnotationLayer(request: VoxelAnnotationLayerValidationRequest): VoxelAnnotationLayerValidationReport;
   loadVoxelAnnotationLayer(request: VoxelAnnotationLayerLoadRequest): VoxelAnnotationLayerLoadReceipt;

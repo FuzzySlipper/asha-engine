@@ -718,6 +718,99 @@ fn voxel_annotation_layer_runtime_bridge_validates_loads_queries_edits_and_expor
 }
 
 #[test]
+fn stored_voxel_palette_update_is_hash_guarded_validated_and_round_trips() {
+    let asset = hand_authored_voxel_volume_asset();
+    let mut replacement = asset.material_palette.clone();
+    replacement[0].palette_entry_id = "voxel-material/polished-concrete".to_string();
+    replacement[0].display_name = Some("Polished concrete".to_string());
+    replacement[0].material_asset_id = "material/polished-concrete".to_string();
+    replacement[0].material_catalog_binding_id =
+        Some("catalog-binding/polished-concrete".to_string());
+    let request = VoxelVolumeAssetPaletteUpdateRequest {
+        asset: asset.clone(),
+        material_palette: replacement,
+        target_project_bundle: "asha-studio-palette".to_string(),
+        target_asset_path: "assets/voxels/hand-authored-room.avxl.json".to_string(),
+        expected_canonical_json_hash: asset.content_hashes.canonical_json.clone(),
+        expected_voxel_data_hash: asset.content_hashes.voxel_data.clone(),
+        max_material_bindings: 16,
+    };
+    let bridge = init_bridge();
+    assert!(bridge.voxel_model_infos.is_empty());
+    let receipt = bridge
+        .update_voxel_volume_asset_palette(request.clone())
+        .unwrap();
+    assert!(receipt.updated, "{:?}", receipt.diagnostics);
+    assert!(bridge.voxel_model_infos.is_empty());
+    assert_eq!(
+        receipt.voxel_data_hash.as_deref(),
+        Some(asset.content_hashes.voxel_data.as_str())
+    );
+    assert_ne!(
+        receipt.canonical_json_hash.as_deref(),
+        Some(asset.content_hashes.canonical_json.as_str())
+    );
+    let reopened = svc_voxel_asset::decode_asset(
+        receipt
+            .canonical_json
+            .as_deref()
+            .expect("canonical payload"),
+    )
+    .expect("updated stored asset reopens");
+    assert_eq!(
+        reopened.material_palette[0].display_name.as_deref(),
+        Some("Polished concrete")
+    );
+    assert_eq!(
+        reopened.material_palette[0].palette_entry_id,
+        "voxel-material/polished-concrete"
+    );
+    assert_eq!(
+        reopened.material_palette[0].material_asset_id,
+        "material/polished-concrete"
+    );
+    assert_eq!(
+        reopened.material_palette[0]
+            .material_catalog_binding_id
+            .as_deref(),
+        Some("catalog-binding/polished-concrete")
+    );
+
+    let mut stale = request.clone();
+    stale.expected_canonical_json_hash = "fnv1a64:stale".to_string();
+    stale.expected_voxel_data_hash = "fnv1a64:stale".to_string();
+    let stale_receipt = bridge.update_voxel_volume_asset_palette(stale).unwrap();
+    assert!(!stale_receipt.updated);
+    assert_eq!(
+        stale_receipt.diagnostics[0].code,
+        VoxelAssetDiagnosticCode::ContentHashMismatch
+    );
+    assert!(stale_receipt
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.reference == "expectedVoxelDataHash"));
+
+    let mut duplicate = request;
+    duplicate.material_palette[0].palette_entry_id = "bad palette".to_string();
+    duplicate.material_palette[0].material_asset_id = "texture/not-material".to_string();
+    duplicate.material_palette[0].material_catalog_binding_id =
+        Some("bad catalog binding".to_string());
+    duplicate
+        .material_palette
+        .push(duplicate.material_palette[0].clone());
+    let duplicate_receipt = bridge.update_voxel_volume_asset_palette(duplicate).unwrap();
+    assert!(!duplicate_receipt.updated);
+    assert!(duplicate_receipt
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == VoxelAssetDiagnosticCode::DuplicateMaterialBinding));
+    assert!(duplicate_receipt
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == VoxelAssetDiagnosticCode::InvalidMaterialReference));
+}
+
+#[test]
 fn voxel_volume_asset_save_rejects_missing_material_refs_without_storage_diff() {
     let mut bridge = init_bridge();
     let mut request = project_voxel_conversion_request(7);

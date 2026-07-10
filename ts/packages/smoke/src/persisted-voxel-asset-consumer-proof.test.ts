@@ -12,8 +12,9 @@ import type {
 import {
   RuntimeBridgeError,
   createNativeRuntimeBridge,
-  type RuntimeBridge,
+  createRuntimeSessionFacade,
 } from '@asha/runtime-bridge';
+import type { RuntimeSessionFacade } from '@asha/runtime-session';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
 const proofPath = resolve(repoRoot, 'harness/smoke-out/persisted-voxel-asset-consumer-proof.json');
@@ -26,11 +27,17 @@ function cloneAsset(asset: VoxelVolumeAsset): VoxelVolumeAsset {
   return JSON.parse(JSON.stringify(asset)) as VoxelVolumeAsset;
 }
 
-function bootNativeBridge(t: { skip: (reason?: string) => void }): RuntimeBridge | null {
+function bootNativeBridge(t: { skip: (reason?: string) => void }): RuntimeSessionFacade | null {
   try {
     const bridge = createNativeRuntimeBridge();
-    bridge.initializeEngine({ seed: 4911 });
-    return bridge;
+    const session = createRuntimeSessionFacade({ bridge, mode: 'rust' });
+    session.initialize({
+      sessionId: 'runtime-session.persisted-voxel.consumer-proof',
+      seed: 4911,
+      project: { gameId: 'asha-persisted-voxel-proof', workspaceId: 'workspace.local' },
+      projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 4911 },
+    });
+    return session;
   } catch (error) {
     if (error instanceof RuntimeBridgeError && error.kind === 'native_unavailable') {
       t.skip('native addon not built; run harness/ci/check-native.sh for the persisted voxel proof');
@@ -147,7 +154,35 @@ void test('persisted voxel asset public consumer proof saves, reloads, and recor
   assert.equal(saved.canonicalJsonHash, exported.canonicalJsonHash);
   assert.equal(saved.voxelDataHash, exported.voxelDataHash);
 
-  const reloaded = bridge.loadVoxelVolumeAsset(loadRequest(saved.asset!));
+  const editedPalette = saved.asset!.materialPalette.map((binding) => ({
+    ...binding,
+    paletteEntryId: `voxel-material/authored-${binding.voxelMaterial}`,
+    displayName: `Authored material ${binding.voxelMaterial}`,
+    materialAssetId: `material/authored-${binding.voxelMaterial}`,
+    materialCatalogBindingId: `catalog-binding/authored-${binding.voxelMaterial}`,
+  }));
+  const paletteUpdate = bridge.updateVoxelVolumeAssetPalette({
+    asset: saved.asset!,
+    materialPalette: editedPalette,
+    targetProjectBundle: 'asha-testing-consumer-proof',
+    targetAssetPath: 'assets/voxels/persisted-consumer-proof.avxl.json',
+    expectedCanonicalJsonHash: saved.asset!.contentHashes.canonicalJson,
+    expectedVoxelDataHash: saved.asset!.contentHashes.voxelData,
+    maxMaterialBindings: 16,
+  });
+  assert.equal(paletteUpdate.updated, true, JSON.stringify(paletteUpdate.diagnostics));
+  assert.ok(paletteUpdate.asset !== null);
+  assert.equal(paletteUpdate.asset.materialPalette[0]?.displayName, 'Authored material 3');
+  assert.equal(paletteUpdate.asset.materialPalette[0]?.paletteEntryId, 'voxel-material/authored-3');
+  assert.equal(paletteUpdate.asset.materialPalette[0]?.materialAssetId, 'material/authored-3');
+  assert.equal(
+    paletteUpdate.asset.materialPalette[0]?.materialCatalogBindingId,
+    'catalog-binding/authored-3',
+  );
+  assert.equal(paletteUpdate.voxelDataHash, saved.voxelDataHash);
+  assert.notEqual(paletteUpdate.canonicalJsonHash, saved.canonicalJsonHash);
+
+  const reloaded = bridge.loadVoxelVolumeAsset(loadRequest(paletteUpdate.asset));
   assert.equal(reloaded.loaded, true);
   assert.equal(reloaded.voxelCount, modelInfo.voxelCount);
   assert.deepEqual(reloaded.materialCounts, modelInfo.materialCounts);
@@ -162,21 +197,21 @@ void test('persisted voxel asset public consumer proof saves, reloads, and recor
   assert.equal(readback.latestOutputHash, saved.voxelDataHash);
 
   const badContentHash: VoxelVolumeAsset = {
-    ...cloneAsset(saved.asset!),
+    ...cloneAsset(paletteUpdate.asset),
     contentHashes: {
-      ...saved.asset!.contentHashes,
+      ...paletteUpdate.asset.contentHashes,
       canonicalJson: 'fnv1a64:0000000000000000',
     },
   };
   const badCoordinateSystem: VoxelVolumeAsset = {
-    ...cloneAsset(saved.asset!),
+    ...cloneAsset(paletteUpdate.asset),
     grid: {
-      ...saved.asset!.grid,
+      ...paletteUpdate.asset.grid,
       coordinateSystem: 'left_handed_test',
     },
   };
   const invalidMaterialRef: VoxelVolumeAsset = {
-    ...cloneAsset(saved.asset!),
+    ...cloneAsset(paletteUpdate.asset),
     materialPalette: [{
       voxelMaterial: 3,
       paletteEntryId: 'voxel-material/not-material',
@@ -186,7 +221,7 @@ void test('persisted voxel asset public consumer proof saves, reloads, and recor
     }],
   };
   const unsupportedSchema: VoxelVolumeAsset = {
-    ...cloneAsset(saved.asset!),
+    ...cloneAsset(paletteUpdate.asset),
     schemaVersion: 999,
   };
 
@@ -233,6 +268,33 @@ void test('persisted voxel asset public consumer proof saves, reloads, and recor
   assert.equal(staleSave.saved, false);
   assert.equal(staleSave.diagnostics[0]?.code, 'stale_runtime_snapshot');
 
+  const stalePaletteUpdate = bridge.updateVoxelVolumeAssetPalette({
+    asset: paletteUpdate.asset,
+    materialPalette: paletteUpdate.asset.materialPalette,
+    targetProjectBundle: 'asha-testing-consumer-proof',
+    targetAssetPath: 'assets/voxels/persisted-consumer-proof.avxl.json',
+    expectedCanonicalJsonHash: 'fnv1a64:0000000000000000',
+    expectedVoxelDataHash: paletteUpdate.asset.contentHashes.voxelData,
+    maxMaterialBindings: 16,
+  });
+  assert.equal(stalePaletteUpdate.updated, false);
+  assert.equal(stalePaletteUpdate.diagnostics[0]?.code, 'content_hash_mismatch');
+
+  const duplicatePaletteUpdate = bridge.updateVoxelVolumeAssetPalette({
+    asset: paletteUpdate.asset,
+    materialPalette: [
+      ...paletteUpdate.asset.materialPalette,
+      paletteUpdate.asset.materialPalette[0]!,
+    ],
+    targetProjectBundle: 'asha-testing-consumer-proof',
+    targetAssetPath: 'assets/voxels/persisted-consumer-proof.avxl.json',
+    expectedCanonicalJsonHash: paletteUpdate.asset.contentHashes.canonicalJson,
+    expectedVoxelDataHash: paletteUpdate.asset.contentHashes.voxelData,
+    maxMaterialBindings: 16,
+  });
+  assert.equal(duplicatePaletteUpdate.updated, false);
+  assert.equal(duplicatePaletteUpdate.diagnostics[0]?.code, 'duplicate_material_binding');
+
   assert.throws(
     () =>
       bridge.exportVoxelConversionEvidence([
@@ -245,13 +307,18 @@ void test('persisted voxel asset public consumer proof saves, reloads, and recor
     schemaVersion: 1,
     project: 'asha',
     consumer: '@asha/smoke',
-    publicImports: ['@asha/contracts', '@asha/runtime-bridge'],
+    publicImports: ['@asha/contracts', '@asha/runtime-bridge', '@asha/runtime-session'],
     engineCommit: gitValue(['rev-parse', 'HEAD']),
     engineRef: gitValue(['rev-parse', '--abbrev-ref', 'HEAD']),
     assetPath: saved.diff?.assetPath,
     assetId: saved.asset?.assetId,
     canonicalJsonHash: saved.canonicalJsonHash,
     voxelDataHash: saved.voxelDataHash,
+    paletteUpdate: {
+      canonicalJsonHash: paletteUpdate.canonicalJsonHash,
+      voxelDataHash: paletteUpdate.voxelDataHash,
+      materialPalette: paletteUpdate.asset.materialPalette,
+    },
     diagnostics: saved.diagnostics,
     evidenceRefs: [...plan.evidence, ...preview.evidence, ...receipt.evidence, ...modelInfo.evidence],
     negativeMatrix: [
@@ -260,6 +327,8 @@ void test('persisted voxel asset public consumer proof saves, reloads, and recor
         code: item.receipt.diagnostics[0]?.code,
       })),
       { caseId: 'stale_runtime_snapshot', code: staleSave.diagnostics[0]?.code },
+      { caseId: 'stale_palette_hash', code: stalePaletteUpdate.diagnostics[0]?.code },
+      { caseId: 'duplicate_palette_binding', code: duplicatePaletteUpdate.diagnostics[0]?.code },
       { caseId: 'missing_source_evidence', bridgeErrorKind: 'invalid_input' },
     ],
     readback: {
@@ -273,7 +342,11 @@ void test('persisted voxel asset public consumer proof saves, reloads, and recor
   mkdirSync(dirname(proofPath), { recursive: true });
   writeFileSync(proofPath, `${JSON.stringify(proof, null, 2)}\n`);
 
-  assert.deepEqual(proof.publicImports, ['@asha/contracts', '@asha/runtime-bridge']);
+  assert.deepEqual(proof.publicImports, [
+    '@asha/contracts',
+    '@asha/runtime-bridge',
+    '@asha/runtime-session',
+  ]);
   assert.match(proof.engineCommit, /^[0-9a-f]{40}$/u);
-  assert.equal(proof.negativeMatrix.length, 6);
+  assert.equal(proof.negativeMatrix.length, 8);
 });

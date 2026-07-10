@@ -394,6 +394,9 @@ mod tests {
             interface_coverage_key("voxelAsset", "VoxelVolumeAssetSaveRequest"),
             interface_coverage_key("voxelAsset", "VoxelVolumeAssetStoredDiff"),
             interface_coverage_key("voxelAsset", "VoxelVolumeAssetSaveReceipt"),
+            interface_coverage_key("voxelAsset", "VoxelVolumeAssetPaletteUpdateRequest"),
+            interface_coverage_key("voxelAsset", "VoxelVolumeAssetPaletteStoredDiff"),
+            interface_coverage_key("voxelAsset", "VoxelVolumeAssetPaletteUpdateReceipt"),
             interface_coverage_key("voxelAsset", "VoxelVolumeAssetLoadRequest"),
             interface_coverage_key("voxelAsset", "VoxelVolumeAssetLoadReceipt"),
             interface_coverage_key("voxelAnnotation", "VoxelAnnotationCoord"),
@@ -1106,6 +1109,10 @@ mod tests {
         assert!(va.contains("readonly materialPalette: readonly VoxelAssetMaterialBinding[];"));
         assert!(va.contains("readonly validationDiagnostics: readonly VoxelAssetDiagnostic[];"));
         assert!(va.contains("readonly contentHashes: VoxelAssetContentHashes;"));
+        assert!(va.contains("export interface VoxelVolumeAssetPaletteUpdateRequest {"));
+        assert!(va.contains("readonly maxMaterialBindings: number;"));
+        assert!(va.contains("export interface VoxelVolumeAssetPaletteStoredDiff {"));
+        assert!(va.contains("export interface VoxelVolumeAssetPaletteUpdateReceipt {"));
     }
 
     /// Focused behavior test for the `voxelAnnotation` family: schema/media

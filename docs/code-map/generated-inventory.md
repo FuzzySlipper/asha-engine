@@ -247,6 +247,7 @@ Source: [bridge-manifest.toml](../../engine-rs/crates/bridge/runtime-bridge-api/
 - `submit_game_rule_effect_intent` — stable; output `protocol_game_rules::GameRuleResolutionReceipt`
 - `undo_voxel_edit` — stable; output `protocol_voxel_edit_history::VoxelEditHistoryUndoReceipt`
 - `unload_project_bundle` — stable; output `Unit`
+- `update_voxel_volume_asset_palette` — stable; output `protocol_voxel_asset::VoxelVolumeAssetPaletteUpdateReceipt`
 - `validate_game_rule_catalog` — stable; output `protocol_runtime::GameRuleCatalogValidationReceipt`
 - `validate_voxel_annotation_layer` — stable; output `protocol_voxel_annotation::VoxelAnnotationLayerValidationReport`
 

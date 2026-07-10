@@ -30,6 +30,7 @@ export const REQUIRED_NATIVE_ADDON_EXPORTS = [
     'readVoxelModelWindow',
     'exportVoxelVolumeAsset',
     'saveVoxelVolumeAsset',
+    'updateVoxelVolumeAssetPalette',
     'loadVoxelVolumeAsset',
     'validateVoxelAnnotationLayer',
     'loadVoxelAnnotationLayer',

@@ -324,6 +324,51 @@ pub struct VoxelVolumeAssetSaveReceipt {
     pub diagnostics: Vec<VoxelAssetDiagnostic>,
 }
 
+/// Bounded request to replace one stored voxel asset's durable material palette.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct VoxelVolumeAssetPaletteUpdateRequest {
+    pub asset: VoxelVolumeAsset,
+    pub material_palette: Vec<VoxelAssetMaterialBinding>,
+    pub target_project_bundle: String,
+    pub target_asset_path: String,
+    pub expected_canonical_json_hash: String,
+    pub expected_voxel_data_hash: String,
+    pub max_material_bindings: u64,
+}
+
+/// Stored-only diff for one accepted durable palette replacement.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct VoxelVolumeAssetPaletteStoredDiff {
+    pub project_bundle: String,
+    pub asset_id: String,
+    pub asset_path: String,
+    pub operation: String,
+    pub previous_canonical_json_hash: String,
+    pub next_canonical_json_hash: String,
+    pub voxel_data_hash: String,
+    pub previous_material_count: u64,
+    pub next_material_count: u64,
+}
+
+/// Receipt for an accepted/rejected stored voxel material palette transaction.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct VoxelVolumeAssetPaletteUpdateReceipt {
+    pub request: VoxelVolumeAssetPaletteUpdateRequest,
+    pub updated: bool,
+    pub diff: Option<VoxelVolumeAssetPaletteStoredDiff>,
+    pub asset: Option<VoxelVolumeAsset>,
+    pub canonical_json: Option<String>,
+    pub canonical_json_hash: Option<String>,
+    pub voxel_data_hash: Option<String>,
+    pub diagnostics: Vec<VoxelAssetDiagnostic>,
+}
+
 /// Explicit request to load a validated stored voxel-volume asset into runtime.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

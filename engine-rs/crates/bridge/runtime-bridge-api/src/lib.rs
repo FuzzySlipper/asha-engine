@@ -90,8 +90,9 @@ pub(crate) use protocol_voxel_asset::{
 };
 pub use protocol_voxel_asset::{
     VoxelVolumeAssetExportReceipt, VoxelVolumeAssetExportRequest, VoxelVolumeAssetLoadReceipt,
-    VoxelVolumeAssetLoadRequest, VoxelVolumeAssetSaveReceipt, VoxelVolumeAssetSaveRequest,
-    VoxelVolumeAssetStoredDiff,
+    VoxelVolumeAssetLoadRequest, VoxelVolumeAssetPaletteStoredDiff,
+    VoxelVolumeAssetPaletteUpdateReceipt, VoxelVolumeAssetPaletteUpdateRequest,
+    VoxelVolumeAssetSaveReceipt, VoxelVolumeAssetSaveRequest, VoxelVolumeAssetStoredDiff,
 };
 pub use protocol_voxel_conversion::{
     VoxelConversionApplyRequest, VoxelConversionDiagnostic, VoxelConversionDiagnosticCode,

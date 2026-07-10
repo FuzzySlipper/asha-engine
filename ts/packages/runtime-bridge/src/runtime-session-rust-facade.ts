@@ -42,6 +42,8 @@ import type {
   VoxelVolumeAssetExportRequest,
   VoxelVolumeAssetLoadReceipt,
   VoxelVolumeAssetLoadRequest,
+  VoxelVolumeAssetPaletteUpdateReceipt,
+  VoxelVolumeAssetPaletteUpdateRequest,
   VoxelVolumeAssetSaveReceipt,
   VoxelVolumeAssetSaveRequest,
   WeaponEffectHookRequest,
@@ -864,6 +866,13 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   saveVoxelVolumeAsset(request: VoxelVolumeAssetSaveRequest): VoxelVolumeAssetSaveReceipt {
     this.#requireInitialized('saveVoxelVolumeAsset');
     return this.#bridge.saveVoxelVolumeAsset(request);
+  }
+
+  updateVoxelVolumeAssetPalette(
+    request: VoxelVolumeAssetPaletteUpdateRequest,
+  ): VoxelVolumeAssetPaletteUpdateReceipt {
+    this.#requireInitialized('updateVoxelVolumeAssetPalette');
+    return this.#bridge.updateVoxelVolumeAssetPalette(request);
   }
 
   loadVoxelVolumeAsset(request: VoxelVolumeAssetLoadRequest): VoxelVolumeAssetLoadReceipt {

@@ -232,11 +232,11 @@ fn validate_material_palette(
                 ),
             ));
         }
-        if binding.palette_entry_id.trim().is_empty() {
+        if !valid_scoped_binding_id(&binding.palette_entry_id, "voxel-material/") {
             diagnostics.push(diagnostic(
                 VoxelAssetDiagnosticCode::InvalidMaterialReference,
                 format!("materialPalette[{index}].paletteEntryId"),
-                "palette entry id is required",
+                "palette entry id must use voxel-material/ followed by lowercase kebab path segments",
             ));
         } else if !palette_entries.insert(binding.palette_entry_id.as_str()) {
             diagnostics.push(diagnostic(
@@ -249,11 +249,11 @@ fn validate_material_palette(
             ));
         }
         if let Some(binding_id) = &binding.material_catalog_binding_id {
-            if binding_id.trim().is_empty() {
+            if !valid_scoped_binding_id(binding_id, "catalog-binding/") {
                 diagnostics.push(diagnostic(
                     VoxelAssetDiagnosticCode::InvalidMaterialReference,
                     format!("materialPalette[{index}].materialCatalogBindingId"),
-                    "material catalog binding id must be non-empty when provided",
+                    "material catalog binding id must use catalog-binding/ followed by lowercase kebab path segments",
                 ));
             } else if !catalog_bindings.insert(binding_id.as_str()) {
                 diagnostics.push(diagnostic(
@@ -285,6 +285,26 @@ fn validate_material_palette(
         }
     }
     palette
+}
+
+fn valid_scoped_binding_id(value: &str, prefix: &str) -> bool {
+    value.strip_prefix(prefix).is_some_and(|tail| {
+        !tail.is_empty()
+            && tail.split('/').all(|segment| {
+                !segment.is_empty()
+                    && segment.bytes().all(|byte| {
+                        byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-'
+                    })
+                    && segment
+                        .as_bytes()
+                        .first()
+                        .is_some_and(u8::is_ascii_alphanumeric)
+                    && segment
+                        .as_bytes()
+                        .last()
+                        .is_some_and(u8::is_ascii_alphanumeric)
+            })
+    })
 }
 
 fn validate_sparse_runs(
@@ -565,7 +585,10 @@ mod tests {
     fn invalid_bounds_and_material_references_are_classified() {
         let mut asset = hand_authored_asset();
         asset.bounds.min.x = 10;
+        asset.material_palette[0].palette_entry_id = "Voxel Material/Bad".to_string();
         asset.material_palette[0].material_asset_id = "texture/not-a-material".to_string();
+        asset.material_palette[0].material_catalog_binding_id =
+            Some("catalog-binding/bad_value".to_string());
         asset.representation.sparse_runs[1].material = 99;
 
         let report = validate_asset(&asset);

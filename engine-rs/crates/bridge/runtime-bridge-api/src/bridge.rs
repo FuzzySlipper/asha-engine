@@ -106,6 +106,12 @@ pub trait RuntimeBridge {
         &self,
         request: VoxelVolumeAssetSaveRequest,
     ) -> BridgeResult<VoxelVolumeAssetSaveReceipt>;
+    /// Validate and package a bounded stored-only material palette replacement.
+    /// This operation returns a ProjectBundle diff and never mutates runtime state.
+    fn update_voxel_volume_asset_palette(
+        &self,
+        request: VoxelVolumeAssetPaletteUpdateRequest,
+    ) -> BridgeResult<VoxelVolumeAssetPaletteUpdateReceipt>;
     /// Load a validated stored voxel-volume asset into runtime authority through
     /// an explicit operation. Rejected assets leave runtime voxel state untouched.
     fn load_voxel_volume_asset(

@@ -168,6 +168,14 @@ errors = "RuntimeBridgeError"
 summary = "Validate an explicit runtime-to-stored voxel-volume asset diff/save transaction and return the canonical payload for host persistence."
 
 [[operation]]
+name = "update_voxel_volume_asset_palette"
+surface = "stable"
+input = "protocol_voxel_asset::VoxelVolumeAssetPaletteUpdateRequest"
+output = "protocol_voxel_asset::VoxelVolumeAssetPaletteUpdateReceipt"
+errors = "RuntimeBridgeError"
+summary = "Validate a bounded stored-only voxel material palette replacement and return the canonical ProjectBundle asset diff without mutating runtime state."
+
+[[operation]]
 name = "load_voxel_volume_asset"
 surface = "stable"
 input = "protocol_voxel_asset::VoxelVolumeAssetLoadRequest"

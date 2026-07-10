@@ -1,6 +1,91 @@
 use super::*;
 
+const VOXEL_ASSET_MAX_MATERIAL_BINDINGS: u64 = 4096;
+
 impl EngineBridge {
+    pub(super) fn update_voxel_volume_asset_palette_authority(
+        &self,
+        request: VoxelVolumeAssetPaletteUpdateRequest,
+    ) -> BridgeResult<VoxelVolumeAssetPaletteUpdateReceipt> {
+        self.require_initialized("update_voxel_volume_asset_palette")?;
+        let mut diagnostics = Self::voxel_asset_palette_update_request_diagnostics(&request);
+        let source_report = svc_voxel_asset::validate_asset(&request.asset);
+        diagnostics.extend(source_report.diagnostics);
+        if request.expected_canonical_json_hash != request.asset.content_hashes.canonical_json {
+            diagnostics.push(Self::voxel_asset_diagnostic(
+                VoxelAssetDiagnosticCode::ContentHashMismatch,
+                "expectedCanonicalJsonHash",
+                "palette update expected a different stored canonical JSON hash",
+            ));
+        }
+        if request.expected_voxel_data_hash != request.asset.content_hashes.voxel_data {
+            diagnostics.push(Self::voxel_asset_diagnostic(
+                VoxelAssetDiagnosticCode::ContentHashMismatch,
+                "expectedVoxelDataHash",
+                "palette update expected a different stored voxel-data hash",
+            ));
+        }
+        if !diagnostics.is_empty() {
+            return Ok(Self::rejected_voxel_volume_asset_palette_update(
+                request,
+                diagnostics,
+            ));
+        }
+
+        let previous_canonical_json_hash = request.asset.content_hashes.canonical_json.clone();
+        let previous_material_count = request.asset.material_palette.len() as u64;
+        let mut candidate = request.asset.clone();
+        candidate.material_palette = request.material_palette.clone();
+        candidate = svc_voxel_asset::with_computed_hashes(&candidate);
+        let candidate_report = svc_voxel_asset::validate_asset(&candidate);
+        if !candidate_report.is_valid() {
+            return Ok(Self::rejected_voxel_volume_asset_palette_update(
+                request,
+                candidate_report.diagnostics,
+            ));
+        }
+        if candidate.content_hashes.voxel_data != request.asset.content_hashes.voxel_data {
+            return Ok(Self::rejected_voxel_volume_asset_palette_update(
+                request,
+                vec![Self::voxel_asset_diagnostic(
+                    VoxelAssetDiagnosticCode::ContentHashMismatch,
+                    "contentHashes.voxelData",
+                    "stored-only palette update changed the authority voxel-data hash",
+                )],
+            ));
+        }
+        let canonical_json = svc_voxel_asset::encode_asset(&candidate).map_err(|report| {
+            RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::Internal,
+                format!(
+                    "validated voxel palette update failed canonical encode with {} diagnostic(s)",
+                    report.diagnostics.len()
+                ),
+            )
+        })?;
+        let diff = VoxelVolumeAssetPaletteStoredDiff {
+            project_bundle: request.target_project_bundle.clone(),
+            asset_id: candidate.asset_id.clone(),
+            asset_path: request.target_asset_path.clone(),
+            operation: "replace_palette".to_string(),
+            previous_canonical_json_hash,
+            next_canonical_json_hash: candidate.content_hashes.canonical_json.clone(),
+            voxel_data_hash: candidate.content_hashes.voxel_data.clone(),
+            previous_material_count,
+            next_material_count: candidate.material_palette.len() as u64,
+        };
+        Ok(VoxelVolumeAssetPaletteUpdateReceipt {
+            request,
+            updated: true,
+            diff: Some(diff),
+            canonical_json_hash: Some(candidate.content_hashes.canonical_json.clone()),
+            voxel_data_hash: Some(candidate.content_hashes.voxel_data.clone()),
+            asset: Some(candidate),
+            canonical_json: Some(canonical_json),
+            diagnostics: Vec::new(),
+        })
+    }
+
     pub(super) fn target_for_voxel_conversion(
         &self,
         target: &protocol_voxel_conversion::VoxelConversionTargetRef,
@@ -444,18 +529,81 @@ impl EngineBridge {
         }
     }
 
+    pub(super) fn rejected_voxel_volume_asset_palette_update(
+        request: VoxelVolumeAssetPaletteUpdateRequest,
+        diagnostics: Vec<VoxelAssetDiagnostic>,
+    ) -> VoxelVolumeAssetPaletteUpdateReceipt {
+        VoxelVolumeAssetPaletteUpdateReceipt {
+            request,
+            updated: false,
+            diff: None,
+            asset: None,
+            canonical_json: None,
+            canonical_json_hash: None,
+            voxel_data_hash: None,
+            diagnostics,
+        }
+    }
+
+    pub(super) fn voxel_asset_palette_update_request_diagnostics(
+        request: &VoxelVolumeAssetPaletteUpdateRequest,
+    ) -> Vec<VoxelAssetDiagnostic> {
+        let mut diagnostics = Self::voxel_asset_stored_target_diagnostics(
+            &request.target_project_bundle,
+            &request.target_asset_path,
+        );
+        if request.max_material_bindings == 0
+            || request.max_material_bindings > VOXEL_ASSET_MAX_MATERIAL_BINDINGS
+        {
+            diagnostics.push(Self::voxel_asset_diagnostic(
+                VoxelAssetDiagnosticCode::ExportLimitExceeded,
+                "maxMaterialBindings",
+                format!("maxMaterialBindings must be in 1..={VOXEL_ASSET_MAX_MATERIAL_BINDINGS}"),
+            ));
+        } else if request.material_palette.len() as u64 > request.max_material_bindings {
+            diagnostics.push(Self::voxel_asset_diagnostic(
+                VoxelAssetDiagnosticCode::ExportLimitExceeded,
+                "materialPalette",
+                format!(
+                    "material palette has {} entries; request limit is {}",
+                    request.material_palette.len(),
+                    request.max_material_bindings
+                ),
+            ));
+        }
+        diagnostics
+    }
+
     pub(super) fn voxel_asset_save_request_diagnostics(
         request: &VoxelVolumeAssetSaveRequest,
     ) -> Vec<VoxelAssetDiagnostic> {
+        let mut diagnostics = Self::voxel_asset_stored_target_diagnostics(
+            &request.target_project_bundle,
+            &request.target_asset_path,
+        );
+        if request.representation_kind != VoxelAssetRepresentationKind::SparseRuns.as_str() {
+            diagnostics.push(Self::voxel_asset_diagnostic(
+                VoxelAssetDiagnosticCode::UnsupportedRepresentation,
+                "representationKind",
+                "runtime-to-stored voxel asset save currently supports sparse_runs only",
+            ));
+        }
+        diagnostics
+    }
+
+    fn voxel_asset_stored_target_diagnostics(
+        target_project_bundle: &str,
+        target_asset_path: &str,
+    ) -> Vec<VoxelAssetDiagnostic> {
         let mut diagnostics = Vec::new();
-        if request.target_project_bundle.trim().is_empty() {
+        if target_project_bundle.trim().is_empty() {
             diagnostics.push(Self::voxel_asset_diagnostic(
                 VoxelAssetDiagnosticCode::InvalidAssetId,
                 "targetProjectBundle",
                 "target project bundle must be non-empty",
             ));
         }
-        let path = request.target_asset_path.trim();
+        let path = target_asset_path.trim();
         if path.is_empty()
             || path.starts_with('/')
             || path.contains('\\')
@@ -471,13 +619,6 @@ impl EngineBridge {
                     "target asset path must be a relative ProjectBundle path ending in .{}",
                     VOXEL_ASSET_EXTENSION
                 ),
-            ));
-        }
-        if request.representation_kind != VoxelAssetRepresentationKind::SparseRuns.as_str() {
-            diagnostics.push(Self::voxel_asset_diagnostic(
-                VoxelAssetDiagnosticCode::UnsupportedRepresentation,
-                "representationKind",
-                "runtime-to-stored voxel asset save currently supports sparse_runs only",
             ));
         }
         diagnostics

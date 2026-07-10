@@ -48,8 +48,7 @@ import {
   type ReplaySessionHandle,
 } from './index.js';
 import { fpsLoadRequest } from './native-fps-fixtures.test-fixture.js';
-
-
+import { createVoxelPaletteUpdateHandler, voxelPaletteUpdateRequest } from './native-voxel-palette.test-fixture.js';
 const MODEL_MATERIAL_PREVIEW_REQUEST: ModelMaterialPreviewRequest = {
   catalogEntry: {
     id: 'material.copper',
@@ -135,6 +134,7 @@ const REQUIRED_NATIVE_CONFORMANCE_OPS = [
   'read_voxel_model_window',
   'export_voxel_volume_asset',
   'save_voxel_volume_asset',
+  'update_voxel_volume_asset_palette',
   'load_voxel_volume_asset',
   'validate_voxel_annotation_layer',
   'load_voxel_annotation_layer',
@@ -150,13 +150,11 @@ const REQUIRED_NATIVE_CONFORMANCE_OPS = [
   'save_project_bundle',
   'get_project_bundle_composition_status',
 ] as const;
-
 const HASH_A = 'fnv1a64:00000000000000aa';
 const HASH_B = 'fnv1a64:00000000000000bb';
 const HASH_C = 'fnv1a64:00000000000000cc';
 const VOXEL_PLAN_HASH = 'fnv1a64:0000000000000102';
 const VOXEL_PREVIEW_HASH = 'fnv1a64:0000000000000103';
-
 const GAME_RULE_CATALOG = {
   catalog: { catalogId: 'catalog.game-rules.native', version: '0.1.0', contentHash: HASH_A },
   valueChannels: [{ channelId: 'value.health', displayName: 'Health' }],
@@ -1142,6 +1140,7 @@ function fakeAddon(calls: string[] = []): NativeAddon {
         diagnostics: [],
       });
     },
+    updateVoxelVolumeAssetPalette: createVoxelPaletteUpdateHandler(calls),
     loadVoxelVolumeAsset: (_handle: number, requestJson: string) => {
       calls.push(`voxelVolumeAssetLoad:${requestJson}`);
       const request = parseJsonFixture<VoxelVolumeAssetLoadRequest>(requestJson);
@@ -1396,6 +1395,7 @@ const INVOKE = new Map<string, (b: RuntimeBridge) => unknown>([
   ['readVoxelModelWindow', (b) => b.readVoxelModelWindow(VOXEL_MODEL_WINDOW_REQUEST)],
   ['exportVoxelVolumeAsset', (b) => b.exportVoxelVolumeAsset(VOXEL_VOLUME_ASSET_EXPORT_REQUEST)],
   ['saveVoxelVolumeAsset', (b) => b.saveVoxelVolumeAsset(VOXEL_VOLUME_ASSET_SAVE_REQUEST)],
+  ['updateVoxelVolumeAssetPalette', (b) => b.updateVoxelVolumeAssetPalette(voxelPaletteUpdateRequest(VOXEL_VOLUME_ASSET_LOAD_REQUEST.asset))],
   ['loadVoxelVolumeAsset', (b) => b.loadVoxelVolumeAsset(VOXEL_VOLUME_ASSET_LOAD_REQUEST)],
   ['validateVoxelAnnotationLayer', (b) => b.validateVoxelAnnotationLayer(VOXEL_ANNOTATION_VALIDATION_REQUEST)],
   ['loadVoxelAnnotationLayer', (b) => b.loadVoxelAnnotationLayer(VOXEL_ANNOTATION_LOAD_REQUEST)],

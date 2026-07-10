@@ -145,6 +145,7 @@ function bridgeWith(overrides) {
         exportVoxelConversionEvidence: base.exportVoxelConversionEvidence.bind(base),
         exportVoxelVolumeAsset: base.exportVoxelVolumeAsset.bind(base),
         saveVoxelVolumeAsset: base.saveVoxelVolumeAsset.bind(base),
+        updateVoxelVolumeAssetPalette: base.updateVoxelVolumeAssetPalette.bind(base),
         loadVoxelVolumeAsset: base.loadVoxelVolumeAsset.bind(base),
         validateVoxelAnnotationLayer: base.validateVoxelAnnotationLayer.bind(base),
         loadVoxelAnnotationLayer: base.loadVoxelAnnotationLayer.bind(base),

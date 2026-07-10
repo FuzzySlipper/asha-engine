@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { entityId } from '@asha/contracts';
 import { MANIFEST_OPERATIONS, NATIVE_WIRED_OPERATIONS, NativeRuntimeBridge, RuntimeBridgeError, frameCursor, } from './index.js';
 import { fpsLoadRequest } from './native-fps-fixtures.test-fixture.js';
+import { createVoxelPaletteUpdateHandler, voxelPaletteUpdateRequest } from './native-voxel-palette.test-fixture.js';
 const MODEL_MATERIAL_PREVIEW_REQUEST = {
     catalogEntry: {
         id: 'material.copper',
@@ -91,6 +92,7 @@ const REQUIRED_NATIVE_CONFORMANCE_OPS = [
     'read_voxel_model_window',
     'export_voxel_volume_asset',
     'save_voxel_volume_asset',
+    'update_voxel_volume_asset_palette',
     'load_voxel_volume_asset',
     'validate_voxel_annotation_layer',
     'load_voxel_annotation_layer',
@@ -1049,6 +1051,7 @@ function fakeAddon(calls = []) {
                 diagnostics: [],
             });
         },
+        updateVoxelVolumeAssetPalette: createVoxelPaletteUpdateHandler(calls),
         loadVoxelVolumeAsset: (_handle, requestJson) => {
             calls.push(`voxelVolumeAssetLoad:${requestJson}`);
             const request = parseJsonFixture(requestJson);
@@ -1292,6 +1295,7 @@ const INVOKE = new Map([
     ['readVoxelModelWindow', (b) => b.readVoxelModelWindow(VOXEL_MODEL_WINDOW_REQUEST)],
     ['exportVoxelVolumeAsset', (b) => b.exportVoxelVolumeAsset(VOXEL_VOLUME_ASSET_EXPORT_REQUEST)],
     ['saveVoxelVolumeAsset', (b) => b.saveVoxelVolumeAsset(VOXEL_VOLUME_ASSET_SAVE_REQUEST)],
+    ['updateVoxelVolumeAssetPalette', (b) => b.updateVoxelVolumeAssetPalette(voxelPaletteUpdateRequest(VOXEL_VOLUME_ASSET_LOAD_REQUEST.asset))],
     ['loadVoxelVolumeAsset', (b) => b.loadVoxelVolumeAsset(VOXEL_VOLUME_ASSET_LOAD_REQUEST)],
     ['validateVoxelAnnotationLayer', (b) => b.validateVoxelAnnotationLayer(VOXEL_ANNOTATION_VALIDATION_REQUEST)],
     ['loadVoxelAnnotationLayer', (b) => b.loadVoxelAnnotationLayer(VOXEL_ANNOTATION_LOAD_REQUEST)],

@@ -147,6 +147,14 @@
       "errors": "RuntimeBridgeError"
     },
     {
+      "manifestName": "update_voxel_volume_asset_palette",
+      "facadeMethod": "updateVoxelVolumeAssetPalette",
+      "surface": "stable",
+      "input": "protocol_voxel_asset::VoxelVolumeAssetPaletteUpdateRequest",
+      "output": "protocol_voxel_asset::VoxelVolumeAssetPaletteUpdateReceipt",
+      "errors": "RuntimeBridgeError"
+    },
+    {
       "manifestName": "load_voxel_volume_asset",
       "facadeMethod": "loadVoxelVolumeAsset",
       "surface": "stable",

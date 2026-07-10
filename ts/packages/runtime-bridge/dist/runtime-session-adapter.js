@@ -592,6 +592,7 @@ class ReferenceRuntimeSessionFacade {
     readVoxelModelWindow(_request) { void _request; return this.#unsupportedOperation('readVoxelModelWindow', 'Voxel model window is not wired into the reference RuntimeSession'); }
     exportVoxelVolumeAsset(_request) { void _request; return this.#unsupportedOperation('exportVoxelVolumeAsset', 'Voxel volume asset export is not wired into the reference RuntimeSession'); }
     saveVoxelVolumeAsset(_request) { void _request; return this.#unsupportedOperation('saveVoxelVolumeAsset', 'Voxel volume asset save is not wired into the reference RuntimeSession'); }
+    updateVoxelVolumeAssetPalette(_request) { void _request; return this.#unsupportedOperation('updateVoxelVolumeAssetPalette', 'Durable voxel palette updates are not wired into the reference RuntimeSession'); }
     loadVoxelVolumeAsset(_request) { void _request; return this.#unsupportedOperation('loadVoxelVolumeAsset', 'Voxel volume asset load is not wired into the reference RuntimeSession'); }
     validateVoxelAnnotationLayer(_request) { void _request; return this.#unsupportedOperation('validateVoxelAnnotationLayer', 'Voxel annotation validation is not wired into the reference RuntimeSession'); }
     loadVoxelAnnotationLayer(_request) { void _request; return this.#unsupportedOperation('loadVoxelAnnotationLayer', 'Voxel annotation load is not wired into the reference RuntimeSession'); }

@@ -180,6 +180,42 @@ export interface VoxelVolumeAssetSaveReceipt {
   readonly diagnostics: readonly VoxelAssetDiagnostic[];
 }
 
+// Bounded request to replace one stored voxel asset's durable material palette.
+export interface VoxelVolumeAssetPaletteUpdateRequest {
+  readonly asset: VoxelVolumeAsset;
+  readonly materialPalette: readonly VoxelAssetMaterialBinding[];
+  readonly targetProjectBundle: string;
+  readonly targetAssetPath: string;
+  readonly expectedCanonicalJsonHash: string;
+  readonly expectedVoxelDataHash: string;
+  readonly maxMaterialBindings: number;
+}
+
+// Stored-only diff for one accepted durable palette replacement.
+export interface VoxelVolumeAssetPaletteStoredDiff {
+  readonly projectBundle: string;
+  readonly assetId: string;
+  readonly assetPath: string;
+  readonly operation: string;
+  readonly previousCanonicalJsonHash: string;
+  readonly nextCanonicalJsonHash: string;
+  readonly voxelDataHash: string;
+  readonly previousMaterialCount: number;
+  readonly nextMaterialCount: number;
+}
+
+// Receipt for an accepted/rejected stored voxel material palette transaction.
+export interface VoxelVolumeAssetPaletteUpdateReceipt {
+  readonly request: VoxelVolumeAssetPaletteUpdateRequest;
+  readonly updated: boolean;
+  readonly diff: VoxelVolumeAssetPaletteStoredDiff | null;
+  readonly asset: VoxelVolumeAsset | null;
+  readonly canonicalJson: string | null;
+  readonly canonicalJsonHash: string | null;
+  readonly voxelDataHash: string | null;
+  readonly diagnostics: readonly VoxelAssetDiagnostic[];
+}
+
 // Explicit request to load a validated stored voxel-volume asset into runtime.
 export interface VoxelVolumeAssetLoadRequest {
   readonly asset: VoxelVolumeAsset;

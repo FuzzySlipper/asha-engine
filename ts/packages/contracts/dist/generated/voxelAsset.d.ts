@@ -125,6 +125,36 @@ export interface VoxelVolumeAssetSaveReceipt {
     readonly voxelDataHash: string | null;
     readonly diagnostics: readonly VoxelAssetDiagnostic[];
 }
+export interface VoxelVolumeAssetPaletteUpdateRequest {
+    readonly asset: VoxelVolumeAsset;
+    readonly materialPalette: readonly VoxelAssetMaterialBinding[];
+    readonly targetProjectBundle: string;
+    readonly targetAssetPath: string;
+    readonly expectedCanonicalJsonHash: string;
+    readonly expectedVoxelDataHash: string;
+    readonly maxMaterialBindings: number;
+}
+export interface VoxelVolumeAssetPaletteStoredDiff {
+    readonly projectBundle: string;
+    readonly assetId: string;
+    readonly assetPath: string;
+    readonly operation: string;
+    readonly previousCanonicalJsonHash: string;
+    readonly nextCanonicalJsonHash: string;
+    readonly voxelDataHash: string;
+    readonly previousMaterialCount: number;
+    readonly nextMaterialCount: number;
+}
+export interface VoxelVolumeAssetPaletteUpdateReceipt {
+    readonly request: VoxelVolumeAssetPaletteUpdateRequest;
+    readonly updated: boolean;
+    readonly diff: VoxelVolumeAssetPaletteStoredDiff | null;
+    readonly asset: VoxelVolumeAsset | null;
+    readonly canonicalJson: string | null;
+    readonly canonicalJsonHash: string | null;
+    readonly voxelDataHash: string | null;
+    readonly diagnostics: readonly VoxelAssetDiagnostic[];
+}
 export interface VoxelVolumeAssetLoadRequest {
     readonly asset: VoxelVolumeAsset;
     readonly targetGrid: number;

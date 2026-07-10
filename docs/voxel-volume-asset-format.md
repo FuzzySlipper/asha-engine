@@ -67,6 +67,14 @@ operation:
 
 There is no silent promotion from SessionState to stored ProjectBundle data.
 
+Durable palette editing uses the separate
+`updateVoxelVolumeAssetPalette` transaction. The caller supplies the current
+stored asset, a complete bounded replacement palette, required expected
+canonical and voxel-data hashes, and a ProjectBundle target path. Rust validates
+both the current asset and replacement, preserves the voxel-data hash, and
+returns a canonical updated asset plus stored diff. The operation has an
+immutable runtime bridge receiver and cannot update resident SessionState.
+
 ## Versioning And Migration
 
 Schema version `1` supports JSON plus `sparse_runs`. Unknown newer schema versions
@@ -88,6 +96,9 @@ The follow-up Studio save/load/export workflow can now depend on:
 - `VoxelAssetRepresentation`
 - `VoxelAssetSparseRun`
 - `VoxelAssetMaterialBinding`
+- `VoxelVolumeAssetPaletteUpdateRequest`
+- `VoxelVolumeAssetPaletteUpdateReceipt`
+- `VoxelVolumeAssetPaletteStoredDiff`
 - `VoxelAssetProvenanceRef`
 - `VoxelAssetDiagnostic`
 - `VOXEL_ASSET_SCHEMA_VERSION`
@@ -96,7 +107,7 @@ The follow-up Studio save/load/export workflow can now depend on:
 
 Studio material choosing and named palette editing should project and mutate
 these public fields through generated contracts plus the public
-export/save/load facade. Studio must not keep its own hidden material-binding
+export/save/load/palette-update facade. Studio must not keep its own hidden material-binding
 model for saved voxel assets.
 
 It must not import `svc-voxel-asset`, protocol crate internals, private bridge

@@ -964,6 +964,13 @@ impl RuntimeBridge for EngineBridge {
         })
     }
 
+    fn update_voxel_volume_asset_palette(
+        &self,
+        request: VoxelVolumeAssetPaletteUpdateRequest,
+    ) -> BridgeResult<VoxelVolumeAssetPaletteUpdateReceipt> {
+        self.update_voxel_volume_asset_palette_authority(request)
+    }
+
     fn load_voxel_volume_asset(
         &mut self,
         request: VoxelVolumeAssetLoadRequest,
