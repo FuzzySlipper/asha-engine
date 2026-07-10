@@ -206,12 +206,12 @@ export interface RuntimeSessionCombatFeedbackProjectionRequest extends RuntimeSe
   readonly viewport?: CameraProjectionRequest['viewport'];
 }
 
-export interface RuntimeSessionGeneratedTunnelOperationReceipt extends GeneratedTunnelOperationReceipt {
+export type RuntimeSessionGeneratedTunnelOperationReceipt = GeneratedTunnelOperationReceipt & {
   readonly sequenceId: number;
   readonly request: GeneratedTunnelOperationRequest;
   readonly sessionHashBefore: string;
   readonly sessionHashAfter: string;
-}
+};
 
 export interface RuntimeSessionGameExtensionWeaponEffectReceipt {
   readonly sequenceId: number;

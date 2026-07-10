@@ -947,6 +947,10 @@ export class MockRuntimeBridge {
             movementHash: `fnv1a64:${fnv1a64(`${input.camera}|${input.tick}|${JSON.stringify(before.pose)}|${JSON.stringify(attempted.pose)}|${JSON.stringify(after.pose)}|${STATIC_ROOM_COLLISION_SOURCE_HASH}|${STATIC_ROOM_COLLISION_PROJECTION_HASH}`)}`,
         };
     }
+    applyGeneratedTunnelToRuntimeWorld(_request) {
+        void _request;
+        throw new RuntimeBridgeError('operation_unimplemented', 'generated tunnel apply requires Rust authority');
+    }
     selectVoxel(request) {
         if (this.#engine === null) {
             throw new RuntimeBridgeError('not_initialized', 'selectVoxel before initializeEngine');

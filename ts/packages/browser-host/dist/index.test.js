@@ -313,6 +313,7 @@ function createFakeRuntimeBridge() {
         readRenderDiffs: operation,
         saveProjectBundle: operation,
         applyCollisionConstrainedCameraInput: operation,
+        applyGeneratedTunnelToRuntimeWorld: operation,
         readModelMaterialPreview: operation,
         loadFpsRuntimeSession: operation,
         readFpsRuntimeSession: operation,

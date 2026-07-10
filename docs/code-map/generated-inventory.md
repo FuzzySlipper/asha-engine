@@ -199,6 +199,7 @@ Source: [bridge-manifest.toml](../../engine-rs/crates/bridge/runtime-bridge-api/
 - `apply_first_person_camera_input` — stable; output `protocol_view::CameraSnapshot`
 - `apply_fps_encounter_transition` — stable; output `protocol_runtime::FpsEncounterTransitionResult`
 - `apply_fps_primary_fire` — stable; output `protocol_runtime::FpsPrimaryFireResult`
+- `apply_generated_tunnel_to_runtime_world` — stable; output `protocol_view::GeneratedTunnelRuntimeApplyReceipt`
 - `apply_scene_object_command` — stable; output `protocol_scene::SceneObjectCommandResult`
 - `apply_voxel_annotation_edit` — stable; output `protocol_voxel_annotation::VoxelAnnotationEditReceipt`
 - `apply_voxel_conversion` — stable; output `protocol_voxel_conversion::VoxelConversionReceipt`

@@ -316,6 +316,8 @@ mod tests {
             variant_coverage_key("policyView", "PolicyWorldOutcome", "rejected"),
             interface_coverage_key("telemetry", "TelemetryEnvelope"),
             interface_coverage_key("telemetry", "TelemetryMetric"),
+            interface_coverage_key("view", "GeneratedTunnelRuntimeApplyRequest"),
+            interface_coverage_key("view", "GeneratedTunnelRuntimeApplyReceipt"),
             variant_coverage_key("telemetry", "TelemetryEvent", "metric"),
             variant_coverage_key("telemetry", "TelemetryEvent", "trace"),
             interface_coverage_key("render", "AnimationClipDescriptor"),

@@ -34,7 +34,7 @@ export declare class RustBackedRuntimeSessionFacade implements RuntimeSessionFac
     readNavProjection(): NavProjectionReadout;
     queryNavPath(_request?: NavPathQueryRequest): NavPathReadout;
     readNavPolicyView(): NavPolicyViewReadout;
-    requestGeneratedTunnelOperation(_request: GeneratedTunnelOperationRequest): RuntimeSessionGeneratedTunnelOperationReceipt;
+    requestGeneratedTunnelOperation(request: GeneratedTunnelOperationRequest): RuntimeSessionGeneratedTunnelOperationReceipt;
     planVoxelConversion(request: VoxelConversionPlanRequest): VoxelConversionPlan;
     registerVoxelConversionSource(request: VoxelConversionSourceRegistrationRequest): VoxelConversionSourceRegistration;
     registerVoxelConversionMeshAsset(request: VoxelConversionMeshAssetRegistrationRequest): VoxelConversionSourceRegistration;

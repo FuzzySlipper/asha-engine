@@ -63,11 +63,23 @@ export interface GeneratedTunnelOperationRequest {
     readonly presetId?: GeneratedTunnelPresetId;
     readonly seed?: number;
 }
-export interface GeneratedTunnelOperationReceipt {
+export interface GeneratedTunnelUnsupportedOperationReceipt {
     readonly operation: GeneratedTunnelOperation;
     readonly status: 'unsupported';
     readonly reason: 'generated_tunnel_operation_not_wired';
     readonly detail: string;
 }
+export interface GeneratedTunnelAppliedOperationReceipt {
+    readonly operation: 'apply_to_runtime_world';
+    readonly status: 'applied';
+    readonly presetId: GeneratedTunnelPresetId;
+    readonly seed: number;
+    readonly grid: number;
+    readonly configHash: string;
+    readonly outputHash: string;
+    readonly collisionSourceHash: string;
+    readonly collisionProjectionHash: string;
+}
+export type GeneratedTunnelOperationReceipt = GeneratedTunnelUnsupportedOperationReceipt | GeneratedTunnelAppliedOperationReceipt;
 export declare const TINY_GENERATED_TUNNEL_READOUT: GeneratedTunnelReadout;
 //# sourceMappingURL=generated-tunnel.d.ts.map

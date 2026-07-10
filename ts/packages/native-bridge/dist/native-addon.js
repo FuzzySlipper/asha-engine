@@ -5,6 +5,7 @@ export const REQUIRED_NATIVE_ADDON_EXPORTS = [
     'stepSimulation',
     'createCamera',
     'applyCollisionConstrainedCameraInput',
+    'applyGeneratedTunnelToRuntimeWorld',
     'applyEnemyDirectNavMovement',
     'loadFpsRuntimeSession',
     'readFpsRuntimeSession',

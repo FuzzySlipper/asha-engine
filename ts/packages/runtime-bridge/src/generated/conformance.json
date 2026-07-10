@@ -43,6 +43,14 @@
       "errors": "RuntimeBridgeError"
     },
     {
+      "manifestName": "apply_generated_tunnel_to_runtime_world",
+      "facadeMethod": "applyGeneratedTunnelToRuntimeWorld",
+      "surface": "stable",
+      "input": "protocol_view::GeneratedTunnelRuntimeApplyRequest",
+      "output": "protocol_view::GeneratedTunnelRuntimeApplyReceipt",
+      "errors": "RuntimeBridgeError"
+    },
+    {
       "manifestName": "select_voxel",
       "facadeMethod": "selectVoxel",
       "surface": "stable",

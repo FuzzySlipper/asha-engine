@@ -99,6 +99,16 @@ interface NativeFpsRuntimeSessionSnapshot {
   readonly replayHash: string;
 }
 
+export interface NativeGeneratedTunnelRuntimeApplyReceipt {
+  readonly presetId: string;
+  readonly seed: number;
+  readonly grid: number;
+  readonly configHash: string;
+  readonly outputHash: string;
+  readonly collisionSourceHash: string;
+  readonly collisionProjectionHash: string;
+}
+
 interface NativeFpsPrimaryFireResult {
   readonly backend: string;
   readonly authoritySurface: string;
@@ -192,6 +202,11 @@ export interface NativeAddon {
     handle: number,
     envelope: CollisionConstrainedCameraInputEnvelope,
   ): CameraCollisionSnapshot;
+  applyGeneratedTunnelToRuntimeWorld(
+    handle: number,
+    presetId: string,
+    seed: number,
+  ): NativeGeneratedTunnelRuntimeApplyReceipt;
   applyEnemyDirectNavMovement(
     handle: number,
     entity: number,
@@ -279,6 +294,7 @@ export const REQUIRED_NATIVE_ADDON_EXPORTS = [
   'stepSimulation',
   'createCamera',
   'applyCollisionConstrainedCameraInput',
+  'applyGeneratedTunnelToRuntimeWorld',
   'applyEnemyDirectNavMovement',
   'loadFpsRuntimeSession',
   'readFpsRuntimeSession',

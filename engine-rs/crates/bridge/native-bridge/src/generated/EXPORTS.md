@@ -12,6 +12,7 @@ operations are replay/devtools-only.
 | `submit_commands` | stable | `protocol_voxel::CommandBatch` | `protocol_voxel::CommandResult` | `RuntimeBridgeError` |
 | `pick_voxel` | stable | `protocol_voxel::PickRay` | `protocol_voxel::PickResult` | `RuntimeBridgeError` |
 | `apply_collision_constrained_camera_input` | stable | `protocol_view::CollisionConstrainedCameraInputEnvelope` | `protocol_view::CameraCollisionSnapshot` | `RuntimeBridgeError` |
+| `apply_generated_tunnel_to_runtime_world` | stable | `protocol_view::GeneratedTunnelRuntimeApplyRequest` | `protocol_view::GeneratedTunnelRuntimeApplyReceipt` | `RuntimeBridgeError` |
 | `select_voxel` | stable | `protocol_view::ScreenPointToPickRayRequest` | `protocol_view::VoxelSelectionSnapshot` | `RuntimeBridgeError` |
 | `read_voxel_mesh_evidence` | stable | `protocol_render::VoxelMeshEvidenceRequest` | `protocol_render::VoxelMeshEvidenceSnapshot` | `RuntimeBridgeError` |
 | `plan_voxel_conversion` | stable | `protocol_voxel_conversion::VoxelConversionPlanRequest` | `protocol_voxel_conversion::VoxelConversionPlan` | `RuntimeBridgeError` |

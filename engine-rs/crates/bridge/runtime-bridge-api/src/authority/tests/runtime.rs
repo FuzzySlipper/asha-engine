@@ -169,6 +169,80 @@ fn collision_constrained_camera_blocks_terrain_and_allows_empty_space() {
 }
 
 #[test]
+fn generated_tunnel_apply_installs_collision_authority_for_loaded_fps_session() {
+    use protocol_view::{CameraPose, PerspectiveProjection, ViewportSize};
+
+    let mut bridge = init_bridge();
+    bridge
+        .load_fps_runtime_session(fps_load_request(75))
+        .unwrap();
+    let applied = bridge
+        .apply_generated_tunnel_to_runtime_world(GeneratedTunnelRuntimeApplyRequest {
+            preset: GeneratedTunnelPreset::TinyEnclosed,
+            seed: 17,
+        })
+        .unwrap();
+    assert_eq!(applied.grid, 0);
+    assert_eq!(applied.config_hash, "e1d156c6b55137a7");
+    assert_eq!(applied.output_hash, "a9b504096397f5b4");
+    assert_eq!(applied.collision_source_hash.len(), 16);
+    assert!(applied.collision_projection_hash.starts_with("fnv1a64:"));
+
+    let camera = bridge
+        .create_camera(CameraCreateRequest {
+            initial_pose: CameraPose {
+                position: [1.5, 1.62, 1.5],
+                yaw_degrees: 0.0,
+                pitch_degrees: 0.0,
+            },
+            projection: PerspectiveProjection {
+                fov_y_degrees: 60.0,
+                near: 0.1,
+                far: 1000.0,
+            },
+            viewport: ViewportSize {
+                width: 1280,
+                height: 720,
+            },
+        })
+        .unwrap();
+    let movement = bridge
+        .apply_collision_constrained_camera_input(CollisionConstrainedCameraInputEnvelope {
+            camera: camera.camera,
+            grid: applied.grid,
+            input: FirstPersonCameraInput {
+                move_forward: 1.0,
+                move_right: 0.0,
+                move_up: 0.0,
+                yaw_delta_degrees: 0.0,
+                pitch_delta_degrees: 0.0,
+                dt_seconds: 1.0,
+                move_speed_units_per_second: 1.0,
+            },
+            tick: 1,
+            shape: CameraCollisionShape {
+                half_extents: [0.25, 0.25, 0.25],
+            },
+            policy: CameraCollisionPolicy {
+                mode: CameraCollisionPolicyMode::AxisSeparableSlide,
+                max_iterations: 3,
+            },
+        })
+        .unwrap();
+    assert!(movement.collision.collided);
+    assert_eq!(movement.collision.grid, applied.grid);
+    assert_eq!(movement.collision.blocked_axes, vec![CollisionAxis::Z]);
+    assert_eq!(
+        movement.collision.collision_source_hash,
+        applied.collision_source_hash
+    );
+    assert_eq!(
+        movement.collision.collision_projection_hash,
+        applied.collision_projection_hash
+    );
+}
+
+#[test]
 fn select_voxel_derives_center_ray_and_edit_anchor_from_camera() {
     use protocol_view::{CameraPose, PerspectiveProjection, ViewportSize};
 

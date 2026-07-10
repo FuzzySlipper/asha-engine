@@ -66,7 +66,7 @@ Rust-capable bridge and `mode: 'rust'`; reference fixtures use
 - `requestSessionRestart(intent)`: validates a typed `runtime.restart_session_intent`, rejects stale/non-terminal requests with typed receipts, or resets the session deterministically through the existing restart path.
 - `readCombatReadout(request?)`: reads the committed #4040 generated-tunnel combat fixture readouts for compatibility/golden evidence. Runtime action receipts use the loaded RuntimeSession state when a project has been loaded.
 - `readGeneratedTunnelReadout(request?)`: reads the #4038 tiny generated tunnel fixture evidence, including seed, config/output/replay hashes, spawn markers, material roles, and render/collision projection hashes.
-- `requestGeneratedTunnelOperation(request)`: returns typed fail-closed receipts for unsupported generated tunnel regenerate/apply operations.
+- `requestGeneratedTunnelOperation(request)`: on Rust-backed sessions, `apply_to_runtime_world` installs the selected `svc-levelgen` tunnel as voxel collision authority and returns its authoritative grid/output/projection hashes. `regenerate` remains fail-closed as an authoring operation; reference sessions claim no runtime apply authority.
 - `readNavProjection()`: reads #4041 generated-tunnel nav projection availability/hash evidence.
 - `queryNavPath(request?)`: returns reachable or no-path generated-tunnel path readouts.
 - `readNavPolicyView()`: returns a read-only/proposal-only policy-facing nav view shape with no mutation/apply authority.

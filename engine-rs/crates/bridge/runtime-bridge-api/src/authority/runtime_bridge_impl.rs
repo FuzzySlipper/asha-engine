@@ -196,6 +196,37 @@ impl RuntimeBridge for EngineBridge {
         })
     }
 
+    fn apply_generated_tunnel_to_runtime_world(
+        &mut self,
+        request: GeneratedTunnelRuntimeApplyRequest,
+    ) -> BridgeResult<GeneratedTunnelRuntimeApplyReceipt> {
+        self.require_initialized("apply_generated_tunnel_to_runtime_world")?;
+        self.fps_session("apply_generated_tunnel_to_runtime_world")?;
+        let config = match request.preset {
+            GeneratedTunnelPreset::TinyEnclosed => {
+                svc_levelgen::TunnelGeneratorConfig::tiny_enclosed(request.seed)
+            }
+        };
+        let tunnel = svc_levelgen::generate_tunnel(config).map_err(|error| {
+            RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                format!("generated tunnel request was rejected: {error}"),
+            )
+        })?;
+        let projection = CollisionProjection::build(&tunnel.world);
+        let receipt = GeneratedTunnelRuntimeApplyReceipt {
+            preset: request.preset,
+            seed: request.seed,
+            grid: tunnel.grid.id().raw() as u64,
+            config_hash: format!("{:016x}", tunnel.record.config_hash),
+            output_hash: format!("{:016x}", tunnel.record.output_hash),
+            collision_source_hash: Self::voxel_state_hash(&tunnel.world),
+            collision_projection_hash: Self::collision_projection_hash(&tunnel.world, &projection),
+        };
+        self.reset_voxel_edit_history(tunnel.world);
+        Ok(receipt)
+    }
+
     fn select_voxel(
         &self,
         request: ScreenPointToPickRayRequest,

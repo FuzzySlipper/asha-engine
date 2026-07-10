@@ -25,6 +25,7 @@ export const NATIVE_WIRED_OPERATIONS = new Set([
     'step_simulation',
     'create_camera',
     'apply_collision_constrained_camera_input',
+    'apply_generated_tunnel_to_runtime_world',
     'apply_enemy_direct_nav_movement',
     'load_fps_runtime_session',
     'read_fps_runtime_session',
@@ -179,6 +180,18 @@ function fpsLifecycleStatus(value) {
 function hashString(value, field) {
     if (!/^fnv1a64:[0-9a-f]{16}$/u.test(value)) {
         throw new RuntimeBridgeError('internal', `native ${field} was not an fnv1a64 hash`);
+    }
+    return value;
+}
+function hexHashString(value, field) {
+    if (!/^[0-9a-f]{16}$/u.test(value)) {
+        throw new RuntimeBridgeError('internal', `native ${field} was not a 16-character hex hash`);
+    }
+    return value;
+}
+function generatedTunnelPreset(value) {
+    if (value !== 'tiny-enclosed') {
+        throw new RuntimeBridgeError('internal', 'native generated tunnel preset was unknown');
     }
     return value;
 }
@@ -572,6 +585,23 @@ export class NativeRuntimeBridge {
     applyCollisionConstrainedCameraInput(envelope) {
         const handle = this.#requireHandle('applyCollisionConstrainedCameraInput');
         return callNative(() => this.#addon.applyCollisionConstrainedCameraInput(handle, envelope));
+    }
+    applyGeneratedTunnelToRuntimeWorld(request) {
+        const handle = this.#requireHandle('applyGeneratedTunnelToRuntimeWorld');
+        if (request.preset !== 'tiny-enclosed') {
+            throw new RuntimeBridgeError('invalid_input', 'only the tiny-enclosed generated tunnel preset is supported');
+        }
+        const seed = nonNegativeSafeInteger(request.seed, 'seed');
+        const receipt = callNative(() => this.#addon.applyGeneratedTunnelToRuntimeWorld(handle, request.preset, seed));
+        return {
+            preset: generatedTunnelPreset(receipt.presetId),
+            seed: nonNegativeSafeInteger(receipt.seed, 'receipt.seed'),
+            grid: nonNegativeSafeInteger(receipt.grid, 'receipt.grid'),
+            configHash: hexHashString(receipt.configHash, 'generatedTunnel.configHash'),
+            outputHash: hexHashString(receipt.outputHash, 'generatedTunnel.outputHash'),
+            collisionSourceHash: hexHashString(receipt.collisionSourceHash, 'generatedTunnel.collisionSourceHash'),
+            collisionProjectionHash: hashString(receipt.collisionProjectionHash, 'generatedTunnel.collisionProjectionHash'),
+        };
     }
     selectVoxel() {
         throw nativeUnimplemented('select_voxel');

@@ -131,6 +131,7 @@ import {
   runtimeActionReceiptToAutonomousReceipt,
   validateAutonomousPolicyProposal,
   validateAutonomousPolicyTickInput,
+  validateGeneratedTunnelOperationRequest,
   validateInitializeInput,
   validateLifecycleStatusRequest,
   validateRestartIntent,
@@ -798,11 +799,45 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   }
 
   requestGeneratedTunnelOperation(
-    _request: GeneratedTunnelOperationRequest,
+    request: GeneratedTunnelOperationRequest,
   ): RuntimeSessionGeneratedTunnelOperationReceipt {
-    void _request;
     this.#requireInitialized('requestGeneratedTunnelOperation');
-    throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed generated tunnel operation authority is not wired yet');
+    validateGeneratedTunnelOperationRequest(request);
+    const before = this.#sessionHash();
+    this.#sequenceId += 1;
+    if (request.operation === 'regenerate') {
+      this.#record('requestGeneratedTunnelOperation');
+      return {
+        sequenceId: this.#sequenceId,
+        request,
+        operation: request.operation,
+        status: 'unsupported',
+        reason: 'generated_tunnel_operation_not_wired',
+        detail: 'Generated tunnel regeneration remains an authoring operation outside RuntimeSession.',
+        sessionHashBefore: before,
+        sessionHashAfter: this.#sessionHash(),
+      };
+    }
+    const applied = this.#bridge.applyGeneratedTunnelToRuntimeWorld({
+      preset: request.presetId ?? 'tiny-enclosed',
+      seed: request.seed ?? 17,
+    });
+    this.#record('requestGeneratedTunnelOperation', applied.collisionProjectionHash);
+    return {
+      sequenceId: this.#sequenceId,
+      request,
+      operation: request.operation,
+      status: 'applied',
+      presetId: applied.preset,
+      seed: applied.seed,
+      grid: applied.grid,
+      configHash: applied.configHash,
+      outputHash: applied.outputHash,
+      collisionSourceHash: applied.collisionSourceHash,
+      collisionProjectionHash: applied.collisionProjectionHash,
+      sessionHashBefore: before,
+      sessionHashAfter: this.#sessionHash(),
+    };
   }
 
   planVoxelConversion(request: VoxelConversionPlanRequest): VoxelConversionPlan {

@@ -5,10 +5,8 @@
 // error for every manifest operation. It must NEVER silently inherit mock /
 // reference behaviour for an unwired op (the prior `extends MockRuntimeBridge`
 // hazard). We inject a fake addon so the test runs without a built `.node` binary.
-
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-
 import type {
   CameraCreateRequest,
   CollisionConstrainedCameraInputEnvelope,
@@ -48,6 +46,7 @@ import {
   type ReplaySessionHandle,
 } from './index.js';
 import { fpsLoadRequest } from './native-fps-fixtures.test-fixture.js';
+import { NATIVE_GENERATED_TUNNEL_RECEIPT } from './native-generated-tunnel-fixture.js';
 import { createVoxelPaletteUpdateHandler, voxelPaletteUpdateRequest } from './native-voxel-palette.test-fixture.js';
 const MODEL_MATERIAL_PREVIEW_REQUEST: ModelMaterialPreviewRequest = {
   catalogEntry: {
@@ -77,7 +76,6 @@ const MODEL_MATERIAL_PREVIEW_REQUEST: ModelMaterialPreviewRequest = {
   },
   instanceHandle: 7001 as import('@asha/contracts').RenderHandle,
 };
-
 const CAMERA_CREATE_REQUEST = {
   initialPose: { position: [0, 1.6, 0] as const, yawDegrees: 0, pitchDegrees: 0 },
   projection: { fovYDegrees: 60, near: 0.1, far: 1000 },
@@ -563,6 +561,7 @@ function fakeAddon(calls: string[] = []): NativeAddon {
         movementHash: 'fnv1a64:sentinel-movement',
       };
     },
+    applyGeneratedTunnelToRuntimeWorld: (_handle: number, presetId: string, seed: number) => ({ ...NATIVE_GENERATED_TUNNEL_RECEIPT, presetId, seed }),
     applyEnemyDirectNavMovement: (
       _handle: number,
       entity: number,
@@ -1316,6 +1315,7 @@ const INVOKE = new Map<string, (b: RuntimeBridge) => unknown>([
     'applyCollisionConstrainedCameraInput',
     (b) => b.applyCollisionConstrainedCameraInput(COLLISION_CAMERA_INPUT),
   ],
+  ['applyGeneratedTunnelToRuntimeWorld', (b) => b.applyGeneratedTunnelToRuntimeWorld({ preset: 'tiny-enclosed', seed: 17 })],
   [
     'selectVoxel',
     (b) =>

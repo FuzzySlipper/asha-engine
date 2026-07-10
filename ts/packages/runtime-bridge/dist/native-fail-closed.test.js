@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { entityId } from '@asha/contracts';
 import { MANIFEST_OPERATIONS, NATIVE_WIRED_OPERATIONS, NativeRuntimeBridge, RuntimeBridgeError, frameCursor, } from './index.js';
 import { fpsLoadRequest } from './native-fps-fixtures.test-fixture.js';
+import { NATIVE_GENERATED_TUNNEL_RECEIPT } from './native-generated-tunnel-fixture.js';
 import { createVoxelPaletteUpdateHandler, voxelPaletteUpdateRequest } from './native-voxel-palette.test-fixture.js';
 const MODEL_MATERIAL_PREVIEW_REQUEST = {
     catalogEntry: {
@@ -499,6 +500,7 @@ function fakeAddon(calls = []) {
                 movementHash: 'fnv1a64:sentinel-movement',
             };
         },
+        applyGeneratedTunnelToRuntimeWorld: (_handle, presetId, seed) => ({ ...NATIVE_GENERATED_TUNNEL_RECEIPT, presetId, seed }),
         applyEnemyDirectNavMovement: (_handle, entity, seedPosition, target, maxStepUnits) => {
             calls.push(`enemyMove:${entity}:${seedPosition.x},${seedPosition.y},${seedPosition.z}:${target.x},${target.y},${target.z}:${maxStepUnits}`);
             return {
@@ -1217,6 +1219,7 @@ const INVOKE = new Map([
         'applyCollisionConstrainedCameraInput',
         (b) => b.applyCollisionConstrainedCameraInput(COLLISION_CAMERA_INPUT),
     ],
+    ['applyGeneratedTunnelToRuntimeWorld', (b) => b.applyGeneratedTunnelToRuntimeWorld({ preset: 'tiny-enclosed', seed: 17 })],
     [
         'selectVoxel',
         (b) => b.selectVoxel({

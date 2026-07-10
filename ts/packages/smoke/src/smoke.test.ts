@@ -162,6 +162,7 @@ function bridgeWith(overrides: Partial<RuntimeBridge>): RuntimeBridge {
     submitCommands: base.submitCommands.bind(base),
     pickVoxel: base.pickVoxel.bind(base),
     applyCollisionConstrainedCameraInput: base.applyCollisionConstrainedCameraInput.bind(base),
+    applyGeneratedTunnelToRuntimeWorld: base.applyGeneratedTunnelToRuntimeWorld.bind(base),
     selectVoxel: base.selectVoxel.bind(base),
     readVoxelMeshEvidence: base.readVoxelMeshEvidence.bind(base),
     registerVoxelConversionSource: base.registerVoxelConversionSource.bind(base),

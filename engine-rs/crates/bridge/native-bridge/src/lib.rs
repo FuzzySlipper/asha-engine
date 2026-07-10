@@ -45,7 +45,9 @@ use runtime_bridge_api::{
 };
 use serde::{Deserialize, Serialize};
 
+mod generated_tunnel;
 mod voxel_assets;
+pub use generated_tunnel::apply_generated_tunnel_to_runtime_world;
 
 #[derive(Debug, Default)]
 struct NativeSessions {
@@ -1968,6 +1970,7 @@ mod tests {
 
     const WIRED_NAPI_EXPORTS: &[&str] = &[
         "applyCollisionConstrainedCameraInput",
+        "applyGeneratedTunnelToRuntimeWorld",
         "applyEnemyDirectNavMovement",
         "applyFpsEncounterTransition",
         "applyFpsPrimaryFire",
@@ -2213,6 +2216,17 @@ mod tests {
         assert_eq!(fps_loaded.enemy_entity, 777);
         assert_eq!(fps_loaded.policy_bindings.len(), 1);
         assert!(fps_loaded.replay_hash.starts_with("fnv1a64:"));
+
+        let tunnel = apply_generated_tunnel_to_runtime_world(
+            handle,
+            "tiny-enclosed".to_string(),
+            17,
+        )
+        .expect("generated tunnel collision authority applies");
+        assert_eq!(tunnel.preset_id, "tiny-enclosed");
+        assert_eq!(tunnel.grid, 0);
+        assert_eq!(tunnel.output_hash, "a9b504096397f5b4");
+        assert!(tunnel.collision_projection_hash.starts_with("fnv1a64:"));
 
         let fps_fire = apply_fps_primary_fire(
             handle,

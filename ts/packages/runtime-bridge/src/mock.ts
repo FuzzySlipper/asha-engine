@@ -91,6 +91,8 @@ import {
   type GameRuleCatalogValidationReceipt,
   type GameRuleEffectIntentRequest,
   type GameRuleRuntimeReadout,
+  type GeneratedTunnelRuntimeApplyReceipt,
+  type GeneratedTunnelRuntimeApplyRequest,
   type FpsRuntimeSessionLoadRequest,
   type FpsRuntimeSessionRestartRequest,
   type FpsRuntimeSessionSnapshot,
@@ -1161,6 +1163,10 @@ export class MockRuntimeBridge implements RuntimeBridge {
         `${input.camera}|${input.tick}|${JSON.stringify(before.pose)}|${JSON.stringify(attempted.pose)}|${JSON.stringify(after.pose)}|${STATIC_ROOM_COLLISION_SOURCE_HASH}|${STATIC_ROOM_COLLISION_PROJECTION_HASH}`,
       )}`,
     };
+  }
+
+  applyGeneratedTunnelToRuntimeWorld(_request: GeneratedTunnelRuntimeApplyRequest): GeneratedTunnelRuntimeApplyReceipt {
+    void _request; throw new RuntimeBridgeError('operation_unimplemented', 'generated tunnel apply requires Rust authority');
   }
 
   selectVoxel(request: ScreenPointToPickRayRequest): VoxelSelectionSnapshot {

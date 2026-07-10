@@ -64,6 +64,14 @@ errors = "RuntimeBridgeError"
 summary = "Apply first-person view input while constraining translation against the authority-derived voxel collision projection; returns before/attempted/after pose plus collision evidence."
 
 [[operation]]
+name = "apply_generated_tunnel_to_runtime_world"
+surface = "stable"
+input = "protocol_view::GeneratedTunnelRuntimeApplyRequest"
+output = "protocol_view::GeneratedTunnelRuntimeApplyReceipt"
+errors = "RuntimeBridgeError"
+summary = "Generate the selected tunnel through Rust level-generation authority and atomically install its voxel data as the runtime collision world."
+
+[[operation]]
 name = "select_voxel"
 surface = "stable"
 input = "protocol_view::ScreenPointToPickRayRequest"

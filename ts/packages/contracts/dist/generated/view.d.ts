@@ -73,6 +73,20 @@ export interface CameraCollisionPolicy {
     readonly mode: CameraCollisionPolicyMode;
     readonly maxIterations: number;
 }
+export type GeneratedTunnelPreset = 'tiny-enclosed';
+export interface GeneratedTunnelRuntimeApplyRequest {
+    readonly preset: GeneratedTunnelPreset;
+    readonly seed: number;
+}
+export interface GeneratedTunnelRuntimeApplyReceipt {
+    readonly preset: GeneratedTunnelPreset;
+    readonly seed: number;
+    readonly grid: number;
+    readonly configHash: string;
+    readonly outputHash: string;
+    readonly collisionSourceHash: string;
+    readonly collisionProjectionHash: string;
+}
 export interface CollisionConstrainedCameraInputEnvelope {
     readonly camera: CameraHandle;
     readonly grid: number;

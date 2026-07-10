@@ -10,6 +10,8 @@ import type {
   FirstPersonCameraInputEnvelope,
   GameRuleCatalog,
   GameRuleResolutionReceipt,
+  GeneratedTunnelRuntimeApplyReceipt,
+  GeneratedTunnelRuntimeApplyRequest,
   ModelMaterialPreviewRequest,
   ModelMaterialPreviewSnapshot,
   PickRay,
@@ -62,6 +64,10 @@ import type {
   VoxelVolumeAssetPaletteUpdateRequest,
   VoxelVolumeAssetSaveReceipt,
   VoxelVolumeAssetSaveRequest,
+} from '@asha/contracts';
+export type {
+  GeneratedTunnelRuntimeApplyReceipt,
+  GeneratedTunnelRuntimeApplyRequest,
 } from '@asha/contracts';
 import type {
   CompositionStatus,
@@ -273,6 +279,9 @@ export interface RuntimeBridge {
   submitCommands(batch: CommandBatch): CommandResult;
   pickVoxel(ray: PickRay): PickResult;
   applyCollisionConstrainedCameraInput(input: CollisionConstrainedCameraInputEnvelope): CameraCollisionSnapshot;
+  applyGeneratedTunnelToRuntimeWorld(
+    request: GeneratedTunnelRuntimeApplyRequest,
+  ): GeneratedTunnelRuntimeApplyReceipt;
   selectVoxel(request: ScreenPointToPickRayRequest): VoxelSelectionSnapshot;
   readVoxelMeshEvidence(request: VoxelMeshEvidenceRequest): VoxelMeshEvidenceSnapshot;
   planVoxelConversion(request: VoxelConversionPlanRequest): VoxelConversionPlan;

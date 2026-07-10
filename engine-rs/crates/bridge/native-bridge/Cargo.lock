@@ -498,6 +498,7 @@ name = "protocol-view"
 version = "0.1.0"
 dependencies = [
  "core-space",
+ "serde",
 ]
 
 [[package]]
@@ -643,6 +644,7 @@ dependencies = [
  "svc-collision",
  "svc-combat",
  "svc-game-rules",
+ "svc-levelgen",
  "svc-mesh",
  "svc-pathfinding",
  "svc-serialization",
@@ -796,6 +798,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "svc-levelgen"
+version = "0.1.0"
+dependencies = [
+ "core-events",
+ "core-space",
+ "core-voxel",
+ "svc-rng",
+ "svc-spatial",
+ "svc-volume",
+]
+
+[[package]]
 name = "svc-mesh"
 version = "0.1.0"
 dependencies = [
@@ -813,6 +827,10 @@ dependencies = [
  "core-space",
  "svc-spatial",
 ]
+
+[[package]]
+name = "svc-rng"
+version = "0.1.0"
 
 [[package]]
 name = "svc-serialization"

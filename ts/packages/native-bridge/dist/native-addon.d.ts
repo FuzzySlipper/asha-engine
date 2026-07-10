@@ -95,6 +95,15 @@ interface NativeFpsRuntimeSessionSnapshot {
     readonly healthHash: string;
     readonly replayHash: string;
 }
+export interface NativeGeneratedTunnelRuntimeApplyReceipt {
+    readonly presetId: string;
+    readonly seed: number;
+    readonly grid: number;
+    readonly configHash: string;
+    readonly outputHash: string;
+    readonly collisionSourceHash: string;
+    readonly collisionProjectionHash: string;
+}
 interface NativeFpsPrimaryFireResult {
     readonly backend: string;
     readonly authoritySurface: string;
@@ -177,6 +186,7 @@ export interface NativeAddon {
     stepSimulation(handle: number, tick: number): number;
     createCamera(handle: number, request: CameraCreateRequest): CameraSnapshot;
     applyCollisionConstrainedCameraInput(handle: number, envelope: CollisionConstrainedCameraInputEnvelope): CameraCollisionSnapshot;
+    applyGeneratedTunnelToRuntimeWorld(handle: number, presetId: string, seed: number): NativeGeneratedTunnelRuntimeApplyReceipt;
     applyEnemyDirectNavMovement(handle: number, entity: number, seedPosition: NativeVec3, target: NativeVec3, maxStepUnits: number): NativeEnemyDirectNavMovementResult;
     loadFpsRuntimeSession(handle: number, projectBundle: string, definitions: readonly NativeFpsStoredEntityDefinition[], gameRuleModulesJson: string): NativeFpsRuntimeSessionSnapshot;
     readFpsRuntimeSession(handle: number): NativeFpsRuntimeSessionSnapshot;
@@ -224,6 +234,6 @@ export interface NativeAddon {
     undoVoxelEdit(handle: number, requestJson: string): string;
     redoVoxelEdit(handle: number, requestJson: string): string;
 }
-export declare const REQUIRED_NATIVE_ADDON_EXPORTS: readonly ["initializeEngine", "loadProjectBundle", "submitCommands", "stepSimulation", "createCamera", "applyCollisionConstrainedCameraInput", "applyEnemyDirectNavMovement", "loadFpsRuntimeSession", "readFpsRuntimeSession", "applyFpsPrimaryFire", "invokeGameExtensionWeaponEffect", "validateGameRuleCatalog", "submitGameRuleEffectIntent", "readGameRuleRuntimeReadout", "restartFpsRuntimeSession", "readFpsEncounterDirector", "applyFpsEncounterTransition", "readRenderDiffs", "saveProjectBundle", "getProjectBundleCompositionStatus", "planVoxelConversion", "registerVoxelConversionSource", "registerVoxelConversionMeshAsset", "readVoxelConversionSourceMetadata", "previewVoxelConversion", "applyVoxelConversion", "exportVoxelConversionEvidence", "readVoxelModelInfo", "readVoxelModelWindow", "exportVoxelVolumeAsset", "saveVoxelVolumeAsset", "updateVoxelVolumeAssetPalette", "loadVoxelVolumeAsset", "validateVoxelAnnotationLayer", "loadVoxelAnnotationLayer", "readVoxelAnnotationQuery", "applyVoxelAnnotationEdit", "exportVoxelAnnotationLayer", "readVoxelEditHistory", "previewVoxelEditRevert", "applyVoxelEditRevert", "undoVoxelEdit", "redoVoxelEdit"];
+export declare const REQUIRED_NATIVE_ADDON_EXPORTS: readonly ["initializeEngine", "loadProjectBundle", "submitCommands", "stepSimulation", "createCamera", "applyCollisionConstrainedCameraInput", "applyGeneratedTunnelToRuntimeWorld", "applyEnemyDirectNavMovement", "loadFpsRuntimeSession", "readFpsRuntimeSession", "applyFpsPrimaryFire", "invokeGameExtensionWeaponEffect", "validateGameRuleCatalog", "submitGameRuleEffectIntent", "readGameRuleRuntimeReadout", "restartFpsRuntimeSession", "readFpsEncounterDirector", "applyFpsEncounterTransition", "readRenderDiffs", "saveProjectBundle", "getProjectBundleCompositionStatus", "planVoxelConversion", "registerVoxelConversionSource", "registerVoxelConversionMeshAsset", "readVoxelConversionSourceMetadata", "previewVoxelConversion", "applyVoxelConversion", "exportVoxelConversionEvidence", "readVoxelModelInfo", "readVoxelModelWindow", "exportVoxelVolumeAsset", "saveVoxelVolumeAsset", "updateVoxelVolumeAssetPalette", "loadVoxelVolumeAsset", "validateVoxelAnnotationLayer", "loadVoxelAnnotationLayer", "readVoxelAnnotationQuery", "applyVoxelAnnotationEdit", "exportVoxelAnnotationLayer", "readVoxelEditHistory", "previewVoxelEditRevert", "applyVoxelEditRevert", "undoVoxelEdit", "redoVoxelEdit"];
 export {};
 //# sourceMappingURL=native-addon.d.ts.map

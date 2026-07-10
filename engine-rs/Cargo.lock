@@ -538,6 +538,8 @@ name = "protocol-view"
 version = "0.1.0"
 dependencies = [
  "core-space",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -763,6 +765,7 @@ dependencies = [
  "svc-collision",
  "svc-combat",
  "svc-game-rules",
+ "svc-levelgen",
  "svc-mesh",
  "svc-pathfinding",
  "svc-serialization",

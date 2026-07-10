@@ -22,6 +22,11 @@ pub trait RuntimeBridge {
         &mut self,
         input: CollisionConstrainedCameraInputEnvelope,
     ) -> BridgeResult<CameraCollisionSnapshot>;
+    /// Materialize a selected generated tunnel as the authority collision world.
+    fn apply_generated_tunnel_to_runtime_world(
+        &mut self,
+        request: GeneratedTunnelRuntimeApplyRequest,
+    ) -> BridgeResult<GeneratedTunnelRuntimeApplyReceipt>;
     /// Derive a camera/projection-sourced ray and authority selection evidence.
     fn select_voxel(
         &self,

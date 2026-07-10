@@ -5,7 +5,7 @@ import { GENERATED_TUNNEL_NAV_POLICY_VIEW, GENERATED_TUNNEL_NO_PATH, GENERATED_T
 import { buildRuntimeSessionEnemyNavPath, ecrpActorPosition, ecrpEntityTransform, } from './runtime-session-enemy-authority.js';
 import { buildRuntimeSessionAnimationIntentReadout, } from './runtime-session-animation.js';
 import { buildEcrpProjectState, buildEcrpRuntimeReadout, defaultRuntimeSessionEcrpProjectLoadInput, validateEcrpProjectLoadInput, } from './runtime-session-ecrp.js';
-import { acceptedAutonomousMovementReceipt, lifecycleStatusReadout, lifecycleStatusToEncounterLifecycle, rejectedAutonomousPolicyProposalReceipt, runtimeActionReceiptToAutonomousReceipt, validateAutonomousPolicyProposal, validateAutonomousPolicyTickInput, validateInitializeInput, validateLifecycleStatusRequest, validateRestartIntent, validateRuntimeActionIntentEnvelope, } from './runtime-session-lifecycle.js';
+import { acceptedAutonomousMovementReceipt, lifecycleStatusReadout, lifecycleStatusToEncounterLifecycle, rejectedAutonomousPolicyProposalReceipt, runtimeActionReceiptToAutonomousReceipt, validateAutonomousPolicyProposal, validateAutonomousPolicyTickInput, validateGeneratedTunnelOperationRequest, validateInitializeInput, validateLifecycleStatusRequest, validateRestartIntent, validateRuntimeActionIntentEnvelope, } from './runtime-session-lifecycle.js';
 import { compositionHashRecord, identityHashRecord, renderFrameHashRecord, stableHash, } from './runtime-session-hash.js';
 export class RustBackedRuntimeSessionFacade {
     #bridge;
@@ -555,10 +555,44 @@ export class RustBackedRuntimeSessionFacade {
         this.#requireInitialized('readNavPolicyView');
         throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed nav policy view is not wired yet');
     }
-    requestGeneratedTunnelOperation(_request) {
-        void _request;
+    requestGeneratedTunnelOperation(request) {
         this.#requireInitialized('requestGeneratedTunnelOperation');
-        throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed generated tunnel operation authority is not wired yet');
+        validateGeneratedTunnelOperationRequest(request);
+        const before = this.#sessionHash();
+        this.#sequenceId += 1;
+        if (request.operation === 'regenerate') {
+            this.#record('requestGeneratedTunnelOperation');
+            return {
+                sequenceId: this.#sequenceId,
+                request,
+                operation: request.operation,
+                status: 'unsupported',
+                reason: 'generated_tunnel_operation_not_wired',
+                detail: 'Generated tunnel regeneration remains an authoring operation outside RuntimeSession.',
+                sessionHashBefore: before,
+                sessionHashAfter: this.#sessionHash(),
+            };
+        }
+        const applied = this.#bridge.applyGeneratedTunnelToRuntimeWorld({
+            preset: request.presetId ?? 'tiny-enclosed',
+            seed: request.seed ?? 17,
+        });
+        this.#record('requestGeneratedTunnelOperation', applied.collisionProjectionHash);
+        return {
+            sequenceId: this.#sequenceId,
+            request,
+            operation: request.operation,
+            status: 'applied',
+            presetId: applied.preset,
+            seed: applied.seed,
+            grid: applied.grid,
+            configHash: applied.configHash,
+            outputHash: applied.outputHash,
+            collisionSourceHash: applied.collisionSourceHash,
+            collisionProjectionHash: applied.collisionProjectionHash,
+            sessionHashBefore: before,
+            sessionHashAfter: this.#sessionHash(),
+        };
     }
     planVoxelConversion(request) {
         this.#requireInitialized('planVoxelConversion');

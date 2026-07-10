@@ -43,6 +43,7 @@ svc-voxel-asset = { path = "../../services/svc-voxel-asset" }
 svc-voxel-annotation = { path = "../../services/svc-voxel-annotation" }
 svc-voxel-conversion = { path = "../../services/svc-voxel-conversion" }
 svc-game-rules = { path = "../../services/svc-game-rules" }
+svc-levelgen = { path = "../../services/svc-levelgen" }
 # Authority voxel raycast for the pick verb (launchable-voxel picking, #2437).
 svc-collision   = { path = "../../services/svc-collision" }
 rule-voxel-edit = { path = "../../rules/rule-voxel-edit" }

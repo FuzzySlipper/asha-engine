@@ -715,7 +715,9 @@ lane = "rust-bridge"
 # resolution receipts, and readout evidence.
 # Voxel edit history/revert verbs expose generated history DTOs at the same
 # bridge boundary; actual authority remains in Rust rule/service crates (#5283).
-may_depend_on = ["core-ids", "core-error", "core-math", "core-space", "core-voxel", "core-commands", "core-entity", "svc-spatial", "svc-volume", "svc-collision", "svc-mesh", "svc-serialization", "svc-pathfinding", "svc-combat", "svc-voxel-conversion", "svc-voxel-asset", "svc-voxel-annotation", "svc-game-rules", "rule-voxel-edit", "rule-lifecycle", "game-rule-extension", "protocol-diagnostics", "protocol-view", "protocol-render", "protocol-script", "protocol-replay", "protocol-entity-authoring", "protocol-voxel-conversion", "protocol-voxel-asset", "protocol-voxel-annotation", "protocol-voxel-edit-history", "protocol-game-rules"]
+# Generated-tunnel runtime materialization invokes svc-levelgen and installs its
+# authoritative voxel result; preset interpretation remains in the service (#5532).
+may_depend_on = ["core-ids", "core-error", "core-math", "core-space", "core-voxel", "core-commands", "core-entity", "svc-spatial", "svc-volume", "svc-collision", "svc-mesh", "svc-serialization", "svc-pathfinding", "svc-combat", "svc-levelgen", "svc-voxel-conversion", "svc-voxel-asset", "svc-voxel-annotation", "svc-game-rules", "rule-voxel-edit", "rule-lifecycle", "game-rule-extension", "protocol-diagnostics", "protocol-view", "protocol-render", "protocol-script", "protocol-replay", "protocol-entity-authoring", "protocol-voxel-conversion", "protocol-voxel-asset", "protocol-voxel-annotation", "protocol-voxel-edit-history", "protocol-game-rules"]
 may_not_depend_on = ["napi", "wasm-bindgen"]
 
 [crate."engine-rs/crates/bridge/native-bridge"]

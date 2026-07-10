@@ -31,7 +31,7 @@ echo "==> Native addon smoke (required exports, facade load, voxel conversion pa
 node --input-type=module -e "
 import { strict as assert } from 'node:assert';
 import { createRequire } from 'node:module';
-import { createNativeRuntimeBridge } from '$REPO_ROOT/ts/packages/runtime-bridge/dist/index.js';
+import { createNativeRuntimeBridge, createRuntimeSessionFacade } from '$REPO_ROOT/ts/packages/runtime-bridge/dist/index.js';
 import { REQUIRED_NATIVE_ADDON_EXPORTS, loadNativeAddon } from '$REPO_ROOT/ts/packages/native-bridge/dist/index.js';
 const require = createRequire('file://$DEST');
 const rawAddon = require('$DEST');
@@ -60,6 +60,52 @@ assert.ok(Math.abs(camera.pose.position[0] - 0) < 0.00001);
 assert.ok(Math.abs(camera.pose.position[1] - 1.6) < 0.00001);
 assert.ok(Math.abs(camera.pose.position[2] - 0) < 0.00001);
 assert.equal(camera.viewport.width, 1280);
+
+const session = createRuntimeSessionFacade({
+  bridge: createNativeRuntimeBridge('$DEST'),
+  mode: 'rust',
+});
+session.initialize({
+  sessionId: 'check-native.generated-tunnel',
+  seed: 17,
+  project: { gameId: 'asha-demo', workspaceId: 'workspace.check-native' },
+  projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 4103 },
+});
+const tunnel = session.requestGeneratedTunnelOperation({
+  operation: 'apply_to_runtime_world',
+  presetId: 'tiny-enclosed',
+  seed: 17,
+});
+assert.equal(tunnel.status, 'applied');
+assert.equal(tunnel.grid, 0);
+assert.equal(tunnel.outputHash, 'a9b504096397f5b4');
+const tunnelCamera = session.createCamera({
+  initialPose: { position: [1.5, 1.62, 1.5], yawDegrees: 0, pitchDegrees: 0 },
+  projection: { fovYDegrees: 60, near: 0.1, far: 1000 },
+  viewport: { width: 1280, height: 720 },
+}).snapshot.camera;
+const tunnelMovement = session.applyCollisionConstrainedCameraInput({
+  camera: tunnelCamera,
+  grid: tunnel.grid,
+  input: {
+    moveForward: 1,
+    moveRight: 0,
+    moveUp: 0,
+    yawDeltaDegrees: 0,
+    pitchDeltaDegrees: 0,
+    dtSeconds: 1,
+    moveSpeedUnitsPerSecond: 1,
+  },
+  tick: 1,
+  shape: { halfExtents: [0.25, 0.25, 0.25] },
+  policy: { mode: 'axis_separable_slide', maxIterations: 3 },
+});
+assert.equal(tunnelMovement.collided, true);
+assert.deepEqual(tunnelMovement.blockedAxes, ['z']);
+assert.equal(tunnelMovement.snapshot.after.pose.position[2], 1.5);
+assert.equal(tunnelMovement.snapshot.collision.grid, tunnel.grid);
+assert.equal(tunnelMovement.snapshot.collision.collisionSourceHash, tunnel.collisionSourceHash);
+assert.equal(tunnelMovement.snapshot.collision.collisionProjectionHash, tunnel.collisionProjectionHash);
 const registrationRequest = {
   source: {
     assetId: 'mesh/check-native-registered-triangle',
