@@ -10,12 +10,12 @@ if [[ -e "$API_SOURCE/reference" ]]; then
   exit 1
 fi
 
-if rg -n --glob '*.rs' '\bReferenceBridge\b' "$BRIDGE_ROOT"; then
+if grep -RIn --include='*.rs' -w 'ReferenceBridge' "$BRIDGE_ROOT"; then
   echo "FAIL: ReferenceBridge is reserved for non-product fixture vocabulary" >&2
   exit 1
 fi
 
-if ! rg -q 'pub use authority::EngineBridge;' "$API_SOURCE/lib.rs"; then
+if ! grep -Fq 'pub use authority::EngineBridge;' "$API_SOURCE/lib.rs"; then
   echo "FAIL: runtime-bridge-api must export authority::EngineBridge" >&2
   exit 1
 fi
