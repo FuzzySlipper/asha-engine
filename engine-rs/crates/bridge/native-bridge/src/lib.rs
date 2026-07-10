@@ -23,13 +23,13 @@ use protocol_view::{
     FirstPersonMovementMode,
 };
 use runtime_bridge_api::{
-    set_voxel_command, CameraCreateRequest, CameraPose, CommandBatch,
-    EnemyDirectNavMovementRequest, EngineBridge, EngineConfig, FpsBridgeBoundsCapability,
-    FpsBridgeHealth, FpsBridgePolicyBinding, FpsBridgeRole, FpsBridgeStoredEntityDefinition,
-    FpsBridgeTransformCapability, FpsBridgeWeaponMount, FpsEncounterDirectorSnapshot,
-    FpsEncounterLifecycleInput, FpsEncounterStateReadout, FpsEncounterTransitionRequest,
-    FpsEncounterTransitionResult, FpsPrimaryFireRequest, FpsPrimaryFireResult,
-    FpsRuntimeSessionLoadRequest, FpsRuntimeSessionRestartRequest, FpsRuntimeSessionSnapshot,
+    parse_voxel_command_batch_json, CameraCreateRequest, CameraPose, EnemyDirectNavMovementRequest,
+    EngineBridge, EngineConfig, FpsBridgeBoundsCapability, FpsBridgeHealth, FpsBridgePolicyBinding,
+    FpsBridgeRole, FpsBridgeStoredEntityDefinition, FpsBridgeTransformCapability,
+    FpsBridgeWeaponMount, FpsEncounterDirectorSnapshot, FpsEncounterLifecycleInput,
+    FpsEncounterStateReadout, FpsEncounterTransitionRequest, FpsEncounterTransitionResult,
+    FpsPrimaryFireRequest, FpsPrimaryFireResult, FpsRuntimeSessionLoadRequest,
+    FpsRuntimeSessionRestartRequest, FpsRuntimeSessionSnapshot,
     GameExtensionWeaponEffectInvocationRequest, GameRuleCatalog, GameRuleEffectIntentRequest,
     GameRuleModuleManifest, GameRuleResolutionRequest, ProjectBundleLoadRequest, RuntimeBridge,
     RuntimeBridgeError, RuntimeBridgeErrorKind, StepInputEnvelope, VoxelAnnotationEditRequest,
@@ -39,12 +39,13 @@ use runtime_bridge_api::{
     VoxelConversionMeshAssetRegistrationRequest, VoxelConversionPlanRequest,
     VoxelConversionPreviewRequest, VoxelConversionSourceMetadataRequest,
     VoxelConversionSourceRegistrationRequest, VoxelEditHistoryReadRequest,
-    VoxelEditHistoryRedoRequest, VoxelEditHistoryRevertRequest, VoxelEditHistoryUndoRequest,
-    VoxelModelInfoRequest, VoxelModelWindowRequest, VoxelVolumeAssetExportRequest,
-    VoxelVolumeAssetLoadRequest, VoxelVolumeAssetPaletteUpdateRequest, VoxelVolumeAssetSaveRequest,
-    WeaponEffectHookRequest, VOXEL_PALETTE_UPDATE_MAX_REQUEST_BYTES,
+    VoxelEditHistoryRedoRequest, VoxelEditHistoryRevertRequest, VoxelEditHistorySummary,
+    VoxelEditHistoryUndoRequest, VoxelModelInfoRequest, VoxelModelWindowRequest,
+    VoxelVolumeAssetExportRequest, VoxelVolumeAssetLoadRequest,
+    VoxelVolumeAssetPaletteUpdateRequest, VoxelVolumeAssetSaveRequest, WeaponEffectHookRequest,
+    VOXEL_PALETTE_UPDATE_MAX_REQUEST_BYTES,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 mod generated_tunnel;
 mod voxel_assets;
@@ -1131,49 +1132,6 @@ impl From<FpsEncounterTransitionResult> for NativeFpsEncounterTransitionResult {
     }
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase", tag = "op")]
-enum NativeCommandInput {
-    SetVoxel {
-        grid: u32,
-        coord: NativeCoord,
-        value: NativeVoxelValue,
-    },
-}
-
-#[derive(Debug, Deserialize)]
-struct NativeCoord {
-    x: i64,
-    y: i64,
-    z: i64,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase", tag = "kind")]
-enum NativeVoxelValue {
-    Solid { material: u16 },
-}
-
-fn parse_commands(commands_json: &str) -> napi::Result<CommandBatch> {
-    let inputs: Vec<NativeCommandInput> = serde_json::from_str(commands_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid command batch JSON: {err}"),
-        ))
-    })?;
-    let commands = inputs
-        .into_iter()
-        .map(|input| match input {
-            NativeCommandInput::SetVoxel { grid, coord, value } => match value {
-                NativeVoxelValue::Solid { material } => {
-                    set_voxel_command(grid, coord.x, coord.y, coord.z, material)
-                }
-            },
-        })
-        .collect();
-    Ok(CommandBatch { commands })
-}
-
 fn parse_voxel_conversion_plan_request(
     request_json: &str,
 ) -> napi::Result<VoxelConversionPlanRequest> {
@@ -1486,7 +1444,7 @@ pub fn load_project_bundle(
 
 #[napi]
 pub fn submit_commands(handle: i64, commands_json: String) -> napi::Result<NativeCommandResult> {
-    let batch = parse_commands(&commands_json)?;
+    let batch = parse_voxel_command_batch_json(&commands_json).map_err(to_napi)?;
     with_bridge(handle, |bridge| {
         bridge
             .submit_commands(batch)
@@ -2032,6 +1990,7 @@ mod tests {
             WIRED_NAPI_EXPORTS,
             &[
                 "applyCollisionConstrainedCameraInput",
+                "applyGeneratedTunnelToRuntimeWorld",
                 "applyEnemyDirectNavMovement",
                 "applyFpsEncounterTransition",
                 "applyFpsPrimaryFire",
@@ -2233,12 +2192,9 @@ mod tests {
         assert_eq!(fps_loaded.policy_bindings.len(), 1);
         assert!(fps_loaded.replay_hash.starts_with("fnv1a64:"));
 
-        let tunnel = apply_generated_tunnel_to_runtime_world(
-            handle,
-            "tiny-enclosed".to_string(),
-            17,
-        )
-        .expect("generated tunnel collision authority applies");
+        let tunnel =
+            apply_generated_tunnel_to_runtime_world(handle, "tiny-enclosed".to_string(), 17)
+                .expect("generated tunnel collision authority applies");
         assert_eq!(tunnel.preset_id, "tiny-enclosed");
         assert_eq!(tunnel.grid, 0);
         assert_eq!(tunnel.output_hash, "a9b504096397f5b4");
@@ -2294,6 +2250,34 @@ mod tests {
     }
 
     #[test]
+    fn native_voxel_command_union_reaches_rust_authority() {
+        let handle = initialize_engine(77).expect("engine initializes");
+        let result = submit_commands(
+            handle,
+            r#"[
+                {"op":"generateChunk","grid":1,"chunk":{"x":0,"y":0,"z":0},"seed":77,"generatorVersion":1},
+                {"op":"fillRegion","grid":1,"min":{"x":0,"y":0,"z":0},"max":{"x":2,"y":2,"z":2},"value":{"kind":"empty"}},
+                {"op":"fillRegion","grid":1,"min":{"x":0,"y":0,"z":0},"max":{"x":2,"y":2,"z":2},"value":{"kind":"solid","material":2}},
+                {"op":"setVoxel","grid":1,"coord":{"x":1,"y":1,"z":1},"value":{"kind":"empty"}}
+            ]"#
+                .to_string(),
+        )
+        .expect("full generated command union submits");
+        assert_eq!(result.accepted, 4);
+        assert_eq!(result.rejected, 0);
+
+        let history_json = read_voxel_edit_history(
+            handle,
+            r#"{"historyId":"history/default","cursorId":null,"maxEntries":8,"includeRedoTail":true,"expectedHistoryHash":null}"#
+                .to_string(),
+        )
+        .expect("Rust authority history reads");
+        let history: VoxelEditHistorySummary = serde_json::from_str(&history_json).unwrap();
+        assert_eq!(history.entries[0].command_count, 4);
+        assert_eq!(history.cursor.entry_count, 1);
+    }
+
+    #[test]
     fn native_bridge_rejects_invalid_inputs_without_fallback() {
         assert!(initialize_engine(-1).is_err());
         assert!(get_project_bundle_composition_status(-99).is_err());
@@ -2302,5 +2286,11 @@ mod tests {
         assert!(load_project_bundle(handle, -1, 1, 1001).is_err());
         assert!(step_simulation(handle, -1).is_err());
         assert!(submit_commands(handle, r#"[{"op":"deleteEverything"}]"#.to_string()).is_err());
+        assert!(submit_commands(
+            handle,
+            r#"[{"op":"setVoxel","grid":1,"coord":{"x":0,"y":0,"z":0},"value":{"kind":"unknown"}}]"#
+                .to_string()
+        )
+        .is_err());
     }
 }

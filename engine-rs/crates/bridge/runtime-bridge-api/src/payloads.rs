@@ -162,6 +162,106 @@ pub struct CommandResult {
     pub rejections: Vec<VoxelEditRejection>,
 }
 
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase", tag = "op", deny_unknown_fields)]
+enum VoxelCommandJson {
+    SetVoxel {
+        grid: u32,
+        coord: VoxelCoordJson,
+        value: VoxelValueJson,
+    },
+    FillRegion {
+        grid: u32,
+        min: VoxelCoordJson,
+        max: VoxelCoordJson,
+        value: VoxelValueJson,
+    },
+    GenerateChunk {
+        grid: u32,
+        chunk: ChunkCoordJson,
+        seed: u64,
+        #[serde(rename = "generatorVersion")]
+        generator_version: u32,
+    },
+}
+
+#[derive(Debug, Clone, Copy, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct VoxelCoordJson {
+    x: i64,
+    y: i64,
+    z: i64,
+}
+
+#[derive(Debug, Clone, Copy, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ChunkCoordJson {
+    x: i64,
+    y: i64,
+    z: i64,
+}
+
+#[derive(Debug, Clone, Copy, serde::Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind", deny_unknown_fields)]
+enum VoxelValueJson {
+    Empty,
+    Solid { material: u16 },
+}
+
+impl VoxelValueJson {
+    fn into_voxel_value(self) -> VoxelValue {
+        match self {
+            Self::Empty => VoxelValue::EMPTY,
+            Self::Solid { material } => VoxelValue::solid_raw(material),
+        }
+    }
+}
+
+/// Parse the generated TypeScript `VoxelCommand` JSON shape into the canonical
+/// Rust command union. Transport adapters use this bounded parser rather than
+/// maintaining their own command model.
+pub fn parse_voxel_command_batch_json(commands_json: &str) -> BridgeResult<CommandBatch> {
+    let inputs: Vec<VoxelCommandJson> = serde_json::from_str(commands_json).map_err(|error| {
+        RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::InvalidInput,
+            format!("invalid command batch JSON: {error}"),
+        )
+    })?;
+    let commands = inputs
+        .into_iter()
+        .map(|input| match input {
+            VoxelCommandJson::SetVoxel { grid, coord, value } => VoxelCommand::SetVoxel {
+                grid: GridId::new(grid),
+                coord: VoxelCoord::new(coord.x, coord.y, coord.z),
+                value: value.into_voxel_value(),
+            },
+            VoxelCommandJson::FillRegion {
+                grid,
+                min,
+                max,
+                value,
+            } => VoxelCommand::FillRegion {
+                grid: GridId::new(grid),
+                min: VoxelCoord::new(min.x, min.y, min.z),
+                max: VoxelCoord::new(max.x, max.y, max.z),
+                value: value.into_voxel_value(),
+            },
+            VoxelCommandJson::GenerateChunk {
+                grid,
+                chunk,
+                seed,
+                generator_version,
+            } => VoxelCommand::GenerateChunk {
+                grid: GridId::new(grid),
+                chunk: ChunkCoord::new(chunk.x, chunk.y, chunk.z),
+                seed,
+                generator_version,
+            },
+        })
+        .collect();
+    Ok(CommandBatch { commands })
+}
+
 /// Build the public set-voxel command used by transport glue that must stay
 /// outside the state/rule crates. This keeps native/wasm adapters from depending
 /// directly on authority internals while still carrying the real command union.
@@ -170,6 +270,57 @@ pub fn set_voxel_command(grid: u32, x: i64, y: i64, z: i64, material: u16) -> Vo
         grid: GridId::new(grid),
         coord: VoxelCoord::new(x, y, z),
         value: VoxelValue::solid_raw(material),
+    }
+}
+
+#[cfg(test)]
+mod voxel_command_json_tests {
+    use super::*;
+
+    #[test]
+    fn generated_voxel_command_json_maps_to_canonical_rust_union() {
+        let batch = parse_voxel_command_batch_json(
+            r#"[
+                {"op":"generateChunk","grid":1,"chunk":{"x":0,"y":0,"z":0},"seed":77,"generatorVersion":1},
+                {"op":"fillRegion","grid":1,"min":{"x":0,"y":0,"z":0},"max":{"x":2,"y":2,"z":2},"value":{"kind":"empty"}},
+                {"op":"setVoxel","grid":1,"coord":{"x":1,"y":1,"z":1},"value":{"kind":"solid","material":3}}
+            ]"#,
+        )
+        .expect("every generated command variant parses");
+
+        assert!(matches!(
+            batch.commands.as_slice(),
+            [
+                VoxelCommand::GenerateChunk {
+                    seed: 77,
+                    generator_version: 1,
+                    ..
+                },
+                VoxelCommand::FillRegion {
+                    value: VoxelValue::Empty,
+                    ..
+                },
+                VoxelCommand::SetVoxel {
+                    value: VoxelValue::Solid { .. },
+                    ..
+                }
+            ]
+        ));
+    }
+
+    #[test]
+    fn voxel_command_json_rejects_unknown_or_malformed_variants() {
+        for invalid in [
+            r#"[{"op":"deleteEverything"}]"#,
+            r#"[{"op":"setVoxel","grid":1,"coord":{"x":0,"y":0,"z":0},"value":{"kind":"water"}}]"#,
+            r#"[{"op":"generateChunk","grid":1,"chunk":{"x":0,"y":0,"z":0},"seed":77}]"#,
+            r#"[{"op":"fillRegion","grid":1,"min":{"x":0,"y":0,"z":0},"max":{"x":1,"y":1,"z":1},"value":{"kind":"empty"},"authorityBypass":true}]"#,
+        ] {
+            let error =
+                parse_voxel_command_batch_json(invalid).expect_err("input must fail closed");
+            assert_eq!(error.kind, RuntimeBridgeErrorKind::InvalidInput);
+            assert!(error.message.starts_with("invalid command batch JSON:"));
+        }
     }
 }
 

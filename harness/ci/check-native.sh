@@ -313,3 +313,6 @@ echo "==> runtime-bridge facade tests (native parity test now runs, not skipped)
 
 echo "==> public RuntimeSession non-default-grid voxel annotation proof"
 ( cd "$REPO_ROOT/ts" && pnpm --filter @asha/smoke test:voxel-annotation-proof )
+
+echo "==> public RuntimeSession exhaustive voxel command proof"
+( cd "$REPO_ROOT/ts" && pnpm --filter @asha/smoke test:voxel-command-proof )
