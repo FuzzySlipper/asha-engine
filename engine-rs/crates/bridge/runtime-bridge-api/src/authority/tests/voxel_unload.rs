@@ -165,6 +165,8 @@ fn voxel_volume_asset_unload_restores_disjoint_same_identity_footprints() {
         })
         .unwrap();
     assert!(moved.loaded);
+    assert_ne!(first.session_hash, moved.session_hash);
+    let cumulative_session_hash = moved.session_hash.clone();
 
     for x in [0, 1, 4, 5] {
         assert_eq!(
@@ -207,6 +209,19 @@ fn voxel_volume_asset_unload_restores_disjoint_same_identity_footprints() {
             include_material_counts: false,
         })
         .unwrap();
+    assert_ne!(cumulative_session_hash, replaced.session_hash);
+    let stale_cumulative = bridge
+        .unload_voxel_volume_asset(VoxelVolumeAssetUnloadRequest {
+            grid: 7,
+            volume_asset_id: Some(first_asset.asset_id.clone()),
+            expected_session_hash: cumulative_session_hash,
+        })
+        .unwrap();
+    assert!(!stale_cumulative.unloaded);
+    assert_eq!(
+        stale_cumulative.diagnostics[0].code,
+        protocol_voxel_asset::VoxelAssetDiagnosticCode::StaleRuntimeSnapshot
+    );
     let replaced_unload = bridge
         .unload_voxel_volume_asset(VoxelVolumeAssetUnloadRequest {
             grid: 7,
@@ -216,4 +231,118 @@ fn voxel_volume_asset_unload_restores_disjoint_same_identity_footprints() {
         .unwrap();
     assert!(replaced_unload.unloaded);
     assert_eq!(replaced_unload.removed_voxel_count, 2);
+}
+
+#[test]
+fn voxel_volume_asset_session_hash_captures_unload_restoration_state() {
+    let asset = hand_authored_voxel_volume_asset();
+    let load_request = |replace_existing| VoxelVolumeAssetLoadRequest {
+        asset: asset.clone(),
+        target_grid: 7,
+        target_volume_asset_id: Some(asset.asset_id.clone()),
+        replace_existing,
+        include_material_counts: false,
+    };
+
+    let mut empty_prior_bridge = init_bridge();
+    let empty_prior = empty_prior_bridge
+        .load_voxel_volume_asset(load_request(true))
+        .unwrap();
+
+    let mut solid_prior_bridge = init_bridge();
+    let mut grid_seed_asset = asset.clone();
+    grid_seed_asset.asset_id = "voxel-volume/grid-seed".to_string();
+    grid_seed_asset.bounds.min.x = 10;
+    grid_seed_asset.bounds.max.x = 11;
+    grid_seed_asset.representation.sparse_runs[0].start.x = 10;
+    grid_seed_asset = svc_voxel_asset::with_computed_hashes(&grid_seed_asset);
+    let grid_seed = solid_prior_bridge
+        .load_voxel_volume_asset(VoxelVolumeAssetLoadRequest {
+            asset: grid_seed_asset.clone(),
+            target_grid: 7,
+            target_volume_asset_id: Some(grid_seed_asset.asset_id.clone()),
+            replace_existing: true,
+            include_material_counts: false,
+        })
+        .unwrap();
+    let grid_seed_unload = solid_prior_bridge
+        .unload_voxel_volume_asset(VoxelVolumeAssetUnloadRequest {
+            grid: 7,
+            volume_asset_id: Some(grid_seed_asset.asset_id),
+            expected_session_hash: grid_seed.session_hash,
+        })
+        .unwrap();
+    assert!(grid_seed_unload.unloaded);
+    let target = solid_prior_bridge
+        .voxel_asset_load_target(&load_request(false))
+        .unwrap();
+    EngineBridge::ensure_candidate_chunks_for_asset(
+        &asset,
+        &target.spec,
+        solid_prior_bridge.voxel.as_mut().unwrap(),
+    );
+    solid_prior_bridge.reset_voxel_edit_history(solid_prior_bridge.voxel.as_ref().unwrap().clone());
+    let seeded = solid_prior_bridge
+        .submit_commands(CommandBatch {
+            commands: vec![
+                VoxelCommand::SetVoxel {
+                    grid: GridId::new(7),
+                    coord: VoxelCoord::new(0, 0, 0),
+                    value: VoxelValue::solid_raw(2),
+                },
+                VoxelCommand::SetVoxel {
+                    grid: GridId::new(7),
+                    coord: VoxelCoord::new(1, 0, 0),
+                    value: VoxelValue::solid_raw(2),
+                },
+            ],
+        })
+        .unwrap();
+    assert_eq!(seeded.accepted, 2);
+    for x in [0, 1] {
+        assert_eq!(
+            EngineBridge::voxel_value_at(
+                solid_prior_bridge.voxel.as_ref().unwrap(),
+                VoxelCoord::new(x, 0, 0),
+            ),
+            VoxelValue::solid_raw(2)
+        );
+    }
+    let solid_prior = solid_prior_bridge
+        .load_voxel_volume_asset(load_request(false))
+        .unwrap();
+    let solid_prior_info = solid_prior_bridge
+        .voxel_model_infos
+        .get(&EngineBridge::voxel_model_key(
+            7,
+            &Some(asset.asset_id.clone()),
+        ))
+        .unwrap();
+    assert_eq!(
+        solid_prior_info.prior_voxels.get(&VoxelCoord::new(0, 0, 0)),
+        Some(&VoxelValue::solid_raw(2))
+    );
+
+    assert_eq!(empty_prior.voxel_count, solid_prior.voxel_count);
+    assert_eq!(empty_prior.voxel_data_hash, solid_prior.voxel_data_hash);
+    assert_ne!(empty_prior.session_hash, solid_prior.session_hash);
+    assert_ne!(empty_prior.replay_hash, solid_prior.replay_hash);
+
+    let unloaded = solid_prior_bridge
+        .unload_voxel_volume_asset(VoxelVolumeAssetUnloadRequest {
+            grid: 7,
+            volume_asset_id: Some(asset.asset_id),
+            expected_session_hash: solid_prior.session_hash,
+        })
+        .unwrap();
+    assert!(unloaded.unloaded);
+    for x in [0, 1] {
+        assert_eq!(
+            EngineBridge::voxel_value_at(
+                solid_prior_bridge.voxel.as_ref().unwrap(),
+                VoxelCoord::new(x, 0, 0),
+            ),
+            VoxelValue::solid_raw(2)
+        );
+    }
 }

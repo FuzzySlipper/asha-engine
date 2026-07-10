@@ -293,18 +293,24 @@ impl EngineBridge {
         let material_counts = Self::resident_voxel_material_counts(&resident_voxels);
         let bounds = Self::resident_voxel_bounds(&resident_voxels);
         let voxel_count = resident_voxels.len() as u64;
+        let footprint_hash = Self::voxel_model_footprint_hash(&resident_voxels, &prior_voxels);
         let session_hash = format!(
             "fnv1a64:{}",
             Self::fnv1a64(&format!(
-                "voxel-model-info|session|{}|{}|{}|{}|{:?}",
-                model_id, planned.plan.plan_id, output_hash, voxel_count, material_counts
+                "voxel-model-info|session|{}|{}|{}|{}|{:?}|{}",
+                model_id,
+                planned.plan.plan_id,
+                output_hash,
+                voxel_count,
+                material_counts,
+                footprint_hash
             ))
         );
         let replay_hash = format!(
             "fnv1a64:{}",
             Self::fnv1a64(&format!(
-                "voxel-model-info|replay|{}|{}|{:?}",
-                planned.plan.plan_id, output_hash, evidence
+                "voxel-model-info|replay|{}|{}|{}|{:?}",
+                planned.plan.plan_id, output_hash, session_hash, evidence
             ))
         );
         self.voxel_model_infos.insert(
@@ -555,6 +561,46 @@ impl EngineBridge {
             min: Self::protocol_voxel_coord(min),
             max: Self::protocol_voxel_coord(max),
         })
+    }
+
+    pub(super) fn voxel_model_footprint_hash(
+        resident_voxels: &BTreeMap<VoxelCoord, VoxelValue>,
+        prior_voxels: &BTreeMap<VoxelCoord, VoxelValue>,
+    ) -> String {
+        let mut hash = 0xcbf2_9ce4_8422_2325u64;
+        Self::extend_voxel_model_footprint_hash(&mut hash, b"voxel-model-footprint.v0|resident|");
+        for (coord, value) in resident_voxels {
+            Self::extend_voxel_model_footprint_entry_hash(&mut hash, coord, *value);
+        }
+        Self::extend_voxel_model_footprint_hash(&mut hash, b"|prior|");
+        for (coord, value) in prior_voxels {
+            Self::extend_voxel_model_footprint_entry_hash(&mut hash, coord, *value);
+        }
+        format!("{hash:016x}")
+    }
+
+    fn extend_voxel_model_footprint_entry_hash(
+        hash: &mut u64,
+        coord: &VoxelCoord,
+        value: VoxelValue,
+    ) {
+        Self::extend_voxel_model_footprint_hash(hash, &coord.x.to_le_bytes());
+        Self::extend_voxel_model_footprint_hash(hash, &coord.y.to_le_bytes());
+        Self::extend_voxel_model_footprint_hash(hash, &coord.z.to_le_bytes());
+        match value {
+            VoxelValue::Empty => Self::extend_voxel_model_footprint_hash(hash, &[0]),
+            VoxelValue::Solid { material } => {
+                Self::extend_voxel_model_footprint_hash(hash, &[1]);
+                Self::extend_voxel_model_footprint_hash(hash, &material.raw().to_le_bytes());
+            }
+        }
+    }
+
+    fn extend_voxel_model_footprint_hash(hash: &mut u64, bytes: &[u8]) {
+        for byte in bytes {
+            *hash ^= u64::from(*byte);
+            *hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
     }
 
     pub(super) fn protocol_voxel_coord(
@@ -982,23 +1028,6 @@ impl EngineBridge {
                 content_hash: provenance.content_hash.clone(),
             })
             .collect::<Vec<_>>();
-        let session_hash = format!(
-            "fnv1a64:{}",
-            Self::fnv1a64(&format!(
-                "voxel-volume-load|session|{}|{}|{}|{}",
-                asset.asset_id,
-                model_id,
-                asset.content_hashes.canonical_json,
-                asset.content_hashes.voxel_data
-            ))
-        );
-        let replay_hash = format!(
-            "fnv1a64:{}",
-            Self::fnv1a64(&format!(
-                "voxel-volume-load|replay|{}|{}|{:?}",
-                asset.asset_id, session_hash, asset.provenance
-            ))
-        );
         let mut latest_resident_voxels = BTreeMap::new();
         for run in &asset.representation.sparse_runs {
             for offset in 0..run.length {
@@ -1013,6 +1042,25 @@ impl EngineBridge {
         let material_counts = Self::resident_voxel_material_counts(&resident_voxels);
         let bounds = Self::resident_voxel_bounds(&resident_voxels);
         let voxel_count = resident_voxels.len() as u64;
+        let footprint_hash = Self::voxel_model_footprint_hash(&resident_voxels, &prior_voxels);
+        let session_hash = format!(
+            "fnv1a64:{}",
+            Self::fnv1a64(&format!(
+                "voxel-volume-load|session|{}|{}|{}|{}|{}",
+                asset.asset_id,
+                model_id,
+                asset.content_hashes.canonical_json,
+                asset.content_hashes.voxel_data,
+                footprint_hash
+            ))
+        );
+        let replay_hash = format!(
+            "fnv1a64:{}",
+            Self::fnv1a64(&format!(
+                "voxel-volume-load|replay|{}|{}|{:?}",
+                asset.asset_id, session_hash, asset.provenance
+            ))
+        );
         VoxelModelInfoAuthority {
             model_id,
             volume_asset_id,
