@@ -1,9 +1,9 @@
 use super::tests::{fps_load_request, init_bridge};
 use super::*;
 
-fn fps_load_request_with_reference_game_rule(enemy_health: u32) -> FpsRuntimeSessionLoadRequest {
+fn fps_load_request_with_authority_game_rule(enemy_health: u32) -> FpsRuntimeSessionLoadRequest {
     FpsRuntimeSessionLoadRequest {
-        game_rule_modules: vec![reference_game_rule_declared_manifest()],
+        game_rule_modules: vec![built_in_game_rule_declared_manifest()],
         ..fps_load_request(enemy_health)
     }
 }
@@ -44,8 +44,8 @@ fn fps_load_request_with_downstream_game_rule(enemy_health: u32) -> FpsRuntimeSe
 fn weapon_effect_request(tick: u64) -> WeaponEffectHookRequest {
     weapon_effect_request_for(
         tick,
-        reference_game_rule_module_ref(),
-        REFERENCE_GAME_RULE_HOOK_ID.to_string(),
+        built_in_game_rule_module_ref(),
+        BUILT_IN_GAME_RULE_HOOK_ID.to_string(),
     )
 }
 
@@ -72,10 +72,7 @@ fn weapon_effect_request_for(
         base_damage: 25,
         range_millimeters: 16_000,
         tags: vec!["primary-fire".to_string()],
-        input_hash: format!(
-            "fnv1a64:{}",
-            ReferenceBridge::fnv1a64(&format!("hook|{tick}"))
-        ),
+        input_hash: format!("fnv1a64:{}", EngineBridge::fnv1a64(&format!("hook|{tick}"))),
     }
 }
 
@@ -106,7 +103,7 @@ fn game_extension_weapon_effect_requires_declared_module() {
 #[test]
 fn game_extension_weapon_effect_applies_validated_proposal_through_combat_authority() {
     let mut bridge = init_bridge();
-    let mut request = fps_load_request_with_reference_game_rule(75);
+    let mut request = fps_load_request_with_authority_game_rule(75);
     request.definitions[0]
         .weapon
         .as_mut()
@@ -146,7 +143,7 @@ fn game_extension_weapon_effect_applies_validated_proposal_through_combat_author
     assert_eq!(primary_fire.target, Some(777));
     assert_eq!(
         result.hook_receipt.module_ref.module_id,
-        REFERENCE_GAME_RULE_MODULE_ID
+        BUILT_IN_GAME_RULE_MODULE_ID
     );
     assert_eq!(
         primary_fire.target_health_after,
@@ -198,7 +195,7 @@ fn game_extension_weapon_effect_invokes_downstream_registered_module_ref() {
     );
     assert_ne!(
         result.hook_receipt.module_ref.module_id,
-        REFERENCE_GAME_RULE_MODULE_ID
+        BUILT_IN_GAME_RULE_MODULE_ID
     );
     assert_eq!(
         result.hook_receipt.trace[0].refs,

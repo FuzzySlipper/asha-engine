@@ -1,6 +1,6 @@
 use super::*;
 
-impl RuntimeBridge for ReferenceBridge {
+impl RuntimeBridge for EngineBridge {
     fn initialize_engine(&mut self, config: EngineConfig) -> BridgeResult<EngineHandle> {
         let handle = EngineHandle::new(config.seed);
         self.engine = Some(handle);
@@ -63,8 +63,8 @@ impl RuntimeBridge for ReferenceBridge {
         }
 
         // Authority owns the raycast: build the collision projection from authority
-        // voxel state and cast. (The reference bridge rebuilds per pick; a native
-        // bridge can cache the projection — this stays the correctness reference.)
+        // voxel state and cast. The engine bridge currently rebuilds per pick; a
+        // future authority optimization may cache the projection.
         let projection = CollisionProjection::build(world);
         let origin = WorldPos::new(ray.origin[0], ray.origin[1], ray.origin[2]);
         let dir = WorldVec::new(ray.direction[0], ray.direction[1], ray.direction[2]);
@@ -1025,70 +1025,70 @@ impl RuntimeBridge for ReferenceBridge {
         &self,
         request: VoxelAnnotationLayerValidationRequest,
     ) -> BridgeResult<VoxelAnnotationLayerValidationReport> {
-        self.validate_voxel_annotation_layer_reference(request)
+        self.validate_voxel_annotation_layer_authority(request)
     }
 
     fn load_voxel_annotation_layer(
         &mut self,
         request: VoxelAnnotationLayerLoadRequest,
     ) -> BridgeResult<VoxelAnnotationLayerLoadReceipt> {
-        self.load_voxel_annotation_layer_reference(request)
+        self.load_voxel_annotation_layer_authority(request)
     }
 
     fn read_voxel_annotation_query(
         &self,
         request: VoxelAnnotationQueryRequest,
     ) -> BridgeResult<VoxelAnnotationQueryReadout> {
-        self.read_voxel_annotation_query_reference(request)
+        self.read_voxel_annotation_query_authority(request)
     }
 
     fn apply_voxel_annotation_edit(
         &mut self,
         request: VoxelAnnotationEditRequest,
     ) -> BridgeResult<VoxelAnnotationEditReceipt> {
-        self.apply_voxel_annotation_edit_reference(request)
+        self.apply_voxel_annotation_edit_authority(request)
     }
 
     fn export_voxel_annotation_layer(
         &self,
         request: VoxelAnnotationLayerExportRequest,
     ) -> BridgeResult<VoxelAnnotationLayerExportReceipt> {
-        self.export_voxel_annotation_layer_reference(request)
+        self.export_voxel_annotation_layer_authority(request)
     }
 
     fn read_voxel_edit_history(
         &self,
         request: VoxelEditHistoryReadRequest,
     ) -> BridgeResult<VoxelEditHistorySummary> {
-        self.read_voxel_edit_history_reference(request)
+        self.read_voxel_edit_history_authority(request)
     }
 
     fn preview_voxel_edit_revert(
         &self,
         request: VoxelEditHistoryRevertRequest,
     ) -> BridgeResult<VoxelEditHistoryRevertReceipt> {
-        self.preview_voxel_edit_revert_reference(request)
+        self.preview_voxel_edit_revert_authority(request)
     }
 
     fn apply_voxel_edit_revert(
         &mut self,
         request: VoxelEditHistoryRevertRequest,
     ) -> BridgeResult<VoxelEditHistoryRevertReceipt> {
-        self.apply_voxel_edit_revert_reference(request)
+        self.apply_voxel_edit_revert_authority(request)
     }
 
     fn undo_voxel_edit(
         &mut self,
         request: VoxelEditHistoryUndoRequest,
     ) -> BridgeResult<VoxelEditHistoryUndoReceipt> {
-        self.undo_voxel_edit_reference(request)
+        self.undo_voxel_edit_authority(request)
     }
 
     fn redo_voxel_edit(
         &mut self,
         request: VoxelEditHistoryRedoRequest,
     ) -> BridgeResult<VoxelEditHistoryRedoReceipt> {
-        self.redo_voxel_edit_reference(request)
+        self.redo_voxel_edit_authority(request)
     }
 
     fn load_fps_runtime_session(
@@ -1299,7 +1299,7 @@ impl RuntimeBridge for ReferenceBridge {
     fn read_game_rule_runtime_readout(&self) -> BridgeResult<GameRuleRuntimeReadout> {
         self.require_initialized("read_game_rule_runtime_readout")?;
         Ok(GameRuleRuntimeReadout {
-            backend: "reference_bridge_rust".to_string(),
+            backend: "engine_bridge_rust".to_string(),
             authority_surface: "runtime_session.game_rules.v0".to_string(),
             active_modifiers: self.game_rule_active_modifiers.clone(),
             recent_trace: self.game_rule_recent_trace.clone(),
@@ -1498,8 +1498,8 @@ impl RuntimeBridge for ReferenceBridge {
     ) -> BridgeResult<CompositionStatus> {
         // Fail closed on a newer bundle; the prior loaded ProjectBundle is left untouched
         // (we only mutate `loaded_project_bundle` on success — the staged commit/swap).
-        if request.bundle_schema_version > REFERENCE_SUPPORTED_VERSION
-            || request.protocol_version > REFERENCE_SUPPORTED_VERSION
+        if request.bundle_schema_version > ENGINE_SUPPORTED_VERSION
+            || request.protocol_version > ENGINE_SUPPORTED_VERSION
         {
             return Err(RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::InvalidInput,

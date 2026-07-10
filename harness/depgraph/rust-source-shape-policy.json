@@ -5,14 +5,6 @@
       "maxLines": 2332,
       "justification": "Native-bridge is the hand-written napi transport facade for the current generated RuntimeBridge operation set; split operation families into generated/native submodules during the next bridge-shape cleanup rather than blocking voxel-asset governance."
     },
-    "engine-rs/crates/bridge/runtime-bridge-api/src/reference/mod.rs": {
-      "maxLines": 3736,
-      "justification": "ReferenceBridge is the consolidated conformance implementation for stable RuntimeBridge operations, including the #4517 game-rule invocation harness; split operation families into focused reference modules in the next bridge-shape cleanup before raising this further."
-    },
-    "engine-rs/crates/bridge/runtime-bridge-api/src/reference/tests.rs": {
-      "maxLines": 2498,
-      "justification": "RuntimeBridge reference tests intentionally aggregate stable operation conformance, including voxel conversion and voxel asset round-trips; split voxel asset/conversion tests into focused modules during the next bridge-shape cleanup."
-    },
     "engine-rs/crates/protocol/protocol-codegen/src/model.rs": {
       "maxLines": 4547,
       "justification": "Protocol-codegen still owns the hand-maintained Rust-to-TS IR registry while the R3-4 completeness/derive follow-up is pending; split generated-contract families or derive the IR before removing this exemption."

@@ -129,13 +129,14 @@ pub(crate) use svc_spatial::VoxelWorld;
 pub(crate) use svc_volume::VoxelChunk;
 pub(crate) use svc_voxel_conversion::{MeshTriangle, PlannedConversion, StaticMeshSource};
 
+mod authority;
 mod bridge;
 pub mod buffer_provider;
 mod errors;
 mod handles;
 mod payloads;
-mod reference;
 
+pub use authority::EngineBridge;
 pub use bridge::RuntimeBridge;
 pub use buffer_provider::{
     fixtures, BufferKind, BufferLifetime, BufferMetadata, RuntimeBufferProvider,
@@ -145,4 +146,3 @@ pub use handles::{
     EngineHandle, FrameCursor, ReplaySessionHandle, RuntimeBufferHandle, RuntimeBufferView,
 };
 pub use payloads::*;
-pub use reference::ReferenceBridge;

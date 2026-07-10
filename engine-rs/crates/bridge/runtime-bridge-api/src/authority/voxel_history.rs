@@ -16,7 +16,7 @@ use rule_voxel_edit::{execute_transaction, persist::encode_edit_log, VoxelEditTr
 const DEFAULT_VOXEL_EDIT_HISTORY_ID: &str = "history/default";
 const MAX_HISTORY_READ_ENTRIES: u64 = 1_000;
 
-impl ReferenceBridge {
+impl EngineBridge {
     pub(super) fn reset_voxel_edit_history(&mut self, world: VoxelWorld) {
         self.voxel_edit_history = Some(AuthorityVoxelEditHistory::new(world.clone()));
         self.voxel = Some(world);
@@ -96,7 +96,7 @@ impl ReferenceBridge {
         Ok(result)
     }
 
-    pub(super) fn read_voxel_edit_history_reference(
+    pub(super) fn read_voxel_edit_history_authority(
         &self,
         request: VoxelEditHistoryReadRequest,
     ) -> BridgeResult<VoxelEditHistorySummary> {
@@ -154,7 +154,7 @@ impl ReferenceBridge {
         })
     }
 
-    pub(super) fn preview_voxel_edit_revert_reference(
+    pub(super) fn preview_voxel_edit_revert_authority(
         &self,
         request: VoxelEditHistoryRevertRequest,
     ) -> BridgeResult<VoxelEditHistoryRevertReceipt> {
@@ -177,7 +177,7 @@ impl ReferenceBridge {
         self.protocol_voxel_edit_history_revert_receipt(request, receipt, history)
     }
 
-    pub(super) fn apply_voxel_edit_revert_reference(
+    pub(super) fn apply_voxel_edit_revert_authority(
         &mut self,
         request: VoxelEditHistoryRevertRequest,
     ) -> BridgeResult<VoxelEditHistoryRevertReceipt> {
@@ -203,7 +203,7 @@ impl ReferenceBridge {
         Ok(protocol_receipt)
     }
 
-    pub(super) fn undo_voxel_edit_reference(
+    pub(super) fn undo_voxel_edit_authority(
         &mut self,
         request: VoxelEditHistoryUndoRequest,
     ) -> BridgeResult<VoxelEditHistoryUndoReceipt> {
@@ -241,7 +241,7 @@ impl ReferenceBridge {
         })
     }
 
-    pub(super) fn redo_voxel_edit_reference(
+    pub(super) fn redo_voxel_edit_authority(
         &mut self,
         request: VoxelEditHistoryRedoRequest,
     ) -> BridgeResult<VoxelEditHistoryRedoReceipt> {
@@ -286,7 +286,7 @@ impl ReferenceBridge {
         self.voxel_edit_history.as_ref().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
-                "voxel edit history authority is not loaded in the reference bridge",
+                "voxel edit history authority is not loaded in the engine bridge",
             )
         })
     }

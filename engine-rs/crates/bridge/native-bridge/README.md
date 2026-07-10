@@ -13,8 +13,9 @@ harness/ci/check-native.sh        # cargo build --release + install .node + smok
 This builds the cdylib, installs it to `ts/packages/native-bridge/dist/native-bridge.node`
 (gitignored — platform-specific), calls every `#[napi]` export with a tiny fixture, and
 runs the `@asha/runtime-bridge` facade tests (the native-parity test then runs instead of
-skipping). Verified: `initializeEngine(7)=7`, `stepSimulation(7,6)=2` — exact parity with
-`ReferenceBridge` / `MockRuntimeBridge`.
+skipping). Verified: `initializeEngine(7)=7`, `stepSimulation(7,6)=2`. The addon stores
+the Rust product authority coordinator `runtime_bridge_api::EngineBridge`; TypeScript
+`MockRuntimeBridge` remains a separately classified non-product fixture.
 
 The crate is kept **excluded** from the engine-rs workspace so the default offline
 build/CI doesn't require the napi crates / native toolchain; `check-native.sh` is opt-in.

@@ -9,7 +9,8 @@ WASM replay bridge, and fail-closed runtime operation exposure.
 
 - Curated runtime bridge operation manifest.
 - `RuntimeBridge` facade shape and conformance.
-- Native addon glue and reference/mock classification.
+- Rust `authority::EngineBridge` coordination behind native addon marshaling.
+- Explicit non-product reference/mock classification on TypeScript fixture surfaces.
 - WASM replay bridge surfaces used for tests and tools.
 
 ## Does Not Own
@@ -21,6 +22,7 @@ WASM replay bridge, and fail-closed runtime operation exposure.
 ## Primary Paths
 
 - [engine-rs/crates/bridge/runtime-bridge-api](../../engine-rs/crates/bridge/runtime-bridge-api)
+- [EngineBridge authority modules](../../engine-rs/crates/bridge/runtime-bridge-api/src/authority)
 - [engine-rs/crates/bridge/native-bridge](../../engine-rs/crates/bridge/native-bridge)
 - [engine-rs/crates/wasm/wasm-api](../../engine-rs/crates/wasm/wasm-api)
 - [ts/packages/runtime-bridge](../../ts/packages/runtime-bridge)
@@ -32,7 +34,7 @@ WASM replay bridge, and fail-closed runtime operation exposure.
 
 - `@asha/runtime-bridge` package root.
 - `@asha/runtime-bridge/reference` only where explicitly approved.
-- RuntimeSession semantic facade built on top of the bridge.
+- `@asha/runtime-session` for transport-neutral RuntimeSession contracts and semantics.
 
 ## Private Or Forbidden Paths
 

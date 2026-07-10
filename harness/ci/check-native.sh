@@ -42,7 +42,7 @@ const h = a.initializeEngine(7);
 assert.equal(typeof h, 'number');
 assert.deepEqual(a.loadProjectBundle(h, 1, 1, 1001), { loadedProjectBundle: 1001, fatalCount: 0, totalCount: 0, blocksLoad: false });
 assert.deepEqual(a.submitCommands(h, JSON.stringify([{ op: 'setVoxel', grid: 1, coord: { x: 0, y: 0, z: 0 }, value: { kind: 'solid', material: 1 } }])), { accepted: 1, rejected: 0, rejections: [] });
-assert.equal(a.stepSimulation(h, 6), 2);    // tick 6 % 4 == 2, matches ReferenceBridge
+assert.equal(a.stepSimulation(h, 6), 2);    // tick 6 % 4 == 2, matches EngineBridge
 assert.deepEqual(a.readRenderDiffs(h, 0), { ops: [] });
 assert.deepEqual(a.saveProjectBundle(h), { artifactsWritten: 3, compactedEdits: 0, retainedEdits: 0 });
 assert.deepEqual(a.getProjectBundleCompositionStatus(h), { loadedProjectBundle: 1001, fatalCount: 0, totalCount: 0, blocksLoad: false });

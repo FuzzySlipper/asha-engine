@@ -1,7 +1,7 @@
 use super::*;
 
-fn init_bridge() -> ReferenceBridge {
-    let mut bridge = ReferenceBridge::new();
+fn init_bridge() -> EngineBridge {
+    let mut bridge = EngineBridge::new();
     bridge.initialize_engine(EngineConfig { seed: 1 }).unwrap();
     bridge
 }
@@ -26,7 +26,7 @@ fn set_voxel(coord: VoxelCoord, material: u16) -> VoxelCommand {
 
 #[test]
 fn voxel_edit_history_fails_closed_before_engine_initialization() {
-    let bridge = ReferenceBridge::new();
+    let bridge = EngineBridge::new();
     let error = bridge.read_voxel_edit_history(read_request()).unwrap_err();
     assert_eq!(error.kind, RuntimeBridgeErrorKind::NotInitialized);
 }

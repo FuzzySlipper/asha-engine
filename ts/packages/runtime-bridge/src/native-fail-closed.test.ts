@@ -605,7 +605,7 @@ function fakeAddon(calls: string[] = []): NativeAddon {
         `fpsNativeShape:${player['policyBinding'] === undefined}:${enemy['weapon'] === undefined}:${playerTransform?.translation?.x ?? 'missing'}`,
       );
       return {
-        backend: 'reference_bridge_rust',
+        backend: 'engine_bridge_rust',
         authoritySurface: 'runtime_session.fps.authority.v0',
         projectBundle,
         sessionEpoch: 1,
@@ -633,7 +633,7 @@ function fakeAddon(calls: string[] = []): NativeAddon {
       void handle;
       calls.push('fpsRead');
       return {
-        backend: 'reference_bridge_rust',
+        backend: 'engine_bridge_rust',
         authoritySurface: 'runtime_session.fps.authority.v0',
         projectBundle: 'custom-demo',
         sessionEpoch: 1,
@@ -657,7 +657,7 @@ function fakeAddon(calls: string[] = []): NativeAddon {
     ) => {
       calls.push(`fpsFire:${tick}:${origin.x},${origin.y},${origin.z}:${direction.x},${direction.y},${direction.z}`);
       return {
-        backend: 'reference_bridge_rust',
+        backend: 'engine_bridge_rust',
         authoritySurface: 'runtime_session.fps.primary_fire.v0',
         mutationOwner: 'rule-lifecycle + svc-combat',
         workspaceTrace: ['accepted'],
@@ -721,7 +721,7 @@ function fakeAddon(calls: string[] = []): NativeAddon {
           replayHash: HASH_B,
         }),
         primaryFire: {
-          backend: 'reference_bridge_rust',
+          backend: 'engine_bridge_rust',
           authoritySurface: 'runtime_session.fps.primary_fire.v0',
           mutationOwner: 'rule-lifecycle + svc-combat',
           workspaceTrace: ['accepted extension'],
@@ -776,7 +776,7 @@ function fakeAddon(calls: string[] = []): NativeAddon {
       void _handle;
       calls.push('gameRuleReadout');
       return JSON.stringify({
-        backend: 'reference_bridge_rust',
+        backend: 'engine_bridge_rust',
         authoritySurface: 'runtime_session.game_rules.v0',
         activeModifiers: [{
           modifierId: 'modifier.poison',
@@ -796,7 +796,7 @@ function fakeAddon(calls: string[] = []): NativeAddon {
     restartFpsRuntimeSession: (_handle: number, expectedEpoch: number) => {
       calls.push(`fpsRestart:${expectedEpoch}`);
       return {
-        backend: 'reference_bridge_rust',
+        backend: 'engine_bridge_rust',
         authoritySurface: 'runtime_session.fps.authority.v0',
         projectBundle: 'custom-demo',
         sessionEpoch: expectedEpoch + 1,
@@ -815,7 +815,7 @@ function fakeAddon(calls: string[] = []): NativeAddon {
     readFpsEncounterDirector: (_handle: number, lifecycle: unknown) => {
       calls.push('fpsEncounterRead');
       return {
-        backend: 'reference_bridge_rust',
+        backend: 'engine_bridge_rust',
         authoritySurface: 'runtime_session.fps.encounter_director.v0',
         mutationOwner: 'rule-lifecycle',
         workspaceTrace: ['sentinel encounter read'],
@@ -836,7 +836,7 @@ function fakeAddon(calls: string[] = []): NativeAddon {
     applyFpsEncounterTransition: (_handle: number, request: { readonly lifecycle: unknown }) => {
       calls.push('fpsEncounterTransition');
       return {
-        backend: 'reference_bridge_rust',
+        backend: 'engine_bridge_rust',
         authoritySurface: 'runtime_session.fps.encounter_transition.v0',
         mutationOwner: 'rule-lifecycle',
         workspaceTrace: ['sentinel encounter transition'],

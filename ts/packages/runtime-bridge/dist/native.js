@@ -151,9 +151,9 @@ function fpsBackend(value) {
     if (value === 'native_rust' || value === 'reference_bridge') {
         return value;
     }
-    // The Rust reference bridge reports reference_bridge_rust internally; the TS
+    // The Rust engine bridge reports engine_bridge_rust internally; the TS
     // native facade classifies the transport path as native_rust.
-    if (value === 'reference_bridge_rust') {
+    if (value === 'engine_bridge_rust') {
         return 'native_rust';
     }
     throw new RuntimeBridgeError('internal', `unknown native FPS backend '${value}'`);

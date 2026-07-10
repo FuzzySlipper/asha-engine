@@ -30,7 +30,7 @@ use runtime_bridge_api::{
     FpsEncounterTransitionResult, FpsPrimaryFireRequest, FpsPrimaryFireResult,
     FpsRuntimeSessionLoadRequest, FpsRuntimeSessionRestartRequest, FpsRuntimeSessionSnapshot,
     GameExtensionWeaponEffectInvocationRequest, GameRuleCatalog, GameRuleEffectIntentRequest,
-    GameRuleModuleManifest, GameRuleResolutionRequest, ProjectBundleLoadRequest, ReferenceBridge,
+    GameRuleModuleManifest, GameRuleResolutionRequest, ProjectBundleLoadRequest, EngineBridge,
     RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind, StepInputEnvelope,
     VoxelAnnotationEditRequest, VoxelAnnotationLayerExportRequest, VoxelAnnotationLayerLoadRequest,
     VoxelAnnotationLayerValidationRequest, VoxelAnnotationQueryRequest,
@@ -47,7 +47,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Default)]
 struct NativeSessions {
     next_handle: u64,
-    bridges: BTreeMap<u64, ReferenceBridge>,
+    bridges: BTreeMap<u64, EngineBridge>,
 }
 
 static SESSIONS: OnceLock<Mutex<NativeSessions>> = OnceLock::new();
@@ -82,7 +82,7 @@ fn lock_sessions() -> napi::Result<std::sync::MutexGuard<'static, NativeSessions
 
 fn with_bridge<T>(
     handle: i64,
-    f: impl FnOnce(&mut ReferenceBridge) -> napi::Result<T>,
+    f: impl FnOnce(&mut EngineBridge) -> napi::Result<T>,
 ) -> napi::Result<T> {
     if handle <= 0 {
         return Err(to_napi(RuntimeBridgeError::new(
@@ -1436,7 +1436,7 @@ fn game_rule_json<T: Serialize>(value: &T) -> napi::Result<String> {
     })
 }
 
-/// Construct a stateful native reference bridge from a deterministic seed and
+/// Construct a stateful native engine bridge from a deterministic seed and
 /// return the opaque handle used by subsequent native operations.
 #[napi]
 pub fn initialize_engine(seed: i64) -> napi::Result<i64> {
@@ -1446,7 +1446,7 @@ pub fn initialize_engine(seed: i64) -> napi::Result<i64> {
             "seed must be non-negative",
         )));
     }
-    let mut bridge = ReferenceBridge::new();
+    let mut bridge = EngineBridge::new();
     bridge
         .initialize_engine(EngineConfig { seed: seed as u64 })
         .map_err(to_napi)?;
@@ -2263,7 +2263,7 @@ mod tests {
             "[]".into(),
         )
         .expect("fps runtime session loads");
-        assert_eq!(fps_loaded.backend, "reference_bridge_rust");
+        assert_eq!(fps_loaded.backend, "engine_bridge_rust");
         assert_eq!(fps_loaded.player_entity, 101);
         assert_eq!(fps_loaded.enemy_entity, 777);
         assert_eq!(fps_loaded.policy_bindings.len(), 1);
