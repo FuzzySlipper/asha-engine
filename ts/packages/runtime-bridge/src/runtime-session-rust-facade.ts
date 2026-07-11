@@ -50,6 +50,8 @@ import type {
   VoxelVolumeAssetPaletteUpdateRequest,
   VoxelVolumeAssetSaveReceipt,
   VoxelVolumeAssetSaveRequest,
+  VoxelVolumeAuthoringInitializeReceipt,
+  VoxelVolumeAuthoringInitializeRequest,
   WeaponEffectHookRequest,
   GameRuleCatalog,
   GameRuleResolutionRequest,
@@ -920,6 +922,13 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   ): VoxelVolumeAssetPaletteUpdateReceipt {
     this.#requireInitialized('updateVoxelVolumeAssetPalette');
     return this.#bridge.updateVoxelVolumeAssetPalette(request);
+  }
+
+  initializeVoxelVolumeAuthoring(
+    request: VoxelVolumeAuthoringInitializeRequest,
+  ): VoxelVolumeAuthoringInitializeReceipt {
+    this.#requireInitialized('initializeVoxelVolumeAuthoring');
+    return this.#bridge.initializeVoxelVolumeAuthoring(request);
   }
 
   loadVoxelVolumeAsset(request: VoxelVolumeAssetLoadRequest): VoxelVolumeAssetLoadReceipt {

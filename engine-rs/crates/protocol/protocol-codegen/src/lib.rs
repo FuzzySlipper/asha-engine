@@ -402,6 +402,8 @@ mod tests {
             interface_coverage_key("voxelAsset", "VoxelVolumeAssetPaletteUpdateRequest"),
             interface_coverage_key("voxelAsset", "VoxelVolumeAssetPaletteStoredDiff"),
             interface_coverage_key("voxelAsset", "VoxelVolumeAssetPaletteUpdateReceipt"),
+            interface_coverage_key("voxelAsset", "VoxelVolumeAuthoringInitializeRequest"),
+            interface_coverage_key("voxelAsset", "VoxelVolumeAuthoringInitializeReceipt"),
             interface_coverage_key("voxelAsset", "VoxelVolumeAssetLoadRequest"),
             interface_coverage_key("voxelAsset", "VoxelVolumeAssetLoadReceipt"),
             interface_coverage_key("voxelAsset", "VoxelVolumeAssetUnloadRequest"),
@@ -1132,6 +1134,9 @@ mod tests {
         assert!(va.contains("readonly maxMaterialBindings: number;"));
         assert!(va.contains("export interface VoxelVolumeAssetPaletteStoredDiff {"));
         assert!(va.contains("export interface VoxelVolumeAssetPaletteUpdateReceipt {"));
+        assert!(va.contains("export interface VoxelVolumeAuthoringInitializeRequest {"));
+        assert!(va.contains("readonly seedChunk: VoxelAssetCoord;"));
+        assert!(va.contains("export interface VoxelVolumeAuthoringInitializeReceipt {"));
         assert!(va.contains("export interface VoxelVolumeAssetUnloadRequest {"));
         assert!(va.contains("readonly expectedSessionHash: string;"));
         assert!(va.contains("export interface VoxelVolumeAssetUnloadReceipt {"));

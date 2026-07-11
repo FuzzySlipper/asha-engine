@@ -192,6 +192,14 @@ errors = "RuntimeBridgeError"
 summary = "Validate a bounded stored-only voxel material palette replacement and return the canonical ProjectBundle asset diff without mutating runtime state."
 
 [[operation]]
+name = "initialize_voxel_volume_authoring"
+surface = "stable"
+input = "protocol_voxel_asset::VoxelVolumeAuthoringInitializeRequest"
+output = "protocol_voxel_asset::VoxelVolumeAuthoringInitializeReceipt"
+errors = "RuntimeBridgeError"
+summary = "Initialize one empty bounded runtime voxel model and seed chunk for public authoring without requiring a stored asset or mesh conversion."
+
+[[operation]]
 name = "load_voxel_volume_asset"
 surface = "stable"
 input = "protocol_voxel_asset::VoxelVolumeAssetLoadRequest"

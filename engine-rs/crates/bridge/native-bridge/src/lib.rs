@@ -43,7 +43,7 @@ use runtime_bridge_api::{
     VoxelEditHistoryUndoRequest, VoxelModelInfoRequest, VoxelModelWindowRequest,
     VoxelVolumeAssetExportRequest, VoxelVolumeAssetLoadRequest,
     VoxelVolumeAssetPaletteUpdateRequest, VoxelVolumeAssetSaveRequest,
-    VoxelVolumeAssetUnloadRequest, WeaponEffectHookRequest,
+    VoxelVolumeAssetUnloadRequest, VoxelVolumeAuthoringInitializeRequest, WeaponEffectHookRequest,
     VOXEL_CONVERSION_MESH_IMPORT_MAX_REQUEST_BYTES, VOXEL_PALETTE_UPDATE_MAX_REQUEST_BYTES,
 };
 use serde::Serialize;
@@ -1943,6 +1943,7 @@ mod tests {
         "exportVoxelVolumeAsset",
         "getProjectBundleCompositionStatus",
         "initializeEngine",
+        "initializeVoxelVolumeAuthoring",
         "invokeGameExtensionWeaponEffect",
         "importVoxelConversionMeshSource",
         "loadVoxelAnnotationLayer",
@@ -1991,6 +1992,7 @@ mod tests {
                 "exportVoxelVolumeAsset",
                 "getProjectBundleCompositionStatus",
                 "initializeEngine",
+                "initializeVoxelVolumeAuthoring",
                 "invokeGameExtensionWeaponEffect",
                 "importVoxelConversionMeshSource",
                 "loadVoxelAnnotationLayer",

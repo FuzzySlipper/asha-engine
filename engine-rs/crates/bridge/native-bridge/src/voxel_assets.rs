@@ -72,6 +72,23 @@ pub fn update_voxel_volume_asset_palette(
 }
 
 #[napi]
+pub fn initialize_voxel_volume_authoring(
+    handle: i64,
+    request_json: String,
+) -> napi::Result<String> {
+    let request = parse_request::<VoxelVolumeAuthoringInitializeRequest>(
+        &request_json,
+        "authoring initialize",
+    )?;
+    with_bridge(handle, |bridge| {
+        let receipt = bridge
+            .initialize_voxel_volume_authoring(request)
+            .map_err(to_napi)?;
+        voxel_conversion_json(&receipt)
+    })
+}
+
+#[napi]
 pub fn load_voxel_volume_asset(handle: i64, request_json: String) -> napi::Result<String> {
     let request = parse_request::<VoxelVolumeAssetLoadRequest>(&request_json, "load")?;
     with_bridge(handle, |bridge| {

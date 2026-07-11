@@ -171,6 +171,14 @@
       "errors": "RuntimeBridgeError"
     },
     {
+      "manifestName": "initialize_voxel_volume_authoring",
+      "facadeMethod": "initializeVoxelVolumeAuthoring",
+      "surface": "stable",
+      "input": "protocol_voxel_asset::VoxelVolumeAuthoringInitializeRequest",
+      "output": "protocol_voxel_asset::VoxelVolumeAuthoringInitializeReceipt",
+      "errors": "RuntimeBridgeError"
+    },
+    {
       "manifestName": "load_voxel_volume_asset",
       "facadeMethod": "loadVoxelVolumeAsset",
       "surface": "stable",

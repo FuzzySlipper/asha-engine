@@ -35,6 +35,7 @@ export const MANIFEST_OPERATIONS: readonly BridgeOperation[] = [
   { manifestName: 'export_voxel_volume_asset', facadeMethod: 'exportVoxelVolumeAsset', surface: 'stable' },
   { manifestName: 'save_voxel_volume_asset', facadeMethod: 'saveVoxelVolumeAsset', surface: 'stable' },
   { manifestName: 'update_voxel_volume_asset_palette', facadeMethod: 'updateVoxelVolumeAssetPalette', surface: 'stable' },
+  { manifestName: 'initialize_voxel_volume_authoring', facadeMethod: 'initializeVoxelVolumeAuthoring', surface: 'stable' },
   { manifestName: 'load_voxel_volume_asset', facadeMethod: 'loadVoxelVolumeAsset', surface: 'stable' },
   { manifestName: 'unload_voxel_volume_asset', facadeMethod: 'unloadVoxelVolumeAsset', surface: 'stable' },
   { manifestName: 'validate_voxel_annotation_layer', facadeMethod: 'validateVoxelAnnotationLayer', surface: 'stable' },

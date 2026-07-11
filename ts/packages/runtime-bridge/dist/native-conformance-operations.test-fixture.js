@@ -29,6 +29,7 @@ export const REQUIRED_NATIVE_CONFORMANCE_OPS = [
     'export_voxel_volume_asset',
     'save_voxel_volume_asset',
     'update_voxel_volume_asset_palette',
+    'initialize_voxel_volume_authoring',
     'load_voxel_volume_asset',
     'unload_voxel_volume_asset',
     'validate_voxel_annotation_layer',

@@ -390,6 +390,36 @@ pub struct VoxelVolumeAssetPaletteUpdateReceipt {
     pub diagnostics: Vec<VoxelAssetDiagnostic>,
 }
 
+/// Bounded request to initialize one empty runtime voxel model for authoring.
+/// The seed chunk establishes contiguous residency for the first edit without
+/// manufacturing a stored asset or requiring a mesh conversion.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct VoxelVolumeAuthoringInitializeRequest {
+    pub grid: u64,
+    pub volume_asset_id: Option<String>,
+    pub seed_chunk: VoxelAssetCoord,
+    pub material_palette: Vec<VoxelAssetMaterialBinding>,
+    pub authoring: VoxelAssetAuthoringMetadata,
+    pub max_material_bindings: u64,
+}
+
+/// Receipt for one accepted or rejected blank runtime-model initialization.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct VoxelVolumeAuthoringInitializeReceipt {
+    pub request: VoxelVolumeAuthoringInitializeRequest,
+    pub initialized: bool,
+    pub model_id: String,
+    pub volume_asset_id: Option<String>,
+    pub grid: u64,
+    pub session_hash: String,
+    pub replay_hash: String,
+    pub diagnostics: Vec<VoxelAssetDiagnostic>,
+}
+
 /// Explicit request to load a validated stored voxel-volume asset into runtime.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -484,6 +514,45 @@ mod tests {
             .map(|kind| kind.as_str())
             .collect::<Vec<_>>(),
             VOXEL_ASSET_PROVENANCE_KINDS
+        );
+    }
+
+    #[test]
+    fn authoring_initialize_request_and_receipt_round_trip() {
+        let request = VoxelVolumeAuthoringInitializeRequest {
+            grid: 2,
+            volume_asset_id: Some("voxel/authored".to_string()),
+            seed_chunk: VoxelAssetCoord { x: 1, y: 0, z: 0 },
+            material_palette: vec![VoxelAssetMaterialBinding {
+                voxel_material: 1,
+                palette_entry_id: "voxel-material/surface-a".to_string(),
+                display_name: Some("Surface A".to_string()),
+                material_asset_id: "material/surface-a".to_string(),
+                material_catalog_binding_id: Some("catalog-binding/surface-a".to_string()),
+            }],
+            authoring: VoxelAssetAuthoringMetadata {
+                label: Some("Authored volume".to_string()),
+                created_by: Some("protocol-test".to_string()),
+                source_tool: Some("protocol-voxel-asset".to_string()),
+            },
+            max_material_bindings: 8,
+        };
+        let receipt = VoxelVolumeAuthoringInitializeReceipt {
+            request,
+            initialized: true,
+            model_id: "voxel-model:grid:2:volume:voxel/authored".to_string(),
+            volume_asset_id: Some("voxel/authored".to_string()),
+            grid: 2,
+            session_hash: "fnv1a64:session".to_string(),
+            replay_hash: "fnv1a64:replay".to_string(),
+            diagnostics: Vec::new(),
+        };
+
+        let json = serde_json::to_string(&receipt).unwrap();
+        assert!(json.contains("\"seedChunk\""));
+        assert_eq!(
+            serde_json::from_str::<VoxelVolumeAuthoringInitializeReceipt>(&json).unwrap(),
+            receipt
         );
     }
 }

@@ -213,6 +213,7 @@ Source: [bridge-manifest.toml](../../engine-rs/crates/bridge/runtime-bridge-api/
 - `get_project_bundle_composition_status` — stable; output `protocol_diagnostics::DiagnosticReportSet`
 - `import_voxel_conversion_mesh_source` — stable; output `protocol_voxel_conversion::VoxelConversionMeshSourceImportReceipt`
 - `initialize_engine` — stable; output `EngineHandle`
+- `initialize_voxel_volume_authoring` — stable; output `protocol_voxel_asset::VoxelVolumeAuthoringInitializeReceipt`
 - `invoke_game_extension_weapon_effect` — stable; output `protocol_runtime::GameExtensionWeaponEffectInvocationResult`
 - `load_fps_runtime_session` — stable; output `protocol_runtime::FpsRuntimeSessionSnapshot`
 - `load_project_bundle` — stable; output `protocol_diagnostics::DiagnosticReportSet`

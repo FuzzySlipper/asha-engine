@@ -37,6 +37,7 @@ impl RuntimeBridge for EngineBridge {
         self.voxel_conversion_plan = None;
         self.voxel_conversion_evidence.clear();
         self.voxel_model_infos.clear();
+        self.active_voxel_model = None;
         self.voxel_annotation_layers.clear();
 
         Ok(handle)
@@ -699,46 +700,25 @@ impl RuntimeBridge for EngineBridge {
                 ));
             }
         }
-        let Some(planned) = &self.voxel_conversion_plan else {
-            return Ok(Self::rejected_voxel_volume_asset_export(
-                request,
-                vec![Self::voxel_asset_diagnostic(
-                    VoxelAssetDiagnosticCode::RuntimeModelUnavailable,
-                    "conversionOutput",
-                    "current authority state no longer has complete conversion output for export",
-                )],
-            ));
-        };
-        if planned.output.is_none() {
-            return Ok(Self::rejected_voxel_volume_asset_export(
-                request,
-                vec![Self::voxel_asset_diagnostic(
-                    VoxelAssetDiagnosticCode::RuntimeModelUnavailable,
-                    "conversionOutput",
-                    "conversion output is incomplete and cannot be exported as a stored asset",
-                )],
-            ));
-        }
-        let Some(target) = self.target_for_voxel_conversion(&planned.plan.target) else {
+        let Some(target) = self.voxel_conversion_targets.get(&key) else {
             return Ok(Self::rejected_voxel_volume_asset_export(
                 request,
                 vec![Self::voxel_asset_diagnostic(
                     VoxelAssetDiagnosticCode::RuntimeModelUnavailable,
                     "target",
-                    "conversion target is no longer registered in current authority state",
+                    "voxel model target is no longer registered in current authority state",
                 )],
             ));
         };
         if target.spec.id().raw() as u64 != request.grid
             || target.volume_asset_id != request.volume_asset_id
-            || info.latest_plan_id != planned.plan.plan_id
         {
             return Ok(Self::rejected_voxel_volume_asset_export(
                 request,
                 vec![Self::voxel_asset_diagnostic(
                     VoxelAssetDiagnosticCode::StaleRuntimeSnapshot,
                     "runtimeModel",
-                    "resident model readout does not match the current conversion output snapshot",
+                    "resident model readout does not match the registered runtime target",
                 )],
             ));
         }
@@ -758,16 +738,15 @@ impl RuntimeBridge for EngineBridge {
                 )],
             ));
         }
-        let material_palette =
-            match Self::material_palette_for_model_export(planned, &info.resident_voxels) {
-                Ok(palette) => palette,
-                Err(diagnostics) => {
-                    return Ok(Self::rejected_voxel_volume_asset_export(
-                        request,
-                        diagnostics,
-                    ));
-                }
-            };
+        let material_palette = match Self::material_palette_for_resident_export(info) {
+            Ok(palette) => palette,
+            Err(diagnostics) => {
+                return Ok(Self::rejected_voxel_volume_asset_export(
+                    request,
+                    diagnostics,
+                ));
+            }
+        };
         let Some(bounds) = info.bounds else {
             return Ok(Self::rejected_voxel_volume_asset_export(
                 request,
@@ -957,6 +936,13 @@ impl RuntimeBridge for EngineBridge {
         self.update_voxel_volume_asset_palette_authority(request)
     }
 
+    fn initialize_voxel_volume_authoring(
+        &mut self,
+        request: VoxelVolumeAuthoringInitializeRequest,
+    ) -> BridgeResult<VoxelVolumeAuthoringInitializeReceipt> {
+        self.initialize_voxel_volume_authoring_authority(request)
+    }
+
     fn load_voxel_volume_asset(
         &mut self,
         request: VoxelVolumeAssetLoadRequest,
@@ -1014,7 +1000,8 @@ impl RuntimeBridge for EngineBridge {
             Self::voxel_model_key(info.grid, &info.volume_asset_id),
             target,
         );
-        self.voxel_model_infos.insert(key, info);
+        self.voxel_model_infos.insert(key.clone(), info);
+        self.active_voxel_model = Some(key);
         Ok(receipt)
     }
 

@@ -341,6 +341,7 @@ function createFakeRuntimeBridge() {
         exportVoxelVolumeAsset: operation,
         saveVoxelVolumeAsset: operation,
         updateVoxelVolumeAssetPalette: operation,
+        initializeVoxelVolumeAuthoring: operation,
         loadVoxelVolumeAsset: operation,
         unloadVoxelVolumeAsset: operation,
         validateVoxelAnnotationLayer: operation,

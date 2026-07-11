@@ -96,6 +96,7 @@ pub use protocol_voxel_asset::{
     VoxelVolumeAssetPaletteUpdateReceipt, VoxelVolumeAssetPaletteUpdateRequest,
     VoxelVolumeAssetSaveReceipt, VoxelVolumeAssetSaveRequest, VoxelVolumeAssetStoredDiff,
     VoxelVolumeAssetUnloadReceipt, VoxelVolumeAssetUnloadRequest,
+    VoxelVolumeAuthoringInitializeReceipt, VoxelVolumeAuthoringInitializeRequest,
     VOXEL_PALETTE_UPDATE_MAX_EMBEDDED_DIAGNOSTICS, VOXEL_PALETTE_UPDATE_MAX_MATERIAL_BINDINGS,
     VOXEL_PALETTE_UPDATE_MAX_PROVENANCE_REFS, VOXEL_PALETTE_UPDATE_MAX_REPRESENTED_VOXELS,
     VOXEL_PALETTE_UPDATE_MAX_REQUEST_BYTES, VOXEL_PALETTE_UPDATE_MAX_SPARSE_RUNS,

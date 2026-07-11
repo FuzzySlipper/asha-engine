@@ -237,6 +237,28 @@ export interface VoxelVolumeAssetPaletteUpdateReceipt {
   readonly diagnostics: readonly VoxelAssetDiagnostic[];
 }
 
+// Bounded request to initialize one empty runtime voxel model for authoring. The seed chunk establishes contiguous residency for the first edit without manufacturing a stored asset or requiring a mesh conversion.
+export interface VoxelVolumeAuthoringInitializeRequest {
+  readonly grid: number;
+  readonly volumeAssetId: string | null;
+  readonly seedChunk: VoxelAssetCoord;
+  readonly materialPalette: readonly VoxelAssetMaterialBinding[];
+  readonly authoring: VoxelAssetAuthoringMetadata;
+  readonly maxMaterialBindings: number;
+}
+
+// Receipt for one accepted or rejected blank runtime-model initialization.
+export interface VoxelVolumeAuthoringInitializeReceipt {
+  readonly request: VoxelVolumeAuthoringInitializeRequest;
+  readonly initialized: boolean;
+  readonly modelId: string;
+  readonly volumeAssetId: string | null;
+  readonly grid: number;
+  readonly sessionHash: string;
+  readonly replayHash: string;
+  readonly diagnostics: readonly VoxelAssetDiagnostic[];
+}
+
 // Explicit request to load a validated stored voxel-volume asset into runtime.
 export interface VoxelVolumeAssetLoadRequest {
   readonly asset: VoxelVolumeAsset;

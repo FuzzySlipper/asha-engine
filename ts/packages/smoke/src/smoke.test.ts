@@ -178,6 +178,7 @@ function bridgeWith(overrides: Partial<RuntimeBridge>): RuntimeBridge {
     exportVoxelVolumeAsset: base.exportVoxelVolumeAsset.bind(base),
     saveVoxelVolumeAsset: base.saveVoxelVolumeAsset.bind(base),
     updateVoxelVolumeAssetPalette: base.updateVoxelVolumeAssetPalette.bind(base),
+    initializeVoxelVolumeAuthoring: base.initializeVoxelVolumeAuthoring.bind(base),
     loadVoxelVolumeAsset: base.loadVoxelVolumeAsset.bind(base),
     unloadVoxelVolumeAsset: base.unloadVoxelVolumeAsset.bind(base),
     validateVoxelAnnotationLayer: base.validateVoxelAnnotationLayer.bind(base),

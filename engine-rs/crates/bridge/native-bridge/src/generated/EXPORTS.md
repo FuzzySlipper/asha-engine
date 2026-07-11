@@ -28,6 +28,7 @@ operations are replay/devtools-only.
 | `export_voxel_volume_asset` | stable | `protocol_voxel_asset::VoxelVolumeAssetExportRequest` | `protocol_voxel_asset::VoxelVolumeAssetExportReceipt` | `RuntimeBridgeError` |
 | `save_voxel_volume_asset` | stable | `protocol_voxel_asset::VoxelVolumeAssetSaveRequest` | `protocol_voxel_asset::VoxelVolumeAssetSaveReceipt` | `RuntimeBridgeError` |
 | `update_voxel_volume_asset_palette` | stable | `protocol_voxel_asset::VoxelVolumeAssetPaletteUpdateRequest` | `protocol_voxel_asset::VoxelVolumeAssetPaletteUpdateReceipt` | `RuntimeBridgeError` |
+| `initialize_voxel_volume_authoring` | stable | `protocol_voxel_asset::VoxelVolumeAuthoringInitializeRequest` | `protocol_voxel_asset::VoxelVolumeAuthoringInitializeReceipt` | `RuntimeBridgeError` |
 | `load_voxel_volume_asset` | stable | `protocol_voxel_asset::VoxelVolumeAssetLoadRequest` | `protocol_voxel_asset::VoxelVolumeAssetLoadReceipt` | `RuntimeBridgeError` |
 | `unload_voxel_volume_asset` | stable | `protocol_voxel_asset::VoxelVolumeAssetUnloadRequest` | `protocol_voxel_asset::VoxelVolumeAssetUnloadReceipt` | `RuntimeBridgeError` |
 | `validate_voxel_annotation_layer` | stable | `protocol_voxel_annotation::VoxelAnnotationLayerValidationRequest` | `protocol_voxel_annotation::VoxelAnnotationLayerValidationReport` | `RuntimeBridgeError` |

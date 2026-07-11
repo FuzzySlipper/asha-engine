@@ -48,6 +48,7 @@ pub struct EngineBridge {
     voxel_conversion_plan: Option<PlannedConversion>,
     voxel_conversion_evidence: Vec<VoxelConversionEvidenceRef>,
     voxel_model_infos: BTreeMap<(u64, Option<String>), VoxelModelInfoAuthority>,
+    active_voxel_model: Option<(u64, Option<String>)>,
     voxel_annotation_layers: BTreeMap<String, VoxelAnnotationLayer>,
 }
 
@@ -103,6 +104,8 @@ struct VoxelModelInfoAuthority {
     replay_hash: String,
     evidence: Vec<VoxelConversionEvidenceRef>,
     authoring_edit_count: u64,
+    material_palette: Vec<VoxelAssetMaterialBinding>,
+    authoring: VoxelAssetAuthoringMetadata,
     resident_voxels: BTreeMap<VoxelCoord, VoxelValue>,
     prior_voxels: BTreeMap<VoxelCoord, VoxelValue>,
 }
@@ -291,6 +294,7 @@ mod project_and_sources;
 mod runtime_bridge_impl;
 mod voxel_annotations;
 mod voxel_assets;
+mod voxel_authoring;
 mod voxel_history;
 mod voxel_palette_limits;
 

@@ -162,6 +162,24 @@ export interface VoxelVolumeAssetPaletteUpdateReceipt {
     readonly voxelDataHash: string | null;
     readonly diagnostics: readonly VoxelAssetDiagnostic[];
 }
+export interface VoxelVolumeAuthoringInitializeRequest {
+    readonly grid: number;
+    readonly volumeAssetId: string | null;
+    readonly seedChunk: VoxelAssetCoord;
+    readonly materialPalette: readonly VoxelAssetMaterialBinding[];
+    readonly authoring: VoxelAssetAuthoringMetadata;
+    readonly maxMaterialBindings: number;
+}
+export interface VoxelVolumeAuthoringInitializeReceipt {
+    readonly request: VoxelVolumeAuthoringInitializeRequest;
+    readonly initialized: boolean;
+    readonly modelId: string;
+    readonly volumeAssetId: string | null;
+    readonly grid: number;
+    readonly sessionHash: string;
+    readonly replayHash: string;
+    readonly diagnostics: readonly VoxelAssetDiagnostic[];
+}
 export interface VoxelVolumeAssetLoadRequest {
     readonly asset: VoxelVolumeAsset;
     readonly targetGrid: number;

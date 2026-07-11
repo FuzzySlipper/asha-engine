@@ -39,6 +39,7 @@ import {
   type VoxelVolumeAssetUnloadReceipt, type VoxelVolumeAssetUnloadRequest,
   type VoxelVolumeAssetPaletteUpdateReceipt, type VoxelVolumeAssetPaletteUpdateRequest,
   type VoxelVolumeAssetSaveReceipt, type VoxelVolumeAssetSaveRequest,
+  type VoxelVolumeAuthoringInitializeReceipt, type VoxelVolumeAuthoringInitializeRequest,
   type GameRuleCatalog,
   type GameRuleResolutionRequest,
   type WeaponEffectHookRequest,
@@ -859,6 +860,8 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
   saveVoxelVolumeAsset(_request: VoxelVolumeAssetSaveRequest): VoxelVolumeAssetSaveReceipt { void _request; return this.#unsupportedOperation('saveVoxelVolumeAsset', 'Voxel volume asset save is not wired into the reference RuntimeSession'); }
 
   updateVoxelVolumeAssetPalette(_request: VoxelVolumeAssetPaletteUpdateRequest): VoxelVolumeAssetPaletteUpdateReceipt { void _request; return this.#unsupportedOperation('updateVoxelVolumeAssetPalette', 'Durable voxel palette updates are not wired into the reference RuntimeSession'); }
+
+  initializeVoxelVolumeAuthoring(_request: VoxelVolumeAuthoringInitializeRequest): VoxelVolumeAuthoringInitializeReceipt { void _request; return this.#unsupportedOperation('initializeVoxelVolumeAuthoring', 'Voxel volume authoring initialization is not wired into the reference RuntimeSession'); }
 
   loadVoxelVolumeAsset(_request: VoxelVolumeAssetLoadRequest): VoxelVolumeAssetLoadReceipt { void _request; return this.#unsupportedOperation('loadVoxelVolumeAsset', 'Voxel volume asset load is not wired into the reference RuntimeSession'); }
 

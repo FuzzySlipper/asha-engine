@@ -68,6 +68,8 @@ import type {
   VoxelVolumeAssetPaletteUpdateRequest,
   VoxelVolumeAssetSaveReceipt,
   VoxelVolumeAssetSaveRequest,
+  VoxelVolumeAuthoringInitializeReceipt,
+  VoxelVolumeAuthoringInitializeRequest,
   GameExtensionHookReceipt,
   GameExtensionReplayEvidence,
   GameRuleCatalog,
@@ -1319,6 +1321,8 @@ export class MockRuntimeBridge implements RuntimeBridge {
   saveVoxelVolumeAsset(_request: VoxelVolumeAssetSaveRequest): VoxelVolumeAssetSaveReceipt { void _request; return this.#unsupportedAfterInit('saveVoxelVolumeAsset', 'mock bridge does not own voxel volume asset save authority'); }
 
   updateVoxelVolumeAssetPalette(_request: VoxelVolumeAssetPaletteUpdateRequest): VoxelVolumeAssetPaletteUpdateReceipt { void _request; return this.#unsupportedAfterInit('updateVoxelVolumeAssetPalette', 'mock bridge does not own durable voxel palette authority'); }
+
+  initializeVoxelVolumeAuthoring(_request: VoxelVolumeAuthoringInitializeRequest): VoxelVolumeAuthoringInitializeReceipt { void _request; return this.#unsupportedAfterInit('initializeVoxelVolumeAuthoring', 'mock bridge does not own voxel volume authoring initialization authority'); }
 
   loadVoxelVolumeAsset(_request: VoxelVolumeAssetLoadRequest): VoxelVolumeAssetLoadReceipt { void _request; return this.#unsupportedAfterInit('loadVoxelVolumeAsset', 'mock bridge does not own voxel volume asset load authority'); }
 

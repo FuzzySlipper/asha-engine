@@ -71,6 +71,8 @@ export type {
   VoxelVolumeAssetUnloadRequest,
   VoxelVolumeAssetSaveReceipt,
   VoxelVolumeAssetSaveRequest,
+  VoxelVolumeAuthoringInitializeReceipt,
+  VoxelVolumeAuthoringInitializeRequest,
   VoxelVolumeAssetStoredDiff,
   CommandBatch,
   CommandResult,

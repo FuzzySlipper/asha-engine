@@ -313,8 +313,10 @@ impl EngineBridge {
                 planned.plan.plan_id, output_hash, session_hash, evidence
             ))
         );
+        let material_palette =
+            Self::material_palette_for_model_export(planned, &resident_voxels).unwrap_or_default();
         self.voxel_model_infos.insert(
-            key,
+            key.clone(),
             VoxelModelInfoAuthority {
                 model_id,
                 volume_asset_id: target.volume_asset_id.clone(),
@@ -329,10 +331,17 @@ impl EngineBridge {
                 replay_hash,
                 evidence,
                 authoring_edit_count: 0,
+                material_palette,
+                authoring: VoxelAssetAuthoringMetadata {
+                    label: Some("Converted voxel model".to_string()),
+                    created_by: Some("asha-engine".to_string()),
+                    source_tool: Some("voxel-conversion".to_string()),
+                },
                 resident_voxels,
                 prior_voxels,
             },
         );
+        self.active_voxel_model = Some(key);
     }
 
     pub(super) fn remember_active_voxel_model_edits(
@@ -341,14 +350,9 @@ impl EngineBridge {
         prior_world: &VoxelWorld,
         current_world: &VoxelWorld,
     ) {
-        let Some(target) = self
-            .voxel_conversion_plan
-            .as_ref()
-            .map(|planned| planned.plan.target.clone())
-        else {
+        let Some(key) = self.active_voxel_model.clone() else {
             return;
         };
-        let key = Self::voxel_model_key(target.grid, &target.volume_asset_id);
         let Some(info) = self.voxel_model_infos.get_mut(&key) else {
             return;
         };
@@ -358,16 +362,17 @@ impl EngineBridge {
             if u64::from(command.grid().raw()) != info.grid {
                 continue;
             }
-            authored_commands = authored_commands.saturating_add(1);
+            let mut attributed = false;
             match *command {
                 VoxelCommand::SetVoxel { coord, .. } => {
-                    Self::remember_voxel_model_coord(info, coord, prior_world, current_world);
+                    attributed =
+                        Self::remember_voxel_model_coord(info, coord, prior_world, current_world);
                 }
                 VoxelCommand::FillRegion { min, max, .. } => {
                     for z in min.z..max.z {
                         for y in min.y..max.y {
                             for x in min.x..max.x {
-                                Self::remember_voxel_model_coord(
+                                attributed |= Self::remember_voxel_model_coord(
                                     info,
                                     VoxelCoord::new(x, y, z),
                                     prior_world,
@@ -383,9 +388,17 @@ impl EngineBridge {
                     };
                     for (local, _) in current_chunk.iter() {
                         let coord = current_world.grid().chunk_local_to_voxel(chunk, local);
-                        Self::remember_voxel_model_coord(info, coord, prior_world, current_world);
+                        attributed |= Self::remember_voxel_model_coord(
+                            info,
+                            coord,
+                            prior_world,
+                            current_world,
+                        );
                     }
                 }
+            }
+            if attributed {
+                authored_commands = authored_commands.saturating_add(1);
             }
         }
         info.authoring_edit_count = info.authoring_edit_count.saturating_add(authored_commands);
@@ -397,12 +410,26 @@ impl EngineBridge {
         coord: VoxelCoord,
         prior_world: &VoxelWorld,
         current_world: &VoxelWorld,
-    ) {
+    ) -> bool {
+        let belongs_to_model = info.resident_voxels.is_empty()
+            || info.resident_voxels.contains_key(&coord)
+            || info.resident_voxels.keys().any(|resident| {
+                resident
+                    .x
+                    .abs_diff(coord.x)
+                    .saturating_add(resident.y.abs_diff(coord.y))
+                    .saturating_add(resident.z.abs_diff(coord.z))
+                    == 1
+            });
+        if !belongs_to_model {
+            return false;
+        }
         info.prior_voxels
             .entry(coord)
             .or_insert_with(|| Self::voxel_value_at(prior_world, coord));
         info.resident_voxels
             .insert(coord, Self::voxel_value_at(current_world, coord));
+        true
     }
 
     fn refresh_voxel_model_info(info: &mut VoxelModelInfoAuthority) {
@@ -508,6 +535,12 @@ impl EngineBridge {
             replay_hash: "fnv1a64:missing".to_string(),
             evidence: Vec::new(),
             authoring_edit_count: 0,
+            material_palette: Vec::new(),
+            authoring: VoxelAssetAuthoringMetadata {
+                label: None,
+                created_by: None,
+                source_tool: None,
+            },
             resident_voxels: BTreeMap::new(),
             prior_voxels: BTreeMap::new(),
         }
@@ -947,6 +980,57 @@ impl EngineBridge {
         }
     }
 
+    pub(super) fn material_palette_for_resident_export(
+        info: &VoxelModelInfoAuthority,
+    ) -> Result<Vec<VoxelAssetMaterialBinding>, Vec<VoxelAssetDiagnostic>> {
+        let used_materials = info
+            .resident_voxels
+            .values()
+            .filter_map(|value| value.material().map(|material| material.raw()))
+            .collect::<BTreeSet<_>>();
+        let mut bindings = BTreeMap::<u16, VoxelAssetMaterialBinding>::new();
+        let mut diagnostics = Vec::new();
+        for binding in &info.material_palette {
+            if binding.material_asset_id.trim().is_empty() {
+                diagnostics.push(Self::voxel_asset_diagnostic(
+                    VoxelAssetDiagnosticCode::InvalidMaterialReference,
+                    format!("materialPalette.{}", binding.voxel_material),
+                    "material palette binding requires a non-empty material asset id",
+                ));
+                continue;
+            }
+            if bindings
+                .insert(binding.voxel_material, binding.clone())
+                .is_some()
+            {
+                diagnostics.push(Self::voxel_asset_diagnostic(
+                    VoxelAssetDiagnosticCode::DuplicateMaterialBinding,
+                    format!("materialPalette.{}", binding.voxel_material),
+                    "material palette contains a duplicate voxel material binding",
+                ));
+            }
+        }
+        for material in &used_materials {
+            if !bindings.contains_key(material) {
+                diagnostics.push(Self::voxel_asset_diagnostic(
+                    VoxelAssetDiagnosticCode::InvalidMaterialReference,
+                    format!("material.{material}"),
+                    "export could not map a used voxel material to a material asset id",
+                ));
+            }
+        }
+        if diagnostics.is_empty() {
+            Ok(bindings
+                .into_iter()
+                .filter_map(|(material, binding)| {
+                    used_materials.contains(&material).then_some(binding)
+                })
+                .collect())
+        } else {
+            Err(diagnostics)
+        }
+    }
+
     pub(super) fn voxel_model_export_provenance(
         info: &VoxelModelInfoAuthority,
         request: &VoxelVolumeAssetExportRequest,
@@ -1227,6 +1311,8 @@ impl EngineBridge {
             replay_hash,
             evidence,
             authoring_edit_count: 0,
+            material_palette: asset.material_palette.clone(),
+            authoring: asset.authoring.clone(),
             resident_voxels,
             prior_voxels,
         }
@@ -1359,6 +1445,9 @@ impl EngineBridge {
 
         self.reset_voxel_edit_history(candidate);
         self.voxel_model_infos.remove(&key);
+        if self.active_voxel_model.as_ref() == Some(&key) {
+            self.active_voxel_model = None;
+        }
         if let Some(volume_asset_id) = &request.volume_asset_id {
             self.voxel_annotation_layers
                 .retain(|_, layer| layer.target_voxel_volume_asset_id != *volume_asset_id);

@@ -59,6 +59,8 @@ import type {
   VoxelVolumeAssetPaletteUpdateRequest,
   VoxelVolumeAssetSaveReceipt,
   VoxelVolumeAssetSaveRequest,
+  VoxelVolumeAuthoringInitializeReceipt,
+  VoxelVolumeAuthoringInitializeRequest,
   GameExtensionHookReceipt,
   GameExtensionReplayEvidence,
   GameRuleCatalog,
@@ -157,6 +159,7 @@ export const NATIVE_WIRED_OPERATIONS: ReadonlySet<string> = new Set<string>([
   'export_voxel_volume_asset',
   'save_voxel_volume_asset',
   'update_voxel_volume_asset_palette',
+  'initialize_voxel_volume_authoring',
   'load_voxel_volume_asset',
   'unload_voxel_volume_asset',
   'validate_voxel_annotation_layer',
@@ -821,6 +824,19 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     const handle = this.#requireHandle('updateVoxelVolumeAssetPalette');
     const payload = callNative(() => this.#addon.updateVoxelVolumeAssetPalette(handle, JSON.stringify(request)));
     return parseNativeJson<VoxelVolumeAssetPaletteUpdateReceipt>(payload, 'voxel volume asset palette update receipt');
+  }
+
+  initializeVoxelVolumeAuthoring(
+    request: VoxelVolumeAuthoringInitializeRequest,
+  ): VoxelVolumeAuthoringInitializeReceipt {
+    const handle = this.#requireHandle('initializeVoxelVolumeAuthoring');
+    const payload = callNative(() =>
+      this.#addon.initializeVoxelVolumeAuthoring(handle, JSON.stringify(request)),
+    );
+    return parseNativeJson<VoxelVolumeAuthoringInitializeReceipt>(
+      payload,
+      'voxel volume authoring initialize receipt',
+    );
   }
 
   loadVoxelVolumeAsset(request: VoxelVolumeAssetLoadRequest): VoxelVolumeAssetLoadReceipt {

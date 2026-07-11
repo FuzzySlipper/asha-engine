@@ -237,6 +237,14 @@ const VOXEL_VOLUME_ASSET_UNLOAD_REQUEST = {
     volumeAssetId: 'voxel/generated',
     expectedSessionHash: 'fnv1a64:0000000000000110',
 };
+const VOXEL_VOLUME_AUTHORING_INITIALIZE_REQUEST = {
+    grid: 1,
+    volumeAssetId: 'voxel/authored',
+    seedChunk: { x: 0, y: 0, z: 0 },
+    materialPalette: VOXEL_VOLUME_ASSET_LOAD_REQUEST.asset.materialPalette,
+    authoring: { label: 'Native authored volume', createdBy: 'native-fail-closed-test', sourceTool: '@asha/runtime-bridge' },
+    maxMaterialBindings: 8,
+};
 const VOXEL_ANNOTATION_LAYER = {
     layerId: 'voxel-annotation/native-fixture',
     schemaVersion: 1,
@@ -992,6 +1000,20 @@ function fakeAddon(calls = []) {
             });
         },
         updateVoxelVolumeAssetPalette: createVoxelPaletteUpdateHandler(calls),
+        initializeVoxelVolumeAuthoring: (_handle, requestJson) => {
+            calls.push(`voxelVolumeAuthoringInitialize:${requestJson}`);
+            const request = parseJsonFixture(requestJson);
+            return JSON.stringify({
+                request,
+                initialized: true,
+                modelId: `voxel-model:grid:${request.grid}:volume:${request.volumeAssetId}`,
+                volumeAssetId: request.volumeAssetId,
+                grid: request.grid,
+                sessionHash: 'fnv1a64:0000000000000112',
+                replayHash: 'fnv1a64:0000000000000113',
+                diagnostics: [],
+            });
+        },
         loadVoxelVolumeAsset: (_handle, requestJson) => {
             calls.push(`voxelVolumeAssetLoad:${requestJson}`);
             const request = parseJsonFixture(requestJson);
@@ -1253,6 +1275,7 @@ const INVOKE = new Map([
     ['exportVoxelVolumeAsset', (b) => b.exportVoxelVolumeAsset(VOXEL_VOLUME_ASSET_EXPORT_REQUEST)],
     ['saveVoxelVolumeAsset', (b) => b.saveVoxelVolumeAsset(VOXEL_VOLUME_ASSET_SAVE_REQUEST)],
     ['updateVoxelVolumeAssetPalette', (b) => b.updateVoxelVolumeAssetPalette(voxelPaletteUpdateRequest(VOXEL_VOLUME_ASSET_LOAD_REQUEST.asset))],
+    ['initializeVoxelVolumeAuthoring', (b) => b.initializeVoxelVolumeAuthoring(VOXEL_VOLUME_AUTHORING_INITIALIZE_REQUEST)],
     ['loadVoxelVolumeAsset', (b) => b.loadVoxelVolumeAsset(VOXEL_VOLUME_ASSET_LOAD_REQUEST)],
     ['unloadVoxelVolumeAsset', (b) => b.unloadVoxelVolumeAsset(VOXEL_VOLUME_ASSET_UNLOAD_REQUEST)],
     ['validateVoxelAnnotationLayer', (b) => b.validateVoxelAnnotationLayer(VOXEL_ANNOTATION_VALIDATION_REQUEST)],

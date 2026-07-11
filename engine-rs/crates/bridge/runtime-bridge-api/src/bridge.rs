@@ -123,6 +123,13 @@ pub trait RuntimeBridge {
         &self,
         request: VoxelVolumeAssetPaletteUpdateRequest,
     ) -> BridgeResult<VoxelVolumeAssetPaletteUpdateReceipt>;
+    /// Initialize one empty runtime voxel model with a bounded material palette
+    /// and seed chunk so public authoring can begin without a stored asset or
+    /// mesh conversion.
+    fn initialize_voxel_volume_authoring(
+        &mut self,
+        request: VoxelVolumeAuthoringInitializeRequest,
+    ) -> BridgeResult<VoxelVolumeAuthoringInitializeReceipt>;
     /// Load a validated stored voxel-volume asset into runtime authority through
     /// an explicit operation. Rejected assets leave runtime voxel state untouched.
     fn load_voxel_volume_asset(

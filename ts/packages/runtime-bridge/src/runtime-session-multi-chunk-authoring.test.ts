@@ -251,3 +251,114 @@ void test('native compact-equivalent edits grow adjacent chunks and survive save
   assert.deepEqual(reloaded.materialCounts, authored.materialCounts);
   assert.equal(reloaded.voxelDataHash, saved.voxelDataHash);
 });
+
+void test('native blank authoring initialization supports first edit through save reload', (t) => {
+  let session: RuntimeSessionFacade;
+  try {
+    session = createNativeSession();
+  } catch (error) {
+    if (error instanceof RuntimeBridgeError && error.kind === 'native_unavailable') {
+      t.skip('native addon not built (run harness/ci/check-native.sh)');
+      return;
+    }
+    throw error;
+  }
+
+  const rejected = session.initializeVoxelVolumeAuthoring({
+    grid: 2,
+    volumeAssetId: 'voxel/authored',
+    seedChunk: { x: 1, y: 0, z: 0 },
+    materialPalette: [],
+    authoring: {
+      label: 'Rejected blank authored volume',
+      createdBy: '@asha/runtime-bridge',
+      sourceTool: '@asha/runtime-bridge',
+    },
+    maxMaterialBindings: 0,
+  });
+  assert.equal(rejected.initialized, false);
+  assert.equal(rejected.diagnostics[0]?.code, 'export_limit_exceeded');
+  const initialized = session.initializeVoxelVolumeAuthoring({
+    grid: 2,
+    volumeAssetId: 'voxel/authored',
+    seedChunk: { x: 1, y: 0, z: 0 },
+    materialPalette: [{
+      voxelMaterial: 1,
+      paletteEntryId: 'voxel-material/surface-a',
+      displayName: 'Surface A',
+      materialAssetId: 'material/surface-a',
+      materialCatalogBindingId: 'catalog-binding/surface-a',
+    }],
+    authoring: {
+      label: 'Blank authored volume',
+      createdBy: '@asha/runtime-bridge',
+      sourceTool: '@asha/runtime-bridge',
+    },
+    maxMaterialBindings: 8,
+  });
+  assert.equal(initialized.initialized, true, JSON.stringify(initialized.diagnostics));
+  const blank = session.readVoxelModelInfo({
+    grid: 2,
+    volumeAssetId: 'voxel/authored',
+    includeMaterialCounts: true,
+  });
+  assert.equal(blank.resident, true);
+  assert.equal(blank.voxelCount, 0);
+  assert.equal(blank.bounds, null);
+
+  const edit = session.submitCommands({ commands: complexShapeCommands() });
+  assert.equal(edit.result.accepted, 61);
+  assert.equal(edit.result.rejected, 0, JSON.stringify(edit.result.rejections));
+  const authored = session.readVoxelModelInfo({
+    grid: 2,
+    volumeAssetId: 'voxel/authored',
+    includeMaterialCounts: true,
+  });
+  assert.equal(authored.voxelCount, 61);
+  assert.deepEqual(authored.bounds, {
+    min: { x: 4, y: 0, z: 0 },
+    max: { x: 7, y: 7, z: 3 },
+  });
+
+  const saved = session.saveVoxelVolumeAsset({
+    exportRequest: {
+      grid: 2,
+      volumeAssetId: 'voxel/authored',
+      targetAssetId: 'voxel-volume/native-blank-authored',
+      label: 'Native blank authored shape',
+      createdBy: '@asha/runtime-bridge',
+      sourceTool: '@asha/runtime-bridge',
+      maxSparseRuns: 128,
+      expectedSessionHash: authored.sessionHash,
+    },
+    targetProjectBundle: 'asha-testing',
+    targetAssetPath: 'assets/voxels/native-blank-authored.avxl.json',
+    representationKind: 'sparse_runs',
+    expectedExistingCanonicalJsonHash: null,
+    expectedCanonicalJsonHash: null,
+    expectedVoxelDataHash: null,
+  });
+  assert.equal(saved.saved, true, JSON.stringify(saved.diagnostics));
+  assert.deepEqual(
+    [...new Set(saved.asset?.provenance.map((entry) => entry.kind))],
+    ['authored', 'runtime_export'],
+  );
+  const unloaded = session.unloadVoxelVolumeAsset({
+    grid: 2,
+    volumeAssetId: 'voxel/authored',
+    expectedSessionHash: authored.sessionHash,
+  });
+  assert.equal(unloaded.unloaded, true, JSON.stringify(unloaded.diagnostics));
+  const reloaded = session.loadVoxelVolumeAsset({
+    asset: saved.asset!,
+    targetGrid: 2,
+    targetVolumeAssetId: 'voxel/authored',
+    replaceExisting: false,
+    includeMaterialCounts: true,
+  });
+  assert.equal(reloaded.loaded, true, JSON.stringify(reloaded.diagnostics));
+  assert.equal(reloaded.voxelCount, authored.voxelCount);
+  assert.deepEqual(reloaded.bounds, authored.bounds);
+  assert.deepEqual(reloaded.materialCounts, authored.materialCounts);
+  assert.equal(reloaded.voxelDataHash, saved.voxelDataHash);
+});
