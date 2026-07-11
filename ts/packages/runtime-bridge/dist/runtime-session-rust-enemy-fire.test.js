@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { cameraHandle } from '@asha/contracts';
-import { RuntimeBridgeError, createNativeRuntimeBridge, createRuntimeSessionFacade, readRuntimeSessionPlayableLoopState, } from './index.js';
+import { RuntimeBridgeError, createNativeRuntimeBridge, createRuntimeSessionFacade, readRuntimeSessionPlayableEncounterTick, readRuntimeSessionPlayableLoopState, } from './index.js';
 import { createMockRuntimeBridge } from './mock.js';
 import { stableHash } from './runtime-session-hash.js';
 function sessionInput() {
@@ -221,14 +221,15 @@ void test('native Rust facade maps ECRP enemy policy to authorized movement and 
         seed: 17,
     });
     assert.equal(applied.status, 'applied');
-    const tick = session.runAutonomousPolicyTick({
+    const encounterTick = readRuntimeSessionPlayableEncounterTick(session, {
         targetCamera: cameraHandle(1),
+        targetPosition: [1, 1, 1],
         tick: 1,
-        enemy: { position: [3, 1, 7] },
-        target: { position: [1, 1, 1] },
     });
-    assert.equal(tick.movementSummary?.status, 'accepted');
-    assert.equal(tick.movementSummary?.authoritySource, 'rust_entity_store');
+    assert.equal(encounterTick.status, 'advanced');
+    assert.equal(encounterTick.blockedReason, null);
+    assert.equal(encounterTick.movementSummary?.status, 'accepted');
+    assert.equal(encounterTick.movementSummary?.authoritySource, 'rust_entity_store');
     const after = bridge.readFpsRuntimeSession();
     assert.notEqual(after.entityHash, before.entityHash);
     assert.ok(after.replayRecords.length > before.replayRecords.length);

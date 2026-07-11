@@ -444,6 +444,13 @@ one engine revision; a previously loaded addon is not valid evidence for a newer
 TypeScript host. Native invocation errors return structured HTTP failures, and
 the host must remain healthy for subsequent authority reads.
 
+#5611 fixes live-addon replacement after a fresh-build SIGBUS was traced to an
+invalid file-backed instruction page at the composition-status N-API wrapper.
+Native addon installation now writes a complete temporary file beside the
+destination and publishes it with one atomic rename. Existing hosts retain their
+original mapped inode; newly launched hosts load the replacement. Build or test
+automation must never truncate or copy directly over a loaded `.node` file.
+
 ## Command registry compatibility log
 
 ### `command-registry.v0` — unstable Studio command metadata

@@ -9,6 +9,9 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CRATE_DIR="$REPO_ROOT/engine-rs/crates/bridge/native-bridge"
 DEST="$REPO_ROOT/ts/packages/native-bridge/dist/native-bridge.node"
 
+echo "==> Verifying atomic native-addon installation"
+"$REPO_ROOT/harness/ci/test-install-native-addon.sh"
+
 echo "==> Running native-bridge Rust tests"
 ( cd "$CRATE_DIR" && cargo test --lib )
 
@@ -16,7 +19,6 @@ echo "==> Building native-bridge cdylib (release)"
 ( cd "$CRATE_DIR" && cargo build --release )
 
 echo "==> Installing addon -> $DEST"
-mkdir -p "$(dirname "$DEST")"
 # cdylib is libnative_bridge.so on Linux / .dylib on macOS / native_bridge.dll on Windows.
 ARTIFACT="$(find "$CRATE_DIR/target/release" -maxdepth 1 \
   \( -name 'libnative_bridge.so' -o -name 'libnative_bridge.dylib' -o -name 'native_bridge.dll' \) \
@@ -25,7 +27,7 @@ if [ -z "$ARTIFACT" ]; then
   echo "FAIL: no cdylib artifact found in $CRATE_DIR/target/release" >&2
   exit 1
 fi
-cp "$ARTIFACT" "$DEST"
+"$REPO_ROOT/harness/ci/install-native-addon.sh" "$ARTIFACT" "$DEST"
 
 echo "==> Building TS bridge packages used by the native smoke"
 ( cd "$REPO_ROOT/ts" && pnpm --filter @asha/native-bridge build && pnpm --filter @asha/runtime-bridge build )
