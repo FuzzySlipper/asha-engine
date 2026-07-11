@@ -423,6 +423,9 @@ console.log('Native addon smoke: OK');
 echo "==> runtime-bridge facade tests (native parity test now runs, not skipped)"
 ( cd "$REPO_ROOT/ts" && pnpm --filter @asha/runtime-bridge test )
 
+echo "==> native browser-host sustained lifecycle proof"
+( cd "$REPO_ROOT/ts" && pnpm --filter @asha/browser-host test )
+
 echo "==> public RuntimeSession non-default-grid voxel annotation proof"
 ( cd "$REPO_ROOT/ts" && pnpm --filter @asha/smoke test:voxel-annotation-proof )
 

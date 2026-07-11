@@ -437,6 +437,13 @@ status reports `rust_authority` only after the runtime bridge resolver accepts
 the provider and required operations. Missing or spoofed providers report
 `missing_rust_backend` with typed diagnostics and no reference fallback.
 
+#5587 makes the native build part of the required GitHub `Verify ASHA` path and
+adds a real browser-host HTTP stress regression over movement, player defeat,
+restart, and structured invocation failure. A host and addon must be rebuilt as
+one engine revision; a previously loaded addon is not valid evidence for a newer
+TypeScript host. Native invocation errors return structured HTTP failures, and
+the host must remain healthy for subsequent authority reads.
+
 ## Command registry compatibility log
 
 ### `command-registry.v0` — unstable Studio command metadata

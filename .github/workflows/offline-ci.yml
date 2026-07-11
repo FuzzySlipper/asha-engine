@@ -50,3 +50,6 @@ jobs:
         env:
           ASHA_SOURCE_SHAPE_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: ./harness/ci/check-all.sh
+
+      - name: Build and verify the native browser host
+        run: ./harness/ci/check-native.sh
