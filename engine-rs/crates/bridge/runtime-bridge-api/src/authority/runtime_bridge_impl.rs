@@ -709,7 +709,7 @@ impl RuntimeBridge for EngineBridge {
                 )],
             ));
         };
-        let Some(output) = &planned.output else {
+        if planned.output.is_none() {
             return Ok(Self::rejected_voxel_volume_asset_export(
                 request,
                 vec![Self::voxel_asset_diagnostic(
@@ -718,7 +718,7 @@ impl RuntimeBridge for EngineBridge {
                     "conversion output is incomplete and cannot be exported as a stored asset",
                 )],
             ));
-        };
+        }
         let Some(target) = self.target_for_voxel_conversion(&planned.plan.target) else {
             return Ok(Self::rejected_voxel_volume_asset_export(
                 request,
@@ -732,7 +732,6 @@ impl RuntimeBridge for EngineBridge {
         if target.spec.id().raw() as u64 != request.grid
             || target.volume_asset_id != request.volume_asset_id
             || info.latest_plan_id != planned.plan.plan_id
-            || info.latest_output_hash != output.output_hash
         {
             return Ok(Self::rejected_voxel_volume_asset_export(
                 request,
@@ -781,32 +780,7 @@ impl RuntimeBridge for EngineBridge {
         };
 
         let origin = target.spec.origin_world().to_array();
-        let mut provenance = info
-            .evidence
-            .iter()
-            .map(|evidence| VoxelAssetProvenanceRef {
-                kind: VoxelAssetProvenanceKind::Converted,
-                uri: evidence.uri.clone(),
-                content_hash: evidence.content_hash.clone(),
-            })
-            .collect::<Vec<_>>();
-        provenance.push(VoxelAssetProvenanceRef {
-            kind: VoxelAssetProvenanceKind::RuntimeExport,
-            uri: format!(
-                "asha://runtime-session/voxel-volume-export/{}",
-                request.target_asset_id
-            ),
-            content_hash: format!(
-                "fnv1a64:{}",
-                Self::fnv1a64(&format!(
-                    "voxel-volume-export|{}|{}|{}|{}",
-                    request.target_asset_id,
-                    info.session_hash,
-                    info.replay_hash,
-                    output.output_hash
-                ))
-            ),
-        });
+        let provenance = Self::voxel_model_export_provenance(info, &request);
         let asset = VoxelVolumeAsset {
             asset_id: request.target_asset_id.clone(),
             schema_version: VOXEL_ASSET_SCHEMA_VERSION,

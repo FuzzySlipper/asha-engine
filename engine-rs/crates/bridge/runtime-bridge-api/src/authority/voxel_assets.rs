@@ -328,6 +328,7 @@ impl EngineBridge {
                 session_hash,
                 replay_hash,
                 evidence,
+                authoring_edit_count: 0,
                 resident_voxels,
                 prior_voxels,
             },
@@ -352,10 +353,12 @@ impl EngineBridge {
             return;
         };
 
+        let mut authored_commands = 0_u64;
         for command in commands {
             if u64::from(command.grid().raw()) != info.grid {
                 continue;
             }
+            authored_commands = authored_commands.saturating_add(1);
             match *command {
                 VoxelCommand::SetVoxel { coord, .. } => {
                     Self::remember_voxel_model_coord(info, coord, prior_world, current_world);
@@ -385,6 +388,7 @@ impl EngineBridge {
                 }
             }
         }
+        info.authoring_edit_count = info.authoring_edit_count.saturating_add(authored_commands);
         Self::refresh_voxel_model_info(info);
     }
 
@@ -503,6 +507,7 @@ impl EngineBridge {
             session_hash: "fnv1a64:missing".to_string(),
             replay_hash: "fnv1a64:missing".to_string(),
             evidence: Vec::new(),
+            authoring_edit_count: 0,
             resident_voxels: BTreeMap::new(),
             prior_voxels: BTreeMap::new(),
         }
@@ -942,6 +947,55 @@ impl EngineBridge {
         }
     }
 
+    pub(super) fn voxel_model_export_provenance(
+        info: &VoxelModelInfoAuthority,
+        request: &VoxelVolumeAssetExportRequest,
+    ) -> Vec<VoxelAssetProvenanceRef> {
+        let mut provenance = info
+            .evidence
+            .iter()
+            .map(|evidence| VoxelAssetProvenanceRef {
+                kind: VoxelAssetProvenanceKind::Converted,
+                uri: evidence.uri.clone(),
+                content_hash: evidence.content_hash.clone(),
+            })
+            .collect::<Vec<_>>();
+        if info.authoring_edit_count > 0 {
+            provenance.push(VoxelAssetProvenanceRef {
+                kind: VoxelAssetProvenanceKind::Authored,
+                uri: format!("asha://runtime-session/voxel-authoring/{}", info.model_id),
+                content_hash: format!(
+                    "fnv1a64:{}",
+                    Self::fnv1a64(&format!(
+                        "voxel-authoring|{}|{}|{}|{}",
+                        info.model_id,
+                        info.authoring_edit_count,
+                        info.session_hash,
+                        info.replay_hash
+                    ))
+                ),
+            });
+        }
+        provenance.push(VoxelAssetProvenanceRef {
+            kind: VoxelAssetProvenanceKind::RuntimeExport,
+            uri: format!(
+                "asha://runtime-session/voxel-volume-export/{}",
+                request.target_asset_id
+            ),
+            content_hash: format!(
+                "fnv1a64:{}",
+                Self::fnv1a64(&format!(
+                    "voxel-volume-export|{}|{}|{}|{}",
+                    request.target_asset_id,
+                    info.session_hash,
+                    info.replay_hash,
+                    info.latest_output_hash
+                ))
+            ),
+        });
+        provenance
+    }
+
     pub(super) fn voxel_asset_palette_entry_id(material_asset_id: &str) -> String {
         format!(
             "voxel-material/{}",
@@ -1172,6 +1226,7 @@ impl EngineBridge {
             session_hash,
             replay_hash,
             evidence,
+            authoring_edit_count: 0,
             resident_voxels,
             prior_voxels,
         }

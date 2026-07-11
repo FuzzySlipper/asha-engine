@@ -463,7 +463,7 @@ fn converted_volume_save_unload_and_reload_preserves_predecessor_model() {
         .unwrap();
     assert!(predecessor_after.resident);
 
-    let saved_bounds = saved_asset.bounds.clone();
+    let saved_bounds = saved_asset.bounds;
     let reloaded = bridge
         .load_voxel_volume_asset(VoxelVolumeAssetLoadRequest {
             asset: saved_asset,

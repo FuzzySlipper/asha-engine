@@ -150,6 +150,42 @@ void test('native compact-equivalent edits grow adjacent chunks and survive save
     assert.equal(authored.voxelCount, before.voxelCount + 61);
     assert.deepEqual(authored.bounds?.max, { x: 7, y: 7, z: 3 });
     assert.deepEqual(authored.materialCounts, [{ material: 1, voxelCount: authored.voxelCount }]);
+    const staleExport = session.exportVoxelVolumeAsset({
+        grid: 2,
+        volumeAssetId: 'voxel/generated',
+        targetAssetId: 'voxel-volume/native-multi-chunk-stale',
+        label: 'Stale native multi-chunk shape',
+        createdBy: '@asha/runtime-bridge',
+        sourceTool: '@asha/runtime-bridge',
+        maxSparseRuns: 128,
+        expectedSessionHash: before.sessionHash,
+    });
+    assert.equal(staleExport.exported, false);
+    assert.equal(staleExport.diagnostics[0]?.code, 'stale_runtime_snapshot');
+    const limitedExport = session.exportVoxelVolumeAsset({
+        grid: 2,
+        volumeAssetId: 'voxel/generated',
+        targetAssetId: 'voxel-volume/native-multi-chunk-limited',
+        label: 'Limited native multi-chunk shape',
+        createdBy: '@asha/runtime-bridge',
+        sourceTool: '@asha/runtime-bridge',
+        maxSparseRuns: 1,
+        expectedSessionHash: authored.sessionHash,
+    });
+    assert.equal(limitedExport.exported, false);
+    assert.equal(limitedExport.diagnostics[0]?.code, 'export_limit_exceeded');
+    const exported = session.exportVoxelVolumeAsset({
+        grid: 2,
+        volumeAssetId: 'voxel/generated',
+        targetAssetId: 'voxel-volume/native-multi-chunk-export',
+        label: 'Exported native multi-chunk shape',
+        createdBy: '@asha/runtime-bridge',
+        sourceTool: '@asha/runtime-bridge',
+        maxSparseRuns: 128,
+        expectedSessionHash: authored.sessionHash,
+    });
+    assert.equal(exported.exported, true, JSON.stringify(exported.diagnostics));
+    assert.deepEqual([...new Set(exported.asset?.provenance.map((entry) => entry.kind))], ['converted', 'authored', 'runtime_export']);
     const saved = session.saveVoxelVolumeAsset({
         exportRequest: {
             grid: 2,
@@ -169,6 +205,7 @@ void test('native compact-equivalent edits grow adjacent chunks and survive save
         expectedVoxelDataHash: null,
     });
     assert.equal(saved.saved, true, JSON.stringify(saved.diagnostics));
+    assert.deepEqual([...new Set(saved.asset?.provenance.map((entry) => entry.kind))], ['converted', 'authored', 'runtime_export']);
     assert.equal(saved.asset?.representation.sparseRuns.reduce((count, run) => count + run.length, 0), authored.voxelCount);
     const unloaded = session.unloadVoxelVolumeAsset({
         grid: 2,
