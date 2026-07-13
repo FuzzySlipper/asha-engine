@@ -70,6 +70,7 @@ engine-session resources retain the explicit lifetime documented by
   and migration boundary for named Wave 1 consumers. It is not the preferred
   provider topology; its quarantine and deletion conditions are owned by the
   compatibility campaign task.
-- Native wire declaration generation and boundary validation are separate
-  follow-up tasks. This builder establishes the authority object graph they
-  expose.
+- Native wire declarations, operation limits, runtime validation, and structured
+  error envelopes are generated or bound from the bridge/protocol source of
+  truth. This builder establishes the authority object graph behind that
+  validated boundary; it does not provide an alternate unvalidated route.

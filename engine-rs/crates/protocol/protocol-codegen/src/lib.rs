@@ -38,13 +38,19 @@ pub struct GeneratedFile {
 /// Render every generated contract file. Pure and deterministic: calling this
 /// twice yields byte-identical results and it touches no filesystem.
 pub fn generated_files() -> Vec<GeneratedFile> {
-    source::all_modules()
+    let modules = source::all_modules();
+    let mut files = modules
         .iter()
         .map(|module| GeneratedFile {
             rel_path: format!("{OUTPUT_DIR}/{}.ts", module.name),
             contents: schema::render_module(module),
         })
-        .collect()
+        .collect::<Vec<_>>();
+    files.push(GeneratedFile {
+        rel_path: format!("{OUTPUT_DIR}/wire.ts"),
+        contents: schema::render_wire_module(&modules).expect("wire validator generation failed"),
+    });
+    files
 }
 
 /// The repository root, derived from this crate's compile-time location:
@@ -192,6 +198,7 @@ mod tests {
                 format!("{OUTPUT_DIR}/view.ts"),
                 format!("{OUTPUT_DIR}/entityAuthoring.ts"),
                 format!("{OUTPUT_DIR}/index.ts"),
+                format!("{OUTPUT_DIR}/wire.ts"),
             ],
         );
     }

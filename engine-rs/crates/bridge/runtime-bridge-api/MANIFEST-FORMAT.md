@@ -31,6 +31,8 @@ wasm_replay_package: "@asha/wasm-replay-bridge"
 error_type         : single typed error enum for all operations
 error_families     : complete snake_case RuntimeBridgeError kind list
 handle_types       : opaque bridge-owned handle type names
+default_max_input_bytes : positive default request bound
+default_max_output_bytes: positive default response bound
 
 [[capability]]
 id                : snake_case, unique
@@ -54,6 +56,8 @@ summary           : one-line human description
 facade_method     : optional explicit camelCase public method override
 facade_input      : optional bridge::/contracts::/session:: semantic type override
 facade_output     : optional bridge::/contracts::/session:: semantic type override
+max_input_bytes   : optional positive operation-specific request bound
+max_output_bytes  : optional positive operation-specific response bound
 ```
 
 `harness/bridge/validate-manifest.py` enforces:
@@ -70,6 +74,7 @@ facade_output     : optional bridge::/contracts::/session:: semantic type overri
 8. Stable operations have exactly one handwritten TypeScript binding signature and one concrete
    Rust `#[napi]` export. Missing, duplicate, extra, or mismatched wiring fails before runtime.
 9. Generated artifacts match the committed manifest byte-for-byte.
+10. Every operation resolves positive request/response limits and generated wire type ownership.
 
 ## 3. Generated boring glue
 
@@ -77,11 +82,11 @@ facade_output     : optional bridge::/contracts::/session:: semantic type overri
 
 | Artifact | Generated path | Shape |
 |---|---|---|
-| Operation descriptors | `ts/packages/runtime-bridge/src/generated/operations.ts` | tagged descriptor union, error families, stable/quarantined and native-wiring inventory |
+| Operation descriptors | `ts/packages/runtime-bridge/src/generated/operations.ts` | tagged descriptor union, wire type ownership, byte limits, error families, stable/quarantined and native-wiring inventory |
 | Capability facade | `ts/packages/runtime-bridge/src/generated/surfaces.ts` | grouped typed port interfaces, root bridge, ports, and lifecycle contracts |
 | Native TS declaration | `ts/packages/native-bridge/src/generated/addon-surface.ts` | exact stable export-name union checked against handwritten semantic signatures |
 | Runtime Rust metadata | `engine-rs/crates/bridge/runtime-bridge-api/src/generated/mod.rs` | typed operation/capability binding inventory |
-| Native Rust metadata | `engine-rs/crates/bridge/native-bridge/src/generated/mod.rs` | exact stable native-export inventory |
+| Native Rust metadata | `engine-rs/crates/bridge/native-bridge/src/generated/mod.rs` | exact stable native-export inventory plus request/response limits |
 | Conformance snapshot | `ts/packages/runtime-bridge/src/generated/conformance.json` | machine-readable capability, signature, and wiring snapshot |
 | Native reference | `engine-rs/crates/bridge/native-bridge/src/generated/EXPORTS.md` | inspectable operation/capability/type table |
 
@@ -100,9 +105,22 @@ state-mutation phases, render-diff collection, buffer allocation and disposal, e
 classification, and native/WASM divergence reporting. The generated facade interface makes the
 handwritten mock and native adapters structurally accountable; it does not implement them.
 
-Facade overrides map a manifest protocol reference to an existing semantic type owner. They do not
-generate validation or conversion logic. Any Rust/N-API conversion with semantic choices remains
-next to its handwritten native body.
+Facade overrides map a manifest protocol reference to an existing semantic type owner. The
+protocol code generator emits recursive runtime wire validators from the same Rust-derived schema
+IR that emits TypeScript DTOs. Manifest codegen binds each operation to a generated, custom,
+handle, or unit validator. Custom transition DTOs keep explicit exact-shape validators until they
+move into protocol ownership. Any Rust/N-API conversion with semantic choices remains next to its
+handwritten native body.
+
+The public native adapter validates the canonical input before invocation and the canonical output
+before returning it to a consumer. Rust JSON entrypoints independently enforce generated operation
+limits, deserialize into the authoritative DTO, and compare the decoded canonical shape to reject
+unknown nested fields. A JSON parse plus a TypeScript assertion is never the final decode step.
+
+Native failures cross N-API as a bounded version-1 envelope with `code`, `operation`, `path`,
+`retryable`, `message`, bounded `details`, and `provenance: native_rust`. The TypeScript facade
+validates this envelope and exposes those fields on the backward-compatible `RuntimeBridgeError`;
+it does not recover classifications from prose prefixes.
 
 ## 5. Conformance shape
 

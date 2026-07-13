@@ -36,6 +36,23 @@ RUST_BANNER = (
     "// Source of truth: engine-rs/crates/bridge/runtime-bridge-api/bridge-manifest.toml\n"
 )
 
+PROTOCOL_WIRE_MODULES = {
+    "protocol_diagnostics": "diagnostics",
+    "protocol_game_rules": "gameRules",
+    "protocol_input": "input",
+    "protocol_presentation": "presentation",
+    "protocol_render": "render",
+    "protocol_scene": "scene",
+    "protocol_time_control": "timeControl",
+    "protocol_view": "view",
+    "protocol_voxel": "voxel",
+    "protocol_voxel_annotation": "voxelAnnotation",
+    "protocol_voxel_asset": "voxelAsset",
+    "protocol_voxel_conversion": "voxelConversion",
+    "protocol_voxel_edit_history": "voxelEditHistory",
+}
+CONTRACT_WIRE_MODULES = {"RenderFrameDiff": "render"}
+
 
 def snake_to_camel(name: str) -> str:
     head, *rest = name.split("_")
@@ -94,6 +111,15 @@ def validate_model(
     error_families = manifest.get("error_families", [])
     if not error_families or len(error_families) != len(set(error_families)):
         raise ValueError("manifest.error_families must be a non-empty unique list")
+    for field in ("default_max_input_bytes", "default_max_output_bytes"):
+        value = manifest.get(field)
+        if not isinstance(value, int) or value <= 0:
+            raise ValueError(f"manifest.{field} must be a positive integer")
+    for operation in operations:
+        for field in ("max_input_bytes", "max_output_bytes"):
+            value = operation.get(field)
+            if value is not None and (not isinstance(value, int) or value <= 0):
+                raise ValueError(f"operation {operation.get('name')} {field} must be positive")
 
 
 def operation_capabilities(capabilities: list[dict[str, Any]]) -> dict[str, str]:
@@ -102,6 +128,28 @@ def operation_capabilities(capabilities: list[dict[str, Any]]) -> dict[str, str]
         for capability in capabilities
         for operation in capability["operations"]
     }
+
+
+def wire_type_ref(operation: dict[str, Any], field: str) -> tuple[str, str, bool]:
+    reference = operation.get(f"facade_{field}") or operation[field]
+    repeated = reference.endswith("[]")
+    if repeated:
+        reference = reference[:-2]
+    if reference == "Unit":
+        return "unit", "Unit", repeated
+    if "::" not in reference:
+        owner = (
+            "handle"
+            if reference.endswith("Handle") or reference == "FrameCursor"
+            else "custom"
+        )
+        return owner, reference, repeated
+    namespace, type_name = reference.split("::", 1)
+    if namespace in PROTOCOL_WIRE_MODULES:
+        return "generated", f"{PROTOCOL_WIRE_MODULES[namespace]}.{type_name}", repeated
+    if namespace == "contracts" and type_name in CONTRACT_WIRE_MODULES:
+        return "generated", f"{CONTRACT_WIRE_MODULES[type_name]}.{type_name}", repeated
+    return "custom", type_name, repeated
 
 
 def emit_operations_ts(
@@ -123,23 +171,49 @@ def emit_operations_ts(
         "  readonly errors: string;",
         "  readonly facadeMethod: string;",
         "  readonly input: string;",
+        "  readonly inputWire: BridgeWireTypeRef;",
         "  readonly manifestName: string;",
+        "  readonly maxInputBytes: number;",
+        "  readonly maxOutputBytes: number;",
         "  readonly nativeWired: boolean;",
         "  readonly output: string;",
+        "  readonly outputWire: BridgeWireTypeRef;",
         "  readonly surface: BridgeSurface;",
+        "}",
+        "",
+        "export interface BridgeWireTypeRef {",
+        "  readonly name: string;",
+        "  readonly owner: 'custom' | 'generated' | 'handle' | 'unit';",
+        "  readonly repeated: boolean;",
         "}",
         "",
         "const BRIDGE_OPERATION_DESCRIPTORS = [",
     ])
     for operation in operations:
+        input_owner, input_name, input_repeated = wire_type_ref(operation, "input")
+        output_owner, output_name, output_repeated = wire_type_ref(operation, "output")
         lines.append("  {")
         lines.append(f"    capability: '{capability_by_operation[operation['name']]}',")
         lines.append(f"    errors: '{operation['errors']}',")
         lines.append(f"    facadeMethod: '{facade_method(operation)}',")
         lines.append(f"    input: '{operation['input']}',")
+        lines.append(
+            f"    inputWire: {{ name: '{input_name}', owner: '{input_owner}', "
+            f"repeated: {str(input_repeated).lower()} }},"
+        )
         lines.append(f"    manifestName: '{operation['name']}',")
+        lines.append(
+            f"    maxInputBytes: {operation.get('max_input_bytes', manifest['default_max_input_bytes'])},"
+        )
+        lines.append(
+            f"    maxOutputBytes: {operation.get('max_output_bytes', manifest['default_max_output_bytes'])},"
+        )
         lines.append(f"    nativeWired: {str(operation['surface'] == 'stable').lower()},")
         lines.append(f"    output: '{operation['output']}',")
+        lines.append(
+            f"    outputWire: {{ name: '{output_name}', owner: '{output_owner}', "
+            f"repeated: {str(output_repeated).lower()} }},"
+        )
         lines.append(f"    surface: '{operation['surface']}',")
         lines.append("  },")
     lines.extend([
@@ -299,10 +373,26 @@ def emit_conformance_json(
                 "capability": capability_by_operation[operation["name"]],
                 "surface": operation["surface"],
                 "nativeWired": operation["surface"] == "stable",
+                "maxInputBytes": operation.get(
+                    "max_input_bytes", manifest["default_max_input_bytes"]
+                ),
+                "maxOutputBytes": operation.get(
+                    "max_output_bytes", manifest["default_max_output_bytes"]
+                ),
                 "input": operation["input"],
                 "output": operation["output"],
                 "facadeInput": operation.get("facade_input"),
                 "facadeOutput": operation.get("facade_output"),
+                "inputWire": {
+                    "owner": wire_type_ref(operation, "input")[0],
+                    "name": wire_type_ref(operation, "input")[1],
+                    "repeated": wire_type_ref(operation, "input")[2],
+                },
+                "outputWire": {
+                    "owner": wire_type_ref(operation, "output")[0],
+                    "name": wire_type_ref(operation, "output")[1],
+                    "repeated": wire_type_ref(operation, "output")[2],
+                },
                 "errors": operation["errors"],
             }
             for operation in operations
@@ -312,6 +402,7 @@ def emit_conformance_json(
 
 
 def emit_rust_operations(
+    manifest: dict[str, Any],
     operations: list[dict[str, Any]],
     capabilities: list[dict[str, Any]],
 ) -> str:
@@ -334,6 +425,8 @@ def emit_rust_operations(
         "    pub input: &'static str,",
         "    pub output: &'static str,",
         "    pub errors: &'static str,",
+        "    pub max_input_bytes: usize,",
+        "    pub max_output_bytes: usize,",
         "    pub surface: GeneratedBridgeSurface,",
         "}",
         "",
@@ -349,6 +442,8 @@ def emit_rust_operations(
             f"        input: \"{operation['input']}\",",
             f"        output: \"{operation['output']}\",",
             f"        errors: \"{operation['errors']}\",",
+            f"        max_input_bytes: {operation.get('max_input_bytes', manifest['default_max_input_bytes'])},",
+            f"        max_output_bytes: {operation.get('max_output_bytes', manifest['default_max_output_bytes'])},",
             f"        surface: GeneratedBridgeSurface::{surface},",
             "    },",
         ])
@@ -380,20 +475,42 @@ def emit_rust_operations(
     return "\n".join(lines)
 
 
-def emit_rust_native_exports(operations: list[dict[str, Any]]) -> str:
+def emit_rust_native_exports(
+    manifest: dict[str, Any], operations: list[dict[str, Any]]
+) -> str:
     stable = [operation for operation in operations if operation["surface"] == "stable"]
     lines = [
         RUST_BANNER,
         "#![allow(dead_code)]",
         "",
-        "pub(crate) const REQUIRED_NATIVE_EXPORTS: &[(&str, &str)] = &[",
+        "pub(crate) const REQUIRED_NATIVE_EXPORTS: &[(&str, &str, usize, usize)] = &[",
     ]
-    lines.extend(
-        f"    (\"{operation['name']}\", \"{facade_method(operation)}\"),"
-        for operation in stable
-    )
+    for operation in stable:
+        name = operation["name"]
+        method = facade_method(operation)
+        max_input = operation.get("max_input_bytes", manifest["default_max_input_bytes"])
+        max_output = operation.get("max_output_bytes", manifest["default_max_output_bytes"])
+        row = f'    ("{name}", "{method}", {max_input}, {max_output}),'
+        if len(row) <= 69:
+            lines.append(row)
+        else:
+            lines.extend([
+                "    (",
+                f'        "{name}",',
+                f'        "{method}",',
+                f"        {max_input},",
+                f"        {max_output},",
+                "    ),",
+            ])
     lines.extend([
         "];",
+        "",
+        "pub(crate) fn native_wire_limits(operation: &str) -> Option<(usize, usize)> {",
+        "    REQUIRED_NATIVE_EXPORTS",
+        "        .iter()",
+        "        .find(|entry| entry.0 == operation)",
+        "        .map(|entry| (entry.2, entry.3))",
+        "}",
         "",
         "#[cfg(test)]",
         "mod tests {",
@@ -444,8 +561,8 @@ def generated_artifacts() -> dict[pathlib.Path, str]:
         SURFACES_TS: emit_surfaces_ts(operations, capabilities),
         CONF_JSON: emit_conformance_json(manifest, operations, capabilities),
         NATIVE_SURFACE_TS: emit_native_surface_ts(operations),
-        RUST_OPERATIONS: emit_rust_operations(operations, capabilities),
-        RUST_NATIVE_EXPORTS: emit_rust_native_exports(operations),
+        RUST_OPERATIONS: emit_rust_operations(manifest, operations, capabilities),
+        RUST_NATIVE_EXPORTS: emit_rust_native_exports(manifest, operations),
         EXPORTS_MD: emit_exports_md(operations, capabilities),
     }
 

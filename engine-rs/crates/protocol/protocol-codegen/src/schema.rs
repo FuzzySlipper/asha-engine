@@ -277,6 +277,361 @@ fn lower_first(s: &str) -> String {
     }
 }
 
+/// Render runtime wire validators from the same IR that emits TypeScript DTOs.
+///
+/// The output is intentionally a small data-driven structural validator. It
+/// checks the serializable contract shape only; semantic validation remains in
+/// the owning Rust lanes.
+pub fn render_wire_module(modules: &[Module]) -> Result<String, String> {
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let contract_modules = modules
+        .iter()
+        .filter(|module| module.name != "index")
+        .collect::<Vec<_>>();
+    let mut module_names = BTreeSet::new();
+    for module in &contract_modules {
+        module_names.insert(module.name);
+    }
+
+    let mut schemas = Vec::new();
+    for module in contract_modules {
+        let local_names = module
+            .items
+            .iter()
+            .filter_map(item_name)
+            .collect::<BTreeSet<_>>();
+        let mut imported_names = BTreeMap::new();
+        for import in &module.imports {
+            let imported_module = import
+                .from
+                .strip_prefix("./")
+                .and_then(|value| value.strip_suffix(".js"))
+                .ok_or_else(|| format!("unsupported generated import {}", import.from))?;
+            if !module_names.contains(imported_module) {
+                return Err(format!(
+                    "generated import {} points at unknown module {imported_module}",
+                    import.from
+                ));
+            }
+            for name in &import.names {
+                imported_names.insert(name.as_str(), imported_module);
+            }
+        }
+        for item in &module.items {
+            let Some(name) = item_name(item) else {
+                continue;
+            };
+            let schema = render_item_schema(item, module.name, &local_names, &imported_names)?;
+            schemas.push((format!("{}.{}", module.name, name), schema));
+        }
+    }
+
+    let mut out = String::from(BANNER);
+    out.push_str(
+        "\n\nexport type GeneratedWireValue =\n\
+         \x20 | null\n\
+         \x20 | boolean\n\
+         \x20 | number\n\
+         \x20 | string\n\
+         \x20 | readonly GeneratedWireValue[]\n\
+         \x20 | { readonly [key: string]: GeneratedWireValue };\n\n\
+         export type GeneratedWireIssueCode =\n\
+         \x20 | 'missing_field'\n\
+         \x20 | 'noncanonical_number'\n\
+         \x20 | 'unknown_field'\n\
+         \x20 | 'unknown_type'\n\
+         \x20 | 'unknown_variant'\n\
+         \x20 | 'wrong_type';\n\n\
+         export interface GeneratedWireValidationIssue {\n\
+         \x20 readonly code: GeneratedWireIssueCode;\n\
+         \x20 readonly path: string;\n\
+         \x20 readonly message: string;\n\
+         }\n\n\
+         export type GeneratedWireValidationResult =\n\
+         \x20 | { readonly valid: true }\n\
+         \x20 | { readonly valid: false; readonly issue: GeneratedWireValidationIssue };\n\n\
+         type WireSchema =\n\
+         \x20 | { readonly kind: 'array'; readonly item: WireSchema }\n\
+         \x20 | { readonly kind: 'boolean' }\n\
+         \x20 | { readonly kind: 'enum'; readonly values: readonly string[] }\n\
+         \x20 | { readonly kind: 'map'; readonly key: WireSchema; readonly value: WireSchema }\n\
+         \x20 | { readonly kind: 'nullable'; readonly value: WireSchema }\n\
+         \x20 | { readonly kind: 'number'; readonly integer: boolean }\n\
+         \x20 | { readonly kind: 'object'; readonly fields: Readonly<Record<string, WireSchema>> }\n\
+         \x20 | { readonly kind: 'ref'; readonly name: string }\n\
+         \x20 | { readonly kind: 'string' }\n\
+         \x20 | { readonly kind: 'tuple'; readonly items: readonly WireSchema[] }\n\
+         \x20 | {\n\
+         \x20     readonly kind: 'union';\n\
+         \x20     readonly discriminant: string;\n\
+         \x20     readonly variants: Readonly<Record<string, Readonly<Record<string, WireSchema>>>>;\n\
+         \x20   };\n\n\
+         const GENERATED_WIRE_SCHEMAS: Readonly<Record<string, WireSchema>> = {\n",
+    );
+    for (name, schema) in &schemas {
+        out.push_str(&format!("  '{}': {},\n", escape_ts(name), schema));
+    }
+    out.push_str("};\n\nconst GENERATED_WIRE_TYPE_NAME_VALUES = [\n");
+    for (name, _) in &schemas {
+        out.push_str(&format!("  '{}',\n", escape_ts(name)));
+    }
+    out.push_str(
+        "] as const;\n\n\
+         export type GeneratedWireTypeName = (typeof GENERATED_WIRE_TYPE_NAME_VALUES)[number];\n\
+         export const GENERATED_WIRE_TYPE_NAMES: readonly string[] = GENERATED_WIRE_TYPE_NAME_VALUES;\n\n\
+         function issue(\n\
+         \x20 code: GeneratedWireIssueCode,\n\
+         \x20 path: string,\n\
+         \x20 message: string,\n\
+         ): GeneratedWireValidationResult {\n\
+         \x20 return { valid: false, issue: { code, path, message } };\n\
+         }\n\n\
+         function isObject(value: GeneratedWireValue): value is { readonly [key: string]: GeneratedWireValue } {\n\
+         \x20 return typeof value === 'object' && value !== null && !Array.isArray(value);\n\
+         }\n\n\
+         function childPath(path: string, field: string): string {\n\
+         \x20 return /^[A-Za-z_$][A-Za-z0-9_$]*$/u.test(field)\n\
+         \x20   ? `${path}.${field}`\n\
+         \x20   : `${path}[${JSON.stringify(field)}]`;\n\
+         }\n\n\
+         function validateSchema(\n\
+         \x20 schema: WireSchema,\n\
+         \x20 value: GeneratedWireValue,\n\
+         \x20 path: string,\n\
+         ): GeneratedWireValidationResult {\n\
+         \x20 switch (schema.kind) {\n\
+         \x20   case 'boolean':\n\
+         \x20     return typeof value === 'boolean' ? { valid: true } : issue('wrong_type', path, 'expected boolean');\n\
+         \x20   case 'string':\n\
+         \x20     return typeof value === 'string' ? { valid: true } : issue('wrong_type', path, 'expected string');\n\
+         \x20   case 'number':\n\
+         \x20     if (typeof value !== 'number' || !Number.isFinite(value)) {\n\
+         \x20       return issue('wrong_type', path, 'expected finite number');\n\
+         \x20     }\n\
+         \x20     if (schema.integer && (!Number.isSafeInteger(value) || value < 0)) {\n\
+         \x20       return issue('noncanonical_number', path, 'expected non-negative safe integer');\n\
+         \x20     }\n\
+         \x20     return { valid: true };\n\
+         \x20   case 'enum':\n\
+         \x20     return typeof value === 'string' && schema.values.includes(value)\n\
+         \x20       ? { valid: true }\n\
+         \x20       : issue('unknown_variant', path, `expected one of ${schema.values.join(', ')}`);\n\
+         \x20   case 'nullable':\n\
+         \x20     return value === null ? { valid: true } : validateSchema(schema.value, value, path);\n\
+         \x20   case 'ref': {\n\
+         \x20     const target = GENERATED_WIRE_SCHEMAS[schema.name];\n\
+         \x20     return target === undefined\n\
+         \x20       ? issue('unknown_type', path, `unknown generated wire type ${schema.name}`)\n\
+         \x20       : validateSchema(target, value, path);\n\
+         \x20   }\n\
+         \x20   case 'array':\n\
+         \x20     if (!Array.isArray(value)) return issue('wrong_type', path, 'expected array');\n\
+         \x20     const arrayValue = value as readonly GeneratedWireValue[];\n\
+         \x20     for (let index = 0; index < arrayValue.length; index += 1) {\n\
+         \x20       const result = validateSchema(schema.item, arrayValue[index] ?? null, `${path}[${index}]`);\n\
+         \x20       if (!result.valid) return result;\n\
+         \x20     }\n\
+         \x20     return { valid: true };\n\
+         \x20   case 'tuple':\n\
+         \x20     if (!Array.isArray(value) || value.length !== schema.items.length) {\n\
+         \x20       return issue('wrong_type', path, `expected tuple of length ${schema.items.length}`);\n\
+         \x20     }\n\
+         \x20     const tupleValue = value as readonly GeneratedWireValue[];\n\
+         \x20     for (let index = 0; index < schema.items.length; index += 1) {\n\
+         \x20       const itemSchema = schema.items[index];\n\
+         \x20       if (itemSchema === undefined) return issue('unknown_type', path, 'missing tuple schema');\n\
+         \x20       const result = validateSchema(itemSchema, tupleValue[index] ?? null, `${path}[${index}]`);\n\
+         \x20       if (!result.valid) return result;\n\
+         \x20     }\n\
+         \x20     return { valid: true };\n\
+         \x20   case 'map':\n\
+         \x20     if (!isObject(value)) return issue('wrong_type', path, 'expected object map');\n\
+         \x20     for (const [key, entry] of Object.entries(value)) {\n\
+         \x20       const keyResult = validateSchema(schema.key, key, `${path}{key}`);\n\
+         \x20       if (!keyResult.valid) return keyResult;\n\
+         \x20       const valueResult = validateSchema(schema.value, entry, childPath(path, key));\n\
+         \x20       if (!valueResult.valid) return valueResult;\n\
+         \x20     }\n\
+         \x20     return { valid: true };\n\
+         \x20   case 'object':\n\
+         \x20     return validateObject(schema.fields, value, path);\n\
+         \x20   case 'union': {\n\
+         \x20     if (!isObject(value)) return issue('wrong_type', path, 'expected tagged object');\n\
+         \x20     const tag = value[schema.discriminant];\n\
+         \x20     if (typeof tag !== 'string' || schema.variants[tag] === undefined) {\n\
+         \x20       return issue('unknown_variant', childPath(path, schema.discriminant), 'unknown tagged-union variant');\n\
+         \x20     }\n\
+         \x20     return validateObject(\n\
+         \x20       { [schema.discriminant]: { kind: 'enum', values: [tag] }, ...schema.variants[tag] },\n\
+         \x20       value,\n\
+         \x20       path,\n\
+         \x20     );\n\
+         \x20   }\n\
+         \x20 }\n\
+         }\n\n\
+         function validateObject(\n\
+         \x20 fields: Readonly<Record<string, WireSchema>>,\n\
+         \x20 value: GeneratedWireValue,\n\
+         \x20 path: string,\n\
+         ): GeneratedWireValidationResult {\n\
+         \x20 if (!isObject(value)) return issue('wrong_type', path, 'expected object');\n\
+         \x20 for (const key of Object.keys(value)) {\n\
+         \x20   if (fields[key] === undefined) return issue('unknown_field', childPath(path, key), 'unknown field');\n\
+         \x20 }\n\
+         \x20 for (const [field, fieldSchema] of Object.entries(fields)) {\n\
+         \x20   if (!(field in value)) return issue('missing_field', childPath(path, field), 'missing required field');\n\
+         \x20   const result = validateSchema(fieldSchema, value[field] ?? null, childPath(path, field));\n\
+         \x20   if (!result.valid) return result;\n\
+         \x20 }\n\
+         \x20 return { valid: true };\n\
+         }\n\n\
+         export function validateGeneratedWireValue(\n\
+         \x20 typeName: string,\n\
+         \x20 value: GeneratedWireValue,\n\
+         \x20 path = '$',\n\
+         ): GeneratedWireValidationResult {\n\
+         \x20 const schema = GENERATED_WIRE_SCHEMAS[typeName];\n\
+         \x20 return schema === undefined\n\
+         \x20   ? issue('unknown_type', path, `unknown generated wire type ${typeName}`)\n\
+         \x20   : validateSchema(schema, value, path);\n\
+         }\n",
+    );
+    Ok(out)
+}
+
+fn item_name(item: &Item) -> Option<&str> {
+    match item {
+        Item::BrandedId { name, .. }
+        | Item::Alias { name, .. }
+        | Item::Interface { name, .. }
+        | Item::Union { name, .. } => Some(name),
+        Item::Const { .. } | Item::ReExport { .. } => None,
+    }
+}
+
+fn render_item_schema(
+    item: &Item,
+    module_name: &str,
+    local_names: &std::collections::BTreeSet<&str>,
+    imported_names: &std::collections::BTreeMap<&str, &str>,
+) -> Result<String, String> {
+    match item {
+        Item::BrandedId { .. } => Ok("{ kind: 'number', integer: true }".to_string()),
+        Item::Alias { ty, .. } => render_type_schema(ty, module_name, local_names, imported_names),
+        Item::Interface { fields, .. } => Ok(format!(
+            "{{ kind: 'object', fields: {} }}",
+            render_fields_schema(fields, module_name, local_names, imported_names)?
+        )),
+        Item::Union {
+            discriminant,
+            variants,
+            ..
+        } => {
+            let mut rendered = Vec::new();
+            for variant in variants {
+                rendered.push(format!(
+                    "'{}': {}",
+                    escape_ts(&variant.tag),
+                    render_fields_schema(
+                        &variant.fields,
+                        module_name,
+                        local_names,
+                        imported_names,
+                    )?
+                ));
+            }
+            Ok(format!(
+                "{{ kind: 'union', discriminant: '{}', variants: {{ {} }} }}",
+                escape_ts(discriminant),
+                rendered.join(", ")
+            ))
+        }
+        Item::Const { .. } | Item::ReExport { .. } => {
+            Err("constants and re-exports have no wire schema".to_string())
+        }
+    }
+}
+
+fn render_fields_schema(
+    fields: &[Field],
+    module_name: &str,
+    local_names: &std::collections::BTreeSet<&str>,
+    imported_names: &std::collections::BTreeMap<&str, &str>,
+) -> Result<String, String> {
+    let rendered = fields
+        .iter()
+        .map(|field| {
+            Ok(format!(
+                "'{}': {}",
+                escape_ts(&field.name),
+                render_type_schema(&field.ty, module_name, local_names, imported_names)?
+            ))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    Ok(format!("{{ {} }}", rendered.join(", ")))
+}
+
+fn render_type_schema(
+    ty: &TsType,
+    module_name: &str,
+    local_names: &std::collections::BTreeSet<&str>,
+    imported_names: &std::collections::BTreeMap<&str, &str>,
+) -> Result<String, String> {
+    match ty {
+        TsType::Prim(TsPrim::Number) => Ok("{ kind: 'number', integer: false }".to_string()),
+        TsType::Prim(TsPrim::String) => Ok("{ kind: 'string' }".to_string()),
+        TsType::Prim(TsPrim::Boolean) => Ok("{ kind: 'boolean' }".to_string()),
+        TsType::Ref(name) => {
+            let owner = if local_names.contains(name.as_str()) {
+                module_name
+            } else {
+                imported_names.get(name.as_str()).copied().ok_or_else(|| {
+                    format!("unresolved generated wire reference {module_name}.{name}")
+                })?
+            };
+            Ok(format!(
+                "{{ kind: 'ref', name: '{}.{}' }}",
+                escape_ts(owner),
+                escape_ts(name)
+            ))
+        }
+        TsType::Array(item) => Ok(format!(
+            "{{ kind: 'array', item: {} }}",
+            render_type_schema(item, module_name, local_names, imported_names)?
+        )),
+        TsType::Tuple(items) => Ok(format!(
+            "{{ kind: 'tuple', items: [{}] }}",
+            items
+                .iter()
+                .map(|item| render_type_schema(item, module_name, local_names, imported_names))
+                .collect::<Result<Vec<_>, String>>()?
+                .join(", ")
+        )),
+        TsType::Nullable(value) => Ok(format!(
+            "{{ kind: 'nullable', value: {} }}",
+            render_type_schema(value, module_name, local_names, imported_names)?
+        )),
+        TsType::Map(key, value) => Ok(format!(
+            "{{ kind: 'map', key: {}, value: {} }}",
+            render_type_schema(key, module_name, local_names, imported_names)?,
+            render_type_schema(value, module_name, local_names, imported_names)?
+        )),
+        TsType::StringEnum(values) => Ok(format!(
+            "{{ kind: 'enum', values: [{}] }}",
+            values
+                .iter()
+                .map(|value| format!("'{}'", escape_ts(value)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )),
+    }
+}
+
+fn escape_ts(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('\'', "\\'")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

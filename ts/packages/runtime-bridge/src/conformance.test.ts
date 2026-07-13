@@ -993,7 +993,13 @@ void test('native bridge matches the mock when the addon is built (else skip)', 
   bridge.releaseBuffer(buffer.handle);
   assert.throws(
     () => bridge.getBuffer(buffer.handle),
-    (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'unknown_handle',
+    (error: unknown) =>
+      error instanceof RuntimeBridgeError &&
+      error.kind === 'unknown_handle' &&
+      error.operation === 'get_buffer' &&
+      error.path === '$' &&
+      error.retryable === false &&
+      error.provenance === 'native_rust',
   );
 
   bridge.unloadProjectBundle();

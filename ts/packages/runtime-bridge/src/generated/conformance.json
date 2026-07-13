@@ -196,10 +196,22 @@
       "capability": "bundle_lifecycle",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_runtime::EngineConfig",
       "output": "EngineHandle",
       "facadeInput": "bridge::EngineConfig",
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "custom",
+        "name": "EngineConfig",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "handle",
+        "name": "EngineHandle",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -208,10 +220,22 @@
       "capability": "time_simulation",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_runtime::StepInputEnvelope",
       "output": "protocol_runtime::StepResult",
       "facadeInput": "bridge::StepInputEnvelope",
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "custom",
+        "name": "StepInputEnvelope",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "custom",
+        "name": "StepResult",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -220,10 +244,22 @@
       "capability": "time_simulation",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_time_control::TimeControlCommand",
       "output": "protocol_time_control::TimeControlReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "timeControl.TimeControlCommand",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "timeControl.TimeControlReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -232,10 +268,22 @@
       "capability": "time_simulation",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "Unit",
       "output": "protocol_time_control::TimeControlState",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "unit",
+        "name": "Unit",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "timeControl.TimeControlState",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -244,10 +292,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 2097152,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel::CommandBatch",
       "output": "protocol_voxel::CommandResult",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxel.CommandBatch",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxel.CommandResult",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -256,10 +316,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel::PickRay",
       "output": "protocol_voxel::PickResult",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxel.PickRay",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxel.PickResult",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -268,10 +340,22 @@
       "capability": "camera",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_view::CollisionConstrainedCameraInputEnvelope",
       "output": "protocol_view::CameraCollisionSnapshot",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "view.CollisionConstrainedCameraInputEnvelope",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "view.CameraCollisionSnapshot",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -280,10 +364,22 @@
       "capability": "gameplay",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_view::GeneratedTunnelRuntimeApplyRequest",
       "output": "protocol_view::GeneratedTunnelRuntimeApplyReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "view.GeneratedTunnelRuntimeApplyRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "view.GeneratedTunnelRuntimeApplyReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -292,10 +388,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_view::ScreenPointToPickRayRequest",
       "output": "protocol_view::VoxelSelectionSnapshot",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "view.ScreenPointToPickRayRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "view.VoxelSelectionSnapshot",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -304,10 +412,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_render::VoxelMeshEvidenceRequest",
       "output": "protocol_render::VoxelMeshEvidenceSnapshot",
       "facadeInput": "bridge::VoxelMeshEvidenceRequest",
       "facadeOutput": "bridge::VoxelMeshEvidenceSnapshot",
+      "inputWire": {
+        "owner": "custom",
+        "name": "VoxelMeshEvidenceRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "custom",
+        "name": "VoxelMeshEvidenceSnapshot",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -316,10 +436,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_conversion::VoxelConversionPlanRequest",
       "output": "protocol_voxel_conversion::VoxelConversionPlan",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelConversionPlanRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelConversionPlan",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -328,10 +460,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_conversion::VoxelConversionSourceRegistrationRequest",
       "output": "protocol_voxel_conversion::VoxelConversionSourceRegistration",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelConversionSourceRegistrationRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelConversionSourceRegistration",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -340,10 +484,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_conversion::VoxelConversionMeshAssetRegistrationRequest",
       "output": "protocol_voxel_conversion::VoxelConversionSourceRegistration",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelConversionMeshAssetRegistrationRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelConversionSourceRegistration",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -352,10 +508,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 268468224,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_conversion::VoxelConversionMeshSourceImportRequest",
       "output": "protocol_voxel_conversion::VoxelConversionMeshSourceImportReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelConversionMeshSourceImportRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelConversionMeshSourceImportReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -364,10 +532,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_conversion::VoxelConversionSourceMetadataRequest",
       "output": "protocol_voxel_conversion::VoxelConversionSourceMetadataReadout",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelConversionSourceMetadataRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelConversionSourceMetadataReadout",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -376,10 +556,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_conversion::VoxelConversionPreviewRequest",
       "output": "protocol_voxel_conversion::VoxelConversionPreview",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelConversionPreviewRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelConversionPreview",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -388,10 +580,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_conversion::VoxelConversionApplyRequest",
       "output": "protocol_voxel_conversion::VoxelConversionReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelConversionApplyRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelConversionReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -400,10 +604,22 @@
       "capability": "replay_evidence",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_conversion::VoxelConversionEvidenceRef[]",
       "output": "protocol_voxel_conversion::VoxelConversionEvidenceRef[]",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelConversionEvidenceRef",
+        "repeated": true
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelConversionEvidenceRef",
+        "repeated": true
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -412,10 +628,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_conversion::VoxelModelInfoRequest",
       "output": "protocol_voxel_conversion::VoxelModelInfoReadout",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelModelInfoRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelModelInfoReadout",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -424,10 +652,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_conversion::VoxelModelWindowRequest",
       "output": "protocol_voxel_conversion::VoxelModelWindowReadout",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelModelWindowRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelConversion.VoxelModelWindowReadout",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -436,10 +676,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_asset::VoxelVolumeAssetExportRequest",
       "output": "protocol_voxel_asset::VoxelVolumeAssetExportReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelAsset.VoxelVolumeAssetExportRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelAsset.VoxelVolumeAssetExportReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -448,10 +700,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_asset::VoxelVolumeAssetSaveRequest",
       "output": "protocol_voxel_asset::VoxelVolumeAssetSaveReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelAsset.VoxelVolumeAssetSaveRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelAsset.VoxelVolumeAssetSaveReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -460,10 +724,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_asset::VoxelVolumeAssetPaletteUpdateRequest",
       "output": "protocol_voxel_asset::VoxelVolumeAssetPaletteUpdateReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelAsset.VoxelVolumeAssetPaletteUpdateRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelAsset.VoxelVolumeAssetPaletteUpdateReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -472,10 +748,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_asset::VoxelVolumeAuthoringInitializeRequest",
       "output": "protocol_voxel_asset::VoxelVolumeAuthoringInitializeReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelAsset.VoxelVolumeAuthoringInitializeRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelAsset.VoxelVolumeAuthoringInitializeReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -484,10 +772,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_asset::VoxelVolumeAssetLoadRequest",
       "output": "protocol_voxel_asset::VoxelVolumeAssetLoadReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelAsset.VoxelVolumeAssetLoadRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelAsset.VoxelVolumeAssetLoadReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -496,10 +796,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_asset::VoxelVolumeAssetUnloadRequest",
       "output": "protocol_voxel_asset::VoxelVolumeAssetUnloadReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelAsset.VoxelVolumeAssetUnloadRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelAsset.VoxelVolumeAssetUnloadReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -508,10 +820,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_annotation::VoxelAnnotationLayerValidationRequest",
       "output": "protocol_voxel_annotation::VoxelAnnotationLayerValidationReport",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelAnnotation.VoxelAnnotationLayerValidationRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelAnnotation.VoxelAnnotationLayerValidationReport",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -520,10 +844,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_annotation::VoxelAnnotationLayerLoadRequest",
       "output": "protocol_voxel_annotation::VoxelAnnotationLayerLoadReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelAnnotation.VoxelAnnotationLayerLoadRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelAnnotation.VoxelAnnotationLayerLoadReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -532,10 +868,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_annotation::VoxelAnnotationQueryRequest",
       "output": "protocol_voxel_annotation::VoxelAnnotationQueryReadout",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelAnnotation.VoxelAnnotationQueryRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelAnnotation.VoxelAnnotationQueryReadout",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -544,10 +892,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_annotation::VoxelAnnotationEditRequest",
       "output": "protocol_voxel_annotation::VoxelAnnotationEditReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelAnnotation.VoxelAnnotationEditRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelAnnotation.VoxelAnnotationEditReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -556,10 +916,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_annotation::VoxelAnnotationLayerExportRequest",
       "output": "protocol_voxel_annotation::VoxelAnnotationLayerExportReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelAnnotation.VoxelAnnotationLayerExportRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelAnnotation.VoxelAnnotationLayerExportReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -568,10 +940,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_edit_history::VoxelEditHistoryReadRequest",
       "output": "protocol_voxel_edit_history::VoxelEditHistorySummary",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelEditHistory.VoxelEditHistoryReadRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelEditHistory.VoxelEditHistorySummary",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -580,10 +964,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_edit_history::VoxelEditHistoryRevertRequest",
       "output": "protocol_voxel_edit_history::VoxelEditHistoryRevertReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelEditHistory.VoxelEditHistoryRevertRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelEditHistory.VoxelEditHistoryRevertReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -592,10 +988,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_edit_history::VoxelEditHistoryRevertRequest",
       "output": "protocol_voxel_edit_history::VoxelEditHistoryRevertReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelEditHistory.VoxelEditHistoryRevertRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelEditHistory.VoxelEditHistoryRevertReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -604,10 +1012,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_edit_history::VoxelEditHistoryUndoRequest",
       "output": "protocol_voxel_edit_history::VoxelEditHistoryUndoReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelEditHistory.VoxelEditHistoryUndoRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelEditHistory.VoxelEditHistoryUndoReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -616,10 +1036,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_voxel_edit_history::VoxelEditHistoryRedoRequest",
       "output": "protocol_voxel_edit_history::VoxelEditHistoryRedoReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxelEditHistory.VoxelEditHistoryRedoRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxelEditHistory.VoxelEditHistoryRedoReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -628,10 +1060,22 @@
       "capability": "gameplay",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_runtime::FpsRuntimeSessionLoadRequest",
       "output": "protocol_runtime::FpsRuntimeSessionSnapshot",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "custom",
+        "name": "FpsRuntimeSessionLoadRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "custom",
+        "name": "FpsRuntimeSessionSnapshot",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -640,10 +1084,22 @@
       "capability": "gameplay",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "Unit",
       "output": "protocol_runtime::FpsRuntimeSessionSnapshot",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "unit",
+        "name": "Unit",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "custom",
+        "name": "FpsRuntimeSessionSnapshot",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -652,10 +1108,22 @@
       "capability": "gameplay",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_runtime::FpsPrimaryFireRequest",
       "output": "protocol_runtime::FpsPrimaryFireResult",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "custom",
+        "name": "FpsPrimaryFireRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "custom",
+        "name": "FpsPrimaryFireResult",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -664,10 +1132,22 @@
       "capability": "gameplay",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_runtime::GameExtensionWeaponEffectInvocationRequest",
       "output": "protocol_runtime::GameExtensionWeaponEffectInvocationResult",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "custom",
+        "name": "GameExtensionWeaponEffectInvocationRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "custom",
+        "name": "GameExtensionWeaponEffectInvocationResult",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -676,10 +1156,22 @@
       "capability": "gameplay",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_game_rules::GameRuleCatalog",
       "output": "protocol_runtime::GameRuleCatalogValidationReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "gameRules.GameRuleCatalog",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "custom",
+        "name": "GameRuleCatalogValidationReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -688,10 +1180,22 @@
       "capability": "gameplay",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_runtime::GameRuleEffectIntentRequest",
       "output": "protocol_game_rules::GameRuleResolutionReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "custom",
+        "name": "GameRuleEffectIntentRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "gameRules.GameRuleResolutionReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -700,10 +1204,22 @@
       "capability": "gameplay",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "Unit",
       "output": "protocol_runtime::GameRuleRuntimeReadout",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "unit",
+        "name": "Unit",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "custom",
+        "name": "GameRuleRuntimeReadout",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -712,10 +1228,22 @@
       "capability": "gameplay",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_runtime::FpsRuntimeSessionRestartRequest",
       "output": "protocol_runtime::FpsRuntimeSessionSnapshot",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "custom",
+        "name": "FpsRuntimeSessionRestartRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "custom",
+        "name": "FpsRuntimeSessionSnapshot",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -724,10 +1252,22 @@
       "capability": "gameplay",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_runtime::FpsEncounterLifecycleInput",
       "output": "protocol_runtime::FpsEncounterDirectorSnapshot",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "custom",
+        "name": "FpsEncounterLifecycleInput",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "custom",
+        "name": "FpsEncounterDirectorSnapshot",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -736,10 +1276,22 @@
       "capability": "gameplay",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_runtime::FpsEncounterTransitionRequest",
       "output": "protocol_runtime::FpsEncounterTransitionResult",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "custom",
+        "name": "FpsEncounterTransitionRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "custom",
+        "name": "FpsEncounterTransitionResult",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -748,10 +1300,22 @@
       "capability": "projection",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "FrameCursor",
       "output": "protocol_presentation::RuntimeProjectionFrame",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "handle",
+        "name": "FrameCursor",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "presentation.RuntimeProjectionFrame",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -760,10 +1324,22 @@
       "capability": "projection",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "FrameCursor",
       "output": "protocol_render::RenderFrameDiffDescriptor",
       "facadeInput": null,
       "facadeOutput": "contracts::RenderFrameDiff",
+      "inputWire": {
+        "owner": "handle",
+        "name": "FrameCursor",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "render.RenderFrameDiff",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -772,10 +1348,22 @@
       "capability": "scene_entities",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_render::ModelMaterialPreviewRequest",
       "output": "protocol_render::ModelMaterialPreviewSnapshot",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "render.ModelMaterialPreviewRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "render.ModelMaterialPreviewSnapshot",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -784,10 +1372,22 @@
       "capability": "scene_entities",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "Unit",
       "output": "protocol_scene::SceneObjectSnapshot",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "unit",
+        "name": "Unit",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "scene.SceneObjectSnapshot",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -796,10 +1396,22 @@
       "capability": "scene_entities",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_scene::SceneObjectCommandRequest",
       "output": "protocol_scene::SceneObjectCommandResult",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "scene.SceneObjectCommandRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "scene.SceneObjectCommandResult",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -808,10 +1420,22 @@
       "capability": "input",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_input::InputSessionConfigureRequest",
       "output": "protocol_input::InputSessionSnapshot",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "input.InputSessionConfigureRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "input.InputSessionSnapshot",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -820,10 +1444,22 @@
       "capability": "input",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_input::InputContextCommand",
       "output": "protocol_input::InputContextChangeReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "input.InputContextCommand",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "input.InputContextChangeReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -832,10 +1468,22 @@
       "capability": "input",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_input::RawInputSample",
       "output": "protocol_input::InputResolutionReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "input.RawInputSample",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "input.InputResolutionReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -844,10 +1492,22 @@
       "capability": "input",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_input::RecordedInputAction",
       "output": "protocol_input::InputActionReplayReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "input.RecordedInputAction",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "input.InputActionReplayReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -856,10 +1516,22 @@
       "capability": "input",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "Unit",
       "output": "protocol_input::InputContextStackState",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "unit",
+        "name": "Unit",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "input.InputContextStackState",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -868,10 +1540,22 @@
       "capability": "camera",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_view::CameraCreateRequest",
       "output": "protocol_view::CameraSnapshot",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "view.CameraCreateRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "view.CameraSnapshot",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -880,10 +1564,22 @@
       "capability": "camera",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_view::CameraModeCommand",
       "output": "protocol_view::CameraModeChangeReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "view.CameraModeCommand",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "view.CameraModeChangeReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -892,10 +1588,22 @@
       "capability": "camera",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_view::CameraNavigationInputEnvelope",
       "output": "protocol_view::CameraNavigationReceipt",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "view.CameraNavigationInputEnvelope",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "view.CameraNavigationReceipt",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -904,10 +1612,22 @@
       "capability": "camera",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_view::CameraControllerReadRequest",
       "output": "protocol_view::CameraControllerState",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "view.CameraControllerReadRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "view.CameraControllerState",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -916,10 +1636,22 @@
       "capability": "camera",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_view::FirstPersonCameraInputEnvelope",
       "output": "protocol_view::CameraSnapshot",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "view.FirstPersonCameraInputEnvelope",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "view.CameraSnapshot",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -928,10 +1660,22 @@
       "capability": "scene_entities",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_runtime::EnemyDirectNavMovementRequest",
       "output": "protocol_runtime::EnemyDirectNavMovementResult",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "custom",
+        "name": "EnemyDirectNavMovementRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "custom",
+        "name": "EnemyDirectNavMovementResult",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -940,10 +1684,22 @@
       "capability": "camera",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_view::CameraProjectionRequest",
       "output": "protocol_view::CameraProjectionSnapshot",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "view.CameraProjectionRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "view.CameraProjectionSnapshot",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -952,10 +1708,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "RuntimeBufferHandle",
       "output": "RuntimeBufferView",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "handle",
+        "name": "RuntimeBufferHandle",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "custom",
+        "name": "RuntimeBufferView",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -964,10 +1732,22 @@
       "capability": "voxel_assets_buffers",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "RuntimeBufferHandle",
       "output": "Unit",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "handle",
+        "name": "RuntimeBufferHandle",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "unit",
+        "name": "Unit",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -976,10 +1756,22 @@
       "capability": "bundle_lifecycle",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_project_bundle::ProjectBundleManifest",
       "output": "protocol_diagnostics::DiagnosticReportSet",
       "facadeInput": "bridge::ProjectBundleLoadRequest",
       "facadeOutput": "bridge::CompositionStatus",
+      "inputWire": {
+        "owner": "custom",
+        "name": "ProjectBundleLoadRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "custom",
+        "name": "CompositionStatus",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -988,10 +1780,22 @@
       "capability": "bundle_lifecycle",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "Unit",
       "output": "protocol_project_bundle::SaveSummary",
       "facadeInput": null,
       "facadeOutput": "bridge::ProjectBundleSaveSummary",
+      "inputWire": {
+        "owner": "unit",
+        "name": "Unit",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "custom",
+        "name": "ProjectBundleSaveSummary",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -1000,10 +1804,22 @@
       "capability": "bundle_lifecycle",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "Unit",
       "output": "protocol_diagnostics::DiagnosticReportSet",
       "facadeInput": null,
       "facadeOutput": "bridge::CompositionStatus",
+      "inputWire": {
+        "owner": "unit",
+        "name": "Unit",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "custom",
+        "name": "CompositionStatus",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -1012,10 +1828,22 @@
       "capability": "bundle_lifecycle",
       "surface": "stable",
       "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "Unit",
       "output": "Unit",
       "facadeInput": null,
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "unit",
+        "name": "Unit",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "unit",
+        "name": "Unit",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -1024,10 +1852,22 @@
       "capability": "replay_evidence",
       "surface": "quarantined",
       "nativeWired": false,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "protocol_replay::ReplayFixture",
       "output": "ReplaySessionHandle",
       "facadeInput": "bridge::ReplayFixture",
       "facadeOutput": null,
+      "inputWire": {
+        "owner": "custom",
+        "name": "ReplayFixture",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "handle",
+        "name": "ReplaySessionHandle",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     },
     {
@@ -1036,10 +1876,22 @@
       "capability": "replay_evidence",
       "surface": "quarantined",
       "nativeWired": false,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
       "input": "ReplaySessionHandle",
       "output": "protocol_replay::ReplayStepReport",
       "facadeInput": null,
       "facadeOutput": "bridge::ReplayStepReport",
+      "inputWire": {
+        "owner": "handle",
+        "name": "ReplaySessionHandle",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "custom",
+        "name": "ReplayStepReport",
+        "repeated": false
+      },
       "errors": "RuntimeBridgeError"
     }
   ]

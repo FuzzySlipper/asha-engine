@@ -680,7 +680,7 @@ function fakeAddon(calls = []) {
         },
         readRenderDiffs: (_handle, cursor) => {
             calls.push(`render:${cursor}`);
-            return { ops: [{ op: 'sentinel' }] };
+            return { ops: [] };
         },
         readProjectionFrame: (_handle, cursor) => {
             calls.push(`projection:${cursor}`);
@@ -1304,7 +1304,7 @@ void test('native conformance sequence routes through the addon without mock fal
     assert.equal(meshAssetRegistration.registered, true);
     assert.equal(meshAssetRegistration.source.assetId, 'mesh/quad');
     assert.equal(meshAssetRegistration.materialSlots[0]?.sourceMaterialId, 'mat/a');
-    assert.deepEqual(bridge.readRenderDiffs(frameCursor(0)), { ops: [{ op: 'sentinel' }] });
+    assert.deepEqual(bridge.readRenderDiffs(frameCursor(0)), { ops: [] });
     bridge.readProjectionFrame(frameCursor(0));
     assert.deepEqual(bridge.saveProjectBundle(), { artifactsWritten: 5, compactedEdits: 2, retainedEdits: 3 });
     assert.deepEqual(bridge.getProjectBundleCompositionStatus(), {
@@ -1383,12 +1383,23 @@ void test('native facade defaults omitted FPS game-rule modules before addon con
 void test('native addon semantic errors are reclassified into RuntimeBridgeError', () => {
     const addon = fakeAddon();
     addon.loadProjectBundle = () => {
-        throw new Error('InvalidInput: unsupported bundle schema 99 / protocol 1');
+        throw new Error(JSON.stringify({
+            schemaVersion: 1,
+            code: 'invalid_input',
+            operation: 'load_project_bundle',
+            path: '$.bundleSchemaVersion',
+            retryable: false,
+            message: 'unsupported bundle schema 99 / protocol 1',
+            details: ['unsupported_schema'],
+            provenance: 'native_rust',
+        }));
     };
     const bridge = new NativeRuntimeBridge(addon);
     bridge.initializeEngine({ seed: 1 });
     assert.throws(() => bridge.loadProjectBundle({ bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 1 }), (e) => e instanceof RuntimeBridgeError &&
         e.kind === 'invalid_input' &&
+        e.operation === 'load_project_bundle' &&
+        e.path === '$.bundleSchemaVersion' &&
         e.message.includes('unsupported bundle schema 99 / protocol 1'));
 });
 void test('wired native ops route through the addon, not the mock', () => {

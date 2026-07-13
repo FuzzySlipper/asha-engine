@@ -62,11 +62,34 @@ export const frameCursor = (frame: number): FrameCursor => frame as FrameCursor;
 
 export type RuntimeBridgeErrorKind = BridgeErrorFamily;
 
+export interface RuntimeBridgeErrorContext {
+  readonly operation?: string;
+  readonly path?: string;
+  readonly retryable?: boolean;
+  readonly details?: readonly string[];
+  readonly provenance?: 'native_rust' | 'runtime_facade' | 'transport_loader';
+}
+
 /** Typed, classified error for every facade operation. No JSON error blobs. */
 export class RuntimeBridgeError extends Error {
-  constructor(readonly kind: RuntimeBridgeErrorKind, message: string) {
+  readonly operation: string | null;
+  readonly path: string | null;
+  readonly retryable: boolean;
+  readonly details: readonly string[];
+  readonly provenance: RuntimeBridgeErrorContext['provenance'];
+
+  constructor(
+    readonly kind: RuntimeBridgeErrorKind,
+    message: string,
+    context: RuntimeBridgeErrorContext = {},
+  ) {
     super(`runtime bridge error [${kind}]: ${message}`);
     this.name = 'RuntimeBridgeError';
+    this.operation = context.operation ?? null;
+    this.path = context.path ?? null;
+    this.retryable = context.retryable ?? false;
+    this.details = context.details ?? [];
+    this.provenance = context.provenance ?? 'runtime_facade';
   }
 }
 export function nonNegativeSafeInteger(value: number, field: string): number {

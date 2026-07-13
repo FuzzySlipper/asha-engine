@@ -800,7 +800,12 @@ void test('native bridge matches the mock when the addon is built (else skip)', 
     const buffer = bridge.getBuffer(0);
     assert.deepEqual([...buffer.bytes], [7, 0, 0, 0, 0, 0, 0, 0]);
     bridge.releaseBuffer(buffer.handle);
-    assert.throws(() => bridge.getBuffer(buffer.handle), (error) => error instanceof RuntimeBridgeError && error.kind === 'unknown_handle');
+    assert.throws(() => bridge.getBuffer(buffer.handle), (error) => error instanceof RuntimeBridgeError &&
+        error.kind === 'unknown_handle' &&
+        error.operation === 'get_buffer' &&
+        error.path === '$' &&
+        error.retryable === false &&
+        error.provenance === 'native_rust');
     bridge.unloadProjectBundle();
     assert.equal(bridge.getProjectBundleCompositionStatus().loadedProjectBundle, null);
 });

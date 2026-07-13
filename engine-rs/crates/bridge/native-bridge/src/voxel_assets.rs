@@ -2,14 +2,9 @@ use super::*;
 
 fn parse_request<T>(request_json: &str, label: &str) -> napi::Result<T>
 where
-    T: serde::de::DeserializeOwned,
+    T: serde::de::DeserializeOwned + serde::Serialize,
 {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel volume asset {label} request JSON: {err}"),
-        ))
-    })
+    crate::wire::parse_wire_json(label, request_json)
 }
 
 fn validate_palette_update_request_size(request_json: &str) -> napi::Result<()> {
@@ -39,7 +34,8 @@ fn validate_mesh_import_request_size(request_bytes: usize) -> napi::Result<()> {
 
 #[napi]
 pub fn export_voxel_volume_asset(handle: i64, request_json: String) -> napi::Result<String> {
-    let request = parse_request::<VoxelVolumeAssetExportRequest>(&request_json, "export")?;
+    let request =
+        parse_request::<VoxelVolumeAssetExportRequest>(&request_json, "export_voxel_volume_asset")?;
     with_bridge(handle, |bridge| {
         let receipt = bridge.export_voxel_volume_asset(request).map_err(to_napi)?;
         voxel_conversion_json(&receipt)
@@ -48,7 +44,8 @@ pub fn export_voxel_volume_asset(handle: i64, request_json: String) -> napi::Res
 
 #[napi]
 pub fn save_voxel_volume_asset(handle: i64, request_json: String) -> napi::Result<String> {
-    let request = parse_request::<VoxelVolumeAssetSaveRequest>(&request_json, "save")?;
+    let request =
+        parse_request::<VoxelVolumeAssetSaveRequest>(&request_json, "save_voxel_volume_asset")?;
     with_bridge(handle, |bridge| {
         let receipt = bridge.save_voxel_volume_asset(request).map_err(to_napi)?;
         voxel_conversion_json(&receipt)
@@ -61,8 +58,10 @@ pub fn update_voxel_volume_asset_palette(
     request_json: String,
 ) -> napi::Result<String> {
     validate_palette_update_request_size(&request_json)?;
-    let request =
-        parse_request::<VoxelVolumeAssetPaletteUpdateRequest>(&request_json, "palette update")?;
+    let request = parse_request::<VoxelVolumeAssetPaletteUpdateRequest>(
+        &request_json,
+        "update_voxel_volume_asset_palette",
+    )?;
     with_bridge(handle, |bridge| {
         let receipt = bridge
             .update_voxel_volume_asset_palette(request)
@@ -78,7 +77,7 @@ pub fn initialize_voxel_volume_authoring(
 ) -> napi::Result<String> {
     let request = parse_request::<VoxelVolumeAuthoringInitializeRequest>(
         &request_json,
-        "authoring initialize",
+        "initialize_voxel_volume_authoring",
     )?;
     with_bridge(handle, |bridge| {
         let receipt = bridge
@@ -90,7 +89,8 @@ pub fn initialize_voxel_volume_authoring(
 
 #[napi]
 pub fn load_voxel_volume_asset(handle: i64, request_json: String) -> napi::Result<String> {
-    let request = parse_request::<VoxelVolumeAssetLoadRequest>(&request_json, "load")?;
+    let request =
+        parse_request::<VoxelVolumeAssetLoadRequest>(&request_json, "load_voxel_volume_asset")?;
     with_bridge(handle, |bridge| {
         let receipt = bridge.load_voxel_volume_asset(request).map_err(to_napi)?;
         voxel_conversion_json(&receipt)
@@ -99,7 +99,8 @@ pub fn load_voxel_volume_asset(handle: i64, request_json: String) -> napi::Resul
 
 #[napi]
 pub fn unload_voxel_volume_asset(handle: i64, request_json: String) -> napi::Result<String> {
-    let request = parse_request::<VoxelVolumeAssetUnloadRequest>(&request_json, "unload")?;
+    let request =
+        parse_request::<VoxelVolumeAssetUnloadRequest>(&request_json, "unload_voxel_volume_asset")?;
     with_bridge(handle, |bridge| {
         let receipt = bridge.unload_voxel_volume_asset(request).map_err(to_napi)?;
         voxel_conversion_json(&receipt)
@@ -112,8 +113,10 @@ pub fn import_voxel_conversion_mesh_source(
     request_json: String,
 ) -> napi::Result<String> {
     validate_mesh_import_request_size(request_json.len())?;
-    let request =
-        parse_request::<VoxelConversionMeshSourceImportRequest>(&request_json, "mesh import")?;
+    let request = parse_request::<VoxelConversionMeshSourceImportRequest>(
+        &request_json,
+        "import_voxel_conversion_mesh_source",
+    )?;
     with_bridge(handle, |bridge| {
         let receipt = bridge
             .import_voxel_conversion_mesh_source(request)

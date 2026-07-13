@@ -90,9 +90,15 @@ import type {
   RawInputSample,
   RecordedInputAction,
   ScreenPointToPickRayRequest,
+  GeneratedWireValue,
 } from '@asha/contracts';
 import { loadNativeAddon, NativeAddonUnavailable, type NativeAddon } from '@asha/native-bridge';
 import { MANIFEST_OPERATIONS } from './generated/operations.js';
+import {
+  parseOperationOutput,
+  validateOperationInput,
+  validateOperationOutput,
+} from './wire-validation.js';
 import {
   RuntimeBridgeError,
   nonNegativeSafeInteger,
@@ -158,23 +164,110 @@ function nativeUnimplemented(manifestName: string): RuntimeBridgeError {
   );
 }
 
-const RUST_ERROR_KIND: Readonly<Record<string, RuntimeBridgeErrorKind>> = {
-  NotInitialized: 'not_initialized',
-  InvalidInput: 'invalid_input',
-  UnknownHandle: 'unknown_handle',
-  BufferExpired: 'buffer_expired',
-  Internal: 'internal',
-};
+const RUNTIME_BRIDGE_ERROR_KINDS: ReadonlySet<string> = new Set([
+  'not_initialized',
+  'invalid_input',
+  'unknown_handle',
+  'buffer_expired',
+  'native_unavailable',
+  'voxel_conversion_unavailable',
+  'unsupported_source_asset',
+  'source_hash_mismatch',
+  'invalid_material_map',
+  'output_limit_exceeded',
+  'stale_authority_snapshot',
+  'conversion_replay_mismatch',
+  'operation_unimplemented',
+  'internal',
+]);
 
-function classifyNativeAddonError(cause: RuntimeBridgeError | Error | string | object): RuntimeBridgeError {
+const NATIVE_ERROR_KEYS = new Set([
+  'schemaVersion',
+  'code',
+  'operation',
+  'path',
+  'retryable',
+  'message',
+  'details',
+  'provenance',
+]);
+
+interface NativeErrorEnvelope {
+  readonly code: RuntimeBridgeErrorKind;
+  readonly details: readonly string[];
+  readonly message: string;
+  readonly operation: string;
+  readonly path: string;
+  readonly provenance: 'native_rust';
+  readonly retryable: boolean;
+}
+
+let activeNativeOperation: string | null = null;
+
+const OPERATION_BY_FACADE_METHOD: ReadonlyMap<string, string> = new Map(
+  MANIFEST_OPERATIONS.map((operation) => [operation.facadeMethod, operation.manifestName]),
+);
+
+type NativeFacadeValue = object | boolean | number | string | null | undefined;
+type NativeFacadeMethod = (...args: NativeFacadeValue[]) => NativeFacadeValue;
+
+function boundedText(value: string, maxLength: number): string {
+  return value.length <= maxLength ? value : `${value.slice(0, maxLength - 1)}…`;
+}
+
+function parseNativeErrorEnvelope(message: string): NativeErrorEnvelope | null {
+  let parsed: GeneratedWireValue;
+  try {
+    parsed = JSON.parse(message) as GeneratedWireValue;
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
+  const envelope = parsed as Readonly<Record<string, GeneratedWireValue>>;
+  if (Object.keys(envelope).some((key) => !NATIVE_ERROR_KEYS.has(key))) return null;
+  if (envelope['schemaVersion'] !== 1) return null;
+  if (typeof envelope['code'] !== 'string' || !RUNTIME_BRIDGE_ERROR_KINDS.has(envelope['code'])) return null;
+  if (typeof envelope['operation'] !== 'string' || envelope['operation'].length === 0) return null;
+  if (typeof envelope['path'] !== 'string' || envelope['path'].length === 0) return null;
+  if (typeof envelope['retryable'] !== 'boolean') return null;
+  if (typeof envelope['message'] !== 'string' || envelope['message'].length === 0) return null;
+  if (envelope['provenance'] !== 'native_rust') return null;
+  if (!Array.isArray(envelope['details']) || envelope['details'].some((detail) => typeof detail !== 'string')) {
+    return null;
+  }
+  return {
+    code: envelope['code'] as RuntimeBridgeErrorKind,
+    details: envelope['details'].slice(0, 8).map((detail) => boundedText(detail as string, 128)),
+    message: boundedText(envelope['message'], 512),
+    operation: boundedText(envelope['operation'], 128),
+    path: boundedText(envelope['path'], 256),
+    provenance: 'native_rust',
+    retryable: envelope['retryable'],
+  };
+}
+
+export function classifyNativeAddonError(
+  cause: RuntimeBridgeError | Error | string | object,
+): RuntimeBridgeError {
   if (cause instanceof RuntimeBridgeError) return cause;
   const message = cause instanceof Error ? cause.message : String(cause);
-  const match = /^(\w+):\s*(.*)$/u.exec(message);
-  if (match?.[1]) {
-    const kind = RUST_ERROR_KIND[match[1]];
-    if (kind) return new RuntimeBridgeError(kind, match[2] || message);
+  const envelope = parseNativeErrorEnvelope(message);
+  if (envelope !== null) {
+    return new RuntimeBridgeError(envelope.code, envelope.message, {
+      details: envelope.details,
+      operation: activeNativeOperation ?? envelope.operation,
+      path: envelope.path,
+      provenance: envelope.provenance,
+      retryable: envelope.retryable,
+    });
   }
-  return new RuntimeBridgeError('internal', message);
+  return new RuntimeBridgeError('internal', boundedText(message, 512), {
+    details: ['invalid_native_error_envelope'],
+    operation: activeNativeOperation ?? 'native_bridge',
+    path: '$',
+    provenance: 'transport_loader',
+    retryable: false,
+  });
 }
 
 function callNative<T>(body: () => T): T {
@@ -185,13 +278,11 @@ function callNative<T>(body: () => T): T {
   }
 }
 
-function parseNativeJson<T>(payload: string, field: string): T {
-  try {
-    return JSON.parse(payload) as T;
-  } catch (cause) {
-    const reason = cause instanceof Error ? cause.message : String(cause);
-    throw new RuntimeBridgeError('internal', `native ${field} was not valid JSON: ${reason}`);
+function parseNativeJson<T extends object>(payload: string, field: string): T {
+  if (activeNativeOperation === null) {
+    throw new RuntimeBridgeError('internal', `native ${field} was decoded outside an operation boundary`);
   }
+  return parseOperationOutput<T>(activeNativeOperation, payload);
 }
 
 interface NativeProjectBundleCompositionStatus {
@@ -624,6 +715,30 @@ export class NativeRuntimeBridge implements RuntimeBridge {
 
   constructor(addon: NativeAddon) {
     this.#addon = addon;
+    return new Proxy(this, {
+      get: (target, property) => {
+        const member = Reflect.get(target, property, target) as NativeFacadeMethod | NativeFacadeValue;
+        if (typeof property !== 'string' || typeof member !== 'function') return member;
+        const operation = OPERATION_BY_FACADE_METHOD.get(property);
+        if (operation === undefined) {
+          return (...args: NativeFacadeValue[]) =>
+            Reflect.apply(member, target, args) as NativeFacadeValue;
+        }
+        return (...args: NativeFacadeValue[]) => {
+          const input = args.length === 0 ? null : args[0] ?? null;
+          validateOperationInput(operation, input);
+          const previousOperation = activeNativeOperation;
+          activeNativeOperation = operation;
+          try {
+            const output = Reflect.apply(member, target, args) as NativeFacadeValue;
+            validateOperationOutput(operation, output ?? null);
+            return output;
+          } finally {
+            activeNativeOperation = previousOperation;
+          }
+        };
+      },
+    });
   }
 
   // ── Wired native operations ───────────────────────────────────────────────
@@ -632,7 +747,7 @@ export class NativeRuntimeBridge implements RuntimeBridge {
       throw new RuntimeBridgeError('invalid_input', `seed must be a non-negative integer`);
     }
     this.#seed = config.seed;
-    const handle = this.#addon.initializeEngine(config.seed) as EngineHandle;
+    const handle = callNative(() => this.#addon.initializeEngine(config.seed)) as EngineHandle;
     this.#engineHandle = handle;
     this.#initialized = true;
     return handle;

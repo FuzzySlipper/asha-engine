@@ -6,7 +6,7 @@
   "catalogs": [
     {
       "path": "engine-rs/crates/bridge/runtime-bridge-api/bridge-manifest.toml",
-      "hash": "sha256:3d7227262583a8bea01cad4cb0d34ec0f25a788901cdf13ae0a9196237ee7395"
+      "hash": "sha256:96950478c98dd749e738679ebcdd69304de07309e105d1f7ae42a07ebe922bbd"
     },
     {
       "path": "harness/consumer-needs/validation-report.json",
@@ -26,7 +26,7 @@
     },
     {
       "path": "ts/packages/runtime-bridge/src/native.ts",
-      "hash": "sha256:894f9affc30861d47851d7a2241ea88249438b97b56105ac6110f8f6e4566399"
+      "hash": "sha256:08eb76e9b4d9301a51d36968389855447d54211f779554351e11dd1101a003b8"
     }
   ],
   "summary": {

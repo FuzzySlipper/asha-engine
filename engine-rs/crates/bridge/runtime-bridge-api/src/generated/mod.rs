@@ -17,6 +17,8 @@ pub(crate) struct GeneratedBridgeBinding {
     pub input: &'static str,
     pub output: &'static str,
     pub errors: &'static str,
+    pub max_input_bytes: usize,
+    pub max_output_bytes: usize,
     pub surface: GeneratedBridgeSurface,
 }
 
@@ -28,6 +30,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_runtime::EngineConfig",
         output: "EngineHandle",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -37,6 +41,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_runtime::StepInputEnvelope",
         output: "protocol_runtime::StepResult",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -46,6 +52,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_time_control::TimeControlCommand",
         output: "protocol_time_control::TimeControlReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -55,6 +63,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "Unit",
         output: "protocol_time_control::TimeControlState",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -64,6 +74,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel::CommandBatch",
         output: "protocol_voxel::CommandResult",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 2097152,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -73,6 +85,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel::PickRay",
         output: "protocol_voxel::PickResult",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -82,6 +96,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_view::CollisionConstrainedCameraInputEnvelope",
         output: "protocol_view::CameraCollisionSnapshot",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -91,6 +107,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_view::GeneratedTunnelRuntimeApplyRequest",
         output: "protocol_view::GeneratedTunnelRuntimeApplyReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -100,6 +118,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_view::ScreenPointToPickRayRequest",
         output: "protocol_view::VoxelSelectionSnapshot",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -109,6 +129,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_render::VoxelMeshEvidenceRequest",
         output: "protocol_render::VoxelMeshEvidenceSnapshot",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -118,6 +140,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_conversion::VoxelConversionPlanRequest",
         output: "protocol_voxel_conversion::VoxelConversionPlan",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -127,6 +151,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_conversion::VoxelConversionSourceRegistrationRequest",
         output: "protocol_voxel_conversion::VoxelConversionSourceRegistration",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -136,6 +162,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_conversion::VoxelConversionMeshAssetRegistrationRequest",
         output: "protocol_voxel_conversion::VoxelConversionSourceRegistration",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -145,6 +173,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_conversion::VoxelConversionMeshSourceImportRequest",
         output: "protocol_voxel_conversion::VoxelConversionMeshSourceImportReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 268468224,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -154,6 +184,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_conversion::VoxelConversionSourceMetadataRequest",
         output: "protocol_voxel_conversion::VoxelConversionSourceMetadataReadout",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -163,6 +195,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_conversion::VoxelConversionPreviewRequest",
         output: "protocol_voxel_conversion::VoxelConversionPreview",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -172,6 +206,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_conversion::VoxelConversionApplyRequest",
         output: "protocol_voxel_conversion::VoxelConversionReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -181,6 +217,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_conversion::VoxelConversionEvidenceRef[]",
         output: "protocol_voxel_conversion::VoxelConversionEvidenceRef[]",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -190,6 +228,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_conversion::VoxelModelInfoRequest",
         output: "protocol_voxel_conversion::VoxelModelInfoReadout",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -199,6 +239,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_conversion::VoxelModelWindowRequest",
         output: "protocol_voxel_conversion::VoxelModelWindowReadout",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -208,6 +250,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_asset::VoxelVolumeAssetExportRequest",
         output: "protocol_voxel_asset::VoxelVolumeAssetExportReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -217,6 +261,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_asset::VoxelVolumeAssetSaveRequest",
         output: "protocol_voxel_asset::VoxelVolumeAssetSaveReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -226,6 +272,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_asset::VoxelVolumeAssetPaletteUpdateRequest",
         output: "protocol_voxel_asset::VoxelVolumeAssetPaletteUpdateReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -235,6 +283,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_asset::VoxelVolumeAuthoringInitializeRequest",
         output: "protocol_voxel_asset::VoxelVolumeAuthoringInitializeReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -244,6 +294,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_asset::VoxelVolumeAssetLoadRequest",
         output: "protocol_voxel_asset::VoxelVolumeAssetLoadReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -253,6 +305,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_asset::VoxelVolumeAssetUnloadRequest",
         output: "protocol_voxel_asset::VoxelVolumeAssetUnloadReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -262,6 +316,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_annotation::VoxelAnnotationLayerValidationRequest",
         output: "protocol_voxel_annotation::VoxelAnnotationLayerValidationReport",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -271,6 +327,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_annotation::VoxelAnnotationLayerLoadRequest",
         output: "protocol_voxel_annotation::VoxelAnnotationLayerLoadReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -280,6 +338,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_annotation::VoxelAnnotationQueryRequest",
         output: "protocol_voxel_annotation::VoxelAnnotationQueryReadout",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -289,6 +349,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_annotation::VoxelAnnotationEditRequest",
         output: "protocol_voxel_annotation::VoxelAnnotationEditReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -298,6 +360,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_annotation::VoxelAnnotationLayerExportRequest",
         output: "protocol_voxel_annotation::VoxelAnnotationLayerExportReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -307,6 +371,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_edit_history::VoxelEditHistoryReadRequest",
         output: "protocol_voxel_edit_history::VoxelEditHistorySummary",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -316,6 +382,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_edit_history::VoxelEditHistoryRevertRequest",
         output: "protocol_voxel_edit_history::VoxelEditHistoryRevertReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -325,6 +393,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_edit_history::VoxelEditHistoryRevertRequest",
         output: "protocol_voxel_edit_history::VoxelEditHistoryRevertReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -334,6 +404,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_edit_history::VoxelEditHistoryUndoRequest",
         output: "protocol_voxel_edit_history::VoxelEditHistoryUndoReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -343,6 +415,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_voxel_edit_history::VoxelEditHistoryRedoRequest",
         output: "protocol_voxel_edit_history::VoxelEditHistoryRedoReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -352,6 +426,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_runtime::FpsRuntimeSessionLoadRequest",
         output: "protocol_runtime::FpsRuntimeSessionSnapshot",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -361,6 +437,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "Unit",
         output: "protocol_runtime::FpsRuntimeSessionSnapshot",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -370,6 +448,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_runtime::FpsPrimaryFireRequest",
         output: "protocol_runtime::FpsPrimaryFireResult",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -379,6 +459,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_runtime::GameExtensionWeaponEffectInvocationRequest",
         output: "protocol_runtime::GameExtensionWeaponEffectInvocationResult",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -388,6 +470,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_game_rules::GameRuleCatalog",
         output: "protocol_runtime::GameRuleCatalogValidationReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -397,6 +481,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_runtime::GameRuleEffectIntentRequest",
         output: "protocol_game_rules::GameRuleResolutionReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -406,6 +492,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "Unit",
         output: "protocol_runtime::GameRuleRuntimeReadout",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -415,6 +503,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_runtime::FpsRuntimeSessionRestartRequest",
         output: "protocol_runtime::FpsRuntimeSessionSnapshot",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -424,6 +514,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_runtime::FpsEncounterLifecycleInput",
         output: "protocol_runtime::FpsEncounterDirectorSnapshot",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -433,6 +525,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_runtime::FpsEncounterTransitionRequest",
         output: "protocol_runtime::FpsEncounterTransitionResult",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -442,6 +536,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "FrameCursor",
         output: "protocol_presentation::RuntimeProjectionFrame",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -451,6 +547,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "FrameCursor",
         output: "protocol_render::RenderFrameDiffDescriptor",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -460,6 +558,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_render::ModelMaterialPreviewRequest",
         output: "protocol_render::ModelMaterialPreviewSnapshot",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -469,6 +569,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "Unit",
         output: "protocol_scene::SceneObjectSnapshot",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -478,6 +580,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_scene::SceneObjectCommandRequest",
         output: "protocol_scene::SceneObjectCommandResult",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -487,6 +591,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_input::InputSessionConfigureRequest",
         output: "protocol_input::InputSessionSnapshot",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -496,6 +602,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_input::InputContextCommand",
         output: "protocol_input::InputContextChangeReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -505,6 +613,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_input::RawInputSample",
         output: "protocol_input::InputResolutionReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -514,6 +624,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_input::RecordedInputAction",
         output: "protocol_input::InputActionReplayReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -523,6 +635,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "Unit",
         output: "protocol_input::InputContextStackState",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -532,6 +646,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_view::CameraCreateRequest",
         output: "protocol_view::CameraSnapshot",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -541,6 +657,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_view::CameraModeCommand",
         output: "protocol_view::CameraModeChangeReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -550,6 +668,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_view::CameraNavigationInputEnvelope",
         output: "protocol_view::CameraNavigationReceipt",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -559,6 +679,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_view::CameraControllerReadRequest",
         output: "protocol_view::CameraControllerState",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -568,6 +690,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_view::FirstPersonCameraInputEnvelope",
         output: "protocol_view::CameraSnapshot",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -577,6 +701,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_runtime::EnemyDirectNavMovementRequest",
         output: "protocol_runtime::EnemyDirectNavMovementResult",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -586,6 +712,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_view::CameraProjectionRequest",
         output: "protocol_view::CameraProjectionSnapshot",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -595,6 +723,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "RuntimeBufferHandle",
         output: "RuntimeBufferView",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -604,6 +734,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "RuntimeBufferHandle",
         output: "Unit",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -613,6 +745,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_project_bundle::ProjectBundleManifest",
         output: "protocol_diagnostics::DiagnosticReportSet",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -622,6 +756,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "Unit",
         output: "protocol_project_bundle::SaveSummary",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -631,6 +767,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "Unit",
         output: "protocol_diagnostics::DiagnosticReportSet",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -640,6 +778,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "Unit",
         output: "Unit",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
@@ -649,6 +789,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "protocol_replay::ReplayFixture",
         output: "ReplaySessionHandle",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Quarantined,
     },
     GeneratedBridgeBinding {
@@ -658,6 +800,8 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         input: "ReplaySessionHandle",
         output: "protocol_replay::ReplayStepReport",
         errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
         surface: GeneratedBridgeSurface::Quarantined,
     },
 ];

@@ -1148,6 +1148,7 @@ fn index_module() -> Module {
             "timeControl",
             "view",
             "entityAuthoring",
+            "wire",
         ]
         .into_iter()
         .map(|name| Item::ReExport {

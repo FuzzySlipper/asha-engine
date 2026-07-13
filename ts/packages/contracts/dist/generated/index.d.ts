@@ -20,4 +20,5 @@ export * from './input.js';
 export * from './timeControl.js';
 export * from './view.js';
 export * from './entityAuthoring.js';
+export * from './wire.js';
 //# sourceMappingURL=index.d.ts.map

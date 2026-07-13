@@ -56,6 +56,7 @@ mod voxel_readout;
 #[cfg(test)]
 mod voxel_rejection_tests;
 mod voxel_rejections;
+mod wire;
 pub use camera::{
     apply_camera_mode_command, apply_camera_navigation_input,
     apply_collision_constrained_camera_input, apply_first_person_camera_input, create_camera,
@@ -114,14 +115,44 @@ fn sessions() -> &'static Mutex<NativeSessions> {
     })
 }
 
-/// Mirror of the typed boundary error, classified rather than a raw string.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeBridgeErrorEnvelope<'a> {
+    schema_version: u32,
+    code: &'static str,
+    operation: &'a str,
+    path: String,
+    retryable: bool,
+    message: String,
+    details: Vec<String>,
+    provenance: &'static str,
+}
+
+fn bounded_text(value: &str, max_chars: usize) -> String {
+    value.chars().take(max_chars).collect()
+}
+
+/// Mirror of the typed boundary error as a versioned, bounded wire envelope.
 fn to_napi(err: RuntimeBridgeError) -> napi::Error {
-    // The `kind` is carried in the message so the TS facade can re-classify if it
-    // needs to; no opaque JSON blob or panic crosses the boundary.
-    napi::Error::new(
-        napi::Status::GenericFailure,
-        format!("{:?}: {}", err.kind, err.message),
-    )
+    let envelope = NativeBridgeErrorEnvelope {
+        schema_version: 1,
+        code: err.kind.code(),
+        operation: "native_bridge",
+        path: bounded_text(&err.path, 256),
+        retryable: err.kind.retryable(),
+        message: bounded_text(&err.message, 512),
+        details: err
+            .details
+            .iter()
+            .take(8)
+            .map(|detail| bounded_text(detail, 128))
+            .collect(),
+        provenance: "native_rust",
+    };
+    let reason = serde_json::to_string(&envelope).unwrap_or_else(|_| {
+        r#"{"schemaVersion":1,"code":"internal","operation":"native_bridge","path":"$","retryable":false,"message":"failed to encode native error","details":["error_envelope_encoding_failed"],"provenance":"native_rust"}"#.to_owned()
+    });
+    napi::Error::new(napi::Status::GenericFailure, reason)
 }
 
 fn lock_sessions() -> napi::Result<std::sync::MutexGuard<'static, NativeSessions>> {
@@ -372,239 +403,124 @@ impl From<runtime_bridge_api::EnemyDirectNavMovementResult> for NativeEnemyDirec
     }
 }
 
-fn parse_voxel_conversion_plan_request(
-    request_json: &str,
-) -> napi::Result<VoxelConversionPlanRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel conversion plan request JSON: {err}"),
-        ))
-    })
+macro_rules! wire_parser {
+    ($name:ident, $output:ty, $operation:literal) => {
+        fn $name(payload: &str) -> napi::Result<$output> {
+            crate::wire::parse_wire_json($operation, payload)
+        }
+    };
 }
 
-fn parse_voxel_conversion_source_registration_request(
-    request_json: &str,
-) -> napi::Result<VoxelConversionSourceRegistrationRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel conversion source registration request JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_voxel_conversion_mesh_asset_registration_request(
-    request_json: &str,
-) -> napi::Result<VoxelConversionMeshAssetRegistrationRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel conversion mesh asset registration request JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_voxel_conversion_source_metadata_request(
-    request_json: &str,
-) -> napi::Result<VoxelConversionSourceMetadataRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel conversion source metadata request JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_voxel_conversion_preview_request(
-    request_json: &str,
-) -> napi::Result<VoxelConversionPreviewRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel conversion preview request JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_voxel_conversion_apply_request(
-    request_json: &str,
-) -> napi::Result<VoxelConversionApplyRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel conversion apply request JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_voxel_conversion_evidence(
-    evidence_json: &str,
-) -> napi::Result<Vec<VoxelConversionEvidenceRef>> {
-    serde_json::from_str(evidence_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel conversion evidence JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_voxel_model_info_request(request_json: &str) -> napi::Result<VoxelModelInfoRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel model info request JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_voxel_model_window_request(request_json: &str) -> napi::Result<VoxelModelWindowRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel model window request JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_voxel_annotation_validation_request(
-    request_json: &str,
-) -> napi::Result<VoxelAnnotationLayerValidationRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel annotation validation request JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_voxel_annotation_load_request(
-    request_json: &str,
-) -> napi::Result<VoxelAnnotationLayerLoadRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel annotation load request JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_voxel_annotation_query_request(
-    request_json: &str,
-) -> napi::Result<VoxelAnnotationQueryRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel annotation query request JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_voxel_annotation_edit_request(
-    request_json: &str,
-) -> napi::Result<VoxelAnnotationEditRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel annotation edit request JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_voxel_annotation_export_request(
-    request_json: &str,
-) -> napi::Result<VoxelAnnotationLayerExportRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel annotation export request JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_voxel_edit_history_read_request(
-    request_json: &str,
-) -> napi::Result<VoxelEditHistoryReadRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel edit history read request JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_voxel_edit_history_revert_request(
-    request_json: &str,
-) -> napi::Result<VoxelEditHistoryRevertRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel edit history revert request JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_voxel_edit_history_undo_request(
-    request_json: &str,
-) -> napi::Result<VoxelEditHistoryUndoRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel edit history undo request JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_voxel_edit_history_redo_request(
-    request_json: &str,
-) -> napi::Result<VoxelEditHistoryRedoRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid voxel edit history redo request JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_game_rule_module_manifests(
-    manifests_json: &str,
-) -> napi::Result<Vec<GameRuleModuleManifest>> {
-    serde_json::from_str(manifests_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid game rule module manifest JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_weapon_effect_hook_request(request_json: &str) -> napi::Result<WeaponEffectHookRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid weapon-effect hook request JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_game_rule_catalog(catalog_json: &str) -> napi::Result<GameRuleCatalog> {
-    serde_json::from_str(catalog_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid game-rule catalog JSON: {err}"),
-        ))
-    })
-}
-
-fn parse_game_rule_resolution_request(
-    request_json: &str,
-) -> napi::Result<GameRuleResolutionRequest> {
-    serde_json::from_str(request_json).map_err(|err| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("invalid game-rule resolution request JSON: {err}"),
-        ))
-    })
-}
+wire_parser!(
+    parse_voxel_conversion_plan_request,
+    VoxelConversionPlanRequest,
+    "plan_voxel_conversion"
+);
+wire_parser!(
+    parse_voxel_conversion_source_registration_request,
+    VoxelConversionSourceRegistrationRequest,
+    "register_voxel_conversion_source"
+);
+wire_parser!(
+    parse_voxel_conversion_mesh_asset_registration_request,
+    VoxelConversionMeshAssetRegistrationRequest,
+    "register_voxel_conversion_mesh_asset"
+);
+wire_parser!(
+    parse_voxel_conversion_source_metadata_request,
+    VoxelConversionSourceMetadataRequest,
+    "read_voxel_conversion_source_metadata"
+);
+wire_parser!(
+    parse_voxel_conversion_preview_request,
+    VoxelConversionPreviewRequest,
+    "preview_voxel_conversion"
+);
+wire_parser!(
+    parse_voxel_conversion_apply_request,
+    VoxelConversionApplyRequest,
+    "apply_voxel_conversion"
+);
+wire_parser!(
+    parse_voxel_conversion_evidence,
+    Vec<VoxelConversionEvidenceRef>,
+    "export_voxel_conversion_evidence"
+);
+wire_parser!(
+    parse_voxel_model_info_request,
+    VoxelModelInfoRequest,
+    "read_voxel_model_info"
+);
+wire_parser!(
+    parse_voxel_model_window_request,
+    VoxelModelWindowRequest,
+    "read_voxel_model_window"
+);
+wire_parser!(
+    parse_voxel_annotation_validation_request,
+    VoxelAnnotationLayerValidationRequest,
+    "validate_voxel_annotation_layer"
+);
+wire_parser!(
+    parse_voxel_annotation_load_request,
+    VoxelAnnotationLayerLoadRequest,
+    "load_voxel_annotation_layer"
+);
+wire_parser!(
+    parse_voxel_annotation_query_request,
+    VoxelAnnotationQueryRequest,
+    "read_voxel_annotation_query"
+);
+wire_parser!(
+    parse_voxel_annotation_edit_request,
+    VoxelAnnotationEditRequest,
+    "apply_voxel_annotation_edit"
+);
+wire_parser!(
+    parse_voxel_annotation_export_request,
+    VoxelAnnotationLayerExportRequest,
+    "export_voxel_annotation_layer"
+);
+wire_parser!(
+    parse_voxel_edit_history_read_request,
+    VoxelEditHistoryReadRequest,
+    "read_voxel_edit_history"
+);
+wire_parser!(
+    parse_voxel_edit_history_revert_request,
+    VoxelEditHistoryRevertRequest,
+    "apply_voxel_edit_revert"
+);
+wire_parser!(
+    parse_voxel_edit_history_undo_request,
+    VoxelEditHistoryUndoRequest,
+    "undo_voxel_edit"
+);
+wire_parser!(
+    parse_voxel_edit_history_redo_request,
+    VoxelEditHistoryRedoRequest,
+    "redo_voxel_edit"
+);
+wire_parser!(
+    parse_game_rule_module_manifests,
+    Vec<GameRuleModuleManifest>,
+    "load_fps_runtime_session"
+);
+wire_parser!(
+    parse_weapon_effect_hook_request,
+    WeaponEffectHookRequest,
+    "invoke_game_extension_weapon_effect"
+);
+wire_parser!(
+    parse_game_rule_catalog,
+    GameRuleCatalog,
+    "validate_game_rule_catalog"
+);
+wire_parser!(
+    parse_game_rule_resolution_request,
+    GameRuleResolutionRequest,
+    "submit_game_rule_effect_intent"
+);
 
 fn voxel_conversion_json<T: serde::Serialize>(value: &T) -> napi::Result<String> {
     serde_json::to_string(value).map_err(|err| {

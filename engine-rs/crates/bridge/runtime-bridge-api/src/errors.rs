@@ -8,6 +8,8 @@ use crate::*;
 pub struct RuntimeBridgeError {
     pub kind: RuntimeBridgeErrorKind,
     pub message: String,
+    pub path: String,
+    pub details: Vec<String>,
 }
 
 /// Stable classification an orchestrator/renderer can switch on without parsing prose.
@@ -32,7 +34,21 @@ impl RuntimeBridgeError {
         Self {
             kind,
             message: message.into(),
+            path: "$".to_owned(),
+            details: Vec::new(),
         }
+    }
+
+    pub fn at_path(mut self, path: impl Into<String>) -> Self {
+        self.path = path.into();
+        self
+    }
+
+    pub fn with_detail(mut self, detail: impl Into<String>) -> Self {
+        if self.details.len() < 8 {
+            self.details.push(detail.into());
+        }
+        self
     }
 
     /// Map to the shared foundation category so tools can treat bridge failures
@@ -47,6 +63,23 @@ impl RuntimeBridgeError {
             }
             RuntimeBridgeErrorKind::Internal => ErrorCategory::Internal,
         }
+    }
+}
+
+impl RuntimeBridgeErrorKind {
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::NotInitialized => "not_initialized",
+            Self::InvalidInput => "invalid_input",
+            Self::UnknownHandle => "unknown_handle",
+            Self::BufferExpired => "buffer_expired",
+            Self::NativeUnavailable => "native_unavailable",
+            Self::Internal => "internal",
+        }
+    }
+
+    pub const fn retryable(self) -> bool {
+        matches!(self, Self::NativeUnavailable)
     }
 }
 

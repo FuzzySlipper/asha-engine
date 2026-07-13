@@ -16,6 +16,8 @@ native_package = "@asha/native-bridge"
 wasm_replay_package = "@asha/wasm-replay-bridge"
 # Every operation's error channel is this typed enum. No string/JSON error blobs.
 error_type = "RuntimeBridgeError"
+default_max_input_bytes = 8388608
+default_max_output_bytes = 8388608
 error_families = [
   "not_initialized", "invalid_input", "unknown_handle", "buffer_expired",
   "native_unavailable", "voxel_conversion_unavailable", "unsupported_source_asset",
@@ -175,6 +177,7 @@ input = "protocol_voxel::CommandBatch"
 output = "protocol_voxel::CommandResult"
 errors = "RuntimeBridgeError"
 summary = "Submit a batch of proposed voxel commands (generated VoxelCommand union) for Rust-side validation + apply."
+max_input_bytes = 2097152
 
 [[operation]]
 name = "pick_voxel"
@@ -249,6 +252,7 @@ input = "protocol_voxel_conversion::VoxelConversionMeshSourceImportRequest"
 output = "protocol_voxel_conversion::VoxelConversionMeshSourceImportReceipt"
 errors = "RuntimeBridgeError"
 summary = "Parse host-provided static mesh bytes through Rust authority, register canonical conversion geometry, and return bounded provenance, primitive, material, and bounds evidence."
+max_input_bytes = 268468224
 
 [[operation]]
 name = "read_voxel_conversion_source_metadata"

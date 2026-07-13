@@ -52,6 +52,17 @@ Forbidden for downstream consumers:
 
 The raw native addon wrapper remains internal transport plumbing. This package is the only public package that may import it, and unwired native operations must fail closed with `operation_unimplemented` rather than inheriting mock behavior.
 
+Every native facade call is checked against the operation descriptor generated from the Rust
+bridge manifest. Inputs are rejected before addon invocation and outputs before consumer delivery,
+including unknown fields/variants, missing fields, wrong scalar types, noncanonical handles, and
+operation-specific byte limits. Generated protocol DTOs and their recursive validators come from
+one Rust-derived schema IR; explicit custom validators cover the remaining transition DTOs.
+
+Native Rust failures use a versioned structured envelope. `RuntimeBridgeError` preserves its
+existing `kind` and message behavior while also exposing nullable `operation`/`path`, `retryable`,
+bounded `details`, and `provenance`. Consumers should switch on `kind` and may use the extra fields
+for diagnostics; they must not parse error prose.
+
 ## Internal layout
 
 The package root is the production-safe transport surface. `@asha/runtime-bridge/reference` is the only approved public subpath, and it is for deterministic reference/mock helpers used by demos, tests, and compatibility smokes that intentionally opt into the fixture backend. Internally, `src/index.ts` is an exports-only barrel: `bridge.ts` owns transport errors and the bounded bridge interface, `mock.ts` owns the reference bridge, `native.ts` is the only raw `@asha/native-bridge` importer, `runtime-session-adapter.ts` constructs concrete transport-backed sessions against neutral `@asha/runtime-session` contracts, and `launcher.ts` owns the `GameRuntimeLauncher` composition facade.

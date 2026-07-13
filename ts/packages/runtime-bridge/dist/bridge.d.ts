@@ -10,10 +10,22 @@ export type ReplaySessionHandle = number & {
 };
 export declare const frameCursor: (frame: number) => FrameCursor;
 export type RuntimeBridgeErrorKind = BridgeErrorFamily;
+export interface RuntimeBridgeErrorContext {
+    readonly operation?: string;
+    readonly path?: string;
+    readonly retryable?: boolean;
+    readonly details?: readonly string[];
+    readonly provenance?: 'native_rust' | 'runtime_facade' | 'transport_loader';
+}
 /** Typed, classified error for every facade operation. No JSON error blobs. */
 export declare class RuntimeBridgeError extends Error {
     readonly kind: RuntimeBridgeErrorKind;
-    constructor(kind: RuntimeBridgeErrorKind, message: string);
+    readonly operation: string | null;
+    readonly path: string | null;
+    readonly retryable: boolean;
+    readonly details: readonly string[];
+    readonly provenance: RuntimeBridgeErrorContext['provenance'];
+    constructor(kind: RuntimeBridgeErrorKind, message: string, context?: RuntimeBridgeErrorContext);
 }
 export declare function nonNegativeSafeInteger(value: number, field: string): number;
 export declare function u32(value: number, field: string): number;
