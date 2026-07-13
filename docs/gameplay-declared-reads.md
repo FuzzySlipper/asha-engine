@@ -55,7 +55,10 @@ bindings, the module manifest, and the closed registry before returning an
 owned `GameplayFrozenReadSet`. It exposes typed values, not store references.
 The public runtime-host plan must be an exact set match for the invocation's typed
 `requestId -> view contract` declarations; an omitted or extra request is
-topology drift, not an optional delivery. Plan readouts hash the registry
+topology drift, not an optional delivery. Normal module authoring uses one
+`GameplayModuleReadTopology` to derive the invocation requirement, module view,
+provider registration, and runtime-host request together. There is no parallel
+authored read-plan hash. Plan readouts hash the registry
 digest, invocation identity, request ids, exact view schema hashes, provider
 evidence, fields, selectors, quotas, and ordering.
 Collection order and evidence hashes are canonical. A typed module view can be

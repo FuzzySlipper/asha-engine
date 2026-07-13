@@ -8,11 +8,13 @@
 mod authoring;
 mod binding;
 mod composition;
+mod ergonomics;
 mod facade;
 mod legacy_weapon;
 
 pub use authoring::*;
 pub use binding::*;
 pub use composition::*;
+pub use ergonomics::*;
 pub use facade::*;
 pub use legacy_weapon::*;

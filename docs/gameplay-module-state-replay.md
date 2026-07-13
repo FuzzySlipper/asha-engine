@@ -11,16 +11,20 @@ The result remains part of Session persistence, hashing, replay, and inspection.
 
 ## Typed Module Boundary
 
-Modules implement `GameplayTypedModuleStateAdapter` with concrete Rust types for:
+Normal downstream modules implement `GameplaySerdeModuleStateAdapter` with
+concrete Rust types for:
 
 - authored initialization configuration;
 - authoritative state;
 - accepted module facts; and
 - an optional named view.
 
-The trait only receives `&self`; mutation is expressed by returning a new typed
-state value from `initialize`, `apply_fact`, or `migrate`. A
-`GameplayModuleStateRegistration` erases those types only inside the
+The trait returns owned schema/owner values and supplies the canonical serde
+decode/encode edge, so module code does not need static `OnceLock` references
+or repeated JSON one-liners. It only receives `&self`; mutation is expressed by
+returning a new typed state value from `initialize`, `apply_fact`, or `migrate`.
+`gameplay_serde_state_adapter` produces a `GameplayModuleStateRegistration` and
+erases those types only inside the
 heterogeneous coordinator and persistence boundary. The erased adapter and raw
 state bytes are not publicly constructible or readable.
 

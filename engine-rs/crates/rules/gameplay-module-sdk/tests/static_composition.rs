@@ -45,12 +45,7 @@ where
     T: Serialize + for<'de> Deserialize<'de> + 'static,
 {
     let descriptor = schema_descriptor(&event.namespace, &event.name);
-    TypedGameplayEventCodec::new(
-        declaration(event),
-        descriptor,
-        |payload: &T| serde_json::to_vec(payload).map_err(|error| error.to_string()),
-        |bytes| serde_json::from_slice(bytes).map_err(|error| error.to_string()),
-    )
+    gameplay_serde_json_codec(event, descriptor)
 }
 
 fn test_provenance() -> GameplayModuleBuildProvenance {
@@ -87,7 +82,7 @@ struct CounterAdapter {
     owner: GameplayOwnerRef,
 }
 
-impl GameplayTypedModuleStateAdapter for CounterAdapter {
+impl GameplaySerdeModuleStateAdapter for CounterAdapter {
     type Config = CounterConfiguration;
     type State = u64;
     type Fact = u64;
@@ -97,36 +92,20 @@ impl GameplayTypedModuleStateAdapter for CounterAdapter {
         self.module_id
     }
 
-    fn state_schema(&self) -> &GameplayContractRef {
-        &self.state_schema
+    fn state_schema(&self) -> GameplayContractRef {
+        self.state_schema.clone()
     }
 
-    fn fact_schema(&self) -> &GameplayContractRef {
-        &self.fact_schema
+    fn fact_schema(&self) -> GameplayContractRef {
+        self.fact_schema.clone()
     }
 
-    fn owner(&self) -> &GameplayOwnerRef {
-        &self.owner
-    }
-
-    fn decode_config(&self, value: &[u8]) -> Result<Self::Config, String> {
-        serde_json::from_slice(value).map_err(|error| error.to_string())
+    fn owner(&self) -> GameplayOwnerRef {
+        self.owner.clone()
     }
 
     fn initialize(&self, config: &Self::Config) -> Result<Self::State, String> {
         Ok(config.multiplier)
-    }
-
-    fn decode_state(&self, value: &[u8]) -> Result<Self::State, String> {
-        serde_json::from_slice(value).map_err(|error| error.to_string())
-    }
-
-    fn encode_state(&self, state: &Self::State) -> Result<Vec<u8>, String> {
-        serde_json::to_vec(state).map_err(|error| error.to_string())
-    }
-
-    fn decode_fact(&self, value: &[u8]) -> Result<Self::Fact, String> {
-        serde_json::from_slice(value).map_err(|error| error.to_string())
     }
 
     fn apply_fact(&self, state: &Self::State, fact: &Self::Fact) -> Result<Self::State, String> {
@@ -137,16 +116,12 @@ impl GameplayTypedModuleStateAdapter for CounterAdapter {
         Ok(*state)
     }
 
-    fn view_schema(&self) -> Option<&GameplayContractRef> {
-        Some(&self.view_schema)
+    fn view_schema(&self) -> Option<GameplayContractRef> {
+        Some(self.view_schema.clone())
     }
 
     fn project_view(&self, state: &Self::State) -> Result<Self::View, String> {
         Ok(ResultPayload { amount: *state })
-    }
-
-    fn encode_view(&self, view: &Self::View) -> Result<Vec<u8>, String> {
-        serde_json::to_vec(view).map_err(|error| error.to_string())
     }
 }
 
@@ -288,16 +263,15 @@ fn provider_with_adapter_view(
 ) -> GameplayStaticModuleProvider {
     let manifest = manifest(namespace, root, proposes);
     let owner = owner(namespace);
-    let configuration_metadata = GameplayConfigurationSchemaMetadata {
-        module_id: format!("{namespace}.module"),
-        configuration: contract(namespace, "configuration"),
-        codec_id: format!("codec.{namespace}.configuration"),
-        fields: vec![GameplayConfigurationFieldMetadata {
+    let configuration = GameplaySerdeConfiguration::<CounterConfiguration>::new(
+        format!("{namespace}.module"),
+        contract(namespace, "configuration"),
+        vec![GameplayConfigurationFieldMetadata {
             name: "multiplier".to_owned(),
             value_type: "u64".to_owned(),
             required: true,
         }],
-    };
+    );
     let mut provider = GameplayStaticModuleProvider::linked_from_manifest(
         manifest,
         &test_provenance(),
@@ -328,7 +302,7 @@ fn provider_with_adapter_view(
         schema: contract(namespace, "counter-fact"),
         owner: owner.clone(),
     })
-    .state_adapter(GameplayModuleStateRegistration::typed(CounterAdapter {
+    .state_adapter(gameplay_serde_state_adapter(CounterAdapter {
         module_id: if namespace == "game.alpha" {
             "game.alpha.module"
         } else {
@@ -339,10 +313,7 @@ fn provider_with_adapter_view(
         view_schema: contract(namespace, adapter_view_name),
         owner: owner.clone(),
     }))
-    .configuration_schema(configuration_metadata.clone())
-    .configuration_codec(GameplayConfigurationCodecRegistration::typed::<
-        CounterConfiguration,
-    >(configuration_metadata));
+    .serde_configuration(configuration);
     if proposes {
         provider = provider
             .proposal_codec(codec::<ResultPayload>(

@@ -39,6 +39,142 @@ authoritative root/wave sequence. Module facts are validated against the
 closed registry and recorded in `GameplayObserveReceipt`; applying them remains
 an explicit `GameplayModuleStateStore` authority step.
 
+## Boring authoring helpers
+
+The public SDK keeps one authored `GameplayModuleInvocationTopology` per
+invocation. `GameplayDerivedModuleTopology::derive` produces the manifest
+subscriptions, invocation descriptors, read-view requirements, provider
+registrations, and `GameplayRuntimeDeclaredReadPlan` values from that one
+value. Apply it to the manifest before computing provenance, pass it to
+`GameplayStaticModuleProvider::derived_topology`, and pass its
+`declared_reads()` to the runtime host. There is no separate read-plan hash
+string: the registry digest binds the declared topology and each invocation
+records the computed frozen read-set/value hashes.
+
+A minimal Observe module is deliberately plain:
+
+```rust
+let input = gameplay_contract("game.weather", "tick", 1, WEATHER_TICK_SCHEMA);
+let invocation = GameplayModuleInvocationTopology::observe(
+    "game.weather.tick.observe",
+    "game.weather.tick.observe",
+    input.clone(),
+    input.clone(),
+    GameplayHeaderSelector {
+        source: None,
+        target: None,
+        scope: None,
+        required_tags: Vec::new(),
+    },
+    8,     // deliveries per root
+    1,     // outputs
+    1_024, // payload bytes
+);
+let topology = GameplayDerivedModuleTopology::derive(
+    "game.weather.module",
+    vec![invocation],
+)?;
+
+topology.apply_to_manifest(&mut manifest)?;
+let provider = GameplayStaticModuleProvider::linked_from_manifest(
+    manifest,
+    &provenance,
+    WeatherBehavior,
+)
+.event_codec(gameplay_serde_json_codec_registration::<WeatherTick>(
+    input,
+    WEATHER_TICK_SCHEMA,
+))
+.derived_topology(&topology);
+```
+
+The generated module template uses this complete, executable shape rather than
+emitting an inert behavior with no subscription or codec.
+
+A stateful/reactive module adds its read selector and state semantics without
+repeating them across manifest and host structures:
+
+```rust
+let observe = GameplayModuleInvocationTopology::observe(
+    "game.door.trigger.observe",
+    "game.door.trigger.observe",
+    trigger_entered,
+    door_reacted,
+    selector,
+    4,
+    2,
+    2_048,
+)
+.read(gameplay_session_state_read(
+    "door-state",
+    door_state_view,
+    "provider.game-door",
+    vec!["open".to_owned()],
+    "single-module-state",
+));
+let topology = GameplayDerivedModuleTopology::derive(
+    "game.door.module",
+    vec![observe],
+)?;
+
+impl GameplaySerdeModuleStateAdapter for DoorStateAdapter {
+    type Config = DoorConfig;
+    type State = DoorState;
+    type Fact = DoorFact;
+    type View = DoorView;
+
+    fn module_id(&self) -> &str { "game.door.module" }
+    fn state_schema(&self) -> GameplayContractRef { door_state_contract() }
+    fn fact_schema(&self) -> GameplayContractRef { door_fact_contract() }
+    fn owner(&self) -> GameplayOwnerRef { door_owner() }
+    fn initialize(&self, config: &DoorConfig) -> Result<DoorState, String> {
+        Ok(DoorState { open: config.starts_open })
+    }
+    fn apply_fact(&self, _: &DoorState, fact: &DoorFact) -> Result<DoorState, String> {
+        Ok(DoorState { open: fact.open })
+    }
+    fn migrate(&self, _: u32, state: &DoorState) -> Result<DoorState, String> {
+        Ok(state.clone())
+    }
+    fn view_schema(&self) -> Option<GameplayContractRef> { Some(door_view_contract()) }
+    fn project_view(&self, state: &DoorState) -> Result<DoorView, String> {
+        Ok(DoorView { open: state.open })
+    }
+}
+
+let configuration = GameplaySerdeConfiguration::<DoorConfig>::new(
+    "game.door.module",
+    door_configuration_contract(),
+    vec![GameplayConfigurationFieldMetadata {
+        name: "startsOpen".to_owned(),
+        value_type: "bool".to_owned(),
+        required: true,
+    }],
+);
+let provider = provider
+    .derived_topology(&topology)
+    .state_adapter(gameplay_serde_state_adapter(DoorStateAdapter))
+    .serde_configuration(configuration);
+```
+
+The serde state wrapper owns its contract/owner values and supplies the
+canonical JSON decode/encode edges. Module authors implement only initialize,
+fact application, migration, and optional view projection. This removes the
+`OnceLock`/panic static-reference pattern without hiding state ownership.
+
+### Ergonomic evidence
+
+For the committed downstream fixture, the complete authored Rust source moved
+from 1,522 to 1,425 lines while adding a source-of-truth assertion for the
+derived topology. More importantly, each Pulse and decision read is now
+declared once instead of being repeated across manifest invocation,
+manifest read-view, provider registration, and runtime read-plan structures;
+Observe subscriptions are derived from the same invocation value. The scaffold
+grew from 88 to 132 lines because it now composes a real subscription and codec
+instead of an unreachable behavior. These counts are review evidence, not an
+API quality target: budgets, provider ids, selector capabilities, ordering,
+owners, schemas, and provenance remain literal.
+
 ## Provider composition
 
 `GameplayStaticModuleProvider` carries the real behavior instance plus the

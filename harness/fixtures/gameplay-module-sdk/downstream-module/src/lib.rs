@@ -29,17 +29,12 @@ fn declaration(event: GameplayContractRef) -> GameplayEventSchemaDeclaration {
     }
 }
 
-fn typed_json_codec<T>(event: GameplayContractRef) -> TypedGameplayEventCodec<T>
+fn typed_codec<T>(event: GameplayContractRef) -> TypedGameplayEventCodec<T>
 where
     T: Serialize + for<'de> Deserialize<'de> + 'static,
 {
     let descriptor = schema_descriptor(&event.namespace, &event.name);
-    TypedGameplayEventCodec::new(
-        declaration(event),
-        descriptor,
-        |payload: &T| serde_json::to_vec(payload).map_err(|error| error.to_string()),
-        |bytes| serde_json::from_slice(bytes).map_err(|error| error.to_string()),
-    )
+    gameplay_serde_json_codec(event, descriptor)
 }
 
 fn build_provenance() -> GameplayModuleBuildProvenance {
@@ -55,15 +50,7 @@ fn build_provenance() -> GameplayModuleBuildProvenance {
 fn capability_activation_codec() -> TypedGameplayEventCodec<CapabilityActivationGameplayProposal> {
     let kind = StandardGameplayProposalKind::SetCapabilityActivation;
     let event = kind.contract();
-    TypedGameplayEventCodec::new(
-        GameplayEventSchemaDeclaration {
-            codec_id: gameplay_canonical_codec_id(&event.schema_hash),
-            event,
-        },
-        kind.schema_descriptor(),
-        |payload| serde_json::to_vec(payload).map_err(|error| error.to_string()),
-        |bytes| serde_json::from_slice(bytes).map_err(|error| error.to_string()),
-    )
+    gameplay_serde_json_codec(event, kind.schema_descriptor())
 }
 
 pub struct PulseBehavior {
@@ -97,7 +84,7 @@ impl GameplayModuleBehavior for PulseBehavior {
                 .transpose()?;
             let mut actions = context.actions();
             actions.emit(
-                &typed_json_codec::<TriggerReactionProposal>(contract("trigger-reaction-proposed")),
+                &typed_codec::<TriggerReactionProposal>(contract("trigger-reaction-proposed")),
                 &TriggerReactionProposal {
                     action: "door.open".to_owned(),
                     trigger: entered.trigger,
@@ -134,7 +121,7 @@ impl GameplayModuleBehavior for PulseBehavior {
             .saturating_mul(self.multiplier)
             .saturating_add(current_state);
         actions.emit(
-            &typed_json_codec::<Pulse>(contract("pulse-result")),
+            &typed_codec::<Pulse>(contract("pulse-result")),
             &Pulse { amount: result },
             context.source(),
             vec![],
@@ -159,7 +146,7 @@ pub struct PulseConfiguration {
     multiplier: u64,
 }
 
-impl GameplayTypedModuleStateAdapter for PulseStateAdapter {
+impl GameplaySerdeModuleStateAdapter for PulseStateAdapter {
     type Config = PulseConfiguration;
     type State = u64;
     type Fact = u64;
@@ -169,38 +156,19 @@ impl GameplayTypedModuleStateAdapter for PulseStateAdapter {
         "fixture.pulse.module"
     }
 
-    fn state_schema(&self) -> &GameplayContractRef {
-        static VALUE: std::sync::OnceLock<GameplayContractRef> = std::sync::OnceLock::new();
-        VALUE.get_or_init(|| contract("pulse-state"))
+    fn state_schema(&self) -> GameplayContractRef {
+        contract("pulse-state")
     }
 
-    fn fact_schema(&self) -> &GameplayContractRef {
-        static VALUE: std::sync::OnceLock<GameplayContractRef> = std::sync::OnceLock::new();
-        VALUE.get_or_init(|| contract("pulse-fact"))
+    fn fact_schema(&self) -> GameplayContractRef {
+        contract("pulse-fact")
     }
 
-    fn owner(&self) -> &GameplayOwnerRef {
-        static VALUE: std::sync::OnceLock<GameplayOwnerRef> = std::sync::OnceLock::new();
-        VALUE.get_or_init(|| GameplayOwnerRef {
+    fn owner(&self) -> GameplayOwnerRef {
+        GameplayOwnerRef {
             owner_id: "authority.fixture-pulse".to_owned(),
             provider_id: "provider.fixture-pulse".to_owned(),
-        })
-    }
-
-    fn decode_config(&self, bytes: &[u8]) -> Result<Self::Config, String> {
-        serde_json::from_slice(bytes).map_err(|error| error.to_string())
-    }
-
-    fn decode_state(&self, bytes: &[u8]) -> Result<Self::State, String> {
-        serde_json::from_slice(bytes).map_err(|error| error.to_string())
-    }
-
-    fn decode_fact(&self, bytes: &[u8]) -> Result<Self::Fact, String> {
-        serde_json::from_slice(bytes).map_err(|error| error.to_string())
-    }
-
-    fn encode_state(&self, state: &Self::State) -> Result<Vec<u8>, String> {
-        serde_json::to_vec(state).map_err(|error| error.to_string())
+        }
     }
 
     fn initialize(&self, config: &Self::Config) -> Result<Self::State, String> {
@@ -215,21 +183,76 @@ impl GameplayTypedModuleStateAdapter for PulseStateAdapter {
         Ok(*state)
     }
 
-    fn view_schema(&self) -> Option<&GameplayContractRef> {
-        static VALUE: std::sync::OnceLock<GameplayContractRef> = std::sync::OnceLock::new();
-        Some(VALUE.get_or_init(|| contract("pulse-state-view")))
+    fn view_schema(&self) -> Option<GameplayContractRef> {
+        Some(contract("pulse-state-view"))
     }
 
     fn project_view(&self, state: &Self::State) -> Result<Self::View, String> {
         Ok(*state)
     }
+}
 
-    fn encode_view(&self, view: &Self::View) -> Result<Vec<u8>, String> {
-        serde_json::to_vec(view).map_err(|error| error.to_string())
-    }
+fn pulse_topology() -> GameplayDerivedModuleTopology {
+    let selector = GameplayHeaderSelector {
+        source: None,
+        target: None,
+        scope: None,
+        required_tags: Vec::new(),
+    };
+    let pulse = GameplayModuleInvocationTopology::observe(
+        "fixture.pulse.observe",
+        "fixture.pulse.observe",
+        contract("pulse"),
+        contract("pulse-result"),
+        selector.clone(),
+        4,
+        2,
+        1_024,
+    )
+    .read(gameplay_session_state_read(
+        "pulse-state",
+        contract("pulse-state-view"),
+        "provider.fixture-pulse",
+        vec!["amount".to_owned()],
+        "single-module-state",
+    ));
+    let trigger = GameplayModuleInvocationTopology::observe(
+        "fixture.trigger-enter.observe",
+        "fixture.trigger-enter.observe",
+        StandardGameplayEventKind::TriggerEntered.contract(),
+        contract("trigger-reaction-proposed"),
+        selector,
+        4,
+        2,
+        1_024,
+    )
+    .read(GameplayModuleReadTopology {
+        request: GameplayReadRequest {
+            request_id: "current-trigger-overlaps".to_owned(),
+            view: contract("trigger-overlaps-view"),
+            fields: vec!["trigger".to_owned(), "subjects".to_owned()],
+            selector: GameplayReadSelector::OwnerQuery {
+                query: GameplayOwnerQuery::CurrentTriggerOverlaps {
+                    trigger: GameplayEventEntityBinding::Source,
+                    max_items: 8,
+                },
+            },
+        },
+        provider_id: "provider.fixture-trigger-overlaps".to_owned(),
+        kind: GameplayReadViewKind::OwnerQuery,
+        selector_capabilities: vec![
+            GameplayReadSelectorCapability::EventSource,
+            GameplayReadSelectorCapability::OwnerQuery,
+        ],
+        max_items: 8,
+        ordering: "entity-id-ascending".to_owned(),
+    });
+    GameplayDerivedModuleTopology::derive("fixture.pulse.module", vec![pulse, trigger])
+        .expect("fixture topology is unambiguous")
 }
 
 pub fn provider(multiplier: u64) -> GameplayStaticModuleProvider {
+    let topology = pulse_topology();
     let mut manifest = GameplayModuleManifest {
         module_ref: GameplayModuleRef {
             module_id: "fixture.pulse.module".to_owned(),
@@ -245,79 +268,9 @@ pub fn provider(multiplier: u64) -> GameplayStaticModuleProvider {
             declaration(contract("pulse-result")),
             declaration(contract("trigger-reaction-proposed")),
         ],
-        subscriptions: vec![
-            GameplaySubscriptionDeclaration {
-                subscription_id: "fixture.pulse.observe".to_owned(),
-                event: contract("pulse"),
-                invocation_id: "fixture.pulse.observe".to_owned(),
-                selector: GameplayHeaderSelector {
-                    source: None,
-                    target: None,
-                    scope: None,
-                    required_tags: vec![],
-                },
-                max_deliveries_per_root: 4,
-            },
-            GameplaySubscriptionDeclaration {
-                subscription_id: "fixture.trigger-enter.observe".to_owned(),
-                event: StandardGameplayEventKind::TriggerEntered.contract(),
-                invocation_id: "fixture.trigger-enter.observe".to_owned(),
-                selector: GameplayHeaderSelector {
-                    source: None,
-                    target: None,
-                    scope: None,
-                    required_tags: vec![],
-                },
-                max_deliveries_per_root: 4,
-            },
-        ],
-        invocations: vec![
-            GameplayInvocationDescriptor {
-                invocation_id: "fixture.pulse.observe".to_owned(),
-                family: GameplayInvocationFamily::Observe,
-                input_contract: contract("pulse"),
-                output_contract: contract("pulse-result"),
-                read_requirements: vec![GameplayInvocationReadRequirement {
-                    request_id: "pulse-state".to_owned(),
-                    view: contract("pulse-state-view"),
-                }],
-                max_outputs: 2,
-                max_payload_bytes: 1_024,
-            },
-            GameplayInvocationDescriptor {
-                invocation_id: "fixture.trigger-enter.observe".to_owned(),
-                family: GameplayInvocationFamily::Observe,
-                input_contract: StandardGameplayEventKind::TriggerEntered.contract(),
-                output_contract: contract("trigger-reaction-proposed"),
-                read_requirements: vec![GameplayInvocationReadRequirement {
-                    request_id: "current-trigger-overlaps".to_owned(),
-                    view: contract("trigger-overlaps-view"),
-                }],
-                max_outputs: 2,
-                max_payload_bytes: 1_024,
-            },
-        ],
-        read_views: vec![
-            GameplayReadViewRequirement {
-                view: contract("pulse-state-view"),
-                provider_id: "provider.fixture-pulse".to_owned(),
-                kind: GameplayReadViewKind::ModuleNamed,
-                fields: vec!["amount".to_owned()],
-                selector_capabilities: vec![GameplayReadSelectorCapability::ModuleStateScope],
-                max_items: 1,
-            },
-            GameplayReadViewRequirement {
-                view: contract("trigger-overlaps-view"),
-                provider_id: "provider.fixture-trigger-overlaps".to_owned(),
-                kind: GameplayReadViewKind::OwnerQuery,
-                fields: vec!["trigger".to_owned(), "subjects".to_owned()],
-                selector_capabilities: vec![
-                    GameplayReadSelectorCapability::EventSource,
-                    GameplayReadSelectorCapability::OwnerQuery,
-                ],
-                max_items: 8,
-            },
-        ],
+        subscriptions: Vec::new(),
+        invocations: Vec::new(),
+        read_views: Vec::new(),
         proposal_kinds: vec![GameplayProposalDeclaration {
             proposal: StandardGameplayProposalKind::SetCapabilityActivation.contract(),
             owner: StandardGameplayProposalKind::SetCapabilityActivation.owner(),
@@ -341,53 +294,33 @@ pub fn provider(multiplier: u64) -> GameplayStaticModuleProvider {
         deterministic_requirements: vec!["canonical-json".to_owned()],
         source_hash: format!("sha256:fixture-pulse-source-{multiplier}"),
     };
+    topology
+        .apply_to_manifest(&mut manifest)
+        .expect("Pulse topology belongs to its manifest");
     build_provenance().apply_to_manifest::<PulseBehavior>(&mut manifest);
-    let configuration_metadata = GameplayConfigurationSchemaMetadata {
-        module_id: "fixture.pulse.module".to_owned(),
-        configuration: contract("configuration"),
-        codec_id: "codec.fixture-pulse.configuration".to_owned(),
-        fields: vec![GameplayConfigurationFieldMetadata {
+    let configuration = GameplaySerdeConfiguration::<PulseConfiguration>::new(
+        "fixture.pulse.module",
+        contract("configuration"),
+        vec![GameplayConfigurationFieldMetadata {
             name: "multiplier".to_owned(),
             value_type: "u64".to_owned(),
             required: true,
         }],
-    };
+    );
     GameplayStaticModuleProvider::linked_from_manifest(
         manifest,
         &build_provenance(),
         PulseBehavior { multiplier },
     )
-    .event_codec(json_codec(contract("pulse"), "codec.fixture-pulse.pulse"))
-    .event_codec(json_codec(
-        contract("pulse-result"),
-        "codec.fixture-pulse.result",
-    ))
-    .event_codec(GameplayEventCodecRegistration::typed(typed_json_codec::<
+    .event_codec(json_codec(contract("pulse")))
+    .event_codec(json_codec(contract("pulse-result")))
+    .event_codec(gameplay_serde_json_codec_registration::<
         TriggerReactionProposal,
-    >(contract(
-        "trigger-reaction-proposed",
-    ))))
-    .read_view_provider(GameplayReadViewProviderRegistration {
-        view: contract("pulse-state-view"),
-        provider_id: "provider.fixture-pulse".to_owned(),
-        kind: GameplayReadViewKind::ModuleNamed,
-        fields: vec!["amount".to_owned()],
-        selector_capabilities: vec![GameplayReadSelectorCapability::ModuleStateScope],
-        max_items: 1,
-        ordering: "single-module-state".to_owned(),
-    })
-    .read_view_provider(GameplayReadViewProviderRegistration {
-        view: contract("trigger-overlaps-view"),
-        provider_id: "provider.fixture-trigger-overlaps".to_owned(),
-        kind: GameplayReadViewKind::OwnerQuery,
-        fields: vec!["trigger".to_owned(), "subjects".to_owned()],
-        selector_capabilities: vec![
-            GameplayReadSelectorCapability::EventSource,
-            GameplayReadSelectorCapability::OwnerQuery,
-        ],
-        max_items: 8,
-        ordering: "entity-id-ascending".to_owned(),
-    })
+    >(
+        contract("trigger-reaction-proposed"),
+        schema_descriptor("fixture.pulse", "trigger-reaction-proposed"),
+    ))
+    .derived_topology(&topology)
     .state_owner(GameplayStateOwnerRegistration {
         schema: contract("pulse-state"),
         owner: pulse_owner(),
@@ -396,11 +329,8 @@ pub fn provider(multiplier: u64) -> GameplayStaticModuleProvider {
         schema: contract("pulse-fact"),
         owner: pulse_owner(),
     })
-    .state_adapter(GameplayModuleStateRegistration::typed(PulseStateAdapter))
-    .configuration_schema(configuration_metadata.clone())
-    .configuration_codec(GameplayConfigurationCodecRegistration::typed::<
-        PulseConfiguration,
-    >(configuration_metadata))
+    .state_adapter(gameplay_serde_state_adapter(PulseStateAdapter))
+    .serde_configuration(configuration)
 }
 
 pub fn root_event(amount: u64) -> GameplayEventEnvelope {
@@ -446,7 +376,7 @@ pub fn binding_registry(multiplier: u64) -> GameplayModuleBindingRegistry {
         configuration_id: "fixture.pulse.default".to_owned(),
         module,
         configuration: contract("configuration"),
-        codec_id: "codec.fixture-pulse.configuration".to_owned(),
+        codec_id: gameplay_canonical_codec_id(&contract("configuration").schema_hash),
         config_hash: gameplay_module_payload_hash(&canonical_config),
         canonical_config,
     };
@@ -625,11 +555,53 @@ fn decision_owner() -> GameplayOwnerRef {
 }
 
 #[cfg(test)]
-fn decision_provider() -> GameplayStaticModuleProvider {
+fn decision_topology() -> GameplayDerivedModuleTopology {
     let proposal = decision_contract("operation");
     let workspace = decision_contract("workspace");
-    let view = decision_contract("target-collision-view");
+    let transform = GameplayModuleInvocationTopology::decision(
+        "fixture.decision.transform",
+        GameplayInvocationFamily::Transform,
+        proposal.clone(),
+        workspace.clone(),
+        1,
+        4_096,
+    )
+    .read(GameplayModuleReadTopology {
+        request: GameplayReadRequest {
+            request_id: "decision-target-collision".to_owned(),
+            view: decision_contract("target-collision-view"),
+            fields: vec!["staticCollider".to_owned()],
+            selector: GameplayReadSelector::Capability {
+                binding: GameplayEventEntityBinding::Target { index: 0 },
+                capability: GameplayCapabilityReadKind::Collision,
+            },
+        },
+        provider_id: "provider.fixture-decision".to_owned(),
+        kind: GameplayReadViewKind::EntityCapability,
+        selector_capabilities: vec![
+            GameplayReadSelectorCapability::EventTarget,
+            GameplayReadSelectorCapability::CollisionCapability,
+        ],
+        max_items: 1,
+        ordering: "entityIdAscending".to_owned(),
+    });
+    let react = GameplayModuleInvocationTopology::decision(
+        "fixture.decision.react",
+        GameplayInvocationFamily::React,
+        proposal,
+        workspace,
+        1,
+        4_096,
+    );
+    GameplayDerivedModuleTopology::derive("fixture.decision.module", vec![transform, react])
+        .expect("decision topology is unambiguous")
+}
+
+#[cfg(test)]
+fn decision_provider() -> GameplayStaticModuleProvider {
+    let proposal = decision_contract("operation");
     let owner = decision_owner();
+    let topology = decision_topology();
     let mut manifest = GameplayModuleManifest {
         module_ref: GameplayModuleRef {
             module_id: "fixture.decision.module".to_owned(),
@@ -642,40 +614,8 @@ fn decision_provider() -> GameplayStaticModuleProvider {
         },
         published_events: Vec::new(),
         subscriptions: Vec::new(),
-        invocations: vec![
-            GameplayInvocationDescriptor {
-                invocation_id: "fixture.decision.transform".to_owned(),
-                family: GameplayInvocationFamily::Transform,
-                input_contract: proposal.clone(),
-                output_contract: workspace.clone(),
-                read_requirements: vec![GameplayInvocationReadRequirement {
-                    request_id: "decision-target-collision".to_owned(),
-                    view: view.clone(),
-                }],
-                max_outputs: 1,
-                max_payload_bytes: 4_096,
-            },
-            GameplayInvocationDescriptor {
-                invocation_id: "fixture.decision.react".to_owned(),
-                family: GameplayInvocationFamily::React,
-                input_contract: proposal.clone(),
-                output_contract: workspace,
-                read_requirements: Vec::new(),
-                max_outputs: 1,
-                max_payload_bytes: 4_096,
-            },
-        ],
-        read_views: vec![GameplayReadViewRequirement {
-            view: view.clone(),
-            provider_id: "provider.fixture-decision".to_owned(),
-            kind: GameplayReadViewKind::EntityCapability,
-            fields: vec!["staticCollider".to_owned()],
-            selector_capabilities: vec![
-                GameplayReadSelectorCapability::EventTarget,
-                GameplayReadSelectorCapability::CollisionCapability,
-            ],
-            max_items: 1,
-        }],
+        invocations: Vec::new(),
+        read_views: Vec::new(),
         proposal_kinds: vec![GameplayProposalDeclaration {
             proposal: proposal.clone(),
             owner: owner.clone(),
@@ -693,30 +633,21 @@ fn decision_provider() -> GameplayStaticModuleProvider {
         deterministic_requirements: vec!["canonical-json".to_owned()],
         source_hash: "sha256:fixture-decision-source".to_owned(),
     };
+    topology
+        .apply_to_manifest(&mut manifest)
+        .expect("decision topology belongs to its manifest");
     build_provenance().apply_to_manifest::<FixtureDecisionBehavior>(&mut manifest);
     GameplayStaticModuleProvider::linked_from_manifest(
         manifest,
         &build_provenance(),
         FixtureDecisionBehavior,
     )
-    .proposal_codec(GameplayEventCodecRegistration::typed(typed_json_codec::<
-        DecisionWorkspace,
-    >(
-        proposal.clone()
-    )))
+    .proposal_codec(gameplay_serde_json_codec_registration::<DecisionWorkspace>(
+        proposal.clone(),
+        schema_descriptor("fixture.decision", "operation"),
+    ))
     .proposal_owner(GameplayProposalOwnerRegistration { proposal, owner })
-    .read_view_provider(GameplayReadViewProviderRegistration {
-        view,
-        provider_id: "provider.fixture-decision".to_owned(),
-        kind: GameplayReadViewKind::EntityCapability,
-        fields: vec!["staticCollider".to_owned()],
-        selector_capabilities: vec![
-            GameplayReadSelectorCapability::EventTarget,
-            GameplayReadSelectorCapability::CollisionCapability,
-        ],
-        max_items: 1,
-        ordering: "entityIdAscending".to_owned(),
-    })
+    .derived_topology(&topology)
 }
 
 #[cfg(test)]
@@ -726,9 +657,8 @@ fn decision_composition() -> GameplayStaticComposition {
     builder.build().expect("public decision composition")
 }
 
-fn json_codec(event: GameplayContractRef, codec_id: &str) -> GameplayEventCodecRegistration {
-    let _legacy_codec_label = codec_id;
-    GameplayEventCodecRegistration::typed(typed_json_codec::<Pulse>(event))
+fn json_codec(event: GameplayContractRef) -> GameplayEventCodecRegistration {
+    GameplayEventCodecRegistration::typed(typed_codec::<Pulse>(event))
 }
 
 #[cfg(test)]
@@ -742,17 +672,30 @@ mod tests {
     use asha_gameplay_runtime_host::{
         BundleArtifacts, GameplayBindingEntityTargets, GameplayDecisionMoment,
         GameplayDecisionStatus, GameplayOperationWorkspace, GameplayRuntimeDecisionOwner,
-        GameplayRuntimeDecisionOwnerOutput, GameplayRuntimeDeclaredReadPlan, GameplayRuntimeHost,
-        GameplayRuntimeProjectInput, GameplayRuntimeSchedulerCommand,
-        GameplayRuntimeSchedulerDefinition, GameplayRuntimeSpatialEntity,
-        GameplayTriggerDefinition, LoadPlan, LoadStep, RuntimeSessionId, SceneId,
-        ScheduledActionId, ScheduledActionValidity, TickScheduledActionDraft,
-        TriggerReconcileCause, GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION,
+        GameplayRuntimeDecisionOwnerOutput, GameplayRuntimeHost, GameplayRuntimeProjectInput,
+        GameplayRuntimeSchedulerCommand, GameplayRuntimeSchedulerDefinition,
+        GameplayRuntimeSpatialEntity, GameplayTriggerDefinition, LoadPlan, LoadStep,
+        RuntimeSessionId, SceneId, ScheduledActionId, ScheduledActionValidity,
+        TickScheduledActionDraft, TriggerReconcileCause,
+        GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION,
     };
 
     fn conformance_composition() -> Result<GameplayStaticComposition, GameplayStaticCompositionError>
     {
         Ok(composition(4))
+    }
+
+    #[test]
+    fn authored_topology_is_the_manifest_and_runtime_read_plan_source() {
+        let topology = pulse_topology();
+        let provider = provider(4);
+        assert_eq!(provider.manifest.subscriptions, topology.subscriptions());
+        assert_eq!(provider.manifest.invocations, topology.invocations());
+        assert_eq!(provider.manifest.read_views, topology.read_views());
+        assert_eq!(
+            runtime_host_project_input(4).declared_reads,
+            topology.declared_reads()
+        );
     }
 
     fn conformance_project() -> GameplayModuleConformanceProject {
@@ -890,35 +833,7 @@ mod tests {
                     static_collider: false,
                 },
             ],
-            declared_reads: vec![
-                GameplayRuntimeDeclaredReadPlan {
-                    module_id: "fixture.pulse.module".to_owned(),
-                    invocation_id: "fixture.pulse.observe".to_owned(),
-                    requests: vec![GameplayReadRequest {
-                        request_id: "pulse-state".to_owned(),
-                        view: contract("pulse-state-view"),
-                        fields: vec!["amount".to_owned()],
-                        selector: GameplayReadSelector::ModuleNamed {
-                            scope: GameplayModuleStateScope::Session,
-                        },
-                    }],
-                },
-                GameplayRuntimeDeclaredReadPlan {
-                    module_id: "fixture.pulse.module".to_owned(),
-                    invocation_id: "fixture.trigger-enter.observe".to_owned(),
-                    requests: vec![GameplayReadRequest {
-                        request_id: "current-trigger-overlaps".to_owned(),
-                        view: contract("trigger-overlaps-view"),
-                        fields: vec!["trigger".to_owned(), "subjects".to_owned()],
-                        selector: GameplayReadSelector::OwnerQuery {
-                            query: GameplayOwnerQuery::CurrentTriggerOverlaps {
-                                trigger: GameplayEventEntityBinding::Source,
-                                max_items: 8,
-                            },
-                        },
-                    }],
-                },
-            ],
+            declared_reads: pulse_topology().declared_reads().to_vec(),
             triggers: vec![GameplayTriggerDefinition {
                 schema_version: GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION,
                 entity: 10,
@@ -940,19 +855,7 @@ mod tests {
         let mut input = runtime_host_project_input(4);
         input.composition = decision_composition();
         input.bindings = GameplayModuleBindingRegistryBuilder::new().build();
-        input.declared_reads = vec![GameplayRuntimeDeclaredReadPlan {
-            module_id: "fixture.decision.module".to_owned(),
-            invocation_id: "fixture.decision.transform".to_owned(),
-            requests: vec![GameplayReadRequest {
-                request_id: "decision-target-collision".to_owned(),
-                view: decision_contract("target-collision-view"),
-                fields: vec!["staticCollider".to_owned()],
-                selector: GameplayReadSelector::Capability {
-                    binding: GameplayEventEntityBinding::Target { index: 0 },
-                    capability: GameplayCapabilityReadKind::Collision,
-                },
-            }],
-        }];
+        input.declared_reads = decision_topology().declared_reads().to_vec();
         input.triggers = Vec::new();
         input.scheduler = GameplayRuntimeSchedulerDefinition::new(
             GameplayOwnerRef {

@@ -311,6 +311,11 @@ until its existing callers migrate.
 
 ## Rust gameplay module SDK compatibility log
 
+- 2026-07-13: Added serde-backed codec/configuration/state helpers and the
+  explicit `GameplayDerivedModuleTopology` authoring path. This is additive;
+  it derives existing closed manifest/provider/runtime declarations and does
+  not add ambient registration or new mutation rights. The runtime host
+  continues to re-export `GameplayRuntimeDeclaredReadPlan` at its prior path.
 - 2026-07-11: Added generated gameplay-module configuration/binding contracts
   and the deterministic public `GameplayModuleBindingRegistryBuilder`. This is
   additive for module authors; executable behavior remains statically linked and

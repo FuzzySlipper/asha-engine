@@ -22,7 +22,7 @@ use core_entity::{
     MovementEvent, TransformCommand,
 };
 use core_math::Vec3;
-use gameplay_module_sdk::GameplayStaticComposition;
+pub use gameplay_module_sdk::{GameplayRuntimeDeclaredReadPlan, GameplayStaticComposition};
 use protocol_game_extension::{
     GameplayEventEnvelope, GameplayEventPhase, GameplayModuleBindingActivationReceipt,
     GameplayModuleBindingRegistry, GameplayOwnerRef, GameplayProposalEnvelope,
@@ -34,9 +34,9 @@ use rule_gameplay_fabric::{
     GameplayOwnerEventContext, GameplayOwnerQueryProvider, GameplayPrefabInstanceBinding,
     GameplayPrefabInstanceIndex, GameplayReactionFrame, GameplayReactionSourceFact,
     GameplayReadAssembler, GameplayReadAssemblyError, GameplayReadDiagnostic,
-    GameplayReadDiagnosticCode, GameplayReadPlan, GameplayReadRequest, GameplayReadSelector,
-    GameplayRuntimeDiagnostic, GameplayRuntimeLimits, GameplayTriggerOverlapQueryProvider,
-    GameplayViewSource, GameplayWaveAuthority, GameplayWaveStateHashes,
+    GameplayReadDiagnosticCode, GameplayReadPlan, GameplayReadSelector, GameplayRuntimeDiagnostic,
+    GameplayRuntimeLimits, GameplayTriggerOverlapQueryProvider, GameplayViewSource,
+    GameplayWaveAuthority, GameplayWaveStateHashes,
 };
 use rule_project_bundle::{
     GameplayBindingActivationError, GameplayBoundProjectBundleSession, SessionStateArtifact,
@@ -148,15 +148,6 @@ pub struct GameplayRuntimeSpatialEntity {
     pub translation: [f32; 3],
     pub half_extents: [f32; 3],
     pub static_collider: bool,
-}
-
-/// Event identity and wave are supplied by the host at delivery time; a
-/// consumer declares only the statically composed module/invocation plan.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GameplayRuntimeDeclaredReadPlan {
-    pub module_id: String,
-    pub invocation_id: String,
-    pub requests: Vec<GameplayReadRequest>,
 }
 
 /// Narrow statically linked Rust authority port for one pre-commit owner. The

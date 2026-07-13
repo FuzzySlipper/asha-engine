@@ -24,6 +24,43 @@ pub fn module_id() -> &'static str {
     "__MODULE_ID__"
 }
 
+fn input_schema_descriptor() -> &'static str {
+    "__MODULE_ID__.input{amount:u64};canonical-json-v1"
+}
+
+fn input_contract() -> GameplayContractRef {
+    gameplay_contract(
+        "__MODULE_ID__",
+        "input",
+        1,
+        input_schema_descriptor(),
+    )
+}
+
+fn input_codec() -> TypedGameplayEventCodec<Input> {
+    gameplay_serde_json_codec(input_contract(), input_schema_descriptor())
+}
+
+fn topology() -> GameplayDerivedModuleTopology {
+    let invocation = GameplayModuleInvocationTopology::observe(
+        "__MODULE_ID__.observe",
+        "__MODULE_ID__.observe",
+        input_contract(),
+        input_contract(),
+        GameplayHeaderSelector {
+            source: None,
+            target: None,
+            scope: None,
+            required_tags: Vec::new(),
+        },
+        8,
+        1,
+        1_024,
+    );
+    GameplayDerivedModuleTopology::derive(module_id(), vec![invocation])
+        .expect("generated topology is unambiguous")
+}
+
 fn build_provenance() -> GameplayModuleBuildProvenance {
     GameplayModuleBuildProvenance::from_build_inputs(
         env!("CARGO_PKG_NAME"),
@@ -35,6 +72,7 @@ fn build_provenance() -> GameplayModuleBuildProvenance {
 }
 
 pub fn manifest() -> GameplayModuleManifest {
+    let topology = topology();
     let mut manifest = GameplayModuleManifest {
         module_ref: GameplayModuleRef {
             module_id: module_id().to_owned(),
@@ -45,7 +83,7 @@ pub fn manifest() -> GameplayModuleManifest {
             artifact_hash: String::new(),
             provider_id: "provider.__MODULE_ID__".to_owned(),
         },
-        published_events: vec![],
+        published_events: vec![input_codec().declaration().clone()],
         subscriptions: vec![],
         invocations: vec![],
         read_views: vec![],
@@ -63,16 +101,22 @@ pub fn manifest() -> GameplayModuleManifest {
         deterministic_requirements: vec!["canonical-json".to_owned()],
         source_hash: String::new(),
     };
+    topology
+        .apply_to_manifest(&mut manifest)
+        .expect("generated topology belongs to its manifest");
     build_provenance().apply_to_manifest::<__TYPE_NAME__Behavior>(&mut manifest);
     manifest
 }
 
 pub fn provider() -> GameplayStaticModuleProvider {
+    let topology = topology();
     GameplayStaticModuleProvider::linked_from_manifest(
         manifest(),
         &build_provenance(),
         __TYPE_NAME__Behavior,
     )
+    .event_codec(GameplayEventCodecRegistration::typed(input_codec()))
+    .derived_topology(&topology)
 }
 
 #[cfg(test)]

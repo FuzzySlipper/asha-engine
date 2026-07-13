@@ -1,4 +1,7 @@
-use crate::{GameplayModuleBehavior, GameplayModuleContext};
+use crate::{
+    GameplayDerivedModuleTopology, GameplayModuleBehavior, GameplayModuleContext,
+    GameplaySerdeConfiguration,
+};
 use protocol_game_extension::{GameplayContractRef, GameplayModuleManifest};
 use rule_gameplay_fabric::{
     gameplay_module_payload_hash, register_standard_owner_events, FrozenGameplayViews,
@@ -253,6 +256,26 @@ impl GameplayStaticModuleProvider {
 
     pub fn configuration_codec(mut self, codec: GameplayConfigurationCodecRegistration) -> Self {
         self.configuration_codecs.push(codec);
+        self
+    }
+
+    /// Install one typed serde configuration declaration and validator without
+    /// repeating metadata across two provider calls.
+    pub fn serde_configuration<T>(mut self, configuration: GameplaySerdeConfiguration<T>) -> Self
+    where
+        T: DeserializeOwned + Serialize + 'static,
+    {
+        let (metadata, codec) = configuration.into_parts();
+        self.configuration_schemas.push(metadata);
+        self.configuration_codecs.push(codec);
+        self
+    }
+
+    /// Install read-provider registrations derived from the same authored
+    /// topology already applied to the manifest.
+    pub fn derived_topology(mut self, topology: &GameplayDerivedModuleTopology) -> Self {
+        self.read_view_providers
+            .extend(topology.read_view_providers().iter().cloned());
         self
     }
 }

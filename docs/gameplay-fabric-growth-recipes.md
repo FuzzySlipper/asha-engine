@@ -81,9 +81,9 @@ invocation.
 
 1. Define typed Config, State, Fact, and optional View values plus their
    versioned contracts.
-2. Implement `GameplayTypedModuleStateAdapter`: decode configuration, initialize,
-   encode/decode state, apply typed facts, migrate versions, and project the
-   named view.
+2. Implement `GameplaySerdeModuleStateAdapter`: return owned contracts/owner,
+   initialize state, apply typed facts, migrate versions, and optionally project
+   the named view. The public wrapper supplies the serde encode/decode edge.
 3. Register exactly one state owner and adapter in the compiled provider.
 4. Emit module-local facts with compare-and-set revision evidence. Never hide
    mutable gameplay state inside the behavior instance.
