@@ -4,6 +4,7 @@ import { type EditorControl, type MaterialOption } from '@asha/ui-dom';
 import { type EditorInspection } from '@asha/devtools';
 import { ThreeRenderer } from '@asha/renderer-three/backend';
 import { VoxelEditController, type CommandResultHandler } from './index.js';
+import { AppEditorInputComposition, type EditorCameraInputPort } from './editor-input-composition.js';
 import type { CommandResult } from '@asha/runtime-bridge';
 /**
  * Host-specific capabilities injected into the composition root. The shell never
@@ -157,6 +158,12 @@ export declare class AppShell {
      * controller (`commit` submits the proposal, `cancel` clears the draft).
      */
     applyControl(id: string, value: string): void;
+    /**
+     * Compose the browser-safe resolved editor input path against this shell's one
+     * editor controller. Browser/Electron hosts attach the returned host to DOM and
+     * drain it from their render/update loop; headless callers can drive it directly.
+     */
+    createEditorInput(camera: EditorCameraInputPort): AppEditorInputComposition | null;
     /** The accessible material palette for the active fixture's catalog materials. */
     palette(): MaterialOption[];
     runtimeStatus(): RuntimeStatus;

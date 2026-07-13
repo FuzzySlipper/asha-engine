@@ -469,11 +469,14 @@ void test('per-instance material overrides apply only to that instance', () => {
 });
 function woodMaterial() {
     return {
+        schemaVersion: 2,
         id: 'material/wood',
         color: [0.6, 0.4, 0.2, 1],
         texture: null,
         roughness: 1,
-        emissive: 0,
+        textureTint: [1, 1, 1, 1],
+        emissionColor: [0, 0, 0],
+        emissionIntensity: 0,
         uvStrategy: 'flat',
     };
 }
@@ -559,6 +562,60 @@ void test('redefining a material live-replaces instance materials and disposes t
     const after = r.objectFor(renderHandle(1)).material;
     assert.ok(Math.abs(after.color.g - 0.8) < 1e-6, 'rendered colour updated live');
     assert.ok(disposed, 'the old material was disposed (leak-safe)');
+});
+void test('material feedback updates one instance without duplicating its asset or handle', () => {
+    const r = new ThreeRenderer();
+    r.applyDiff({ op: 'defineMaterial', material: woodMaterial() });
+    r.applyDiff({ op: 'defineStaticMesh', asset: crateAsset() });
+    r.applyDiff({ op: 'createStaticMeshInstance', handle: renderHandle(1), parent: null, instance: crateInstance() });
+    r.applyDiff({ op: 'createStaticMeshInstance', handle: renderHandle(2), parent: null, instance: crateInstance() });
+    const normal = r.objectFor(renderHandle(1));
+    const warning = r.objectFor(renderHandle(2));
+    const normalBefore = normal.material;
+    const warningBefore = warning.material;
+    assert.ok(normalBefore[0] instanceof THREE.MeshStandardMaterial);
+    assert.equal(normalBefore[0], warningBefore[0], 'descriptor material begins shared');
+    assert.equal(normal.geometry, warning.geometry, 'asset geometry begins shared');
+    r.applyDiff({
+        op: 'setMaterialInstanceParameters',
+        handle: renderHandle(2),
+        slot: 1,
+        parameters: {
+            textureTint: [0.2, 1, 0.2, 1],
+            emissionColor: [1, 0.08, 0],
+            emissionIntensity: 2.5,
+        },
+    });
+    const warningActive = warning.material[0];
+    assert.equal(r.objectFor(renderHandle(2)), warning, 'retained handle object is unchanged');
+    assert.equal(normal.geometry, warning.geometry, 'feedback does not duplicate asset geometry');
+    assert.notEqual(normal.material[0], warningActive, 'only target slot is cloned');
+    assert.ok(Math.abs(warningActive.color.r - 0.12) < 1e-6);
+    assert.ok(Math.abs(warningActive.color.g - 0.4) < 1e-6);
+    assert.deepEqual(warningActive.emissive.toArray(), [1, 0.08, 0]);
+    assert.equal(warningActive.emissiveIntensity, 2.5);
+    let disposed = false;
+    warningActive.addEventListener('dispose', () => { disposed = true; });
+    r.applyDiff({
+        op: 'setMaterialInstanceParameters',
+        handle: renderHandle(2),
+        slot: 1,
+        parameters: null,
+    });
+    assert.ok(disposed, 'reset disposes the instance-owned material');
+    assert.equal(warning.material[0], normal.material[0], 'reset returns to the shared descriptor material');
+});
+void test('material feedback rejects stale handles, non-mesh handles, and unbound slots', () => {
+    const r = new ThreeRenderer();
+    const parameters = {
+        textureTint: [1, 1, 1, 1],
+        emissionColor: [1, 0, 0],
+        emissionIntensity: 1,
+    };
+    assert.throws(() => r.applyDiff({ op: 'setMaterialInstanceParameters', handle: renderHandle(99), slot: 1, parameters }), /unknown handle 99/);
+    r.applyDiff({ op: 'defineStaticMesh', asset: crateAsset() });
+    r.applyDiff({ op: 'createStaticMeshInstance', handle: renderHandle(1), parent: null, instance: crateInstance() });
+    assert.throws(() => r.applyDiff({ op: 'setMaterialInstanceParameters', handle: renderHandle(1), slot: 9, parameters }), /unbound slot 9/);
 });
 void test('fallback material use is visible in diagnostics with the material id', () => {
     const r = new ThreeRenderer();

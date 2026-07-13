@@ -343,6 +343,13 @@ pub fn import_with_context(source: &SourceMesh, context: &ImportContext) -> Impo
                     )
                 }),
                 roughness: 1.0,
+                texture_tint: Rgba::WHITE,
+                emission_color: Rgba {
+                    r: material.color[0],
+                    g: material.color[1],
+                    b: material.color[2],
+                    a: material.color[3],
+                },
                 emissive: 0.0,
                 uv_strategy: if material.texture.is_some() {
                     UvStrategy::Planar

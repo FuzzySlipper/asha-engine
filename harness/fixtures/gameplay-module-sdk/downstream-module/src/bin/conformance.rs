@@ -1,7 +1,10 @@
 use asha_gameplay_module_conformance::{
     run_gameplay_module_conformance, GameplayModuleConformanceCase,
 };
-use asha_gameplay_module_fixture::{composition as build_composition, root_event};
+use asha_gameplay_module_fixture::{
+    composition as build_composition, conformance_needs_manifest_json,
+    conformance_reachable_surfaces, root_event, trigger_entered_event,
+};
 use asha_gameplay_module_sdk::{GameplayStaticComposition, GameplayStaticCompositionError};
 
 fn composition() -> Result<GameplayStaticComposition, GameplayStaticCompositionError> {
@@ -21,8 +24,10 @@ fn main() {
     let project_bundle_json = include_str!("../../project/gameplay-project.json").to_owned();
     let report = run_gameplay_module_conformance(GameplayModuleConformanceCase {
         project_bundle_json,
+        consumer_needs_manifest_json: conformance_needs_manifest_json(),
+        reachable_surfaces: conformance_reachable_surfaces(),
         composition,
-        events: vec![root_event(7)],
+        events: vec![root_event(7), trigger_entered_event(10, 20)],
     })
     .expect("conformance runner executes");
     if let Some(path) = json_path {

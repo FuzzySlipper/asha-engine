@@ -121,6 +121,7 @@ fn add_observe(manifest: &mut GameplayModuleManifest, suffix: &str, input: Gamep
         family: GameplayInvocationFamily::Observe,
         input_contract: input.clone(),
         output_contract: proposal_contract(),
+        read_requirements: Vec::new(),
         max_outputs: 4,
         max_payload_bytes: 4_096,
     });
@@ -580,6 +581,7 @@ fn decision_registry() -> GameplayFabricRegistry {
             family,
             input_contract: proposal_contract(),
             output_contract: workspace_contract(),
+            read_requirements: Vec::new(),
             max_outputs: 1,
             max_payload_bytes: 4_096,
         });

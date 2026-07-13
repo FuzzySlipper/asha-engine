@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "valid": true,
   "inventory": "harness/conformance/probe-inventory.json",
-  "inventoryHash": "sha256:6ec5083dbe10c835c47156e00969a48923ae9343482340ca1226acf8b7449e22",
+  "inventoryHash": "sha256:3b0f3dfacec8fc074d6d0a9ddecfd559d8c18b8c3002559c2e49c7b81bf36d72",
   "catalogs": [
     {
       "path": "engine-rs/crates/bridge/runtime-bridge-api/bridge-manifest.toml",
@@ -10,11 +10,11 @@
     },
     {
       "path": "harness/consumer-needs/validation-report.json",
-      "hash": "sha256:9e9e57add1dda3c803e5561f19fab8bedbd16f1abb44d1f60a8c2fdfab69c06b"
+      "hash": "sha256:1335b96725b8d63ca4b446b4f8cf0dfc1772d3572e8d8fdd1a8372398befef7f"
     },
     {
       "path": "harness/public-surface/rust-crates.json",
-      "hash": "sha256:3e75ea37fb9b9de16364246c2084f51857bdb79bcccea9c58e500d90e09c4800"
+      "hash": "sha256:20371c8358c1561e886ff5a24ccb0f0425c3387ceaf0def5b6f05c810522819a"
     },
     {
       "path": "harness/public-surface/ts-packages.json",
@@ -22,19 +22,19 @@
     },
     {
       "path": "harness/reachability/validation-report.json",
-      "hash": "sha256:9203004de143f148ce33629118810cea4895ddd3a6e8fbf3e39047b0dc543499"
+      "hash": "sha256:e772ca4dfa25c1610b996e6bf277e648fa38f199494bebafc26d6154dc10d832"
     },
     {
       "path": "ts/packages/runtime-bridge/src/native.ts",
-      "hash": "sha256:b54ba23a701dd7398f9ebfdb7a6c5883fe0cd59458ffd07b7c5a40e61a828594"
+      "hash": "sha256:17e9775677120e35f52b716bfc730fe572dc02278ef74fdba6c28aeeb8fea183"
     }
   ],
   "summary": {
     "stableOperationCount": 69,
-    "realOperationProbeCount": 58,
-    "temporaryOperationExemptionCount": 11,
-    "semanticProbeCount": 18,
-    "deliveryRequirementCount": 29,
+    "realOperationProbeCount": 69,
+    "temporaryOperationExemptionCount": 0,
+    "semanticProbeCount": 20,
+    "deliveryRequirementCount": 32,
     "publicSurfaceCount": 10
   },
   "operations": [
@@ -42,596 +42,2097 @@
       "operation": "apply_camera_mode_command",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/camera_modes.rs",
+          "assertion": "camera_modes_are_revision_guarded_and_emit_transition_evidence"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/camera_modes.rs",
+          "assertion": "invalid_camera_controller_inputs_fail_atomically"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/camera_modes.rs",
+          "assertion": "orbit_navigation_and_mode_return_are_deterministic"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/camera_modes.rs",
+          "assertion": "pivot_camera_distance_is_clamped_by_runtime_terrain_and_can_fail_closed"
+        }
       ]
     },
     {
       "operation": "apply_camera_navigation_input",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/camera_modes.rs",
+          "assertion": "invalid_camera_controller_inputs_fail_atomically"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/camera_modes.rs",
+          "assertion": "orbit_navigation_and_mode_return_are_deterministic"
+        }
       ]
     },
     {
       "operation": "apply_collision_constrained_camera_input",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "collision_camera_requires_an_explicit_grounded_or_free_flight_basis"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "collision_camera_travel_limit_accepts_boundary_and_rejects_over_limit_without_mutation"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "collision_constrained_camera_blocks_terrain_and_allows_empty_space"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "generated_tunnel_apply_installs_collision_authority_for_loaded_fps_session"
+        }
       ]
     },
     {
       "operation": "apply_enemy_direct_nav_movement",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
+          "assertion": "enemy_direct_nav_movement_fails_closed_on_invalid_request"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
+          "assertion": "enemy_direct_nav_movement_routes_through_rust_entity_authority"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "autonomous_enemy_movement_moves_authoritative_combat_bounds"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "public_enemy_nav_rejects_non_enemy_fps_entities_without_mutation"
+        }
       ]
     },
     {
       "operation": "apply_first_person_camera_input",
-      "status": "temporaryExemption",
-      "nativeWired": false,
-      "evidenceCorpora": [
-        "bridge.rust-authority"
+      "status": "probed",
+      "nativeWired": true,
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/camera_modes.rs",
+          "assertion": "camera_modes_are_revision_guarded_and_emit_transition_evidence"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
+          "assertion": "camera_view_surface_round_trips_and_fails_closed"
+        }
       ]
     },
     {
       "operation": "apply_fps_encounter_transition",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "fps_encounter_transition_is_rule_lifecycle_authority"
+        }
       ]
     },
     {
       "operation": "apply_fps_primary_fire",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "autonomous_enemy_movement_moves_authoritative_combat_bounds"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "explicit_role_pair_does_not_disable_generated_tunnel_occlusion"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "fps_encounter_transition_is_rule_lifecycle_authority"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "fps_primary_fire_receipt_comes_from_rust_combat_lifecycle_and_replay"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "fps_runtime_session_restart_is_epoch_guarded_and_authority_owned"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "generated_tunnel_preserves_explicit_role_targeted_enemy_damage"
+        }
       ]
     },
     {
       "operation": "apply_generated_tunnel_to_runtime_world",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/camera_modes.rs",
+          "assertion": "pivot_camera_distance_is_clamped_by_runtime_terrain_and_can_fail_closed"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "autonomous_enemy_movement_moves_authoritative_combat_bounds"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "explicit_role_pair_does_not_disable_generated_tunnel_occlusion"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "generated_tunnel_preserves_explicit_role_targeted_enemy_damage"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "generated_tunnel_apply_installs_collision_authority_for_loaded_fps_session"
+        }
       ]
     },
     {
       "operation": "apply_input_context_command",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/input.rs",
+          "assertion": "runtime_bridge_routes_normalized_input_through_session_rule_authority"
+        }
       ]
     },
     {
       "operation": "apply_scene_object_command",
-      "status": "temporaryExemption",
-      "nativeWired": false,
-      "evidenceCorpora": []
+      "status": "probed",
+      "nativeWired": true,
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        }
+      ]
     },
     {
       "operation": "apply_time_control_command",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
+          "assertion": "equivalent_time_commands_produce_deterministic_receipt_hashes"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
+          "assertion": "exact_steps_advance_the_requested_count_and_remain_paused"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
+          "assertion": "exact_steps_execute_each_fixed_tick_in_sequence"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
+          "assertion": "invalid_time_commands_are_atomic_and_classified"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
+          "assertion": "pause_blocks_cadence_ticks_while_projection_reads_remain_live"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
+          "assertion": "speed_multiplier_executes_multiple_fixed_ticks_per_cadence_pulse"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
+          "assertion": "time_control_requires_an_initialized_session"
+        }
       ]
     },
     {
       "operation": "apply_voxel_annotation_edit",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_annotation_layer_runtime_bridge_validates_loads_queries_edits_and_exports"
+        }
       ]
     },
     {
       "operation": "apply_voxel_conversion",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/mesh_import.rs",
+          "assertion": "reference_glb_import_registers_converts_and_returns_bounded_evidence"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_apply_to_unregistered_target_returns_diagnostic_receipt"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_larger_registered_source_applies_and_reports_model_info"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_plan_preview_apply_uses_rust_authority_and_commands"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_volume_asset_save_rejects_missing_material_refs_without_storage_diff"
+        }
       ]
     },
     {
       "operation": "apply_voxel_edit_revert",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "preview_then_apply_revert_uses_rust_replay_without_preview_mutation"
+        }
       ]
     },
     {
       "operation": "configure_input_session",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/input.rs",
+          "assertion": "invalid_input_catalog_never_replaces_an_active_session"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/input.rs",
+          "assertion": "runtime_bridge_replays_authority_issued_actions_exactly_once_without_raw_input"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/input.rs",
+          "assertion": "runtime_bridge_routes_normalized_input_through_session_rule_authority"
+        }
       ]
     },
     {
       "operation": "create_camera",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/camera_modes.rs",
+          "assertion": "camera_modes_are_revision_guarded_and_emit_transition_evidence"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/camera_modes.rs",
+          "assertion": "invalid_camera_controller_inputs_fail_atomically"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/camera_modes.rs",
+          "assertion": "orbit_navigation_and_mode_return_are_deterministic"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/camera_modes.rs",
+          "assertion": "pivot_camera_distance_is_clamped_by_runtime_terrain_and_can_fail_closed"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
+          "assertion": "camera_view_surface_round_trips_and_fails_closed"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "collision_camera_requires_an_explicit_grounded_or_free_flight_basis"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "collision_camera_travel_limit_accepts_boundary_and_rejects_over_limit_without_mutation"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "collision_constrained_camera_blocks_terrain_and_allows_empty_space"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "generated_tunnel_apply_installs_collision_authority_for_loaded_fps_session"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "select_voxel_derives_center_ray_and_edit_anchor_from_camera"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "select_voxel_reports_miss_for_out_of_range_crosshair"
+        }
       ]
     },
     {
       "operation": "export_voxel_annotation_layer",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_annotation_layer_runtime_bridge_validates_loads_queries_edits_and_exports"
+        }
       ]
     },
     {
       "operation": "export_voxel_conversion_evidence",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_plan_preview_apply_uses_rust_authority_and_commands"
+        }
       ]
     },
     {
       "operation": "export_voxel_volume_asset",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_larger_registered_source_applies_and_reports_model_info"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_plan_preview_apply_uses_rust_authority_and_commands"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs",
+          "assertion": "converted_volume_save_unload_and_reload_preserves_predecessor_model"
+        }
       ]
     },
     {
       "operation": "get_buffer",
-      "status": "temporaryExemption",
-      "nativeWired": false,
-      "evidenceCorpora": [
-        "bridge.rust-authority"
+      "status": "probed",
+      "nativeWired": true,
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "buffer_view_round_trips_and_unknown_handle_errors"
+        }
       ]
     },
     {
       "operation": "get_project_bundle_composition_status",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_rejects_invalid_inputs_without_fallback"
+        },
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
+          "assertion": "load_save_status_unload_round_trip"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
+          "assertion": "load_unsupported_version_fails_closed_without_mutating"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
+          "assertion": "save_before_load_fails_closed"
+        }
       ]
     },
     {
       "operation": "import_voxel_conversion_mesh_source",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/mesh_import.rs",
+          "assertion": "mesh_import_preflight_rejects_before_hash_or_authority_mutation"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/mesh_import.rs",
+          "assertion": "reference_glb_import_registers_converts_and_returns_bounded_evidence"
+        }
       ]
     },
     {
       "operation": "initialize_engine",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_rejects_invalid_inputs_without_fallback"
+        },
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_voxel_command_union_reaches_rust_authority"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
+          "assertion": "camera_view_surface_round_trips_and_fails_closed"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
+          "assertion": "enemy_direct_nav_movement_fails_closed_on_invalid_request"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
+          "assertion": "enemy_direct_nav_movement_routes_through_rust_entity_authority"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
+          "assertion": "init_then_step_is_deterministic"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "buffer_view_round_trips_and_unknown_handle_errors"
+        }
       ]
     },
     {
       "operation": "initialize_voxel_volume_authoring",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "initialize_voxel_volume_authoring_commits_a_real_runtime_model_atomically"
+        }
       ]
     },
     {
       "operation": "invoke_game_extension_weapon_effect",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/game_extension_tests.rs",
+          "assertion": "game_extension_weapon_effect_applies_validated_proposal_through_combat_authority"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/game_extension_tests.rs",
+          "assertion": "game_extension_weapon_effect_commits_lethal_demo_damage_to_session_readout"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/game_extension_tests.rs",
+          "assertion": "game_extension_weapon_effect_invokes_downstream_registered_module_ref"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/game_extension_tests.rs",
+          "assertion": "game_extension_weapon_effect_requires_declared_module"
+        }
       ]
     },
     {
       "operation": "load_fps_runtime_session",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/game_extension_tests.rs",
+          "assertion": "game_extension_weapon_effect_applies_validated_proposal_through_combat_authority"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/game_extension_tests.rs",
+          "assertion": "game_extension_weapon_effect_commits_lethal_demo_damage_to_session_readout"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/game_extension_tests.rs",
+          "assertion": "game_extension_weapon_effect_invokes_downstream_registered_module_ref"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/game_extension_tests.rs",
+          "assertion": "game_extension_weapon_effect_rejects_incompatible_downstream_manifest"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/game_extension_tests.rs",
+          "assertion": "game_extension_weapon_effect_requires_declared_module"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/camera_modes.rs",
+          "assertion": "pivot_camera_distance_is_clamped_by_runtime_terrain_and_can_fail_closed"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "autonomous_enemy_movement_moves_authoritative_combat_bounds"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "explicit_role_pair_does_not_disable_generated_tunnel_occlusion"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "fps_encounter_transition_is_rule_lifecycle_authority"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "fps_primary_fire_receipt_comes_from_rust_combat_lifecycle_and_replay"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "fps_runtime_session_loads_project_bundle_through_rust_authority"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "fps_runtime_session_restart_is_epoch_guarded_and_authority_owned"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "generated_tunnel_preserves_explicit_role_targeted_enemy_damage"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "invalid_fps_load_fails_closed_without_replacing_prior_session"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "public_enemy_nav_rejects_non_enemy_fps_entities_without_mutation"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "generated_tunnel_apply_installs_collision_authority_for_loaded_fps_session"
+        }
       ]
     },
     {
       "operation": "load_project_bundle",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_rejects_invalid_inputs_without_fallback"
+        },
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
+          "assertion": "load_save_status_unload_round_trip"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
+          "assertion": "load_unsupported_version_fails_closed_without_mutating"
+        }
       ]
     },
     {
       "operation": "load_voxel_annotation_layer",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_annotation_layer_runtime_bridge_validates_loads_queries_edits_and_exports"
+        }
       ]
     },
     {
       "operation": "load_voxel_volume_asset",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_annotation_layer_runtime_bridge_validates_loads_queries_edits_and_exports"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_plan_preview_apply_uses_rust_authority_and_commands"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_model_window_fails_closed_for_invalid_bounds_and_query_quota"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_volume_asset_load_accepts_hand_authored_asset_and_rejects_invalid_assets"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs",
+          "assertion": "converted_volume_save_unload_and_reload_preserves_predecessor_model"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs",
+          "assertion": "voxel_volume_asset_session_hash_captures_unload_restoration_state"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs",
+          "assertion": "voxel_volume_asset_unload_is_hash_guarded_and_preserves_unrelated_models"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs",
+          "assertion": "voxel_volume_asset_unload_restores_disjoint_same_identity_footprints"
+        }
       ]
     },
     {
       "operation": "pick_voxel",
-      "status": "temporaryExemption",
-      "nativeWired": false,
-      "evidenceCorpora": [
-        "bridge.rust-authority"
+      "status": "probed",
+      "nativeWired": true,
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "pick_before_init_fails_closed"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "pick_empty_space_misses"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "pick_hits_solid_voxel_with_authoritative_face"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "pick_unknown_grid_fails_closed"
+        }
       ]
     },
     {
       "operation": "plan_voxel_conversion",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/mesh_import.rs",
+          "assertion": "mesh_import_preflight_rejects_before_hash_or_authority_mutation"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/mesh_import.rs",
+          "assertion": "reference_glb_import_registers_converts_and_returns_bounded_evidence"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_apply_to_unregistered_target_returns_diagnostic_receipt"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_larger_registered_source_applies_and_reports_model_info"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_plan_preview_apply_uses_rust_authority_and_commands"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_project_mesh_asset_stale_source_hash_fails_closed"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_registers_project_mesh_asset_before_plan"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_registers_studio_static_mesh_source_before_plan"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_source_registration_missing_geometry_fails_closed"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_stale_source_hash_fails_closed"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_unsupported_source_fails_closed"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_volume_asset_save_rejects_missing_material_refs_without_storage_diff"
+        }
       ]
     },
     {
       "operation": "preview_voxel_conversion",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/mesh_import.rs",
+          "assertion": "reference_glb_import_registers_converts_and_returns_bounded_evidence"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_apply_to_unregistered_target_returns_diagnostic_receipt"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_larger_registered_source_applies_and_reports_model_info"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_plan_preview_apply_uses_rust_authority_and_commands"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_volume_asset_save_rejects_missing_material_refs_without_storage_diff"
+        }
       ]
     },
     {
       "operation": "preview_voxel_edit_revert",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "preview_then_apply_revert_uses_rust_replay_without_preview_mutation"
+        }
       ]
     },
     {
       "operation": "read_camera_controller_state",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/camera_modes.rs",
+          "assertion": "camera_modes_are_revision_guarded_and_emit_transition_evidence"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/camera_modes.rs",
+          "assertion": "invalid_camera_controller_inputs_fail_atomically"
+        }
       ]
     },
     {
       "operation": "read_camera_projection",
-      "status": "temporaryExemption",
-      "nativeWired": false,
-      "evidenceCorpora": [
-        "bridge.rust-authority"
+      "status": "probed",
+      "nativeWired": true,
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
+          "assertion": "camera_view_surface_round_trips_and_fails_closed"
+        }
       ]
     },
     {
       "operation": "read_fps_encounter_director",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "fps_encounter_transition_is_rule_lifecycle_authority"
+        }
       ]
     },
     {
       "operation": "read_fps_runtime_session",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/game_extension_tests.rs",
+          "assertion": "game_extension_weapon_effect_commits_lethal_demo_damage_to_session_readout"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "autonomous_enemy_movement_moves_authoritative_combat_bounds"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "fps_primary_fire_receipt_comes_from_rust_combat_lifecycle_and_replay"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "generated_tunnel_preserves_explicit_role_targeted_enemy_damage"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "invalid_fps_load_fails_closed_without_replacing_prior_session"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "public_enemy_nav_rejects_non_enemy_fps_entities_without_mutation"
+        }
       ]
     },
     {
       "operation": "read_game_rule_runtime_readout",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/game_extension_tests.rs",
+          "assertion": "generic_game_rule_operations_validate_resolve_and_publish_runtime_readout"
+        }
       ]
     },
     {
       "operation": "read_input_context_state",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/input.rs",
+          "assertion": "invalid_input_catalog_never_replaces_an_active_session"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/input.rs",
+          "assertion": "runtime_bridge_routes_normalized_input_through_session_rule_authority"
+        }
       ]
     },
     {
       "operation": "read_model_material_preview",
-      "status": "temporaryExemption",
-      "nativeWired": false,
-      "evidenceCorpora": []
+      "status": "probed",
+      "nativeWired": true,
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        }
+      ]
     },
     {
       "operation": "read_projection_frame",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/game_extension_tests.rs",
+          "assertion": "game_extension_weapon_effect_applies_validated_proposal_through_combat_authority"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "fps_primary_fire_receipt_comes_from_rust_combat_lifecycle_and_replay"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "fps_runtime_session_restart_is_epoch_guarded_and_authority_owned"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "generated_tunnel_preserves_explicit_role_targeted_enemy_damage"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
+          "assertion": "pause_blocks_cadence_ticks_while_projection_reads_remain_live"
+        }
       ]
     },
     {
       "operation": "read_render_diffs",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        }
       ]
     },
     {
       "operation": "read_scene_object_snapshot",
-      "status": "temporaryExemption",
-      "nativeWired": false,
-      "evidenceCorpora": []
+      "status": "probed",
+      "nativeWired": true,
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        }
+      ]
     },
     {
       "operation": "read_time_control_state",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
+          "assertion": "invalid_time_commands_are_atomic_and_classified"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
+          "assertion": "pause_blocks_cadence_ticks_while_projection_reads_remain_live"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
+          "assertion": "speed_multiplier_executes_multiple_fixed_ticks_per_cadence_pulse"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
+          "assertion": "time_control_requires_an_initialized_session"
+        }
       ]
     },
     {
       "operation": "read_voxel_annotation_query",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_annotation_layer_runtime_bridge_validates_loads_queries_edits_and_exports"
+        }
       ]
     },
     {
       "operation": "read_voxel_conversion_source_metadata",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/mesh_import.rs",
+          "assertion": "reference_glb_import_registers_converts_and_returns_bounded_evidence"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_registers_project_mesh_asset_before_plan"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_source_metadata_fails_closed_for_unknown_or_stale_source"
+        }
       ]
     },
     {
       "operation": "read_voxel_edit_history",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_voxel_command_union_reaches_rust_authority"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "accepted_submit_commands_populates_rust_owned_default_history"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "command_and_expanded_work_quotas_reject_without_world_or_history_mutation"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "mixed_batches_preserve_partial_acceptance_and_record_one_accepted_transaction"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "preview_then_apply_revert_uses_rust_replay_without_preview_mutation"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "rejected_commands_do_not_invent_history_entries_or_undo_depth"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "stale_or_unknown_history_requests_fail_closed_without_mutation"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "undo_and_redo_move_the_rust_history_cursor_and_live_voxel_state_together"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "voxel_edit_history_fails_closed_before_engine_initialization"
+        }
       ]
     },
     {
       "operation": "read_voxel_mesh_evidence",
-      "status": "temporaryExemption",
-      "nativeWired": false,
-      "evidenceCorpora": [
-        "bridge.rust-authority"
+      "status": "probed",
+      "nativeWired": true,
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "mesh_evidence_fails_closed_before_init_and_unknown_grid"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "mesh_evidence_reports_fixture_chunks_and_changes_after_edit"
+        }
       ]
     },
     {
       "operation": "read_voxel_model_info",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/mesh_import.rs",
+          "assertion": "reference_glb_import_registers_converts_and_returns_bounded_evidence"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_larger_registered_source_applies_and_reports_model_info"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_plan_preview_apply_uses_rust_authority_and_commands"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_model_info_missing_target_fails_closed_with_diagnostic_readout"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_volume_asset_load_accepts_hand_authored_asset_and_rejects_invalid_assets"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_volume_asset_save_rejects_missing_material_refs_without_storage_diff"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs",
+          "assertion": "converted_volume_save_unload_and_reload_preserves_predecessor_model"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs",
+          "assertion": "voxel_volume_asset_unload_is_hash_guarded_and_preserves_unrelated_models"
+        }
       ]
     },
     {
       "operation": "read_voxel_model_window",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_plan_preview_apply_uses_rust_authority_and_commands"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_model_window_fails_closed_for_invalid_bounds_and_query_quota"
+        }
       ]
     },
     {
       "operation": "redo_voxel_edit",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "undo_and_redo_move_the_rust_history_cursor_and_live_voxel_state_together"
+        }
       ]
     },
     {
       "operation": "register_voxel_conversion_mesh_asset",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_project_mesh_asset_registration_rejects_invalid_assets"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_project_mesh_asset_stale_source_hash_fails_closed"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_registers_project_mesh_asset_before_plan"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_source_metadata_fails_closed_for_unknown_or_stale_source"
+        }
       ]
     },
     {
       "operation": "register_voxel_conversion_source",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_larger_registered_source_applies_and_reports_model_info"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_registers_studio_static_mesh_source_before_plan"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_source_registration_missing_geometry_fails_closed"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs",
+          "assertion": "converted_volume_save_unload_and_reload_preserves_predecessor_model"
+        }
       ]
     },
     {
       "operation": "release_buffer",
-      "status": "temporaryExemption",
-      "nativeWired": false,
-      "evidenceCorpora": []
+      "status": "probed",
+      "nativeWired": true,
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "buffer_view_round_trips_and_unknown_handle_errors"
+        }
+      ]
     },
     {
       "operation": "replay_resolved_input_action",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/input.rs",
+          "assertion": "runtime_bridge_replays_authority_issued_actions_exactly_once_without_raw_input"
+        }
       ]
     },
     {
       "operation": "restart_fps_runtime_session",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "fps_encounter_transition_is_rule_lifecycle_authority"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "assertion": "fps_runtime_session_restart_is_epoch_guarded_and_authority_owned"
+        }
       ]
     },
     {
       "operation": "save_project_bundle",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
+          "assertion": "load_save_status_unload_round_trip"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
+          "assertion": "save_before_load_fails_closed"
+        }
       ]
     },
     {
       "operation": "save_voxel_volume_asset",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_conversion_plan_preview_apply_uses_rust_authority_and_commands"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_volume_asset_save_rejects_missing_material_refs_without_storage_diff"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs",
+          "assertion": "converted_volume_save_unload_and_reload_preserves_predecessor_model"
+        }
       ]
     },
     {
       "operation": "select_voxel",
-      "status": "temporaryExemption",
-      "nativeWired": false,
-      "evidenceCorpora": [
-        "bridge.rust-authority"
+      "status": "probed",
+      "nativeWired": true,
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "select_voxel_derives_center_ray_and_edit_anchor_from_camera"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "select_voxel_reports_miss_for_out_of_range_crosshair"
+        }
       ]
     },
     {
       "operation": "step_simulation",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_rejects_invalid_inputs_without_fallback"
+        },
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
+          "assertion": "init_then_step_is_deterministic"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
+          "assertion": "step_before_init_is_typed_error"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
+          "assertion": "exact_steps_advance_the_requested_count_and_remain_paused"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
+          "assertion": "exact_steps_execute_each_fixed_tick_in_sequence"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
+          "assertion": "pause_blocks_cadence_ticks_while_projection_reads_remain_live"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
+          "assertion": "speed_multiplier_executes_multiple_fixed_ticks_per_cadence_pulse"
+        }
       ]
     },
     {
       "operation": "submit_commands",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_rejects_invalid_inputs_without_fallback"
+        },
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_voxel_command_union_reaches_rust_authority"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "accepted_voxel_command_mutates_authority_and_marks_dirty"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "mesh_evidence_reports_fixture_chunks_and_changes_after_edit"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "mixed_batch_accepts_valid_and_classifies_invalid_in_order"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "pick_hits_solid_voxel_with_authoritative_face"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "rejected_non_resident_chunk_is_classified"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "rejected_unknown_material_is_classified_and_does_not_mutate"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+          "assertion": "submit_before_init_fails_closed"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs",
+          "assertion": "voxel_volume_asset_session_hash_captures_unload_restoration_state"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs",
+          "assertion": "voxel_volume_asset_unload_is_hash_guarded_and_preserves_unrelated_models"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "accepted_submit_commands_populates_rust_owned_default_history"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "command_and_expanded_work_quotas_reject_without_world_or_history_mutation"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "mixed_batches_preserve_partial_acceptance_and_record_one_accepted_transaction"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "preview_then_apply_revert_uses_rust_replay_without_preview_mutation"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "rejected_commands_do_not_invent_history_entries_or_undo_depth"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "stale_or_unknown_history_requests_fail_closed_without_mutation"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "undo_and_redo_move_the_rust_history_cursor_and_live_voxel_state_together"
+        }
       ]
     },
     {
       "operation": "submit_game_rule_effect_intent",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/game_extension_tests.rs",
+          "assertion": "generic_game_rule_operations_validate_resolve_and_publish_runtime_readout"
+        }
       ]
     },
     {
       "operation": "submit_raw_input",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/input.rs",
+          "assertion": "runtime_bridge_replays_authority_issued_actions_exactly_once_without_raw_input"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/input.rs",
+          "assertion": "runtime_bridge_routes_normalized_input_through_session_rule_authority"
+        }
       ]
     },
     {
       "operation": "undo_voxel_edit",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "rejected_commands_do_not_invent_history_entries_or_undo_depth"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
+          "assertion": "undo_and_redo_move_the_rust_history_cursor_and_live_voxel_state_together"
+        }
       ]
     },
     {
       "operation": "unload_project_bundle",
-      "status": "temporaryExemption",
-      "nativeWired": false,
-      "evidenceCorpora": [
-        "bridge.rust-authority"
+      "status": "probed",
+      "nativeWired": true,
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
+          "assertion": "load_save_status_unload_round_trip"
+        }
       ]
     },
     {
       "operation": "unload_voxel_volume_asset",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs",
+          "assertion": "converted_volume_save_unload_and_reload_preserves_predecessor_model"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs",
+          "assertion": "voxel_volume_asset_session_hash_captures_unload_restoration_state"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs",
+          "assertion": "voxel_volume_asset_unload_is_hash_guarded_and_preserves_unrelated_models"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs",
+          "assertion": "voxel_volume_asset_unload_restores_disjoint_same_identity_footprints"
+        }
       ]
     },
     {
       "operation": "update_voxel_volume_asset_palette",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "stored_voxel_palette_update_is_hash_guarded_validated_and_round_trips"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "stored_voxel_palette_update_rejects_aggregate_serialized_size"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "stored_voxel_palette_update_rejects_palette_and_string_quotas"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "stored_voxel_palette_update_rejects_source_shape_quotas_before_validation"
+        }
       ]
     },
     {
       "operation": "validate_game_rule_catalog",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/game_extension_tests.rs",
+          "assertion": "generic_game_rule_operations_validate_resolve_and_publish_runtime_readout"
+        }
       ]
     },
     {
       "operation": "validate_voxel_annotation_layer",
       "status": "probed",
       "nativeWired": true,
-      "evidenceCorpora": [
-        "bridge.native-transport",
-        "bridge.rust-authority"
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
+          "assertion": "voxel_annotation_layer_runtime_bridge_validates_loads_queries_edits_and_exports"
+        }
       ]
     }
   ],
@@ -677,6 +2178,11 @@
       "passed": true
     },
     {
+      "id": "public.animation-projection",
+      "suite": "public.animation",
+      "passed": true
+    },
+    {
       "id": "public.audio-projection",
       "suite": "public.audio",
       "passed": true
@@ -694,6 +2200,11 @@
     {
       "id": "public.input-pause-demo",
       "suite": "public.input-pause-demo",
+      "passed": true
+    },
+    {
+      "id": "public.integrated-feedback-projection",
+      "suite": "public.animation",
       "passed": true
     },
     {
@@ -725,6 +2236,80 @@
       "id": "public.telemetry-snapshot-overlay",
       "suite": "public.telemetry",
       "passed": true
+    }
+  ],
+  "semanticClaimBindings": [
+    {
+      "claim": "actualModuleInvocation",
+      "probe": "gameplay.downstream.invocation",
+      "assertion": "public_facade_executes_real_downstream_code_and_hashes_behavior",
+      "valid": true
+    },
+    {
+      "claim": "atomicRejection",
+      "probe": "gameplay.binding.bootstrap",
+      "assertion": "stale_contracts_foreign_modules_bad_roles_reads_outputs_and_overrides_reject",
+      "valid": true
+    },
+    {
+      "claim": "configuredProjectBundleBootstrap",
+      "probe": "gameplay.binding.bootstrap",
+      "assertion": "bindings_activate_atomic_facets_and_round_trip_against_project_bundle_authority",
+      "valid": true
+    },
+    {
+      "claim": "eventBoundIdentity",
+      "probe": "gameplay.read.event-bound",
+      "assertion": "downstream_read_plan_is_typed_bounded_frozen_and_stable",
+      "valid": true
+    },
+    {
+      "claim": "eventIdentity",
+      "probe": "gameplay.downstream.invocation",
+      "assertion": "public_facade_executes_real_downstream_code_and_hashes_behavior",
+      "valid": true
+    },
+    {
+      "claim": "fieldSelection",
+      "probe": "gameplay.read.event-bound",
+      "assertion": "coordinator_delivers_declared_reads_and_binds_them_into_delivery_evidence",
+      "valid": true
+    },
+    {
+      "claim": "publicProjectionReadout",
+      "probe": "public.runtime-session.projection",
+      "assertion": "asha-demo public roots cover RuntimeSession readouts and HUD/menu projection",
+      "valid": true
+    },
+    {
+      "claim": "quota",
+      "probe": "gameplay.read.event-bound",
+      "assertion": "downstream_read_plan_is_typed_bounded_frozen_and_stable",
+      "valid": true
+    },
+    {
+      "claim": "selectorResolution",
+      "probe": "gameplay.read.event-bound",
+      "assertion": "downstream_read_plan_is_typed_bounded_frozen_and_stable",
+      "valid": true
+    },
+    {
+      "claim": "stableOrdering",
+      "probe": "gameplay.read.event-bound",
+      "assertion": "downstream_read_plan_is_typed_bounded_frozen_and_stable",
+      "valid": true
+    },
+    {
+      "claim": "stablePrefabPartResolution",
+      "probe": "gameplay.binding.bootstrap",
+      "assertion": "bindings_activate_atomic_facets_and_round_trip_against_project_bundle_authority",
+      "valid": true
+    },
+    {
+      "claim": "typedViewDelivery",
+      "probe": "gameplay.read.event-bound",
+      "assertion": "coordinator_delivers_declared_reads_and_binds_them_into_delivery_evidence",
+      "valid": true
     }
   ],
   "gaps": []

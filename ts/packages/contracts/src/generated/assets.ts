@@ -42,6 +42,8 @@ export interface RenderMaterial {
   readonly color: Rgba;
   readonly texture: AssetReference | null;
   readonly roughness: number;
+  readonly textureTint: Rgba;
+  readonly emissionColor: Rgba;
   readonly emissive: number;
   readonly uvStrategy: UvStrategy;
 }

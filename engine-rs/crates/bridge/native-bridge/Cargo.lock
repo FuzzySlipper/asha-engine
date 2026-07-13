@@ -479,12 +479,16 @@ dependencies = [
 name = "native-bridge"
 version = "0.1.0"
 dependencies = [
+ "core-ids",
  "core-math",
  "core-space",
  "core-voxel",
  "napi",
  "napi-build",
  "napi-derive",
+ "protocol-assets",
+ "protocol-render",
+ "protocol-scene",
  "protocol-view",
  "runtime-bridge-api",
  "serde",
@@ -656,6 +660,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "protocol-scene"
+version = "0.1.0"
+dependencies = [
+ "core-ids",
+]
+
+[[package]]
 name = "protocol-time-control"
 version = "0.1.0"
 dependencies = [
@@ -741,6 +752,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
+name = "render-animation"
+version = "0.1.0"
+dependencies = [
+ "core-ids",
+ "protocol-presentation",
+ "protocol-render",
+ "rule-animation-controller",
+]
+
+[[package]]
 name = "render-audio"
 version = "0.1.0"
 dependencies = [
@@ -790,6 +811,16 @@ dependencies = [
  "heapless",
  "num-traits",
  "smallvec",
+]
+
+[[package]]
+name = "rule-animation-controller"
+version = "0.1.0"
+dependencies = [
+ "core-ids",
+ "rule-state-machine",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -882,25 +913,30 @@ dependencies = [
  "core-error",
  "core-ids",
  "core-math",
+ "core-scene",
  "core-space",
  "core-voxel",
  "game-rule-extension",
+ "protocol-assets",
  "protocol-diagnostics",
  "protocol-entity-authoring",
  "protocol-game-rules",
  "protocol-input",
  "protocol-presentation",
  "protocol-render",
+ "protocol-scene",
  "protocol-time-control",
  "protocol-view",
  "protocol-voxel-annotation",
  "protocol-voxel-asset",
  "protocol-voxel-conversion",
  "protocol-voxel-edit-history",
+ "render-animation",
  "render-audio",
  "render-billboard",
  "render-particle",
  "render-telemetry-overlay",
+ "rule-animation-controller",
  "rule-gameplay-fabric",
  "rule-input",
  "rule-lifecycle",

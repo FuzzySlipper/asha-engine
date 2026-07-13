@@ -481,6 +481,7 @@ mod tests {
         input_tests::extend_round_trip_coverage(&mut coverage);
         camera_controller_tests::extend_round_trip_coverage(&mut coverage);
         time_control_tests::extend_round_trip_coverage(&mut coverage);
+        render_tests::extend_round_trip_coverage(&mut coverage);
         coverage
     }
 

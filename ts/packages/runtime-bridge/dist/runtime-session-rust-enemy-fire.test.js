@@ -68,6 +68,7 @@ function enemyFireBridgeDouble() {
     const base = createMockRuntimeBridge();
     const fireCalls = [];
     const loadRequests = [];
+    const projectionCursors = [];
     let player = 10;
     let enemy = 20;
     let playerHealth = 100;
@@ -95,6 +96,12 @@ function enemyFireBridgeDouble() {
             }
             if (property === 'readFpsRuntimeSession') {
                 return () => current;
+            }
+            if (property === 'readProjectionFrame') {
+                return (cursor) => {
+                    projectionCursors.push(cursor);
+                    return target.readProjectionFrame(cursor);
+                };
             }
             if (property === 'applyEnemyDirectNavMovement') {
                 return (request) => ({
@@ -153,10 +160,10 @@ function enemyFireBridgeDouble() {
             return value;
         },
     });
-    return { bridge, fireCalls, loadRequests };
+    return { bridge, fireCalls, loadRequests, projectionCursors };
 }
 void test('Rust-backed RuntimeSession autonomous enemy fire can defeat the player through bridge authority', () => {
-    const { bridge, fireCalls, loadRequests } = enemyFireBridgeDouble();
+    const { bridge, fireCalls, loadRequests, projectionCursors } = enemyFireBridgeDouble();
     const session = createRuntimeSessionFacade({ bridge, mode: 'rust' });
     session.initialize(sessionInput());
     const loaded = loadRequests[0];
@@ -199,6 +206,8 @@ void test('Rust-backed RuntimeSession autonomous enemy fire can defeat the playe
     assert.equal(playable.counters.shotsFired, 0);
     assert.equal(playable.counters.actionTick, 0);
     assert.equal(playable.health.player.dead, true);
+    assert.equal(session.readProjection().cursor, 10);
+    assert.deepEqual(projectionCursors, [10]);
 });
 void test('native Rust facade maps ECRP enemy policy to authorized movement and replay evidence', (t) => {
     let bridge;

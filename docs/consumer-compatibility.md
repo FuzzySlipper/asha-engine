@@ -235,6 +235,34 @@ or JSON command tunnels.
 
 ## Generated contract compatibility log
 
+### `render-material-descriptor.v2` — typed feedback parameters
+
+Surface: `@asha/contracts` render and asset DTOs. Change type: additive wire
+format with a required source-level migration for typed object literals.
+Introduced by #5602.
+
+- `RenderMaterialDescriptor` now carries `schemaVersion: 2`, `textureTint`,
+  `emissionColor`, and `emissionIntensity`.
+- `RenderDiff` adds `setMaterialInstanceParameters`, targeting one retained
+  static-mesh handle and declared material slot; `parameters: null` resets the
+  slot to descriptor defaults.
+- Asset `RenderMaterial` adds `textureTint` and `emissionColor`; its existing
+  `emissive` field remains the catalog-side intensity for stored-data
+  compatibility.
+- Runtime decoding accepts unversioned/schema-v1 render descriptors and
+  normalizes neutral defaults. Rust catalog decoding accepts stored material
+  styles that omit the two new catalog fields. Unsupported descriptor versions
+  and invalid values fail closed.
+- Typed consumers constructing render/catalog object literals must add the new
+  fields and regenerate/rebuild together. Consumers continue feeding public
+  `RenderFrameDiff` values to `@asha/render-projection` or
+  `@asha/renderer-host`; they do not import renderer internals.
+
+Evidence: `harness/ci/check-contracts.sh`,
+`harness/ci/check-render-goldens.sh`, and the generated
+`material-feedback.json` / `material-feedback.snapshot` pair. See
+`docs/material-feedback.md` for lifecycle and non-claims.
+
 ## Rust game-rule extension compatibility log
 
 ### `asha-game-rule-extension` — public local-path facade
@@ -313,6 +341,14 @@ source, schema, and artifact hashes recorded in each module manifest. Wave 1 is
 static composition only; runtime plugin loading is not part of this surface.
 
 ## Rust gameplay runtime host compatibility log
+
+- 2026-07-12: `GameplayRuntimeHost` now owns the replayable gameplay action
+  scheduler. `GameplayRuntimeProjectInput` adds the closed scheduler definition;
+  public Rust exposes typed schedule/trigger/route commands and bounded
+  readout; host snapshots retain the complete scheduler state. The TypeScript
+  load/advance/readout contract adds the matching scheduler shapes. The host
+  hash now includes current EntityStore/prefab authority and scheduler state,
+  so movement outside trigger transitions is still visible authority drift.
 
 - 2026-07-11: Added the public Rust `GameplayRuntimeHost::decide` path and
   `GameplayRuntimeDecisionOwner` port. Decision invocations now receive frozen

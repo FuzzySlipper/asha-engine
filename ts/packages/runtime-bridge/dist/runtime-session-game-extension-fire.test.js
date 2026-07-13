@@ -8,6 +8,7 @@ const PLAYER_ENTITY = 101;
 const ENEMY_ENTITY = 202;
 class GameExtensionFireBridgeDouble extends MockRuntimeBridge {
     gameExtensionFireRequests = [];
+    projectionCursors = [];
     #playerHealth = 88;
     #enemyHealth = 55;
     #snapshot = this.#snapshotFor('fnv1a64:0000000000000001');
@@ -19,6 +20,10 @@ class GameExtensionFireBridgeDouble extends MockRuntimeBridge {
     }
     readFpsRuntimeSession() {
         return this.#snapshot;
+    }
+    readProjectionFrame(cursor) {
+        this.projectionCursors.push(cursor);
+        return super.readProjectionFrame(cursor);
     }
     invokeGameExtensionWeaponEffect(request) {
         this.gameExtensionFireRequests.push(request);
@@ -114,6 +119,8 @@ void test('Rust-backed game-extension primary fire mutates health and playable c
     assert.equal(playable.counters.remainingTargets, 0);
     assert.equal(playable.health.enemy.current, 0);
     assert.deepEqual(playable.commands.blockedReasons, ['target_defeated']);
+    assert.equal(session.readProjection().cursor, 7);
+    assert.deepEqual(bridge.projectionCursors, [7]);
 });
 function sessionInput() {
     return {

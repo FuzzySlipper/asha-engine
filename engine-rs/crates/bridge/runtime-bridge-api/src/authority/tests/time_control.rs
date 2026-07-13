@@ -1,4 +1,14 @@
 use super::*;
+use core_commands::{Command, CommandKind, EntityCommand, TagCommand};
+use core_ids::TagId;
+
+fn queue_command(bridge: &mut EngineBridge, tick: u64, command: Command) {
+    super::super::time_control::queue_simulation_command(
+        bridge,
+        tick,
+        CommandEnvelope::new(CommandKind::System, command),
+    );
+}
 
 #[test]
 fn time_control_requires_an_initialized_session() {
@@ -81,6 +91,72 @@ fn exact_steps_advance_the_requested_count_and_remain_paused() {
 }
 
 #[test]
+fn exact_steps_execute_each_fixed_tick_in_sequence() {
+    let mut bridge = init_bridge();
+    assert_eq!(
+        bridge
+            .step_simulation(StepInputEnvelope { tick: 6 })
+            .unwrap(),
+        StepResult {
+            tick: 6,
+            diff_count: 0,
+        }
+    );
+    bridge
+        .apply_time_control_command(TimeControlCommand::Pause)
+        .unwrap();
+    queue_command(
+        &mut bridge,
+        7,
+        Command::Tag(TagCommand::Define { id: TagId::new(3) }),
+    );
+    queue_command(
+        &mut bridge,
+        8,
+        Command::Entity(EntityCommand::Create {
+            id: EntityId::new(12),
+        }),
+    );
+    queue_command(
+        &mut bridge,
+        9,
+        Command::Entity(EntityCommand::AddTag {
+            id: EntityId::new(12),
+            tag: TagId::new(3),
+        }),
+    );
+
+    let receipt = bridge
+        .apply_time_control_command(TimeControlCommand::StepTicks { ticks: 3 })
+        .unwrap();
+    assert_eq!(receipt.before.authority_tick, 6);
+    assert_eq!(receipt.after.authority_tick, 9);
+    assert_eq!(receipt.exact_ticks_advanced, 3);
+    assert!(bridge
+        .simulation
+        .state()
+        .entity(EntityId::new(12))
+        .expect("exact stepping created the scheduled entity")
+        .tags
+        .contains(&TagId::new(3)));
+    assert_eq!(bridge.simulation.queued_tick_count(), 0);
+
+    bridge
+        .apply_time_control_command(TimeControlCommand::Resume)
+        .unwrap();
+    assert_eq!(
+        bridge
+            .step_simulation(StepInputEnvelope { tick: 10 })
+            .unwrap(),
+        StepResult {
+            tick: 10,
+            diff_count: 0,
+        },
+        "the next cadence tick follows the exact-step sequence"
+    );
+}
+
+#[test]
 fn invalid_time_commands_are_atomic_and_classified() {
     let mut bridge = init_bridge();
     let running = bridge.read_time_control_state().unwrap();
@@ -122,9 +198,38 @@ fn invalid_time_commands_are_atomic_and_classified() {
 }
 
 #[test]
-fn speed_changes_cadence_metadata_not_explicit_tick_results() {
+fn speed_multiplier_executes_multiple_fixed_ticks_per_cadence_pulse() {
     let mut normal = init_bridge();
     let mut faster = init_bridge();
+    for bridge in [&mut normal, &mut faster] {
+        queue_command(
+            bridge,
+            7,
+            Command::Tag(TagCommand::Define { id: TagId::new(3) }),
+        );
+        queue_command(
+            bridge,
+            8,
+            Command::Entity(EntityCommand::Create {
+                id: EntityId::new(12),
+            }),
+        );
+        queue_command(
+            bridge,
+            9,
+            Command::Entity(EntityCommand::AddTag {
+                id: EntityId::new(12),
+                tag: TagId::new(3),
+            }),
+        );
+        queue_command(
+            bridge,
+            10,
+            Command::Entity(EntityCommand::Create {
+                id: EntityId::new(13),
+            }),
+        );
+    }
     let speed = faster
         .apply_time_control_command(TimeControlCommand::SetSpeedMultiplier { multiplier: 4 })
         .unwrap();
@@ -137,8 +242,28 @@ fn speed_changes_cadence_metadata_not_explicit_tick_results() {
     let faster_step = faster
         .step_simulation(StepInputEnvelope { tick: 7 })
         .unwrap();
-    assert_eq!(normal_step, faster_step);
-    assert_eq!(normal_step.diff_count, 3);
+    assert_eq!(normal_step.diff_count, 1);
+    assert_eq!(normal_step.tick, 7);
+    assert_eq!(faster_step.tick, 10);
+    assert_eq!(faster_step.diff_count, 4);
+    assert_eq!(faster.read_time_control_state().unwrap().authority_tick, 10);
+    assert!(normal
+        .simulation
+        .state()
+        .entity(EntityId::new(12))
+        .is_none());
+    assert!(faster
+        .simulation
+        .state()
+        .entity(EntityId::new(12))
+        .expect("four fixed ticks created and updated the entity")
+        .tags
+        .contains(&TagId::new(3)));
+    assert!(faster
+        .simulation
+        .state()
+        .entity(EntityId::new(13))
+        .is_some());
 }
 
 #[test]

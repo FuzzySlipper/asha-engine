@@ -46,6 +46,7 @@ export type BrowserPointerLockIntent =
 export interface BrowserInputDelivery {
   readonly sample: RawInputSample;
   readonly receipt: InputResolutionReceipt;
+  readonly activeContexts: readonly string[];
   readonly consumer: string | null;
   readonly reason: string;
 }
@@ -228,7 +229,8 @@ export class BrowserInputHost {
     phase: RawInputSample['phase'],
     value: RawInputSample['value'],
   ): BrowserInputDelivery {
-    this.#observeContextState(this.#session.readInputContextState());
+    const contextState = this.#session.readInputContextState();
+    this.#observeContextState(contextState);
     const sample: RawInputSample = {
       sequence: this.#sequence,
       platformKind,
@@ -242,7 +244,13 @@ export class BrowserInputHost {
     const reason = receipt.action !== null
       ? `resolved to ${receipt.action.actionId}`
       : (receipt.diagnostics[0]?.message ?? (receipt.consumed ? 'consumed' : 'unbound'));
-    const delivery = { sample, receipt, consumer, reason };
+    const delivery = {
+      sample,
+      receipt,
+      activeContexts: contextState.activeContexts.map((context) => context.contextId),
+      consumer,
+      reason,
+    };
     this.#deliveries.push(delivery);
     if (this.#deliveries.length > RECENT_DELIVERY_LIMIT) this.#deliveries.shift();
     if (receipt.action !== null) this.#onResolvedAction?.(receipt.action, consumer);

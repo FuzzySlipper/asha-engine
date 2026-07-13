@@ -22,6 +22,8 @@
 
 #![forbid(unsafe_code)]
 
+use std::collections::BTreeMap;
+
 use core_commands::CommandEnvelope;
 use core_state::StateStore;
 use sim_applier::apply_batch;
@@ -94,8 +96,9 @@ impl TimeController {
         self.state
     }
 
-    /// Number of fixed ticks a wall-clock cadence pulse may advance. This never
-    /// changes the fixed tick delta; speed changes only cadence density.
+    /// Number of fixed ticks a wall-clock cadence pulse advances. Callers must
+    /// execute this many ordinary fixed-tick pipeline iterations; they must not
+    /// scale the fixed tick delta or treat the multiplier as metadata only.
     pub fn cadence_tick_budget(&self) -> u8 {
         match self.state.mode {
             TimeControlMode::Paused => 0,
@@ -215,6 +218,46 @@ pub fn run_tick(store: &mut StateStore, input: TickInput) -> TickOutcome {
         accepted,
         rejected,
         events_applied,
+    }
+}
+
+/// Session-owned authority pipeline for deterministic fixed-tick execution.
+///
+/// Producers queue typed commands for an exact authority tick. Both ordinary
+/// cadence and paused exact stepping call [`SimulationAuthority::execute_tick`],
+/// which routes those commands through [`run_tick`]'s validation and event
+/// application phases. The contained [`StateStore`] never crosses the public
+/// runtime bridge boundary.
+#[derive(Debug, Default)]
+pub struct SimulationAuthority {
+    store: StateStore,
+    queued_commands: BTreeMap<u64, Vec<CommandEnvelope>>,
+}
+
+impl SimulationAuthority {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Queue one proposed command for a specific fixed tick.
+    pub fn queue_command(&mut self, tick: u64, command: CommandEnvelope) {
+        self.queued_commands.entry(tick).or_default().push(command);
+    }
+
+    /// Execute one fixed tick through the real validate/apply authority path.
+    pub fn execute_tick(&mut self, tick: u64) -> TickOutcome {
+        let commands = self.queued_commands.remove(&tick).unwrap_or_default();
+        run_tick(&mut self.store, TickInput { tick, commands })
+    }
+
+    /// Internal authority-state inspection for rule coordination and tests.
+    /// Public bridges must project typed readouts rather than return this store.
+    pub fn state(&self) -> &StateStore {
+        &self.store
+    }
+
+    pub fn queued_tick_count(&self) -> usize {
+        self.queued_commands.len()
     }
 }
 
@@ -475,6 +518,45 @@ mod tests {
         assert_eq!(rejected.before, before);
         assert_eq!(rejected.after, before);
         assert_eq!(controller.state(), before);
+    }
+
+    #[test]
+    fn simulation_authority_executes_commands_only_on_their_fixed_tick() {
+        let mut authority = SimulationAuthority::new();
+        authority.queue_command(
+            7,
+            sys(Command::Tag(TagCommand::Define { id: TagId::new(3) })),
+        );
+        authority.queue_command(
+            8,
+            sys(Command::Entity(EntityCommand::Create {
+                id: EntityId::new(12),
+            })),
+        );
+        authority.queue_command(
+            9,
+            sys(Command::Entity(EntityCommand::AddTag {
+                id: EntityId::new(12),
+                tag: TagId::new(3),
+            })),
+        );
+
+        let first = authority.execute_tick(7);
+        assert_eq!(first.events_applied, 1);
+        assert!(authority.state().tag(TagId::new(3)).is_some());
+        assert!(authority.state().entity(EntityId::new(12)).is_none());
+        assert_eq!(authority.queued_tick_count(), 2);
+
+        authority.execute_tick(8);
+        let third = authority.execute_tick(9);
+        assert_eq!(third.events_applied, 1);
+        assert!(authority
+            .state()
+            .entity(EntityId::new(12))
+            .expect("entity was created on tick 8")
+            .tags
+            .contains(&TagId::new(3)));
+        assert_eq!(authority.queued_tick_count(), 0);
     }
 
     fn sys(cmd: Command) -> core_commands::CommandEnvelope {

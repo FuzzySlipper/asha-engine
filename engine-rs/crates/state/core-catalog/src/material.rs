@@ -98,6 +98,10 @@ pub struct MaterialStyle {
     /// Optional bound texture asset (a `texture/...` reference).
     pub texture: Option<AssetReference>,
     pub roughness: f32,
+    /// Linear RGBA multiplier for the base colour/texture. White is neutral.
+    pub texture_tint: Rgba,
+    /// Linear emission colour; `emissive` remains the non-negative intensity.
+    pub emission_color: Rgba,
     pub emissive: f32,
     pub uv_strategy: UvStrategy,
 }
@@ -109,6 +113,8 @@ impl MaterialStyle {
             color,
             texture: None,
             roughness: 1.0,
+            texture_tint: Rgba::WHITE,
+            emission_color: color,
             emissive: 0.0,
             uv_strategy: UvStrategy::Flat,
         }
@@ -128,6 +134,8 @@ pub struct RenderMaterial {
     pub color: Rgba,
     pub texture: Option<AssetReference>,
     pub roughness: f32,
+    pub texture_tint: Rgba,
+    pub emission_color: Rgba,
     pub emissive: f32,
     pub uv_strategy: UvStrategy,
 }
@@ -148,6 +156,8 @@ impl MaterialDef {
             color: self.style.color,
             texture: self.style.texture.clone(),
             roughness: self.style.roughness,
+            texture_tint: self.style.texture_tint,
+            emission_color: self.style.emission_color,
             emissive: self.style.emissive,
             uv_strategy: self.style.uv_strategy,
         }

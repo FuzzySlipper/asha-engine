@@ -345,6 +345,7 @@ fn compatibility_manifest(module: &dyn GameRuleModule) -> GameplayModuleManifest
             family: GameplayInvocationFamily::Transform,
             input_contract: compatibility_operation_contract(),
             output_contract: compatibility_workspace_contract(),
+            read_requirements: Vec::new(),
             max_outputs: 1,
             max_payload_bytes: 16_384,
         }],

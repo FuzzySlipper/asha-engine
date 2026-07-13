@@ -38,6 +38,10 @@ import {
   pickAndSelect,
   type CommandResultHandler,
 } from './index.js';
+import {
+  AppEditorInputComposition,
+  type EditorCameraInputPort,
+} from './editor-input-composition.js';
 import type { CommandResult } from '@asha/runtime-bridge';
 
 // ── Injected host capabilities ────────────────────────────────────────────────
@@ -354,6 +358,22 @@ export class AppShell {
     if (action) {
       this.controller.store.dispatch(action);
     }
+  }
+
+  /**
+   * Compose the browser-safe resolved editor input path against this shell's one
+   * editor controller. Browser/Electron hosts attach the returned host to DOM and
+   * drain it from their render/update loop; headless callers can drive it directly.
+   */
+  createEditorInput(camera: EditorCameraInputPort): AppEditorInputComposition | null {
+    if (this.#bridge === null) {
+      return null;
+    }
+    return new AppEditorInputComposition({
+      session: this.#bridge,
+      editor: this.controller,
+      camera,
+    });
   }
 
   // ── Read models ──────────────────────────────────────────────────────────────

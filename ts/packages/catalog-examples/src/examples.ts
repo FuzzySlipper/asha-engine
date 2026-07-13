@@ -56,6 +56,8 @@ export const GENERATED_TUNNEL_ASSET_CATALOG_EXAMPLE: Catalog = {
           color: { r: 0.42, g: 0.45, b: 0.49, a: 1 },
           texture: null,
           roughness: 0.84,
+          textureTint: { r: 1, g: 1, b: 1, a: 1 },
+          emissionColor: { r: 0.5, g: 0.5, b: 0.5, a: 1 },
           emissive: 0,
           uvStrategy: 'flat',
         },

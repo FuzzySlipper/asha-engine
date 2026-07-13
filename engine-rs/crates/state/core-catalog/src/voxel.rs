@@ -182,6 +182,8 @@ fn fallback_render_material() -> RenderMaterial {
         color: Rgba::DEBUG_GREY,
         texture: None,
         roughness: 1.0,
+        texture_tint: Rgba::WHITE,
+        emission_color: Rgba::DEBUG_GREY,
         emissive: 0.0,
         uv_strategy: crate::material::UvStrategy::Flat,
     }

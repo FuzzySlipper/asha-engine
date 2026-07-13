@@ -151,7 +151,7 @@ pub struct GameplayRuntimePrefabRoleReadout {
 pub(crate) fn apply_prefab_bootstrap(
     bundle: &mut ProjectBundleLoadResult,
     bootstrap: GameplayRuntimePrefabBootstrap,
-) -> Result<(), GameplayRuntimeHostError> {
+) -> Result<svc_serialization::ValidatedPrefabRegistry, GameplayRuntimeHostError> {
     let validation_context = PrefabRegistryValidationContext {
         asset_ids: bootstrap
             .catalog
@@ -189,7 +189,7 @@ pub(crate) fn apply_prefab_bootstrap(
             )
             .map_err(|error| GameplayRuntimeHostError::Prefab(error.to_string()))?;
     }
-    Ok(())
+    Ok(registry)
 }
 
 pub(crate) fn prefab_readout(bundle: &ProjectBundleLoadResult) -> GameplayRuntimePrefabReadout {
@@ -322,15 +322,148 @@ impl From<GameplayRuntimePrefabOverride> for PrefabOverride {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::GameplayRuntimeSchedulerDefinition;
     use crate::{
-        BundleArtifacts, GameplayBindingEntityTargets, GameplayRuntimeHost,
-        GameplayRuntimeProjectInput, LoadPlan, LoadStep,
+        BundleArtifacts, GameplayBindingEntityTargets, GameplayRuntimeDeclaredReadPlan,
+        GameplayRuntimeHost, GameplayRuntimeProjectInput, GameplayRuntimeSpatialEntity,
+        GameplayTriggerDefinition, LoadPlan, LoadStep, GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION,
     };
-    use core_ids::{RuntimeSessionId, SceneId, SceneNodeId};
+    use core_ids::{EntityId, PrefabId, PrefabInstanceId, RuntimeSessionId, SceneId, SceneNodeId};
     use core_scene::{encode, SceneMetadata, SceneNode, SceneNodeKind, SceneTree};
-    use gameplay_module_sdk::{
-        GameplayModuleBindingRegistryBuilder, GameplayStaticCompositionBuilder,
-    };
+    use gameplay_module_sdk::*;
+    use rule_gameplay_fabric::gameplay_payload_hash;
+
+    struct PrefabReadBehavior;
+
+    impl GameplayModuleBehavior for PrefabReadBehavior {
+        fn invoke(
+            &self,
+            context: &GameplayModuleContext<'_>,
+        ) -> Result<GameplayModuleActions, GameplayModuleError> {
+            Ok(context.actions())
+        }
+    }
+
+    fn read_contract(name: &str) -> GameplayContractRef {
+        GameplayContractRef {
+            namespace: "fixture.prefab-read".to_owned(),
+            name: name.to_owned(),
+            version: 1,
+            schema_hash: format!("sha256:fixture-prefab-read-{name}"),
+        }
+    }
+
+    fn prefab_read_provider() -> GameplayStaticModuleProvider {
+        let event = read_contract("inspect");
+        let prefab_view = read_contract("prefab-part-view");
+        let scope_view = read_contract("scope-view");
+        let provider_id = "provider.fixture-prefab-read".to_owned();
+        let manifest = GameplayModuleManifest {
+            module_ref: GameplayModuleRef {
+                module_id: "fixture.prefab-read.module".to_owned(),
+                namespace: "fixture.prefab-read".to_owned(),
+                version: "1.0.0".to_owned(),
+                sdk_hash: "sha256:gameplay-sdk-v1".to_owned(),
+                contract_hash: "sha256:fixture-prefab-read-contract".to_owned(),
+                artifact_hash: "sha256:fixture-prefab-read-artifact".to_owned(),
+                provider_id: provider_id.clone(),
+            },
+            published_events: vec![GameplayEventSchemaDeclaration {
+                event: event.clone(),
+                codec_id: "codec.fixture-prefab-read.inspect".to_owned(),
+            }],
+            subscriptions: vec![GameplaySubscriptionDeclaration {
+                subscription_id: "fixture.prefab-read.inspect".to_owned(),
+                event: event.clone(),
+                invocation_id: "fixture.prefab-read.inspect".to_owned(),
+                selector: GameplayHeaderSelector {
+                    source: None,
+                    target: None,
+                    scope: None,
+                    required_tags: Vec::new(),
+                },
+                max_deliveries_per_root: 1,
+            }],
+            invocations: vec![GameplayInvocationDescriptor {
+                invocation_id: "fixture.prefab-read.inspect".to_owned(),
+                family: GameplayInvocationFamily::Observe,
+                input_contract: event.clone(),
+                output_contract: read_contract("inspect-result"),
+                read_requirements: vec![
+                    GameplayInvocationReadRequirement {
+                        request_id: "console-sensor".to_owned(),
+                        view: prefab_view.clone(),
+                    },
+                    GameplayInvocationReadRequirement {
+                        request_id: "console-scope".to_owned(),
+                        view: scope_view.clone(),
+                    },
+                ],
+                max_outputs: 1,
+                max_payload_bytes: 1_024,
+            }],
+            read_views: vec![
+                GameplayReadViewRequirement {
+                    view: prefab_view.clone(),
+                    provider_id: provider_id.clone(),
+                    kind: GameplayReadViewKind::PrefabPart,
+                    fields: vec!["entity".to_owned(), "part".to_owned(), "role".to_owned()],
+                    selector_capabilities: vec![GameplayReadSelectorCapability::PrefabPartRole],
+                    max_items: 1,
+                },
+                GameplayReadViewRequirement {
+                    view: scope_view.clone(),
+                    provider_id: provider_id.clone(),
+                    kind: GameplayReadViewKind::Selection,
+                    fields: vec!["entities".to_owned()],
+                    selector_capabilities: vec![GameplayReadSelectorCapability::ScopeSelection],
+                    max_items: 4,
+                },
+            ],
+            proposal_kinds: Vec::new(),
+            state_schemas: Vec::new(),
+            fact_schemas: Vec::new(),
+            ordering: Vec::new(),
+            budget: GameplayExecutionBudget {
+                max_waves: 2,
+                max_events_per_root: 4,
+                max_proposals_per_root: 1,
+                max_invocations_per_root: 2,
+                max_payload_bytes_per_root: 4_096,
+            },
+            deterministic_requirements: vec!["frozen-read-wave".to_owned()],
+            source_hash: "sha256:fixture-prefab-read-source".to_owned(),
+        };
+        GameplayStaticModuleProvider::linked_from_manifest(manifest, PrefabReadBehavior)
+            .event_codec(GameplayEventCodecRegistration::typed(
+                TypedGameplayEventCodec::new(
+                    GameplayEventSchemaDeclaration {
+                        event,
+                        codec_id: "codec.fixture-prefab-read.inspect".to_owned(),
+                    },
+                    |payload: &u64| serde_json::to_vec(payload).map_err(|error| error.to_string()),
+                    |bytes| serde_json::from_slice(bytes).map_err(|error| error.to_string()),
+                ),
+            ))
+            .read_view_provider(GameplayReadViewProviderRegistration {
+                view: prefab_view,
+                provider_id: provider_id.clone(),
+                kind: GameplayReadViewKind::PrefabPart,
+                fields: vec!["entity".to_owned(), "part".to_owned(), "role".to_owned()],
+                selector_capabilities: vec![GameplayReadSelectorCapability::PrefabPartRole],
+                max_items: 1,
+                ordering: "singlePart".to_owned(),
+            })
+            .read_view_provider(GameplayReadViewProviderRegistration {
+                view: scope_view,
+                provider_id,
+                kind: GameplayReadViewKind::Selection,
+                fields: vec!["entities".to_owned()],
+                selector_capabilities: vec![GameplayReadSelectorCapability::ScopeSelection],
+                max_items: 4,
+                ordering: "entityIdAscending".to_owned(),
+            })
+    }
 
     fn prefab_project_input() -> GameplayRuntimeProjectInput {
         let scene = SceneTree {
@@ -379,6 +512,14 @@ mod tests {
             spatial_entities: Vec::new(),
             declared_reads: Vec::new(),
             triggers: Vec::new(),
+            scheduler: GameplayRuntimeSchedulerDefinition::new(
+                GameplayOwnerRef {
+                    owner_id: "authority.prefab-scheduler".to_owned(),
+                    provider_id: "provider.prefab-scheduler".to_owned(),
+                },
+                Vec::new(),
+                Vec::new(),
+            ),
         }
     }
 
@@ -457,6 +598,81 @@ mod tests {
         }
     }
 
+    fn prefab_read_project_input() -> GameplayRuntimeProjectInput {
+        let mut input = prefab_project_input();
+        let mut composition = GameplayStaticCompositionBuilder::new();
+        composition.add_provider(prefab_read_provider());
+        input.composition = composition.build().unwrap();
+        input.spatial_entities = vec![GameplayRuntimeSpatialEntity {
+            entity: EntityId::new(900),
+            translation: [0.0, 0.0, 0.0],
+            half_extents: [0.5, 0.5, 0.5],
+            static_collider: true,
+        }];
+        input.triggers = vec![GameplayTriggerDefinition {
+            schema_version: GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION,
+            entity: 900,
+            scope: "zone.console".to_owned(),
+            tags: vec!["console".to_owned()],
+        }];
+        input.declared_reads = vec![GameplayRuntimeDeclaredReadPlan {
+            module_id: "fixture.prefab-read.module".to_owned(),
+            invocation_id: "fixture.prefab-read.inspect".to_owned(),
+            requests: vec![
+                GameplayReadRequest {
+                    request_id: "console-sensor".to_owned(),
+                    view: read_contract("prefab-part-view"),
+                    fields: vec!["entity".to_owned(), "part".to_owned(), "role".to_owned()],
+                    selector: GameplayReadSelector::PrefabPart {
+                        instance: PrefabInstanceId::new(700),
+                        reference: PrefabPartReference {
+                            prefab: PrefabId::new(70),
+                            role: "interaction/sensor".to_owned(),
+                        },
+                    },
+                },
+                GameplayReadRequest {
+                    request_id: "console-scope".to_owned(),
+                    view: read_contract("scope-view"),
+                    fields: vec!["entities".to_owned()],
+                    selector: GameplayReadSelector::Scope {
+                        scope: "zone.console".to_owned(),
+                        max_items: 4,
+                    },
+                },
+            ],
+        }];
+        input
+    }
+
+    fn prefab_read_event() -> GameplayEventEnvelope {
+        let payload = serde_json::to_vec(&1_u64).unwrap();
+        GameplayEventEnvelope {
+            event_id: "inspect-console".to_owned(),
+            event: read_contract("inspect"),
+            tick: 1,
+            root_sequence: 1,
+            wave: 0,
+            event_sequence: 0,
+            phase: GameplayEventPhase::PostCommit,
+            emitter: GameplayEmitterRef::Owner {
+                owner_id: "fixture.prefab-read".to_owned(),
+            },
+            causation: GameplayCausationRef {
+                root_id: "inspect-console".to_owned(),
+                parent_event_id: None,
+                decision_id: None,
+            },
+            source: None,
+            subjects: Vec::new(),
+            targets: Vec::new(),
+            scope: Some("zone.console".to_owned()),
+            tags: Vec::new(),
+            payload_hash: gameplay_payload_hash(&payload),
+            canonical_payload: payload,
+        }
+    }
+
     #[test]
     fn public_prefab_bootstrap_places_resolves_and_restores_multiple_instances() {
         let host = GameplayRuntimeHost::activate_project_with_prefabs(
@@ -496,6 +712,58 @@ mod tests {
         assert_eq!(
             restored.readout().runtime_host_hash,
             host.readout().runtime_host_hash
+        );
+    }
+
+    #[test]
+    fn public_host_resolves_loaded_prefab_roles_and_populated_scopes() {
+        let mut host = GameplayRuntimeHost::activate_project_with_prefabs(
+            prefab_read_project_input(),
+            prefab_bootstrap(),
+        )
+        .unwrap();
+        let expected_sensor = host.prefab_readout().instances[0]
+            .roles
+            .iter()
+            .find(|role| role.role == "interaction/sensor")
+            .unwrap()
+            .entity;
+
+        let receipt = host.observe(prefab_read_event()).unwrap();
+        assert!(
+            receipt.observe.accepted(),
+            "{:?}",
+            receipt.observe.diagnostics
+        );
+        let reads = receipt.observe.invocations[0]
+            .declared_reads
+            .as_ref()
+            .expect("public invocation receives its declared reads");
+        let prefab = reads
+            .reads
+            .iter()
+            .find(|read| read.request_id == "console-sensor")
+            .unwrap();
+        assert_eq!(
+            prefab.value,
+            GameplayReadValue::PrefabPart {
+                instance: 700,
+                prefab: 70,
+                role: "interaction/sensor".to_owned(),
+                part: 2,
+                entity: expected_sensor,
+            }
+        );
+        let scope = reads
+            .reads
+            .iter()
+            .find(|read| read.request_id == "console-scope")
+            .unwrap();
+        assert_eq!(
+            scope.value,
+            GameplayReadValue::EntitySelection {
+                entities: vec![900]
+            }
         );
     }
 }

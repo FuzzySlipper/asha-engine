@@ -93,8 +93,35 @@ accepted flag, fact hashes, diagnostics, or routing hash.
 Playback consumes the recorded facts; verification replay can rerun event
 matching and owner routing against the same declared contracts.
 
+## Public RuntimeSession composition
+
+`GameplayRuntimeHost` owns the product-facing scheduler authority. Project
+activation requires a `GameplayRuntimeSchedulerDefinition` whose owner, event
+contracts, and proposal contracts validate against the same closed gameplay
+registry used by module dispatch. The host exposes typed
+`apply_scheduler_command` and `route_scheduled_action` operations; routing
+consumes the actual fabric receipt from the registry-resolved proposal owner,
+not caller-authored completion evidence.
+
+The host snapshot embeds the complete scheduler snapshot, including pending
+actions and outstanding dispatches. Its public readout provides the scheduler
+state hash and full counts with an ordered 256-item projection window and an
+explicit truncation bit. `runtimeHostHash` binds both that scheduler state hash
+and the canonical current EntityStore/prefab authority hash.
+
+The transport-neutral TypeScript host contract exposes the same authority as a
+required scheduler load definition, typed `schedulerCommand` and
+`schedulerRoute` moments, and a nested scheduler readout. A downstream product
+still supplies the small statically linked native provider that maps these
+closed variants to Rust; it does not implement a parallel scheduler or send a
+raw completion receipt.
+
 The integration fixture models a factory `crafting-completed` event triggering
 a progression-counter proposal, then routes that proposal through a closed
 fabric registry and records the resulting routing receipt. This is the intended
 expressive path: semantic condition, explicit deferred authority, normal
 owner-routed mutation.
+
+The public-runtime-host fixture additionally proves interruption recovery:
+schedule, trigger to an outstanding dispatch, save/restore, route through the
+closed owner, and exactly-once retirement.

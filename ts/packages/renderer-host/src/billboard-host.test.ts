@@ -231,6 +231,26 @@ void test('font and icon resources are SHA-256 validated cached and fail with ty
   ]));
   assert.equal(bad.applied, 0);
   assert.equal(bad.diagnostics[0]?.code, 'contentHashMismatch');
+
+  const missingFontHost = new AshaBillboardHost({
+    container: new FakeContainer(),
+    createElement: () => new FakeElement(),
+    loadFont: async () => undefined,
+    resolveEntityPosition: () => [0, 0, 0],
+    projectWorld: () => ({ xPixels: 0, yPixels: 0, depth: 0, distance: 0, insideViewport: true, occluded: false }),
+    resolveResource: async () => null,
+  });
+  const missingFont = await missingFontHost.applyPresentation(presentation([
+    operation(0, {
+      op: 'create',
+      handle: billboardHandle(4),
+      descriptor: assetDescriptor,
+    }),
+  ]));
+  assert.equal(missingFont.applied, 0);
+  assert.equal(missingFont.diagnostics[0]?.code, 'fontLoadFailed');
+  assert.equal(missingFont.diagnostics[0]?.origin?.id, 'health:0');
+  assert.equal(missingFont.readout.activeBillboards, 0);
 });
 
 void test('a missing billboard host is isolated after scene application', async () => {

@@ -110,6 +110,8 @@ pub struct RenderMaterial {
     pub color: Rgba,
     pub texture: Option<AssetReference>,
     pub roughness: f32,
+    pub texture_tint: Rgba,
+    pub emission_color: Rgba,
     pub emissive: f32,
     pub uv_strategy: String,
 }

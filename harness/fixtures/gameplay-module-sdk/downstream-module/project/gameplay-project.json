@@ -5,10 +5,15 @@
   "runtimeSessionId": 5,
   "consumerNeeds": [
     "pulse.configuration",
+    "pulse.conformance",
     "pulse.module",
     "pulse.observe",
+    "pulse.proposal",
     "pulse.public-sdk",
-    "pulse.subscribe"
+    "pulse.publish",
+    "pulse.read",
+    "pulse.subscribe",
+    "pulse.trigger-lifecycle"
   ],
   "gameplayModuleBindings": {
     "schemaVersion": 1,
@@ -31,8 +36,8 @@
           "schemaHash": "sha256:fixture.pulse.configuration"
         },
         "codecId": "codec.fixture-pulse.configuration",
-        "canonicalConfig": [52],
-        "configHash": "fnv1a64:9867ed87cffc0daa"
+        "canonicalConfig": [123, 34, 109, 117, 108, 116, 105, 112, 108, 105, 101, 114, 34, 58, 52, 125],
+        "configHash": "fnv1a64:bf84a5bc18edd1f3"
       }
     ],
     "bindings": [
@@ -60,7 +65,7 @@
       }
     ],
     "overrides": [],
-    "registryHash": "fnv1a64:5c26a036e0658948"
+    "registryHash": "fnv1a64:50c701397e1fb09f"
   },
   "declaredReads": [
     {

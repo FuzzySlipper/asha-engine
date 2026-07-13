@@ -40,6 +40,8 @@ export class RenderProjection {
                 return [this.#replaceMeshPayload(diff)];
             case 'defineMaterial':
                 return [this.#defineMaterial(diff.material)];
+            case 'setMaterialInstanceParameters':
+                return [this.#setMaterialInstanceParameters(diff)];
             case 'defineTexture':
                 return [this.#defineTexture(diff.texture)];
             case 'defineSpriteAtlas':
@@ -281,9 +283,27 @@ export class RenderProjection {
             meshPayload: clone(asset.asset.payload),
             asset: instance.asset,
             instance,
+            materialParameters: new Map(),
         };
         asset.refCount += 1;
         this.#insert(record);
+        return { op: 'upsertNode', node: snapshotNode(record) };
+    }
+    #setMaterialInstanceParameters(diff) {
+        const record = this.#require(diff.handle, 'setMaterialInstanceParameters');
+        if (record.kind !== 'staticMesh') {
+            throw new RenderProjectionError(`setMaterialInstanceParameters: handle ${diff.handle} is not a static mesh`);
+        }
+        const asset = this.#staticMeshes.get(record.asset);
+        if (asset === undefined || !asset.asset.materialSlots.some((binding) => binding.slot === diff.slot)) {
+            throw new RenderProjectionError(`setMaterialInstanceParameters: unbound slot ${diff.slot} on ${record.asset}`);
+        }
+        if (diff.parameters === null) {
+            record.materialParameters.delete(diff.slot);
+        }
+        else {
+            record.materialParameters.set(diff.slot, clone(diff.parameters));
+        }
         return { op: 'upsertNode', node: snapshotNode(record) };
     }
     #createAnimatedMeshInstance(diff) {
@@ -427,6 +447,9 @@ function snapshotNode(record) {
             kind: 'staticMesh',
             asset: record.asset,
             instance: clone(record.instance),
+            materialParameters: [...record.materialParameters.entries()]
+                .sort(([left], [right]) => left - right)
+                .map(([slot, parameters]) => ({ slot, parameters: clone(parameters) })),
         };
     }
     if (record.kind === 'animatedMesh') {

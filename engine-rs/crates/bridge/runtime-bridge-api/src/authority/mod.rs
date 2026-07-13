@@ -2,6 +2,7 @@ use crate::*;
 
 mod initialization;
 mod input;
+mod scene_and_preview;
 mod time_control;
 
 // Product authority coordinator behind native transport marshaling.
@@ -18,6 +19,9 @@ pub struct EngineBridge {
     buffers: buffer_provider::RuntimeBufferProvider,
     /// The currently-loaded ProjectBundle scene identity.
     loaded_project_bundle: Option<u64>,
+    /// Canonical authored scene document exposed through bounded hierarchy verbs.
+    /// Runtime entity transforms remain separately owned after bootstrap.
+    scene_document: Option<core_scene::FlatSceneDocument>,
     /// Live voxel authority for the launch/edit loop (launchable-voxel, #2436).
     /// Present once `initialize_engine` has set up the runtime.
     voxel: Option<VoxelWorld>,
@@ -49,6 +53,9 @@ pub struct EngineBridge {
     /// Session-level authority pacing. Fixed-tick simulation stays deterministic;
     /// this controller governs pause, wall-clock cadence density, and exact steps.
     time_controller: TimeController,
+    /// Runner-owned command validation/event-application pipeline. Both cadence
+    /// and exact stepping execute this same authority state.
+    simulation: SimulationAuthority,
     authority_tick: u64,
     game_rule_modules: BTreeMap<String, GameRuleModuleManifest>,
     game_rule_active_modifiers: Vec<GameRuleModifierState>,
@@ -63,6 +70,12 @@ pub struct EngineBridge {
     billboard_projector: Option<BillboardProjector>,
     /// Catalog and budget validator for disposable particle operations.
     particle_projector: Option<ParticleProjector>,
+    /// Replayable semantic controller authority used by the public FPS proof.
+    /// Renderer pose/mixer state never enters this field.
+    animation_controller: Option<rule_animation_controller::AnimationControllerAuthority>,
+    /// One-way G1 lifecycle for the controller-owned animated mesh target.
+    animation_projector: Option<render_animation::AnimationControllerProjector>,
+    animation_tick: u64,
     /// Retained lifecycle validator for the disposable developer telemetry overlay.
     telemetry_overlay_projector: Option<TelemetryOverlayProjector>,
     /// Last planned voxel conversion. This is bridge-owned authority state used

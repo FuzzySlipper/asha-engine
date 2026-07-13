@@ -58,6 +58,7 @@ void test('menu and dialog contexts consume gameplay while preserving their own 
   assert.equal(blockedGameplay.receipt.diagnostics[0]?.code, 'consumedByContext');
   assert.equal(menuAction.receipt.action?.actionId, 'runtime.time.resume');
   assert.equal(menuAction.consumer, 'shell.menu');
+  assert.deepEqual(menuAction.activeContexts, ['gameplay', 'menu']);
 
   const pushed = host.applyContextCommand({ operation: 'push', contextId: 'dialog' });
   assert.equal(pushed.accepted, true);
@@ -65,8 +66,14 @@ void test('menu and dialog contexts consume gameplay while preserving their own 
   const swallowedMenu = host.handleKeyDown({ code: 'ArrowDown' });
   assert.equal(dialogAction.receipt.action?.actionId, 'dialog.confirm');
   assert.equal(dialogAction.consumer, 'shell.dialog');
+  assert.deepEqual(dialogAction.activeContexts, ['gameplay', 'menu', 'dialog']);
   assert.equal(swallowedMenu.receipt.action, null);
   assert.equal(swallowedMenu.receipt.consumed, true);
+  assert.deepEqual(
+    host.readout().recentDeliveries.at(1)?.activeContexts,
+    ['gameplay', 'menu'],
+    'a later context push does not rewrite the delivery-time snapshot',
+  );
 });
 
 void test('resolved pause context records and replays without browser events or double delivery', () => {

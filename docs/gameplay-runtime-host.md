@@ -14,8 +14,8 @@ The host keeps the ECRP split explicit:
 - generated ProjectBundle contracts carry module bindings and semantic trigger
   definitions;
 - the host owns validated prefab placement, module state, trigger overlap state,
-  declared-read assembly, reaction frames, and routing into engine authority
-  owners;
+  declared-read assembly, scheduled gameplay actions, reaction frames, and
+  routing into engine authority owners;
 - TypeScript advances and projects the host through a closed transport. It does
   not register callbacks, decode private stores, or apply accepted facts.
 
@@ -39,7 +39,10 @@ frame hashes.
 `GameplayRuntimeProjectInput` carries the normal ProjectBundle load plan and
 artifacts, the closed static composition, generated module bindings, typed
 entity targets, gameplay spatial bootstrap data, declared read plans, and
-generated `GameplayTriggerDefinition` values. The prefab-aware activation path
+generated `GameplayTriggerDefinition` values. It also carries one
+`GameplayRuntimeSchedulerDefinition`: the scheduler owner plus the event and
+proposal contracts it may retain. Activation rejects scheduler contracts that
+are absent from the closed fabric registry. The prefab-aware activation path
 also accepts `GameplayRuntimePrefabBootstrap`: canonical registry source, its
 explicit validation catalog, and ordered authored or accepted player placement
 commands. The host publishes no live state until registry validation, prefab
@@ -62,11 +65,25 @@ meaning:
   exactly-once enter/exit events;
 - `move_actor_and_reconcile` applies collision-constrained movement first and
   samples triggers against the accepted pose;
+- `apply_scheduler_command` schedules, triggers, times out, or cancels a typed
+  tick/event-conditioned action while retaining complete recoverable proposal
+  state;
+- `route_scheduled_action` routes an outstanding dispatch through the same
+  closed registry and concrete owner router used by module proposals, then
+  records the typed routing fact exactly once;
 - `readout` exposes bounded hashes/counts plus the same bounded reaction-frame
   projections returned by advance; it never exposes mutable stores;
 - `compose_snapshot` and `restore_project` persist and restore module state,
   trigger active pairs, binding provenance, authority state, reaction frames,
-  decision receipts, and pending continuation generations.
+  decision receipts, pending continuation generations, and the complete
+  scheduler queue/fact/outstanding-dispatch state.
+
+`runtimeHostHash` includes a canonical snapshot hash of current EntityStore and
+prefab-instance authority plus the scheduler state hash. An accepted movement
+therefore changes the public host hash even when it does not cross a trigger or
+change any module state. The nested scheduler readout exposes its owner, full
+state hash, total counts, and up to 256 ordered pending actions/outstanding
+dispatches with an explicit truncation bit.
 
 Each invocation freezes entity, module-state, trigger, and registry evidence.
 The committed downstream fixture proves both a module-named state read and a
@@ -108,8 +125,9 @@ operations to `RuntimeSessionFacade`:
 - `saveGameplayRuntime`; and
 - `restoreGameplayRuntime`.
 
-The advance envelope is a small union of tick, actor movement, and accepted
-owner-event moments, including a stable prefab instance-and-role interaction.
+The advance envelope is a small union of tick, actor movement, accepted
+owner-event, scheduler-command, and scheduler-route moments, including a stable
+prefab instance-and-role interaction.
 It is not an arbitrary JSON authority dispatcher: every variant is typed, and
 the consumer-owned native provider maps it to the Rust host.
 `createRuntimeSessionFacade` accepts that transport in addition to the normal
@@ -149,7 +167,9 @@ provider/config/read/output/trigger data therefore cannot partially replace the
 live host.
 
 The downstream fixture executes the full loop twice and compares reaction
-frames and host hashes. It saves and restores the same host, then rebuilds with
+frames and host hashes. It also schedules a typed proposal, observes its
+recoverable outstanding dispatch, routes it through the closed owner, and
+restores the same scheduler readout. It saves and restores the same host, then rebuilds with
 a changed module multiplier and proves that invocation/frame/host hashes drift.
 The saved host snapshot is hash-bound to its nested authority/module/trigger
 state and rejects mismatched authored trigger definitions. Prefab-aware
@@ -162,7 +182,8 @@ the same registry/bootstrap evidence before republishing the host.
 - Wave 1 is static linking only.
 - The host retains a bounded 256-frame replay/readout window; a product may
   stream older frames to its replay archive. Decision receipts use the same
-  bound independently.
+  bound independently. Scheduler pending/outstanding projections are also
+  bounded to 256 entries, while snapshots retain the complete authority state.
 - The current concrete shared owner route is capability activation. Further
   generic proposal applications should be added owner by owner.
 - The public transport is implemented; each downstream product still builds

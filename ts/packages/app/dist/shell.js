@@ -17,6 +17,7 @@ import { buildEditorControls, controlToAction, materialPalette, } from '@asha/ui
 import { inspectEditor } from '@asha/devtools';
 import { ThreeRenderer } from '@asha/renderer-three/backend';
 import { VoxelEditController, bridgeCommandSink, bridgePicker, pickAndSelect, } from './index.js';
+import { AppEditorInputComposition, } from './editor-input-composition.js';
 /** Adapt the real `@asha/renderer-three` renderer to the {@link RendererPort} seam. */
 export function threeRendererPort(renderer = new ThreeRenderer()) {
     return {
@@ -190,6 +191,21 @@ export class AppShell {
         if (action) {
             this.controller.store.dispatch(action);
         }
+    }
+    /**
+     * Compose the browser-safe resolved editor input path against this shell's one
+     * editor controller. Browser/Electron hosts attach the returned host to DOM and
+     * drain it from their render/update loop; headless callers can drive it directly.
+     */
+    createEditorInput(camera) {
+        if (this.#bridge === null) {
+            return null;
+        }
+        return new AppEditorInputComposition({
+            session: this.#bridge,
+            editor: this.controller,
+            camera,
+        });
     }
     // ── Read models ──────────────────────────────────────────────────────────────
     /** The accessible material palette for the active fixture's catalog materials. */

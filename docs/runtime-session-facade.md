@@ -61,7 +61,7 @@ Rust-capable bridge and `mode: 'rust'`; reference fixtures use
 - `configureInputSession(request)`, `applyInputContextCommand(command)`, `submitRawInput(sample)`, `replayResolvedInputAction(record)`, and `readInputContextState()`: expose the Rust-owned named-input catalog, context stack, raw resolution, and platform-free semantic replay surface without granting DOM or TypeScript authority over consumption. Accepted raw receipts carry hash-bound `RecordedInputAction` values; direct replay validates catalog/context/action evidence and rejects repeat delivery.
 - `applyTimeControlCommand(command)`: applies generated pause, resume, cadence-multiplier, or exact-step commands through Rust Session authority. Exact steps require paused mode, advance precisely the requested fixed-tick count, and remain paused; invalid commands return atomic classified receipts.
 - `readTimeControlState()`: reads the hash-bound mode, cadence multiplier, revision, and authority tick without advancing simulation.
-- `tick(input?)`: requests one deterministic runtime tick through the bridge. While paused it returns the unchanged authority tick and no diff; speed changes host wall-clock cadence only and never scales the fixed tick delta.
+- `tick(input?)`: requests one deterministic runtime cadence pulse through the bridge. While paused it returns the unchanged authority tick and no diff; while running, Rust executes the configured number of ordinary sequential fixed ticks and returns the final tick plus aggregate diff count. Speed never scales the fixed tick delta.
 - `createCamera(request)`: creates a typed bridge-owned camera.
 - `applyCameraModeCommand(command)`: applies an expected-revision first-person, orbit, or top-down controller target. Accepted receipts expose the authoritative endpoint and optional renderer transition endpoints; stale, invalid, incompatible, and terrain-blocked proposals reject atomically.
 - `applyCameraNavigationInput(envelope)`: applies bounded orbit/top-down pan, rotation, and zoom to the authoritative pivot and distance/height state. Runtime terrain may shorten the requested distance and reports that constraint in the receipt.
@@ -104,20 +104,35 @@ Rust-capable bridge and `mode: 'rust'`; reference fixtures use
 - `exportVoxelAnnotationLayer(request)`: explicitly exports a loaded runtime annotation layer back to stored DTO/canonical JSON form after an expected-hash check. Runtime-to-stored promotion is receipt-driven and never implicit.
 - `readProjection()`: returns the combined generated `RuntimeProjectionFrame`
   plus its compatibility `frame` scene view, presentation operation count,
-  composition status, and stable summary hash. Audio, billboard, and later
-  non-scene domains remain ordered beside the scene and retain origin evidence; consumers
-  realize them through `@asha/renderer-host`, not through raw bridge transport.
+  composition status, and stable summary hash. Audio, particle, billboard,
+  animation, and telemetry-overlay domains remain ordered beside the scene and
+  retain origin evidence; consumers realize them through `@asha/renderer-host`,
+  not through raw bridge transport. See
+  [`integrated-feedback-projection.md`](integrated-feedback-projection.md) for
+  the composed public-path proof and disposal boundary.
 - `readEcrpRuntimeReadout()`: returns live Entity/CapabilityState/event readouts derived from the selected backend. Rust-backed readouts identify `mode: 'rust'`, `source: 'rust_bridge'`, authority surface, and declared read sets.
 - `loadGameplayRuntime(input)`: atomically activates generated module bindings,
   trigger definitions, and an optional validated prefab registry plus authored
   or accepted player placements through a consumer-owned, statically linked
   Rust gameplay host.
-- `advanceGameplayRuntime(moment)`: advances one typed tick, collision-constrained actor movement, or accepted semantic owner-event moment through that host and returns bounded reaction-frame evidence.
+- `advanceGameplayRuntime(moment)`: advances one typed tick,
+  collision-constrained actor movement, accepted semantic owner event, prefab
+  interaction, scheduler command, or scheduler owner-route moment through that
+  host and returns bounded reaction-frame evidence.
 - `readGameplayRuntime()`: reads registry, binding, prefab placement/role,
-  module-state, trigger, reaction-frame, and composed host hashes without
-  exposing stores.
-- `saveGameplayRuntime()`: returns the canonical, hash-bound gameplay host snapshot.
-- `restoreGameplayRuntime(input, snapshot)`: restores matching authority/module/trigger/frame state through the same static composition. Reference sessions fail closed for all gameplay-host methods.
+  module-state, trigger, reaction-frame, current authority, scheduler, and
+  composed host hashes without exposing stores. `authorityStateHash` changes
+  with current EntityStore/prefab authority even when no trigger transition or
+  module fact occurs. The scheduler projection reports total pending and
+  outstanding counts plus a bounded ordered window and truncation evidence.
+- `saveGameplayRuntime()`: returns the canonical, hash-bound gameplay host
+  snapshot, including complete recoverable scheduler queue, fact, and
+  outstanding-dispatch authority.
+- `restoreGameplayRuntime(input, snapshot)`: restores matching
+  authority/module/trigger/frame/scheduler state through the same static
+  composition. A restored outstanding dispatch can be routed through its
+  registry-resolved owner and completed exactly once. Reference sessions fail
+  closed for all gameplay-host methods.
 - `readTelemetry()`: returns sequence/tick/composition/command/replay/hash summary.
 - `restart()`: unloads/reinitializes/reloads the same ProjectBundle input and resets tick/command counters and lifecycle state.
 

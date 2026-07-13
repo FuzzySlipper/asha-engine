@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { renderHandle } from '@asha/contracts';
 
 import {
   decodeRenderDiff,
@@ -297,12 +298,89 @@ void test('decodes a defineMaterial diff (catalog material descriptor, visual on
   });
   assert.equal(diff.op, 'defineMaterial');
   if (diff.op === 'defineMaterial') {
+    assert.equal(diff.material.schemaVersion, 2, 'legacy descriptor is normalized to v2');
     assert.equal(diff.material.id, 'material/wood');
     assert.deepEqual(diff.material.color, [0.6, 0.4, 0.2, 1]);
+    assert.deepEqual(diff.material.textureTint, [1, 1, 1, 1]);
+    assert.deepEqual(diff.material.emissionColor, [0.6, 0.4, 0.2]);
+    assert.equal(diff.material.emissionIntensity, 0);
     assert.equal(diff.material.uvStrategy, 'flat');
     // The descriptor shape carries no collision/authority field by construction.
     assert.ok(!('solid' in diff.material) && !('structuralClass' in diff.material));
   }
+});
+
+void test('decodes v2 material feedback and a handle-targeted instance parameter update', () => {
+  const define = decodeRenderDiff({
+    op: 'defineMaterial',
+    material: {
+      schemaVersion: 2,
+      id: 'material/warning',
+      color: [0.4, 0.4, 0.4, 1],
+      texture: null,
+      roughness: 0.7,
+      textureTint: [1, 0.8, 0.6, 1],
+      emissionColor: [1, 0.1, 0],
+      emissionIntensity: 2.5,
+      uvStrategy: 'flat',
+    },
+  });
+  assert.equal(define.op, 'defineMaterial');
+  if (define.op === 'defineMaterial') {
+    assert.deepEqual(define.material.emissionColor, [1, 0.1, 0]);
+    assert.equal(define.material.emissionIntensity, 2.5);
+  }
+
+  const update = decodeRenderDiff({
+    op: 'setMaterialInstanceParameters',
+    handle: 17,
+    slot: 0,
+    parameters: {
+      textureTint: [0.2, 1, 0.2, 1],
+      emissionColor: [0, 1, 0.2],
+      emissionIntensity: 1.25,
+    },
+  });
+  assert.equal(update.op, 'setMaterialInstanceParameters');
+  if (update.op === 'setMaterialInstanceParameters') {
+    assert.equal(update.handle, renderHandle(17));
+    assert.equal(update.slot, 0);
+    assert.ok(update.parameters);
+    assert.deepEqual(update.parameters.textureTint, [0.2, 1, 0.2, 1]);
+  }
+});
+
+void test('rejects unsupported material descriptor schemas', () => {
+  assert.throws(
+    () => decodeRenderDiff({
+      op: 'defineMaterial',
+      material: {
+        schemaVersion: 99,
+        id: 'material/future',
+        color: [1, 1, 1, 1],
+        texture: null,
+        roughness: 1,
+        textureTint: [1, 1, 1, 1],
+        emissionColor: [0, 0, 0],
+        emissionIntensity: 0,
+        uvStrategy: 'flat',
+      },
+    }),
+    RenderDecodeError,
+  );
+  assert.throws(
+    () => decodeRenderDiff({
+      op: 'setMaterialInstanceParameters',
+      handle: 1,
+      slot: 0,
+      parameters: {
+        textureTint: [1, 1, 1, 1],
+        emissionColor: [1, 0, 0],
+        emissionIntensity: -0.1,
+      },
+    }),
+    /expected a non-negative number/,
+  );
 });
 
 void test('rejects a material descriptor with an unknown uv strategy', () => {

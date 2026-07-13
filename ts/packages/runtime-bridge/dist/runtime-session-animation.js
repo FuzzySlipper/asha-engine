@@ -89,6 +89,16 @@ export function buildRuntimeSessionAnimationIntentReadout(input) {
         }),
     };
 }
+/**
+ * Reuses the compatibility readout's hash-pinned mesh bootstrap without
+ * applying its direct clip command. Controller-driven consumers should apply
+ * this frame once, then realize G1 animation operations through AshaAnimationHost.
+ */
+export function buildRuntimeSessionAnimationControllerTargetFrame(readout) {
+    return {
+        ops: readout.frame.ops.filter((operation) => operation.op !== 'setAnimatedMeshPlayback'),
+    };
+}
 function selectRuntimeSessionAnimationClip(lifecycleState) {
     if (lifecycleState.player.dead) {
         return { clipId: 'idle', reason: 'player_defeated_visual_idle' };

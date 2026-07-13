@@ -73,6 +73,31 @@ export class AshaAudioHost {
             diagnostics: [...this.#diagnostics],
         };
     }
+    refreshLayout() {
+        if (this.#disposed) {
+            return this.#recordHostDiagnostic('hostFailure', 'audio host is disposed');
+        }
+        const diagnostics = [];
+        for (const [handle, graph] of this.#retained) {
+            if (graph.descriptor.emitter.kind !== 'entityAttached' || graph.panner === null) {
+                continue;
+            }
+            const position = emitterPosition(graph.descriptor.emitter, this.#resolveEntityPosition);
+            if (position === null || !position.every(Number.isFinite)) {
+                diagnostics.push({
+                    code: 'hostFailure',
+                    sequence: graph.sequence,
+                    handle: handle,
+                    message: 'entity-attached audio source has no finite projected position',
+                    origin: graph.origin,
+                });
+                continue;
+            }
+            setPannerPosition(graph.panner, position, this.#context.currentTime);
+        }
+        this.#diagnostics.push(...diagnostics);
+        return diagnostics;
+    }
     async dispose() {
         if (this.#disposed) {
             return;
@@ -96,7 +121,7 @@ export class AshaAudioHost {
                 if (this.#seenSignals.has(op.signalId)) {
                     return null;
                 }
-                const graph = await this.#createGraph(op.descriptor);
+                const graph = await this.#createGraph(op.descriptor, meta.sequence, meta.origin);
                 this.#seenSignals.add(op.signalId);
                 this.#oneShots.add(graph);
                 graph.source.onended = () => {
@@ -111,7 +136,7 @@ export class AshaAudioHost {
                 if (this.#retained.has(op.handle)) {
                     return operationDiagnostic('duplicateHandle', meta, op.handle, 'audio handle is active');
                 }
-                const graph = await this.#createGraph(op.descriptor);
+                const graph = await this.#createGraph(op.descriptor, meta.sequence, meta.origin);
                 this.#retained.set(op.handle, graph);
                 graph.source.start();
                 return null;
@@ -138,21 +163,25 @@ export class AshaAudioHost {
         }
         const next = patchedDescriptor(graph.descriptor, patch);
         if (patch.emitter !== null) {
-            const replacement = await this.#createGraph(next);
+            const replacement = await this.#createGraph(next, meta.sequence, meta.origin);
             disposeGraph(graph);
             this.#retained.set(handle, replacement);
             replacement.source.start();
             return null;
         }
         graph.descriptor = next;
+        graph.sequence = meta.sequence;
+        graph.origin = meta.origin;
         applyGraphParameters(this.#context, graph, next, this.#resolveEntityPosition);
         return null;
     }
-    async #createGraph(descriptor) {
+    async #createGraph(descriptor, sequence, origin) {
         const source = this.#context.createBufferSource();
         source.buffer = await this.#decodeClip(descriptor.clip);
         const graph = {
             descriptor,
+            sequence,
+            origin,
             source,
             dryGain: this.#context.createGain(),
             wetGain: this.#context.createGain(),
@@ -262,6 +291,14 @@ export async function applyAshaRuntimeProjectionFrame(frame, ports) {
             telemetryOverlay = mergeTelemetryOverlayReceipts(telemetryOverlay, next);
         }
     }
+    if (ports.audioHost !== undefined) {
+        const refreshDiagnostics = ports.audioHost.refreshLayout();
+        audio = {
+            applied: audio.applied,
+            diagnostics: [...audio.diagnostics, ...refreshDiagnostics],
+            readout: ports.audioHost.readout(),
+        };
+    }
     return {
         authorityTick: frame.authorityTick,
         sceneApplied: true,
@@ -317,6 +354,7 @@ function emptyAnimationReceipt() {
     return {
         applied: 0,
         diagnostics: [],
+        cues: [],
         readout: {
             activeControllers: 0,
             sampledFrames: 0,
@@ -357,6 +395,7 @@ function mergeAnimationReceipts(prior, next) {
     return {
         applied: prior.applied + next.applied,
         diagnostics: [...prior.diagnostics, ...next.diagnostics],
+        cues: [...prior.cues, ...next.cues],
         readout: next.readout,
     };
 }
@@ -450,6 +489,7 @@ function unavailableAnimationReceipt(frame) {
     return {
         applied: 0,
         diagnostics,
+        cues: [],
         readout: {
             activeControllers: 0,
             sampledFrames: 0,
@@ -508,9 +548,12 @@ function applyGraphParameters(context, graph, descriptor, resolveEntityPosition)
     graph.panner.refDistance = 1;
     graph.panner.maxDistance = descriptor.attenuation;
     graph.panner.rolloffFactor = 1;
-    graph.panner.positionX.setValueAtTime(position[0], time);
-    graph.panner.positionY.setValueAtTime(position[1], time);
-    graph.panner.positionZ.setValueAtTime(position[2], time);
+    setPannerPosition(graph.panner, position, time);
+}
+function setPannerPosition(panner, position, time) {
+    panner.positionX.setValueAtTime(position[0], time);
+    panner.positionY.setValueAtTime(position[1], time);
+    panner.positionZ.setValueAtTime(position[2], time);
 }
 function setVector(listener, prefix, value, time) {
     listener[`${prefix}X`].setValueAtTime(value[0], time);

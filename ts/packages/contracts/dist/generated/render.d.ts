@@ -204,12 +204,20 @@ export interface SpriteAtlasDescriptor {
 }
 export type MaterialUvStrategy = 'flat' | 'planar' | 'atlas';
 export interface RenderMaterialDescriptor {
+    readonly schemaVersion: number;
     readonly id: string;
     readonly color: readonly [number, number, number, number];
     readonly texture: string | null;
     readonly roughness: number;
-    readonly emissive: number;
+    readonly textureTint: readonly [number, number, number, number];
+    readonly emissionColor: readonly [number, number, number];
+    readonly emissionIntensity: number;
     readonly uvStrategy: MaterialUvStrategy;
+}
+export interface MaterialInstanceParameters {
+    readonly textureTint: readonly [number, number, number, number];
+    readonly emissionColor: readonly [number, number, number];
+    readonly emissionIntensity: number;
 }
 export type RenderDiff = {
     readonly op: 'create';
@@ -233,6 +241,11 @@ export type RenderDiff = {
 } | {
     readonly op: 'defineMaterial';
     readonly material: RenderMaterialDescriptor;
+} | {
+    readonly op: 'setMaterialInstanceParameters';
+    readonly handle: RenderHandle;
+    readonly slot: number;
+    readonly parameters: MaterialInstanceParameters | null;
 } | {
     readonly op: 'defineTexture';
     readonly texture: TextureDescriptor;

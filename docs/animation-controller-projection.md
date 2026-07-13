@@ -46,7 +46,8 @@ wall-clock pose state, mixer time, bones, or matrices into authority.
 
 The host has no mutation callback, proposal port, or gameplay command surface.
 Animation completion and keyframe callbacks cannot cross back into Rust
-authority. Gameplay-critical timing remains #5650's typed authority fact.
+authority. Gameplay-critical timing is the replayable typed fact documented in
+`docs/animation-timing-semantics.md`.
 
 ## Failure and diagnostics
 
@@ -68,8 +69,8 @@ used by the new controller projector or `AshaAnimationHost`.
 
 The compatibility path may be deleted when all three conditions hold:
 
-1. #5650 migrates the live idle/run/jump gameplay proof to authority controller
-   changes and G1 animation operations;
+1. downstream gameplay proofs use authority controller changes and G1 animation
+   operations rather than direct playback;
 2. downstream consumer-needs/conformance evidence names the controller path
    rather than direct playback;
 3. no supported engine or downstream caller requires command-selected playback
@@ -78,3 +79,7 @@ The compatibility path may be deleted when all three conditions hold:
 Until then, readouts expose `commandSelected` so compatibility use stays
 inspectable. Controller-driven playback sets it false and publishes the active
 weighted clips separately.
+
+`asha-demo` now satisfies condition 1: it uses the compatibility readout only
+to bootstrap the hash-pinned mesh target, filters the direct playback command,
+and consumes gameplay-driven controller state through `AshaAnimationHost`.

@@ -122,6 +122,10 @@ fn encode_material(out: &mut String, m: &MaterialDef) {
         Some(t) => encode_ref(out, t),
         None => out.push_str("null"),
     }
+    out.push_str(", \"textureTint\": ");
+    encode_rgba(out, m.style.texture_tint);
+    out.push_str(", \"emissionColor\": ");
+    encode_rgba(out, m.style.emission_color);
     out.push_str(&format!(
         ", \"roughness\": {}, \"emissive\": {}, \"uvStrategy\": \"{}\" }} }}",
         fmt_f32(m.style.roughness),
@@ -294,10 +298,20 @@ fn decode_material(j: &Json) -> Result<MaterialDef, CatalogDecodeError> {
         None | Some(Json::Null) => None,
         Some(t) => Some(decode_ref(t)?),
     };
+    let texture_tint = match s.get("textureTint") {
+        None => Rgba::WHITE,
+        Some(value) => decode_rgba(value)?,
+    };
+    let emission_color = match s.get("emissionColor") {
+        None => color,
+        Some(value) => decode_rgba(value)?,
+    };
     let style = MaterialStyle {
         color,
         texture,
         roughness: field_f32(s, "roughness")?,
+        texture_tint,
+        emission_color,
         emissive: field_f32(s, "emissive")?,
         uv_strategy: match req_str(s, "uvStrategy")?.as_str() {
             "flat" => UvStrategy::Flat,
@@ -312,6 +326,16 @@ fn decode_material(j: &Json) -> Result<MaterialDef, CatalogDecodeError> {
         },
     };
     Ok(MaterialDef { authority, style })
+}
+
+fn encode_rgba(out: &mut String, color: Rgba) {
+    out.push_str(&format!(
+        "[{}, {}, {}, {}]",
+        fmt_f32(color.r),
+        fmt_f32(color.g),
+        fmt_f32(color.b),
+        fmt_f32(color.a),
+    ));
 }
 
 fn decode_rgba(j: &Json) -> Result<Rgba, CatalogDecodeError> {

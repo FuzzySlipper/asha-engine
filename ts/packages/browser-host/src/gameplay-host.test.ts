@@ -23,12 +23,23 @@ const READOUT: GameplayRuntimeHostReadout = {
   bindingRegistryHash: 'fnv1a64:bindings',
   activationHash: 'fnv1a64:activation',
   moduleStateHash: 'fnv1a64:state',
+  authorityStateHash: 'fnv1a64:authority',
   triggerRevision: 3,
   triggerSnapshotHash: 'fnv1a64:triggers',
   activeOverlapCount: 1,
   reactionFrameCount: 2,
   lastReactionFrameHash: 'fnv1a64:frame',
   recentFrames: [],
+  scheduler: {
+    ownerId: 'authority.scheduler',
+    stateHash: 'fnv1a64:scheduler',
+    pendingActionCount: 0,
+    outstandingDispatchCount: 0,
+    factCount: 0,
+    pendingActions: [],
+    outstandingDispatches: [],
+    truncated: false,
+  },
   runtimeHostHash: 'fnv1a64:host',
 };
 

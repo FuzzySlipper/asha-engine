@@ -366,6 +366,7 @@ mod fps;
 mod input;
 mod mesh_import;
 mod runtime;
+mod scene_preview;
 mod time_control;
 mod voxel;
 mod voxel_unload;

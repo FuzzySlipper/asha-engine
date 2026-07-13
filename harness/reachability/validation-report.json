@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "valid": true,
   "manifest": "harness/reachability/manifest.json",
-  "manifestHash": "sha256:2173ffa5ab1bc518cb35767e9edda9d50cbb134651a700f62f3dc11d04be9654",
+  "manifestHash": "sha256:6c777f50f1f4e0099dd57b2ce78759bf642b8f2142a3c3bfa4606d63e6f115f3",
   "catalogs": [
     {
       "path": "engine-rs/crates/bridge/runtime-bridge-api/bridge-manifest.toml",
@@ -14,18 +14,18 @@
     },
     {
       "path": "harness/public-surface/rust-crates.json",
-      "hash": "sha256:3e75ea37fb9b9de16364246c2084f51857bdb79bcccea9c58e500d90e09c4800"
+      "hash": "sha256:20371c8358c1561e886ff5a24ccb0f0425c3387ceaf0def5b6f05c810522819a"
     },
     {
       "path": "harness/consumer-needs/validation-report.json",
-      "hash": "sha256:9e9e57add1dda3c803e5561f19fab8bedbd16f1abb44d1f60a8c2fdfab69c06b"
+      "hash": "sha256:1335b96725b8d63ca4b446b4f8cf0dfc1772d3572e8d8fdd1a8372398befef7f"
     },
     {
       "path": "ts/packages/contracts/src/generated/gameExtension.ts",
-      "hash": "sha256:4041d6db94a170cd0ea73f0f3037b78aa6d44487f03ac2c9211f411a7cdc711a"
+      "hash": "sha256:ea671385db805d0e4ff20d347d6a4771b34923d055d5fd13746c4fc7fbb044ca"
     }
   ],
-  "capabilityCount": 19,
+  "capabilityCount": 21,
   "catalogAssertionCount": 5,
   "internalExemptionCount": 2,
   "catalogAssertions": [
@@ -39,13 +39,13 @@
       "id": "catalog.consumer-needs",
       "kind": "consumerNeeds",
       "valid": true,
-      "actualCount": 34
+      "actualCount": 38
     },
     {
       "id": "catalog.generated-contracts",
       "kind": "generatedContracts",
       "valid": true,
-      "actualCount": 596
+      "actualCount": 610
     },
     {
       "id": "catalog.rust-public-surfaces",
@@ -61,6 +61,12 @@
     }
   ],
   "capabilities": [
+    {
+      "id": "animation.runtime-projection",
+      "kind": "projectionChannel",
+      "reachable": true,
+      "gapCount": 0
+    },
     {
       "id": "audio.runtime-projection",
       "kind": "projectionChannel",
@@ -94,6 +100,12 @@
     {
       "id": "bridge.session-time-control",
       "kind": "bridgeOperation",
+      "reachable": true,
+      "gapCount": 0
+    },
+    {
+      "id": "feedback.integrated-public-projection",
+      "kind": "projectionChannel",
       "reachable": true,
       "gapCount": 0
     },

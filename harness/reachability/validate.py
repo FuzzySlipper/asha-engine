@@ -9,12 +9,51 @@ import json
 import pathlib
 import re
 import sys
+import tempfile
 import tomllib
 from typing import Any
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 DEFAULT_MANIFEST = ROOT / "harness/reachability/manifest.json"
 DEFAULT_REPORT = ROOT / "harness/reachability/validation-report.json"
+
+# This independent inventory prevents a reachability entry from proving its own
+# completeness or silently changing which downstream contract it represents.
+EXPECTED_CAPABILITIES: dict[str, str | None] = {
+    "animation.runtime-projection": "asha-demo.animation-controller-projection",
+    "audio.runtime-projection": "asha-demo.audio-projection",
+    "billboard.runtime-projection": "asha-demo.billboard-projection",
+    "bridge.camera-controller": None,
+    "bridge.project-bundle.load": "asha-demo.runtime-load",
+    "bridge.session-input-replay": "asha-demo.input-replay",
+    "bridge.session-time-control": "asha-demo.time-control-command",
+    "feedback.integrated-public-projection": "asha-demo.integrated-feedback-projection",
+    "gameplay.event-bound-read": None,
+    "gameplay.generic-event": "pulse.subscribe",
+    "gameplay.module-binding": "pulse.configuration",
+    "gameplay.module-conformance": "pulse.conformance",
+    "gameplay.module-named-read": "pulse.read",
+    "gameplay.runtime-host": "pulse.runtime-host",
+    "gameplay.runtime-host.decision": "pulse.runtime-host",
+    "gameplay.runtime-host.transport": "asha-demo.gameplay-runtime-host",
+    "gameplay.trigger-lifecycle": "pulse.trigger-lifecycle",
+    "particle.runtime-projection": "asha-demo.particle-projection",
+    "prefab.public-authoring": "asha-demo.game-workspace-prefab-authoring",
+    "prefab.runtime-placement": "asha-demo.prefab-runtime-placement",
+    "telemetry.live-snapshot-overlay": "asha-demo.telemetry-live-overlay",
+}
+
+COMPATIBLE_NEED_KINDS: dict[str, set[str]] = {
+    "bridgeOperation": {"runtimeOperation"},
+    "gameplayBinding": {"gameplayBindingSchema"},
+    "gameplayConformance": {"conformanceEntrypoint", "rustCrate"},
+    "gameplayEvent": {"gameplayEventPublish", "gameplayEventSubscribe"},
+    "gameplayRead": {"gameplayRead", "serviceQuery"},
+    "gameplayRuntimeHost": {"rustCrate"},
+    "prefabAuthoring": {"typescriptPackage"},
+    "projectionChannel": {"projectionChannel"},
+    "runtimeOperation": {"runtimeOperation", "runtimeReadout", "rustCrate"},
+}
 
 
 def load_json(path: pathlib.Path) -> Any:
@@ -55,6 +94,20 @@ def evidence_token(
     token = evidence.get("token")
     if not isinstance(source, str) or not isinstance(token, str) or not source or not token:
         gap(gaps, capability, code, path, "evidence path and token are required")
+        return
+    source_path = pathlib.PurePosixPath(source)
+    if (
+        source_path.suffix.lower() == ".md"
+        or source_path.name.lower().startswith("readme")
+        or "docs" in source_path.parts
+    ):
+        gap(
+            gaps,
+            capability,
+            "invalid_evidence_source",
+            f"{path}.path",
+            "reachability evidence must be executable code, a generated contract, a manifest, or a test; prose is not proof",
+        )
         return
     file_path = ROOT / source
     if not file_path.is_file():
@@ -118,6 +171,18 @@ def validate(manifest_path: pathlib.Path) -> dict[str, Any]:
     ids = [item.get("id") for item in capabilities if isinstance(item, dict)]
     if ids != sorted(ids) or len(ids) != len(set(ids)):
         gap(gaps, "manifest", "noncanonical_capabilities", "capabilities", "capability ids must be sorted and unique")
+    missing_capabilities = sorted(set(EXPECTED_CAPABILITIES) - set(ids))
+    unexpected_capabilities = sorted(set(ids) - set(EXPECTED_CAPABILITIES))
+    for capability in missing_capabilities:
+        gap(
+            gaps, capability, "missing_required_capability", "capabilities",
+            "the independently governed public capability inventory requires this entry",
+        )
+    for capability in unexpected_capabilities:
+        gap(
+            gaps, capability, "unexpected_capability", "capabilities",
+            "new public capabilities require an explicit governed inventory update",
+        )
     exemption_ids = [item.get("id") for item in exemptions if isinstance(item, dict)]
     if exemption_ids != sorted(exemption_ids) or len(exemption_ids) != len(set(exemption_ids)):
         gap(gaps, "manifest", "noncanonical_exemptions", "internalExemptions", "exemption ids must be sorted and unique")
@@ -128,6 +193,13 @@ def validate(manifest_path: pathlib.Path) -> dict[str, Any]:
 
     ts_public, rust_public = public_catalogs()
     needs = consumer_needs()
+    semantic_need_checks = {
+        item["id"].removeprefix("consumerNeed."): item
+        for item in load_json(ROOT / "harness/consumer-needs/validation-report.json")
+        .get("semanticValidation", {})
+        .get("checks", [])
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    }
     bridge = bridge_operations()
     generated_export_count = sum(
         1
@@ -236,8 +308,49 @@ def validate(manifest_path: pathlib.Path) -> dict[str, Any]:
             gap(gaps, capability, "invalid_public_surface", "publicSurface.kind", "publicSurface kind must be typescript or rust")
 
         need = item.get("consumerNeed")
-        if need is not None and need not in needs:
+        expected_need = EXPECTED_CAPABILITIES.get(capability)
+        if need != expected_need:
+            gap(
+                gaps, capability, "consumer_need_mismatch", "consumerNeed",
+                f"capability must map to governed consumer need {expected_need!r}, found {need!r}",
+            )
+        need_contract = needs.get(need) if isinstance(need, str) else None
+        if need is not None and need_contract is None:
             gap(gaps, capability, "consumer_need_unreachable", "consumerNeed", f"consumer need {need!r} is absent")
+        elif need_contract is not None:
+            allowed_need_kinds = COMPATIBLE_NEED_KINDS.get(item.get("kind"), set())
+            if need_contract.get("kind") not in allowed_need_kinds:
+                gap(
+                    gaps, capability, "consumer_need_kind_mismatch", "consumerNeed",
+                    f"capability kind {item.get('kind')!r} cannot prove need kind {need_contract.get('kind')!r}",
+                )
+            surface_identity = surface.get("identity") if isinstance(surface, dict) else None
+            provider_identity = item.get("providerIdentity", surface_identity)
+            required_provider = need_contract.get("provider")
+            if required_provider is not None and provider_identity != required_provider:
+                gap(
+                    gaps, capability, "consumer_need_provider_mismatch", "providerIdentity",
+                    f"need requires provider {required_provider!r}, found {provider_identity!r}",
+                )
+            semantic_check = semantic_need_checks.get(need)
+            if semantic_check is not None and semantic_check.get("passed") is not True:
+                gap(
+                    gaps, capability, "consumer_need_semantic_proof_failed", "consumerNeed",
+                    "the compiled consumer-needs conformance check did not pass",
+                )
+
+        if item.get("kind") == "gameplayRead":
+            cardinality = item.get("providerCardinality")
+            if not isinstance(cardinality, dict) or cardinality.get("constraint") != "exactlyOne":
+                gap(
+                    gaps, capability, "missing_provider_cardinality", "providerCardinality",
+                    "gameplay reads must prove exactly one provider in the closed registry",
+                )
+            if "namespaceOwnership" not in item:
+                gap(
+                    gaps, capability, "missing_namespace_ownership", "namespaceOwnership",
+                    "gameplay reads must prove provider namespace ownership",
+                )
         results.append({
             "id": capability,
             "kind": item.get("kind"),
@@ -285,6 +398,41 @@ def encoded(report: dict[str, Any]) -> str:
     return json.dumps(report, indent=2, sort_keys=False) + "\n"
 
 
+def check_adversarial_mutations() -> list[str]:
+    source = load_json(DEFAULT_MANIFEST)
+    cases: list[tuple[str, dict[str, Any], str]] = []
+
+    omitted = json.loads(json.dumps(source))
+    omitted["capabilities"].pop(0)
+    cases.append(("omitted capability", omitted, "missing_required_capability"))
+
+    unrelated_need = json.loads(json.dumps(source))
+    unrelated_need["capabilities"][0]["consumerNeed"] = "asha-demo.audio-projection"
+    cases.append(("unrelated consumer need", unrelated_need, "consumer_need_mismatch"))
+
+    prose_evidence = json.loads(json.dumps(source))
+    prose_evidence["capabilities"][0]["provider"] = {"path": "README.md", "token": "ASHA"}
+    cases.append(("prose token evidence", prose_evidence, "invalid_evidence_source"))
+
+    missing_cardinality = json.loads(json.dumps(source))
+    gameplay_read = next(
+        item for item in missing_cardinality["capabilities"]
+        if item["id"] == "gameplay.module-named-read"
+    )
+    gameplay_read.pop("providerCardinality")
+    cases.append(("missing provider cardinality", missing_cardinality, "missing_provider_cardinality"))
+
+    failures = []
+    with tempfile.TemporaryDirectory(prefix="asha-reachability-") as directory:
+        for name, document, expected in cases:
+            path = pathlib.Path(directory) / f"{name.replace(' ', '-')}.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            codes = {item["code"] for item in validate(path)["gaps"]}
+            if expected not in codes:
+                failures.append(f"{name}: expected {expected}, got {sorted(codes)}")
+    return failures
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest", type=pathlib.Path, default=DEFAULT_MANIFEST)
@@ -302,6 +450,7 @@ def main() -> int:
             codes = {item["code"] for item in fixture_report["gaps"]}
             if expected not in codes:
                 failures.append(f"{fixture.name}: expected {expected}, got {sorted(codes)}")
+        failures.extend(check_adversarial_mutations())
         if failures:
             print("\n".join(failures), file=sys.stderr)
             return 1

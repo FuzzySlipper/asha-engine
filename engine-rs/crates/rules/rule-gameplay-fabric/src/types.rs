@@ -52,6 +52,17 @@ pub struct GameplayInvocationCall {
     pub input: GameplayInvocationInput,
     pub frozen_views: FrozenGameplayViews,
     pub declared_reads: Option<crate::GameplayFrozenReadSet>,
+    pub configuration: Option<GameplayInvocationConfiguration>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameplayInvocationConfiguration {
+    pub binding_id: String,
+    pub configuration_id: String,
+    pub scope: crate::GameplayModuleStateScope,
+    pub canonical_config: Vec<u8>,
+    pub config_hash: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -176,6 +187,13 @@ pub struct GameplayHostError {
 }
 
 pub trait GameplayInvocationHost {
+    fn resolve_configuration(
+        &self,
+        _call: &GameplayInvocationCall,
+    ) -> Result<Option<GameplayInvocationConfiguration>, GameplayHostError> {
+        Ok(None)
+    }
+
     fn invoke(
         &self,
         call: &GameplayInvocationCall,
@@ -266,6 +284,10 @@ pub struct GameplayInvocationEvidence {
     pub wave: u32,
     pub frozen_view_hash: String,
     pub declared_read_set_hash: Option<String>,
+    #[serde(default)]
+    pub declared_reads: Option<crate::GameplayFrozenReadSet>,
+    #[serde(default)]
+    pub configuration: Option<GameplayInvocationConfiguration>,
     pub delivery_hash: String,
     pub output_hash: String,
 }

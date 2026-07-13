@@ -132,7 +132,24 @@ fn fps_primary_fire_receipt_comes_from_rust_combat_lifecycle_and_replay() {
         projection.presentation.replay_scope,
         ProjectionReplayScope::ExcludedFromReplayTruth
     );
-    assert_eq!(projection.presentation.ops.len(), 5);
+    assert_eq!(projection.presentation.ops.len(), 8);
+    let accepted_origin = match &projection.presentation.ops[0] {
+        PresentationOp::Audio { meta, .. } => meta
+            .origin
+            .as_ref()
+            .expect("primary-fire audio retains the accepted origin"),
+        other => panic!("expected primary-fire audio first, got {other:?}"),
+    };
+    for operation in &projection.presentation.ops {
+        let origin = match operation {
+            PresentationOp::Audio { meta, .. }
+            | PresentationOp::Billboard { meta, .. }
+            | PresentationOp::Particle { meta, .. }
+            | PresentationOp::TelemetryOverlay { meta, .. }
+            | PresentationOp::Animation { meta, .. } => meta.origin.as_ref(),
+        };
+        assert_eq!(origin, Some(accepted_origin));
+    }
     match &projection.presentation.ops[0] {
         PresentationOp::Audio { meta, op } => {
             assert_eq!(meta.sequence, 0);
@@ -204,11 +221,32 @@ fn fps_primary_fire_receipt_comes_from_rust_combat_lifecycle_and_replay() {
             ..
         } if value == "0/75"
     ));
-    let PresentationOp::TelemetryOverlay { meta, op } = &projection.presentation.ops[4] else {
+    let PresentationOp::Animation { meta, op } = &projection.presentation.ops[5] else {
+        panic!("expected authoritative controller update after its create")
+    };
+    assert_eq!(meta.sequence, 5);
+    let AnimationProjectionOp::Update { controller, .. } = op else {
+        panic!("expected animation controller update")
+    };
+    let timing_fact = controller
+        .timing_fact
+        .as_ref()
+        .expect("semantic transition retains authority timing evidence");
+    assert_eq!(timing_fact.authority_tick, 9);
+    assert_eq!(timing_fact.controller_tick, 1);
+    assert_eq!(timing_fact.to_state_id, "primary_fire");
+    assert_eq!(
+        timing_fact.source_fact_id,
+        meta.origin.as_ref().expect("animation origin").id
+    );
+    let PresentationOp::TelemetryOverlay { meta, op } = &projection.presentation.ops[7] else {
         panic!("expected telemetry overlay after gameplay feedback domains")
     };
-    assert_eq!(meta.sequence, 4);
-    assert!(meta.origin.is_none());
+    assert_eq!(meta.sequence, 7);
+    assert_eq!(
+        meta.origin.as_ref().expect("telemetry origin").id,
+        timing_fact.source_fact_id
+    );
     assert!(matches!(
         op,
         TelemetryOverlayProjectionOp::Create {
@@ -271,6 +309,30 @@ fn generated_tunnel_preserves_explicit_role_targeted_enemy_damage() {
             .map(|health| health.current),
         Some(78)
     );
+
+    let enemy_projection = bridge.read_projection_frame(0).unwrap();
+    assert!(enemy_projection
+        .presentation
+        .ops
+        .iter()
+        .all(|operation| !matches!(operation, PresentationOp::Animation { .. })));
+
+    let player_receipt = bridge
+        .apply_fps_primary_fire(FpsPrimaryFireRequest {
+            tick: 7,
+            origin: [0.0, 1.62, 1.5],
+            direction: [0.0, -1.12, -4.1],
+            shooter_role: Some(FpsBridgeRole::Player),
+            target_role: Some(FpsBridgeRole::Enemy),
+        })
+        .expect("enemy feedback cannot claim the player animation controller");
+    assert_eq!(player_receipt.shooter, 101);
+    let player_projection = bridge.read_projection_frame(0).unwrap();
+    assert!(player_projection
+        .presentation
+        .ops
+        .iter()
+        .any(|operation| matches!(operation, PresentationOp::Animation { .. })));
 }
 
 #[test]

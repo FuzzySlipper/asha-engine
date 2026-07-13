@@ -4,12 +4,11 @@ use protocol_game_extension::{
     GameplayReadViewKind, GameplayReadViewRequirement,
 };
 use rule_gameplay_fabric::{
-    gameplay_module_payload_hash, run_verification_replay, verify_reaction_frame,
-    GameplayModuleFact, GameplayModuleInitialization, GameplayModuleStateError,
-    GameplayModuleStateMigration, GameplayModuleStateRegistration, GameplayModuleStateScope,
-    GameplayModuleStateStore, GameplayObserveReceipt, GameplayReactionDivergence,
-    GameplayReactionFrame, GameplayReactionSourceFact, GameplayTypedModuleStateAdapter,
-    GameplayVerificationReplayRunner,
+    gameplay_module_payload_hash, verify_reaction_frame, GameplayModuleFact,
+    GameplayModuleInitialization, GameplayModuleStateError, GameplayModuleStateMigration,
+    GameplayModuleStateRegistration, GameplayModuleStateScope, GameplayModuleStateStore,
+    GameplayObserveReceipt, GameplayReactionDivergence, GameplayReactionFrame,
+    GameplayReactionSourceFact, GameplayTypedModuleStateAdapter,
 };
 use std::rc::Rc;
 use svc_gameplay_fabric::{
@@ -437,7 +436,7 @@ fn reaction_frame_verification_classifies_code_event_fact_and_post_state_drift()
     let registry = Rc::new(registry());
     let observe = GameplayObserveReceipt {
         registry_digest: registry.registry_digest().to_owned(),
-        root_id: "root-1".to_owned(),
+        root_id: String::new(),
         waves_processed: 0,
         wave_views: Vec::new(),
         events: Vec::new(),
@@ -552,20 +551,4 @@ fn reaction_frame_verification_classifies_code_event_fact_and_post_state_drift()
             vec![expected_divergence]
         );
     }
-
-    struct EchoVerificationRunner(GameplayReactionFrame);
-
-    impl GameplayVerificationReplayRunner for EchoVerificationRunner {
-        fn rerun(
-            &self,
-            _expected: &GameplayReactionFrame,
-        ) -> Result<GameplayReactionFrame, GameplayModuleStateError> {
-            Ok(self.0.clone())
-        }
-    }
-
-    let verification =
-        run_verification_replay(&expected, &EchoVerificationRunner(expected.clone())).unwrap();
-    assert!(verification.divergences.is_empty());
-    assert_eq!(verification.actual_frame_hash, expected.frame_hash);
 }

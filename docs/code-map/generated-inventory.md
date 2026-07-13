@@ -297,7 +297,7 @@ Source: [bridge-manifest.toml](../../engine-rs/crates/bridge/runtime-bridge-api/
 - [`harness/fixtures/entities`](../../harness/fixtures/entities) — 1 files
 - [`harness/fixtures/events`](../../harness/fixtures/events) — 1 files
 - [`harness/fixtures/game-rules`](../../harness/fixtures/game-rules) — 2 files
-- [`harness/fixtures/gameplay-module-sdk`](../../harness/fixtures/gameplay-module-sdk) — 10628 files
+- [`harness/fixtures/gameplay-module-sdk`](../../harness/fixtures/gameplay-module-sdk) — 3386 files
 - [`harness/fixtures/gameplay-presets`](../../harness/fixtures/gameplay-presets) — 1 files
 - [`harness/fixtures/generated-levels`](../../harness/fixtures/generated-levels) — 1 files
 - [`harness/fixtures/materials`](../../harness/fixtures/materials) — 1 files
@@ -307,7 +307,7 @@ Source: [bridge-manifest.toml](../../engine-rs/crates/bridge/runtime-bridge-api/
 - [`harness/fixtures/policy-inputs`](../../harness/fixtures/policy-inputs) — 3 files
 - [`harness/fixtures/policy-outputs`](../../harness/fixtures/policy-outputs) — 3 files
 - [`harness/fixtures/project-bundle`](../../harness/fixtures/project-bundle) — 8 files
-- [`harness/fixtures/render-diffs`](../../harness/fixtures/render-diffs) — 15 files
+- [`harness/fixtures/render-diffs`](../../harness/fixtures/render-diffs) — 16 files
 - [`harness/fixtures/render-projection`](../../harness/fixtures/render-projection) — 1 files
 - [`harness/fixtures/replays`](../../harness/fixtures/replays) — 1 files
 - [`harness/fixtures/scenes`](../../harness/fixtures/scenes) — 4 files
@@ -325,7 +325,7 @@ Source: [bridge-manifest.toml](../../engine-rs/crates/bridge/runtime-bridge-api/
 ### harness/goldens (7 groups)
 
 - [`harness/goldens/protocol`](../../harness/goldens/protocol) — 1 files
-- [`harness/goldens/render-diffs`](../../harness/goldens/render-diffs) — 11 files
+- [`harness/goldens/render-diffs`](../../harness/goldens/render-diffs) — 12 files
 - [`harness/goldens/render-projection`](../../harness/goldens/render-projection) — 2 files
 - [`harness/goldens/replays`](../../harness/goldens/replays) — 2 files
 - [`harness/goldens/screenshots`](../../harness/goldens/screenshots) — 2 files

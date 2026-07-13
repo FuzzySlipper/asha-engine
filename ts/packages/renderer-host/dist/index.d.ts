@@ -6,7 +6,7 @@ export type { AshaAudioContext, AshaAudioEntityPositionResolver, AshaAudioFrameR
 export { AshaBillboardHost } from './billboard-host.js';
 export { AshaParticleHost } from './particle-host.js';
 export { AshaAnimationHost } from './animation-host.js';
-export type { AshaAnimationFrameReceipt } from './animation-host.js';
+export type { AshaAnimationClipCueDefinition, AshaAnimationCueSignalDomain, AshaAnimationFrameReceipt, AshaAnimationHostOptions, AshaAnimationSampledCue, } from './animation-host.js';
 export { AshaLiveTelemetryCollector, AshaTelemetryOverlayHost } from './telemetry-host.js';
 export type { AshaBillboardContainer, AshaBillboardElement, AshaBillboardElementFactory, AshaBillboardElementStyle, AshaBillboardEntityPositionResolver, AshaBillboardFontLoader, AshaBillboardFrameReceipt, AshaBillboardHostOptions, AshaBillboardLocalizer, AshaBillboardResource, AshaBillboardResourceResolver, AshaBillboardScreenProjection, AshaBillboardWorldProjector, } from './billboard-host.js';
 export type { AshaParticleBillboard, AshaParticleBillboardSink, AshaParticleEntityPositionResolver, AshaParticleFrameReceipt, AshaParticleHostOptions, AshaParticleResource, AshaParticleResourceResolver, } from './particle-host.js';

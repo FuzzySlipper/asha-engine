@@ -129,14 +129,42 @@ fn registry() -> GameplayFabricRegistry {
             },
             max_deliveries_per_root: 4,
         }],
-        invocations: vec![GameplayInvocationDescriptor {
-            invocation_id: "fixture.observe".to_owned(),
-            family: GameplayInvocationFamily::Observe,
-            input_contract: contract("source-event"),
-            output_contract: contract("observe-output"),
-            max_outputs: 4,
-            max_payload_bytes: 4_096,
-        }],
+        invocations: vec![
+            GameplayInvocationDescriptor {
+                invocation_id: "fixture.observe".to_owned(),
+                family: GameplayInvocationFamily::Observe,
+                input_contract: contract("source-event"),
+                output_contract: contract("observe-output"),
+                read_requirements: vec![
+                    ("read-owner-query", "owner-query-view"),
+                    ("read-target", "capability-view"),
+                    ("read-container", "relationship-view"),
+                    ("read-prefab-part", "prefab-view"),
+                    ("read-module", "named-view"),
+                    ("read-trigger-overlaps", "trigger-overlap-view"),
+                ]
+                .into_iter()
+                .map(|(request_id, view)| GameplayInvocationReadRequirement {
+                    request_id: request_id.to_owned(),
+                    view: contract(view),
+                })
+                .collect(),
+                max_outputs: 4,
+                max_payload_bytes: 4_096,
+            },
+            GameplayInvocationDescriptor {
+                invocation_id: "fixture.secondary".to_owned(),
+                family: GameplayInvocationFamily::Observe,
+                input_contract: contract("source-event"),
+                output_contract: contract("observe-output"),
+                read_requirements: vec![GameplayInvocationReadRequirement {
+                    request_id: "secondary-owner-query".to_owned(),
+                    view: contract("owner-query-view"),
+                }],
+                max_outputs: 1,
+                max_payload_bytes: 1_024,
+            },
+        ],
         read_views: requirements.clone(),
         proposal_kinds: Vec::new(),
         state_schemas: vec![GameplayOwnedSchemaDeclaration {
@@ -362,6 +390,102 @@ struct NoopRouter;
 impl GameplayProposalRouter for NoopRouter {
     fn route(&mut self, _call: &GameplayOwnerRoutingCall) -> GameplayOwnerRoutingOutput {
         GameplayOwnerRoutingOutput::default()
+    }
+}
+
+struct RecordedReplayViews<'a> {
+    recorded: &'a GameplayVerificationReplayInput,
+}
+
+impl GameplayViewSource for RecordedReplayViews<'_> {
+    fn freeze(&self, root_id: &str, wave: u32) -> FrozenGameplayViews {
+        assert_eq!(root_id, self.recorded.root_id);
+        let recorded = self
+            .recorded
+            .frozen_views
+            .get(wave as usize)
+            .expect("verification input contains every frozen wave view");
+        FrozenGameplayViews {
+            epoch: recorded.epoch,
+            view_hash: recorded.view_hash.clone(),
+        }
+    }
+
+    fn freeze_declared_reads(
+        &self,
+        module_id: &str,
+        invocation_id: &str,
+        event: &GameplayEventEnvelope,
+    ) -> Result<Option<GameplayFrozenReadSet>, GameplayReadAssemblyError> {
+        Ok(self
+            .recorded
+            .frozen_read_sets
+            .iter()
+            .find(|reads| {
+                reads.module_id == module_id
+                    && reads.invocation_id == invocation_id
+                    && reads.event_id == event.event_id
+                    && reads.wave == event.wave
+            })
+            .cloned())
+    }
+}
+
+struct RecordedReplayRunner<'a> {
+    fixture: &'a Fixture,
+}
+
+impl GameplayVerificationReplayRunner for RecordedReplayRunner<'_> {
+    fn rerun(
+        &self,
+        recorded: &GameplayVerificationReplayInput,
+    ) -> Result<GameplayReactionFrame, GameplayModuleStateError> {
+        if recorded.registry_digest != self.fixture.registry.registry_digest()
+            || recorded.module_order != self.fixture.registry.module_order()
+        {
+            return Err(GameplayModuleStateError::InvalidSnapshot(
+                "recorded registry identity does not match the linked registry".to_owned(),
+            ));
+        }
+        let [root_event] = recorded.root_events.as_slice() else {
+            return Err(GameplayModuleStateError::InvalidSnapshot(
+                "fixture verification expects exactly one recorded root event".to_owned(),
+            ));
+        };
+        let state = state_store(&self.fixture.registry);
+        if state.state_hash() != recorded.state_hash_before {
+            return Err(GameplayModuleStateError::InvalidSnapshot(
+                "recorded pre-state hash does not match restored module state".to_owned(),
+            ));
+        }
+        let host = ReadHost::default();
+        let observe = GameplayFabricCoordinator::new(
+            &self.fixture.registry,
+            GameplayRuntimeLimits {
+                max_waves: 2,
+                max_events_per_root: 8,
+                max_proposals_per_root: 8,
+                max_invocations_per_root: 8,
+                max_payload_bytes_per_root: 65_536,
+            },
+        )
+        .observe(
+            root_event.clone(),
+            &RecordedReplayViews { recorded },
+            &host,
+            &mut NoopRouter,
+        );
+        let state_hash_after = state.state_hash();
+        let final_session_hash = state.final_session_hash("activation.fixture");
+        Ok(GameplayReactionFrame::from_observe(
+            &self.fixture.registry,
+            &observe,
+            recorded.source_facts.clone(),
+            &observe.module_facts,
+            recorded.state_hash_before.clone(),
+            state_hash_after,
+            final_session_hash,
+        ))
     }
 }
 
@@ -741,6 +865,84 @@ fn coordinator_delivers_declared_reads_and_binds_them_into_delivery_evidence() {
 }
 
 #[test]
+fn verification_replay_uses_serialized_root_events_views_and_frozen_read_values() {
+    let fixture = fixture();
+    let state = state_store(&fixture.registry);
+    let owner_query = FixtureOwnerQuery;
+    let views = FixtureViews {
+        registry: &fixture.registry,
+        entities: &fixture.entities,
+        state: &state,
+        prefab_registry: &fixture.prefab_registry,
+        prefab_instances: &fixture.prefab_instances,
+        scopes: &fixture.scopes,
+        owner_query: &owner_query,
+    };
+    let root_event = event();
+    let observe = GameplayFabricCoordinator::new(
+        &fixture.registry,
+        GameplayRuntimeLimits {
+            max_waves: 2,
+            max_events_per_root: 8,
+            max_proposals_per_root: 8,
+            max_invocations_per_root: 8,
+            max_payload_bytes_per_root: 65_536,
+        },
+    )
+    .observe(
+        root_event.clone(),
+        &views,
+        &ReadHost::default(),
+        &mut NoopRouter,
+    );
+    let expected = GameplayReactionFrame::from_observe(
+        &fixture.registry,
+        &observe,
+        Vec::new(),
+        &observe.module_facts,
+        state.state_hash(),
+        state.state_hash(),
+        state.final_session_hash("activation.fixture"),
+    );
+    let encoded = serde_json::to_vec(&expected).unwrap();
+    let restored: GameplayReactionFrame = serde_json::from_slice(&encoded).unwrap();
+    let recorded_reads = restored.invocations[0]
+        .declared_reads
+        .as_ref()
+        .expect("durable frame retains canonical frozen read values");
+    assert_eq!(recorded_reads.reads.len(), 5);
+    assert!(recorded_reads.nested_hashes_are_valid());
+
+    let verification =
+        run_verification_replay(&restored, &RecordedReplayRunner { fixture: &fixture }).unwrap();
+    assert!(verification.divergences.is_empty());
+    assert_eq!(verification.actual_frame_hash, restored.frame_hash);
+
+    let mut tampered = restored.clone();
+    {
+        let reads = tampered.invocations[0].declared_reads.as_mut().unwrap();
+        reads.reads[0].value = GameplayReadValue::Missing {
+            reason: "tampered".to_owned(),
+        };
+    }
+    tampered.frame_hash = tampered.canonical_hash();
+    assert!(
+        verify_reaction_frame(&restored, &tampered).contains(&GameplayReactionDivergence::Views)
+    );
+
+    {
+        let reads = tampered.invocations[0].declared_reads.as_mut().unwrap();
+        let read = &mut reads.reads[0];
+        read.value_hash = read.canonical_value_hash();
+        assert!(!reads.nested_hashes_are_valid());
+    }
+    tampered.frame_hash = tampered.canonical_hash();
+    assert!(
+        verify_reaction_frame(&restored, &tampered).contains(&GameplayReactionDivergence::Views)
+    );
+}
+
+#[test]
 fn bad_fields_quotas_stale_ids_and_missing_query_provider_fail_without_mutation() {
     let fixture = fixture();
     let state = state_store(&fixture.registry);
@@ -774,6 +976,29 @@ fn bad_fields_quotas_stale_ids_and_missing_query_provider_fail_without_mutation(
     assert_eq!(
         assembler
             .assemble(&undeclared, &event())
+            .unwrap_err()
+            .diagnostics[0]
+            .code,
+        GameplayReadDiagnosticCode::UndeclaredRead
+    );
+
+    let mut cross_invocation = plan();
+    cross_invocation.requests = vec![GameplayReadRequest {
+        request_id: "secondary-owner-query".to_owned(),
+        view: contract("owner-query-view"),
+        fields: vec!["entities".to_owned()],
+        selector: GameplayReadSelector::OwnerQuery {
+            query: GameplayOwnerQuery::NearbyEntities {
+                anchor: GameplayEventEntityBinding::Target { index: 0 },
+                radius_millimeters: 5_000,
+                required_tags: Vec::new(),
+                max_items: 2,
+            },
+        },
+    }];
+    assert_eq!(
+        assembler
+            .assemble(&cross_invocation, &event())
             .unwrap_err()
             .diagnostics[0]
             .code,

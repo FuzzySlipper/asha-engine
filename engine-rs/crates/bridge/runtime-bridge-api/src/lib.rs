@@ -20,15 +20,17 @@
 
 pub(crate) use std::collections::{BTreeMap, BTreeSet};
 
-pub(crate) use core_assets::{AssetHash, AssetId};
+pub(crate) use core_assets::{AssetHash, AssetId, AssetReference, AssetVersionReq};
 pub(crate) use core_catalog::{Catalog, CatalogEntry};
+#[cfg(test)]
+pub(crate) use core_commands::CommandEnvelope;
 pub(crate) use core_commands::VoxelCommand;
 pub(crate) use core_entity::{
     EntityLifecycleCommand, EntitySource, EntityStore, EntityTransform, TransformCommand,
     TransformError,
 };
 pub(crate) use core_error::ErrorCategory;
-pub(crate) use core_ids::EntityId;
+pub(crate) use core_ids::{EntityId, SceneId, SceneNodeId};
 pub(crate) use core_math::Vec3;
 pub(crate) use core_space::{
     ChunkCoord, ChunkDims, Direction6, Face, GridId, VoxelCoord, VoxelGridSpec, WorldPos, WorldVec,
@@ -62,26 +64,34 @@ pub use protocol_presentation::{
     AnimationControllerProjectionState, AnimationProjectionDescriptor,
     AnimationProjectionDiagnostic, AnimationProjectionDiagnosticCode, AnimationProjectionHandle,
     AnimationProjectionOp, AnimationProjectionReadout, AnimationResolvedMotion,
-    AnimationTransitionProjection, AudioBus, AudioClipRef, AudioEmitter, AudioHandle,
-    AudioProjectionDiagnostic, AudioProjectionDiagnosticCode, AudioProjectionOp,
-    AudioProjectionReadout, AudioSourceDescriptor, AudioSourcePatch, BillboardAnchor,
-    BillboardContent, BillboardDescriptor, BillboardFontRef, BillboardHandle, BillboardLayer,
-    BillboardPatch, BillboardProjectionDiagnostic, BillboardProjectionDiagnosticCode,
-    BillboardProjectionOp, BillboardProjectionReadout, BillboardTemplateArgument,
-    BillboardTextureRef, ParticleAnchor, ParticleColorKey, ParticleEmitterDescriptor,
-    ParticleEmitterHandle, ParticleEmitterPatch, ParticleProjectionDiagnostic,
-    ParticleProjectionDiagnosticCode, ParticleProjectionOp, ParticleProjectionReadout,
-    ParticleScalarKey, ParticleSpriteRef, PresentationFrameDiff, PresentationOp,
-    PresentationOpMeta, PresentationOriginKind, PresentationOriginRef, ProjectionReplayScope,
-    RuntimeProjectionFrame, TelemetryOverlayCorner, TelemetryOverlayDescriptor,
-    TelemetryOverlayDiagnostic, TelemetryOverlayDiagnosticCode, TelemetryOverlayHandle,
-    TelemetryOverlayPatch, TelemetryOverlayProjectionOp, TelemetryOverlayReadout,
-    RUNTIME_PROJECTION_SCHEMA_VERSION,
+    AnimationTransitionFactMoment, AnimationTransitionFactRef, AnimationTransitionProjection,
+    AudioBus, AudioClipRef, AudioEmitter, AudioHandle, AudioProjectionDiagnostic,
+    AudioProjectionDiagnosticCode, AudioProjectionOp, AudioProjectionReadout,
+    AudioSourceDescriptor, AudioSourcePatch, BillboardAnchor, BillboardContent,
+    BillboardDescriptor, BillboardFontRef, BillboardHandle, BillboardLayer, BillboardPatch,
+    BillboardProjectionDiagnostic, BillboardProjectionDiagnosticCode, BillboardProjectionOp,
+    BillboardProjectionReadout, BillboardTemplateArgument, BillboardTextureRef, ParticleAnchor,
+    ParticleColorKey, ParticleEmitterDescriptor, ParticleEmitterHandle, ParticleEmitterPatch,
+    ParticleProjectionDiagnostic, ParticleProjectionDiagnosticCode, ParticleProjectionOp,
+    ParticleProjectionReadout, ParticleScalarKey, ParticleSpriteRef, PresentationFrameDiff,
+    PresentationOp, PresentationOpMeta, PresentationOriginKind, PresentationOriginRef,
+    ProjectionReplayScope, RuntimeProjectionFrame, TelemetryOverlayCorner,
+    TelemetryOverlayDescriptor, TelemetryOverlayDiagnostic, TelemetryOverlayDiagnosticCode,
+    TelemetryOverlayHandle, TelemetryOverlayPatch, TelemetryOverlayProjectionOp,
+    TelemetryOverlayReadout, RUNTIME_PROJECTION_SCHEMA_VERSION,
 };
 pub(crate) use protocol_render::{
     MeshAttribute, MeshAttributeKind, MeshAttributeName, MeshBoundsDescriptor, MeshBufferLayout,
     MeshCollisionPolicy, MeshGroupDescriptor, MeshIndexWidth, MeshMaterialSlot,
     MeshPayloadDescriptor, MeshPayloadSource, MeshProvenance, StaticMeshAsset,
+};
+pub use protocol_render::{ModelMaterialPreviewRequest, ModelMaterialPreviewSnapshot};
+pub use protocol_scene::{
+    AssetReferenceDto, AssetVersionReqDto, FlatSceneDocumentDto, SceneMetadataDto,
+    SceneNodeKindDto, SceneNodeRecordDto, SceneObjectCommandDto, SceneObjectCommandOutcomeDto,
+    SceneObjectCommandRejectionCode, SceneObjectCommandRejectionDto, SceneObjectCommandRequestDto,
+    SceneObjectCommandResultDto, SceneObjectRecordDto, SceneObjectSnapshotDto, SceneTransformDto,
+    SceneValidationCode, SceneValidationErrorDto,
 };
 pub use protocol_time_control::{
     TimeControlCommand, TimeControlMode, TimeControlReceipt, TimeControlRejection,
@@ -173,7 +183,7 @@ pub(crate) use rule_lifecycle::{
     FpsStoredEntityDefinition, FpsWeaponMount,
 };
 pub use rule_voxel_edit::VoxelEditRejection;
-pub(crate) use sim_runner::TimeController;
+pub(crate) use sim_runner::{SimulationAuthority, TimeController};
 pub(crate) use svc_collision::{CollisionProjection, Ray};
 pub(crate) use svc_combat::HealthState;
 pub(crate) use svc_game_rules::{resolve_protocol_request, validate_catalog};

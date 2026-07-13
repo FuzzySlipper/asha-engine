@@ -39,7 +39,11 @@ use core_ids::{EntityId, TagId};
 use protocol_assets::{CatalogEntry, MaterialProjection};
 use serde::{Deserialize, Serialize};
 
+mod material_feedback;
 mod pick;
+pub use material_feedback::{
+    MaterialInstanceParameters, MaterialUvStrategy, RenderMaterialDescriptor,
+};
 pub use pick::{MeshPickHit, SpritePickHit};
 
 // ── Handles ───────────────────────────────────────────────────────────────────
@@ -141,55 +145,6 @@ impl Default for Material {
     }
 }
 
-// ── Catalog material descriptor (material-wiring super, epic #2353) ─────────────
-
-/// How a material samples colour across geometry. Mirrors
-/// `core_catalog::material::UvStrategy` — the *visual* projection only; no
-/// collision/authority field ever appears here.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum MaterialUvStrategy {
-    /// A single flat colour, no texture sampling.
-    #[default]
-    Flat,
-    /// Sample the bound texture with planar UVs.
-    Planar,
-    /// Sample an atlas sub-rectangle (sprite sheets).
-    Atlas,
-}
-
-impl MaterialUvStrategy {
-    /// Stable border label.
-    pub fn label(self) -> &'static str {
-        match self {
-            MaterialUvStrategy::Flat => "flat",
-            MaterialUvStrategy::Planar => "planar",
-            MaterialUvStrategy::Atlas => "atlas",
-        }
-    }
-}
-
-/// The renderer-facing projection of a catalog material, keyed by its asset id so
-/// the renderer can resolve a static-mesh slot or a sprite ref to a real material
-/// descriptor instead of a placeholder colour (render-material-01, #2373).
-///
-/// This is the **visual** projection: a linear-RGBA colour, an optional bound
-/// texture id, scalar roughness/emissive, and a UV strategy. It carries **no**
-/// collision/authority field (`solid`/`collidable`/`occludes`/`structural_class`
-/// live on the disjoint `CollisionMaterial` projection) — a boundary leak is a
-/// type error here, not a review nit (boundary 18).
-#[derive(Debug, Clone, PartialEq)]
-pub struct RenderMaterialDescriptor {
-    /// Catalog material asset id, e.g. `material/concrete-wet`.
-    pub id: String,
-    /// Linear RGBA, each component in `0.0..=1.0`.
-    pub color: [f32; 4],
-    /// Optional bound texture asset id (a `texture/...` ref). Atlas wiring: #2374.
-    pub texture: Option<String>,
-    pub roughness: f32,
-    pub emissive: f32,
-    pub uv_strategy: MaterialUvStrategy,
-}
-
 // ── Layer ─────────────────────────────────────────────────────────────────────
 
 /// Which retained layer a node belongs to.
@@ -286,6 +241,15 @@ pub enum RenderDiff {
     /// a placeholder colour (render-material-01, #2373). Idempotent: define once,
     /// reference by id from many instances.
     DefineMaterial { material: RenderMaterialDescriptor },
+    /// Replace the visual feedback parameters for one material slot on one live
+    /// static-mesh instance. Geometry, asset identity, and render-handle identity
+    /// remain unchanged; a missing handle/slot is rejected by the renderer.
+    SetMaterialInstanceParameters {
+        handle: RenderHandle,
+        slot: u16,
+        /// Complete override, or `None` to return this slot to descriptor defaults.
+        parameters: Option<MaterialInstanceParameters>,
+    },
     /// Define (or redefine) a texture asset descriptor under its id (dimensions +
     /// sampling policy + content metadata; pixel bytes load via the renderer's
     /// texture provider). Idempotent (render-material-02, #2374).

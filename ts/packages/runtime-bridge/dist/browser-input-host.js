@@ -134,7 +134,8 @@ export class BrowserInputHost {
         };
     }
     #submit(platformKind, control, phase, value) {
-        this.#observeContextState(this.#session.readInputContextState());
+        const contextState = this.#session.readInputContextState();
+        this.#observeContextState(contextState);
         const sample = {
             sequence: this.#sequence,
             platformKind,
@@ -148,7 +149,13 @@ export class BrowserInputHost {
         const reason = receipt.action !== null
             ? `resolved to ${receipt.action.actionId}`
             : (receipt.diagnostics[0]?.message ?? (receipt.consumed ? 'consumed' : 'unbound'));
-        const delivery = { sample, receipt, consumer, reason };
+        const delivery = {
+            sample,
+            receipt,
+            activeContexts: contextState.activeContexts.map((context) => context.contextId),
+            consumer,
+            reason,
+        };
         this.#deliveries.push(delivery);
         if (this.#deliveries.length > RECENT_DELIVERY_LIMIT)
             this.#deliveries.shift();

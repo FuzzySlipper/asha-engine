@@ -237,11 +237,16 @@ export interface GameplaySubscriptionDeclaration {
     readonly selector: GameplayHeaderSelector;
     readonly maxDeliveriesPerRoot: number;
 }
+export interface GameplayInvocationReadRequirement {
+    readonly requestId: string;
+    readonly view: GameplayContractRef;
+}
 export interface GameplayInvocationDescriptor {
     readonly invocationId: string;
     readonly family: GameplayInvocationFamily;
     readonly inputContract: GameplayContractRef;
     readonly outputContract: GameplayContractRef;
+    readonly readRequirements: readonly GameplayInvocationReadRequirement[];
     readonly maxOutputs: number;
     readonly maxPayloadBytes: number;
 }

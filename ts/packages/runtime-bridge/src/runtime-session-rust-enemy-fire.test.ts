@@ -91,10 +91,12 @@ function enemyFireBridgeDouble(): {
   readonly bridge: RuntimeBridge;
   readonly fireCalls: FpsPrimaryFireRequest[];
   readonly loadRequests: FpsRuntimeSessionLoadRequest[];
+  readonly projectionCursors: number[];
 } {
   const base = createMockRuntimeBridge();
   const fireCalls: FpsPrimaryFireRequest[] = [];
   const loadRequests: FpsRuntimeSessionLoadRequest[] = [];
+  const projectionCursors: number[] = [];
   let player = 10;
   let enemy = 20;
   let playerHealth = 100;
@@ -123,6 +125,12 @@ function enemyFireBridgeDouble(): {
       }
       if (property === 'readFpsRuntimeSession') {
         return () => current;
+      }
+      if (property === 'readProjectionFrame') {
+        return (cursor: Parameters<RuntimeBridge['readProjectionFrame']>[0]) => {
+          projectionCursors.push(cursor as number);
+          return target.readProjectionFrame(cursor);
+        };
       }
       if (property === 'applyEnemyDirectNavMovement') {
         return (request: EnemyDirectNavMovementRequest) => ({
@@ -181,11 +189,11 @@ function enemyFireBridgeDouble(): {
       return value;
     },
   }) as RuntimeBridge;
-  return { bridge, fireCalls, loadRequests };
+  return { bridge, fireCalls, loadRequests, projectionCursors };
 }
 
 void test('Rust-backed RuntimeSession autonomous enemy fire can defeat the player through bridge authority', () => {
-  const { bridge, fireCalls, loadRequests } = enemyFireBridgeDouble();
+  const { bridge, fireCalls, loadRequests, projectionCursors } = enemyFireBridgeDouble();
   const session = createRuntimeSessionFacade({ bridge, mode: 'rust' });
   session.initialize(sessionInput());
 
@@ -231,6 +239,8 @@ void test('Rust-backed RuntimeSession autonomous enemy fire can defeat the playe
   assert.equal(playable.counters.shotsFired, 0);
   assert.equal(playable.counters.actionTick, 0);
   assert.equal(playable.health.player.dead, true);
+  assert.equal(session.readProjection().cursor, 10);
+  assert.deepEqual(projectionCursors, [10]);
 });
 
 void test('native Rust facade maps ECRP enemy policy to authorized movement and replay evidence', (t) => {

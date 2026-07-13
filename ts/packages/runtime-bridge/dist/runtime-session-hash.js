@@ -173,6 +173,21 @@ function animationControllerHashRecord(controller) {
             durationTicks: controller.transition.durationTicks,
             targetMotion: animationMotionHashRecord(controller.transition.targetMotion),
         },
+        timingFact: controller.timingFact === null ? null : {
+            factId: controller.timingFact.factId,
+            sourceFactId: controller.timingFact.sourceFactId,
+            authorityTick: controller.timingFact.authorityTick,
+            controllerInputSequence: controller.timingFact.controllerInputSequence,
+            controllerTick: controller.timingFact.controllerTick,
+            causationId: controller.timingFact.causationId,
+            correlationId: controller.timingFact.correlationId,
+            transitionId: controller.timingFact.transitionId,
+            fromStateId: controller.timingFact.fromStateId,
+            toStateId: controller.timingFact.toStateId,
+            moment: controller.timingFact.moment,
+            durationTicks: controller.timingFact.durationTicks,
+            factHash: controller.timingFact.factHash,
+        },
     };
 }
 function animationMotionHashRecord(motion) {

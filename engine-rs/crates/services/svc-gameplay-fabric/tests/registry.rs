@@ -1,9 +1,10 @@
 use protocol_game_extension::{
     GameplayContractRef, GameplayEventSchemaDeclaration, GameplayExecutionBudget,
     GameplayHeaderSelector, GameplayInvocationDescriptor, GameplayInvocationFamily,
-    GameplayModuleManifest, GameplayModuleRef, GameplayOrderingConstraint, GameplayOwnerRef,
-    GameplayProposalDeclaration, GameplayReadSelectorCapability, GameplayReadViewKind,
-    GameplayReadViewRequirement, GameplayRegistryDiagnosticCode, GameplaySubscriptionDeclaration,
+    GameplayInvocationReadRequirement, GameplayModuleManifest, GameplayModuleRef,
+    GameplayOrderingConstraint, GameplayOwnerRef, GameplayProposalDeclaration,
+    GameplayReadSelectorCapability, GameplayReadViewKind, GameplayReadViewRequirement,
+    GameplayRegistryDiagnosticCode, GameplaySubscriptionDeclaration,
 };
 use serde::{Deserialize, Serialize};
 use svc_gameplay_fabric::{
@@ -103,6 +104,7 @@ fn valid_pair() -> (GameplayModuleManifest, GameplayModuleManifest) {
         family: GameplayInvocationFamily::Observe,
         input_contract: declaration.event.clone(),
         output_contract: contract("game.presentation-feedback", "damage-cue", "sha256:cue-v1"),
+        read_requirements: Vec::new(),
         max_outputs: 4,
         max_payload_bytes: 4_096,
     });
@@ -433,4 +435,56 @@ fn needs_validation_distinguishes_provider_kind_selector_and_field_gaps() {
         codes(&read_metadata_error(requirement, Some(missing_field)))
             .contains(&GameplayRegistryDiagnosticCode::MissingReadViewField)
     );
+}
+
+#[test]
+fn invocation_read_requirements_reject_duplicate_ids_and_module_undeclared_views() {
+    let (combat, mut feedback) = valid_pair();
+    let view = contract(
+        "game.presentation-feedback",
+        "target-view",
+        "sha256:target-view",
+    );
+    feedback.read_views.push(GameplayReadViewRequirement {
+        view: view.clone(),
+        provider_id: "provider.feedback".into(),
+        kind: GameplayReadViewKind::EntityCapability,
+        fields: vec!["lifecycle".into()],
+        selector_capabilities: vec![GameplayReadSelectorCapability::LifecycleCapability],
+        max_items: 1,
+    });
+    feedback.invocations[0].read_requirements = vec![
+        GameplayInvocationReadRequirement {
+            request_id: "target".into(),
+            view: view.clone(),
+        },
+        GameplayInvocationReadRequirement {
+            request_id: "target".into(),
+            view: contract(
+                "game.presentation-feedback",
+                "private-view",
+                "sha256:private-view",
+            ),
+        },
+    ];
+    let mut builder = GameplayFabricRegistryBuilder::new();
+    builder
+        .register_linked_provider(provider(&combat))
+        .register_linked_provider(provider(&feedback))
+        .register_event_codec(codec(event_declaration()))
+        .register_read_view_provider(GameplayReadViewProviderRegistration {
+            view,
+            provider_id: "provider.feedback".into(),
+            kind: GameplayReadViewKind::EntityCapability,
+            fields: vec!["lifecycle".into()],
+            selector_capabilities: vec![GameplayReadSelectorCapability::LifecycleCapability],
+            max_items: 1,
+            ordering: "singleValue".into(),
+        })
+        .register_module(combat)
+        .register_module(feedback);
+    let error = rejected(builder.build());
+    let diagnostic_codes = codes(&error);
+    assert!(diagnostic_codes.contains(&GameplayRegistryDiagnosticCode::DuplicateInvocationRead));
+    assert!(diagnostic_codes.contains(&GameplayRegistryDiagnosticCode::MissingInvocationReadView));
 }

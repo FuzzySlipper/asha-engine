@@ -20,17 +20,22 @@ const MODEL_MATERIAL_PREVIEW_REQUEST = {
         label: 'Copper',
         dependencies: [],
         material: {
-            render: { color: { r: 0.8, g: 0.4, b: 0.2, a: 1 }, texture: null, roughness: 0.6, emissive: 0, uvStrategy: 'flat' },
+            render: { color: { r: 0.8, g: 0.4, b: 0.2, a: 1 }, texture: null, roughness: 0.6, textureTint: { r: 1, g: 1, b: 1, a: 1 }, emissionColor: { r: 0.8, g: 0.4, b: 0.2, a: 1 }, emissive: 0, uvStrategy: 'flat' },
             collision: { solid: true, collidable: true, occludes: true, structuralClass: 'solid' },
         },
     },
     meshAsset: {
-        asset: 'mesh.preview-cube',
+        asset: 'mesh.preview-triangle',
         payload: {
-            layout: { vertexCount: 8, indexCount: 36, indexWidth: 'u32', attributes: [{ name: 'position', components: 3, kind: 'f32' }] },
-            groups: [{ materialSlot: 0, start: 0, count: 36 }],
-            bounds: { min: [-0.5, -0.5, -0.5], max: [0.5, 0.5, 0.5] },
-            source: { kind: 'inline', positions: [], normals: [], indices: [] },
+            layout: { vertexCount: 3, indexCount: 3, indexWidth: 'u32', attributes: [{ name: 'position', components: 3, kind: 'f32' }] },
+            groups: [{ materialSlot: 0, start: 0, count: 3 }],
+            bounds: { min: [0, 0, 0], max: [1, 1, 0] },
+            source: {
+                kind: 'inline',
+                positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
+                normals: [0, 0, 1, 0, 0, 1, 0, 0, 1],
+                indices: [0, 1, 2],
+            },
             provenance: 'staticAsset',
         },
         materialSlots: [{ slot: 0, material: 'material.copper' }],
@@ -456,7 +461,7 @@ void test('mock: init then step is deterministic', () => {
     const bridge = createMockRuntimeBridge();
     const handle = bridge.initializeEngine({ seed: 7 });
     assert.equal(handle, 7);
-    assert.deepEqual(bridge.stepSimulation({ tick: 6 }), { tick: 6, diffCount: 2 });
+    assert.deepEqual(bridge.stepSimulation({ tick: 6 }), { tick: 6, diffCount: 0 });
 });
 void test('mock: camera view operations produce deterministic public evidence', () => {
     const bridge = createMockRuntimeBridge();
@@ -566,7 +571,7 @@ void test('mock: readModelMaterialPreview returns public render-diff evidence wi
     bridge.initializeEngine({ seed: 1 });
     const snapshot = bridge.readModelMaterialPreview(MODEL_MATERIAL_PREVIEW_REQUEST);
     assert.equal(snapshot.catalogEntry.id, 'material.copper');
-    assert.equal(snapshot.meshAsset.asset, 'mesh.preview-cube');
+    assert.equal(snapshot.meshAsset.asset, 'mesh.preview-triangle');
     assert.equal(snapshot.rendererClassification, 'reference_preview');
     assert.deepEqual(snapshot.previewDiff.ops.map((op) => op.op), ['defineMaterial', 'defineStaticMesh', 'createStaticMeshInstance']);
     assert.ok(snapshot.diagnostics.some((diagnostic) => diagnostic.includes('fail closed')));
@@ -768,7 +773,7 @@ void test('native bridge matches the mock when the addon is built (else skip)', 
             { op: 'setVoxel', grid: 1, coord: { x: 0, y: 0, z: 0 }, value: { kind: 'solid', material: 1 } },
         ],
     }), { accepted: 1, rejected: 0, rejections: [] });
-    assert.deepEqual(bridge.stepSimulation({ tick: 6 }), { tick: 6, diffCount: 2 });
+    assert.deepEqual(bridge.stepSimulation({ tick: 6 }), { tick: 6, diffCount: 0 });
     assert.deepEqual(bridge.readRenderDiffs(frameCursor(0)), { ops: [] });
     assert.deepEqual(bridge.saveProjectBundle(), { artifactsWritten: 3, compactedEdits: 0, retainedEdits: 0 });
     assert.deepEqual(bridge.getProjectBundleCompositionStatus(), {
@@ -777,5 +782,26 @@ void test('native bridge matches the mock when the addon is built (else skip)', 
         totalCount: 0,
         blocksLoad: false,
     });
+    const sceneBefore = bridge.readSceneObjectSnapshot();
+    assert.equal(sceneBefore.objects[0]?.label, 'Root');
+    const selected = bridge.applySceneObjectCommand({
+        expectedDocumentHash: sceneBefore.documentHash,
+        command: { kind: 'select', id: sceneBefore.objects[0]?.id ?? null },
+    });
+    assert.equal(selected.accepted, true);
+    assert.equal(selected.outcome?.selected, sceneBefore.objects[0]?.id);
+    const preview = bridge.readModelMaterialPreview(MODEL_MATERIAL_PREVIEW_REQUEST);
+    assert.equal(preview.rendererClassification, 'runtime_readback');
+    assert.deepEqual(preview.previewDiff.ops.map((operation) => operation.op), [
+        'defineMaterial',
+        'defineStaticMesh',
+        'createStaticMeshInstance',
+    ]);
+    const buffer = bridge.getBuffer(0);
+    assert.deepEqual([...buffer.bytes], [7, 0, 0, 0, 0, 0, 0, 0]);
+    bridge.releaseBuffer(buffer.handle);
+    assert.throws(() => bridge.getBuffer(buffer.handle), (error) => error instanceof RuntimeBridgeError && error.kind === 'unknown_handle');
+    bridge.unloadProjectBundle();
+    assert.equal(bridge.getProjectBundleCompositionStatus().loadedProjectBundle, null);
 });
 //# sourceMappingURL=conformance.test.js.map

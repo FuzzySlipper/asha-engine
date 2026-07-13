@@ -97,7 +97,12 @@ Gameplay-module playback and verification are intentionally distinct:
 `./harness/ci/check-gameplay-module-conformance.sh` runs this proof for the
 external downstream fixture. `GameplayRuntimeHost` snapshots also preserve
 trigger active pairs, pending continuation generations, and the bounded
-decision/frame evidence ledgers used by downstream replay archives.
+decision/frame evidence ledgers used by downstream replay archives. The same
+host snapshot retains the complete gameplay-scheduler queue, fact log, and
+outstanding dispatches, so interruption does not discard the canonical
+proposal needed for owner routing. The public host hash binds current
+EntityStore/prefab authority and scheduler state in addition to module and
+evidence state.
 
 `harness/ci/check-wasm-replay.sh` is the authoritative opt-in WASM replay gate. It builds
 `wasm-api` for `wasm32-unknown-unknown`, runs `wasm-bindgen --target nodejs`, and reruns the

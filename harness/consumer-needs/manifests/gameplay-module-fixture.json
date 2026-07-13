@@ -36,7 +36,7 @@
       "id": "pulse.runtime-host",
       "kind": "rustCrate",
       "identity": "asha-gameplay-runtime-host",
-      "symbols": ["GameplayDecisionMoment", "GameplayDecisionReceipt", "GameplayRuntimeDecisionOwner", "GameplayRuntimeHost", "GameplayRuntimeHostReadout", "GameplayRuntimeProjectInput", "GameplayTriggerDefinition"],
+      "symbols": ["GameplayDecisionMoment", "GameplayDecisionReceipt", "GameplayRuntimeDecisionOwner", "GameplayRuntimeHost", "GameplayRuntimeHostReadout", "GameplayRuntimeProjectInput", "GameplayRuntimeSchedulerDefinition", "GameplayRuntimeSchedulerReadout", "GameplaySchedulerCommand", "GameplayTriggerDefinition", "ScheduledActionId"],
       "requiredLevel": "delivery",
       "evidence": {
         "type": ["public-rust/gameplay-runtime-host/src/lib.rs"],
@@ -72,6 +72,23 @@
       }
     },
     {
+      "id": "pulse.read",
+      "kind": "gameplayRead",
+      "identity": "fixture.pulse.pulse-state-view.v1",
+      "provider": "provider.fixture-pulse",
+      "fields": ["amount"],
+      "selectors": ["moduleStateScope"],
+      "quota": { "maxItems": 1 },
+      "ordering": "single-module-state",
+      "requiredLevel": "delivery",
+      "evidence": {
+        "type": ["engine-rs/crates/protocol/protocol-game-extension/src/fabric.rs"],
+        "provider": ["harness/fixtures/gameplay-module-sdk/downstream-module/src/lib.rs"],
+        "selector": ["harness/fixtures/gameplay-module-sdk/downstream-module/project/gameplay-project.json"],
+        "delivery": ["harness/fixtures/gameplay-module-sdk/downstream-module/src/lib.rs"]
+      }
+    },
+    {
       "id": "pulse.subscribe",
       "kind": "gameplayEventSubscribe",
       "identity": "fixture.pulse.pulse.v1",
@@ -91,7 +108,7 @@
       "kind": "gameplayEventSubscribe",
       "identity": "asha.trigger.entered.v1",
       "provider": "provider.fixture-pulse",
-      "selectors": ["eventSource", "eventSubject", "requiredTags", "scope"],
+      "selectors": ["eventSource", "eventTarget", "requiredTags", "scope"],
       "quota": { "maxDeliveries": 4 },
       "requiredLevel": "delivery",
       "evidence": {
@@ -115,6 +132,19 @@
         "provider": ["engine-rs/crates/rules/gameplay-module-sdk/src/composition.rs"],
         "selector": ["engine-rs/crates/services/svc-gameplay-fabric/src/registry.rs"],
         "delivery": ["harness/fixtures/gameplay-module-sdk/downstream-module/src/lib.rs"]
+      }
+    },
+    {
+      "id": "pulse.proposal",
+      "kind": "gameplayProposal",
+      "identity": "asha.entity.set-capability-activation.v1",
+      "provider": "provider.fixture-pulse",
+      "requiredLevel": "provider",
+      "evidence": {
+        "type": ["engine-rs/crates/protocol/protocol-game-extension/src/fabric.rs"],
+        "provider": ["harness/fixtures/gameplay-module-sdk/downstream-module/src/lib.rs"],
+        "selector": [],
+        "delivery": []
       }
     },
     {

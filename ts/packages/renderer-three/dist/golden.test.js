@@ -73,4 +73,10 @@ void test('scene-projection fixture (from the Rust projector) renders to its gol
     // re-bless both the fixture and this snapshot.
     checkGolden('scene-projection');
 });
+void test('material-feedback fixture preserves one normal and one warning instance', () => {
+    // Authority-derived scene setup plus a typed gameplay-presentation parameter
+    // operation. Both instances retain the same asset and handles; only crate-b's
+    // visual material state changes.
+    checkGolden('material-feedback');
+});
 //# sourceMappingURL=golden.test.js.map

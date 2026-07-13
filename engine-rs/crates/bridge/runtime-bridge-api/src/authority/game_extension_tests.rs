@@ -224,7 +224,7 @@ fn game_extension_weapon_effect_applies_validated_proposal_through_combat_author
         .read_projection_frame(0)
         .expect("accepted extension fire publishes a projection frame");
     assert_eq!(projection.authority_tick, 9);
-    assert_eq!(projection.presentation.ops.len(), 5);
+    assert_eq!(projection.presentation.ops.len(), 8);
     let PresentationOp::Audio { meta, .. } = &projection.presentation.ops[0] else {
         panic!("audio remains the first presentation operation")
     };
@@ -234,6 +234,43 @@ fn game_extension_weapon_effect_applies_validated_proposal_through_combat_author
             .expect("audio projection retains its authority origin")
             .id,
         format!("combat.primary-fire.accepted:{}", primary_fire.replay_hash)
+    );
+    let animation = projection
+        .presentation
+        .ops
+        .iter()
+        .find_map(|operation| match operation {
+            PresentationOp::Animation {
+                meta,
+                op: AnimationProjectionOp::Update { controller, .. },
+            } => Some((meta, controller)),
+            _ => None,
+        })
+        .expect("accepted extension fire publishes controller transition state");
+    assert_eq!(
+        animation.0.origin.as_ref().expect("origin").id,
+        format!("combat.primary-fire.accepted:{}", primary_fire.replay_hash)
+    );
+    let timing = animation
+        .1
+        .timing_fact
+        .as_ref()
+        .expect("controller state retains the durable transition fact");
+    assert_eq!(
+        timing.source_fact_id,
+        animation.0.origin.as_ref().unwrap().id
+    );
+    assert_eq!(timing.authority_tick, 9);
+    assert_eq!(timing.to_state_id, "primary_fire");
+    assert_eq!(
+        animation
+            .1
+            .transition
+            .as_ref()
+            .unwrap()
+            .target_motion
+            .blend_weight_milli,
+        650
     );
 }
 

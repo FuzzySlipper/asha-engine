@@ -3,44 +3,56 @@
     {
       "op": "defineMaterial",
       "material": {
+        "schemaVersion": 2,
         "id": "material/room-floor",
         "color": [0.44, 0.48, 0.46, 1],
         "texture": null,
         "roughness": 1,
-        "emissive": 0,
+        "textureTint": [1, 1, 1, 1],
+        "emissionColor": [0, 0, 0],
+        "emissionIntensity": 0,
         "uvStrategy": "flat"
       }
     },
     {
       "op": "defineMaterial",
       "material": {
+        "schemaVersion": 2,
         "id": "material/room-wall",
         "color": [0.68, 0.73, 0.76, 1],
         "texture": null,
         "roughness": 1,
-        "emissive": 0,
+        "textureTint": [1, 1, 1, 1],
+        "emissionColor": [0, 0, 0],
+        "emissionIntensity": 0,
         "uvStrategy": "flat"
       }
     },
     {
       "op": "defineMaterial",
       "material": {
+        "schemaVersion": 2,
         "id": "material/room-ceiling",
         "color": [0.86, 0.88, 0.84, 1],
         "texture": null,
         "roughness": 1,
-        "emissive": 0,
+        "textureTint": [1, 1, 1, 1],
+        "emissionColor": [0, 0, 0],
+        "emissionIntensity": 0,
         "uvStrategy": "flat"
       }
     },
     {
       "op": "defineMaterial",
       "material": {
+        "schemaVersion": 2,
         "id": "material/room-marker",
         "color": [0.92, 0.42, 0.18, 1],
         "texture": null,
         "roughness": 1,
-        "emissive": 0,
+        "textureTint": [1, 1, 1, 1],
+        "emissionColor": [0, 0, 0],
+        "emissionIntensity": 0,
         "uvStrategy": "flat"
       }
     },

@@ -232,6 +232,7 @@ dependencies = [
  "protocol-project-bundle",
  "rule-gameplay-fabric",
  "rule-project-bundle",
+ "rule-scheduler",
  "rule-trigger-volume",
  "serde",
  "serde_json",
@@ -522,6 +523,17 @@ dependencies = [
  "svc-spatial",
  "svc-volume",
  "svc-voxel-annotation",
+]
+
+[[package]]
+name = "rule-scheduler"
+version = "0.1.0"
+dependencies = [
+ "core-space",
+ "protocol-game-extension",
+ "rule-gameplay-fabric",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

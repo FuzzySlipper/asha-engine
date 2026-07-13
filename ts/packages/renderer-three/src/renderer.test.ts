@@ -630,11 +630,14 @@ import type { RenderMaterialDescriptor } from '@asha/contracts';
 
 function woodMaterial(): RenderMaterialDescriptor {
   return {
+    schemaVersion: 2,
     id: 'material/wood',
     color: [0.6, 0.4, 0.2, 1],
     texture: null,
     roughness: 1,
-    emissive: 0,
+    textureTint: [1, 1, 1, 1],
+    emissionColor: [0, 0, 0],
+    emissionIntensity: 0,
     uvStrategy: 'flat',
   };
 }
@@ -661,7 +664,7 @@ void test('defineMaterial maps a static-mesh slot to its catalog colour, not a p
     instance: crateInstance('mesh/plank'),
   });
 
-  const mat = (r.objectFor(renderHandle(1)) as THREE.Mesh).material as THREE.MeshBasicMaterial;
+  const mat = (r.objectFor(renderHandle(1)) as THREE.Mesh).material as THREE.MeshStandardMaterial;
   // The catalog wood colour (0.6,0.4,0.2), not the deterministic per-slot hue.
   assert.ok(Math.abs(mat.color.r - 0.6) < 1e-6 && Math.abs(mat.color.b - 0.2) < 1e-6);
   assert.equal(r.fallbackMaterialCount, 0, 'a defined material is not a fallback');
@@ -719,7 +722,7 @@ void test('redefining a material live-replaces instance materials and disposes t
     instance: crateInstance('mesh/plank'),
   });
 
-  const before = (r.objectFor(renderHandle(1)) as THREE.Mesh).material as THREE.MeshBasicMaterial;
+  const before = (r.objectFor(renderHandle(1)) as THREE.Mesh).material as THREE.MeshStandardMaterial;
   assert.ok(Math.abs(before.color.r - 0.6) < 1e-6);
   let disposed = false;
   before.addEventListener('dispose', () => {
@@ -731,9 +734,79 @@ void test('redefining a material live-replaces instance materials and disposes t
     op: 'defineMaterial',
     material: { ...woodMaterial(), color: [0.1, 0.8, 0.2, 1] },
   });
-  const after = (r.objectFor(renderHandle(1)) as THREE.Mesh).material as THREE.MeshBasicMaterial;
+  const after = (r.objectFor(renderHandle(1)) as THREE.Mesh).material as THREE.MeshStandardMaterial;
   assert.ok(Math.abs(after.color.g - 0.8) < 1e-6, 'rendered colour updated live');
   assert.ok(disposed, 'the old material was disposed (leak-safe)');
+});
+
+void test('material feedback updates one instance without duplicating its asset or handle', () => {
+  const r = new ThreeRenderer();
+  r.applyDiff({ op: 'defineMaterial', material: woodMaterial() });
+  r.applyDiff({ op: 'defineStaticMesh', asset: crateAsset() });
+  r.applyDiff({ op: 'createStaticMeshInstance', handle: renderHandle(1), parent: null, instance: crateInstance() });
+  r.applyDiff({ op: 'createStaticMeshInstance', handle: renderHandle(2), parent: null, instance: crateInstance() });
+
+  const normal = r.objectFor(renderHandle(1)) as THREE.Mesh;
+  const warning = r.objectFor(renderHandle(2)) as THREE.Mesh;
+  const normalBefore = normal.material as THREE.MeshStandardMaterial[];
+  const warningBefore = warning.material as THREE.MeshStandardMaterial[];
+  assert.ok(normalBefore[0] instanceof THREE.MeshStandardMaterial);
+  assert.equal(normalBefore[0], warningBefore[0], 'descriptor material begins shared');
+  assert.equal(normal.geometry, warning.geometry, 'asset geometry begins shared');
+
+  r.applyDiff({
+    op: 'setMaterialInstanceParameters',
+    handle: renderHandle(2),
+    slot: 1,
+    parameters: {
+      textureTint: [0.2, 1, 0.2, 1],
+      emissionColor: [1, 0.08, 0],
+      emissionIntensity: 2.5,
+    },
+  });
+
+  const warningActive = (warning.material as THREE.MeshStandardMaterial[])[0]!;
+  assert.equal(r.objectFor(renderHandle(2)), warning, 'retained handle object is unchanged');
+  assert.equal(normal.geometry, warning.geometry, 'feedback does not duplicate asset geometry');
+  assert.notEqual((normal.material as THREE.Material[])[0], warningActive, 'only target slot is cloned');
+  assert.ok(Math.abs(warningActive.color.r - 0.12) < 1e-6);
+  assert.ok(Math.abs(warningActive.color.g - 0.4) < 1e-6);
+  assert.deepEqual(warningActive.emissive.toArray(), [1, 0.08, 0]);
+  assert.equal(warningActive.emissiveIntensity, 2.5);
+
+  let disposed = false;
+  warningActive.addEventListener('dispose', () => { disposed = true; });
+  r.applyDiff({
+    op: 'setMaterialInstanceParameters',
+    handle: renderHandle(2),
+    slot: 1,
+    parameters: null,
+  });
+  assert.ok(disposed, 'reset disposes the instance-owned material');
+  assert.equal(
+    (warning.material as THREE.Material[])[0],
+    (normal.material as THREE.Material[])[0],
+    'reset returns to the shared descriptor material',
+  );
+});
+
+void test('material feedback rejects stale handles, non-mesh handles, and unbound slots', () => {
+  const r = new ThreeRenderer();
+  const parameters = {
+    textureTint: [1, 1, 1, 1] as const,
+    emissionColor: [1, 0, 0] as const,
+    emissionIntensity: 1,
+  };
+  assert.throws(
+    () => r.applyDiff({ op: 'setMaterialInstanceParameters', handle: renderHandle(99), slot: 1, parameters }),
+    /unknown handle 99/,
+  );
+  r.applyDiff({ op: 'defineStaticMesh', asset: crateAsset() });
+  r.applyDiff({ op: 'createStaticMeshInstance', handle: renderHandle(1), parent: null, instance: crateInstance() });
+  assert.throws(
+    () => r.applyDiff({ op: 'setMaterialInstanceParameters', handle: renderHandle(1), slot: 9, parameters }),
+    /unbound slot 9/,
+  );
 });
 
 void test('fallback material use is visible in diagnostics with the material id', () => {

@@ -137,6 +137,13 @@ export function mountAshaRendererBrowserSurface(
   const renderer = new ThreeRenderer(
     options.animatedMeshSource === undefined ? {} : { animatedMeshSource: options.animatedMeshSource },
   );
+  // Catalog materials use MeshStandardMaterial. Keep the browser host responsible
+  // for a small neutral light rig; the retained projection carries appearance
+  // parameters, never renderer-owned light state or gameplay authority.
+  const ambientLight = new THREE.HemisphereLight(0xffffff, 0x263238, 2.4);
+  const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
+  keyLight.position.set(5, 8, 6);
+  renderer.scene.add(ambientLight, keyLight);
   const frame = options.frame ?? createAshaRendererBrowserSurfaceFrame();
   renderer.applyFrame(frame);
 
@@ -387,7 +394,7 @@ function projectObjectProjection(
 interface LabeledMesh {
   readonly baseColor: THREE.Color;
   readonly label: string;
-  readonly material: THREE.MeshBasicMaterial;
+  readonly material: THREE.MeshBasicMaterial | THREE.MeshStandardMaterial;
   readonly mesh: THREE.Mesh;
 }
 
@@ -399,7 +406,7 @@ function collectLabeledMeshes(scene: THREE.Scene, labels: ReadonlySet<string>): 
     }
     const mesh = object as THREE.Mesh;
     const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-    if (!(material instanceof THREE.MeshBasicMaterial)) {
+    if (!(material instanceof THREE.MeshBasicMaterial) && !(material instanceof THREE.MeshStandardMaterial)) {
       return;
     }
     targets.push({

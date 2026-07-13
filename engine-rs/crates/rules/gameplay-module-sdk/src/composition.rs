@@ -2,11 +2,13 @@ use crate::{GameplayModuleBehavior, GameplayModuleContext};
 use protocol_game_extension::{GameplayContractRef, GameplayModuleManifest};
 use rule_gameplay_fabric::{
     gameplay_module_payload_hash, register_standard_owner_events, FrozenGameplayViews,
-    GameplayFabricCoordinator, GameplayHostError, GameplayInvocationCall, GameplayInvocationHost,
-    GameplayModuleStateError, GameplayModuleStateRegistration, GameplayObserveReceipt,
-    GameplayOwnerRoutingCall, GameplayOwnerRoutingOutput, GameplayProposalRouter,
-    GameplayRuntimeLimits, GameplayViewSource,
+    GameplayFabricCoordinator, GameplayHostError, GameplayInvocationCall,
+    GameplayInvocationConfiguration, GameplayInvocationHost, GameplayInvocationInput,
+    GameplayModuleStateError, GameplayModuleStateRegistration, GameplayModuleStateScope,
+    GameplayObserveReceipt, GameplayOwnerRoutingCall, GameplayOwnerRoutingOutput,
+    GameplayProposalRouter, GameplayRuntimeLimits, GameplayViewSource,
 };
+use serde::{de::DeserializeOwned, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 use svc_gameplay_fabric::{
@@ -31,10 +33,49 @@ pub struct GameplayConfigurationSchemaMetadata {
     pub fields: Vec<GameplayConfigurationFieldMetadata>,
 }
 
+#[derive(Clone)]
+pub struct GameplayConfigurationCodecRegistration {
+    metadata: GameplayConfigurationSchemaMetadata,
+    validate: Rc<GameplayConfigurationValidator>,
+}
+
+type GameplayConfigurationValidator = dyn Fn(&[u8]) -> Result<(), String>;
+
+impl GameplayConfigurationCodecRegistration {
+    pub fn typed<T>(metadata: GameplayConfigurationSchemaMetadata) -> Self
+    where
+        T: DeserializeOwned + Serialize + 'static,
+    {
+        Self {
+            metadata,
+            validate: Rc::new(|canonical| {
+                let decoded: T =
+                    serde_json::from_slice(canonical).map_err(|error| error.to_string())?;
+                let encoded = serde_json::to_vec(&decoded).map_err(|error| error.to_string())?;
+                if encoded != canonical {
+                    return Err(
+                        "configuration bytes are not canonical for the typed codec".to_owned()
+                    );
+                }
+                Ok(())
+            }),
+        }
+    }
+
+    pub fn metadata(&self) -> &GameplayConfigurationSchemaMetadata {
+        &self.metadata
+    }
+
+    pub fn validate(&self, canonical: &[u8]) -> Result<(), String> {
+        (self.validate)(canonical)
+    }
+}
+
 pub struct GameplayStaticModuleProvider {
     pub manifest: GameplayModuleManifest,
     pub linked_provider: GameplayLinkedProvider,
     pub configuration_schemas: Vec<GameplayConfigurationSchemaMetadata>,
+    configuration_codecs: Vec<GameplayConfigurationCodecRegistration>,
     event_codecs: Vec<GameplayEventCodecRegistration>,
     proposal_owners: Vec<GameplayProposalOwnerRegistration>,
     read_view_providers: Vec<GameplayReadViewProviderRegistration>,
@@ -53,6 +94,7 @@ impl GameplayStaticModuleProvider {
             manifest,
             linked_provider,
             configuration_schemas: Vec::new(),
+            configuration_codecs: Vec::new(),
             event_codecs: Vec::new(),
             proposal_owners: Vec::new(),
             read_view_providers: Vec::new(),
@@ -111,6 +153,11 @@ impl GameplayStaticModuleProvider {
         self.configuration_schemas.push(schema);
         self
     }
+
+    pub fn configuration_codec(mut self, codec: GameplayConfigurationCodecRegistration) -> Self {
+        self.configuration_codecs.push(codec);
+        self
+    }
 }
 
 #[derive(Debug)]
@@ -161,6 +208,7 @@ impl GameplayStaticCompositionBuilder {
         let mut behaviors = BTreeMap::new();
         let mut state_adapters = Vec::new();
         let mut configuration_schemas = Vec::new();
+        let mut configuration_codecs = Vec::new();
         for provider in self.providers {
             let module_id = provider.manifest.module_ref.module_id.clone();
             if behaviors
@@ -170,7 +218,12 @@ impl GameplayStaticCompositionBuilder {
                 return Err(GameplayStaticCompositionError::DuplicateBehavior(module_id));
             }
             validate_configuration_schemas(&provider.manifest, &provider.configuration_schemas)?;
+            validate_configuration_codecs(
+                &provider.configuration_schemas,
+                &provider.configuration_codecs,
+            )?;
             configuration_schemas.extend(provider.configuration_schemas);
+            configuration_codecs.extend(provider.configuration_codecs);
             state_adapters.extend(provider.state_adapters);
             registry_builder
                 .register_module(provider.manifest)
@@ -204,9 +257,13 @@ impl GameplayStaticCompositionBuilder {
         });
         Ok(GameplayStaticComposition {
             registry,
-            host: GameplayStaticInvocationHost { behaviors },
+            host: GameplayStaticInvocationHost {
+                behaviors,
+                configuration_bindings: Vec::new(),
+            },
             state_adapters,
             configuration_schemas,
+            configuration_codecs,
         })
     }
 }
@@ -216,6 +273,7 @@ pub struct GameplayStaticComposition {
     host: GameplayStaticInvocationHost,
     state_adapters: Vec<GameplayModuleStateRegistration>,
     configuration_schemas: Vec<GameplayConfigurationSchemaMetadata>,
+    configuration_codecs: Vec<GameplayConfigurationCodecRegistration>,
 }
 
 impl GameplayStaticComposition {
@@ -255,6 +313,7 @@ impl GameplayStaticComposition {
             host: self.host,
             state_adapters: self.state_adapters,
             configuration_schemas: self.configuration_schemas,
+            configuration_codecs: self.configuration_codecs,
         }
     }
 }
@@ -320,13 +379,120 @@ pub struct GameplayStaticCompositionParts {
     pub host: GameplayStaticInvocationHost,
     pub state_adapters: Vec<GameplayModuleStateRegistration>,
     pub configuration_schemas: Vec<GameplayConfigurationSchemaMetadata>,
+    pub configuration_codecs: Vec<GameplayConfigurationCodecRegistration>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GameplayStaticConfigurationBinding {
+    pub module_id: String,
+    pub binding_id: String,
+    pub configuration_id: String,
+    pub scope: GameplayModuleStateScope,
+    pub match_entities: BTreeSet<u64>,
+    pub canonical_config: Vec<u8>,
+    pub config_hash: String,
 }
 
 pub struct GameplayStaticInvocationHost {
     behaviors: BTreeMap<String, Box<dyn GameplayModuleBehavior>>,
+    configuration_bindings: Vec<GameplayStaticConfigurationBinding>,
+}
+
+impl GameplayStaticInvocationHost {
+    pub fn install_configuration_bindings(
+        &mut self,
+        mut bindings: Vec<GameplayStaticConfigurationBinding>,
+    ) {
+        bindings.sort_by(|left, right| {
+            (
+                left.module_id.as_str(),
+                left.binding_id.as_str(),
+                left.configuration_id.as_str(),
+                &left.scope,
+            )
+                .cmp(&(
+                    right.module_id.as_str(),
+                    right.binding_id.as_str(),
+                    right.configuration_id.as_str(),
+                    &right.scope,
+                ))
+        });
+        self.configuration_bindings = bindings;
+    }
 }
 
 impl GameplayInvocationHost for GameplayStaticInvocationHost {
+    fn resolve_configuration(
+        &self,
+        call: &GameplayInvocationCall,
+    ) -> Result<Option<GameplayInvocationConfiguration>, GameplayHostError> {
+        let mut identities = BTreeSet::new();
+        match &call.input {
+            GameplayInvocationInput::Observe(event) => {
+                identities.extend(event.source.iter().map(|item| item.entity.raw()));
+                identities.extend(event.subjects.iter().map(|item| item.entity.raw()));
+                identities.extend(event.targets.iter().map(|item| item.entity.raw()));
+            }
+            GameplayInvocationInput::Decision(moment) => {
+                identities.extend(moment.operation.source.iter().map(|item| item.entity.raw()));
+                identities.extend(
+                    moment
+                        .operation
+                        .targets
+                        .iter()
+                        .map(|item| item.entity.raw()),
+                );
+            }
+        }
+        let module = self
+            .configuration_bindings
+            .iter()
+            .filter(|binding| binding.module_id == call.module_id)
+            .collect::<Vec<_>>();
+        let specific = module
+            .iter()
+            .copied()
+            .filter(|binding| {
+                !binding.match_entities.is_empty()
+                    && binding
+                        .match_entities
+                        .iter()
+                        .any(|entity| identities.contains(entity))
+            })
+            .collect::<Vec<_>>();
+        let selected = if specific.len() == 1 {
+            specific.first().copied()
+        } else if specific.len() > 1 {
+            return Err(GameplayHostError {
+                code: "ambiguousInvocationConfiguration".to_owned(),
+                message: format!(
+                    "invocation `{}` matches multiple authored configuration scopes",
+                    call.invocation_id
+                ),
+            });
+        } else {
+            let session = module
+                .iter()
+                .copied()
+                .filter(|binding| binding.scope == GameplayModuleStateScope::Session)
+                .collect::<Vec<_>>();
+            if session.len() > 1 {
+                return Err(GameplayHostError {
+                    code: "ambiguousInvocationConfiguration".to_owned(),
+                    message: "module has multiple Session configuration bindings".to_owned(),
+                });
+            }
+            session.first().copied()
+        };
+        Ok(selected.map(|binding| GameplayInvocationConfiguration {
+            binding_id: binding.binding_id.clone(),
+            configuration_id: binding.configuration_id.clone(),
+            scope: binding.scope.clone(),
+            canonical_config: binding.canonical_config.clone(),
+            config_hash: binding.config_hash.clone(),
+        }))
+    }
+
     fn invoke(
         &self,
         call: &GameplayInvocationCall,
@@ -372,6 +538,29 @@ fn validate_configuration_schemas(
                 schema.configuration.key(),
             ));
         }
+    }
+    Ok(())
+}
+
+fn validate_configuration_codecs(
+    schemas: &[GameplayConfigurationSchemaMetadata],
+    codecs: &[GameplayConfigurationCodecRegistration],
+) -> Result<(), GameplayStaticCompositionError> {
+    for schema in schemas {
+        let matching = codecs
+            .iter()
+            .filter(|codec| codec.metadata() == schema)
+            .count();
+        if matching != 1 {
+            return Err(GameplayStaticCompositionError::InvalidConfigurationSchema(
+                schema.configuration.key(),
+            ));
+        }
+    }
+    if codecs.len() != schemas.len() {
+        return Err(GameplayStaticCompositionError::InvalidConfigurationSchema(
+            "unmatchedConfigurationCodec".to_owned(),
+        ));
     }
     Ok(())
 }

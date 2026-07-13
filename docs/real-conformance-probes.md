@@ -12,7 +12,8 @@ them is real conformance evidence by itself.
 bridge-operation, reachability, consumer-needs, and public-surface catalogs. The
 committed `probe-inventory.json` does not copy the stable operation list. It names
 the real test corpora and suites, then supplies hand-authored semantic probes for
-the meanings that a catalog cannot infer:
+the meanings that a catalog cannot infer. Each required semantic claim is bound
+to one governed probe and one exact assertion executed by that probe's suite:
 
 - actual downstream gameplay-module invocation;
 - event identity bound to frozen typed reads;
@@ -33,8 +34,12 @@ Every stable bridge operation must satisfy both conditions:
 
 1. `NATIVE_WIRED_OPERATIONS` routes it to the native transport instead of the
    fail-closed placeholder.
-2. A compiled Rust authority or native-transport test corpus contains the
-   hand-authored semantic exercise.
+2. A named `#[test]` assertion executed by a declared compiled Rust authority or
+   native-transport suite calls that exact operation.
+
+Production declarations, helper names, comments, and broad source-substring
+matches cannot satisfy operation evidence. The report records the suite, corpus,
+source path, and assertion name for every matching operation call.
 
 An operation that lacks native wiring cannot borrow evidence from the reference
 bridge or a fake addon. It requires a reviewed temporary exemption with an owner,
@@ -42,8 +47,13 @@ specific reason, exit criteria, and evidence that the public facade fails closed
 Removing the exemption before the native probe lands fails CI. Wiring the
 operation while retaining the exemption also fails CI as stale policy.
 
-The first inventory records 47 real stable operations and 11 explicit native
-wiring gaps. Those are visible debt, not successful probes.
+The current inventory records all 69 stable operations as real probes and has no
+temporary native-wiring exemptions. The final coverage includes camera input and
+projection, voxel pick/selection/mesh evidence, explicit buffer lifetime,
+ProjectBundle unload, canonical scene-object commands/readout, and validated
+model/material preview projection. A future stable operation must land its native
+export and semantic Rust/native assertion in the same change; otherwise this gate
+fails rather than quietly reopening an exemption.
 
 ## Gameplay pressure tests
 

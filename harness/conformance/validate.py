@@ -9,6 +9,7 @@ import hashlib
 import json
 import pathlib
 import re
+import shlex
 import sys
 import tempfile
 import tomllib
@@ -23,20 +24,57 @@ REAL_EXECUTION_CLASSES = {
     "nativeTransport",
     "publicConsumer",
 }
-REQUIRED_CLAIMS = {
-    "actualModuleInvocation",
-    "atomicRejection",
-    "configuredProjectBundleBootstrap",
-    "eventBoundIdentity",
-    "eventIdentity",
-    "fieldSelection",
-    "publicProjectionReadout",
-    "quota",
-    "selectorResolution",
-    "stableOrdering",
-    "stablePrefabPartResolution",
-    "typedViewDelivery",
+REQUIRED_CLAIM_BINDINGS = {
+    "actualModuleInvocation": (
+        "gameplay.downstream.invocation",
+        "public_facade_executes_real_downstream_code_and_hashes_behavior",
+    ),
+    "atomicRejection": (
+        "gameplay.binding.bootstrap",
+        "stale_contracts_foreign_modules_bad_roles_reads_outputs_and_overrides_reject",
+    ),
+    "configuredProjectBundleBootstrap": (
+        "gameplay.binding.bootstrap",
+        "bindings_activate_atomic_facets_and_round_trip_against_project_bundle_authority",
+    ),
+    "eventBoundIdentity": (
+        "gameplay.read.event-bound",
+        "downstream_read_plan_is_typed_bounded_frozen_and_stable",
+    ),
+    "eventIdentity": (
+        "gameplay.downstream.invocation",
+        "public_facade_executes_real_downstream_code_and_hashes_behavior",
+    ),
+    "fieldSelection": (
+        "gameplay.read.event-bound",
+        "coordinator_delivers_declared_reads_and_binds_them_into_delivery_evidence",
+    ),
+    "publicProjectionReadout": (
+        "public.runtime-session.projection",
+        "asha-demo public roots cover RuntimeSession readouts and HUD/menu projection",
+    ),
+    "quota": (
+        "gameplay.read.event-bound",
+        "downstream_read_plan_is_typed_bounded_frozen_and_stable",
+    ),
+    "selectorResolution": (
+        "gameplay.read.event-bound",
+        "downstream_read_plan_is_typed_bounded_frozen_and_stable",
+    ),
+    "stableOrdering": (
+        "gameplay.read.event-bound",
+        "downstream_read_plan_is_typed_bounded_frozen_and_stable",
+    ),
+    "stablePrefabPartResolution": (
+        "gameplay.binding.bootstrap",
+        "bindings_activate_atomic_facets_and_round_trip_against_project_bundle_authority",
+    ),
+    "typedViewDelivery": (
+        "gameplay.read.event-bound",
+        "coordinator_delivers_declared_reads_and_binds_them_into_delivery_evidence",
+    ),
 }
+REQUIRED_CLAIMS = set(REQUIRED_CLAIM_BINDINGS)
 
 
 def load_json(path: pathlib.Path) -> Any:
@@ -76,6 +114,33 @@ def evidence_token(
         add_gap(gaps, identity, "missing_evidence_path", f"{path}.path", f"missing {source}")
     elif token not in file_path.read_text(encoding="utf-8"):
         add_gap(gaps, identity, "missing_evidence_token", f"{path}.token", f"missing {token!r} in {source}")
+
+
+def rust_test_assertions(source: str, text: str) -> list[dict[str, str]]:
+    """Return named #[test] bodies so operation proof is tied to executed assertions."""
+    assertions: list[dict[str, str]] = []
+    pattern = re.compile(
+        r"#\[test\][\s\S]{0,200}?\bfn\s+([A-Za-z0-9_]+)\s*\([^)]*\)[^{]*\{"
+    )
+    for match in pattern.finditer(text):
+        body_start = match.end() - 1
+        depth = 0
+        body_end = None
+        for index in range(body_start, len(text)):
+            if text[index] == "{":
+                depth += 1
+            elif text[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    body_end = index + 1
+                    break
+        if body_end is not None:
+            assertions.append({
+                "path": source,
+                "assertion": match.group(1),
+                "body": text[match.start():body_end],
+            })
+    return assertions
 
 
 def bridge_operations() -> tuple[list[str], set[str]]:
@@ -185,9 +250,25 @@ def validate(manifest_path: pathlib.Path) -> dict[str, Any]:
             add_gap(gaps, identity, "mock_or_schema_suite", "executionClass", "suite must execute real compiled, native, or public-consumer code")
         if not isinstance(suite.get("command"), str) or not suite["command"].strip():
             add_gap(gaps, identity, "missing_suite_command", "command", "suite command is required")
+        live_assertion = suite.get("liveAssertion")
+        if live_assertion is not None:
+            evidence_token(gaps, identity, live_assertion, "liveAssertion")
+            command_parts = shlex.split(suite.get("command", ""))
+            command_path = ROOT / command_parts[0] if command_parts else None
+            assertion_token = live_assertion.get("token") if isinstance(live_assertion, dict) else None
+            if (
+                command_path is None
+                or not command_path.is_file()
+                or not isinstance(assertion_token, str)
+                or assertion_token not in command_path.read_text(encoding="utf-8")
+            ):
+                add_gap(
+                    gaps, identity, "suite_does_not_execute_live_assertion", "command",
+                    "live suite command must explicitly select the cited assertion",
+                )
 
     corpora = document.get("testCorpora", [])
-    corpus_text: dict[str, list[str]] = {}
+    corpus_assertions: dict[str, list[dict[str, str]]] = {}
     for index, corpus in enumerate(corpora):
         identity = corpus.get("id", f"testCorpora[{index}]") if isinstance(corpus, dict) else f"testCorpora[{index}]"
         if not isinstance(corpus, dict):
@@ -195,14 +276,24 @@ def validate(manifest_path: pathlib.Path) -> dict[str, Any]:
             continue
         if corpus.get("executionClass") not in {"compiledRustAuthority", "nativeTransport"}:
             add_gap(gaps, identity, "non_real_operation_corpus", "executionClass", "operation evidence must be compiled Rust authority or native transport")
-        texts: list[str] = []
+        corpus_suite = suite_map.get(corpus.get("suite"))
+        if corpus_suite is None:
+            add_gap(gaps, identity, "unknown_corpus_suite", "suite", "operation corpus must name the suite that executes its tests")
+        elif corpus_suite.get("executionClass") != corpus.get("executionClass"):
+            add_gap(gaps, identity, "corpus_suite_class_mismatch", "suite", "corpus and executing suite must use the same real execution class")
+        assertions: list[dict[str, str]] = []
         for source in corpus.get("paths", []):
             path = ROOT / source
             if not path.is_file():
                 add_gap(gaps, identity, "missing_corpus_path", "paths", f"missing {source}")
             else:
-                texts.append(path.read_text(encoding="utf-8"))
-        corpus_text[identity] = texts
+                assertions.extend(rust_test_assertions(source, path.read_text(encoding="utf-8")))
+        if not assertions:
+            add_gap(gaps, identity, "corpus_has_no_test_assertions", "paths", "operation corpus must contain named #[test] assertions")
+        for assertion in assertions:
+            assertion["suite"] = corpus.get("suite")
+            assertion["corpus"] = identity
+        corpus_assertions[identity] = assertions
 
     stable, native_wired = bridge_operations()
     native_export_text = "\n".join(
@@ -220,17 +311,27 @@ def validate(manifest_path: pathlib.Path) -> dict[str, Any]:
 
     operation_results: list[dict[str, Any]] = []
     for operation in stable:
-        evidence_corpora = sorted(
-            corpus_id
-            for corpus_id, texts in corpus_text.items()
-            if any(operation in text for text in texts)
+        call_pattern = re.compile(rf"(?:\.|\b){re.escape(operation)}\s*\(")
+        evidence_assertions = sorted(
+            [
+                {
+                    "suite": assertion["suite"],
+                    "corpus": assertion["corpus"],
+                    "path": assertion["path"],
+                    "assertion": assertion["assertion"],
+                }
+                for assertions in corpus_assertions.values()
+                for assertion in assertions
+                if call_pattern.search(assertion["body"])
+            ],
+            key=lambda item: (item["suite"], item["path"], item["assertion"]),
         )
         exemption = exemption_map.get(operation)
         if operation in native_wired:
             if exemption is not None:
                 add_gap(gaps, operation, "stale_operation_exemption", "temporaryOperationExemptions", "native-wired operation must use its real probe")
-            if not evidence_corpora:
-                add_gap(gaps, operation, "stable_operation_without_real_probe", "testCorpora", "native-wired stable operation lacks compiled semantic evidence")
+            if not evidence_assertions:
+                add_gap(gaps, operation, "stable_operation_without_real_probe", "testCorpora", "native-wired stable operation is not called by a named test assertion in an executed real suite")
             if re.search(rf"#\[napi\]\s*pub fn\s+{re.escape(operation)}\s*\(", native_export_text) is None:
                 add_gap(gaps, operation, "native_provider_not_exported", "engine-rs/crates/bridge/native-bridge/src", "NATIVE_WIRED_OPERATIONS entry has no concrete #[napi] export")
             status = "probed"
@@ -249,7 +350,7 @@ def validate(manifest_path: pathlib.Path) -> dict[str, Any]:
             "operation": operation,
             "status": status,
             "nativeWired": operation in native_wired,
-            "evidenceCorpora": evidence_corpora,
+            "evidenceAssertions": evidence_assertions,
         })
 
     probes = document.get("semanticProbes", [])
@@ -298,6 +399,37 @@ def validate(manifest_path: pathlib.Path) -> dict[str, Any]:
         for extra in sorted(covered - required):
             add_gap(gaps, extra, f"unknown_{kind}", "semanticProbes", f"probe claims unknown {kind.replace('_', ' ')}")
 
+    claim_bindings: list[dict[str, Any]] = []
+    probe_map = {
+        probe.get("id"): probe for probe in probes
+        if isinstance(probe, dict) and isinstance(probe.get("id"), str)
+    }
+    for claim, (probe_id, assertion_token) in sorted(REQUIRED_CLAIM_BINDINGS.items()):
+        probe = probe_map.get(probe_id)
+        valid = True
+        if probe is None or claim not in probe.get("claims", []):
+            add_gap(
+                gaps, claim, "semantic_claim_probe_mismatch", "semanticProbes",
+                f"claim must be made by governed probe {probe_id!r}",
+            )
+            valid = False
+        evidence_tokens = {
+            item.get("token") for item in probe.get("evidence", [])
+            if isinstance(item, dict)
+        } if probe is not None else set()
+        if assertion_token not in evidence_tokens:
+            add_gap(
+                gaps, claim, "semantic_claim_assertion_mismatch", "semanticProbes",
+                f"governed probe must cite executed assertion {assertion_token!r}",
+            )
+            valid = False
+        claim_bindings.append({
+            "claim": claim,
+            "probe": probe_id,
+            "assertion": assertion_token,
+            "valid": valid,
+        })
+
     gaps.sort(key=lambda item: (item["identity"], item["code"], item["path"], item["message"]))
     catalog_paths = [
         ROOT / "engine-rs/crates/bridge/runtime-bridge-api/bridge-manifest.toml",
@@ -323,6 +455,7 @@ def validate(manifest_path: pathlib.Path) -> dict[str, Any]:
         },
         "operations": operation_results,
         "semanticProbes": probe_results,
+        "semanticClaimBindings": claim_bindings,
         "gaps": gaps,
     }
 
@@ -339,6 +472,13 @@ def apply_fixture_mutation(document: dict[str, Any], fixture: dict[str, Any]) ->
             item for item in document["temporaryOperationExemptions"]
             if item["operation"] != identity
         ]
+    elif action == "removeOperationEvidence":
+        call_pattern = re.compile(rf"(?:\.|\b){re.escape(identity)}\s*\(")
+        for corpus in document["testCorpora"]:
+            corpus["paths"] = [
+                source for source in corpus["paths"]
+                if not call_pattern.search((ROOT / source).read_text(encoding="utf-8"))
+            ]
     elif action == "makeSuiteMockOnly":
         next(item for item in document["suites"] if item["id"] == identity)["executionClass"] = "schemaOnly"
     elif action == "removeCapabilityCoverage":
@@ -359,6 +499,15 @@ def apply_fixture_mutation(document: dict[str, Any], fixture: dict[str, Any]) ->
     elif action == "breakEvidenceToken":
         probe = next(item for item in document["semanticProbes"] if item["id"] == identity)
         probe["evidence"][0]["token"] = "missing-conformance-token"
+    elif action == "assignAllClaimsToProbe":
+        for probe in document["semanticProbes"]:
+            probe["claims"] = []
+        next(item for item in document["semanticProbes"] if item["id"] == identity)["claims"] = sorted(REQUIRED_CLAIMS)
+    elif action == "replaceCorpusWithProviderSource":
+        corpus = next(item for item in document["testCorpora"] if item["id"] == identity)
+        corpus["paths"] = [
+            "engine-rs/crates/bridge/runtime-bridge-api/src/authority/runtime_bridge_impl.rs"
+        ]
     else:
         raise ValueError(f"unknown fixture action {action!r}")
 

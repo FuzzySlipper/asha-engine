@@ -7,14 +7,17 @@ import type {
   CameraModeCommand,
   CameraNavigationInputEnvelope,
   CameraNavigationReceipt,
+  CameraProjectionRequest,
   CameraProjectionSnapshot,
   CameraSnapshot,
   CommandBatch,
   CommandResult,
   CollisionConstrainedCameraInputEnvelope,
+  FirstPersonCameraInputEnvelope,
   ModelMaterialPreviewRequest,
   ModelMaterialPreviewSnapshot,
   PickResult,
+  PickRay,
   PresentationOp,
   RenderFrameDiff,
   RuntimeProjectionFrame,
@@ -22,6 +25,7 @@ import type {
   TimeControlReceipt,
   TimeControlState,
   SceneObjectCommandResult,
+  SceneObjectCommandRequest,
   SceneObjectSnapshot,
   VoxelConversionApplyRequest,
   VoxelConversionEvidenceRef,
@@ -85,6 +89,7 @@ import type {
   InputSessionSnapshot,
   RawInputSample,
   RecordedInputAction,
+  ScreenPointToPickRayRequest,
 } from '@asha/contracts';
 import { loadNativeAddon, NativeAddonUnavailable, type NativeAddon } from '@asha/native-bridge';
 import { MANIFEST_OPERATIONS } from './generated/operations.js';
@@ -122,9 +127,11 @@ import {
   type RuntimeBridge,
   type RuntimeBridgeErrorKind,
   type RuntimeBufferView,
+  type RuntimeBufferHandle,
   type StepInputEnvelope,
   type StepResult,
   type VoxelMeshEvidenceSnapshot,
+  type VoxelMeshEvidenceRequest,
   type ProjectBundleLoadRequest,
   type ProjectBundleSaveSummary,
 } from './bridge.js';
@@ -164,6 +171,17 @@ export const NATIVE_WIRED_OPERATIONS: ReadonlySet<string> = new Set<string>([
   'apply_camera_navigation_input',
   'read_camera_controller_state',
   'apply_collision_constrained_camera_input',
+  'apply_first_person_camera_input',
+  'read_camera_projection',
+  'pick_voxel',
+  'select_voxel',
+  'read_voxel_mesh_evidence',
+  'get_buffer',
+  'release_buffer',
+  'unload_project_bundle',
+  'read_model_material_preview',
+  'read_scene_object_snapshot',
+  'apply_scene_object_command',
   'apply_generated_tunnel_to_runtime_world',
   'apply_enemy_direct_nav_movement',
   'load_fps_runtime_session',
@@ -264,7 +282,7 @@ function projectBundleCompositionStatusFromNative(
   status: NativeProjectBundleCompositionStatus,
 ): CompositionStatus {
   return {
-    loadedProjectBundle: status.loadedProjectBundle,
+    loadedProjectBundle: status.loadedProjectBundle ?? null,
     fatalCount: status.fatalCount,
     totalCount: status.totalCount,
     blocksLoad: status.blocksLoad,
@@ -520,7 +538,11 @@ function projectionFrameFromNative(native: NativeRuntimeProjectionFrameDto): Run
       && operation.particleOp === undefined
       && operation.telemetryOverlayOp === undefined
     ) {
-      return { domain: 'animation', meta: operation.meta, op: operation.animationOp };
+      return {
+        domain: 'animation',
+        meta: operation.meta,
+        op: animationProjectionOperationFromNative(operation.animationOp),
+      };
     }
     throw new RuntimeBridgeError(
       'internal',
@@ -535,6 +557,56 @@ function projectionFrameFromNative(native: NativeRuntimeProjectionFrameDto): Run
       replayScope: native.presentation.replayScope,
       ops,
     },
+  };
+}
+
+function animationProjectionOperationFromNative(
+  operation: AnimationPresentationOp['op'],
+): AnimationPresentationOp['op'] {
+  if (operation.op === 'destroy') {
+    return operation;
+  }
+  if (operation.op === 'create') {
+    if (operation.descriptor === undefined) {
+      throw new RuntimeBridgeError('internal', 'native animation create descriptor is missing');
+    }
+    return {
+      ...operation,
+      descriptor: {
+        ...operation.descriptor,
+        controller: animationControllerFromNative(operation.descriptor.controller),
+      },
+    };
+  }
+  if (operation.controller === undefined) {
+    throw new RuntimeBridgeError('internal', 'native animation update controller is missing');
+  }
+  return {
+    ...operation,
+    controller: animationControllerFromNative(operation.controller),
+  };
+}
+
+function animationControllerFromNative(
+  controller: import('@asha/contracts').AnimationControllerProjectionState,
+): import('@asha/contracts').AnimationControllerProjectionState {
+  const native = controller as unknown as {
+    transition?: import('@asha/contracts').AnimationTransitionProjection;
+    timingFact?: import('@asha/contracts').AnimationTransitionFactRef;
+  } & Omit<import('@asha/contracts').AnimationControllerProjectionState, 'transition' | 'timingFact'>;
+  return {
+    ...native,
+    motion: { ...native.motion, clipB: native.motion.clipB ?? null },
+    transition: native.transition === undefined
+      ? null
+      : {
+          ...native.transition,
+          targetMotion: {
+            ...native.transition.targetMotion,
+            clipB: native.transition.targetMotion.clipB ?? null,
+          },
+        },
+    timingFact: native.timingFact ?? null,
   };
 }
 
@@ -891,16 +963,21 @@ export class NativeRuntimeBridge implements RuntimeBridge {
   }
 
   readModelMaterialPreview(request: ModelMaterialPreviewRequest): ModelMaterialPreviewSnapshot {
-    void request;
-    throw nativeUnimplemented('read_model_material_preview');
+    const handle = this.#requireHandle('readModelMaterialPreview');
+    const payload = callNative(() => this.#addon.readModelMaterialPreview(handle, JSON.stringify(request)));
+    return parseNativeJson<ModelMaterialPreviewSnapshot>(payload, 'model material preview snapshot');
   }
 
   readSceneObjectSnapshot(): SceneObjectSnapshot {
-    throw nativeUnimplemented('read_scene_object_snapshot');
+    const handle = this.#requireHandle('readSceneObjectSnapshot');
+    const payload = callNative(() => this.#addon.readSceneObjectSnapshot(handle));
+    return parseNativeJson<SceneObjectSnapshot>(payload, 'scene object snapshot');
   }
 
-  applySceneObjectCommand(): SceneObjectCommandResult {
-    throw nativeUnimplemented('apply_scene_object_command');
+  applySceneObjectCommand(request: SceneObjectCommandRequest): SceneObjectCommandResult {
+    const handle = this.#requireHandle('applySceneObjectCommand');
+    const payload = callNative(() => this.#addon.applySceneObjectCommand(handle, JSON.stringify(request)));
+    return parseNativeJson<SceneObjectCommandResult>(payload, 'scene object command result');
   }
 
   readRenderDiffs(cursor: FrameCursor): RenderFrameDiff {
@@ -1093,8 +1170,10 @@ export class NativeRuntimeBridge implements RuntimeBridge {
   // ── Unwired operations: fail-closed, never mock-backed ─────────────────────
   // Replace each body with its real native call (and add the manifest name to
   // NATIVE_WIRED_OPERATIONS) when the codegen emitter wires the `#[napi]` export.
-  pickVoxel(): PickResult {
-    throw nativeUnimplemented('pick_voxel');
+  pickVoxel(ray: PickRay): PickResult {
+    const handle = this.#requireHandle('pickVoxel');
+    const payload = callNative(() => this.#addon.pickVoxel(handle, JSON.stringify(ray)));
+    return parseNativeJson<PickResult>(payload, 'voxel pick result');
   }
 
   applyCollisionConstrainedCameraInput(envelope: CollisionConstrainedCameraInputEnvelope): CameraCollisionSnapshot {
@@ -1132,12 +1211,16 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     };
   }
 
-  selectVoxel(): VoxelSelectionSnapshot {
-    throw nativeUnimplemented('select_voxel');
+  selectVoxel(request: ScreenPointToPickRayRequest): VoxelSelectionSnapshot {
+    const handle = this.#requireHandle('selectVoxel');
+    const payload = callNative(() => this.#addon.selectVoxel(handle, JSON.stringify(request)));
+    return parseNativeJson<VoxelSelectionSnapshot>(payload, 'voxel selection snapshot');
   }
 
-  readVoxelMeshEvidence(): VoxelMeshEvidenceSnapshot {
-    throw nativeUnimplemented('read_voxel_mesh_evidence');
+  readVoxelMeshEvidence(request: VoxelMeshEvidenceRequest): VoxelMeshEvidenceSnapshot {
+    const handle = this.#requireHandle('readVoxelMeshEvidence');
+    const payload = callNative(() => this.#addon.readVoxelMeshEvidence(handle, JSON.stringify(request)));
+    return parseNativeJson<VoxelMeshEvidenceSnapshot>(payload, 'voxel mesh evidence snapshot');
   }
 
   readVoxelEditHistory(request: VoxelEditHistoryReadRequest): VoxelEditHistorySummary {
@@ -1199,24 +1282,36 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     return parseNativeJson<CameraControllerState>(payload, 'camera controller state');
   }
 
-  applyFirstPersonCameraInput(): CameraSnapshot {
-    throw nativeUnimplemented('apply_first_person_camera_input');
+  applyFirstPersonCameraInput(input: FirstPersonCameraInputEnvelope): CameraSnapshot {
+    const handle = this.#requireHandle('applyFirstPersonCameraInput');
+    return callNative(() => this.#addon.applyFirstPersonCameraInput(handle, input));
   }
 
-  readCameraProjection(): CameraProjectionSnapshot {
-    throw nativeUnimplemented('read_camera_projection');
+  readCameraProjection(request: CameraProjectionRequest): CameraProjectionSnapshot {
+    const handle = this.#requireHandle('readCameraProjection');
+    const payload = callNative(() => this.#addon.readCameraProjection(handle, JSON.stringify(request)));
+    return parseNativeJson<CameraProjectionSnapshot>(payload, 'camera projection snapshot');
   }
 
-  getBuffer(): RuntimeBufferView {
-    throw nativeUnimplemented('get_buffer');
+  getBuffer(bufferHandle: RuntimeBufferHandle): RuntimeBufferView {
+    const handle = this.#requireHandle('getBuffer');
+    const validatedBufferHandle = nonNegativeSafeInteger(bufferHandle, 'buffer handle');
+    const view = callNative(() => this.#addon.getBuffer(handle, validatedBufferHandle));
+    return {
+      handle: nonNegativeSafeInteger(view.handle, 'returned buffer handle') as RuntimeBufferHandle,
+      bytes: Uint8Array.from(view.bytes),
+    };
   }
 
-  releaseBuffer(): void {
-    throw nativeUnimplemented('release_buffer');
+  releaseBuffer(bufferHandle: RuntimeBufferHandle): void {
+    const handle = this.#requireHandle('releaseBuffer');
+    const validatedBufferHandle = nonNegativeSafeInteger(bufferHandle, 'buffer handle');
+    callNative(() => this.#addon.releaseBuffer(handle, validatedBufferHandle));
   }
 
   unloadProjectBundle(): void {
-    throw nativeUnimplemented('unload_project_bundle');
+    const handle = this.#requireHandle('unloadProjectBundle');
+    callNative(() => this.#addon.unloadProjectBundle(handle));
   }
 
   loadReplayFixture(): ReplaySessionHandle {

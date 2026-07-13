@@ -11,12 +11,13 @@ use std::collections::BTreeMap;
 use core_ids::EntityId;
 use protocol_presentation::{
     AnimationControllerProjectionState, AnimationProjectionDescriptor, AnimationProjectionHandle,
-    AnimationProjectionOp, AnimationResolvedMotion, AnimationTransitionProjection, PresentationOp,
-    PresentationOpMeta,
+    AnimationProjectionOp, AnimationResolvedMotion, AnimationTransitionFactMoment,
+    AnimationTransitionFactRef, AnimationTransitionProjection, PresentationOp, PresentationOpMeta,
 };
 use protocol_render::RenderHandle;
 use rule_animation_controller::{
-    AnimationControllerChange, AnimationControllerState, ResolvedAnimationMotion,
+    AnimationControllerChange, AnimationControllerState,
+    AnimationTransitionFactMoment as AuthorityFactMoment, ResolvedAnimationMotion,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,6 +27,7 @@ pub enum AnimationProjectionError {
     ControllerNotProjected(u64),
     HandleExhausted,
     InvalidDescriptor(&'static str),
+    OriginMismatch,
 }
 
 impl core::fmt::Display for AnimationProjectionError {
@@ -71,6 +73,7 @@ impl AnimationControllerProjector {
         meta: PresentationOpMeta,
     ) -> Result<PresentationOp, AnimationProjectionError> {
         verify_entity(entity, &change.state)?;
+        verify_origin(change, &meta)?;
         if self.bindings.contains_key(&entity) {
             return Err(AnimationProjectionError::ControllerAlreadyProjected(
                 entity.raw(),
@@ -114,6 +117,7 @@ impl AnimationControllerProjector {
         meta: PresentationOpMeta,
     ) -> Result<PresentationOp, AnimationProjectionError> {
         verify_entity(entity, &change.state)?;
+        verify_origin(change, &meta)?;
         let binding =
             self.bindings
                 .get(&entity)
@@ -163,6 +167,26 @@ fn verify_entity(
     Ok(())
 }
 
+fn verify_origin(
+    change: &AnimationControllerChange,
+    meta: &PresentationOpMeta,
+) -> Result<(), AnimationProjectionError> {
+    let Some(fact) = &change.state.timing_fact else {
+        return Ok(());
+    };
+    let Some(origin) = &meta.origin else {
+        return Err(AnimationProjectionError::OriginMismatch);
+    };
+    if origin.id != fact.source.source_fact_id
+        || origin.authority_tick != fact.source.authority_tick
+        || origin.causation_id.as_deref() != Some(fact.source.causation_id.as_str())
+        || origin.correlation_id.as_deref() != Some(fact.source.correlation_id.as_str())
+    {
+        return Err(AnimationProjectionError::OriginMismatch);
+    }
+    Ok(())
+}
+
 fn project_state(state: &AnimationControllerState) -> AnimationControllerProjectionState {
     AnimationControllerProjectionState {
         graph_id: state.graph_id.clone(),
@@ -183,6 +207,26 @@ fn project_state(state: &AnimationControllerState) -> AnimationControllerProject
                 duration_ticks: transition.duration_ticks,
                 target_motion: project_motion(&transition.target_motion),
             }),
+        timing_fact: state.timing_fact.as_ref().map(|fact| {
+            Box::new(AnimationTransitionFactRef {
+                fact_id: fact.fact_id.clone(),
+                source_fact_id: fact.source.source_fact_id.clone(),
+                authority_tick: fact.source.authority_tick,
+                controller_input_sequence: fact.controller_input_sequence,
+                controller_tick: fact.controller_tick,
+                causation_id: fact.source.causation_id.clone(),
+                correlation_id: fact.source.correlation_id.clone(),
+                transition_id: fact.transition_id.clone(),
+                from_state_id: fact.from_state_id.clone(),
+                to_state_id: fact.to_state_id.clone(),
+                moment: match fact.moment {
+                    AuthorityFactMoment::Started => AnimationTransitionFactMoment::Started,
+                    AuthorityFactMoment::Completed => AnimationTransitionFactMoment::Completed,
+                },
+                duration_ticks: fact.duration_ticks,
+                fact_hash: fact.fact_hash.clone(),
+            })
+        }),
     }
 }
 

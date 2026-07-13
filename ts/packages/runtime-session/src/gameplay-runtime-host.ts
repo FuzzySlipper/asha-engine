@@ -1,6 +1,12 @@
 import type {
+  GameplayCausationRef,
+  GameplayContractRef,
+  GameplayEmitterRef,
   GameplayEventEnvelope,
+  GameplayHeaderSelector,
   GameplayModuleBindingRegistry,
+  GameplayOwnerRef,
+  GameplayProposalEnvelope,
   GameplayTriggerDefinition,
   PrefabTransform,
 } from '@asha/contracts';
@@ -39,7 +45,62 @@ export interface GameplayRuntimeHostLoadInput {
   readonly declaredReadPlanHash: string;
   readonly bindings: GameplayModuleBindingRegistry;
   readonly triggers: readonly GameplayTriggerDefinition[];
+  readonly scheduler: GameplayRuntimeSchedulerDefinition;
   readonly prefabs?: GameplayRuntimePrefabBootstrap;
+}
+
+export interface GameplayRuntimeSchedulerDefinition {
+  readonly owner: GameplayOwnerRef;
+  readonly declaredEvents: readonly GameplayContractRef[];
+  readonly declaredProposals: readonly GameplayContractRef[];
+}
+
+export type GameplayRuntimeSchedulerCommand =
+  | {
+      readonly kind: 'scheduleTick';
+      readonly action: GameplayRuntimeTickScheduledActionDraft;
+    }
+  | {
+      readonly kind: 'scheduleEventConditioned';
+      readonly action: GameplayRuntimeEventConditionedActionDraft;
+    }
+  | {
+      readonly kind: 'executeTick';
+      readonly actionId: string;
+      readonly tick: number;
+      readonly targetsPresent: boolean;
+      readonly causationCurrent: boolean;
+    }
+  | {
+      readonly kind: 'triggerEvent';
+      readonly actionId: string;
+      readonly event: GameplayEventEnvelope;
+      readonly targetsPresent: boolean;
+      readonly causationCurrent: boolean;
+    }
+  | { readonly kind: 'timeout'; readonly actionId: string; readonly tick: number }
+  | { readonly kind: 'cancel'; readonly actionId: string; readonly reason: string };
+
+export interface GameplayRuntimeTickScheduledActionDraft {
+  readonly id: string;
+  readonly executeAt: number;
+  readonly priority: number;
+  readonly proposal: GameplayProposalEnvelope;
+  readonly source: GameplayEmitterRef;
+  readonly causation: GameplayCausationRef;
+}
+
+export interface GameplayRuntimeEventConditionedActionDraft {
+  readonly id: string;
+  readonly condition: {
+    readonly event: GameplayContractRef;
+    readonly selector: GameplayHeaderSelector;
+  };
+  readonly priority: number;
+  readonly proposal: GameplayProposalEnvelope;
+  readonly timeoutAt: number | null;
+  readonly source: GameplayEmitterRef;
+  readonly causation: GameplayCausationRef;
 }
 
 export type GameplayRuntimeHostMoment =
@@ -62,6 +123,14 @@ export type GameplayRuntimeHostMoment =
       readonly tick: number;
       readonly instance: number;
       readonly role: string;
+    }
+  | {
+      readonly kind: 'schedulerCommand';
+      readonly command: GameplayRuntimeSchedulerCommand;
+    }
+  | {
+      readonly kind: 'schedulerRoute';
+      readonly actionId: string;
     };
 
 export interface GameplayRuntimeRoutingReadout {
@@ -94,15 +163,60 @@ export interface GameplayRuntimeHostReadout {
   readonly bindingRegistryHash: string;
   readonly activationHash: string;
   readonly moduleStateHash: string;
+  readonly authorityStateHash: string;
   readonly triggerRevision: number;
   readonly triggerSnapshotHash: string;
   readonly activeOverlapCount: number;
   readonly reactionFrameCount: number;
   readonly lastReactionFrameHash: string | null;
   readonly recentFrames: readonly GameplayRuntimeReactionFrameReadout[];
+  readonly scheduler: GameplayRuntimeSchedulerReadout;
   readonly runtimeHostHash: string;
   readonly prefabs?: GameplayRuntimePrefabReadout;
   readonly moduleStates?: readonly GameplayRuntimeModuleStateReadout[];
+}
+
+export interface GameplayRuntimeSchedulerReadout {
+  readonly ownerId: string;
+  readonly stateHash: string;
+  readonly pendingActionCount: number;
+  readonly outstandingDispatchCount: number;
+  readonly factCount: number;
+  readonly pendingActions: readonly GameplayRuntimeScheduledAction[];
+  readonly outstandingDispatches: readonly GameplayRuntimeScheduledDispatch[];
+  readonly truncated: boolean;
+}
+
+export type GameplayRuntimeScheduledAction =
+  | ({
+      readonly kind: 'tick';
+      readonly id: string;
+      readonly executeAt: number;
+    } & GameplayRuntimeScheduledActionCommon)
+  | ({
+      readonly kind: 'eventConditioned';
+      readonly id: string;
+      readonly condition: {
+        readonly event: GameplayContractRef;
+        readonly selector: GameplayHeaderSelector;
+      };
+      readonly timeoutAt: number | null;
+    } & GameplayRuntimeScheduledActionCommon);
+
+interface GameplayRuntimeScheduledActionCommon {
+  readonly priority: number;
+  readonly insertionSequence: number;
+  readonly proposal: GameplayProposalEnvelope;
+  readonly source: GameplayEmitterRef;
+  readonly causation: GameplayCausationRef;
+}
+
+export interface GameplayRuntimeScheduledDispatch {
+  readonly actionId: string;
+  readonly proposal: GameplayProposalEnvelope;
+  readonly proposalHash: string;
+  readonly priority: number;
+  readonly insertionSequence: number;
 }
 
 export interface GameplayRuntimePrefabReadout {

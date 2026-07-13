@@ -330,6 +330,22 @@ export interface AnimationTransitionProjection {
     readonly durationTicks: number;
     readonly targetMotion: AnimationResolvedMotion;
 }
+export type AnimationTransitionFactMoment = 'started' | 'completed';
+export interface AnimationTransitionFactRef {
+    readonly factId: string;
+    readonly sourceFactId: string;
+    readonly authorityTick: number;
+    readonly controllerInputSequence: number;
+    readonly controllerTick: number;
+    readonly causationId: string;
+    readonly correlationId: string;
+    readonly transitionId: string;
+    readonly fromStateId: string;
+    readonly toStateId: string;
+    readonly moment: AnimationTransitionFactMoment;
+    readonly durationTicks: number;
+    readonly factHash: string;
+}
 export interface AnimationControllerProjectionState {
     readonly graphId: string;
     readonly graphVersion: number;
@@ -339,6 +355,7 @@ export interface AnimationControllerProjectionState {
     readonly stateHash: string;
     readonly motion: AnimationResolvedMotion;
     readonly transition: AnimationTransitionProjection | null;
+    readonly timingFact: AnimationTransitionFactRef | null;
 }
 export interface AnimationProjectionDescriptor {
     readonly target: RenderHandle;

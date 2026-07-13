@@ -152,6 +152,28 @@ void test('a missing entity anchor diagnoses without consuming the burst signal'
     assert.equal(replayed.readout.emittedBursts, 1);
     assert.equal(replayed.readout.activeParticles, 3);
 });
+void test('missing particle resources fail locally without consuming the burst', async () => {
+    const sink = new FakeParticleSink();
+    const particles = new AshaParticleHost({
+        resolveEntityPosition: () => [0, 0, 0],
+        resolveResource: async () => null,
+        sink,
+    });
+    const presentation = frame([
+        operation(0, {
+            op: 'emit',
+            signalId: 'missing-particle:44',
+            descriptor: descriptor(),
+        }),
+    ]).presentation;
+    const receipt = await particles.applyPresentation(presentation);
+    assert.equal(receipt.applied, 0);
+    assert.equal(receipt.diagnostics[0]?.code, 'spriteLoadFailed');
+    assert.equal(receipt.diagnostics[0]?.origin?.id, 'combat.primary-fire.hit:44');
+    assert.equal(receipt.readout.emittedBursts, 0);
+    assert.equal(receipt.readout.activeParticles, 0);
+    assert.equal(sink.created.length, 0);
+});
 void test('retained emitter create update destroy owns continuous simulation and cleanup', async () => {
     const sink = new FakeParticleSink();
     const particles = host(sink);

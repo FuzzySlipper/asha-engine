@@ -8,6 +8,10 @@
     "engine-rs/crates/services/svc-voxel-conversion/src/lib.rs": {
       "maxLines": 2064,
       "justification": "Voxel conversion service currently keeps registration, planning, preview, apply, diagnostics, quotas, and model-info evidence in one authority file after the native coverage hardening slices; split conversion topology, rasterization, guardrail, and readout modules in the next service-shape cleanup."
+    },
+    "engine-rs/crates/bridge/runtime-bridge-api/src/authority/runtime_bridge_impl.rs": {
+      "maxLines": 1612,
+      "justification": "RuntimeBridge is one Rust trait implementation and cannot be split across implementation blocks; operation bodies remain delegated to lane-specific authority modules, and this narrow baseline records the public routing surface."
     }
   }
 }

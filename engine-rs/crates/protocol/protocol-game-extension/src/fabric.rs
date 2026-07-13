@@ -448,11 +448,20 @@ pub struct GameplaySubscriptionDeclaration {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GameplayInvocationReadRequirement {
+    pub request_id: String,
+    pub view: GameplayContractRef,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GameplayInvocationDescriptor {
     pub invocation_id: String,
     pub family: GameplayInvocationFamily,
     pub input_contract: GameplayContractRef,
     pub output_contract: GameplayContractRef,
+    #[serde(default)]
+    pub read_requirements: Vec<GameplayInvocationReadRequirement>,
     pub max_outputs: u32,
     pub max_payload_bytes: u32,
 }
@@ -627,6 +636,8 @@ pub enum GameplayRegistryDiagnosticCode {
     MissingInvocation,
     InvalidSubscriptionInvocation,
     DuplicateInvocation,
+    DuplicateInvocationRead,
+    MissingInvocationReadView,
     InvalidBudget,
     MissingProposalOwner,
     MultipleProposalOwners,
@@ -664,6 +675,8 @@ impl GameplayRegistryDiagnosticCode {
             Self::MissingInvocation => "missingInvocation",
             Self::InvalidSubscriptionInvocation => "invalidSubscriptionInvocation",
             Self::DuplicateInvocation => "duplicateInvocation",
+            Self::DuplicateInvocationRead => "duplicateInvocationRead",
+            Self::MissingInvocationReadView => "missingInvocationReadView",
             Self::InvalidBudget => "invalidBudget",
             Self::MissingProposalOwner => "missingProposalOwner",
             Self::MultipleProposalOwners => "multipleProposalOwners",

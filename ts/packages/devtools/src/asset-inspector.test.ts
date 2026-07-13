@@ -37,7 +37,7 @@ function entry(over: Partial<CatalogEntry> & { id: string; kind: CatalogEntry['k
 }
 
 const material: MaterialProjection = {
-  render: { color: { r: 1, g: 0, b: 0, a: 1 }, texture: null, roughness: 0.5, emissive: 0, uvStrategy: 'flat' },
+  render: { color: { r: 1, g: 0, b: 0, a: 1 }, texture: null, roughness: 0.5, textureTint: { r: 1, g: 1, b: 1, a: 1 }, emissionColor: { r: 1, g: 0, b: 0, a: 1 }, emissive: 0, uvStrategy: 'flat' },
   collision: { solid: true, collidable: true, occludes: true, structuralClass: 'solid' },
 };
 

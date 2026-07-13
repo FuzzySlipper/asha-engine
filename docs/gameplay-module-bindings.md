@@ -38,12 +38,16 @@ checks:
 - exact compiled module, provider, version, SDK, contract, artifact, and source
   evidence through the closed registry;
 - configuration schema and codec identity;
+- exactly one provider-owned typed configuration codec for each exported
+  schema, including required fields, value types, unknown-field rejection, and
+  canonical re-encoding;
 - state ownership and every requested read/output contract;
 - stable target resolution and active target eligibility; and
 - unique `(state schema, Session/entity/prefab-instance scope)` ownership.
 
-Only after all target and contract checks succeed does the state store decode
-configuration and initialize every facet atomically. Thereafter canonical module
+Only after all target, contract, and typed-payload checks succeed does the state
+store decode configuration and initialize every facet atomically. Metadata
+strings alone cannot certify configuration bytes. Thereafter canonical module
 state is live authority; changing the authored configuration does not mutate a
 running Session.
 
@@ -52,6 +56,16 @@ binding owns a stable prefab-instance state scope. A stable-part binding resolve
 the role through `PrefabInstanceAuthority` and owns the resolved entity facet.
 Per-instance layers are applied only after proving that the instance belongs to
 the binding's prefab.
+
+The resolved effective configuration is also a read-only invocation input.
+Before delivery hashing, the static host matches event/decision identities to
+the most specific resolved entity or prefab binding, with Session configuration
+as the fallback. `GameplayModuleContext::configuration<T>()` decodes those
+already-validated canonical bytes, while `configuration_scope()` exposes the
+resolved authority scope. Ambiguous specific matches fail before behavior
+runs. This lets one unchanged provider and behavior respond differently for two
+instances without creating hidden mutable module instances or parallel
+downstream state.
 
 ## Receipts, save, reload, and migration
 

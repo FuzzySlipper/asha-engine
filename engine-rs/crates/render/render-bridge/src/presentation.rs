@@ -898,18 +898,25 @@ fn fallback_slot() -> MeshMaterialSlot {
     }
 }
 
-/// Resolve a catalog material id to its **visual** render projection descriptor,
-/// or `None` if the catalog has no material definition for it.
+/// Resolve a catalog material id to its visual descriptor, or `None` when absent.
 fn resolve_render_material(catalog: &Catalog, id: &str) -> Option<RenderMaterialDescriptor> {
     let entry = catalog.entries.iter().find(|e| e.id.as_str() == id)?;
     let def = entry.material.as_ref()?;
     let render = def.render_projection();
+    let color = rgba_to_array(render.color);
     Some(RenderMaterialDescriptor {
+        schema_version: 2,
         id: id.to_string(),
-        color: rgba_to_array(render.color),
+        color,
         texture: render.texture.map(|t| t.id().as_str().to_string()),
         roughness: render.roughness,
-        emissive: render.emissive,
+        texture_tint: rgba_to_array(render.texture_tint),
+        emission_color: [
+            render.emission_color.r,
+            render.emission_color.g,
+            render.emission_color.b,
+        ],
+        emission_intensity: render.emissive,
         uv_strategy: to_uv_strategy(render.uv_strategy),
     })
 }
@@ -919,11 +926,14 @@ fn resolve_render_material(catalog: &Catalog, id: &str) -> Option<RenderMaterial
 /// authority fallback agree on the placeholder appearance.
 fn fallback_material_descriptor(id: &str) -> RenderMaterialDescriptor {
     RenderMaterialDescriptor {
+        schema_version: 2,
         id: id.to_string(),
         color: rgba_to_array(Rgba::DEBUG_GREY),
         texture: None,
         roughness: 1.0,
-        emissive: 0.0,
+        texture_tint: [1.0, 1.0, 1.0, 1.0],
+        emission_color: [0.0, 0.0, 0.0],
+        emission_intensity: 0.0,
         uv_strategy: MaterialUvStrategy::Flat,
     }
 }
@@ -960,13 +970,17 @@ pub fn project_voxel_materials(
             fallbacks.push(id);
         }
         let m = resolution.material;
+        let color = rgba_to_array(m.color);
         diffs.push(RenderDiff::DefineMaterial {
             material: RenderMaterialDescriptor {
+                schema_version: 2,
                 id: descriptor_id,
-                color: rgba_to_array(m.color),
+                color,
                 texture: m.texture.map(|t| t.id().as_str().to_string()),
                 roughness: m.roughness,
-                emissive: m.emissive,
+                texture_tint: rgba_to_array(m.texture_tint),
+                emission_color: [m.emission_color.r, m.emission_color.g, m.emission_color.b],
+                emission_intensity: m.emissive,
                 uv_strategy: to_uv_strategy(m.uv_strategy),
             },
         });

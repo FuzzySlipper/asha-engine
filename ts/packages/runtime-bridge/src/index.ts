@@ -16,6 +16,7 @@ export {
   TIME_CONTROL_INPUT_ACTIONS,
   timeControlCommandFromResolvedAction,
 } from './resolved-time-control.js';
+export { buildRuntimeSessionAnimationControllerTargetFrame } from './runtime-session-animation.js';
 
 // `submit_commands` / `pick_voxel` carry the generated voxel border (manifest
 // `protocol_voxel::{CommandBatch, CommandResult, PickRay, PickResult}`). Re-exported
@@ -220,4 +221,9 @@ export type {
   GameplayRuntimeHostReadout,
   GameplayRuntimeHostSnapshot,
   GameplayRuntimeHostTransport,
+  GameplayRuntimeSchedulerCommand,
+  GameplayRuntimeSchedulerDefinition,
+  GameplayRuntimeSchedulerReadout,
+  GameplayRuntimeScheduledAction,
+  GameplayRuntimeScheduledDispatch,
 } from '@asha/runtime-session';

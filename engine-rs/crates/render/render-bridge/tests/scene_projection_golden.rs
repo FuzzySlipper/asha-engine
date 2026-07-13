@@ -31,6 +31,7 @@ use core_scene::bootstrap::BootstrapPlan;
 use core_scene::document::{NodeMetadata, SceneMetadata};
 use core_scene::transform::{Quat, SceneTransform};
 use core_scene::{FlatSceneDocument, SceneNode, SceneNodeKind, SceneTree, SpatialSessionState};
+use protocol_render::{MaterialInstanceParameters, RenderDiff, RenderHandle};
 use render_bridge::json;
 use render_bridge::presentation::{
     NodePresentation, RenderProjectionDiagnostic, ScenePresentation, ScenePresentationProjector,
@@ -179,6 +180,35 @@ fn projects_scene_showcase_setup_frame_to_committed_fixture() {
     );
 
     check_fixture("scene-projection.json", &json::encode_frame(&frame));
+}
+
+#[test]
+fn projects_authority_scene_with_gameplay_material_feedback_to_committed_fixture() {
+    let doc = showcase_scene();
+    let world = bootstrap(&doc);
+    let catalog = showcase_catalog();
+    let mut proj = ScenePresentationProjector::new();
+    let mut frame = proj.project(&ScenePresentation {
+        scene: &doc,
+        world: &world,
+        catalog: &catalog,
+        overrides: &BTreeMap::new(),
+    });
+
+    // A gameplay presentation decision marks crate-b as a hot warning state.
+    // The scene and stable handle come from authoritative scene state; the
+    // material values remain a one-way visual projection and never feed back.
+    frame.push(RenderDiff::SetMaterialInstanceParameters {
+        handle: RenderHandle::new(2),
+        slot: 0,
+        parameters: Some(MaterialInstanceParameters {
+            texture_tint: [0.2, 1.0, 0.2, 1.0],
+            emission_color: [1.0, 0.08, 0.0],
+            emission_intensity: 2.5,
+        }),
+    });
+
+    check_fixture("material-feedback.json", &json::encode_frame(&frame));
 }
 
 #[test]

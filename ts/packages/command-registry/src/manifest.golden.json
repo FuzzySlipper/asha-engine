@@ -1452,6 +1452,18 @@
             },
             "texture": null,
             "roughness": 0.6,
+            "textureTint": {
+              "r": 1,
+              "g": 1,
+              "b": 1,
+              "a": 1
+            },
+            "emissionColor": {
+              "r": 0.8,
+              "g": 0.4,
+              "b": 0.2,
+              "a": 1
+            },
             "emissive": 0,
             "uvStrategy": "flat"
           },
@@ -1473,6 +1485,18 @@
           },
           "texture": null,
           "roughness": 0.6,
+          "textureTint": {
+            "r": 1,
+            "g": 1,
+            "b": 1,
+            "a": 1
+          },
+          "emissionColor": {
+            "r": 0.8,
+            "g": 0.4,
+            "b": 0.2,
+            "a": 1
+          },
           "emissive": 0,
           "uvStrategy": "flat"
         },
@@ -1967,6 +1991,7 @@
           {
             "op": "defineMaterial",
             "material": {
+              "schemaVersion": 2,
               "id": "material.copper",
               "color": [
                 0.8,
@@ -1976,7 +2001,18 @@
               ],
               "texture": null,
               "roughness": 0.6,
-              "emissive": 0,
+              "textureTint": [
+                1,
+                1,
+                1,
+                1
+              ],
+              "emissionColor": [
+                0,
+                0,
+                0
+              ],
+              "emissionIntensity": 0,
               "uvStrategy": "flat"
             }
           },
@@ -3212,6 +3248,7 @@
           {
             "op": "defineMaterial",
             "material": {
+              "schemaVersion": 2,
               "id": "material.copper",
               "color": [
                 0.8,
@@ -3221,7 +3258,18 @@
               ],
               "texture": null,
               "roughness": 0.6,
-              "emissive": 0,
+              "textureTint": [
+                1,
+                1,
+                1,
+                1
+              ],
+              "emissionColor": [
+                0,
+                0,
+                0
+              ],
+              "emissionIntensity": 0,
               "uvStrategy": "flat"
             }
           },

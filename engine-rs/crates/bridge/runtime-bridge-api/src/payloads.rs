@@ -23,7 +23,8 @@ pub struct StepInputEnvelope {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StepResult {
     pub tick: u64,
-    /// Number of render diffs produced this tick (real impl returns a descriptor).
+    /// Number of accepted authority events applied across the fixed-tick batch.
+    /// A future generated runtime descriptor may replace this bounded summary.
     pub diff_count: u32,
 }
 

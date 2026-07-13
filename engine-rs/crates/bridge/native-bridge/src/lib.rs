@@ -45,22 +45,25 @@ mod generated_tunnel;
 mod input_session;
 mod particle_projection;
 mod presentation_operation;
+mod scene_preview;
 #[cfg(test)]
 mod resource_limit_tests;
 mod telemetry_overlay_projection;
 mod time_control;
 mod voxel_assets;
+mod voxel_readout;
 #[cfg(test)]
 mod voxel_rejection_tests;
 mod voxel_rejections;
 pub use camera::{
     apply_camera_mode_command, apply_camera_navigation_input,
-    apply_collision_constrained_camera_input, create_camera, read_camera_controller_state,
+    apply_collision_constrained_camera_input, apply_first_person_camera_input, create_camera,
+    read_camera_controller_state, read_camera_projection,
     NativeCameraBasis, NativeCameraCollisionEvidence, NativeCameraCollisionPolicy,
     NativeCameraCollisionShape, NativeCameraCollisionSnapshot, NativeCameraCreateRequest,
     NativeCameraPose, NativeCameraSnapshot, NativeCollisionAabbEvidence,
     NativeCollisionConstrainedCameraInputEnvelope, NativeFirstPersonCameraInput,
-    NativePerspectiveProjection, NativeViewportSize,
+    NativeFirstPersonCameraInputEnvelope, NativePerspectiveProjection, NativeViewportSize,
 };
 pub use fps::{
     apply_fps_encounter_transition, apply_fps_primary_fire, invoke_game_extension_weapon_effect,
@@ -76,6 +79,9 @@ pub use fps::{
     NativeGameExtensionWeaponEffectInvocationResult,
 };
 pub use generated_tunnel::apply_generated_tunnel_to_runtime_world;
+pub use scene_preview::{
+    apply_scene_object_command, read_model_material_preview, read_scene_object_snapshot,
+};
 pub use input_session::{
     apply_input_context_command, configure_input_session, read_input_context_state,
     replay_resolved_input_action, submit_raw_input,
@@ -87,6 +93,7 @@ pub use voxel_assets::{
     initialize_voxel_volume_authoring, load_voxel_volume_asset, save_voxel_volume_asset,
     unload_voxel_volume_asset, update_voxel_volume_asset_palette,
 };
+pub use voxel_readout::{pick_voxel, read_voxel_mesh_evidence, select_voxel};
 pub use voxel_rejections::NativeCommandResult;
 
 #[derive(Debug, Default)]
@@ -284,6 +291,12 @@ pub struct NativeProjectBundleSaveSummary {
     pub artifacts_written: u32,
     pub compacted_edits: u32,
     pub retained_edits: u32,
+}
+
+#[napi(object)]
+pub struct NativeRuntimeBufferView {
+    pub handle: i64,
+    pub bytes: Vec<u8>,
 }
 
 impl From<runtime_bridge_api::ProjectBundleSaveSummary> for NativeProjectBundleSaveSummary {
@@ -765,6 +778,35 @@ pub fn get_project_bundle_composition_status(handle: i64) -> napi::Result<Native
 }
 
 #[napi]
+pub fn get_buffer(handle: i64, buffer_handle: i64) -> napi::Result<NativeRuntimeBufferView> {
+    let buffer_handle = u64_input(buffer_handle, "buffer_handle")?;
+    with_bridge(handle, |bridge| {
+        let view = bridge
+            .get_buffer(runtime_bridge_api::RuntimeBufferHandle::new(buffer_handle))
+            .map_err(to_napi)?;
+        Ok(NativeRuntimeBufferView {
+            handle: view.handle.raw() as i64,
+            bytes: view.bytes.to_vec(),
+        })
+    })
+}
+
+#[napi]
+pub fn release_buffer(handle: i64, buffer_handle: i64) -> napi::Result<()> {
+    let buffer_handle = u64_input(buffer_handle, "buffer_handle")?;
+    with_bridge(handle, |bridge| {
+        bridge
+            .release_buffer(runtime_bridge_api::RuntimeBufferHandle::new(buffer_handle))
+            .map_err(to_napi)
+    })
+}
+
+#[napi]
+pub fn unload_project_bundle(handle: i64) -> napi::Result<()> {
+    with_bridge(handle, |bridge| bridge.unload_project_bundle().map_err(to_napi))
+}
+
+#[napi]
 pub fn plan_voxel_conversion(handle: i64, request_json: String) -> napi::Result<String> {
     let request = parse_voxel_conversion_plan_request(&request_json)?;
     with_bridge(handle, |bridge| {
@@ -968,8 +1010,10 @@ mod tests {
     use runtime_bridge_api::VoxelEditHistorySummary;
 
     const WIRED_NAPI_EXPORTS: &[&str] = &[
+        "applyFirstPersonCameraInput",
         "applyCollisionConstrainedCameraInput",
         "applyGeneratedTunnelToRuntimeWorld",
+        "applySceneObjectCommand",
         "applyEnemyDirectNavMovement",
         "applyFpsEncounterTransition",
         "applyFpsPrimaryFire",
@@ -979,6 +1023,7 @@ mod tests {
         "exportVoxelConversionEvidence",
         "exportVoxelAnnotationLayer",
         "exportVoxelVolumeAsset",
+        "getBuffer",
         "getProjectBundleCompositionStatus",
         "initializeEngine",
         "initializeVoxelVolumeAuthoring",
@@ -989,6 +1034,7 @@ mod tests {
         "loadProjectBundle",
         "loadFpsRuntimeSession",
         "planVoxelConversion",
+        "pickVoxel",
         "previewVoxelEditRevert",
         "readVoxelConversionSourceMetadata",
         "readVoxelAnnotationQuery",
@@ -997,6 +1043,10 @@ mod tests {
         "readProjectionFrame",
         "readRenderDiffs",
         "readFpsRuntimeSession",
+        "readCameraProjection",
+        "readModelMaterialPreview",
+        "readSceneObjectSnapshot",
+        "readVoxelMeshEvidence",
         "readVoxelModelInfo",
         "readVoxelModelWindow",
         "redoVoxelEdit",
@@ -1005,9 +1055,11 @@ mod tests {
         "restartFpsRuntimeSession",
         "saveProjectBundle",
         "saveVoxelVolumeAsset",
+        "selectVoxel",
         "stepSimulation",
         "submitCommands",
         "undoVoxelEdit",
+        "unloadProjectBundle",
         "unloadVoxelVolumeAsset",
         "updateVoxelVolumeAssetPalette",
         "validateVoxelAnnotationLayer",
@@ -1015,54 +1067,13 @@ mod tests {
 
     #[test]
     fn wired_export_set_is_explicit_and_bounded() {
-        assert_eq!(
-            WIRED_NAPI_EXPORTS,
-            &[
-                "applyCollisionConstrainedCameraInput",
-                "applyGeneratedTunnelToRuntimeWorld",
-                "applyEnemyDirectNavMovement",
-                "applyFpsEncounterTransition",
-                "applyFpsPrimaryFire",
-                "applyVoxelConversion",
-                "applyVoxelAnnotationEdit",
-                "applyVoxelEditRevert",
-                "exportVoxelConversionEvidence",
-                "exportVoxelAnnotationLayer",
-                "exportVoxelVolumeAsset",
-                "getProjectBundleCompositionStatus",
-                "initializeEngine",
-                "initializeVoxelVolumeAuthoring",
-                "invokeGameExtensionWeaponEffect",
-                "importVoxelConversionMeshSource",
-                "loadVoxelAnnotationLayer",
-                "loadVoxelVolumeAsset",
-                "loadProjectBundle",
-                "loadFpsRuntimeSession",
-                "planVoxelConversion",
-                "previewVoxelEditRevert",
-                "readVoxelConversionSourceMetadata",
-                "readVoxelAnnotationQuery",
-                "readVoxelEditHistory",
-                "readFpsEncounterDirector",
-                "readProjectionFrame",
-                "readRenderDiffs",
-                "readFpsRuntimeSession",
-                "readVoxelModelInfo",
-                "readVoxelModelWindow",
-                "redoVoxelEdit",
-                "registerVoxelConversionSource",
-                "registerVoxelConversionMeshAsset",
-                "restartFpsRuntimeSession",
-                "saveProjectBundle",
-                "saveVoxelVolumeAsset",
-                "stepSimulation",
-                "submitCommands",
-                "undoVoxelEdit",
-                "unloadVoxelVolumeAsset",
-                "updateVoxelVolumeAssetPalette",
-                "validateVoxelAnnotationLayer",
-            ]
-        );
+        let unique_exports = WIRED_NAPI_EXPORTS
+            .iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>();
+
+        assert_eq!(WIRED_NAPI_EXPORTS.len(), 53);
+        assert_eq!(unique_exports.len(), WIRED_NAPI_EXPORTS.len());
     }
 
     fn native_fps_definitions(enemy_health: u32) -> Vec<NativeFpsStoredEntityDefinition> {
@@ -1188,7 +1199,7 @@ mod tests {
 
         let step = step_simulation(handle, 6).expect("simulation steps");
         assert_eq!(step.tick, 6);
-        assert_eq!(step.diff_count, 2);
+        assert_eq!(step.diff_count, 0);
 
         let pause: runtime_bridge_api::TimeControlReceipt = serde_json::from_str(
             &apply_time_control_command(handle, r#"{"operation":"pause"}"#.to_string())
@@ -1232,11 +1243,104 @@ mod tests {
             },
         )
         .expect("camera creates");
+        let camera = apply_first_person_camera_input(
+            handle,
+            NativeFirstPersonCameraInputEnvelope {
+                camera: camera.camera,
+                input: NativeFirstPersonCameraInput {
+                    move_forward: 1.0,
+                    move_right: 0.0,
+                    move_up: 0.0,
+                    yaw_delta_degrees: 0.0,
+                    pitch_delta_degrees: 0.0,
+                    dt_seconds: 0.25,
+                    move_speed_units_per_second: 2.0,
+                },
+                tick: 9,
+            },
+        )
+        .expect("first-person camera input reaches Rust authority");
+        assert_eq!(camera.tick, 9);
+        let camera_projection: serde_json::Value = serde_json::from_str(
+            &read_camera_projection(
+                handle,
+                format!(r#"{{"camera":{},"viewport":null}}"#, camera.camera),
+            )
+            .expect("camera projection reads through native transport"),
+        )
+        .expect("camera projection JSON decodes");
+        assert_eq!(camera_projection["camera"], camera.camera);
+
+        let pick: serde_json::Value = serde_json::from_str(
+            &pick_voxel(
+                handle,
+                r#"{"grid":1,"origin":[-1.0,0.5,0.5],"direction":[1.0,0.0,0.0],"maxDistance":10.0}"#.to_string(),
+            )
+            .expect("voxel pick reaches Rust authority"),
+        )
+        .expect("voxel pick JSON decodes");
+        assert_eq!(pick["outcome"], "hit");
+        let selection: serde_json::Value = serde_json::from_str(
+            &select_voxel(
+                handle,
+                format!(
+                    r#"{{"camera":{},"grid":1,"viewport":null,"screenPoint":{{"x":0.5,"y":0.5,"space":"normalized_0_1"}},"maxDistance":10.0}}"#,
+                    camera.camera,
+                ),
+            )
+            .expect("voxel selection reaches Rust authority"),
+        )
+        .expect("voxel selection JSON decodes");
+        assert!(selection["selectionHash"].as_str().is_some());
+        let mesh_evidence: serde_json::Value = serde_json::from_str(
+            &read_voxel_mesh_evidence(
+                handle,
+                r#"{"grid":1,"chunks":[{"x":0,"y":0,"z":0}]}"#.to_string(),
+            )
+            .expect("voxel mesh evidence reaches Rust authority"),
+        )
+        .expect("voxel mesh evidence JSON decodes");
+        assert_eq!(mesh_evidence["chunks"].as_array().map(Vec::len), Some(1));
+
+        let seed_buffer = get_buffer(handle, 0).expect("seed buffer crosses native transport");
+        assert_eq!(seed_buffer.bytes, 7_u64.to_le_bytes().to_vec());
+        release_buffer(handle, 0).expect("manual buffer release reaches Rust authority");
+        assert!(get_buffer(handle, 0).is_err());
+
+        let scene: serde_json::Value = serde_json::from_str(
+            &read_scene_object_snapshot(handle).expect("scene hierarchy reads through Rust"),
+        )
+        .expect("scene hierarchy JSON decodes");
+        let document_hash = scene["documentHash"]
+            .as_u64()
+            .expect("scene hash is an unsigned integer");
+        let scene_command: serde_json::Value = serde_json::from_str(
+            &apply_scene_object_command(
+                handle,
+                serde_json::json!({
+                    "expectedDocumentHash": document_hash,
+                    "command": { "kind": "select", "id": 1 },
+                })
+                .to_string(),
+            )
+            .expect("scene selection reaches Rust authority"),
+        )
+        .expect("scene command JSON decodes");
+        assert_eq!(scene_command["accepted"], true);
+        assert_eq!(scene_command["outcome"]["selected"], 1);
+
+        let model_preview: serde_json::Value = serde_json::from_str(
+            &read_model_material_preview(handle, scene_preview::model_preview_test_request_json())
+                .expect("model material preview reaches Rust authority"),
+        )
+        .expect("model material preview JSON decodes");
+        assert_eq!(model_preview["rendererClassification"], "runtime_readback");
+        assert_eq!(model_preview["previewDiff"]["ops"].as_array().map(Vec::len), Some(3));
         let orbit: runtime_bridge_api::CameraModeChangeReceipt = serde_json::from_str(
             &apply_camera_mode_command(
                 handle,
                 format!(
-                    r#"{{"camera":{},"expectedRevision":0,"target":{{"mode":"orbit","pivot":[2.0,1.0,-4.0],"distance":8.0,"minDistance":2.0,"maxDistance":30.0,"yawDegrees":20.0,"pitchDegrees":-25.0}},"transition":{{"durationMilliseconds":250,"easing":"smoothStep"}},"tick":9}}"#,
+                    r#"{{"camera":{},"expectedRevision":1,"target":{{"mode":"orbit","pivot":[2.0,1.0,-4.0],"distance":8.0,"minDistance":2.0,"maxDistance":30.0,"yawDegrees":20.0,"pitchDegrees":-25.0}},"transition":{{"durationMilliseconds":250,"easing":"smoothStep"}},"tick":10}}"#,
                     camera.camera,
                 ),
             )
@@ -1249,7 +1353,7 @@ mod tests {
             &apply_camera_navigation_input(
                 handle,
                 format!(
-                    r#"{{"camera":{},"expectedRevision":1,"input":{{"panRight":0.5,"panForward":0.0,"yawDeltaDegrees":5.0,"pitchDeltaDegrees":-2.0,"zoomDelta":1.0,"dtSeconds":0.25,"panSpeedUnitsPerSecond":4.0}},"tick":10}}"#,
+                    r#"{{"camera":{},"expectedRevision":2,"input":{{"panRight":0.5,"panForward":0.0,"yawDeltaDegrees":5.0,"pitchDeltaDegrees":-2.0,"zoomDelta":1.0,"dtSeconds":0.25,"panSpeedUnitsPerSecond":4.0}},"tick":11}}"#,
                     camera.camera,
                 ),
             )
@@ -1264,7 +1368,6 @@ mod tests {
         )
         .expect("camera controller state decodes");
         assert_eq!(controller, navigated.after);
-
         let moved = apply_enemy_direct_nav_movement(
             handle,
             777,
@@ -1350,7 +1453,7 @@ mod tests {
             projection.presentation.replay_scope,
             "excludedFromReplayTruth"
         );
-        assert_eq!(projection.presentation.ops.len(), 5);
+        assert_eq!(projection.presentation.ops.len(), 8);
         assert_eq!(projection.presentation.ops[0].domain, "audio");
         assert_eq!(
             projection.presentation.ops[0]
@@ -1387,9 +1490,25 @@ mod tests {
                 .map(|descriptor| descriptor.visible),
             Some(true)
         );
-        assert_eq!(projection.presentation.ops[4].domain, "telemetryOverlay");
+        assert_eq!(projection.presentation.ops[4].domain, "animation");
+        assert_eq!(projection.presentation.ops[5].domain, "animation");
+        assert_eq!(projection.presentation.ops[6].domain, "animation");
+        let animation = projection.presentation.ops[6]
+            .animation_op
+            .as_ref()
+            .and_then(|operation| operation.controller.as_ref())
+            .expect("latest animation update crosses the native border");
+        assert_eq!(animation.state_id, "ready");
         assert_eq!(
-            projection.presentation.ops[4]
+            animation
+                .timing_fact
+                .as_ref()
+                .map(|fact| fact.to_state_id.as_str()),
+            Some("primary_fire")
+        );
+        assert_eq!(projection.presentation.ops[7].domain, "telemetryOverlay");
+        assert_eq!(
+            projection.presentation.ops[7]
                 .telemetry_overlay_op
                 .as_ref()
                 .map(|op| op.op.as_str()),
@@ -1412,6 +1531,9 @@ mod tests {
         let status = get_project_bundle_composition_status(handle).expect("composition reads");
         assert_eq!(status.loaded_project_bundle, Some(1001));
         assert_eq!(status.fatal_count, 0);
+        unload_project_bundle(handle).expect("ProjectBundle unload reaches Rust authority");
+        let status = get_project_bundle_composition_status(handle).expect("composition reads");
+        assert_eq!(status.loaded_project_bundle, None);
     }
 
     #[test]

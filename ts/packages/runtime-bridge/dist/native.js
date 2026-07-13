@@ -35,6 +35,17 @@ export const NATIVE_WIRED_OPERATIONS = new Set([
     'apply_camera_navigation_input',
     'read_camera_controller_state',
     'apply_collision_constrained_camera_input',
+    'apply_first_person_camera_input',
+    'read_camera_projection',
+    'pick_voxel',
+    'select_voxel',
+    'read_voxel_mesh_evidence',
+    'get_buffer',
+    'release_buffer',
+    'unload_project_bundle',
+    'read_model_material_preview',
+    'read_scene_object_snapshot',
+    'apply_scene_object_command',
     'apply_generated_tunnel_to_runtime_world',
     'apply_enemy_direct_nav_movement',
     'load_fps_runtime_session',
@@ -121,7 +132,7 @@ function parseNativeJson(payload, field) {
 }
 function projectBundleCompositionStatusFromNative(status) {
     return {
-        loadedProjectBundle: status.loadedProjectBundle,
+        loadedProjectBundle: status.loadedProjectBundle ?? null,
         fatalCount: status.fatalCount,
         totalCount: status.totalCount,
         blocksLoad: status.blocksLoad,
@@ -318,7 +329,11 @@ function projectionFrameFromNative(native) {
             && operation.billboardOp === undefined
             && operation.particleOp === undefined
             && operation.telemetryOverlayOp === undefined) {
-            return { domain: 'animation', meta: operation.meta, op: operation.animationOp };
+            return {
+                domain: 'animation',
+                meta: operation.meta,
+                op: animationProjectionOperationFromNative(operation.animationOp),
+            };
         }
         throw new RuntimeBridgeError('internal', `native presentation operation ${index} has an invalid closed-domain payload`);
     });
@@ -330,6 +345,47 @@ function projectionFrameFromNative(native) {
             replayScope: native.presentation.replayScope,
             ops,
         },
+    };
+}
+function animationProjectionOperationFromNative(operation) {
+    if (operation.op === 'destroy') {
+        return operation;
+    }
+    if (operation.op === 'create') {
+        if (operation.descriptor === undefined) {
+            throw new RuntimeBridgeError('internal', 'native animation create descriptor is missing');
+        }
+        return {
+            ...operation,
+            descriptor: {
+                ...operation.descriptor,
+                controller: animationControllerFromNative(operation.descriptor.controller),
+            },
+        };
+    }
+    if (operation.controller === undefined) {
+        throw new RuntimeBridgeError('internal', 'native animation update controller is missing');
+    }
+    return {
+        ...operation,
+        controller: animationControllerFromNative(operation.controller),
+    };
+}
+function animationControllerFromNative(controller) {
+    const native = controller;
+    return {
+        ...native,
+        motion: { ...native.motion, clipB: native.motion.clipB ?? null },
+        transition: native.transition === undefined
+            ? null
+            : {
+                ...native.transition,
+                targetMotion: {
+                    ...native.transition.targetMotion,
+                    clipB: native.transition.targetMotion.clipB ?? null,
+                },
+            },
+        timingFact: native.timingFact ?? null,
     };
 }
 function nativeFpsLoadRequest(request) {
@@ -592,14 +648,19 @@ export class NativeRuntimeBridge {
         return normalizeEncounterTransition(result);
     }
     readModelMaterialPreview(request) {
-        void request;
-        throw nativeUnimplemented('read_model_material_preview');
+        const handle = this.#requireHandle('readModelMaterialPreview');
+        const payload = callNative(() => this.#addon.readModelMaterialPreview(handle, JSON.stringify(request)));
+        return parseNativeJson(payload, 'model material preview snapshot');
     }
     readSceneObjectSnapshot() {
-        throw nativeUnimplemented('read_scene_object_snapshot');
+        const handle = this.#requireHandle('readSceneObjectSnapshot');
+        const payload = callNative(() => this.#addon.readSceneObjectSnapshot(handle));
+        return parseNativeJson(payload, 'scene object snapshot');
     }
-    applySceneObjectCommand() {
-        throw nativeUnimplemented('apply_scene_object_command');
+    applySceneObjectCommand(request) {
+        const handle = this.#requireHandle('applySceneObjectCommand');
+        const payload = callNative(() => this.#addon.applySceneObjectCommand(handle, JSON.stringify(request)));
+        return parseNativeJson(payload, 'scene object command result');
     }
     readRenderDiffs(cursor) {
         const handle = this.#requireHandle('readRenderDiffs');
@@ -729,8 +790,10 @@ export class NativeRuntimeBridge {
     // ── Unwired operations: fail-closed, never mock-backed ─────────────────────
     // Replace each body with its real native call (and add the manifest name to
     // NATIVE_WIRED_OPERATIONS) when the codegen emitter wires the `#[napi]` export.
-    pickVoxel() {
-        throw nativeUnimplemented('pick_voxel');
+    pickVoxel(ray) {
+        const handle = this.#requireHandle('pickVoxel');
+        const payload = callNative(() => this.#addon.pickVoxel(handle, JSON.stringify(ray)));
+        return parseNativeJson(payload, 'voxel pick result');
     }
     applyCollisionConstrainedCameraInput(envelope) {
         const handle = this.#requireHandle('applyCollisionConstrainedCameraInput');
@@ -758,11 +821,15 @@ export class NativeRuntimeBridge {
             },
         };
     }
-    selectVoxel() {
-        throw nativeUnimplemented('select_voxel');
+    selectVoxel(request) {
+        const handle = this.#requireHandle('selectVoxel');
+        const payload = callNative(() => this.#addon.selectVoxel(handle, JSON.stringify(request)));
+        return parseNativeJson(payload, 'voxel selection snapshot');
     }
-    readVoxelMeshEvidence() {
-        throw nativeUnimplemented('read_voxel_mesh_evidence');
+    readVoxelMeshEvidence(request) {
+        const handle = this.#requireHandle('readVoxelMeshEvidence');
+        const payload = callNative(() => this.#addon.readVoxelMeshEvidence(handle, JSON.stringify(request)));
+        return parseNativeJson(payload, 'voxel mesh evidence snapshot');
     }
     readVoxelEditHistory(request) {
         const handle = this.#requireHandle('readVoxelEditHistory');
@@ -808,20 +875,32 @@ export class NativeRuntimeBridge {
         const payload = callNative(() => this.#addon.readCameraControllerState(handle, JSON.stringify(request)));
         return parseNativeJson(payload, 'camera controller state');
     }
-    applyFirstPersonCameraInput() {
-        throw nativeUnimplemented('apply_first_person_camera_input');
+    applyFirstPersonCameraInput(input) {
+        const handle = this.#requireHandle('applyFirstPersonCameraInput');
+        return callNative(() => this.#addon.applyFirstPersonCameraInput(handle, input));
     }
-    readCameraProjection() {
-        throw nativeUnimplemented('read_camera_projection');
+    readCameraProjection(request) {
+        const handle = this.#requireHandle('readCameraProjection');
+        const payload = callNative(() => this.#addon.readCameraProjection(handle, JSON.stringify(request)));
+        return parseNativeJson(payload, 'camera projection snapshot');
     }
-    getBuffer() {
-        throw nativeUnimplemented('get_buffer');
+    getBuffer(bufferHandle) {
+        const handle = this.#requireHandle('getBuffer');
+        const validatedBufferHandle = nonNegativeSafeInteger(bufferHandle, 'buffer handle');
+        const view = callNative(() => this.#addon.getBuffer(handle, validatedBufferHandle));
+        return {
+            handle: nonNegativeSafeInteger(view.handle, 'returned buffer handle'),
+            bytes: Uint8Array.from(view.bytes),
+        };
     }
-    releaseBuffer() {
-        throw nativeUnimplemented('release_buffer');
+    releaseBuffer(bufferHandle) {
+        const handle = this.#requireHandle('releaseBuffer');
+        const validatedBufferHandle = nonNegativeSafeInteger(bufferHandle, 'buffer handle');
+        callNative(() => this.#addon.releaseBuffer(handle, validatedBufferHandle));
     }
     unloadProjectBundle() {
-        throw nativeUnimplemented('unload_project_bundle');
+        const handle = this.#requireHandle('unloadProjectBundle');
+        callNative(() => this.#addon.unloadProjectBundle(handle));
     }
     loadReplayFixture() {
         throw nativeUnimplemented('load_replay_fixture');

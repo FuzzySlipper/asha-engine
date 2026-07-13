@@ -330,11 +330,14 @@ function material(
   return {
     op: 'defineMaterial',
     material: {
+      schemaVersion: 2,
       id,
       color,
       texture: null,
       roughness: 1,
-      emissive: 0,
+      textureTint: [1, 1, 1, 1],
+      emissionColor: [0, 0, 0],
+      emissionIntensity: 0,
       uvStrategy: 'flat',
     },
   };

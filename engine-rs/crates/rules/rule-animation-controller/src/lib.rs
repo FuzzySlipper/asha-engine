@@ -18,9 +18,21 @@ use rule_state_machine::{
 };
 use serde::{Deserialize, Serialize};
 
+mod hashing;
+mod timing;
+
+use hashing::{
+    canonical_catalog_hash, canonical_graph_hash, controller_state_hash, replay_hash, stable_hash,
+    stable_id,
+};
+use timing::{transition_timing_fact, validate_input_origin};
+pub use timing::{
+    AnimationInputOrigin, AnimationTransitionFactMoment, AnimationTransitionTimingFact,
+};
+
 pub const ANIMATION_CATALOG_SCHEMA_VERSION: u32 = 1;
-pub const ANIMATION_SNAPSHOT_SCHEMA_VERSION: u32 = 1;
-pub const AUTHORITY_VERSION: &str = "rule-animation-controller.v0";
+pub const ANIMATION_SNAPSHOT_SCHEMA_VERSION: u32 = 2;
+pub const AUTHORITY_VERSION: &str = "rule-animation-controller.v1";
 pub const BLEND_WEIGHT_SCALE: i32 = 1_000;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -189,6 +201,7 @@ pub enum AnimationCatalogDiagnosticCode {
     MissingState,
     MissingParameter,
     ParameterTypeMismatch,
+    InvalidPlaybackSpeed,
     InvalidBlendRange,
     AmbiguousTransition,
     UnreachableState,
@@ -546,7 +559,18 @@ fn validate_motion(
     diagnostics: &mut Vec<AnimationCatalogDiagnostic>,
 ) {
     match motion {
-        AnimationMotionDefinition::Clip { clip_id, .. } => {
+        AnimationMotionDefinition::Clip {
+            clip_id,
+            speed_milli,
+        } => {
+            if *speed_milli <= 0 {
+                diagnostic(
+                    diagnostics,
+                    AnimationCatalogDiagnosticCode::InvalidPlaybackSpeed,
+                    format!("{path}.speedMilli"),
+                    "clip playback speed must be positive",
+                );
+            }
             if !asset_clips.contains(clip_id) {
                 diagnostic(
                     diagnostics,
@@ -562,8 +586,16 @@ fn validate_motion(
             high_clip_id,
             minimum_milli,
             maximum_milli,
-            ..
+            speed_milli,
         } => {
+            if *speed_milli <= 0 {
+                diagnostic(
+                    diagnostics,
+                    AnimationCatalogDiagnosticCode::InvalidPlaybackSpeed,
+                    format!("{path}.speedMilli"),
+                    "linear blend playback speed must be positive",
+                );
+            }
             for (field, clip) in [("lowClipId", low_clip_id), ("highClipId", high_clip_id)] {
                 if !asset_clips.contains(clip) {
                     diagnostic(
@@ -700,6 +732,7 @@ pub struct AnimationControllerState {
     pub parameters: BTreeMap<String, AnimationParameterValue>,
     pub motion: ResolvedAnimationMotion,
     pub transition: Option<AnimationTransitionState>,
+    pub timing_fact: Option<AnimationTransitionTimingFact>,
     pub state_hash: String,
 }
 
@@ -732,6 +765,7 @@ pub enum AnimationControllerInput {
     },
     Tick {
         tick: u64,
+        origin: AnimationInputOrigin,
     },
 }
 
@@ -765,6 +799,7 @@ pub enum AnimationAuthorityError {
     SnapshotStateMismatch { entity: u64 },
     SnapshotReplayMismatch,
     ReplaySequenceMismatch { expected: u64, actual: u64 },
+    InvalidOrigin(String),
 }
 
 impl core::fmt::Display for AnimationAuthorityError {
@@ -781,6 +816,7 @@ struct ControllerInstance {
     machine: MachineInstance,
     parameters: BTreeMap<String, AnimationParameterValue>,
     transition: Option<ActiveTransition>,
+    last_timing_fact: Option<AnimationTransitionTimingFact>,
     last_tick: u64,
     last_emitted_hash: Option<String>,
 }
@@ -793,6 +829,7 @@ struct ActiveTransition {
     to_state_id: String,
     elapsed_ticks: u32,
     duration_ticks: u32,
+    origin: AnimationInputOrigin,
 }
 
 #[derive(Debug, Clone)]
@@ -900,7 +937,30 @@ impl AnimationControllerAuthority {
         entity: EntityId,
         tick: u64,
     ) -> Result<AnimationAuthorityReceipt, AnimationAuthorityError> {
-        self.apply_input(entity, AnimationControllerInput::Tick { tick }, true)
+        self.tick_from_fact(
+            entity,
+            tick,
+            AnimationInputOrigin {
+                source_fact_id: format!("animation.input:{}:{tick}", entity.raw()),
+                authority_tick: tick,
+                causation_id: format!("animation.input:{}:{tick}", entity.raw()),
+                correlation_id: format!("animation.entity:{}", entity.raw()),
+            },
+        )
+    }
+
+    pub fn tick_from_fact(
+        &mut self,
+        entity: EntityId,
+        tick: u64,
+        origin: AnimationInputOrigin,
+    ) -> Result<AnimationAuthorityReceipt, AnimationAuthorityError> {
+        validate_input_origin(&origin)?;
+        self.apply_input(
+            entity,
+            AnimationControllerInput::Tick { tick, origin },
+            true,
+        )
     }
 
     fn apply_input(
@@ -947,6 +1007,7 @@ impl AnimationControllerAuthority {
                         },
                         parameters,
                         transition: None,
+                        last_timing_fact: None,
                         last_tick: 0,
                         last_emitted_hash: None,
                     },
@@ -976,7 +1037,7 @@ impl AnimationControllerAuthority {
                 AnimationParameterKind::Trigger,
                 AnimationParameterValue::Trigger(true),
             )?,
-            AnimationControllerInput::Tick { tick } => {
+            AnimationControllerInput::Tick { tick, origin } => {
                 let controller = self
                     .controllers
                     .get_mut(&entity)
@@ -995,7 +1056,11 @@ impl AnimationControllerAuthority {
                     .ok_or_else(|| {
                         AnimationAuthorityError::CorruptGraph(controller.graph_id.clone())
                     })?;
-                evaluate_tick(graph, controller)?;
+                let input_sequence = self.records.len() as u64;
+                if let Some(fact) = evaluate_tick(graph, controller, input_sequence, *tick, origin)?
+                {
+                    controller.last_timing_fact = Some(fact);
+                }
                 controller.last_tick = *tick;
             }
         }
@@ -1121,6 +1186,7 @@ impl AnimationControllerAuthority {
                 },
                 parameters: stored.parameters,
                 transition: stored.transition,
+                last_timing_fact: stored.last_timing_fact,
                 last_tick: stored.last_tick,
                 last_emitted_hash: stored.last_emitted_hash,
             };
@@ -1173,6 +1239,7 @@ impl AnimationControllerAuthority {
                     revision: controller.machine.revision,
                     parameters: controller.parameters.clone(),
                     transition: controller.transition.clone(),
+                    last_timing_fact: controller.last_timing_fact.clone(),
                     last_tick: controller.last_tick,
                     last_emitted_hash: controller.last_emitted_hash.clone(),
                     state_hash: state.state_hash,
@@ -1191,13 +1258,25 @@ impl AnimationControllerAuthority {
 fn evaluate_tick(
     graph: &ValidatedGraph,
     controller: &mut ControllerInstance,
-) -> Result<(), AnimationAuthorityError> {
+    input_sequence: u64,
+    tick: u64,
+    origin: &AnimationInputOrigin,
+) -> Result<Option<AnimationTransitionTimingFact>, AnimationAuthorityError> {
     if let Some(active) = controller.transition.as_mut() {
         active.elapsed_ticks = active.elapsed_ticks.saturating_add(1);
         if active.elapsed_ticks >= active.duration_ticks {
+            let completed = active.clone();
             complete_transition(graph, controller)?;
+            return Ok(Some(transition_timing_fact(
+                graph,
+                controller,
+                &completed,
+                input_sequence,
+                tick,
+                AnimationTransitionFactMoment::Completed,
+            )));
         }
-        return Ok(());
+        return Ok(None);
     }
 
     let current_state = graph
@@ -1214,7 +1293,7 @@ fn evaluate_tick(
         })
         .cloned();
     let Some(selected) = selected else {
-        return Ok(());
+        return Ok(None);
     };
     consume_transition_triggers(&selected.conditions, &mut controller.parameters);
     controller.transition = Some(ActiveTransition {
@@ -1223,11 +1302,35 @@ fn evaluate_tick(
         to_state_id: selected.to_state_id,
         elapsed_ticks: 0,
         duration_ticks: selected.duration_ticks,
+        origin: origin.clone(),
     });
     if selected.duration_ticks == 0 {
+        let completed = controller
+            .transition
+            .clone()
+            .expect("zero-duration transition was just installed");
         complete_transition(graph, controller)?;
+        return Ok(Some(transition_timing_fact(
+            graph,
+            controller,
+            &completed,
+            input_sequence,
+            tick,
+            AnimationTransitionFactMoment::Completed,
+        )));
     }
-    Ok(())
+    let started = controller
+        .transition
+        .as_ref()
+        .expect("transition was just installed");
+    Ok(Some(transition_timing_fact(
+        graph,
+        controller,
+        started,
+        input_sequence,
+        tick,
+        AnimationTransitionFactMoment::Started,
+    )))
 }
 
 fn complete_transition(
@@ -1328,6 +1431,7 @@ fn resolved_state(
         parameters: controller.parameters.clone(),
         motion,
         transition,
+        timing_fact: controller.last_timing_fact.clone(),
         state_hash: String::new(),
     };
     state.state_hash = controller_state_hash(&state);
@@ -1453,83 +1557,8 @@ struct StoredController {
     revision: u64,
     parameters: BTreeMap<String, AnimationParameterValue>,
     transition: Option<ActiveTransition>,
+    last_timing_fact: Option<AnimationTransitionTimingFact>,
     last_tick: u64,
     last_emitted_hash: Option<String>,
     state_hash: String,
-}
-
-fn controller_state_hash(state: &AnimationControllerState) -> String {
-    let mut canonical = state.clone();
-    canonical.entity = 0;
-    canonical.state_hash.clear();
-    let encoded = serde_json::to_vec(&canonical).expect("animation controller state serializes");
-    stable_hash(&encoded)
-}
-
-fn replay_hash(records: &[AnimationControllerInputRecord]) -> String {
-    let encoded = serde_json::to_vec(records).expect("animation input records serialize");
-    stable_hash(&encoded)
-}
-
-fn canonical_catalog_hash(catalog: &AnimationCatalog) -> String {
-    let mut canonical = catalog.clone();
-    canonical
-        .assets
-        .sort_by(|left, right| left.asset_id.cmp(&right.asset_id));
-    for asset in &mut canonical.assets {
-        asset.clips.sort();
-    }
-    canonical
-        .graphs
-        .sort_by(|left, right| left.graph_id.cmp(&right.graph_id));
-    for graph in &mut canonical.graphs {
-        canonicalize_graph(graph);
-    }
-    let encoded = serde_json::to_vec(&canonical).expect("animation catalog serializes");
-    stable_hash(&encoded)
-}
-
-fn canonical_graph_hash(graph: &AnimationGraphDefinition) -> String {
-    let mut canonical = graph.clone();
-    canonicalize_graph(&mut canonical);
-    let encoded = serde_json::to_vec(&canonical).expect("animation graph serializes");
-    stable_hash(&encoded)
-}
-
-fn canonicalize_graph(graph: &mut AnimationGraphDefinition) {
-    graph
-        .parameters
-        .sort_by(|left, right| left.parameter_id.cmp(&right.parameter_id));
-    graph
-        .states
-        .sort_by(|left, right| left.state_id.cmp(&right.state_id));
-    graph
-        .transitions
-        .sort_by(|left, right| left.transition_id.cmp(&right.transition_id));
-    for transition in &mut graph.transitions {
-        transition.conditions.sort_by_key(|condition| {
-            serde_json::to_string(condition).expect("animation condition serializes")
-        });
-    }
-}
-
-fn stable_id(namespace: &str, value: &str) -> u64 {
-    let mut bytes = Vec::with_capacity(namespace.len() + value.len() + 1);
-    bytes.extend_from_slice(namespace.as_bytes());
-    bytes.push(0);
-    bytes.extend_from_slice(value.as_bytes());
-    fnv1a64(&bytes)
-}
-
-fn stable_hash(bytes: &[u8]) -> String {
-    format!("fnv1a64:{:016x}", fnv1a64(bytes))
-}
-
-fn fnv1a64(bytes: &[u8]) -> u64 {
-    let mut hash = 0xcbf29ce484222325_u64;
-    for byte in bytes {
-        hash ^= u64::from(*byte);
-        hash = hash.wrapping_mul(0x100000001b3);
-    }
-    hash
 }

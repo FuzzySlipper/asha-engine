@@ -1,4 +1,4 @@
-import type { AnimatedMeshAsset, AnimatedMeshInstanceDescriptor, AnimatedMeshPlaybackCommand, Material, MeshPayloadDescriptor, MeshPickHit, RenderDiff, RenderFrameDiff, RenderHandle, RenderLayer, RenderMaterialDescriptor, RenderMetadata, RenderNode, SpriteAtlasDescriptor, SpriteInstanceDescriptor, SpritePickHit, StaticMeshAsset, StaticMeshInstanceDescriptor, TextureDescriptor, Transform } from '@asha/contracts';
+import type { AnimatedMeshAsset, AnimatedMeshInstanceDescriptor, AnimatedMeshPlaybackCommand, Material, MaterialInstanceParameters, MeshPayloadDescriptor, MeshPickHit, RenderDiff, RenderFrameDiff, RenderHandle, RenderLayer, RenderMaterialDescriptor, RenderMetadata, RenderNode, SpriteAtlasDescriptor, SpriteInstanceDescriptor, SpritePickHit, StaticMeshAsset, StaticMeshInstanceDescriptor, TextureDescriptor, Transform } from '@asha/contracts';
 /** Raised when a render diff cannot be applied to the retained projection. */
 export declare class RenderProjectionError extends Error {
     constructor(message: string);
@@ -24,6 +24,11 @@ export interface StaticMeshProjectionNode extends RenderProjectionNodeBase {
     readonly kind: 'staticMesh';
     readonly asset: string;
     readonly instance: StaticMeshInstanceDescriptor;
+    readonly materialParameters: readonly MaterialInstanceParameterBinding[];
+}
+export interface MaterialInstanceParameterBinding {
+    readonly slot: number;
+    readonly parameters: MaterialInstanceParameters;
 }
 export interface AnimatedMeshProjectionNode extends RenderProjectionNodeBase {
     readonly kind: 'animatedMesh';

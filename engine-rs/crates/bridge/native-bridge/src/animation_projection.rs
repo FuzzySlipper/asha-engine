@@ -1,7 +1,8 @@
 use napi_derive::napi;
 use runtime_bridge_api::{
     AnimationControllerProjectionState, AnimationProjectionDescriptor, AnimationProjectionOp,
-    AnimationResolvedMotion, AnimationTransitionProjection,
+    AnimationResolvedMotion, AnimationTransitionFactMoment, AnimationTransitionFactRef,
+    AnimationTransitionProjection,
 };
 
 #[napi(object)]
@@ -47,6 +48,47 @@ impl From<AnimationTransitionProjection> for NativeAnimationTransitionProjection
 }
 
 #[napi(object)]
+pub struct NativeAnimationTransitionFactRef {
+    pub fact_id: String,
+    pub source_fact_id: String,
+    pub authority_tick: i64,
+    pub controller_input_sequence: i64,
+    pub controller_tick: i64,
+    pub causation_id: String,
+    pub correlation_id: String,
+    pub transition_id: String,
+    pub from_state_id: String,
+    pub to_state_id: String,
+    pub moment: String,
+    pub duration_ticks: u32,
+    pub fact_hash: String,
+}
+
+impl From<AnimationTransitionFactRef> for NativeAnimationTransitionFactRef {
+    fn from(value: AnimationTransitionFactRef) -> Self {
+        Self {
+            fact_id: value.fact_id,
+            source_fact_id: value.source_fact_id,
+            authority_tick: value.authority_tick as i64,
+            controller_input_sequence: value.controller_input_sequence as i64,
+            controller_tick: value.controller_tick as i64,
+            causation_id: value.causation_id,
+            correlation_id: value.correlation_id,
+            transition_id: value.transition_id,
+            from_state_id: value.from_state_id,
+            to_state_id: value.to_state_id,
+            moment: match value.moment {
+                AnimationTransitionFactMoment::Started => "started",
+                AnimationTransitionFactMoment::Completed => "completed",
+            }
+            .to_string(),
+            duration_ticks: value.duration_ticks,
+            fact_hash: value.fact_hash,
+        }
+    }
+}
+
+#[napi(object)]
 pub struct NativeAnimationControllerProjectionState {
     pub graph_id: String,
     pub graph_version: u32,
@@ -56,6 +98,7 @@ pub struct NativeAnimationControllerProjectionState {
     pub state_hash: String,
     pub motion: NativeAnimationResolvedMotion,
     pub transition: Option<NativeAnimationTransitionProjection>,
+    pub timing_fact: Option<NativeAnimationTransitionFactRef>,
 }
 
 impl From<AnimationControllerProjectionState> for NativeAnimationControllerProjectionState {
@@ -69,6 +112,7 @@ impl From<AnimationControllerProjectionState> for NativeAnimationControllerProje
             state_hash: value.state_hash,
             motion: value.motion.into(),
             transition: value.transition.map(Into::into),
+            timing_fact: value.timing_fact.map(|fact| (*fact).into()),
         }
     }
 }

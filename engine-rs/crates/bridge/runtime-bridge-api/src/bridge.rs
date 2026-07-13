@@ -221,6 +221,18 @@ pub trait RuntimeBridge {
         &mut self,
         request: VoxelEditHistoryRedoRequest,
     ) -> BridgeResult<VoxelEditHistoryRedoReceipt>;
+    /// Validate and project one catalog material on a typed static-mesh preview.
+    fn read_model_material_preview(
+        &self,
+        request: ModelMaterialPreviewRequest,
+    ) -> BridgeResult<ModelMaterialPreviewSnapshot>;
+    /// Read the canonical authored scene hierarchy without exposing mutable state.
+    fn read_scene_object_snapshot(&self) -> BridgeResult<SceneObjectSnapshotDto>;
+    /// Apply one hash-guarded authored scene hierarchy command through Rust authority.
+    fn apply_scene_object_command(
+        &mut self,
+        request: SceneObjectCommandRequestDto,
+    ) -> BridgeResult<SceneObjectCommandResultDto>;
     /// Load an FPS/ECRP ProjectBundle-shaped session through Rust authority.
     /// Stored definitions are validated/bootstraped by rule-lifecycle and
     /// svc-entity-authoring; failure leaves any prior FPS session untouched.

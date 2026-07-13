@@ -23,6 +23,7 @@ import {
 import {
   animationPlaybackReadout,
   loadRendererAnimatedMeshSource,
+  type AshaRendererAnimatedMeshProjection,
   type AshaRendererAnimatedMeshFrameReceipt,
   type AshaRendererAnimatedMeshPlaybackReadout,
   type AshaRendererAnimatedMeshResourceManifest,
@@ -168,6 +169,8 @@ export interface AshaRendererSurface {
   readonly canvas: HTMLCanvasElement;
   readonly frame: RenderFrameDiff;
   readonly animatedMeshPlayback: (handle: RenderHandle) => AshaRendererAnimatedMeshPlaybackReadout;
+  /** Renderer-only realization port for authority-authored G1 animation state. */
+  readonly animationProjection: AshaRendererAnimatedMeshProjection;
   readonly applyFrame: (frame: RenderFrameDiff) => AshaRendererAnimatedMeshFrameReceipt;
   readonly projectionSnapshot: () => RenderProjectionSnapshot;
   readonly cameraPose: () => AshaRendererSurfaceCameraPose;
@@ -330,6 +333,29 @@ function mountPreparedAshaRendererSurface(
     }
   };
 
+  const animationProjection: AshaRendererAnimatedMeshProjection = {
+    kind: 'asha_renderer_animated_mesh_projection.v0',
+    applyFrame,
+    // The mounted browser surface already advances mixer time in its render
+    // loop. AshaAnimationHost still calls this port after updating weights, but
+    // must not advance the same renderer a second time.
+    advance: () => ({ applied: true, diagnostics: [] }),
+    playback: (handle) => animationPlaybackReadout(
+      handle,
+      backendSurface.renderer.animatedMeshPlayback(handle),
+    ),
+    snapshot: () => backendSurface.renderer.snapshot(),
+    hasAnimationTarget: (handle) => backendSurface.renderer.has(handle),
+    setAnimationControllerWeights: (handle, clips) => {
+      backendSurface.renderer.setAnimationControllerWeights(handle, clips);
+    },
+    hasAnimationClips: (handle, clipIds) =>
+      backendSurface.renderer.hasAnimationControllerClips(handle, clipIds),
+    clearAnimationControllerWeights: (handle) => {
+      backendSurface.renderer.clearAnimationControllerWeights(handle);
+    },
+  };
+
   renderOnce(0);
   if (options.autoStart !== false) {
     start();
@@ -340,6 +366,7 @@ function mountPreparedAshaRendererSurface(
     backend: THREE_BACKEND_DIAGNOSTICS,
     canvas,
     frame,
+    animationProjection,
     animatedMeshPlayback: (handle) => animationPlaybackReadout(handle, backendSurface.animatedMeshPlayback(handle)),
     applyFrame,
     projectionSnapshot: () => projection.snapshot(),

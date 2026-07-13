@@ -1108,6 +1108,24 @@ impl RuntimeBridge for EngineBridge {
         self.redo_voxel_edit_authority(request)
     }
 
+    fn read_model_material_preview(
+        &self,
+        request: ModelMaterialPreviewRequest,
+    ) -> BridgeResult<ModelMaterialPreviewSnapshot> {
+        self.read_model_material_preview_authority(request)
+    }
+
+    fn read_scene_object_snapshot(&self) -> BridgeResult<SceneObjectSnapshotDto> {
+        self.read_scene_object_snapshot_authority()
+    }
+
+    fn apply_scene_object_command(
+        &mut self,
+        request: SceneObjectCommandRequestDto,
+    ) -> BridgeResult<SceneObjectCommandResultDto> {
+        self.apply_scene_object_command_authority(request)
+    }
+
     fn load_fps_runtime_session(
         &mut self,
         request: FpsRuntimeSessionLoadRequest,
@@ -1163,10 +1181,7 @@ impl RuntimeBridge for EngineBridge {
             .apply_primary_fire_for_roles(&projection, ray, tick, shooter_role, target_role, 0)
             .map_err(Self::fps_runtime_error)?;
         let result = Self::primary_fire_result(receipt);
-        self.project_primary_fire_audio(request, &result)?;
-        self.project_primary_fire_particles(request, &result)?;
-        self.project_primary_fire_billboards(request, &result)?;
-        self.project_primary_fire_telemetry_overlay(request.tick)?;
+        self.project_primary_fire_feedback(request, &result)?;
         Ok(result)
     }
 
@@ -1297,10 +1312,7 @@ impl RuntimeBridge for EngineBridge {
             )
             .map_err(Self::fps_runtime_error)?;
         let primary_fire = Self::primary_fire_result(receipt);
-        self.project_primary_fire_audio(request.primary_fire, &primary_fire)?;
-        self.project_primary_fire_particles(request.primary_fire, &primary_fire)?;
-        self.project_primary_fire_billboards(request.primary_fire, &primary_fire)?;
-        self.project_primary_fire_telemetry_overlay(request.primary_fire.tick)?;
+        self.project_primary_fire_feedback(request.primary_fire, &primary_fire)?;
         let replay_evidence = Self::extension_replay_evidence(
             &hook_receipt,
             "accepted",

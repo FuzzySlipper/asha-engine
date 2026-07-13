@@ -26,7 +26,13 @@ export type {
 export { AshaBillboardHost } from './billboard-host.js';
 export { AshaParticleHost } from './particle-host.js';
 export { AshaAnimationHost } from './animation-host.js';
-export type { AshaAnimationFrameReceipt } from './animation-host.js';
+export type {
+  AshaAnimationClipCueDefinition,
+  AshaAnimationCueSignalDomain,
+  AshaAnimationFrameReceipt,
+  AshaAnimationHostOptions,
+  AshaAnimationSampledCue,
+} from './animation-host.js';
 export { AshaLiveTelemetryCollector, AshaTelemetryOverlayHost } from './telemetry-host.js';
 export type {
   AshaBillboardContainer,

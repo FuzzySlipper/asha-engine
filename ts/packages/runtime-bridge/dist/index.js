@@ -10,6 +10,7 @@
 // hatches. The manifest-derived conformance tests keep these re-exports stable.
 export { MANIFEST_OPERATIONS } from './generated/operations.js';
 export { ResolvedTimeControlConsumer, TIME_CONTROL_INPUT_ACTIONS, timeControlCommandFromResolvedAction, } from './resolved-time-control.js';
+export { buildRuntimeSessionAnimationControllerTargetFrame } from './runtime-session-animation.js';
 // Render-diff decode (moved from the former @asha/wasm-bridge). Transport-neutral
 // payload -> contract types; backs `readRenderDiffs`. See render-decode.ts.
 export { decodeRenderDiff, decodeRenderFrameDiff, RenderDecodeError, RenderDiffStream, FrameMemory, } from './render-decode.js';

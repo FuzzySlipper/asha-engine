@@ -10,6 +10,7 @@ import {
 import type {
   Geometry,
   Material,
+  MaterialInstanceParameters,
   MeshCollisionPolicy,
   MeshMaterialSlot,
   MeshPickHit,
@@ -87,6 +88,10 @@ interface NodeEntry {
    * find and replace exactly the affected materials (#2376). `null` = unmanaged.
    */
   materialIds?: (string | null)[];
+  /** Material-array indices whose material object belongs only to this instance. */
+  ownedMaterialIndices?: Set<number>;
+  /** Complete per-slot feedback overrides, keyed by material-array index. */
+  materialParameterOverrides?: Map<number, MaterialInstanceParameters>;
 }
 
 /** A defined static mesh asset: one shared geometry + materials, reference-counted. */
@@ -176,6 +181,9 @@ export class ThreeRenderer {
         break;
       case 'defineMaterial':
         this.#defineMaterial(diff.material);
+        break;
+      case 'setMaterialInstanceParameters':
+        this.#setMaterialInstanceParameters(diff);
         break;
       case 'defineTexture':
         this.#textures.set(diff.texture.id, diff.texture);
@@ -345,7 +353,7 @@ export class ThreeRenderer {
       // Shared geometry: dispose only this instance's override materials, then
       // release the asset reference. The asset's geometry is disposed only when
       // its last instance is gone (reference-safe — never while another shares it).
-      disposeInstanceOverrides(entry.object);
+      disposeInstanceMaterials(entry);
       this.#releaseStaticMesh(entry.asset);
     } else if (entry.kind === 'animatedMesh') {
       this.#animatedMeshes.release(diff.handle);
@@ -414,7 +422,7 @@ export class ThreeRenderer {
     const materials = def.materials.slice();
     // Catalog material id behind each material-array entry (for live redefine).
     const materialIds: (string | null)[] = def.materialSlots.map((s) => s.material);
-    const ownMaterials: THREE.Material[] = [];
+    const ownedMaterialIndices = new Set<number>();
     for (const ov of diff.instance.materialOverrides) {
       const idx = def.slotIndex.get(ov.slot);
       if (idx === undefined) {
@@ -425,11 +433,9 @@ export class ThreeRenderer {
       const m = this.#materialFor(ov);
       materials[idx] = m;
       materialIds[idx] = ov.material;
-      ownMaterials.push(m);
+      ownedMaterialIndices.add(idx);
     }
     const mesh = new THREE.Mesh(def.geometry, materials.length === 1 ? materials[0]! : materials);
-    // Instance-owned override materials (disposed on destroy; shared ones aren't).
-    mesh.userData['ownMaterials'] = ownMaterials;
     applyTransform(mesh, diff.instance.transform);
     applyMetadata(mesh, diff.instance.metadata);
 
@@ -444,6 +450,8 @@ export class ThreeRenderer {
       asset: diff.instance.asset,
       ownsGeometry: false,
       materialIds,
+      ownedMaterialIndices,
+      materialParameterOverrides: new Map(),
     });
   }
 
@@ -532,17 +540,30 @@ export class ThreeRenderer {
    * reach the renderer.
    */
   #defineMaterial(material: RenderMaterialDescriptor): void {
-    const isRedefine = this.#materials.has(material.id);
     this.#materials.set(material.id, material);
-    if (isRedefine) {
-      this.#replaceLiveMaterial(material.id);
-    }
+    this.#replaceLiveMaterial(material.id);
   }
 
-  /** Rebuild every live static-mesh material bound to `id`, disposing the old. */
+  /** Rebuild shared bases and every live instance material bound to `id`. */
   #replaceLiveMaterial(id: string): void {
+    const replacedSharedMaterials = new Set<THREE.Material>();
+    for (const def of this.#staticMeshes.values()) {
+      for (let index = 0; index < def.materialSlots.length; index += 1) {
+        const slot = def.materialSlots[index]!;
+        if (slot.material !== id) {
+          continue;
+        }
+        replacedSharedMaterials.add(def.materials[index]!);
+        def.materials[index] = this.#materialFor(slot);
+      }
+    }
+
     for (const entry of this.#handles.values()) {
-      if (entry.kind !== 'staticMesh' || !entry.materialIds) {
+      if (entry.kind !== 'staticMesh' || !entry.materialIds || entry.asset === undefined) {
+        continue;
+      }
+      const def = this.#staticMeshes.get(entry.asset);
+      if (def === undefined) {
         continue;
       }
       const mesh = entry.object as THREE.Mesh;
@@ -552,15 +573,78 @@ export class ThreeRenderer {
         if (entry.materialIds[i] !== id) {
           continue;
         }
-        const replacement = this.#materialFor({ slot: i, material: id });
-        (arr[i] as THREE.Material | undefined)?.dispose();
+        if (entry.ownedMaterialIndices?.has(i)) {
+          arr[i]?.dispose();
+        }
+        const parameters = entry.materialParameterOverrides?.get(i);
+        const baseSlot = def.materialSlots[i];
+        const usesSharedBase = parameters === undefined && baseSlot?.material === id;
+        const replacement = usesSharedBase
+          ? def.materials[i]!
+          : this.#materialFor({ slot: baseSlot?.slot ?? i, material: id }, parameters);
         arr[i] = replacement;
+        if (usesSharedBase) {
+          entry.ownedMaterialIndices?.delete(i);
+        } else {
+          entry.ownedMaterialIndices?.add(i);
+        }
         changed = true;
       }
       if (changed) {
         mesh.material = arr.length === 1 ? arr[0]! : arr;
       }
     }
+    replacedSharedMaterials.forEach((material) => material.dispose());
+  }
+
+  #setMaterialInstanceParameters(
+    diff: Extract<RenderDiff, { op: 'setMaterialInstanceParameters' }>,
+  ): void {
+    const entry = this.#require(diff.handle, 'setMaterialInstanceParameters');
+    if (entry.kind !== 'staticMesh' || entry.asset === undefined || entry.materialIds === undefined) {
+      throw new RenderApplyError(
+        `setMaterialInstanceParameters: handle ${diff.handle} is not a static-mesh instance`,
+      );
+    }
+    const def = this.#staticMeshes.get(entry.asset);
+    const index = def?.slotIndex.get(diff.slot);
+    if (def === undefined || index === undefined) {
+      throw new RenderApplyError(
+        `setMaterialInstanceParameters: unbound slot ${diff.slot} on ${entry.asset}`,
+      );
+    }
+    const materialId = entry.materialIds[index];
+    if (materialId === null || materialId === undefined) {
+      throw new RenderApplyError(
+        `setMaterialInstanceParameters: slot ${diff.slot} on ${entry.asset} has no material`,
+      );
+    }
+
+    const mesh = entry.object as THREE.Mesh;
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    if (entry.ownedMaterialIndices?.has(index)) {
+      materials[index]?.dispose();
+    }
+
+    const baseSlot = def.materialSlots[index]!;
+    if (diff.parameters === null) {
+      entry.materialParameterOverrides?.delete(index);
+      if (baseSlot.material === materialId) {
+        materials[index] = def.materials[index]!;
+        entry.ownedMaterialIndices?.delete(index);
+      } else {
+        materials[index] = this.#materialFor({ slot: diff.slot, material: materialId });
+        entry.ownedMaterialIndices?.add(index);
+      }
+    } else {
+      entry.materialParameterOverrides?.set(index, diff.parameters);
+      materials[index] = this.#materialFor(
+        { slot: diff.slot, material: materialId },
+        diff.parameters,
+      );
+      entry.ownedMaterialIndices?.add(index);
+    }
+    mesh.material = materials.length === 1 ? materials[0]! : materials;
   }
 
   /** A registered catalog material descriptor by id, for inspection/tests. */
@@ -578,19 +662,25 @@ export class ThreeRenderer {
     return [...this.#fallbackMaterials].sort();
   }
 
-  #materialFor(slot: MeshMaterialSlot): THREE.MeshBasicMaterial {
+  #materialFor(
+    slot: MeshMaterialSlot,
+    parameters?: MaterialInstanceParameters,
+  ): THREE.MeshStandardMaterial {
     // Resolve the slot's catalog material id → registered RenderMaterialDescriptor
     // (defineMaterial). A descriptor drives the real catalog colour; a missing one
     // falls back deterministically to the per-slot hue and is recorded (id + count)
     // so the gap is an observable diagnostic rather than silent (#2373/#2376).
     const descriptor = this.#materials.get(slot.material);
     if (descriptor) {
-      const [r, g, b] = descriptor.color;
-      return new THREE.MeshBasicMaterial({ color: new THREE.Color(r, g, b) });
+      return standardMaterial(descriptor, parameters);
     }
     this.#fallbackMaterialCount += 1;
     this.#fallbackMaterials.add(slot.material);
-    return new THREE.MeshBasicMaterial({ color: this.#slotColor(slot.slot) });
+    return new THREE.MeshStandardMaterial({
+      color: this.#slotColor(slot.slot),
+      roughness: 1,
+      metalness: 0,
+    });
   }
 
   /** A registered texture descriptor by id, for inspection/tests. */
@@ -862,17 +952,54 @@ function fmtMaterials(object: THREE.Object3D): string {
     list
       .map((m) => {
         const c = (m as THREE.MeshBasicMaterial).color;
-        return c ? `${fmtNum(c.r)},${fmtNum(c.g)},${fmtNum(c.b)}` : 'none';
+        if (!c) {
+          return 'none';
+        }
+        const color = `${fmtNum(c.r)},${fmtNum(c.g)},${fmtNum(c.b)}`;
+        if (
+          !(m instanceof THREE.MeshStandardMaterial)
+          || m.emissiveIntensity === 0
+          || (m.emissive.r === 0 && m.emissive.g === 0 && m.emissive.b === 0)
+        ) {
+          return color;
+        }
+        const emission = `${fmtNum(m.emissive.r)},${fmtNum(m.emissive.g)},${fmtNum(m.emissive.b)}`;
+        return `${color}~emit(${emission}*${fmtNum(m.emissiveIntensity)})`;
       })
       .join(' ') +
     ']'
   );
 }
 
-/** Dispose just an instance's *override* materials, leaving shared ones alone. */
-function disposeInstanceOverrides(object: THREE.Object3D): void {
-  const own = object.userData['ownMaterials'] as THREE.Material[] | undefined;
-  own?.forEach((m) => m.dispose());
+/** Dispose just this instance's owned materials, leaving shared asset bases alone. */
+function disposeInstanceMaterials(entry: NodeEntry): void {
+  const mesh = entry.object as THREE.Mesh;
+  const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  entry.ownedMaterialIndices?.forEach((index) => materials[index]?.dispose());
+}
+
+function standardMaterial(
+  descriptor: RenderMaterialDescriptor,
+  parameters?: MaterialInstanceParameters,
+): THREE.MeshStandardMaterial {
+  const tint = parameters?.textureTint ?? descriptor.textureTint;
+  const emissionColor = parameters?.emissionColor ?? descriptor.emissionColor;
+  const emissionIntensity = parameters?.emissionIntensity ?? descriptor.emissionIntensity;
+  const color = new THREE.Color(
+    descriptor.color[0] * tint[0],
+    descriptor.color[1] * tint[1],
+    descriptor.color[2] * tint[2],
+  );
+  const opacity = descriptor.color[3] * tint[3];
+  return new THREE.MeshStandardMaterial({
+    color,
+    emissive: new THREE.Color(emissionColor[0], emissionColor[1], emissionColor[2]),
+    emissiveIntensity: emissionIntensity,
+    metalness: 0,
+    opacity,
+    roughness: descriptor.roughness,
+    transparent: opacity < 1,
+  });
 }
 
 // ── Builders (contract → Three.js) ────────────────────────────────────────────

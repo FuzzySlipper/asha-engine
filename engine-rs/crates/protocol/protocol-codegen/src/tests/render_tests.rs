@@ -1,5 +1,33 @@
 use super::*;
 
+pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
+    coverage.extend([
+        interface_coverage_key("render", "MaterialInstanceParameters"),
+        variant_coverage_key("render", "RenderDiff", "setMaterialInstanceParameters"),
+    ]);
+}
+
+#[test]
+fn material_feedback_fixture_matches_render_ir_shape() {
+    let render = module("render");
+    let fixture_path = repo_root().join("harness/fixtures/render-diffs/material-feedback.json");
+    let fixture: Value = serde_json::from_str(
+        &std::fs::read_to_string(&fixture_path).unwrap_or_else(|err| {
+            panic!(
+                "failed to read material feedback render-diff fixture {}: {err}",
+                fixture_path.display()
+            )
+        }),
+    )
+    .unwrap();
+    let op = fixture["ops"]
+        .as_array()
+        .and_then(|ops| ops.last())
+        .expect("material feedback fixture should end with an operation");
+    compare_object_to_variant(&render, "RenderDiff", "setMaterialInstanceParameters", op).unwrap();
+    compare_object_to_interface(&render, "MaterialInstanceParameters", &op["parameters"]).unwrap();
+}
+
 #[test]
 fn animated_mesh_fixture_matches_render_ir_shape() {
     use protocol_render::{AnimatedMeshRuntimeFormat, AnimationLoopMode};

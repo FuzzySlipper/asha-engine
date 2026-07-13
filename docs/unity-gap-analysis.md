@@ -462,7 +462,7 @@ parallel mode (not replacing FPS, just adding a second mode). Note there is
 `CameraCollisionPolicyMode`) — a `CameraMode` enum must be introduced (#5604).
 Post-processing can be deferred to the material/renderer upgrade pass.
 
-### 17. Material System — BASIC ⚠️ (Medium Priority)
+### 17. Material System — FEEDBACK SLICE IMPLEMENTED ✅ (Medium Priority)
 
 **What it has:**
 - `protocol-render::Material`: flat Rgba color + wireframe flag
@@ -470,7 +470,14 @@ Post-processing can be deferred to the material/renderer upgrade pass.
 - `MaterialUvStrategy`: Flat, Planar, Atlas
 - Material slots on static meshes, resolved from catalog
 
-**What's missing:**
+**What is now implemented:**
+- Versioned material descriptors with texture tint and explicit emission
+  colour/intensity, including legacy defaults.
+- Per-instance, per-slot material feedback updates on stable render handles.
+- `MeshStandardMaterial` realization with instance isolation and reset.
+- Authority-derived structural goldens and a live two-state WebGL proof.
+
+**What's still missing:**
 - **PBR materials:** Albedo, metallic, roughness, normal map, emission.
   Currently everything is flat-shaded with a single color.
 - **Material instances:** "This specific wall has a dirt overlay" without
@@ -478,21 +485,18 @@ Post-processing can be deferred to the material/renderer upgrade pass.
 - **Shader graph / custom materials:** Defer — not needed for stylized voxel.
 - **Texture atlasing:** Planned but not built. Important for voxel face
   texturing to avoid thousands of draw calls.
-- **Runtime material parameter changes:** "Turn the warning light red when
-  machine jams." Currently requires a material swap or a new render handle.
+- **Parameter animation/blending:** Runtime changes are discrete retained
+  operations; renderer-owned interpolation remains deferred.
 
 **Why this matters for OSHApunk:** The voxel aesthetic depends on materials
 to communicate state. A factory where all machines are flat-shaded single-color
 blocks is illegible. Color coding (green = running, yellow = starved, red =
 jammed) is the minimum viable visual language.
 
-**Recommendation:** Extend `Material` to include:
-- `emission: Option<Rgba>` — for glow effects (warning lights, engine heat)
-- `texture_tint: Option<Rgba>` — multiply base texture by tint (color variation)
-
-Keep PBR for post-v1. Emission alone enables 80% of the state-communication
-use cases. Add a `SetMaterialParameter` render diff variant for per-instance
-parameter overrides (tint, emission intensity) without material duplication.
+**Recommendation:** Use the implemented typed material-feedback operation for
+discrete gameplay states. Keep PBR maps and parameter animation/blending for a
+later renderer pass; do not replace this narrow contract with a generic shader
+or plugin vocabulary. See `docs/material-feedback.md`.
 
 ### 18. LOD System — MISSING ❌ (Low-Medium Priority)
 

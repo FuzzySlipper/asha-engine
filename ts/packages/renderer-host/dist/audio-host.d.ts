@@ -86,6 +86,7 @@ export declare class AshaAudioHost {
     updateListener(pose: AshaAudioListenerPose): readonly AudioProjectionDiagnostic[];
     applyPresentation(presentation: PresentationFrameDiff): Promise<AshaAudioFrameReceipt>;
     readout(): AudioProjectionReadout;
+    refreshLayout(): readonly AudioProjectionDiagnostic[];
     dispose(): Promise<void>;
 }
 export interface AshaRuntimeProjectionApplicationPorts {

@@ -85,6 +85,7 @@ function controller(
         speedMilli: 1_000,
       },
     },
+    timingFact: null,
   };
 }
 
@@ -128,7 +129,8 @@ function updateFrame(targetClip = 'run'): PresentationFrameDiff {
       op: {
         op: 'update',
         handle: animationProjectionHandle(1),
-        controller: controller(1, 1, targetClip),
+        // FSM revision remains zero while fixed-tick transition progress moves.
+        controller: controller(0, 1, targetClip),
       },
     }],
   };
@@ -155,20 +157,31 @@ void test('G1 controller sequence drives deterministic renderer-local blend and 
       resolveResource: fixtureResolver,
     });
     assert.equal(projection.applyFrame(sceneFrame()).applied, true);
-    const host = new AshaAnimationHost(projection);
+    const resource = ASHA_RENDERER_HOST_ANIMATED_MESH_FIXTURE_MANIFEST.resources[0];
+    assert.ok(resource);
+    const host = new AshaAnimationHost(projection, {
+      cues: [{
+        cueId: 'locomotion.footfall',
+        asset: resource.asset,
+        clip: 'run',
+        atSeconds: 0.04,
+        signal: { domain: 'particle', id: 'locomotion.footfall.spark' },
+      }],
+    });
     assert.equal(host.applyPresentation(createFrame()).applied, 1);
     assert.deepEqual(projection.playback(renderHandle(4100)).controllerClips, [
       { clip: 'idle', weight: 1, speed: 1 },
     ]);
 
     assert.equal(host.applyPresentation(updateFrame()).applied, 1);
-    host.advance(0.025);
+    const firstSample = host.advance(0.025);
+    assert.deepEqual(firstSample.cues, []);
     assert.deepEqual(projection.playback(renderHandle(4100)).controllerClips, [
       { clip: 'idle', weight: 0.75, speed: 1 },
       { clip: 'run', weight: 0.25, speed: 1 },
     ]);
     const halfwayPose = projection.playback(renderHandle(4100)).poseSample;
-    host.advance(0.025);
+    const cueSample = host.advance(0.025);
     assert.deepEqual(projection.playback(renderHandle(4100)).controllerClips, [
       { clip: 'idle', weight: 0.5, speed: 1 },
       { clip: 'run', weight: 0.5, speed: 1 },
@@ -177,8 +190,31 @@ void test('G1 controller sequence drives deterministic renderer-local blend and 
       projection.playback(renderHandle(4100)).poseSample?.hierarchyRotationSum,
       halfwayPose?.hierarchyRotationSum,
     );
-    assert.equal(host.readout().sampledFrames, 2);
-    const destroyed = host.applyPresentation({
+    assert.deepEqual(cueSample.cues, [{
+      kind: 'asha.animation.sampled_cue.v1',
+      cueId: 'locomotion.footfall',
+      handle: animationProjectionHandle(1),
+      target: renderHandle(4100),
+      asset: resource.asset,
+      clip: 'run',
+      markerSeconds: 0.04,
+      sampledAtSeconds: 0.05,
+      signal: { domain: 'particle', id: 'locomotion.footfall.spark' },
+      origin: createFrame().ops[0]?.meta.origin ?? null,
+      replayScope: 'excludedFromReplayTruth',
+      authorityMutation: 'forbidden',
+    }]);
+    assert.deepEqual(host.advance(0.025).cues, []);
+    assert.equal(host.readout().sampledFrames, 3);
+    const cleanup = host.cleanup();
+    assert.equal(cleanup.applied, 1);
+    assert.equal(cleanup.readout.activeControllers, 0);
+    assert.equal(projection.playback(renderHandle(4100)).status, 'stopped');
+
+    const rebuilt = new AshaAnimationHost(projection);
+    assert.equal(rebuilt.applyPresentation(createFrame()).applied, 1);
+    assert.equal(rebuilt.applyPresentation(updateFrame()).applied, 1);
+    const destroyed = rebuilt.applyPresentation({
       replayScope: 'excludedFromReplayTruth',
       ops: [{
         domain: 'animation',

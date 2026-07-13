@@ -116,6 +116,21 @@ fn encode_diff(out: &mut String, diff: &RenderDiff) {
             encode_material_descriptor(out, material);
             out.push_str(" }");
         }
+        RenderDiff::SetMaterialInstanceParameters {
+            handle,
+            slot,
+            parameters,
+        } => {
+            out.push_str(&format!(
+                "{{ \"op\": \"setMaterialInstanceParameters\", \"handle\": {}, \"slot\": {}, \"parameters\": ",
+                handle.raw(), slot
+            ));
+            match parameters {
+                Some(parameters) => encode_material_instance_parameters(out, parameters),
+                None => out.push_str("null"),
+            }
+            out.push_str(" }");
+        }
         RenderDiff::DefineTexture { texture } => {
             out.push_str("{ \"op\": \"defineTexture\", \"texture\": ");
             encode_texture_descriptor(out, texture);
@@ -293,8 +308,9 @@ fn encode_sprite_atlas(out: &mut String, a: &protocol_render::SpriteAtlasDescrip
 
 fn encode_material_descriptor(out: &mut String, m: &protocol_render::RenderMaterialDescriptor) {
     out.push_str(&format!(
-        "{{ \"id\": {}, \"color\": ",
-        encode_json_string(&m.id)
+        "{{ \"schemaVersion\": {}, \"id\": {}, \"color\": ",
+        m.schema_version,
+        encode_json_string(&m.id),
     ));
     encode_f32_array(out, &m.color);
     out.push_str(", \"texture\": ");
@@ -303,10 +319,30 @@ fn encode_material_descriptor(out: &mut String, m: &protocol_render::RenderMater
         None => out.push_str("null"),
     }
     out.push_str(&format!(
-        ", \"roughness\": {}, \"emissive\": {}, \"uvStrategy\": \"{}\" }}",
-        m.roughness,
-        m.emissive,
-        m.uv_strategy.label()
+        ", \"roughness\": {}, \"textureTint\": ",
+        m.roughness
+    ));
+    encode_f32_array(out, &m.texture_tint);
+    out.push_str(", \"emissionColor\": ");
+    encode_f32_array(out, &m.emission_color);
+    out.push_str(&format!(
+        ", \"emissionIntensity\": {}, \"uvStrategy\": \"{}\" }}",
+        m.emission_intensity,
+        m.uv_strategy.label(),
+    ));
+}
+
+fn encode_material_instance_parameters(
+    out: &mut String,
+    p: &protocol_render::MaterialInstanceParameters,
+) {
+    out.push_str("{ \"textureTint\": ");
+    encode_f32_array(out, &p.texture_tint);
+    out.push_str(", \"emissionColor\": ");
+    encode_f32_array(out, &p.emission_color);
+    out.push_str(&format!(
+        ", \"emissionIntensity\": {} }}",
+        p.emission_intensity,
     ));
 }
 

@@ -7,7 +7,7 @@
       "sourcePath": null,
       "label": null,
       "dependencies": [{ "id": "texture/surface-atlas-a", "version": { "req": "any" }, "hash": null }],
-      "material": { "authority": { "solid": true, "collidable": true, "occludes": true, "structuralClass": "structural" }, "style": { "color": [0.5, 0.5, 0.5, 1], "texture": { "id": "texture/surface-atlas-a", "version": { "req": "any" }, "hash": null }, "roughness": 1, "emissive": 0, "uvStrategy": "flat" } }
+      "material": { "authority": { "solid": true, "collidable": true, "occludes": true, "structuralClass": "structural" }, "style": { "color": [0.5, 0.5, 0.5, 1], "texture": { "id": "texture/surface-atlas-a", "version": { "req": "any" }, "hash": null }, "textureTint": [1, 1, 1, 1], "emissionColor": [0.5, 0.5, 0.5, 1], "roughness": 1, "emissive": 0, "uvStrategy": "flat" } }
     },
     {
       "id": "mesh/fixture-a",

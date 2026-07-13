@@ -162,6 +162,7 @@ import {
   runtimeProjectionFrameHashRecord,
   stableHash,
 } from './runtime-session-hash.js';
+import { RuntimeSessionProgress } from './runtime-session-rust-progress.js';
 import {
   encounterReadoutFromFpsSnapshot,
   encounterTransitionResultForReceipt,
@@ -224,11 +225,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   readonly #gameplayHost: GameplayRuntimeHostTransport | null;
   #identity: RuntimeSessionIdentity | null = null;
   #engine: EngineHandle | null = null;
-  #sequenceId = 0;
-  #tick = 0;
-  #acceptedCommandCount = 0;
-  #rejectedCommandCount = 0;
-  #restartCount = 0;
+  readonly #progress = new RuntimeSessionProgress();
   #snapshot: FpsRuntimeSessionSnapshot | null = null;
   #ecrpProjectState: RuntimeSessionEcrpProjectState | null = null;
   #runtimeTransforms = new Map<number, RuntimeSessionEcrpTransformState>();
@@ -253,11 +250,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       projectBundle: input.projectBundle,
       nonClaims: rustRuntimeSessionNonClaims(),
     };
-    this.#sequenceId = 0;
-    this.#tick = 0;
-    this.#acceptedCommandCount = 0;
-    this.#rejectedCommandCount = 0;
-    this.#restartCount = 0;
+    this.#progress.initialize();
     this.#snapshot = snapshot;
     this.#ecrpProjectState = buildEcrpProjectState(defaultProject);
     this.#runtimeTransforms = new Map();
@@ -307,11 +300,11 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     const diagnostics = validateEcrpProjectLoadInput(input);
 
     if (diagnostics.length > 0) {
-      this.#sequenceId += 1;
+      this.#progress.advanceSequence();
       this.#record('loadEcrpProject');
       return {
         kind: 'runtime_session.ecrp_project_load_receipt.v0',
-        sequenceId: this.#sequenceId,
+        sequenceId: this.#progress.sequenceId,
         accepted: false,
         diagnostics,
         entityCount: 0,
@@ -323,7 +316,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
 
     this.#bridge.loadProjectBundle(input.projectBundle.runtimeRequest); // vocab-allow: RuntimeSession ECRP load adapts the legacy bridge operation.
     const snapshot = this.#bridge.loadFpsRuntimeSession(fpsLoadRequestFromEcrpProject(input));
-    this.#sequenceId += 1;
+    this.#progress.advanceSequence();
     this.#identity = {
       ...identity,
       project: input.projectBundle.project,
@@ -335,7 +328,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#record('loadEcrpProject', snapshot.replayHash);
     return {
       kind: 'runtime_session.ecrp_project_load_receipt.v0',
-      sequenceId: this.#sequenceId,
+      sequenceId: this.#progress.sequenceId,
       accepted: true,
       diagnostics: [],
       entityCount: snapshot.health.length,
@@ -349,16 +342,14 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#requireInitialized('submitCommands');
     const before = this.#sessionHash();
     const result = this.#bridge.submitCommands(batch);
-    this.#acceptedCommandCount += result.accepted;
-    this.#rejectedCommandCount += result.rejected;
-    this.#sequenceId += 1;
+    this.#progress.recordCommandBatch(result.accepted, result.rejected);
     this.#record('submitCommands');
     return {
-      sequenceId: this.#sequenceId,
+      sequenceId: this.#progress.sequenceId,
       batch,
       result,
-      acceptedCommandCount: this.#acceptedCommandCount,
-      rejectedCommandCount: this.#rejectedCommandCount,
+      acceptedCommandCount: this.#progress.acceptedCommandCount,
+      rejectedCommandCount: this.#progress.rejectedCommandCount,
       sessionHashBefore: before,
       sessionHashAfter: this.#sessionHash(),
     };
@@ -366,14 +357,13 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
 
   tick(input: RuntimeSessionTickInput = {}): RuntimeSessionTickResult {
     this.#requireInitialized('tick');
-    const nextTick = input.tick ?? this.#tick + 1;
+    const nextTick = this.#progress.nextSimulationTick(input.tick);
     const step = this.#bridge.stepSimulation({ tick: nextTick });
-    this.#tick = step.tick;
-    this.#sequenceId += 1;
+    this.#progress.recordSimulationTick(step.tick);
     this.#record('tick');
     return {
-      sequenceId: this.#sequenceId,
-      tick: this.#tick,
+      sequenceId: this.#progress.sequenceId,
+      tick: this.#progress.sessionTick,
       step,
       composition: this.#bridge.getProjectBundleCompositionStatus(),
       sessionHash: this.#sessionHash(),
@@ -383,10 +373,10 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   createCamera(request: CameraCreateRequest): RuntimeSessionCameraCreateReceipt {
     this.#requireInitialized('createCamera');
     const snapshot = this.#bridge.createCamera(request);
-    this.#sequenceId += 1;
+    this.#progress.advanceSequence();
     this.#record('createCamera');
     return {
-      sequenceId: this.#sequenceId,
+      sequenceId: this.#progress.sequenceId,
       request,
       snapshot,
       sessionHash: this.#sessionHash(),
@@ -396,14 +386,14 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   applyCameraModeCommand(command: CameraModeCommand): CameraModeChangeReceipt {
     this.#requireInitialized('applyCameraModeCommand');
     const receipt = this.#bridge.applyCameraModeCommand(command);
-    this.#sequenceId += 1;
+    this.#progress.advanceSequence();
     this.#record('applyCameraModeCommand');
     return receipt;
   }
   applyCameraNavigationInput(input: CameraNavigationInputEnvelope): CameraNavigationReceipt {
     this.#requireInitialized('applyCameraNavigationInput');
     const receipt = this.#bridge.applyCameraNavigationInput(input);
-    this.#sequenceId += 1;
+    this.#progress.advanceSequence();
     this.#record('applyCameraNavigationInput');
     return receipt;
   }
@@ -416,10 +406,10 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#requireInitialized('applyFirstPersonCameraInput');
     const before = this.#sessionHash();
     const snapshot = this.#bridge.applyFirstPersonCameraInput(envelope);
-    this.#sequenceId += 1;
+    this.#progress.advanceSequence();
     this.#record('applyFirstPersonCameraInput');
     return {
-      sequenceId: this.#sequenceId,
+      sequenceId: this.#progress.sequenceId,
       envelope,
       snapshot,
       sessionHashBefore: before,
@@ -433,10 +423,10 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#requireInitialized('applyCollisionConstrainedCameraInput');
     const before = this.#sessionHash();
     const snapshot = this.#bridge.applyCollisionConstrainedCameraInput(envelope);
-    this.#sequenceId += 1;
+    this.#progress.advanceSequence();
     this.#record('applyCollisionConstrainedCameraInput');
     return {
-      sequenceId: this.#sequenceId,
+      sequenceId: this.#progress.sequenceId,
       envelope,
       snapshot,
       collided: snapshot.collision.collided,
@@ -453,12 +443,12 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#requireInitialized('submitRuntimeActionIntent');
     validateRuntimeActionIntentEnvelope(envelope);
     const before = this.#sessionHash();
-    this.#sequenceId += 1;
+    this.#progress.advanceSequence();
 
     if (envelope.action !== 'primary_fire' || envelope.phase !== 'pressed') {
       this.#record('submitRuntimeActionIntent', undefined, envelope.source);
       return {
-        sequenceId: this.#sequenceId,
+        sequenceId: this.#progress.sequenceId,
         envelope,
         accepted: envelope.action === 'primary_fire' && envelope.phase === 'released',
         status: envelope.action === 'primary_fire' && envelope.phase === 'released' ? 'accepted' : 'unsupported',
@@ -479,11 +469,11 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       origin: [0, 1.62, 0],
       direction: [0, 0, -1],
     });
-    this.#tick = Math.max(this.#tick, envelope.tick);
+    this.#progress.recordProjectedAuthorityTick(envelope.tick);
     this.#snapshot = this.#bridge.readFpsRuntimeSession();
     this.#record('submitRuntimeActionIntent', fire.replayHash, envelope.source);
     return {
-      sequenceId: this.#sequenceId,
+      sequenceId: this.#progress.sequenceId,
       envelope,
       accepted: true,
       status: 'accepted',
@@ -501,12 +491,15 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#requireInitialized('submitGameExtensionWeaponEffect');
     const before = this.#sessionHash();
     const result = this.#bridge.invokeGameExtensionWeaponEffect({ hook, primaryFire });
-    this.#tick = Math.max(this.#tick, primaryFire.tick);
+    if (result.primaryFire !== null) {
+      this.#progress.recordProjectionTick(primaryFire.tick);
+    }
+    this.#progress.observeAuthorityTick(primaryFire.tick);
     this.#snapshot = this.#bridge.readFpsRuntimeSession();
-    this.#sequenceId += 1;
+    this.#progress.advanceSequence();
     this.#record('submitGameExtensionWeaponEffect', result.replayEvidence.replayHash);
     return {
-      sequenceId: this.#sequenceId,
+      sequenceId: this.#progress.sequenceId,
       request: { hook, primaryFire },
       hookReceipt: result.hookReceipt,
       replayEvidence: result.replayEvidence,
@@ -520,11 +513,11 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#requireInitialized('validateGameRuleCatalog');
     const before = this.#sessionHash();
     const receipt = this.#bridge.validateGameRuleCatalog(catalog);
-    this.#sequenceId += 1;
+    this.#progress.advanceSequence();
     this.#record('validateGameRuleCatalog', receipt.evidence.at(-1)?.contentHash);
     return {
       ...receipt,
-      sequenceId: this.#sequenceId,
+      sequenceId: this.#progress.sequenceId,
       catalog,
       sessionHashBefore: before,
       sessionHashAfter: this.#sessionHash(),
@@ -538,11 +531,11 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#requireInitialized('submitGameRuleEffectIntent');
     const before = this.#sessionHash();
     const receipt = this.#bridge.submitGameRuleEffectIntent({ catalog, request });
-    this.#sequenceId += 1;
+    this.#progress.advanceSequence();
     this.#record('submitGameRuleEffectIntent', receipt.replayHash);
     return {
       ...receipt,
-      sequenceId: this.#sequenceId,
+      sequenceId: this.#progress.sequenceId,
       catalog,
       request,
       sessionHashBefore: before,
@@ -559,7 +552,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#requireInitialized('runAutonomousPolicyTick');
     validateAutonomousPolicyTickInput(input);
 
-    const sequenceIdBefore = this.#sequenceId;
+    const sequenceIdBefore = this.#progress.sequenceId;
     const sessionHashBefore = this.#sessionHash();
     const step = this.tick(input.tick === undefined ? {} : { tick: input.tick });
     const sourceDiagnostics =
@@ -637,7 +630,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       proposalReceipts.push(runtimeActionReceiptToAutonomousReceipt(proposal, actionReceipt));
     }
 
-    this.#sequenceId += 1;
+    this.#progress.advanceSequence();
     const recordHashesBeforePolicyRecord = this.#replayRecords.map((record) => record.recordHash);
     const movementSummary = proposalReceipts.find((receipt) => receipt.movement !== null)?.movement ?? null;
     const combatSummary = proposalReceipts.find((receipt) => receipt.combat !== null)?.combat ?? null;
@@ -651,7 +644,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       receiptRejections: proposalReceipts.map((receipt) => receipt.rejection?.reason ?? null),
       navPathHash: authorityNavPathHash,
       replayRecordHashes: recordHashesBeforePolicyRecord,
-      sequenceIdAfter: this.#sequenceId,
+      sequenceIdAfter: this.#progress.sequenceId,
       runtimeSnapshotReplayHash: this.#snapshot?.replayHash ?? null,
     });
     this.#record('runAutonomousPolicyTick', tickHash);
@@ -725,9 +718,9 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       scenario: 'current_session',
       state: lifecycleStateFromFpsSnapshot(this.#requireSnapshot()),
       identity,
-      sequenceId: this.#sequenceId,
-      tick: this.#tick,
-      restartCount: this.#restartCount,
+      sequenceId: this.#progress.sequenceId,
+      tick: this.#progress.sessionTick,
+      restartCount: this.#progress.restartCount,
       sessionHash: this.#sessionHash(),
       restartReason: 'rust_epoch_restart',
     });
@@ -777,8 +770,8 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     const snapshot = this.#bridge.readFpsEncounterDirector(fpsEncounterLifecycleInput(lifecycle));
     return encounterReadoutFromFpsSnapshot({
       snapshot,
-      sequenceId: this.#sequenceId,
-      tick: this.#tick,
+      sequenceId: this.#progress.sequenceId,
+      tick: this.#progress.sessionTick,
       sessionSeed: identity.seed,
       sessionHash: this.#sessionHash(),
     });
@@ -794,8 +787,8 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     const beforeSnapshot = this.#bridge.readFpsEncounterDirector(fpsEncounterLifecycleInput(lifecycle));
     const before = encounterReadoutFromFpsSnapshot({
       snapshot: beforeSnapshot,
-      sequenceId: this.#sequenceId,
-      tick: this.#tick,
+      sequenceId: this.#progress.sequenceId,
+      tick: this.#progress.sessionTick,
       sessionSeed: identity.seed,
       sessionHash: sessionHashBefore,
     });
@@ -807,7 +800,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
         })
       : null;
 
-    this.#sequenceId += 1;
+    this.#progress.advanceSequence();
     if (result?.accepted) {
       this.#record('requestEncounterTransition', result.replayHash);
     } else {
@@ -829,14 +822,14 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
         };
     const after = encounterReadoutFromFpsSnapshot({
       snapshot: afterSnapshot,
-      sequenceId: this.#sequenceId,
-      tick: this.#tick,
+      sequenceId: this.#progress.sequenceId,
+      tick: this.#progress.sessionTick,
       sessionSeed: identity.seed,
       sessionHash: this.#sessionHash(),
     });
     return buildEncounterTransitionReceipt({
       request,
-      sequenceId: this.#sequenceId,
+      sequenceId: this.#progress.sequenceId,
       before,
       after,
       result: result === null
@@ -893,11 +886,11 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#requireInitialized('requestGeneratedTunnelOperation');
     validateGeneratedTunnelOperationRequest(request);
     const before = this.#sessionHash();
-    this.#sequenceId += 1;
+    this.#progress.advanceSequence();
     if (request.operation === 'regenerate') {
       this.#record('requestGeneratedTunnelOperation');
       return {
-        sequenceId: this.#sequenceId,
+        sequenceId: this.#progress.sequenceId,
         request,
         operation: request.operation,
         status: 'unsupported',
@@ -913,7 +906,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     });
     this.#record('requestGeneratedTunnelOperation', applied.collisionProjectionHash);
     return {
-      sequenceId: this.#sequenceId,
+      sequenceId: this.#progress.sequenceId,
       request,
       operation: request.operation,
       status: 'applied',
@@ -1084,8 +1077,8 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       projectState: this.#ecrpProjectState,
       lifecycleState: lifecycleStateFromFpsSnapshot(snapshot),
       runtimeTransforms: this.#runtimeTransforms,
-      sequenceId: this.#sequenceId,
-      tick: this.#tick,
+      sequenceId: this.#progress.sequenceId,
+      tick: this.#progress.sessionTick,
       sessionHash: this.#sessionHash(),
       authority: {
         mode: 'rust',
@@ -1126,7 +1119,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#requireInitialized('readCameraProjection');
     const snapshot = this.#bridge.readCameraProjection(request);
     return {
-      sequenceId: this.#sequenceId,
+      sequenceId: this.#progress.sequenceId,
       request,
       snapshot,
       projectionHash: snapshot.projectionHash,
@@ -1137,20 +1130,20 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#requireInitialized('readAnimationIntent');
     const snapshot = this.#requireSnapshot();
     return buildRuntimeSessionAnimationIntentReadout({
-      sequenceId: this.#sequenceId,
-      tick: this.#tick,
+      sequenceId: this.#progress.sequenceId,
+      tick: this.#progress.sessionTick,
       lifecycleState: lifecycleStateFromFpsSnapshot(snapshot),
     });
   }
 
   readProjection(): RuntimeSessionProjectionSummary {
     this.#requireInitialized('readProjection');
-    const cursor = frameCursor(this.#tick);
+    const cursor = frameCursor(this.#progress.latestProjectionTick);
     const runtimeFrame = this.#bridge.readProjectionFrame(cursor);
     const frame = runtimeFrame.scene;
     const composition = this.#bridge.getProjectBundleCompositionStatus();
     return {
-      sequenceId: this.#sequenceId,
+      sequenceId: this.#progress.sequenceId,
       cursor,
       frame,
       runtimeFrame,
@@ -1158,7 +1151,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       renderDiffCount: frame.ops.length,
       presentationOpCount: runtimeFrame.presentation.ops.length,
       projectionHash: stableHash({
-        sequenceId: this.#sequenceId,
+        sequenceId: this.#progress.sequenceId,
         composition: compositionHashRecord(composition),
         frame: renderFrameHashRecord(frame),
         runtimeFrame: runtimeProjectionFrameHashRecord(runtimeFrame),
@@ -1169,12 +1162,12 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   readTelemetry(): RuntimeSessionTelemetrySummary {
     this.#requireInitialized('readTelemetry');
     return {
-      sequenceId: this.#sequenceId,
-      tick: this.#tick,
+      sequenceId: this.#progress.sequenceId,
+      tick: this.#progress.sessionTick,
       composition: this.#bridge.getProjectBundleCompositionStatus(),
-      acceptedCommandCount: this.#acceptedCommandCount,
-      rejectedCommandCount: this.#rejectedCommandCount,
-      restartCount: this.#restartCount,
+      acceptedCommandCount: this.#progress.acceptedCommandCount,
+      rejectedCommandCount: this.#progress.rejectedCommandCount,
+      restartCount: this.#progress.restartCount,
       sessionHash: this.#sessionHash(),
       replayRecords: [...this.#replayRecords],
     };
@@ -1185,18 +1178,14 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     const before = this.#requireSnapshot();
     const snapshot = this.#bridge.restartFpsRuntimeSession({ expectedEpoch: before.sessionEpoch });
     this.#snapshot = snapshot;
-    this.#sequenceId += 1;
-    this.#tick = 0;
-    this.#acceptedCommandCount = 0;
-    this.#rejectedCommandCount = 0;
+    this.#progress.restart();
     this.#runtimeTransforms = new Map();
-    this.#restartCount += 1;
     this.#record('restart', snapshot.replayHash);
     return {
-      sequenceId: this.#sequenceId,
-      tick: this.#tick,
+      sequenceId: this.#progress.sequenceId,
+      tick: this.#progress.sessionTick,
       composition: this.#bridge.getProjectBundleCompositionStatus(),
-      restartCount: this.#restartCount,
+      restartCount: this.#progress.restartCount,
       sessionHash: this.#sessionHash(),
     };
   }
@@ -1207,12 +1196,12 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     sessionHashBefore: string,
     rejection: RuntimeSessionRestartIntentRejection,
   ): RuntimeSessionLifecycleRestartReceipt {
-    this.#sequenceId += 1;
+    this.#progress.advanceSequence();
     this.#record('requestSessionRestart');
     const statusAfter = this.readLifecycleStatus();
     return {
       kind: 'runtime_session.restart_receipt.v0',
-      sequenceId: this.#sequenceId,
+      sequenceId: this.#progress.sequenceId,
       intent,
       accepted: false,
       status: 'rejected',
@@ -1262,7 +1251,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   ): RuntimeSessionActionIntentReceipt {
     const envelope = proposal.intent;
     const before = this.#sessionHash();
-    this.#sequenceId += 1;
+    this.#progress.advanceSequence();
     const fire = this.#bridge.applyFpsPrimaryFire({
       tick: envelope.tick,
       origin: enemyPosition,
@@ -1270,10 +1259,11 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       shooterRole: 'enemy',
       targetRole: 'player',
     });
+    this.#progress.recordProjectionTick(envelope.tick);
     this.#snapshot = this.#bridge.readFpsRuntimeSession();
     this.#record('submitRuntimeActionIntent', fire.replayHash, envelope.source);
     return {
-      sequenceId: this.#sequenceId,
+      sequenceId: this.#progress.sequenceId,
       envelope,
       accepted: true,
       status: 'accepted',
@@ -1321,8 +1311,8 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       identity,
       engine: this.#engine as EngineHandle,
       composition,
-      sequenceId: this.#sequenceId,
-      tick: this.#tick,
+      sequenceId: this.#progress.sequenceId,
+      tick: this.#progress.sessionTick,
       sessionHash: this.#sessionHash(),
     };
   }
@@ -1333,14 +1323,14 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     actionSource?: RuntimeActionIntentEnvelope['source'],
   ): void {
     this.#replayRecords.push({
-      sequenceId: this.#sequenceId,
+      sequenceId: this.#progress.sequenceId,
       kind,
       ...(actionSource === undefined ? {} : { actionSource }),
       recordHash: authorityHash ?? stableHash({
         kind,
         ...(actionSource === undefined ? {} : { actionSource }),
-        sequenceId: this.#sequenceId,
-        tick: this.#tick,
+        sequenceId: this.#progress.sequenceId,
+        tick: this.#progress.sessionTick,
         composition: compositionHashRecord(this.#bridge.getProjectBundleCompositionStatus()),
         fps: this.#snapshot === null
           ? null
@@ -1358,11 +1348,11 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     const snapshot = this.#snapshot;
     return stableHash({
       identity: this.#identity === null ? null : identityHashRecord(this.#identity),
-      sequenceId: this.#sequenceId,
-      tick: this.#tick,
-      acceptedCommandCount: this.#acceptedCommandCount,
-      rejectedCommandCount: this.#rejectedCommandCount,
-      restartCount: this.#restartCount,
+      sequenceId: this.#progress.sequenceId,
+      tick: this.#progress.sessionTick,
+      acceptedCommandCount: this.#progress.acceptedCommandCount,
+      rejectedCommandCount: this.#progress.rejectedCommandCount,
+      restartCount: this.#progress.restartCount,
       fps: snapshot === null
         ? null
         : {

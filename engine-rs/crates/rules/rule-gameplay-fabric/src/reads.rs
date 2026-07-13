@@ -327,6 +327,14 @@ impl GameplayFrozenRead {
         serde_json::from_slice(canonical_payload)
             .map_err(|error| GameplayReadDecodeError::Decode(error.to_string()))
     }
+
+    pub fn canonical_value_hash(&self) -> String {
+        hash_serializable(&self.value)
+    }
+
+    pub fn value_hash_is_valid(&self) -> bool {
+        self.value_hash == self.canonical_value_hash()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -345,6 +353,21 @@ pub struct GameplayFrozenReadSet {
     pub wave: u32,
     pub reads: Vec<GameplayFrozenRead>,
     pub read_set_hash: String,
+}
+
+impl GameplayFrozenReadSet {
+    pub fn canonical_hash(&self) -> String {
+        let mut canonical = self.clone();
+        canonical.read_set_hash.clear();
+        hash_serializable(&canonical)
+    }
+
+    pub fn nested_hashes_are_valid(&self) -> bool {
+        self.reads
+            .iter()
+            .all(GameplayFrozenRead::value_hash_is_valid)
+            && self.read_set_hash == self.canonical_hash()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -646,6 +669,37 @@ impl<'a, 'registry> GameplayReadAssembler<'a, 'registry> {
             .registry
             .module(&plan.module_id)
             .expect("header checked");
+        let invocation = module
+            .invocations
+            .iter()
+            .find(|invocation| invocation.invocation_id == plan.invocation_id)
+            .expect("header checked");
+        let Some(invocation_requirement) = invocation
+            .read_requirements
+            .iter()
+            .find(|requirement| requirement.request_id == request.request_id)
+        else {
+            return Err(error(
+                &request.request_id,
+                GameplayReadDiagnosticCode::UndeclaredRead,
+                format!(
+                    "invocation `{}` does not declare read request `{}`",
+                    plan.invocation_id, request.request_id
+                ),
+            ));
+        };
+        if invocation_requirement.view != request.view {
+            return Err(error(
+                &request.request_id,
+                GameplayReadDiagnosticCode::UndeclaredRead,
+                format!(
+                    "invocation read request `{}` is bound to `{}` rather than `{}`",
+                    request.request_id,
+                    invocation_requirement.view.key(),
+                    request.view.key()
+                ),
+            ));
+        }
         let Some(requirement) = module
             .read_views
             .iter()

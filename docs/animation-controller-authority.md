@@ -120,8 +120,10 @@ artifact is accepted.
 
 Neither snapshots nor replay records contain joints, bones, matrices, sampled
 poses, renderer handles, wall-clock time, or animation callbacks. Those remain
-presentation concerns. Task #5649 will project resolved controller changes
-through the accepted G1 animation domain and drive renderer-local clip sampling.
+presentation concerns. Resolved controller changes project through the G1
+animation domain and drive renderer-local clip sampling. Gameplay-origin timing
+facts and their verification-replay semantics are described in
+`docs/animation-timing-semantics.md`.
 
 ## Deliberate Wave 1 limits
 
@@ -130,5 +132,5 @@ through the accepted G1 animation domain and drive renderer-local clip sampling.
 - no renderer keyframe callback can mutate authority;
 - clip asset content delivery remains the existing renderer-host responsibility;
   this catalog validates stable asset and clip identities, not GLB bytes;
-- gameplay-critical timing and correlation land in #5650 rather than being
-  inferred from renderer playback completion.
+- gameplay-critical timing and correlation are accepted controller facts; they
+  are never inferred from renderer playback completion.

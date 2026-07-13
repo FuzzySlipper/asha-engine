@@ -409,6 +409,8 @@ const renderMaterial: RenderMaterial = {
   color: { r: 0.5, g: 0.5, b: 0.5, a: 1 },
   texture: { id: 'texture/brick', version: { req: 'atLeast', value: 2 }, hash: null },
   roughness: 1,
+  textureTint: { r: 1, g: 1, b: 1, a: 1 },
+  emissionColor: { r: 0.5, g: 0.5, b: 0.5, a: 1 },
   emissive: 0,
   uvStrategy: 'planar',
 };

@@ -316,12 +316,16 @@ function poseWithAxis(pose: CameraSnapshot['pose'], axis: number, value: number)
 }
 
 function materialDescriptor(id: string, material: MaterialProjection): Extract<RenderFrameDiff['ops'][number], { readonly op: 'defineMaterial' }>['material'] {
+  const color = [material.render.color.r, material.render.color.g, material.render.color.b, material.render.color.a] as const;
   return {
+    schemaVersion: 2,
     id,
-    color: [material.render.color.r, material.render.color.g, material.render.color.b, material.render.color.a],
+    color,
     texture: material.render.texture?.id ?? null,
     roughness: material.render.roughness,
-    emissive: material.render.emissive,
+    textureTint: [material.render.textureTint.r, material.render.textureTint.g, material.render.textureTint.b, material.render.textureTint.a],
+    emissionColor: [material.render.emissionColor.r, material.render.emissionColor.g, material.render.emissionColor.b],
+    emissionIntensity: material.render.emissive,
     uvStrategy: material.render.uvStrategy,
   };
 }

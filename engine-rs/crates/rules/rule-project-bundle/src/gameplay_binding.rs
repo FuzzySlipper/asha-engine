@@ -13,7 +13,8 @@ pub use gameplay_module_sdk::{
     gameplay_module_binding_registry_hash, GameplayModuleBindingRegistryBuilder,
 };
 use gameplay_module_sdk::{
-    GameplayConfigurationSchemaMetadata, GameplayStaticComposition, GameplayStaticInvocationHost,
+    GameplayConfigurationCodecRegistration, GameplayStaticComposition,
+    GameplayStaticConfigurationBinding, GameplayStaticInvocationHost,
 };
 use protocol_game_extension::{
     GameplayEventEnvelope, GameplayModuleBinding, GameplayModuleBindingActivationReceipt,
@@ -122,18 +123,25 @@ impl GameplayBoundProjectBundleSession {
             &bindings,
             entity_targets,
             parts.registry.as_ref(),
-            &parts.configuration_schemas,
+            &parts.configuration_codecs,
         )?;
+        let ResolvedBindings {
+            initializations,
+            readouts,
+            configuration_bindings,
+        } = resolved;
+        let mut host = parts.host;
+        host.install_configuration_bindings(configuration_bindings);
         let mut module_state =
             GameplayModuleStateStore::new(parts.registry.clone(), parts.state_adapters)
                 .map_err(GameplayBindingActivationError::State)?;
         module_state
-            .initialize_atomic(resolved.initializations)
+            .initialize_atomic(initializations)
             .map_err(GameplayBindingActivationError::State)?;
         let activation = activation_receipt(
             &bindings.registry_hash,
             parts.registry.registry_digest(),
-            resolved.readouts,
+            readouts,
             module_state.state_hash(),
         );
         Ok(Self {
@@ -141,7 +149,7 @@ impl GameplayBoundProjectBundleSession {
             activation,
             module_state,
             registry: parts.registry,
-            host: parts.host,
+            host,
             bindings,
             triggers: TriggerVolumeRule::default(),
         })
@@ -340,7 +348,7 @@ impl GameplayBoundProjectBundleSession {
             &bindings,
             entity_targets,
             parts.registry.as_ref(),
-            &parts.configuration_schemas,
+            &parts.configuration_codecs,
         )?;
         if stored.activation.binding_registry_hash != bindings.registry_hash
             || stored.activation.gameplay_registry_digest != parts.registry.registry_digest()
@@ -360,12 +368,14 @@ impl GameplayBoundProjectBundleSession {
         }
         let triggers = TriggerVolumeRule::from_snapshot(stored.trigger_snapshot)
             .map_err(|error| GameplayBindingActivationError::Trigger(error.diagnostics))?;
+        let mut host = parts.host;
+        host.install_configuration_bindings(resolved.configuration_bindings);
         Ok(Self {
             bundle,
             activation: stored.activation,
             module_state: restored.module_state,
             registry: parts.registry,
-            host: parts.host,
+            host,
             bindings,
             triggers,
         })
@@ -386,6 +396,7 @@ struct StoredGameplayProjectBundleSession {
 struct ResolvedBindings {
     initializations: Vec<GameplayModuleInitialization>,
     readouts: Vec<GameplayModuleBindingReadout>,
+    configuration_bindings: Vec<GameplayStaticConfigurationBinding>,
 }
 
 #[derive(Clone)]
@@ -393,6 +404,7 @@ struct EffectiveTarget {
     scope: GameplayModuleStateScope,
     instance: Option<PrefabInstanceId>,
     eligible: bool,
+    match_entities: BTreeSet<u64>,
 }
 
 fn resolve_bindings(
@@ -400,7 +412,7 @@ fn resolve_bindings(
     bindings: &GameplayModuleBindingRegistry,
     entity_targets: &GameplayBindingEntityTargets,
     registry: &GameplayFabricRegistry,
-    schemas: &[GameplayConfigurationSchemaMetadata],
+    codecs: &[GameplayConfigurationCodecRegistration],
 ) -> Result<ResolvedBindings, GameplayBindingActivationError> {
     let mut diagnostics = Vec::new();
     if bindings.schema_version != GAMEPLAY_MODULE_BINDING_SCHEMA_VERSION
@@ -426,7 +438,7 @@ fn resolve_bindings(
             ));
             continue;
         }
-        validate_configuration(configuration, registry, schemas, index, &mut diagnostics);
+        validate_configuration(configuration, registry, codecs, index, &mut diagnostics);
     }
     let mut indexed_bindings = BTreeMap::new();
     for (index, binding) in bindings.bindings.iter().enumerate() {
@@ -464,6 +476,7 @@ fn resolve_bindings(
     let entities = bundle.runtime_entities.as_ref();
     let mut initializations = Vec::new();
     let mut readouts = Vec::new();
+    let mut configuration_bindings = Vec::new();
     let mut occupied = BTreeSet::new();
     for binding in &bindings.bindings {
         let base_configuration = configurations[&binding.configuration_id];
@@ -516,6 +529,15 @@ fn resolve_bindings(
             if !active {
                 continue;
             }
+            configuration_bindings.push(GameplayStaticConfigurationBinding {
+                module_id: binding.module_id.clone(),
+                binding_id: binding.binding_id.clone(),
+                configuration_id: configuration.configuration_id.clone(),
+                scope: target.scope.clone(),
+                match_entities: target.match_entities.clone(),
+                canonical_config: configuration.canonical_config.clone(),
+                config_hash: configuration.config_hash.clone(),
+            });
             if !occupied.insert((binding.state_schema.key(), target.scope.clone())) {
                 diagnostics.push(diag(
                     GameplayModuleBindingDiagnosticCode::DuplicateStateScope,
@@ -555,13 +577,14 @@ fn resolve_bindings(
     Ok(ResolvedBindings {
         initializations,
         readouts,
+        configuration_bindings,
     })
 }
 
 fn validate_configuration(
     configuration: &GameplayModuleConfiguration,
     registry: &GameplayFabricRegistry,
-    schemas: &[GameplayConfigurationSchemaMetadata],
+    codecs: &[GameplayConfigurationCodecRegistration],
     index: usize,
     diagnostics: &mut Vec<GameplayModuleBindingDiagnostic>,
 ) {
@@ -588,7 +611,8 @@ fn validate_configuration(
             "compiled provider/version/hash evidence differs from authored configuration",
         ));
     }
-    match schemas.iter().find(|schema| {
+    match codecs.iter().find(|codec| {
+        let schema = codec.metadata();
         schema.module_id == configuration.module.module_id
             && schema.configuration == configuration.configuration
     }) {
@@ -597,12 +621,22 @@ fn validate_configuration(
             format!("{path}.configuration"),
             "configuration schema is not exported by the compiled provider",
         )),
-        Some(schema) if schema.codec_id != configuration.codec_id => diagnostics.push(diag(
-            GameplayModuleBindingDiagnosticCode::ConfigurationCodecMismatch,
-            format!("{path}.codecId"),
-            "configuration codec differs from the compiled provider schema",
-        )),
-        Some(_) => {}
+        Some(codec) if codec.metadata().codec_id != configuration.codec_id => {
+            diagnostics.push(diag(
+                GameplayModuleBindingDiagnosticCode::ConfigurationCodecMismatch,
+                format!("{path}.codecId"),
+                "configuration codec differs from the compiled provider schema",
+            ))
+        }
+        Some(codec) => {
+            if let Err(error) = codec.validate(&configuration.canonical_config) {
+                diagnostics.push(diag(
+                    GameplayModuleBindingDiagnosticCode::ConfigurationSchemaMismatch,
+                    format!("{path}.canonicalConfig"),
+                    format!("typed configuration codec rejected payload: {error}"),
+                ));
+            }
+        }
     }
 }
 
@@ -743,6 +777,7 @@ fn resolve_target(
             scope: GameplayModuleStateScope::Session,
             instance: None,
             eligible: true,
+            match_entities: BTreeSet::new(),
         }],
         GameplayModuleBindingTarget::EntityDefinition { stable_id } => entity_targets
             .entities(stable_id)
@@ -752,6 +787,7 @@ fn resolve_target(
                 },
                 instance: None,
                 eligible: entity_is_active(entities, entity),
+                match_entities: [entity.raw()].into_iter().collect(),
             })
             .collect(),
         GameplayModuleBindingTarget::Prefab { prefab } => bundle
@@ -767,6 +803,11 @@ fn resolve_target(
                     .parts
                     .iter()
                     .any(|part| part.active && entity_is_active(entities, part.entity)),
+                match_entities: instance
+                    .parts
+                    .iter()
+                    .map(|part| part.entity.raw())
+                    .collect(),
             })
             .collect(),
         GameplayModuleBindingTarget::PrefabPart { part } => bundle
@@ -787,6 +828,7 @@ fn resolve_target(
                         },
                         instance: Some(instance.record.instance),
                         eligible: entity_is_active(entities, resolution.entity),
+                        match_entities: [resolution.entity.raw()].into_iter().collect(),
                     })
             })
             .collect(),

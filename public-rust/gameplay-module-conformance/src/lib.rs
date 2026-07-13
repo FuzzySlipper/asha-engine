@@ -4,9 +4,9 @@
 
 use asha_gameplay_module_sdk::{
     gameplay_module_payload_hash, GameplayContractRef, GameplayEventEnvelope,
-    GameplayModuleBindingDiagnosticCode, GameplayModuleBindingRegistry, GameplayModuleStateScope,
-    GameplayReadSelectorCapability, GameplayReadViewKind, GameplayStaticComposition,
-    GameplayStaticCompositionError,
+    GameplayModuleBindingDiagnosticCode, GameplayModuleBindingRegistry, GameplayModuleManifest,
+    GameplayModuleStateScope, GameplayReadSelectorCapability, GameplayReadViewKind,
+    GameplayStaticComposition, GameplayStaticCompositionError,
 };
 use core_ids::{RuntimeSessionId, SceneId, SceneNodeId};
 use core_scene::{encode, SceneMetadata, SceneNode, SceneNodeKind, SceneTree};
@@ -22,9 +22,30 @@ use rule_project_bundle::{
     GameplayBindingEntityTargets, GameplayBoundProjectBundleSession, ProjectBundleLoadResult,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 use svc_serialization::{LoadPlan, LoadStep};
 
 pub const GAMEPLAY_MODULE_CONFORMANCE_SCHEMA_VERSION: u32 = 1;
+pub const GAMEPLAY_MODULE_SDK_SURFACE_ID: &str = "asha-gameplay-module-sdk";
+pub const GAMEPLAY_MODULE_CONFORMANCE_SURFACE_ID: &str = "asha-gameplay-module-conformance";
+
+const GAMEPLAY_MODULE_SDK_REACHABLE_SYMBOLS: &[&str] = &[
+    "GameplayModuleActions",
+    "GameplayModuleBehavior",
+    "GameplayModuleBindingRegistryBuilder",
+    "GameplayModuleBindingTarget",
+    "GameplayModuleConfiguration",
+    "GameplayModuleContext",
+    "GameplayStaticCompositionBuilder",
+    "GameplayStaticModuleProvider",
+    "TypedGameplayEventCodec",
+];
+
+const GAMEPLAY_MODULE_CONFORMANCE_REACHABLE_SYMBOLS: &[&str] = &[
+    "GameplayModuleConformanceCase",
+    "GameplayModuleConformanceReport",
+    "run_gameplay_module_conformance",
+];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -49,8 +70,105 @@ pub struct GameplayModuleConformanceDeclaredRead {
     pub fields: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GameplayModuleConformanceNeedsManifest {
+    pub schema_version: u32,
+    pub consumer: GameplayModuleConformanceConsumer,
+    pub requirements: Vec<GameplayModuleConformanceConsumerNeed>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GameplayModuleConformanceConsumer {
+    pub id: String,
+    pub role: String,
+    pub source: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GameplayModuleConformanceQuota {
+    pub max_items: Option<u32>,
+    pub max_payload_bytes: Option<u32>,
+    pub max_deliveries: Option<u32>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GameplayModuleConformanceTarget {
+    pub prefab: Option<u64>,
+    pub role: Option<String>,
+    pub scope: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GameplayModuleConformanceNeedEvidence {
+    pub r#type: Vec<String>,
+    pub provider: Vec<String>,
+    pub selector: Vec<String>,
+    pub delivery: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GameplayModuleConformanceConsumerNeed {
+    pub id: String,
+    pub kind: String,
+    pub identity: String,
+    pub provider: Option<String>,
+    #[serde(default)]
+    pub symbols: Vec<String>,
+    #[serde(default)]
+    pub fields: Vec<String>,
+    #[serde(default)]
+    pub selectors: Vec<String>,
+    #[serde(default)]
+    pub values: Vec<String>,
+    #[serde(default)]
+    pub quota: GameplayModuleConformanceQuota,
+    pub ordering: Option<String>,
+    #[serde(default)]
+    pub target: GameplayModuleConformanceTarget,
+    pub artifact_role: Option<String>,
+    pub required_level: String,
+    pub evidence: GameplayModuleConformanceNeedEvidence,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GameplayModuleConformanceReachableSurface {
+    pub identity: String,
+    pub symbols: Vec<String>,
+}
+
+impl GameplayModuleConformanceReachableSurface {
+    pub fn gameplay_module_sdk() -> Self {
+        Self::new(
+            GAMEPLAY_MODULE_SDK_SURFACE_ID,
+            GAMEPLAY_MODULE_SDK_REACHABLE_SYMBOLS,
+        )
+    }
+
+    pub fn gameplay_module_conformance() -> Self {
+        Self::new(
+            GAMEPLAY_MODULE_CONFORMANCE_SURFACE_ID,
+            GAMEPLAY_MODULE_CONFORMANCE_REACHABLE_SYMBOLS,
+        )
+    }
+
+    fn new(identity: &str, symbols: &[&str]) -> Self {
+        Self {
+            identity: identity.to_owned(),
+            symbols: symbols.iter().map(|symbol| (*symbol).to_owned()).collect(),
+        }
+    }
+}
+
 pub struct GameplayModuleConformanceCase {
     pub project_bundle_json: String,
+    pub consumer_needs_manifest_json: String,
+    pub reachable_surfaces: Vec<GameplayModuleConformanceReachableSurface>,
     pub composition: fn() -> Result<GameplayStaticComposition, GameplayStaticCompositionError>,
     pub events: Vec<GameplayEventEnvelope>,
 }
@@ -78,6 +196,7 @@ pub struct GameplayModuleConformanceReport {
     pub valid: bool,
     pub project_id: String,
     pub consumer_needs: Vec<String>,
+    pub consumer_needs_manifest_hash: String,
     pub module_ids: Vec<String>,
     pub registry_digest: String,
     pub registry_topology: String,
@@ -136,7 +255,16 @@ pub fn run_gameplay_module_conformance(
 ) -> Result<GameplayModuleConformanceReport, GameplayModuleConformanceError> {
     let project: GameplayModuleConformanceProject = serde_json::from_str(&case.project_bundle_json)
         .map_err(|error| GameplayModuleConformanceError::InvalidProject(error.to_string()))?;
+    let needs_manifest: GameplayModuleConformanceNeedsManifest =
+        serde_json::from_str(&case.consumer_needs_manifest_json)
+            .map_err(|error| GameplayModuleConformanceError::InvalidProject(error.to_string()))?;
+    let consumer_needs_manifest_hash = gameplay_module_payload_hash(
+        &serde_json::to_vec(&needs_manifest)
+            .expect("decoded consumer-needs manifest serializes canonically"),
+    );
     if project.schema_version != GAMEPLAY_MODULE_CONFORMANCE_SCHEMA_VERSION
+        || needs_manifest.schema_version != GAMEPLAY_MODULE_CONFORMANCE_SCHEMA_VERSION
+        || needs_manifest.consumer.id.trim().is_empty()
         || project.project_id.trim().is_empty()
         || project.scene_id == 0
         || project.runtime_session_id == 0
@@ -150,7 +278,14 @@ pub fn run_gameplay_module_conformance(
         ));
     }
 
-    let first = execute_case(&project, case.composition, &case.events)?;
+    validate_consumer_need_selection(&project, &needs_manifest)?;
+    let first = execute_case(
+        &project,
+        &needs_manifest,
+        &case.reachable_surfaces,
+        case.composition,
+        &case.events,
+    )?;
     if first.initial_snapshot_text.is_empty() {
         let checks = first.checks.clone();
         let gaps = first.gaps.clone();
@@ -160,6 +295,7 @@ pub fn run_gameplay_module_conformance(
             valid: false,
             project_id: project.project_id,
             consumer_needs: project.consumer_needs,
+            consumer_needs_manifest_hash,
             module_ids: first.module_ids,
             registry_digest: first.registry_digest,
             registry_topology: first.registry_topology,
@@ -174,7 +310,13 @@ pub fn run_gameplay_module_conformance(
             trace,
         });
     }
-    let second = execute_case(&project, case.composition, &case.events)?;
+    let second = execute_case(
+        &project,
+        &needs_manifest,
+        &case.reachable_surfaces,
+        case.composition,
+        &case.events,
+    )?;
     let mut checks = first.checks.clone();
     let mut gaps = first.gaps.clone();
 
@@ -241,6 +383,7 @@ pub fn run_gameplay_module_conformance(
         valid,
         project_id: project.project_id,
         consumer_needs: project.consumer_needs,
+        consumer_needs_manifest_hash,
         module_ids: first.module_ids,
         registry_digest: first.registry_digest,
         registry_topology: first.registry_topology,
@@ -258,6 +401,8 @@ pub fn run_gameplay_module_conformance(
 
 fn execute_case(
     project: &GameplayModuleConformanceProject,
+    needs_manifest: &GameplayModuleConformanceNeedsManifest,
+    reachable_surfaces: &[GameplayModuleConformanceReachableSurface],
     composition_factory: fn() -> Result<GameplayStaticComposition, GameplayStaticCompositionError>,
     events: &[GameplayEventEnvelope],
 ) -> Result<CompletedRun, GameplayModuleConformanceError> {
@@ -367,21 +512,35 @@ fn execute_case(
             .flat_map(|frame| frame.frozen_view_hashes.clone())
             .collect(),
     ));
+    let delivered_read_ids = project
+        .declared_reads
+        .iter()
+        .filter(|request| declared_read_was_delivered(request, &frames))
+        .map(|request| request.request_id.clone())
+        .collect::<Vec<_>>();
+    let every_declared_read_was_delivered =
+        delivered_read_ids.len() == project.declared_reads.len();
     checks.push(check(
         "declaredReadDelivery",
-        !project.declared_reads.is_empty()
-            && frames.iter().all(|frame| {
-                frame
-                    .diagnostic_codes
-                    .iter()
-                    .all(|code| code != "ReadAssemblyFailed")
-            }),
-        project
+        every_declared_read_was_delivered,
+        delivered_read_ids,
+    ));
+    if !every_declared_read_was_delivered {
+        for request in project
             .declared_reads
             .iter()
-            .map(|read| read.request_id.clone())
-            .collect(),
-    ));
+            .filter(|request| !declared_read_was_delivered(request, &frames))
+        {
+            gaps.push(gap(
+                "declaredReadNotDelivered",
+                &format!("declaredReads.{}", request.request_id),
+                &format!(
+                    "request {} was not delivered to module {} invocation {}",
+                    request.request_id, request.module_id, request.invocation_id
+                ),
+            ));
+        }
+    }
     checks.push(check(
         "moduleStateFacts",
         !accepted_facts.is_empty(),
@@ -390,6 +549,15 @@ fn execute_case(
             .map(|fact| fact.payload_hash.clone())
             .collect(),
     ));
+    let (need_checks, need_gaps) = evaluate_consumer_needs(
+        project,
+        needs_manifest,
+        reachable_surfaces,
+        session.registry(),
+        &frames,
+    );
+    checks.extend(need_checks);
+    gaps.extend(need_gaps);
     for item in &checks {
         if !item.passed {
             gaps.push(gap(
@@ -423,6 +591,743 @@ fn execute_case(
         registry_digest: registry.registry_digest,
         registry_topology: registry.topology_dump,
     })
+}
+
+fn validate_consumer_need_selection(
+    project: &GameplayModuleConformanceProject,
+    manifest: &GameplayModuleConformanceNeedsManifest,
+) -> Result<(), GameplayModuleConformanceError> {
+    let selected = project.consumer_needs.iter().collect::<BTreeSet<_>>();
+    if selected.len() != project.consumer_needs.len()
+        || project
+            .consumer_needs
+            .iter()
+            .any(|need| need.trim().is_empty())
+    {
+        return Err(GameplayModuleConformanceError::InvalidProject(
+            "consumer need ids must be nonempty and unique".to_owned(),
+        ));
+    }
+    let requirement_ids = manifest
+        .requirements
+        .iter()
+        .map(|requirement| &requirement.id)
+        .collect::<BTreeSet<_>>();
+    if requirement_ids.len() != manifest.requirements.len()
+        || manifest
+            .requirements
+            .iter()
+            .any(|requirement| requirement.id.trim().is_empty())
+    {
+        return Err(GameplayModuleConformanceError::InvalidProject(
+            "consumer manifest requirement ids must be nonempty and unique".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn declared_read_was_delivered(
+    request: &GameplayModuleConformanceDeclaredRead,
+    frames: &[GameplayReactionFrame],
+) -> bool {
+    frames.iter().any(|frame| {
+        frame.invocations.iter().any(|invocation| {
+            invocation.module_id == request.module_id
+                && invocation.invocation_id == request.invocation_id
+                && invocation.declared_reads.as_ref().is_some_and(|set| {
+                    set.module_id == request.module_id
+                        && set.invocation_id == request.invocation_id
+                        && set.nested_hashes_are_valid()
+                        && set.reads.iter().any(|delivered| {
+                            delivered.request_id == request.request_id
+                                && delivered.view == request.view
+                                && delivered.fields == request.fields
+                                && delivered.value_hash_is_valid()
+                        })
+                })
+        })
+    })
+}
+
+fn evaluate_consumer_needs(
+    project: &GameplayModuleConformanceProject,
+    manifest: &GameplayModuleConformanceNeedsManifest,
+    reachable_surfaces: &[GameplayModuleConformanceReachableSurface],
+    registry: &svc_gameplay_fabric::GameplayFabricRegistry,
+    frames: &[GameplayReactionFrame],
+) -> (
+    Vec<GameplayModuleConformanceCheck>,
+    Vec<GameplayModuleConformanceGap>,
+) {
+    let mut checks = Vec::new();
+    let mut gaps = Vec::new();
+    for need_id in &project.consumer_needs {
+        let Some(need) = manifest
+            .requirements
+            .iter()
+            .find(|requirement| requirement.id == *need_id)
+        else {
+            checks.push(check(&format!("consumerNeed.{need_id}"), false, Vec::new()));
+            gaps.push(gap(
+                "consumerNeedMissingRequirement",
+                &format!("consumerNeeds.{need_id}"),
+                "selected need is absent from the supplied consumer-needs manifest",
+            ));
+            continue;
+        };
+        let (evidence, mut need_gaps) =
+            evaluate_consumer_need(need, project, reachable_surfaces, registry, frames);
+        checks.push(check(
+            &format!("consumerNeed.{need_id}"),
+            need_gaps.is_empty(),
+            evidence,
+        ));
+        gaps.append(&mut need_gaps);
+    }
+    (checks, gaps)
+}
+
+fn evaluate_consumer_need(
+    need: &GameplayModuleConformanceConsumerNeed,
+    project: &GameplayModuleConformanceProject,
+    reachable_surfaces: &[GameplayModuleConformanceReachableSurface],
+    registry: &svc_gameplay_fabric::GameplayFabricRegistry,
+    frames: &[GameplayReactionFrame],
+) -> (Vec<String>, Vec<GameplayModuleConformanceGap>) {
+    match need.kind.as_str() {
+        "rustCrate" | "conformanceEntrypoint" => {
+            evaluate_reachable_surface_need(need, reachable_surfaces)
+        }
+        "gameplayModule" => evaluate_module_need(need, registry, frames),
+        "gameplayEventPublish" => evaluate_published_event_need(need, registry, frames),
+        "gameplayEventSubscribe" => evaluate_subscription_need(need, registry, frames),
+        "gameplayInvocation" => evaluate_invocation_need(need, registry, frames),
+        "gameplayRead" | "serviceQuery" => evaluate_read_need(need, registry, frames),
+        "gameplayProposal" => evaluate_proposal_need(need, registry, frames),
+        "gameplayBindingSchema" => evaluate_binding_need(need, project, registry, frames),
+        _ => (
+            Vec::new(),
+            vec![need_gap(
+                need,
+                "consumerNeedUnsupportedKind",
+                "kind",
+                &format!(
+                    "conformance has no actual-surface evaluator for kind {}",
+                    need.kind
+                ),
+            )],
+        ),
+    }
+}
+
+fn evaluate_reachable_surface_need(
+    need: &GameplayModuleConformanceConsumerNeed,
+    reachable_surfaces: &[GameplayModuleConformanceReachableSurface],
+) -> (Vec<String>, Vec<GameplayModuleConformanceGap>) {
+    let Some(surface) = reachable_surfaces
+        .iter()
+        .find(|surface| surface.identity == need.identity)
+    else {
+        return (
+            Vec::new(),
+            vec![need_gap(
+                need,
+                "consumerNeedUnreachableSurface",
+                "identity",
+                "required public surface is not linked into this conformance case",
+            )],
+        );
+    };
+    let missing = need
+        .symbols
+        .iter()
+        .filter(|symbol| !surface.symbols.contains(symbol))
+        .cloned()
+        .collect::<Vec<_>>();
+    if missing.is_empty() {
+        (vec![surface.identity.clone()], Vec::new())
+    } else {
+        (
+            vec![surface.identity.clone()],
+            vec![need_gap(
+                need,
+                "consumerNeedMissingSymbol",
+                "symbols",
+                &format!("unreachable symbols: {}", missing.join(", ")),
+            )],
+        )
+    }
+}
+
+fn provider_module<'a>(
+    registry: &'a svc_gameplay_fabric::GameplayFabricRegistry,
+    provider_id: &str,
+) -> Option<&'a GameplayModuleManifest> {
+    registry.module_order().iter().find_map(|module_id| {
+        registry
+            .module(module_id)
+            .filter(|manifest| manifest.module_ref.provider_id == provider_id)
+    })
+}
+
+fn evaluate_module_need(
+    need: &GameplayModuleConformanceConsumerNeed,
+    registry: &svc_gameplay_fabric::GameplayFabricRegistry,
+    frames: &[GameplayReactionFrame],
+) -> (Vec<String>, Vec<GameplayModuleConformanceGap>) {
+    let Some(module) = registry.module(&need.identity) else {
+        return missing_need(
+            need,
+            "consumerNeedMissingModule",
+            "identity",
+            "module is absent",
+        );
+    };
+    let mut gaps = provider_gaps(need, &module.module_ref.provider_id);
+    let known_fields = [
+        "artifactHash",
+        "contractHash",
+        "providerId",
+        "sdkHash",
+        "sourceHash",
+    ];
+    let missing_fields = need
+        .fields
+        .iter()
+        .filter(|field| !known_fields.contains(&field.as_str()))
+        .cloned()
+        .collect::<Vec<_>>();
+    if !missing_fields.is_empty() {
+        gaps.push(need_gap(
+            need,
+            "consumerNeedMissingField",
+            "fields",
+            &format!(
+                "unknown module identity fields: {}",
+                missing_fields.join(", ")
+            ),
+        ));
+    }
+    if requires_delivery(need)
+        && !frames.iter().any(|frame| {
+            frame
+                .invocations
+                .iter()
+                .any(|invocation| invocation.module_id == need.identity)
+        })
+    {
+        gaps.push(undelivered_need(
+            need,
+            "module was composed but never invoked",
+        ));
+    }
+    (vec![module.module_ref.module_id.clone()], gaps)
+}
+
+fn evaluate_published_event_need(
+    need: &GameplayModuleConformanceConsumerNeed,
+    registry: &svc_gameplay_fabric::GameplayFabricRegistry,
+    frames: &[GameplayReactionFrame],
+) -> (Vec<String>, Vec<GameplayModuleConformanceGap>) {
+    let Some(module) = need
+        .provider
+        .as_deref()
+        .and_then(|provider| provider_module(registry, provider))
+    else {
+        return missing_need(
+            need,
+            "consumerNeedProviderMismatch",
+            "provider",
+            "event provider is absent",
+        );
+    };
+    let published = module
+        .published_events
+        .iter()
+        .any(|event| event.event.key() == need.identity);
+    if !published {
+        return missing_need(
+            need,
+            "consumerNeedMissingEvent",
+            "identity",
+            "provider does not publish the required event",
+        );
+    }
+    let mut gaps = Vec::new();
+    if requires_delivery(need)
+        && !frames.iter().any(|frame| {
+            frame
+                .delivered_events
+                .iter()
+                .any(|event| event.event.key() == need.identity)
+        })
+    {
+        gaps.push(undelivered_need(
+            need,
+            "published event was not observed in a reaction frame",
+        ));
+    }
+    (vec![need.identity.clone()], gaps)
+}
+
+fn evaluate_subscription_need(
+    need: &GameplayModuleConformanceConsumerNeed,
+    registry: &svc_gameplay_fabric::GameplayFabricRegistry,
+    frames: &[GameplayReactionFrame],
+) -> (Vec<String>, Vec<GameplayModuleConformanceGap>) {
+    let Some(module) = need
+        .provider
+        .as_deref()
+        .and_then(|provider| provider_module(registry, provider))
+    else {
+        return missing_need(
+            need,
+            "consumerNeedProviderMismatch",
+            "provider",
+            "subscription provider is absent",
+        );
+    };
+    let Some(subscription) = module
+        .subscriptions
+        .iter()
+        .find(|subscription| subscription.event.key() == need.identity)
+    else {
+        return missing_need(
+            need,
+            "consumerNeedMissingEvent",
+            "identity",
+            "provider has no subscription for the required event",
+        );
+    };
+    let mut gaps = Vec::new();
+    let supported_selectors = ["eventSource", "eventTarget", "requiredTags", "scope"];
+    push_missing_strings(
+        need,
+        &mut gaps,
+        "consumerNeedMissingSelector",
+        "selectors",
+        &need.selectors,
+        &supported_selectors,
+    );
+    if let Some(required) = need.quota.max_deliveries {
+        if subscription.max_deliveries_per_root < required {
+            gaps.push(need_gap(
+                need,
+                "consumerNeedInsufficientQuota",
+                "quota.maxDeliveries",
+                "subscription delivery quota is below the consumer requirement",
+            ));
+        }
+    }
+    if requires_delivery(need)
+        && !frames.iter().any(|frame| {
+            frame.invocations.iter().any(|invocation| {
+                invocation.module_id == module.module_ref.module_id
+                    && invocation.subscription_id == subscription.subscription_id
+                    && invocation.invocation_id == subscription.invocation_id
+            })
+        })
+    {
+        gaps.push(undelivered_need(
+            need,
+            "subscription was declared but its designated invocation did not execute",
+        ));
+    }
+    (vec![subscription.subscription_id.clone()], gaps)
+}
+
+fn evaluate_invocation_need(
+    need: &GameplayModuleConformanceConsumerNeed,
+    registry: &svc_gameplay_fabric::GameplayFabricRegistry,
+    frames: &[GameplayReactionFrame],
+) -> (Vec<String>, Vec<GameplayModuleConformanceGap>) {
+    let Some(module) = need
+        .provider
+        .as_deref()
+        .and_then(|provider| provider_module(registry, provider))
+    else {
+        return missing_need(
+            need,
+            "consumerNeedProviderMismatch",
+            "provider",
+            "invocation provider is absent",
+        );
+    };
+    let Some(invocation) = module
+        .invocations
+        .iter()
+        .find(|invocation| invocation.invocation_id == need.identity)
+    else {
+        return missing_need(
+            need,
+            "consumerNeedMissingInvocation",
+            "identity",
+            "provider has no required invocation",
+        );
+    };
+    let mut gaps = Vec::new();
+    if !need.values.is_empty()
+        && !need
+            .values
+            .iter()
+            .any(|family| family == invocation.family.as_str())
+    {
+        gaps.push(need_gap(
+            need,
+            "consumerNeedInvocationFamilyMismatch",
+            "values",
+            "invocation family does not satisfy the consumer need",
+        ));
+    }
+    if let Some(required) = need.quota.max_payload_bytes {
+        if invocation.max_payload_bytes < required {
+            gaps.push(need_gap(
+                need,
+                "consumerNeedInsufficientQuota",
+                "quota.maxPayloadBytes",
+                "invocation payload quota is below the consumer requirement",
+            ));
+        }
+    }
+    if need
+        .ordering
+        .as_deref()
+        .is_some_and(|ordering| ordering != "registry-stable-module-order")
+    {
+        gaps.push(need_gap(
+            need,
+            "consumerNeedOrderingMismatch",
+            "ordering",
+            "invocation ordering is not the closed registry module order",
+        ));
+    }
+    if requires_delivery(need)
+        && !frames.iter().any(|frame| {
+            frame.invocations.iter().any(|evidence| {
+                evidence.module_id == module.module_ref.module_id
+                    && evidence.invocation_id == invocation.invocation_id
+            })
+        })
+    {
+        gaps.push(undelivered_need(
+            need,
+            "required invocation did not execute",
+        ));
+    }
+    (vec![invocation.invocation_id.clone()], gaps)
+}
+
+fn evaluate_read_need(
+    need: &GameplayModuleConformanceConsumerNeed,
+    registry: &svc_gameplay_fabric::GameplayFabricRegistry,
+    frames: &[GameplayReactionFrame],
+) -> (Vec<String>, Vec<GameplayModuleConformanceGap>) {
+    let Some(provider) = registry
+        .readout()
+        .read_view_provider_details
+        .iter()
+        .find(|provider| provider.view == need.identity)
+    else {
+        return missing_need(
+            need,
+            "consumerNeedMissingView",
+            "identity",
+            "closed registry has no required read view",
+        );
+    };
+    let mut gaps = provider_gaps(need, &provider.provider_id);
+    let provided_fields = provider
+        .fields
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+    push_missing_strings(
+        need,
+        &mut gaps,
+        "consumerNeedMissingField",
+        "fields",
+        &need.fields,
+        &provided_fields,
+    );
+    let provided_selectors = provider
+        .selector_capabilities
+        .iter()
+        .map(|selector| selector.as_str())
+        .collect::<Vec<_>>();
+    push_missing_strings(
+        need,
+        &mut gaps,
+        "consumerNeedMissingSelector",
+        "selectors",
+        &need.selectors,
+        &provided_selectors,
+    );
+    if need
+        .quota
+        .max_items
+        .is_some_and(|required| provider.max_items < required)
+    {
+        gaps.push(need_gap(
+            need,
+            "consumerNeedInsufficientQuota",
+            "quota.maxItems",
+            "read provider item quota is below the consumer requirement",
+        ));
+    }
+    if need
+        .ordering
+        .as_deref()
+        .is_some_and(|ordering| ordering != provider.ordering)
+    {
+        gaps.push(need_gap(
+            need,
+            "consumerNeedOrderingMismatch",
+            "ordering",
+            "read provider ordering does not match the consumer requirement",
+        ));
+    }
+    if requires_delivery(need)
+        && !frames.iter().any(|frame| {
+            frame.invocations.iter().any(|invocation| {
+                invocation.declared_reads.as_ref().is_some_and(|set| {
+                    set.nested_hashes_are_valid()
+                        && set.reads.iter().any(|read| {
+                            read.view.key() == need.identity
+                                && read.provider_id == provider.provider_id
+                                && need.fields.iter().all(|field| read.fields.contains(field))
+                        })
+                })
+            })
+        })
+    {
+        gaps.push(undelivered_need(
+            need,
+            "required read view was registered but no invocation received it",
+        ));
+    }
+    (vec![provider.provider_hash.clone()], gaps)
+}
+
+fn evaluate_proposal_need(
+    need: &GameplayModuleConformanceConsumerNeed,
+    registry: &svc_gameplay_fabric::GameplayFabricRegistry,
+    frames: &[GameplayReactionFrame],
+) -> (Vec<String>, Vec<GameplayModuleConformanceGap>) {
+    let Some(module) = need
+        .provider
+        .as_deref()
+        .and_then(|provider| provider_module(registry, provider))
+    else {
+        return missing_need(
+            need,
+            "consumerNeedProviderMismatch",
+            "provider",
+            "proposal provider is absent",
+        );
+    };
+    let Some(proposal) = module
+        .proposal_kinds
+        .iter()
+        .find(|proposal| proposal.proposal.key() == need.identity)
+    else {
+        return missing_need(
+            need,
+            "consumerNeedMissingProposal",
+            "identity",
+            "module does not declare the required proposal",
+        );
+    };
+    let mut gaps = Vec::new();
+    if registry.proposal_owner(&proposal.proposal) != Some(&proposal.owner) {
+        gaps.push(need_gap(
+            need,
+            "consumerNeedMissingOwner",
+            "identity",
+            "proposal is not bound to its declared closed-registry owner",
+        ));
+    }
+    if requires_delivery(need)
+        && !frames.iter().any(|frame| {
+            frame
+                .routing_receipts
+                .iter()
+                .any(|routing| routing.proposal_kind == need.identity)
+        })
+    {
+        gaps.push(undelivered_need(need, "required proposal was never routed"));
+    }
+    (vec![proposal.owner.owner_id.clone()], gaps)
+}
+
+fn evaluate_binding_need(
+    need: &GameplayModuleConformanceConsumerNeed,
+    project: &GameplayModuleConformanceProject,
+    registry: &svc_gameplay_fabric::GameplayFabricRegistry,
+    frames: &[GameplayReactionFrame],
+) -> (Vec<String>, Vec<GameplayModuleConformanceGap>) {
+    let configuration = project
+        .gameplay_module_bindings
+        .configurations
+        .iter()
+        .find(|configuration| configuration.configuration.key() == need.identity);
+    let Some(configuration) = configuration else {
+        return missing_need(
+            need,
+            "consumerNeedMissingBinding",
+            "identity",
+            "binding registry has no configuration for the required schema",
+        );
+    };
+    let mut gaps = provider_gaps(need, &configuration.module.provider_id);
+    if registry.module(&configuration.module.module_id).is_none() {
+        gaps.push(need_gap(
+            need,
+            "consumerNeedMissingModule",
+            "identity",
+            "binding configuration module is absent from the closed registry",
+        ));
+    }
+    let config_fields =
+        serde_json::from_slice::<serde_json::Value>(&configuration.canonical_config)
+            .ok()
+            .and_then(|value| value.as_object().cloned())
+            .map(|object| object.into_iter().map(|(key, _)| key).collect::<Vec<_>>())
+            .unwrap_or_default();
+    let config_field_refs = config_fields.iter().map(String::as_str).collect::<Vec<_>>();
+    push_missing_strings(
+        need,
+        &mut gaps,
+        "consumerNeedMissingField",
+        "fields",
+        &need.fields,
+        &config_field_refs,
+    );
+    let matching_bindings = project
+        .gameplay_module_bindings
+        .bindings
+        .iter()
+        .filter(|binding| binding.configuration_id == configuration.configuration_id)
+        .collect::<Vec<_>>();
+    if matching_bindings.is_empty() {
+        gaps.push(need_gap(
+            need,
+            "consumerNeedMissingBinding",
+            "target",
+            "configuration is not selected by any authored binding",
+        ));
+    }
+    if let Some(scope) = need.target.scope.as_deref() {
+        let scope_matches = matching_bindings.iter().any(|binding| {
+            matches!(
+                (&binding.target, scope),
+                (
+                    asha_gameplay_module_sdk::GameplayModuleBindingTarget::Session,
+                    "session"
+                )
+            )
+        });
+        if !scope_matches {
+            gaps.push(need_gap(
+                need,
+                "consumerNeedBindingTargetMismatch",
+                "target.scope",
+                "no authored binding resolves the required target scope",
+            ));
+        }
+    }
+    if requires_delivery(need)
+        && !frames.iter().any(|frame| {
+            frame.invocations.iter().any(|invocation| {
+                invocation.configuration.as_ref().is_some_and(|delivered| {
+                    delivered.configuration_id == configuration.configuration_id
+                        && delivered.config_hash == configuration.config_hash
+                })
+            })
+        })
+    {
+        gaps.push(undelivered_need(
+            need,
+            "authored configuration was validated but not supplied to an invocation",
+        ));
+    }
+    (vec![configuration.configuration_id.clone()], gaps)
+}
+
+fn provider_gaps(
+    need: &GameplayModuleConformanceConsumerNeed,
+    actual_provider: &str,
+) -> Vec<GameplayModuleConformanceGap> {
+    match need.provider.as_deref() {
+        Some(required) if required != actual_provider => vec![need_gap(
+            need,
+            "consumerNeedProviderMismatch",
+            "provider",
+            &format!("required provider {required}, resolved {actual_provider}"),
+        )],
+        Some(_) => Vec::new(),
+        None => vec![need_gap(
+            need,
+            "consumerNeedProviderMismatch",
+            "provider",
+            "consumer need does not name its required provider",
+        )],
+    }
+}
+
+fn push_missing_strings(
+    need: &GameplayModuleConformanceConsumerNeed,
+    gaps: &mut Vec<GameplayModuleConformanceGap>,
+    code: &str,
+    field: &str,
+    required: &[String],
+    actual: &[&str],
+) {
+    let missing = required
+        .iter()
+        .filter(|item| !actual.contains(&item.as_str()))
+        .cloned()
+        .collect::<Vec<_>>();
+    if !missing.is_empty() {
+        gaps.push(need_gap(
+            need,
+            code,
+            field,
+            &format!("missing values: {}", missing.join(", ")),
+        ));
+    }
+}
+
+fn requires_delivery(need: &GameplayModuleConformanceConsumerNeed) -> bool {
+    need.required_level == "delivery"
+}
+
+fn missing_need(
+    need: &GameplayModuleConformanceConsumerNeed,
+    code: &str,
+    field: &str,
+    message: &str,
+) -> (Vec<String>, Vec<GameplayModuleConformanceGap>) {
+    (Vec::new(), vec![need_gap(need, code, field, message)])
+}
+
+fn undelivered_need(
+    need: &GameplayModuleConformanceConsumerNeed,
+    message: &str,
+) -> GameplayModuleConformanceGap {
+    need_gap(need, "consumerNeedUndelivered", "requiredLevel", message)
+}
+
+fn need_gap(
+    need: &GameplayModuleConformanceConsumerNeed,
+    code: &str,
+    field: &str,
+    message: &str,
+) -> GameplayModuleConformanceGap {
+    gap(
+        code,
+        &format!("consumerNeeds.{}.{}", need.id, field),
+        message,
+    )
 }
 
 fn playback_facts(
@@ -821,18 +1726,22 @@ impl GameplayViewSource for ConformanceViews<'_> {
                         &format!("module named view rejected: {error:?}"),
                     )
                 })?;
+            let value = GameplayReadValue::ModuleNamed {
+                scope: named.scope,
+                revision: named.revision,
+                canonical_payload: named.canonical_payload,
+                view_hash: named.view_hash,
+            };
+            let value_hash = gameplay_module_payload_hash(
+                &serde_json::to_vec(&value).expect("conformance read value serializes"),
+            );
             reads.push(GameplayFrozenRead {
                 request_id: request.request_id.clone(),
                 view: request.view.clone(),
                 provider_id: named.provider_id,
                 fields: request.fields.clone(),
-                value_hash: named.view_hash.clone(),
-                value: GameplayReadValue::ModuleNamed {
-                    scope: named.scope,
-                    revision: named.revision,
-                    canonical_payload: named.canonical_payload,
-                    view_hash: named.view_hash,
-                },
+                value,
+                value_hash,
             });
         }
         reads.sort_by(|left, right| left.request_id.cmp(&right.request_id));

@@ -261,14 +261,24 @@ export interface SpriteAtlasDescriptor {
 // How a material samples colour across geometry. Mirrors `core_catalog::material::UvStrategy` — the *visual* projection only; no collision/authority field ever appears here.
 export type MaterialUvStrategy = 'flat' | 'planar' | 'atlas';
 
-// The renderer-facing projection of a catalog material, keyed by its asset id so the renderer can resolve a static-mesh slot or a sprite ref to a real material descriptor instead of a placeholder colour (render-material-01, #2373).  This is the **visual** projection: a linear-RGBA colour, an optional bound texture id, scalar roughness/emissive, and a UV strategy. It carries **no** collision/authority field (`solid`/`collidable`/`occludes`/`structural_class` live on the disjoint `CollisionMaterial` projection) — a boundary leak is a type error here, not a review nit (boundary 18).
+// The renderer-facing projection of a catalog material, keyed by its asset id so the renderer can resolve a static-mesh slot or sprite ref without a placeholder. This is visual projection only; collision/authority fields cannot be named.
 export interface RenderMaterialDescriptor {
+  readonly schemaVersion: number;
   readonly id: string;
   readonly color: readonly [number, number, number, number];
   readonly texture: string | null;
   readonly roughness: number;
-  readonly emissive: number;
+  readonly textureTint: readonly [number, number, number, number];
+  readonly emissionColor: readonly [number, number, number];
+  readonly emissionIntensity: number;
   readonly uvStrategy: MaterialUvStrategy;
+}
+
+// A complete visual-parameter block for one material slot on one retained instance. The operation replaces the block; `None` resets descriptor defaults. These values are presentation only and never become gameplay authority.
+export interface MaterialInstanceParameters {
+  readonly textureTint: readonly [number, number, number, number];
+  readonly emissionColor: readonly [number, number, number];
+  readonly emissionIntensity: number;
 }
 
 // A single retained-mode change against the render scene.  `Update` carries optional fields so a tick can change only a transform, only visibility, only material, or only metadata, without re-sending the node.
@@ -278,6 +288,7 @@ export type RenderDiff =
   | { readonly op: 'destroy'; readonly handle: RenderHandle }
   | { readonly op: 'replaceMeshPayload'; readonly handle: RenderHandle; readonly payload: MeshPayloadDescriptor }
   | { readonly op: 'defineMaterial'; readonly material: RenderMaterialDescriptor }
+  | { readonly op: 'setMaterialInstanceParameters'; readonly handle: RenderHandle; readonly slot: number; readonly parameters: MaterialInstanceParameters | null }
   | { readonly op: 'defineTexture'; readonly texture: TextureDescriptor }
   | { readonly op: 'defineSpriteAtlas'; readonly atlas: SpriteAtlasDescriptor }
   | { readonly op: 'defineStaticMesh'; readonly asset: StaticMeshAsset }

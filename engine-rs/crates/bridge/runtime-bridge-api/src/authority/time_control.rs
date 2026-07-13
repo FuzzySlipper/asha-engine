@@ -100,11 +100,12 @@ pub(super) fn apply(
     }
     let before = state(bridge, bridge.authority_tick);
     let authority_receipt = bridge.time_controller.apply(command(requested));
-    if authority_receipt.accepted {
-        bridge.authority_tick = bridge
+    if authority_receipt.accepted && authority_receipt.exact_ticks_to_advance > 0 {
+        let first_tick = bridge
             .authority_tick
-            .checked_add(u64::from(authority_receipt.exact_ticks_to_advance))
+            .checked_add(1)
             .expect("valid exact step was overflow-checked before authority mutation");
+        execute_fixed_ticks(bridge, first_tick, authority_receipt.exact_ticks_to_advance)?;
     }
     let after = state(bridge, bridge.authority_tick);
     let rejection = authority_receipt.rejection.map(rejection);
@@ -135,15 +136,67 @@ pub(super) fn step(
     input: StepInputEnvelope,
 ) -> BridgeResult<StepResult> {
     bridge.require_initialized("step_simulation")?;
-    if bridge.time_controller.cadence_tick_budget() == 0 {
+    let cadence_tick_budget = u32::from(bridge.time_controller.cadence_tick_budget());
+    if cadence_tick_budget == 0 {
         return Ok(StepResult {
             tick: bridge.authority_tick,
             diff_count: 0,
         });
     }
-    bridge.authority_tick = input.tick;
-    Ok(StepResult {
+    execute_fixed_ticks(bridge, input.tick, cadence_tick_budget)
+}
+
+/// Execute a batch of fixed simulation ticks through the same per-tick path.
+///
+/// A wall-clock cadence pulse uses the configured speed multiplier as `count`;
+/// an exact-step command uses its requested tick count. The fixed tick delta is
+/// never scaled. `first_tick` is the caller-provided tick for a cadence pulse or
+/// the next authority tick for an exact step, and subsequent ticks are strictly
+/// sequential.
+fn execute_fixed_ticks(
+    bridge: &mut EngineBridge,
+    first_tick: u64,
+    count: u32,
+) -> BridgeResult<StepResult> {
+    debug_assert!(count > 0);
+    let last_tick_offset = u64::from(count - 1);
+    first_tick.checked_add(last_tick_offset).ok_or_else(|| {
+        RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::InvalidInput,
+            "fixed-tick batch would overflow the authority tick",
+        )
+    })?;
+
+    let mut result = StepResult {
         tick: bridge.authority_tick,
-        diff_count: (bridge.authority_tick % 4) as u32,
-    })
+        diff_count: 0,
+    };
+    for offset in 0..count {
+        let tick = first_tick + u64::from(offset);
+        let tick_result = execute_fixed_tick(bridge, tick);
+        result.tick = tick_result.tick;
+        result.diff_count += tick_result.diff_count;
+    }
+    Ok(result)
+}
+
+/// Run one fixed simulation tick. Every cadence and exact-step path must call
+/// this function rather than editing `authority_tick` directly.
+fn execute_fixed_tick(bridge: &mut EngineBridge, tick: u64) -> StepResult {
+    let outcome = bridge.simulation.execute_tick(tick);
+    bridge.authority_tick = outcome.tick;
+    StepResult {
+        tick: outcome.tick,
+        diff_count: u32::try_from(outcome.events_applied)
+            .expect("bounded fixed-tick event count fits the bridge result"),
+    }
+}
+
+#[cfg(test)]
+pub(super) fn queue_simulation_command(
+    bridge: &mut EngineBridge,
+    tick: u64,
+    command: CommandEnvelope,
+) {
+    bridge.simulation.queue_command(tick, command);
 }

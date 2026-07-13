@@ -7,6 +7,7 @@ export type { CompositionStatus, EngineConfig, EngineHandle, FrameCursor, Replay
 export * from './browser-input-host.js';
 export * from './browser-fps-resolved-actions.js';
 export * from './resolved-time-control.js';
+export { buildRuntimeSessionAnimationControllerTargetFrame } from './runtime-session-animation.js';
 export * from './native-runtime-provider.js';
 export * from './playable-encounter-tick.js';
 export * from './playable-loop-state.js';

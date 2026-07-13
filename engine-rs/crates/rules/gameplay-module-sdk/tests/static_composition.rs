@@ -49,6 +49,12 @@ struct ResultPayload {
     amount: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CounterConfiguration {
+    multiplier: u64,
+}
+
 struct CounterAdapter {
     module_id: &'static str,
     state_schema: GameplayContractRef,
@@ -58,7 +64,7 @@ struct CounterAdapter {
 }
 
 impl GameplayTypedModuleStateAdapter for CounterAdapter {
-    type Config = u64;
+    type Config = CounterConfiguration;
     type State = u64;
     type Fact = u64;
     type View = ResultPayload;
@@ -84,7 +90,7 @@ impl GameplayTypedModuleStateAdapter for CounterAdapter {
     }
 
     fn initialize(&self, config: &Self::Config) -> Result<Self::State, String> {
-        Ok(*config)
+        Ok(config.multiplier)
     }
 
     fn decode_state(&self, value: &[u8]) -> Result<Self::State, String> {
@@ -207,6 +213,7 @@ fn manifest(
             family: GameplayInvocationFamily::Observe,
             input_contract: root.clone(),
             output_contract: contract(namespace, "result"),
+            read_requirements: Vec::new(),
             max_outputs: 3,
             max_payload_bytes: 4_096,
         }],
@@ -258,6 +265,16 @@ fn provider_with_adapter_view(
 ) -> GameplayStaticModuleProvider {
     let manifest = manifest(namespace, root, proposes);
     let owner = owner(namespace);
+    let configuration_metadata = GameplayConfigurationSchemaMetadata {
+        module_id: format!("{namespace}.module"),
+        configuration: contract(namespace, "configuration"),
+        codec_id: format!("codec.{namespace}.configuration"),
+        fields: vec![GameplayConfigurationFieldMetadata {
+            name: "multiplier".to_owned(),
+            value_type: "u64".to_owned(),
+            required: true,
+        }],
+    };
     let mut provider = GameplayStaticModuleProvider::linked_from_manifest(
         manifest,
         CounterBehavior {
@@ -298,16 +315,10 @@ fn provider_with_adapter_view(
         view_schema: contract(namespace, adapter_view_name),
         owner: owner.clone(),
     }))
-    .configuration_schema(GameplayConfigurationSchemaMetadata {
-        module_id: format!("{namespace}.module"),
-        configuration: contract(namespace, "configuration"),
-        codec_id: format!("codec.{namespace}.configuration"),
-        fields: vec![GameplayConfigurationFieldMetadata {
-            name: "multiplier".to_owned(),
-            value_type: "u64".to_owned(),
-            required: true,
-        }],
-    });
+    .configuration_schema(configuration_metadata.clone())
+    .configuration_codec(GameplayConfigurationCodecRegistration::typed::<
+        CounterConfiguration,
+    >(configuration_metadata));
     if proposes {
         provider = provider.proposal_owner(GameplayProposalOwnerRegistration {
             proposal: contract(namespace, "shared-delta"),
@@ -464,7 +475,7 @@ fn provider_state_adapters_initialize_and_apply_recorded_local_facts() {
     let mut state =
         GameplayModuleStateStore::new(parts.registry.clone(), parts.state_adapters).unwrap();
     for namespace in ["game.alpha", "game.beta"] {
-        let config = serde_json::to_vec(&10_u64).unwrap();
+        let config = serde_json::to_vec(&CounterConfiguration { multiplier: 10 }).unwrap();
         state
             .initialize_atomic(vec![GameplayModuleInitialization {
                 initialization_id: format!("init-{namespace}"),
@@ -638,6 +649,7 @@ fn legacy_composition() -> GameplayStaticComposition {
             family: GameplayInvocationFamily::Transform,
             input_contract: workspace.clone(),
             output_contract: workspace.clone(),
+            read_requirements: Vec::new(),
             max_outputs: 1,
             max_payload_bytes: 4_096,
         }],

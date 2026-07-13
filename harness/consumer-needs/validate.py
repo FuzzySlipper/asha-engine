@@ -6,7 +6,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -17,6 +19,10 @@ MANIFEST_DIR = ROOT / "harness/consumer-needs/manifests"
 REPORT_PATH = ROOT / "harness/consumer-needs/validation-report.json"
 TS_PUBLIC_PATH = ROOT / "harness/public-surface/ts-packages.json"
 RUST_PUBLIC_PATH = ROOT / "harness/public-surface/rust-crates.json"
+GAMEPLAY_MANIFEST_PATH = MANIFEST_DIR / "gameplay-module-fixture.json"
+GAMEPLAY_CONFORMANCE_MANIFEST = (
+    ROOT / "harness/fixtures/gameplay-module-sdk/downstream-module/Cargo.toml"
+)
 
 KINDS = {
     "typescriptPackage", "runtimeOperation", "runtimeReadout", "generatedType",
@@ -114,11 +120,12 @@ def validate_evidence(
             add_gap(
                 gaps, manifest, requirement_id, f"missing_{level}_evidence",
                 f"evidence.{level}", f"{required_level} proof requires {level} evidence",
-            )
+        )
         for ref in refs:
-            if ref.startswith("../") or "://" in ref:
+            if "://" in ref:
                 continue
-            if not (ROOT / ref).exists():
+            evidence_path = (ROOT / ref).resolve()
+            if not evidence_path.exists():
                 add_gap(
                     gaps, manifest, requirement_id, "missing_evidence_ref",
                     f"evidence.{level}", f"repository evidence path does not exist: {ref}",
@@ -342,6 +349,61 @@ def build_report(paths: list[Path]) -> dict[str, Any]:
     }
 
 
+def run_gameplay_semantic_validation() -> tuple[dict[str, Any], list[dict[str, str]]]:
+    """Join the authored needs to the compiled provider and delivered-frame proof."""
+    with tempfile.TemporaryDirectory(prefix="asha-consumer-needs-") as directory:
+        report_path = Path(directory) / "gameplay-conformance.json"
+        command = [
+            "cargo", "run", "--quiet", "--manifest-path",
+            str(GAMEPLAY_CONFORMANCE_MANIFEST), "--bin", "conformance", "--",
+            "--json", str(report_path),
+        ]
+        result = subprocess.run(
+            command,
+            cwd=ROOT,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        if not report_path.exists():
+            detail = result.stderr.strip() or result.stdout.strip() or "runner produced no report"
+            raise SystemExit(f"consumer-needs: gameplay semantic validation failed: {detail}")
+        value = read_json(report_path)
+
+    checks = [
+        check for check in value.get("checks", [])
+        if isinstance(check.get("id"), str) and check["id"].startswith("consumerNeed.")
+    ]
+    summary = {
+        "runner": "harness/fixtures/gameplay-module-sdk/downstream-module/src/bin/conformance.rs",
+        "valid": value.get("valid") is True and result.returncode == 0,
+        "consumerNeedsManifestHash": value.get("consumerNeedsManifestHash"),
+        "registryDigest": value.get("registryDigest"),
+        "bindingRegistryHash": value.get("bindingRegistryHash"),
+        "checks": checks,
+    }
+    gaps = [
+        {
+            "manifest": GAMEPLAY_MANIFEST_PATH.relative_to(ROOT).as_posix(),
+            "requirement": gap.get("path", "<semantic>"),
+            "code": gap.get("code", "semantic_validation_failed"),
+            "path": gap.get("path", "<semantic>"),
+            "message": gap.get("message", "compiled semantic validation failed"),
+        }
+        for gap in value.get("gaps", [])
+    ]
+    if result.returncode != 0 and not gaps:
+        gaps.append({
+            "manifest": GAMEPLAY_MANIFEST_PATH.relative_to(ROOT).as_posix(),
+            "requirement": "<semantic>",
+            "code": "semantic_runner_failed",
+            "path": "<semantic>",
+            "message": result.stderr.strip() or "compiled semantic runner failed",
+        })
+    return summary, gaps
+
+
 def canonical_json(value: Any) -> str:
     return json.dumps(value, indent=2, sort_keys=False) + "\n"
 
@@ -378,6 +440,14 @@ def main() -> int:
     args = parser.parse_args()
     paths = sorted(MANIFEST_DIR.glob("*.json"))
     report = build_report(paths)
+    semantic_validation, semantic_gaps = run_gameplay_semantic_validation()
+    report["semanticValidation"] = semantic_validation
+    report["gaps"].extend(semantic_gaps)
+    report["gaps"] = sorted(
+        report["gaps"],
+        key=lambda gap: (gap["manifest"], gap["requirement"], gap["code"], gap["path"]),
+    )
+    report["valid"] = report["valid"] and semantic_validation["valid"] and not semantic_gaps
     rendered = canonical_json(report)
     if args.write_report:
         REPORT_PATH.write_text(rendered, encoding="utf-8")

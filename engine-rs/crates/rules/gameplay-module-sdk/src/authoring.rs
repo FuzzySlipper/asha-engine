@@ -29,6 +29,33 @@ impl<'call> GameplayModuleContext<'call> {
         &self.call.invocation_id
     }
 
+    pub fn configuration<T: DeserializeOwned>(&self) -> Result<T, GameplayModuleError> {
+        let configuration =
+            self.call
+                .configuration
+                .as_ref()
+                .ok_or_else(|| GameplayModuleError {
+                    code: "missingInvocationConfiguration".to_owned(),
+                    message: format!(
+                        "invocation `{}` has no resolved authored configuration",
+                        self.call.invocation_id
+                    ),
+                })?;
+        serde_json::from_slice(&configuration.canonical_config).map_err(|error| {
+            GameplayModuleError {
+                code: "configurationDecodeFailed".to_owned(),
+                message: error.to_string(),
+            }
+        })
+    }
+
+    pub fn configuration_scope(&self) -> Option<&GameplayModuleStateScope> {
+        self.call
+            .configuration
+            .as_ref()
+            .map(|configuration| &configuration.scope)
+    }
+
     pub fn event_contract(&self) -> Option<&GameplayContractRef> {
         self.event().map(|event| &event.event)
     }

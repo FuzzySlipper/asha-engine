@@ -228,6 +228,59 @@ void test('tracks static mesh definitions and fails closed on in-use redefinitio
   assert.doesNotThrow(() => projection.applyDiff({ op: 'defineStaticMesh', asset: meshAsset() }));
 });
 
+void test('retains and resets handle-targeted material feedback parameters', () => {
+  const projection = new RenderProjection();
+  projection.applyDiff({ op: 'defineStaticMesh', asset: meshAsset() });
+  projection.applyDiff({
+    op: 'createStaticMeshInstance',
+    handle: renderHandle(1),
+    parent: null,
+    instance: {
+      asset: 'mesh/crate',
+      transform: { translation: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+      materialOverrides: [],
+      metadata: { source: entityId(1), tags: [], label: 'warning-light' },
+    },
+  });
+  const parameters = {
+    textureTint: [1, 0.2, 0.2, 1] as const,
+    emissionColor: [1, 0, 0] as const,
+    emissionIntensity: 2,
+  };
+  projection.applyDiff({
+    op: 'setMaterialInstanceParameters',
+    handle: renderHandle(1),
+    slot: 1,
+    parameters,
+  });
+  const active = projection.node(renderHandle(1));
+  assert.equal(active?.kind, 'staticMesh');
+  if (active?.kind === 'staticMesh') {
+    assert.deepEqual(active.materialParameters, [{ slot: 1, parameters }]);
+  }
+
+  projection.applyDiff({
+    op: 'setMaterialInstanceParameters',
+    handle: renderHandle(1),
+    slot: 1,
+    parameters: null,
+  });
+  const reset = projection.node(renderHandle(1));
+  assert.equal(reset?.kind, 'staticMesh');
+  if (reset?.kind === 'staticMesh') {
+    assert.deepEqual(reset.materialParameters, []);
+  }
+  assert.throws(
+    () => projection.applyDiff({
+      op: 'setMaterialInstanceParameters',
+      handle: renderHandle(1),
+      slot: 9,
+      parameters,
+    }),
+    /unbound slot 9/,
+  );
+});
+
 void test('tracks animated mesh definitions and command-selected named clip playback', () => {
   const projection = new RenderProjection();
   projection.applyDiff({ op: 'defineAnimatedMesh', asset: animatedMeshAsset() });

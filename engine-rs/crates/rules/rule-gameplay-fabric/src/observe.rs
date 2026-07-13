@@ -210,7 +210,7 @@ impl<'registry> GameplayFabricCoordinator<'registry> {
                         }
                     };
 
-                    let call = GameplayInvocationCall {
+                    let mut call = GameplayInvocationCall {
                         module_id: module_id.clone(),
                         subscription_id: subscription.subscription_id.clone(),
                         invocation_id: invocation.invocation_id.clone(),
@@ -218,6 +218,14 @@ impl<'registry> GameplayFabricCoordinator<'registry> {
                         input: crate::GameplayInvocationInput::Observe(event.clone()),
                         frozen_views: frozen_views.clone(),
                         declared_reads,
+                        configuration: None,
+                    };
+                    call.configuration = match host.resolve_configuration(&call) {
+                        Ok(configuration) => configuration,
+                        Err(error) => {
+                            state.host_failure(module_id, invocation, error);
+                            continue;
+                        }
                     };
                     let delivery_hash = delivery_hash(self.registry.registry_digest(), &call);
                     match host.invoke(&call) {
@@ -234,6 +242,8 @@ impl<'registry> GameplayFabricCoordinator<'registry> {
                                     .declared_reads
                                     .as_ref()
                                     .map(|reads| reads.read_set_hash.clone()),
+                                declared_reads: call.declared_reads.clone(),
+                                configuration: call.configuration.clone(),
                                 delivery_hash,
                                 output_hash,
                             });
@@ -889,6 +899,16 @@ pub(crate) fn delivery_hash(registry_digest: &str, call: &GameplayInvocationCall
         call.declared_reads
             .as_ref()
             .map(|reads| reads.read_set_hash.as_str())
+            .unwrap_or("-"),
+        call.configuration
+            .as_ref()
+            .map(|configuration| {
+                crate::gameplay_module_payload_hash(
+                    &serde_json::to_vec(configuration)
+                        .expect("invocation configuration evidence serializes"),
+                )
+            })
+            .as_deref()
             .unwrap_or("-"),
     ])
 }

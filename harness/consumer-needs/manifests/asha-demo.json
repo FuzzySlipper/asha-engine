@@ -7,6 +7,21 @@
   },
   "requirements": [
     {
+      "id": "asha-demo.animation-controller-projection",
+      "kind": "projectionChannel",
+      "identity": "runtime.presentation.animation",
+      "provider": "@asha/renderer-host",
+      "symbols": ["AshaAnimationHost", "AshaAnimationSampledCue", "applyAshaRuntimeProjectionFrame"],
+      "fields": ["controller", "origin", "sampledCue", "timingFact", "transition"],
+      "requiredLevel": "delivery",
+      "evidence": {
+        "type": ["ts/packages/contracts/src/generated/presentation.ts"],
+        "provider": ["engine-rs/crates/bridge/runtime-bridge-api/src/authority/fps_and_rules.rs"],
+        "selector": ["../asha-demo/src/bootstrap/boot-game.ts"],
+        "delivery": ["../asha-demo/tests/live-ui.spec.mjs"]
+      }
+    },
+    {
       "id": "asha-demo.audio-projection",
       "kind": "projectionChannel",
       "identity": "runtime.presentation.audio",
@@ -270,6 +285,21 @@
         "type": ["ts/packages/contracts/src/generated/projectBundle.ts"],
         "provider": ["engine-rs/crates/rules/gameplay-runtime-host/src/prefab.rs"],
         "selector": ["../asha-demo/prefabs/registry.json"],
+        "delivery": ["../asha-demo/tests/live-ui.spec.mjs"]
+      }
+    },
+    {
+      "id": "asha-demo.integrated-feedback-projection",
+      "kind": "projectionChannel",
+      "identity": "runtime.presentation.integratedFeedback",
+      "provider": "@asha/renderer-host",
+      "symbols": ["applyAshaRuntimeProjectionFrame"],
+      "fields": ["degradationDiagnostics", "origin", "replayScope", "sequence"],
+      "requiredLevel": "delivery",
+      "evidence": {
+        "type": ["ts/packages/contracts/src/generated/presentation.ts"],
+        "provider": ["ts/packages/renderer-host/src/audio-host.ts"],
+        "selector": ["../asha-demo/src/bootstrap/boot-game.ts"],
         "delivery": ["../asha-demo/tests/live-ui.spec.mjs"]
       }
     },

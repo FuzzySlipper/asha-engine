@@ -2,27 +2,30 @@
   "schemaVersion": 1,
   "catalogEntryHashes": {
     "reachabilityCapabilities": {
+      "animation.runtime-projection": "sha256:cca14e54578e405c84e801ca0ef7ab4229efee487c93c79d217822bd3a622f38",
       "audio.runtime-projection": "sha256:af145e2ea56e03175e95bd6f47544a81bafb22eba97c640c2ef17f3ccb72ebc0",
       "billboard.runtime-projection": "sha256:99a805abfd9dd9882c71f77f46eff34a25a027147525e73375cbccb9701eb17e",
       "bridge.camera-controller": "sha256:852e5bcf66f5d8dc7f48f21a73cc8fe1610e03f80a83ba88cde2dd9f4c1584db",
       "bridge.project-bundle.load": "sha256:c441edcdf2e5a706aba7af56799b171275f3d14fb48213fa54a9e9c005af6f9c",
-      "bridge.session-input-replay": "sha256:74512c2f4d74f2c15f64c064820819c957fbecda3c0df0cf95d601c4fe609490",
-      "bridge.session-time-control": "sha256:fc033a7d335ebac561cd7f2b95140125165d3f1f145a9870074ac86a01e66782",
-      "gameplay.event-bound-read": "sha256:5e70092d44a9c710cf16fe37edcff04db2ddb23eeabcd3220fd22a28cce24f3d",
-      "gameplay.generic-event": "sha256:ef72e7596c2dc6fb3bfd3a19daef5b63a3552b347b02189b5d5fb3ee82df10bc",
-      "gameplay.module-binding": "sha256:f7b7b5884e4767d5269985c7354a0e58584efa36edcc8ff976a8ba665c943038",
+      "bridge.session-input-replay": "sha256:83d2802e9e5cdb614ad97736c26e1a0f006115c3c5d0d041ed21343fdd647354",
+      "bridge.session-time-control": "sha256:ff2e9b1c0b53eea1fa8b26f65b26c0343e72cad0692b86f0ee1e8f6f1f8fb4af",
+      "feedback.integrated-public-projection": "sha256:a63c5f9af670e5bc9b45e19c545e7743fd42b15300ef764fcb477d8dcfa50792",
+      "gameplay.event-bound-read": "sha256:764a812f8a2f5dd779235c95a04b15227594410a50e56bf6b5f6d4517d3f2cf8",
+      "gameplay.generic-event": "sha256:a6bf9087baeee4fe5edbe68e353e082541a32e43f306b9b2e0fc90cb761cb921",
+      "gameplay.module-binding": "sha256:b534672ef528b7910d8f6b5062b721ee386b76ed4366cc47315d8b0eb6bd2ca7",
       "gameplay.module-conformance": "sha256:79590b056116e622d2cb1b40f25f17df70543da6063c39d7ec0a7518f8d12f2c",
-      "gameplay.module-named-read": "sha256:e6797d9404b6f4dc97ae7a4c49149c82fd1f6a7a4406ff5ecf1760505419a25a",
+      "gameplay.module-named-read": "sha256:0b20352f6bc7fb375de66c3b74a80c4cfa63639c4d3f74420cfefa669712a68f",
       "gameplay.runtime-host": "sha256:e16cdb911d763262e4d373d24920c8a9244cce7574a2c9c5a5394002800fbaa1",
       "gameplay.runtime-host.decision": "sha256:9c52125c2d17fcb435f51beccdb687e2b88d7b895463fdca7ca3640603345e8a",
       "gameplay.runtime-host.transport": "sha256:06eb4ea80ba6e3b995dfed20d08eb1e6bd2f099dfaae407165f48e9f367c9a12",
-      "gameplay.trigger-lifecycle": "sha256:898bb29761692ef85614964f77d4849c71976be0bad296dae9b83f0825635c43",
+      "gameplay.trigger-lifecycle": "sha256:b23693d8f747c7abe83b0c17c0ee2b35fae96c998061c6042c29362297b400ce",
       "particle.runtime-projection": "sha256:7299ca9463516eebcd8ea332f772bdbd2314e89c268b6970afb1e62025127471",
       "prefab.public-authoring": "sha256:1546d09b8d120d39e560855ebb1ee8867587f4ad11fa6463ddf7648199508ab7",
-      "prefab.runtime-placement": "sha256:8f065eb40df9d360c589f1fd6c06eb973f8faf3fdc7b21d4aca5671ef9a6688b",
+      "prefab.runtime-placement": "sha256:451df92f6553b5a0b12d65f13f6822200e1b9e62a94766814fcb8774d36ff00a",
       "telemetry.live-snapshot-overlay": "sha256:955207022544a3c57d1a7b473efa9bc9e4946d45d08732709869973f4e06cd3e"
     },
     "deliveryRequirements": {
+      "asha-demo.animation-controller-projection": "sha256:36400321652b48a7ab9862c0d99fd20431a04caac0d1285cef7de5b68eb4928c",
       "asha-demo.audio-projection": "sha256:178a43433998fbebf614a2e984e1350ecd4636f5ee49b247fd14d017a3745412",
       "asha-demo.billboard-projection": "sha256:1e5350d2374ab6fd415c17b25bd217fef42f35e9ae1c3d480df95d3fdd62de90",
       "asha-demo.configure-input-session": "sha256:a373b35750a846ac79b9a3d991d28ecf898b36bd510b2814b6264605729e4994",
@@ -32,6 +35,7 @@
       "asha-demo.input-context-state": "sha256:2107431ddad5f1878476a91d6a36d71bf8430aabd0ec8d50f3677a05fdb9dbfe",
       "asha-demo.input-replay": "sha256:1d2576b6fe0f592da6a479624c66cf3764aa3ab18512355a5e8f4315f2235911",
       "asha-demo.input-replay-receipt": "sha256:0829db0607cdff274ba45a5e6d515d674689e49abc96572785746caf842fef60",
+      "asha-demo.integrated-feedback-projection": "sha256:466956428e8ede75ccccf6a75e36223b008c38e963651a01d9a6b1527818bd6a",
       "asha-demo.particle-projection": "sha256:d90a3043bdf3d84cad027be945133539719fd74ca2374e93a18a376cb811cded",
       "asha-demo.playable-encounter-readout": "sha256:b02a888a1bfa46f40a90c9bf23b060aaf477b01e88e609335b0c06680706a6a6",
       "asha-demo.prefab-part": "sha256:24900aa51b03603b90a750ab2a92936e7a23cbf0ef07752d5168ac7dcc8e751d",
@@ -49,9 +53,10 @@
       "pulse.module": "sha256:da28f8e2ca847fa03f7564540284eae4d94d0abaa2db6f09857981edf5d8bb9a",
       "pulse.observe": "sha256:400daf758430aa400d96f929dd4ad18c47e520af690ee734e8fd9d55e2d7edee",
       "pulse.public-sdk": "sha256:bd4583af8dfdc8e7d91b788cd7ca9ba1d5d6b82a1ee0847e9d8d639aed131cfc",
-      "pulse.runtime-host": "sha256:09a7143a6c82e6e180a01178d0549041a89dad94871d0e96438bd332d8172497",
+      "pulse.read": "sha256:854309ca656179b7d5b6c1cb532f15d217764bb807e30fbb22b9fcfd616b8db5",
+      "pulse.runtime-host": "sha256:a25400c50bb65acaf2369fb0b549d1f624c6efa9e92156a45c7ad2b10c2642e5",
       "pulse.subscribe": "sha256:c0e452bb912d99cf79e330540c076ea735609e225fc095cacc0beff6a88088a3",
-      "pulse.trigger-lifecycle": "sha256:e73ab504ea0c8c78c6040d9b0fdd72a795a091bb8a3e3d1d8a51ede8db3863b3"
+      "pulse.trigger-lifecycle": "sha256:bed02204d2f41d71b256841d43bb1b8ce001a2132680e51fe2628b84d19cd60c"
     },
     "publicSurfaces": {
       "@asha/contracts": "sha256:6258a91ef1d41c86e63b3211632058c78c2e333397017aef7ba9f5bcc5692c97",
@@ -63,24 +68,27 @@
       "@asha/ui-dom": "sha256:464ed95af0885de029b2fca941fd27747875357e28258e5d74e71d19ecd4dbef",
       "asha-gameplay-module-conformance": "sha256:ecd77d16c70b3bd8102a3a9a034c57d3fe0520b13283327cd3b97dc9f78f02e3",
       "asha-gameplay-module-sdk": "sha256:6d142c50d3135168d726b6758727496266d1a193d73d85066133bca410b183f9",
-      "asha-gameplay-runtime-host": "sha256:c6268b131fa7aff7a66149a39b8207ed24e2abc4dcd6ccf82d6f2cb802d361fc"
+      "asha-gameplay-runtime-host": "sha256:316f7859e810e67051983efe7adcab3d54d74f85bfa3bf1eb95e93b2204ad5ac"
     }
   },
   "testCorpora": [
     {
       "id": "bridge.native-transport",
       "executionClass": "nativeTransport",
+      "suite": "bridge.native-wrapper",
       "paths": ["engine-rs/crates/bridge/native-bridge/src/lib.rs"]
     },
     {
       "id": "bridge.rust-authority",
       "executionClass": "compiledRustAuthority",
+      "suite": "bridge.rust-authority",
       "paths": [
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/game_extension_tests.rs",
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/camera_modes.rs",
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+        "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/input.rs",
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/mesh_import.rs",
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
@@ -131,6 +139,11 @@
       "command": "harness/ci/check-trigger-volumes.sh"
     },
     {
+      "id": "public.animation",
+      "executionClass": "publicConsumer",
+      "command": "pnpm --dir ts --filter @asha/renderer-host test"
+    },
+    {
       "id": "public.audio",
       "executionClass": "publicConsumer",
       "command": "pnpm --dir ts --filter @asha/renderer-host test"
@@ -153,7 +166,11 @@
     {
       "id": "public.input-pause-demo",
       "executionClass": "publicConsumer",
-      "command": "npm --prefix ../asha-demo test"
+      "command": "harness/ci/check-asha-demo-input-live.sh",
+      "liveAssertion": {
+        "path": "../asha-demo/tests/live-ui.spec.mjs",
+        "token": "resolved input owns pause, consumption, resume, and semantic replay"
+      }
     },
     {
       "id": "public.particle",
@@ -250,7 +267,15 @@
         }
       ],
       "capabilities": ["gameplay.module-conformance"],
-      "consumerNeeds": ["pulse.conformance"],
+      "consumerNeeds": [
+        "pulse.configuration",
+        "pulse.conformance",
+        "pulse.module",
+        "pulse.observe",
+        "pulse.public-sdk",
+        "pulse.read",
+        "pulse.subscribe"
+      ],
       "publicSurfaces": ["asha-gameplay-module-conformance"],
       "claims": []
     },
@@ -315,6 +340,28 @@
       "consumerNeeds": ["pulse.trigger-lifecycle"],
       "publicSurfaces": ["asha-gameplay-module-sdk"],
       "claims": []
+    },
+    {
+      "id": "public.animation-projection",
+      "suite": "public.animation",
+      "evidence": [
+        {
+          "path": "engine-rs/crates/rules/rule-animation-controller/tests/authority.rs",
+          "token": "accepted_gameplay_fact_is_retained_in_transition_state_and_verification_replay"
+        },
+        {
+          "path": "ts/packages/renderer-host/src/animation-host.test.ts",
+          "token": "G1 controller sequence drives deterministic renderer-local blend and smooth sampling"
+        },
+        {
+          "path": "../asha-demo/tests/live-ui.spec.mjs",
+          "token": "animationSampledCueEvidence"
+        }
+      ],
+      "capabilities": ["animation.runtime-projection"],
+      "consumerNeeds": ["asha-demo.animation-controller-projection"],
+      "publicSurfaces": ["@asha/contracts", "@asha/renderer-host", "@asha/runtime-bridge"],
+      "claims": ["publicProjectionReadout"]
     },
     {
       "id": "public.audio-projection",
@@ -408,6 +455,40 @@
       ],
       "publicSurfaces": ["@asha/contracts", "@asha/renderer-host", "@asha/runtime-bridge", "@asha/runtime-session"],
       "claims": ["atomicRejection", "typedViewDelivery"]
+    },
+    {
+      "id": "public.integrated-feedback-projection",
+      "suite": "public.animation",
+      "evidence": [
+        {
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
+          "token": "primary-fire audio retains the accepted origin"
+        },
+        {
+          "path": "ts/packages/renderer-host/src/audio-host.test.ts",
+          "token": "missing audio resources fail locally with origin-preserving diagnostics"
+        },
+        {
+          "path": "ts/packages/renderer-host/src/particle-host.test.ts",
+          "token": "missing particle resources fail locally without consuming the burst"
+        },
+        {
+          "path": "ts/packages/renderer-host/src/billboard-host.test.ts",
+          "token": "font and icon resources are SHA-256 validated cached and fail with typed diagnostics"
+        },
+        {
+          "path": "ts/packages/renderer-host/src/telemetry-host.test.ts",
+          "token": "missing overlay realization does not block scene or other telemetry access"
+        },
+        {
+          "path": "../asha-demo/tests/live-ui.spec.mjs",
+          "token": "exercisePresentationDegradation"
+        }
+      ],
+      "capabilities": ["feedback.integrated-public-projection"],
+      "consumerNeeds": ["asha-demo.integrated-feedback-projection"],
+      "publicSurfaces": ["@asha/contracts", "@asha/renderer-host", "@asha/runtime-bridge"],
+      "claims": ["publicProjectionReadout"]
     },
     {
       "id": "public.particle-projection",
@@ -526,83 +607,5 @@
       "claims": ["publicProjectionReadout"]
     }
   ],
-  "temporaryOperationExemptions": [
-    {
-      "operation": "apply_first_person_camera_input",
-      "owner": "runtime-bridge",
-      "reason": "The stable facade deliberately fails closed because its native addon export has not yet been wired; reference behavior cannot count as conformance.",
-      "exitCriteria": "Wire and semantically exercise the napi export, then remove this exemption.",
-      "evidence": {"path": "ts/packages/runtime-bridge/src/native.ts", "token": "nativeUnimplemented('apply_first_person_camera_input')"}
-    },
-    {
-      "operation": "apply_scene_object_command",
-      "owner": "runtime-bridge",
-      "reason": "The stable facade deliberately fails closed because its native addon export has not yet been wired; reference behavior cannot count as conformance.",
-      "exitCriteria": "Wire and semantically exercise the napi export, then remove this exemption.",
-      "evidence": {"path": "ts/packages/runtime-bridge/src/native.ts", "token": "nativeUnimplemented('apply_scene_object_command')"}
-    },
-    {
-      "operation": "get_buffer",
-      "owner": "runtime-bridge",
-      "reason": "The stable facade deliberately fails closed because its native addon export has not yet been wired; reference behavior cannot count as conformance.",
-      "exitCriteria": "Wire and semantically exercise the napi export, then remove this exemption.",
-      "evidence": {"path": "ts/packages/runtime-bridge/src/native.ts", "token": "nativeUnimplemented('get_buffer')"}
-    },
-    {
-      "operation": "pick_voxel",
-      "owner": "runtime-bridge",
-      "reason": "The stable facade deliberately fails closed because its native addon export has not yet been wired; reference behavior cannot count as conformance.",
-      "exitCriteria": "Wire and semantically exercise the napi export, then remove this exemption.",
-      "evidence": {"path": "ts/packages/runtime-bridge/src/native.ts", "token": "nativeUnimplemented('pick_voxel')"}
-    },
-    {
-      "operation": "read_camera_projection",
-      "owner": "runtime-bridge",
-      "reason": "The stable facade deliberately fails closed because its native addon export has not yet been wired; reference behavior cannot count as conformance.",
-      "exitCriteria": "Wire and semantically exercise the napi export, then remove this exemption.",
-      "evidence": {"path": "ts/packages/runtime-bridge/src/native.ts", "token": "nativeUnimplemented('read_camera_projection')"}
-    },
-    {
-      "operation": "read_model_material_preview",
-      "owner": "runtime-bridge",
-      "reason": "The stable facade deliberately fails closed because its native addon export has not yet been wired; reference behavior cannot count as conformance.",
-      "exitCriteria": "Wire and semantically exercise the napi export, then remove this exemption.",
-      "evidence": {"path": "ts/packages/runtime-bridge/src/native.ts", "token": "nativeUnimplemented('read_model_material_preview')"}
-    },
-    {
-      "operation": "read_scene_object_snapshot",
-      "owner": "runtime-bridge",
-      "reason": "The stable facade deliberately fails closed because its native addon export has not yet been wired; reference behavior cannot count as conformance.",
-      "exitCriteria": "Wire and semantically exercise the napi export, then remove this exemption.",
-      "evidence": {"path": "ts/packages/runtime-bridge/src/native.ts", "token": "nativeUnimplemented('read_scene_object_snapshot')"}
-    },
-    {
-      "operation": "read_voxel_mesh_evidence",
-      "owner": "runtime-bridge",
-      "reason": "The stable facade deliberately fails closed because its native addon export has not yet been wired; reference behavior cannot count as conformance.",
-      "exitCriteria": "Wire and semantically exercise the napi export, then remove this exemption.",
-      "evidence": {"path": "ts/packages/runtime-bridge/src/native.ts", "token": "nativeUnimplemented('read_voxel_mesh_evidence')"}
-    },
-    {
-      "operation": "release_buffer",
-      "owner": "runtime-bridge",
-      "reason": "The stable facade deliberately fails closed because its native addon export has not yet been wired; reference behavior cannot count as conformance.",
-      "exitCriteria": "Wire and semantically exercise the napi export, then remove this exemption.",
-      "evidence": {"path": "ts/packages/runtime-bridge/src/native.ts", "token": "nativeUnimplemented('release_buffer')"}
-    },
-    {
-      "operation": "select_voxel",
-      "owner": "runtime-bridge",
-      "reason": "The stable facade deliberately fails closed because its native addon export has not yet been wired; reference behavior cannot count as conformance.",
-      "exitCriteria": "Wire and semantically exercise the napi export, then remove this exemption.",
-      "evidence": {"path": "ts/packages/runtime-bridge/src/native.ts", "token": "nativeUnimplemented('select_voxel')"}
-    },
-    {
-      "operation": "unload_project_bundle",
-      "owner": "runtime-bridge",
-      "reason": "The stable facade deliberately fails closed because its native addon export has not yet been wired; reference behavior cannot count as conformance.",
-      "exitCriteria": "Wire and semantically exercise the napi export, then remove this exemption.",
-      "evidence": {"path": "ts/packages/runtime-bridge/src/native.ts", "token": "nativeUnimplemented('unload_project_bundle')"}
-    }
-  ]
+  "temporaryOperationExemptions": []
 }

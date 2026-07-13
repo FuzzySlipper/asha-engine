@@ -8,7 +8,8 @@ use protocol_presentation::{
 use protocol_render::RenderHandle;
 use render_animation::AnimationControllerProjector;
 use rule_animation_controller::{
-    AnimationControllerChange, AnimationControllerState, AnimationParameterValue,
+    AnimationControllerChange, AnimationControllerState, AnimationInputOrigin,
+    AnimationParameterValue, AnimationTransitionFactMoment, AnimationTransitionTimingFact,
     ResolvedAnimationMotion,
 };
 
@@ -30,9 +31,35 @@ fn change(entity: u64, revision: u64) -> AnimationControllerChange {
                 speed_milli: 1_000,
             },
             transition: None,
+            timing_fact: None,
             state_hash: format!("fnv1a64:state-{revision}"),
         },
     }
+}
+
+fn fact_change(entity: u64) -> AnimationControllerChange {
+    let mut value = change(entity, 1);
+    value.state.timing_fact = Some(AnimationTransitionTimingFact {
+        fact_id: "combat.primary-fire.accepted:9:animation:7:ready.primary_fire:started".into(),
+        source: AnimationInputOrigin {
+            source_fact_id: "combat.primary-fire.accepted:9".into(),
+            authority_tick: 9,
+            causation_id: "combat.primary-fire:9".into(),
+            correlation_id: "fps.session:1".into(),
+        },
+        controller_input_sequence: 3,
+        controller_tick: 1,
+        entity,
+        graph_id: "player".into(),
+        transition_id: "ready.primary_fire".into(),
+        from_state_id: "ready".into(),
+        to_state_id: "primary_fire".into(),
+        moment: AnimationTransitionFactMoment::Started,
+        duration_ticks: 4,
+        resulting_revision: 1,
+        fact_hash: "fnv1a64:fact".into(),
+    });
+    value
 }
 
 fn meta(sequence: u32) -> PresentationOpMeta {
@@ -126,4 +153,22 @@ fn projector_rejects_mismatched_authority_identity() {
             meta(0),
         )
         .is_err());
+}
+
+#[test]
+fn projector_rejects_trace_metadata_that_does_not_match_the_authority_fact() {
+    let mut projector = AnimationControllerProjector::new();
+    assert_eq!(
+        projector
+            .create(
+                EntityId::new(7),
+                RenderHandle::new(99),
+                "mesh-animation/character",
+                50,
+                &fact_change(7),
+                meta(9),
+            )
+            .expect_err("fabricated projection origin must fail"),
+        render_animation::AnimationProjectionError::OriginMismatch
+    );
 }

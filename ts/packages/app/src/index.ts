@@ -1,8 +1,4 @@
-// @asha/app — composition + the authority-safe command submission path (ADR 0008).
-//
-// `app` is the ONLY package that submits commands: it turns an `@asha/editor-tools`
-// proposal into a submission through the approved bridge path. UI/editor packages
-// produce proposals and preview targets but never mutate authoritative state.
+// @asha/app owns composition and the sole authority-safe command submission path.
 
 import type {
   EntityAuthoringCommand,
@@ -13,15 +9,21 @@ import type {
   VoxelCommand,
   VoxelCoord,
 } from '@asha/contracts';
-import { EditorStore, proposeCommand, previewTargets } from '@asha/editor-tools';
-import type { CommandBatch, CommandResult, RuntimeBridge } from '@asha/runtime-bridge';
+import {
+  EditorStore,
+  proposeCommand,
+  previewTargets,
+} from '@asha/editor-tools';
+import {
+  type CommandBatch,
+  type CommandResult,
+  type RuntimeBridge,
+} from '@asha/runtime-bridge';
 
 export { EditorStore } from '@asha/editor-tools';
 export type { EditorContext, EditorAction, VoxelSelection } from '@asha/editor-tools';
-
-// The transport-agnostic composition root (task #2439) lives in shell.ts.
 export * from './shell.js';
-
+export * from './editor-input-composition.js';
 /**
  * Where committed commands go. The real wiring is {@link bridgeCommandSink}, which
  * sends the batch through `@asha/runtime-bridge` (`submitCommands`) to Rust for
@@ -99,8 +101,6 @@ export class VoxelEditController {
     this.store.dispatch({ type: 'clearSelection' });
   }
 }
-
-// ── Generic entity authoring submission (#2485) ────────────────────────────────
 
 /**
  * Where a proposed generic entity authoring command goes for validation. The real

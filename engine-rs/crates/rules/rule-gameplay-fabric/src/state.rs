@@ -139,6 +139,11 @@ pub struct GameplayReactionInvocationEvidence {
     pub event_id: String,
     pub wave: u32,
     pub frozen_view_hash: String,
+    pub declared_read_set_hash: Option<String>,
+    #[serde(default)]
+    pub declared_reads: Option<crate::GameplayFrozenReadSet>,
+    #[serde(default)]
+    pub configuration: Option<crate::GameplayInvocationConfiguration>,
     pub delivery_hash: String,
     pub output_hash: String,
 }
@@ -168,10 +173,14 @@ pub struct GameplayReactionDiagnostic {
 #[serde(rename_all = "camelCase")]
 pub struct GameplayReactionFrame {
     pub registry_digest: String,
+    #[serde(default)]
+    pub root_id: String,
     pub module_order: Vec<String>,
     pub module_artifacts: Vec<String>,
     pub source_facts: Vec<GameplayReactionSourceFact>,
     pub source_fact_hashes: Vec<String>,
+    #[serde(default)]
+    pub root_events: Vec<GameplayEventEnvelope>,
     pub delivered_events: Vec<GameplayEventEnvelope>,
     pub delivered_event_hashes: Vec<String>,
     pub frozen_views: Vec<GameplayReactionViewEvidence>,
@@ -213,13 +222,29 @@ pub struct GameplayVerificationReplayReceipt {
     pub divergences: Vec<GameplayReactionDivergence>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameplayVerificationReplayInput {
+    pub registry_digest: String,
+    pub root_id: String,
+    pub module_order: Vec<String>,
+    pub module_artifacts: Vec<String>,
+    pub source_facts: Vec<GameplayReactionSourceFact>,
+    pub root_events: Vec<GameplayEventEnvelope>,
+    pub frozen_views: Vec<GameplayReactionViewEvidence>,
+    pub frozen_read_sets: Vec<crate::GameplayFrozenReadSet>,
+    #[serde(default)]
+    pub configurations: Vec<crate::GameplayInvocationConfiguration>,
+    pub state_hash_before: String,
+}
+
 pub trait GameplayVerificationReplayRunner {
     /// Reruns the fabric using the statically linked module set identified by
     /// the expected frame. Registry and artifact drift is reported by the
     /// resulting frame comparison before the result can be accepted.
     fn rerun(
         &self,
-        expected: &GameplayReactionFrame,
+        recorded: &GameplayVerificationReplayInput,
     ) -> Result<GameplayReactionFrame, GameplayModuleStateError>;
 }
 
@@ -1091,10 +1116,12 @@ impl GameplayReactionFrame {
         accepted_module_fact_hashes.sort();
         let mut frame = Self {
             registry_digest: registry.registry_digest().to_owned(),
+            root_id: observe.root_id.clone(),
             module_order: registry.module_order().to_vec(),
             module_artifacts,
             source_facts,
             source_fact_hashes,
+            root_events: observe.events.first().cloned().into_iter().collect(),
             delivered_events: observe.events.clone(),
             delivered_event_hashes: observe
                 .event_evidence
@@ -1124,6 +1151,9 @@ impl GameplayReactionFrame {
                     event_id: invocation.event_id.clone(),
                     wave: invocation.wave,
                     frozen_view_hash: invocation.frozen_view_hash.clone(),
+                    declared_read_set_hash: invocation.declared_read_set_hash.clone(),
+                    declared_reads: invocation.declared_reads.clone(),
+                    configuration: invocation.configuration.clone(),
                     delivery_hash: invocation.delivery_hash.clone(),
                     output_hash: invocation.output_hash.clone(),
                 })
@@ -1188,6 +1218,29 @@ impl GameplayReactionFrame {
         let bytes = serde_json::to_vec(&copy).expect("reaction frame serializes");
         gameplay_module_payload_hash(&bytes)
     }
+
+    pub fn verification_replay_input(&self) -> GameplayVerificationReplayInput {
+        GameplayVerificationReplayInput {
+            registry_digest: self.registry_digest.clone(),
+            root_id: self.root_id.clone(),
+            module_order: self.module_order.clone(),
+            module_artifacts: self.module_artifacts.clone(),
+            source_facts: self.source_facts.clone(),
+            root_events: self.root_events.clone(),
+            frozen_views: self.frozen_views.clone(),
+            frozen_read_sets: self
+                .invocations
+                .iter()
+                .filter_map(|invocation| invocation.declared_reads.clone())
+                .collect(),
+            configurations: self
+                .invocations
+                .iter()
+                .filter_map(|invocation| invocation.configuration.clone())
+                .collect(),
+            state_hash_before: self.state_hash_before.clone(),
+        }
+    }
 }
 
 pub fn verify_reaction_frame(
@@ -1210,6 +1263,8 @@ pub fn verify_reaction_frame(
     }
     if !event_evidence_is_valid(expected)
         || !event_evidence_is_valid(actual)
+        || expected.root_id != actual.root_id
+        || expected.root_events != actual.root_events
         || expected.delivered_events != actual.delivered_events
         || expected.delivered_event_hashes != actual.delivered_event_hashes
     {
@@ -1290,23 +1345,60 @@ fn source_fact_evidence_is_valid(frame: &GameplayReactionFrame) -> bool {
 }
 
 fn event_evidence_is_valid(frame: &GameplayReactionFrame) -> bool {
-    frame
-        .delivered_events
-        .iter()
-        .map(crate::observe::event_hash)
-        .eq(frame.delivered_event_hashes.iter().cloned())
+    (frame.root_id.is_empty()
+        == (frame.root_events.is_empty() && frame.delivered_events.is_empty()))
+        && frame
+            .root_events
+            .iter()
+            .all(|event| event.causation.root_id == frame.root_id)
+        && frame
+            .delivered_events
+            .iter()
+            .all(|event| event.causation.root_id == frame.root_id)
+        && frame
+            .delivered_events
+            .iter()
+            .map(crate::observe::event_hash)
+            .eq(frame.delivered_event_hashes.iter().cloned())
 }
 
 fn view_evidence_is_valid(frame: &GameplayReactionFrame) -> bool {
-    frame
+    let wave_hashes_valid = frame
         .frozen_views
         .iter()
         .map(|view| view.view_hash.as_str())
-        .eq(frame.frozen_view_hashes.iter().map(String::as_str))
+        .eq(frame.frozen_view_hashes.iter().map(String::as_str));
+    wave_hashes_valid
+        && frame.invocations.iter().all(|invocation| {
+            match (
+                &invocation.declared_read_set_hash,
+                &invocation.declared_reads,
+            ) {
+                (None, None) => true,
+                (Some(stored_hash), Some(reads)) => {
+                    reads.registry_digest == frame.registry_digest
+                        && reads.module_id == invocation.module_id
+                        && reads.invocation_id == invocation.invocation_id
+                        && reads.event_id == invocation.event_id
+                        && reads.wave == invocation.wave
+                        && reads.read_set_hash == *stored_hash
+                        && reads.nested_hashes_are_valid()
+                }
+                _ => false,
+            }
+        })
 }
 
 fn invocation_evidence_is_valid(frame: &GameplayReactionFrame) -> bool {
-    frame
+    frame.invocations.iter().all(|invocation| {
+        invocation
+            .configuration
+            .as_ref()
+            .is_none_or(|configuration| {
+                gameplay_module_payload_hash(&configuration.canonical_config)
+                    == configuration.config_hash
+            })
+    }) && frame
         .invocations
         .iter()
         .map(|invocation| invocation.output_hash.as_str())
@@ -1356,7 +1448,11 @@ pub fn run_verification_replay(
     expected: &GameplayReactionFrame,
     runner: &dyn GameplayVerificationReplayRunner,
 ) -> Result<GameplayVerificationReplayReceipt, GameplayModuleStateError> {
-    let actual = runner.rerun(expected)?;
+    let encoded = serde_json::to_vec(&expected.verification_replay_input())
+        .map_err(|error| GameplayModuleStateError::InvalidSnapshot(error.to_string()))?;
+    let recorded: GameplayVerificationReplayInput = serde_json::from_slice(&encoded)
+        .map_err(|error| GameplayModuleStateError::InvalidSnapshot(error.to_string()))?;
+    let actual = runner.rerun(&recorded)?;
     Ok(GameplayVerificationReplayReceipt {
         expected_frame_hash: expected.frame_hash.clone(),
         actual_frame_hash: actual.frame_hash.clone(),

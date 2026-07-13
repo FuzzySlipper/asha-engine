@@ -2,8 +2,9 @@ use core_ids::EntityId;
 use rule_animation_controller::{
     validate_animation_catalog, AnimationCatalog, AnimationCatalogDiagnosticCode,
     AnimationClipAsset, AnimationCondition, AnimationControllerAuthority, AnimationGraphDefinition,
-    AnimationMotionDefinition, AnimationParameterDefinition, AnimationParameterKind,
-    AnimationParameterValue, AnimationStateDefinition, AnimationTransitionDefinition,
+    AnimationInputOrigin, AnimationMotionDefinition, AnimationParameterDefinition,
+    AnimationParameterKind, AnimationParameterValue, AnimationStateDefinition,
+    AnimationTransitionDefinition, AnimationTransitionFactMoment,
 };
 
 fn catalog() -> AnimationCatalog {
@@ -213,6 +214,68 @@ fn identical_inputs_produce_identical_state_and_replay_hashes() {
 }
 
 #[test]
+fn accepted_gameplay_fact_is_retained_in_transition_state_and_verification_replay() {
+    let validated = validate_animation_catalog(catalog()).expect("valid catalog");
+    let entity = EntityId::new(42);
+    let mut authority = AnimationControllerAuthority::new(validated);
+    authority.attach(entity, "player").expect("attach");
+    authority
+        .set_float(entity, "speed", 650)
+        .expect("set blend input");
+    authority
+        .set_bool(entity, "moving", true)
+        .expect("set semantic input");
+    let origin = AnimationInputOrigin {
+        source_fact_id: "combat.primary-fire.accepted:91".to_string(),
+        authority_tick: 9,
+        causation_id: "combat.primary-fire:91".to_string(),
+        correlation_id: "fps.session:3".to_string(),
+    };
+    let receipt = authority
+        .tick_from_fact(entity, 1, origin.clone())
+        .expect("fact-driven tick");
+    let fact = receipt
+        .change
+        .as_ref()
+        .and_then(|change| change.state.timing_fact.as_ref())
+        .expect("transition timing fact");
+    assert_eq!(fact.source, origin);
+    assert_eq!(fact.controller_input_sequence, 3);
+    assert_eq!(fact.controller_tick, 1);
+    assert_eq!(fact.moment, AnimationTransitionFactMoment::Started);
+    assert_eq!(fact.transition_id, "idle.move");
+    assert_eq!(fact.to_state_id, "locomotion");
+    assert_eq!(
+        receipt.change.as_ref().expect("change").state.motion.clip_a,
+        "idle"
+    );
+    assert_eq!(
+        receipt
+            .change
+            .as_ref()
+            .expect("change")
+            .state
+            .transition
+            .as_ref()
+            .expect("active transition")
+            .target_motion
+            .blend_weight_milli,
+        650
+    );
+
+    let replayed = AnimationControllerAuthority::replay(
+        validate_animation_catalog(catalog()).expect("catalog"),
+        authority.records(),
+    )
+    .expect("verification replay");
+    assert_eq!(
+        authority.state(entity).unwrap(),
+        replayed.state(entity).unwrap()
+    );
+    assert_eq!(authority.records(), replayed.records());
+}
+
+#[test]
 fn semantic_state_hash_does_not_depend_on_controller_entity_identity() {
     let validated = validate_animation_catalog(catalog()).expect("catalog");
     let mut authority = AnimationControllerAuthority::new(validated);
@@ -303,6 +366,41 @@ fn invalid_graphs_fail_at_catalog_load_with_specific_diagnostics() {
     assert!(codes.contains(&AnimationCatalogDiagnosticCode::UnreachableState));
     assert!(codes.contains(&AnimationCatalogDiagnosticCode::AmbiguousTransition));
     assert!(codes.contains(&AnimationCatalogDiagnosticCode::ParameterTypeMismatch));
+}
+
+#[test]
+fn non_positive_clip_and_blend_speeds_fail_at_catalog_load() {
+    let cases = [
+        (
+            AnimationMotionDefinition::Clip {
+                clip_id: "idle".to_string(),
+                speed_milli: 0,
+            },
+            "graphs[0].states[0].motion.speedMilli",
+        ),
+        (
+            AnimationMotionDefinition::LinearBlend {
+                parameter_id: "speed".to_string(),
+                low_clip_id: "walk".to_string(),
+                high_clip_id: "run".to_string(),
+                minimum_milli: 0,
+                maximum_milli: 1_000,
+                speed_milli: -1,
+            },
+            "graphs[0].states[0].motion.speedMilli",
+        ),
+    ];
+
+    for (motion, expected_path) in cases {
+        let mut invalid = catalog();
+        invalid.graphs[0].states[0].motion = motion;
+        let error = validate_animation_catalog(invalid)
+            .expect_err("non-positive playback speed must fail authority validation");
+        assert!(error.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == AnimationCatalogDiagnosticCode::InvalidPlaybackSpeed
+                && diagnostic.path == expected_path
+        }));
+    }
 }
 
 #[test]

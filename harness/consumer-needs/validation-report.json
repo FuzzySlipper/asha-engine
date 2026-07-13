@@ -2,22 +2,101 @@
   "schemaVersion": 1,
   "valid": true,
   "manifestCount": 2,
-  "requirementCount": 34,
+  "requirementCount": 38,
   "manifests": [
     {
       "manifest": "harness/consumer-needs/manifests/asha-demo.json",
-      "manifestHash": "sha256:7c7b35fe5ca7f8e465b5e8ba9ff4f83351a3363cbd9e29338948dd5088b8ad3c",
+      "manifestHash": "sha256:b337fe913ecbdc94d16585ecaae36b23ff3e0d43c2af12e5f8d6886e49e4f161",
       "consumerId": "asha-demo.current-browser-game",
       "consumerRole": "asha-demo",
-      "requirementCount": 25
+      "requirementCount": 27
     },
     {
       "manifest": "harness/consumer-needs/manifests/gameplay-module-fixture.json",
-      "manifestHash": "sha256:5ef9bb261f9259ed70ab15343eb5dd6db3d4e774ec03a9f87a1bb6d66b7a1418",
+      "manifestHash": "sha256:b8890aefd019fbaf5a98e6468f65f8ae3a664ffe5b0b7e22028ce827b514dac2",
       "consumerId": "gameplay-module-sdk.pulse-fixture",
       "consumerRole": "asha-testing",
-      "requirementCount": 9
+      "requirementCount": 11
     }
   ],
-  "gaps": []
+  "gaps": [],
+  "semanticValidation": {
+    "runner": "harness/fixtures/gameplay-module-sdk/downstream-module/src/bin/conformance.rs",
+    "valid": true,
+    "consumerNeedsManifestHash": "fnv1a64:000083b938c65b6a",
+    "registryDigest": "fnv1a64:b17fd04f2e40f6b9",
+    "bindingRegistryHash": "fnv1a64:50c701397e1fb09f",
+    "checks": [
+      {
+        "id": "consumerNeed.pulse.configuration",
+        "passed": true,
+        "evidence": [
+          "fixture.pulse.default"
+        ]
+      },
+      {
+        "id": "consumerNeed.pulse.conformance",
+        "passed": true,
+        "evidence": [
+          "asha-gameplay-module-conformance"
+        ]
+      },
+      {
+        "id": "consumerNeed.pulse.module",
+        "passed": true,
+        "evidence": [
+          "fixture.pulse.module"
+        ]
+      },
+      {
+        "id": "consumerNeed.pulse.observe",
+        "passed": true,
+        "evidence": [
+          "fixture.pulse.observe"
+        ]
+      },
+      {
+        "id": "consumerNeed.pulse.proposal",
+        "passed": true,
+        "evidence": [
+          "authority.capability-activation"
+        ]
+      },
+      {
+        "id": "consumerNeed.pulse.public-sdk",
+        "passed": true,
+        "evidence": [
+          "asha-gameplay-module-sdk"
+        ]
+      },
+      {
+        "id": "consumerNeed.pulse.publish",
+        "passed": true,
+        "evidence": [
+          "fixture.pulse.pulse-result.v1"
+        ]
+      },
+      {
+        "id": "consumerNeed.pulse.read",
+        "passed": true,
+        "evidence": [
+          "fnv1a64:40264a6e13e0562d"
+        ]
+      },
+      {
+        "id": "consumerNeed.pulse.subscribe",
+        "passed": true,
+        "evidence": [
+          "fixture.pulse.observe"
+        ]
+      },
+      {
+        "id": "consumerNeed.pulse.trigger-lifecycle",
+        "passed": true,
+        "evidence": [
+          "fixture.trigger-enter.observe"
+        ]
+      }
+    ]
+  }
 }

@@ -10,7 +10,6 @@ use protocol_game_extension::{
     GameplayModuleBindingRegistry, GameplayModuleBindingTarget, GameplayModuleConfiguration,
     PrefabPartReference as ProtocolPrefabPartReference, GAMEPLAY_MODULE_BINDING_SCHEMA_VERSION,
 };
-use rule_gameplay_fabric::GameplayModuleStateError;
 use rule_project_bundle::*;
 use svc_serialization::{
     LoadPlan, LoadStep, PrefabDefinition, PrefabInstanceRecord, PrefabPart, PrefabPartReference,
@@ -58,10 +57,11 @@ impl GameplayModuleBehavior for FixtureBehavior {
         context: &GameplayModuleContext<'_>,
     ) -> Result<GameplayModuleActions, GameplayModuleError> {
         let value: u64 = context.event_payload()?;
+        let configuration: CounterConfiguration = context.configuration()?;
         let mut actions = context.actions();
         actions.emit_json(
             contract("result"),
-            &value.saturating_mul(2),
+            &value.saturating_mul(configuration.multiplier),
             context.source(),
             Vec::new(),
             context.target(0).into_iter().collect(),
@@ -72,8 +72,14 @@ impl GameplayModuleBehavior for FixtureBehavior {
 
 struct CounterAdapter;
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CounterConfiguration {
+    multiplier: u64,
+}
+
 impl GameplayTypedModuleStateAdapter for CounterAdapter {
-    type Config = u64;
+    type Config = CounterConfiguration;
     type State = u64;
     type Fact = u64;
     type View = u64;
@@ -114,7 +120,7 @@ impl GameplayTypedModuleStateAdapter for CounterAdapter {
     }
 
     fn initialize(&self, config: &Self::Config) -> Result<Self::State, String> {
-        Ok(*config)
+        Ok(config.multiplier)
     }
 
     fn apply_fact(&self, state: &Self::State, fact: &Self::Fact) -> Result<Self::State, String> {
@@ -157,6 +163,7 @@ fn composition() -> GameplayStaticComposition {
             family: GameplayInvocationFamily::Observe,
             input_contract: contract("root"),
             output_contract: contract("result"),
+            read_requirements: Vec::new(),
             max_outputs: 1,
             max_payload_bytes: 1_024,
         }],
@@ -181,6 +188,16 @@ fn composition() -> GameplayStaticComposition {
         deterministic_requirements: vec!["canonical-json".to_owned()],
         source_hash: "sha256:binding-source".to_owned(),
     };
+    let configuration_metadata = GameplayConfigurationSchemaMetadata {
+        module_id: MODULE_ID.to_owned(),
+        configuration: contract("configuration"),
+        codec_id: "codec.binding-fixture.configuration".to_owned(),
+        fields: vec![GameplayConfigurationFieldMetadata {
+            name: "multiplier".to_owned(),
+            value_type: "u64".to_owned(),
+            required: true,
+        }],
+    };
     let provider = GameplayStaticModuleProvider::linked_from_manifest(manifest, FixtureBehavior)
         .event_codec(json_u64_codec(
             contract("root"),
@@ -199,16 +216,10 @@ fn composition() -> GameplayStaticComposition {
             owner,
         })
         .state_adapter(GameplayModuleStateRegistration::typed(CounterAdapter))
-        .configuration_schema(GameplayConfigurationSchemaMetadata {
-            module_id: MODULE_ID.to_owned(),
-            configuration: contract("configuration"),
-            codec_id: "codec.binding-fixture.configuration".to_owned(),
-            fields: vec![GameplayConfigurationFieldMetadata {
-                name: "multiplier".to_owned(),
-                value_type: "u64".to_owned(),
-                required: true,
-            }],
-        });
+        .configuration_schema(configuration_metadata.clone())
+        .configuration_codec(GameplayConfigurationCodecRegistration::typed::<
+            CounterConfiguration,
+        >(configuration_metadata));
     let mut builder = GameplayStaticCompositionBuilder::new();
     builder.include_standard_owner_events();
     builder.add_provider(provider);
@@ -227,9 +238,13 @@ fn json_u64_codec(event: GameplayContractRef, codec_id: &str) -> GameplayEventCo
 }
 
 fn root_event(value: u64) -> GameplayEventEnvelope {
+    root_event_for(value, None, "binding-root")
+}
+
+fn root_event_for(value: u64, target: Option<EntityId>, event_id: &str) -> GameplayEventEnvelope {
     let canonical_payload = serde_json::to_vec(&value).unwrap();
     GameplayEventEnvelope {
-        event_id: "binding-root".to_owned(),
+        event_id: event_id.to_owned(),
         event: contract("root"),
         tick: 0,
         root_sequence: 0,
@@ -240,13 +255,16 @@ fn root_event(value: u64) -> GameplayEventEnvelope {
             owner_id: "authority.binding-test".to_owned(),
         },
         causation: GameplayCausationRef {
-            root_id: "binding-root".to_owned(),
+            root_id: event_id.to_owned(),
             parent_event_id: None,
             decision_id: None,
         },
         source: None,
         subjects: Vec::new(),
-        targets: Vec::new(),
+        targets: target
+            .map(|entity| GameplayEntityRef { entity })
+            .into_iter()
+            .collect(),
         scope: None,
         tags: Vec::new(),
         payload_hash: gameplay_module_payload_hash(&canonical_payload),
@@ -379,7 +397,7 @@ fn loaded_bundle() -> ProjectBundleLoadResult {
 }
 
 fn configuration(id: &str, value: u64) -> GameplayModuleConfiguration {
-    let canonical_config = serde_json::to_vec(&value).unwrap();
+    let canonical_config = serde_json::to_vec(&CounterConfiguration { multiplier: value }).unwrap();
     GameplayModuleConfiguration {
         configuration_id: id.to_owned(),
         module: module_ref(),
@@ -502,6 +520,40 @@ fn bindings_activate_atomic_facets_and_round_trip_against_project_bundle_authori
     assert_eq!(
         second_record.state_hash,
         gameplay_module_payload_hash(&serde_json::to_vec(&4_u64).unwrap())
+    );
+    let overridden = session.observe_session_event(root_event_for(
+        6,
+        Some(muzzle.entity),
+        "binding-root-overridden",
+    ));
+    let base = session.observe_session_event(root_event_for(
+        6,
+        Some(second_muzzle.entity),
+        "binding-root-base",
+    ));
+    assert_eq!(
+        serde_json::from_slice::<u64>(&overridden.events[1].canonical_payload).unwrap(),
+        54
+    );
+    assert_eq!(
+        serde_json::from_slice::<u64>(&base.events[1].canonical_payload).unwrap(),
+        24
+    );
+    assert_eq!(
+        overridden.invocations[0]
+            .configuration
+            .as_ref()
+            .unwrap()
+            .configuration_id,
+        "turret-20"
+    );
+    assert_eq!(
+        base.invocations[0]
+            .configuration
+            .as_ref()
+            .unwrap()
+            .configuration_id,
+        "default"
     );
     let before_hash = session.module_state.state_hash();
     let artifact = session.compose_gameplay_session_snapshot().unwrap();
@@ -739,16 +791,25 @@ fn stale_contracts_foreign_modules_bad_roles_reads_outputs_and_overrides_reject(
     malformed_config.configurations[0].canonical_config = b"not-json".to_vec();
     malformed_config.configurations[0].config_hash =
         gameplay_module_payload_hash(&malformed_config.configurations[0].canonical_config);
-    malformed_config.registry_hash = gameplay_module_binding_registry_hash(&malformed_config);
-    assert!(matches!(
-        GameplayBoundProjectBundleSession::activate(
-            bundle,
-            composition(),
-            malformed_config,
-            &GameplayBindingEntityTargets::new(),
-        ),
-        Err(GameplayBindingActivationError::State(
-            GameplayModuleStateError::AdapterRejected(_)
-        ))
-    ));
+    assert_binding_diagnostic(
+        &bundle,
+        malformed_config,
+        GameplayModuleBindingDiagnosticCode::ConfigurationSchemaMismatch,
+    );
+
+    for malformed in [
+        serde_json::json!({}),
+        serde_json::json!({"multiplier": "nine"}),
+        serde_json::json!({"multiplier": 9, "unownedField": true}),
+    ] {
+        let mut bindings = bindings();
+        bindings.configurations[0].canonical_config = serde_json::to_vec(&malformed).unwrap();
+        bindings.configurations[0].config_hash =
+            gameplay_module_payload_hash(&bindings.configurations[0].canonical_config);
+        assert_binding_diagnostic(
+            &bundle,
+            bindings,
+            GameplayModuleBindingDiagnosticCode::ConfigurationSchemaMismatch,
+        );
+    }
 }

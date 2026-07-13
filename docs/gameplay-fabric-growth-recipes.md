@@ -146,6 +146,29 @@ domain owner rather than the module's own state.
 Do not give the module a mutable callback, store reference, or owner-discovery
 API. Unsupported owners fail closed.
 
+## Add a scheduled gameplay action
+
+Use `GameplayActionScheduler` when a typed proposal must become eligible at an
+authority tick or after a matching gameplay event, rather than inventing a
+timer callback or polling loop.
+
+1. Include the event and proposal contracts in the closed gameplay registry.
+2. Declare the scheduler owner and its permitted contracts in
+   `GameplayRuntimeSchedulerDefinition` at project activation.
+3. Submit a typed `schedulerCommand` moment. A triggered action becomes a
+   recoverable outstanding dispatch; it does not call the destination owner
+   implicitly.
+4. Submit `schedulerRoute` for that action. The public Rust host routes the
+   retained proposal through the registry-resolved owner and records the real
+   gameplay-fabric receipt exactly once.
+5. Inspect the bounded scheduler readout and preserve the complete host
+   snapshot for interruption recovery.
+6. Test save/restore before routing, accepted and rejected owner outcomes, and
+   replay of a retired action id.
+
+Do not keep the proposal only in a TypeScript timer, synthesize a routing
+receipt, or add a downstream scheduler alongside the host authority.
+
 ## Add a trigger-driven interaction
 
 1. Author a generated `GameplayTriggerDefinition` with stable trigger identity,

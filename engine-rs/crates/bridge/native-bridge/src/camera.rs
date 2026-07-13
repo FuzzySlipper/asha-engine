@@ -1,9 +1,9 @@
 use napi_derive::napi;
 use protocol_view::{
     CameraCollisionEvidence, CameraCollisionPolicy, CameraCollisionPolicyMode,
-    CameraCollisionShape, CameraCollisionSnapshot, CameraHandle, CollisionAabbEvidence,
-    CollisionAxis, CollisionConstrainedCameraInputEnvelope, FirstPersonCameraInput,
-    FirstPersonMovementMode,
+    CameraCollisionShape, CameraCollisionSnapshot, CameraHandle, CameraProjectionRequest,
+    CollisionAabbEvidence, CollisionAxis, CollisionConstrainedCameraInputEnvelope,
+    FirstPersonCameraInput, FirstPersonCameraInputEnvelope, FirstPersonMovementMode,
 };
 use runtime_bridge_api::{
     CameraControllerReadRequest, CameraCreateRequest, CameraModeCommand,
@@ -181,6 +181,23 @@ pub struct NativeFirstPersonCameraInput {
     pub pitch_delta_degrees: f64,
     pub dt_seconds: f64,
     pub move_speed_units_per_second: f64,
+}
+
+#[napi(object)]
+pub struct NativeFirstPersonCameraInputEnvelope {
+    pub camera: i64,
+    pub input: NativeFirstPersonCameraInput,
+    pub tick: i64,
+}
+
+impl NativeFirstPersonCameraInputEnvelope {
+    fn into_bridge(self) -> napi::Result<FirstPersonCameraInputEnvelope> {
+        Ok(FirstPersonCameraInputEnvelope {
+            camera: CameraHandle::new(u64_input(self.camera, "camera")?),
+            input: self.input.into_bridge("input")?,
+            tick: u64_input(self.tick, "tick")?,
+        })
+    }
 }
 
 impl NativeFirstPersonCameraInput {
@@ -462,6 +479,86 @@ pub fn read_camera_controller_state(handle: i64, request_json: String) -> napi::
             .read_camera_controller_state(request)
             .map_err(to_napi)?;
         serialize_json_result(&state, "camera controller read")
+    })
+}
+
+#[napi]
+pub fn apply_first_person_camera_input(
+    handle: i64,
+    envelope: NativeFirstPersonCameraInputEnvelope,
+) -> napi::Result<NativeCameraSnapshot> {
+    let envelope = envelope.into_bridge()?;
+    with_bridge(handle, |bridge| {
+        bridge
+            .apply_first_person_camera_input(envelope)
+            .map(NativeCameraSnapshot::from)
+            .map_err(to_napi)
+    })
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CameraProjectionRequestJson {
+    camera: u64,
+    viewport: Option<ViewportJson>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ViewportJson {
+    width: u32,
+    height: u32,
+}
+
+#[napi]
+pub fn read_camera_projection(handle: i64, request_json: String) -> napi::Result<String> {
+    let request = parse_json_request::<CameraProjectionRequestJson>(
+        &request_json,
+        "camera projection read",
+    )?;
+    with_bridge(handle, |bridge| {
+        let snapshot = bridge
+            .read_camera_projection(CameraProjectionRequest {
+                camera: CameraHandle::new(request.camera),
+                viewport: request.viewport.map(|viewport| runtime_bridge_api::ViewportSize {
+                    width: viewport.width,
+                    height: viewport.height,
+                }),
+            })
+            .map_err(to_napi)?;
+        serde_json::to_string(&serde_json::json!({
+            "camera": snapshot.camera.raw(),
+            "tick": snapshot.tick,
+            "pose": {
+                "position": snapshot.pose.position,
+                "yawDegrees": snapshot.pose.yaw_degrees,
+                "pitchDegrees": snapshot.pose.pitch_degrees,
+            },
+            "basis": {
+                "forward": snapshot.basis.forward,
+                "right": snapshot.basis.right,
+                "up": snapshot.basis.up,
+            },
+            "projection": {
+                "fovYDegrees": snapshot.projection.fov_y_degrees,
+                "near": snapshot.projection.near,
+                "far": snapshot.projection.far,
+            },
+            "viewport": {
+                "width": snapshot.viewport.width,
+                "height": snapshot.viewport.height,
+            },
+            "viewMatrix": snapshot.view_matrix,
+            "projectionMatrix": snapshot.projection_matrix,
+            "viewProjectionMatrix": snapshot.view_projection_matrix,
+            "projectionHash": snapshot.projection_hash,
+        }))
+        .map_err(|error| {
+            to_napi(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::Internal,
+                format!("camera projection result could not be serialized: {error}"),
+            ))
+        })
     })
 }
 

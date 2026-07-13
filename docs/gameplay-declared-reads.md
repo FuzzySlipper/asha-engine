@@ -28,6 +28,14 @@ readout exposes the canonical metadata and a computed provider hash, so needs
 validation can distinguish an unavailable view kind, provider, selector, or
 field rather than collapsing those failures into “engine support missing.”
 
+Each `GameplayInvocationDescriptor` also carries a closed
+`requestId -> view contract` list. Module-level `readViews` describe the
+provider capabilities the module may use; they do not grant every invocation
+access to every module view. A plan request must match both its invocation's
+request id and the view bound to that id. Duplicate bindings, bindings to a
+view the module does not declare, and attempts to borrow another invocation's
+binding fail before behavior runs.
+
 ## Read Plans and Frozen Waves
 
 `GameplayReadPlan` is an invocation-local list of typed requests. A request can:
@@ -42,10 +50,11 @@ field rather than collapsing those failures into “engine support missing.”
 - issue a bounded nearby-entity, line-of-sight, or path request to the
   registered authority owner.
 
-The assembler validates the whole request against the module manifest and
-closed registry before returning an owned `GameplayFrozenReadSet`. It exposes
-typed values, not store references. Collection order and evidence hashes are
-canonical. A typed module view can be decoded with
+The assembler validates the whole request against the invocation's closed read
+bindings, the module manifest, and the closed registry before returning an
+owned `GameplayFrozenReadSet`. It exposes typed values, not store references.
+Collection order and evidence hashes are canonical. A typed module view can be
+decoded with
 `GameplayFrozenRead::decode_named_view<T>()`; ordinary module code does not
 construct payload hashes or type-erased bytes.
 
@@ -83,6 +92,13 @@ then uses the instance's explicit part-to-Entity binding. Display labels, part
 namespaces, hierarchy paths, and positions are never reinterpreted as role
 identity. Variant-removed roles and mismatched instance prefabs fail closed.
 
+The public `GameplayRuntimeHost` retains the validated registry supplied by
+`activate_project_with_prefabs`, projects its live `PrefabInstanceAuthority`
+into the read index, and derives scope membership from installed authored
+trigger definitions. Prefab-role and populated-scope reads therefore use the
+same loaded authority visible through the downstream host rather than
+placeholder empty indexes.
+
 ## Owner-query Boundary
 
 The fabric defines typed request and receipt families; it does not absorb
@@ -104,3 +120,7 @@ can receive a target collision readout, follow containment, resolve a prefab
 role, consume a bounded owner query, and decode a module-owned named view on a
 real coordinator call. Repeated assembly is byte/hash stable. Separate cases
 prove same-wave freezing and fail-closed diagnostics without mutation.
+The same suite proves that one invocation cannot consume a request binding
+owned by a second invocation in its module. The public-host fixture in
+`gameplay-runtime-host/src/prefab.rs` resolves a loaded prefab role and a
+populated authored scope through a real module invocation.

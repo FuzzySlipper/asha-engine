@@ -417,7 +417,7 @@ may_not_depend_on = ["core-state", "core-entity", "protocol-render", "render-bri
 
 [crate."engine-rs/crates/rules/gameplay-runtime-host"]
 lane = "rust-rule"
-may_depend_on = ["core-entity", "core-ids", "core-math", "core-scene", "gameplay-module-sdk", "protocol-entity-authoring", "protocol-game-extension", "protocol-project-bundle", "rule-gameplay-fabric", "rule-project-bundle", "rule-trigger-volume", "serde", "serde_json", "svc-entity-authoring", "svc-gameplay-fabric", "svc-serialization"]
+may_depend_on = ["core-entity", "core-ids", "core-math", "core-scene", "gameplay-module-sdk", "protocol-entity-authoring", "protocol-game-extension", "protocol-project-bundle", "rule-gameplay-fabric", "rule-project-bundle", "rule-scheduler", "rule-trigger-volume", "serde", "serde_json", "svc-entity-authoring", "svc-gameplay-fabric", "svc-serialization"]
 may_not_depend_on = ["protocol-render", "render-bridge", "wasm-api"]
 
 [crate."engine-rs/crates/rules/rule-process"]
@@ -805,10 +805,14 @@ lane = "rust-bridge"
 # bridge boundary; actual authority remains in Rust rule/service crates (#5283).
 # Generated-tunnel runtime materialization invokes svc-levelgen and installs its
 # authoritative voxel result; preset interpretation remains in the service (#5532).
-may_depend_on = ["core-ids", "core-error", "core-math", "core-assets", "core-space", "core-voxel", "core-catalog", "core-commands", "core-entity", "sim-runner", "svc-spatial", "svc-volume", "svc-collision", "svc-mesh", "svc-mesh-import", "svc-serialization", "svc-pathfinding", "svc-combat", "svc-levelgen", "svc-voxel-conversion", "svc-voxel-asset", "svc-voxel-annotation", "svc-game-rules", "rule-voxel-edit", "rule-lifecycle", "rule-input", "rule-gameplay-fabric", "game-rule-extension", "render-audio", "render-billboard", "render-particle", "render-telemetry-overlay", "protocol-diagnostics", "protocol-view", "protocol-render", "protocol-presentation", "protocol-script", "protocol-replay", "protocol-input", "protocol-time-control", "protocol-entity-authoring", "protocol-voxel-conversion", "protocol-voxel-asset", "protocol-voxel-annotation", "protocol-voxel-edit-history", "protocol-game-rules"]
+# Gameplay-origin animation timing routes controller authority through the same
+# bridge composition and one-way presentation projection boundary (#5650).
+# Stable scene hierarchy and model/material preview verbs now route protocol DTOs
+# into core-scene validation and protocol-assets/render projection (#5624).
+may_depend_on = ["core-ids", "core-error", "core-math", "core-assets", "core-space", "core-voxel", "core-catalog", "core-commands", "core-entity", "core-scene", "sim-runner", "svc-spatial", "svc-volume", "svc-collision", "svc-mesh", "svc-mesh-import", "svc-serialization", "svc-pathfinding", "svc-combat", "svc-levelgen", "svc-voxel-conversion", "svc-voxel-asset", "svc-voxel-annotation", "svc-game-rules", "rule-voxel-edit", "rule-lifecycle", "rule-input", "rule-gameplay-fabric", "rule-animation-controller", "game-rule-extension", "render-audio", "render-billboard", "render-particle", "render-animation", "render-telemetry-overlay", "protocol-assets", "protocol-diagnostics", "protocol-scene", "protocol-view", "protocol-render", "protocol-presentation", "protocol-script", "protocol-replay", "protocol-input", "protocol-time-control", "protocol-entity-authoring", "protocol-voxel-conversion", "protocol-voxel-asset", "protocol-voxel-annotation", "protocol-voxel-edit-history", "protocol-game-rules"]
 may_not_depend_on = ["napi", "wasm-bindgen"]
 
 [crate."engine-rs/crates/bridge/native-bridge"]
 lane = "rust-bridge"
-may_depend_on = ["runtime-bridge-api", "core-math", "protocol-render", "protocol-script", "protocol-replay", "sim-runner", "render-bridge", "napi", "napi-derive"]
+may_depend_on = ["runtime-bridge-api", "core-ids", "core-math", "core-space", "protocol-assets", "protocol-render", "protocol-scene", "protocol-view", "protocol-script", "protocol-replay", "sim-runner", "render-bridge", "napi", "napi-derive"]
 may_not_depend_on = ["wasm-bindgen", "core-state"]

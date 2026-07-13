@@ -1394,7 +1394,8 @@ void test('native addon semantic errors are reclassified into RuntimeBridgeError
 void test('wired native ops route through the addon, not the mock', () => {
     const calls = [];
     const bridge = new NativeRuntimeBridge(fakeAddon(calls));
-    // Mock would return the seed (7) and diffCount 2; the addon returns 107 / 9.
+    // The reference bridge has no queued authority commands and returns diffCount
+    // 0; this addon fixture proves native results are forwarded unchanged.
     assert.equal(bridge.initializeEngine({ seed: 7 }), 107);
     assert.deepEqual(bridge.stepSimulation({ tick: 6 }), { tick: 6, diffCount: 9 });
     assert.deepEqual(calls, ['initialize:7', 'step:6']);

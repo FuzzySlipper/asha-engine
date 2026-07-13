@@ -240,7 +240,7 @@ impl GameplayFabricCoordinator<'_> {
                         continue;
                     }
                 };
-                let call = GameplayInvocationCall {
+                let mut call = GameplayInvocationCall {
                     module_id: module_id.clone(),
                     subscription_id: format!("decision:{}", moment.decision_id),
                     invocation_id: invocation.invocation_id.clone(),
@@ -248,6 +248,21 @@ impl GameplayFabricCoordinator<'_> {
                     input: GameplayInvocationInput::Decision(moment.clone()),
                     frozen_views: frozen_views.clone(),
                     declared_reads,
+                    configuration: None,
+                };
+                call.configuration = match host.resolve_configuration(&call) {
+                    Ok(configuration) => configuration,
+                    Err(error) => {
+                        state.diagnostic(
+                            GameplayRuntimeDiagnosticCode::HostFailure,
+                            format!(
+                                "modules.{module_id}.invocations.{}",
+                                invocation.invocation_id
+                            ),
+                            format!("{}: {}", error.code, error.message),
+                        );
+                        continue;
+                    }
                 };
                 let delivery_hash = delivery_hash(self.registry.registry_digest(), &call);
                 let output = match host.invoke(&call) {
@@ -276,6 +291,8 @@ impl GameplayFabricCoordinator<'_> {
                         .declared_reads
                         .as_ref()
                         .map(|reads| reads.read_set_hash.clone()),
+                    declared_reads: call.declared_reads.clone(),
+                    configuration: call.configuration.clone(),
                     delivery_hash,
                     output_hash,
                 });

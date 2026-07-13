@@ -93,7 +93,7 @@ export const MODEL_MATERIAL_PREVIEW_REQUEST = {
         label: 'Copper',
         dependencies: [],
         material: {
-            render: { color: { r: 0.8, g: 0.4, b: 0.2, a: 1 }, texture: null, roughness: 0.6, emissive: 0, uvStrategy: 'flat' },
+            render: { color: { r: 0.8, g: 0.4, b: 0.2, a: 1 }, texture: null, roughness: 0.6, textureTint: { r: 1, g: 1, b: 1, a: 1 }, emissionColor: { r: 0.8, g: 0.4, b: 0.2, a: 1 }, emissive: 0, uvStrategy: 'flat' },
             collision: { solid: true, collidable: true, occludes: true, structuralClass: 'solid' },
         },
     },

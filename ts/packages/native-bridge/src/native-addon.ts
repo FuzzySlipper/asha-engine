@@ -4,6 +4,7 @@ import type {
   CameraSnapshot,
   CollisionConstrainedCameraInputEnvelope,
   CommandResult,
+  FirstPersonCameraInputEnvelope,
   RenderFrameDiff,
   RuntimeProjectionFrame,
 } from '@asha/contracts';
@@ -218,6 +219,23 @@ export interface NativeAddon {
     handle: number,
     envelope: CollisionConstrainedCameraInputEnvelope,
   ): CameraCollisionSnapshot;
+  applyFirstPersonCameraInput(
+    handle: number,
+    envelope: FirstPersonCameraInputEnvelope,
+  ): CameraSnapshot;
+  readCameraProjection(handle: number, requestJson: string): string;
+  pickVoxel(handle: number, requestJson: string): string;
+  selectVoxel(handle: number, requestJson: string): string;
+  readVoxelMeshEvidence(handle: number, requestJson: string): string;
+  getBuffer(handle: number, bufferHandle: number): {
+    readonly handle: number;
+    readonly bytes: readonly number[];
+  };
+  releaseBuffer(handle: number, bufferHandle: number): void;
+  unloadProjectBundle(handle: number): void;
+  readModelMaterialPreview(handle: number, requestJson: string): string;
+  readSceneObjectSnapshot(handle: number): string;
+  applySceneObjectCommand(handle: number, requestJson: string): string;
   applyGeneratedTunnelToRuntimeWorld(
     handle: number,
     presetId: string,
@@ -324,6 +342,17 @@ export const REQUIRED_NATIVE_ADDON_EXPORTS = [
   'applyCameraNavigationInput',
   'readCameraControllerState',
   'applyCollisionConstrainedCameraInput',
+  'applyFirstPersonCameraInput',
+  'readCameraProjection',
+  'pickVoxel',
+  'selectVoxel',
+  'readVoxelMeshEvidence',
+  'getBuffer',
+  'releaseBuffer',
+  'unloadProjectBundle',
+  'readModelMaterialPreview',
+  'readSceneObjectSnapshot',
+  'applySceneObjectCommand',
   'applyGeneratedTunnelToRuntimeWorld',
   'applyEnemyDirectNavMovement',
   'loadFpsRuntimeSession',

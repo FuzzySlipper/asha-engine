@@ -6,11 +6,16 @@
 
 #![forbid(unsafe_code)]
 
+mod owner_router;
 mod prefab;
+mod scheduler;
 
 pub use prefab::*;
+pub use scheduler::*;
 
-use std::collections::BTreeSet;
+use owner_router::{RuntimeSessionDecisionOwner, RuntimeSessionOwnerRouter};
+
+use std::collections::{BTreeMap, BTreeSet};
 
 use core_entity::{
     Aabb, EntityLifecycleCommand, EntitySource, EntityStore, EntityTransform, MovementCommand,
@@ -18,25 +23,20 @@ use core_entity::{
 };
 use core_math::Vec3;
 use gameplay_module_sdk::GameplayStaticComposition;
-use protocol_entity_authoring::{
-    ActivatableCapabilityKind, CapabilityActivationAction, CapabilityActivationOutcome,
-    CapabilityActivationRequest,
-};
 use protocol_game_extension::{
     GameplayEventEnvelope, GameplayEventPhase, GameplayModuleBindingActivationReceipt,
     GameplayModuleBindingRegistry, GameplayOwnerRef, GameplayProposalEnvelope,
 };
 use rule_gameplay_fabric::{
-    adapt_session_tick, gameplay_module_payload_hash, CapabilityActivationGameplayProposal,
-    FrozenGameplayViews, GameplayDecisionContinuations, GameplayDecisionOwner,
-    GameplayEntityScopeIndex, GameplayFabricCoordinator, GameplayFrozenReadSet,
-    GameplayModuleStateError, GameplayObserveReceipt, GameplayOwnerEventContext,
-    GameplayOwnerQueryProvider, GameplayOwnerRoutingCall, GameplayOwnerRoutingOutput,
-    GameplayPrefabInstanceIndex, GameplayProposalRouter, GameplayReactionFrame,
-    GameplayReactionSourceFact, GameplayReadAssembler, GameplayReadAssemblyError,
-    GameplayReadDiagnostic, GameplayReadDiagnosticCode, GameplayReadPlan, GameplayReadRequest,
-    GameplayReadSelector, GameplayRuntimeLimits, GameplayTriggerOverlapQueryProvider,
-    GameplayViewSource, StandardGameplayProposalKind, CAPABILITY_ACTIVATION_PROPOSAL_OWNER_ID,
+    adapt_session_tick, gameplay_module_payload_hash, FrozenGameplayViews,
+    GameplayDecisionContinuations, GameplayEntityScopeIndex, GameplayFabricCoordinator,
+    GameplayFrozenReadSet, GameplayModuleStateError, GameplayObserveReceipt,
+    GameplayOwnerEventContext, GameplayOwnerQueryProvider, GameplayPrefabInstanceBinding,
+    GameplayPrefabInstanceIndex, GameplayReactionFrame, GameplayReactionSourceFact,
+    GameplayReadAssembler, GameplayReadAssemblyError, GameplayReadDiagnostic,
+    GameplayReadDiagnosticCode, GameplayReadPlan, GameplayReadRequest, GameplayReadSelector,
+    GameplayRuntimeDiagnostic, GameplayRuntimeLimits, GameplayTriggerOverlapQueryProvider,
+    GameplayViewSource,
 };
 use rule_project_bundle::{
     GameplayBindingActivationError, GameplayBoundProjectBundleSession, SessionStateArtifact,
@@ -52,6 +52,7 @@ pub use protocol_project_bundle::{
 pub use rule_gameplay_fabric::{
     GameplayDecisionContinuation, GameplayDecisionMoment, GameplayDecisionReceipt,
     GameplayDecisionStatus, GameplayModuleStateReadout, GameplayOperationWorkspace,
+    GameplayRoutingEvidence,
 };
 pub use rule_project_bundle::{
     execute_load_plan, BundleArtifacts, GameplayBindingEntityTargets, ProjectBundleLoadResult,
@@ -59,7 +60,6 @@ pub use rule_project_bundle::{
 pub use rule_trigger_volume::{
     TriggerReconcileCause, TriggerReconcileReceipt, TriggerVolumeDiagnostic,
 };
-use svc_entity_authoring::{apply_rule_owned_capability_activation, EcrpRuleOwner};
 use svc_serialization::{
     ArtifactEntry, ArtifactRole, PrefabRegistry, PrefabRegistryValidationContext,
     ValidatedPrefabRegistry, PREFAB_REGISTRY_SCHEMA_VERSION,
@@ -67,7 +67,7 @@ use svc_serialization::{
 pub use svc_serialization::{LoadPlan, LoadStep};
 
 pub const GAMEPLAY_RUNTIME_HOST_SNAPSHOT_PATH: &str = "session/gameplay-runtime-host.snapshot.json";
-const GAMEPLAY_RUNTIME_HOST_SNAPSHOT_VERSION: u32 = 2;
+const GAMEPLAY_RUNTIME_HOST_SNAPSHOT_VERSION: u32 = 3;
 const MAX_REACTION_FRAMES: usize = 256;
 const MAX_DECISION_RECEIPTS: usize = 256;
 
@@ -82,6 +82,8 @@ pub enum GameplayRuntimeHostError {
     SpatialEntity { entity: u64, code: &'static str },
     Movement { entity: u64, code: &'static str },
     State(GameplayModuleStateError),
+    Scheduler(GameplaySchedulerError),
+    SchedulerRouting(GameplayRuntimeDiagnostic),
 }
 
 impl core::fmt::Display for GameplayRuntimeHostError {
@@ -104,6 +106,12 @@ impl From<GameplayModuleStateError> for GameplayRuntimeHostError {
     }
 }
 
+impl From<GameplaySchedulerError> for GameplayRuntimeHostError {
+    fn from(value: GameplaySchedulerError) -> Self {
+        Self::Scheduler(value)
+    }
+}
+
 pub struct GameplayRuntimeHostInput {
     pub bundle: ProjectBundleLoadResult,
     pub composition: GameplayStaticComposition,
@@ -112,6 +120,7 @@ pub struct GameplayRuntimeHostInput {
     pub spatial_entities: Vec<GameplayRuntimeSpatialEntity>,
     pub declared_reads: Vec<GameplayRuntimeDeclaredReadPlan>,
     pub triggers: Vec<GameplayTriggerDefinition>,
+    pub scheduler: GameplayRuntimeSchedulerDefinition,
 }
 
 /// Public loading form for consumers that have authored ProjectBundle
@@ -125,6 +134,7 @@ pub struct GameplayRuntimeProjectInput {
     pub spatial_entities: Vec<GameplayRuntimeSpatialEntity>,
     pub declared_reads: Vec<GameplayRuntimeDeclaredReadPlan>,
     pub triggers: Vec<GameplayTriggerDefinition>,
+    pub scheduler: GameplayRuntimeSchedulerDefinition,
 }
 
 /// Typed bootstrap data for runtime entities that participate in gameplay
@@ -175,6 +185,7 @@ pub struct GameplayRuntimeHostReadout {
     pub binding_registry_hash: String,
     pub activation_hash: String,
     pub module_state_hash: String,
+    pub authority_state_hash: String,
     pub trigger_revision: u64,
     pub trigger_snapshot_hash: String,
     pub active_overlap_count: u32,
@@ -183,6 +194,7 @@ pub struct GameplayRuntimeHostReadout {
     pub decision_receipt_count: u32,
     pub pending_decision_count: u32,
     pub last_decision_receipt_hash: Option<String>,
+    pub scheduler: GameplayRuntimeSchedulerReadout,
     pub runtime_host_hash: String,
 }
 
@@ -207,10 +219,12 @@ pub struct GameplayRuntimeMovementReceipt {
 
 pub struct GameplayRuntimeHost {
     session: GameplayBoundProjectBundleSession,
+    prefab_registry: ValidatedPrefabRegistry,
     declared_reads: Vec<GameplayRuntimeDeclaredReadPlan>,
     reaction_frames: Vec<GameplayReactionFrame>,
     decision_continuations: GameplayDecisionContinuations,
     decision_receipts: Vec<GameplayDecisionReceipt>,
+    scheduler: GameplayActionScheduler,
 }
 
 impl GameplayRuntimeHost {
@@ -227,6 +241,7 @@ impl GameplayRuntimeHost {
             spatial_entities: input.spatial_entities,
             declared_reads: input.declared_reads,
             triggers: input.triggers,
+            scheduler: input.scheduler,
         })
     }
 
@@ -239,16 +254,20 @@ impl GameplayRuntimeHost {
     ) -> Result<Self, GameplayRuntimeHostError> {
         let mut bundle = execute_load_plan(&input.load_plan, &input.artifacts)
             .map_err(|error| GameplayRuntimeHostError::Load(format!("{error:?}")))?;
-        apply_prefab_bootstrap(&mut bundle, prefabs)?;
-        Self::activate(GameplayRuntimeHostInput {
-            bundle,
-            composition: input.composition,
-            bindings: input.bindings,
-            entity_targets: input.entity_targets,
-            spatial_entities: input.spatial_entities,
-            declared_reads: input.declared_reads,
-            triggers: input.triggers,
-        })
+        let prefab_registry = apply_prefab_bootstrap(&mut bundle, prefabs)?;
+        Self::activate_with_prefab_registry(
+            GameplayRuntimeHostInput {
+                bundle,
+                composition: input.composition,
+                bindings: input.bindings,
+                entity_targets: input.entity_targets,
+                spatial_entities: input.spatial_entities,
+                declared_reads: input.declared_reads,
+                triggers: input.triggers,
+                scheduler: input.scheduler,
+            },
+            prefab_registry,
+        )
     }
 
     pub fn restore_project(
@@ -266,6 +285,7 @@ impl GameplayRuntimeHost {
                 spatial_entities: input.spatial_entities,
                 declared_reads: input.declared_reads,
                 triggers: input.triggers,
+                scheduler: input.scheduler,
             },
             snapshot_text,
         )
@@ -281,8 +301,8 @@ impl GameplayRuntimeHost {
     ) -> Result<Self, GameplayRuntimeHostError> {
         let mut bundle = execute_load_plan(&input.load_plan, &input.artifacts)
             .map_err(|error| GameplayRuntimeHostError::Load(format!("{error:?}")))?;
-        apply_prefab_bootstrap(&mut bundle, prefabs)?;
-        Self::restore(
+        let prefab_registry = apply_prefab_bootstrap(&mut bundle, prefabs)?;
+        Self::restore_with_prefab_registry(
             GameplayRuntimeHostInput {
                 bundle,
                 composition: input.composition,
@@ -291,12 +311,21 @@ impl GameplayRuntimeHost {
                 spatial_entities: input.spatial_entities,
                 declared_reads: input.declared_reads,
                 triggers: input.triggers,
+                scheduler: input.scheduler,
             },
             snapshot_text,
+            prefab_registry,
         )
     }
 
-    pub fn activate(mut input: GameplayRuntimeHostInput) -> Result<Self, GameplayRuntimeHostError> {
+    pub fn activate(input: GameplayRuntimeHostInput) -> Result<Self, GameplayRuntimeHostError> {
+        Self::activate_with_prefab_registry(input, empty_prefab_registry())
+    }
+
+    fn activate_with_prefab_registry(
+        mut input: GameplayRuntimeHostInput,
+        prefab_registry: ValidatedPrefabRegistry,
+    ) -> Result<Self, GameplayRuntimeHostError> {
         prepare_runtime_entities(&mut input)?;
         let mut session = GameplayBoundProjectBundleSession::activate(
             input.bundle,
@@ -305,18 +334,30 @@ impl GameplayRuntimeHost {
             &input.entity_targets,
         )?;
         session.install_trigger_definitions(resolve_trigger_definitions(input.triggers)?)?;
+        validate_scheduler_definition(session.registry(), &input.scheduler)?;
+        let scheduler = input.scheduler.build();
         Ok(Self {
             session,
+            prefab_registry,
             declared_reads: input.declared_reads,
             reaction_frames: Vec::new(),
             decision_continuations: GameplayDecisionContinuations::default(),
             decision_receipts: Vec::new(),
+            scheduler,
         })
     }
 
     pub fn restore(
+        input: GameplayRuntimeHostInput,
+        snapshot_text: &str,
+    ) -> Result<Self, GameplayRuntimeHostError> {
+        Self::restore_with_prefab_registry(input, snapshot_text, empty_prefab_registry())
+    }
+
+    fn restore_with_prefab_registry(
         mut input: GameplayRuntimeHostInput,
         snapshot_text: &str,
+        prefab_registry: ValidatedPrefabRegistry,
     ) -> Result<Self, GameplayRuntimeHostError> {
         prepare_runtime_entities(&mut input)?;
         let stored: StoredGameplayRuntimeHostSnapshot = serde_json::from_str(snapshot_text)
@@ -335,6 +376,7 @@ impl GameplayRuntimeHost {
             &input.entity_targets,
             &stored.session_snapshot,
         )?;
+        validate_scheduler_definition(session.registry(), &input.scheduler)?;
         let expected_triggers = rule_trigger_volume::TriggerVolumeRule::new(
             resolve_trigger_definitions(input.triggers)?,
         )
@@ -350,12 +392,24 @@ impl GameplayRuntimeHost {
                 "authored trigger definitions do not match the saved host".to_owned(),
             ));
         }
+        let scheduler = GameplayActionScheduler::decode_snapshot(&stored.scheduler_snapshot)?;
+        let expected_scheduler = input.scheduler.build();
+        if scheduler.owner() != expected_scheduler.owner()
+            || scheduler.declared_events() != expected_scheduler.declared_events()
+            || scheduler.declared_proposals() != expected_scheduler.declared_proposals()
+        {
+            return Err(GameplayRuntimeHostError::Snapshot(
+                "authored scheduler definition does not match the saved host".to_owned(),
+            ));
+        }
         Ok(Self {
             session,
+            prefab_registry,
             declared_reads: input.declared_reads,
             reaction_frames: stored.reaction_frames,
             decision_continuations: stored.decision_continuations,
             decision_receipts: stored.decision_receipts,
+            scheduler,
         })
     }
 
@@ -408,6 +462,8 @@ impl GameplayRuntimeHost {
                 module_state: &self.session.module_state,
                 entities,
                 triggers: self.session.trigger_rule(),
+                prefab_registry: &self.prefab_registry,
+                prefab_instances: &self.session.bundle.prefab_instances,
                 declared_reads: &self.declared_reads,
             },
             self.session.invocation_host(),
@@ -515,6 +571,7 @@ impl GameplayRuntimeHost {
             reaction_frames: self.reaction_frames.clone(),
             decision_continuations: self.decision_continuations.clone(),
             decision_receipts: self.decision_receipts.clone(),
+            scheduler_snapshot: self.scheduler.encode_snapshot()?,
             snapshot_hash: String::new(),
         };
         stored.snapshot_hash = gameplay_runtime_snapshot_hash(&stored);
@@ -538,16 +595,20 @@ impl GameplayRuntimeHost {
             .decision_receipts
             .last()
             .map(|receipt| receipt.receipt_hash.clone());
+        let authority_state_hash = self.current_authority_state_hash();
+        let scheduler = self.scheduler_readout();
         let runtime_host_hash = gameplay_module_payload_hash(
             format!(
-                "{}|{}|{}|{}|{}|{}|{}",
+                "{}|{}|{}|{}|{}|{}|{}|{}|{}",
                 self.session.registry().registry_digest(),
                 self.session.bindings().registry_hash,
                 self.session.module_state.state_hash(),
+                authority_state_hash,
                 self.session.trigger_rule().snapshot().snapshot_hash,
                 last_reaction_frame_hash.as_deref().unwrap_or("none"),
                 last_decision_receipt_hash.as_deref().unwrap_or("none"),
-                self.decision_continuations.pending_count()
+                self.decision_continuations.pending_count(),
+                scheduler.state_hash,
             )
             .as_bytes(),
         );
@@ -556,6 +617,7 @@ impl GameplayRuntimeHost {
             binding_registry_hash: self.session.bindings().registry_hash.clone(),
             activation_hash: activation_hash(&self.session.activation),
             module_state_hash: self.session.module_state.state_hash(),
+            authority_state_hash,
             trigger_revision: self.session.trigger_rule().revision(),
             trigger_snapshot_hash: self.session.trigger_rule().snapshot().snapshot_hash,
             active_overlap_count: u32::try_from(active_overlap_count).unwrap_or(u32::MAX),
@@ -565,8 +627,18 @@ impl GameplayRuntimeHost {
             pending_decision_count: u32::try_from(self.decision_continuations.pending_count())
                 .unwrap_or(u32::MAX),
             last_decision_receipt_hash,
+            scheduler,
             runtime_host_hash,
         }
+    }
+
+    fn current_authority_state_hash(&self) -> String {
+        let authority = self
+            .session
+            .bundle
+            .compose_session_state_snapshot()
+            .expect("runtime host always owns current entity authority");
+        gameplay_module_payload_hash(authority.text.as_bytes())
     }
 
     pub fn prefab_readout(&self) -> GameplayRuntimePrefabReadout {
@@ -625,6 +697,8 @@ impl GameplayRuntimeHost {
                 module_state: &self.session.module_state,
                 entities: &frozen_entities,
                 triggers: self.session.trigger_rule(),
+                prefab_registry: &self.prefab_registry,
+                prefab_instances: &self.session.bundle.prefab_instances,
                 declared_reads: &self.declared_reads,
             },
             self.session.invocation_host(),
@@ -679,6 +753,7 @@ struct StoredGameplayRuntimeHostSnapshot {
     reaction_frames: Vec<GameplayReactionFrame>,
     decision_continuations: GameplayDecisionContinuations,
     decision_receipts: Vec<GameplayDecisionReceipt>,
+    scheduler_snapshot: Vec<u8>,
     snapshot_hash: String,
 }
 
@@ -699,8 +774,13 @@ fn gameplay_runtime_snapshot_hash(snapshot: &StoredGameplayRuntimeHostSnapshot) 
         .expect("decision continuations serialize");
     gameplay_module_payload_hash(
         format!(
-            "{}|{}|{}|{}|{}",
-            snapshot.schema_version, snapshot.session_snapshot, frames, decisions, continuations
+            "{}|{}|{}|{}|{}|{}",
+            snapshot.schema_version,
+            snapshot.session_snapshot,
+            frames,
+            decisions,
+            continuations,
+            gameplay_module_payload_hash(&snapshot.scheduler_snapshot),
         )
         .as_bytes(),
     )
@@ -711,6 +791,8 @@ struct RuntimeSessionViews<'a> {
     module_state: &'a rule_gameplay_fabric::GameplayModuleStateStore,
     entities: &'a EntityStore,
     triggers: &'a rule_trigger_volume::TriggerVolumeRule,
+    prefab_registry: &'a ValidatedPrefabRegistry,
+    prefab_instances: &'a rule_project_bundle::PrefabInstanceAuthority,
     declared_reads: &'a [GameplayRuntimeDeclaredReadPlan],
 }
 
@@ -761,21 +843,31 @@ impl RuntimeSessionViews<'_> {
             .iter()
             .map(|provider| provider as &dyn GameplayOwnerQueryProvider)
             .collect();
-        let prefab_registry = ValidatedPrefabRegistry::new(
-            PrefabRegistry {
-                schema_version: PREFAB_REGISTRY_SCHEMA_VERSION,
-                definitions: Vec::new(),
-            },
-            &PrefabRegistryValidationContext::default(),
-        )
-        .expect("empty prefab registry is valid");
-        let prefab_instances = GameplayPrefabInstanceIndex::default();
-        let scopes = GameplayEntityScopeIndex::default();
+        let mut prefab_instances = GameplayPrefabInstanceIndex::default();
+        for instance in self.prefab_instances.instances() {
+            prefab_instances
+                .insert(
+                    instance.record.instance,
+                    GameplayPrefabInstanceBinding {
+                        prefab: instance.record.prefab,
+                        part_entities: instance
+                            .parts
+                            .iter()
+                            .map(|part| (part.part, part.entity))
+                            .collect::<BTreeMap<_, _>>(),
+                    },
+                )
+                .expect("validated prefab authority has unique instance ids");
+        }
+        let mut scopes = GameplayEntityScopeIndex::default();
+        for definition in self.triggers.definitions() {
+            scopes.bind(definition.scope.clone(), EntityId::new(definition.trigger));
+        }
         GameplayReadAssembler::new(
             self.registry,
             self.entities,
             self.module_state,
-            &prefab_registry,
+            self.prefab_registry,
             &prefab_instances,
             &scopes,
             owner_query_providers,
@@ -783,6 +875,17 @@ impl RuntimeSessionViews<'_> {
         .assemble(&plan, event)
         .map(Some)
     }
+}
+
+fn empty_prefab_registry() -> ValidatedPrefabRegistry {
+    ValidatedPrefabRegistry::new(
+        PrefabRegistry {
+            schema_version: PREFAB_REGISTRY_SCHEMA_VERSION,
+            definitions: Vec::new(),
+        },
+        &PrefabRegistryValidationContext::default(),
+    )
+    .expect("empty prefab registry is valid")
 }
 
 impl GameplayViewSource for RuntimeSessionViews<'_> {
@@ -848,103 +951,6 @@ fn read_assembly_error(request_id: &str, message: &str) -> GameplayReadAssemblyE
             request_id: request_id.to_owned(),
             message: message.to_owned(),
         }],
-    }
-}
-
-struct RuntimeSessionDecisionOwner<'a> {
-    owner: &'a mut dyn GameplayRuntimeDecisionOwner,
-}
-
-impl GameplayDecisionOwner for RuntimeSessionDecisionOwner<'_> {
-    fn revision_hash(&self, owner: &GameplayOwnerRef) -> String {
-        self.owner.revision_hash(owner)
-    }
-
-    fn route_precommit(&mut self, call: &GameplayOwnerRoutingCall) -> GameplayOwnerRoutingOutput {
-        let output = self.owner.route_precommit(&call.owner, &call.proposal);
-        GameplayOwnerRoutingOutput {
-            accepted: output.accepted,
-            fact_hashes: output.fact_hashes,
-            events: output.events,
-            diagnostic_codes: output.diagnostic_codes,
-        }
-    }
-}
-
-struct RuntimeSessionOwnerRouter<'a> {
-    entities: &'a mut EntityStore,
-}
-
-impl GameplayProposalRouter for RuntimeSessionOwnerRouter<'_> {
-    fn route(&mut self, call: &GameplayOwnerRoutingCall) -> GameplayOwnerRoutingOutput {
-        if call.proposal.proposal
-            != StandardGameplayProposalKind::SetCapabilityActivation.contract()
-            || call.owner.owner_id != CAPABILITY_ACTIVATION_PROPOSAL_OWNER_ID
-        {
-            return rejected_owner_output("unsupportedOwnerProposal");
-        }
-        let payload: CapabilityActivationGameplayProposal =
-            match serde_json::from_slice(&call.proposal.canonical_payload) {
-                Ok(payload) => payload,
-                Err(_) => return rejected_owner_output("proposalDecodeFailed"),
-            };
-        if payload.entity == 0
-            || payload.entity
-                != call
-                    .proposal
-                    .targets
-                    .first()
-                    .map_or(0, |target| target.entity.raw())
-        {
-            return rejected_owner_output("proposalTargetMismatch");
-        }
-        let (capability, owner) = match payload.capability.as_str() {
-            "collision" => (
-                ActivatableCapabilityKind::Collision,
-                EcrpRuleOwner::CollisionRule,
-            ),
-            "controller" => (
-                ActivatableCapabilityKind::Controller,
-                EcrpRuleOwner::ControllerRule,
-            ),
-            _ => return rejected_owner_output("unsupportedCapability"),
-        };
-        let action = match payload.action.as_str() {
-            "activate" => CapabilityActivationAction::Activate,
-            "deactivate" => CapabilityActivationAction::Deactivate,
-            _ => return rejected_owner_output("unsupportedActivationAction"),
-        };
-        match apply_rule_owned_capability_activation(
-            self.entities,
-            owner,
-            CapabilityActivationRequest {
-                entity: EntityId::new(payload.entity),
-                capability,
-                action,
-            },
-        ) {
-            CapabilityActivationOutcome::Accepted { .. } => GameplayOwnerRoutingOutput {
-                accepted: true,
-                fact_hashes: vec![gameplay_module_payload_hash(
-                    &call.proposal.canonical_payload,
-                )],
-                ..GameplayOwnerRoutingOutput::default()
-            },
-            CapabilityActivationOutcome::Rejected { diagnostic }
-            | CapabilityActivationOutcome::Forbidden { diagnostic } => GameplayOwnerRoutingOutput {
-                accepted: false,
-                diagnostic_codes: vec![format!("{:?}", diagnostic.code)],
-                ..GameplayOwnerRoutingOutput::default()
-            },
-        }
-    }
-}
-
-fn rejected_owner_output(code: &str) -> GameplayOwnerRoutingOutput {
-    GameplayOwnerRoutingOutput {
-        accepted: false,
-        diagnostic_codes: vec![code.to_owned()],
-        ..GameplayOwnerRoutingOutput::default()
     }
 }
 
@@ -1087,8 +1093,20 @@ mod tests {
     use core_ids::SceneNodeId;
     use core_scene::{encode, SceneMetadata, SceneNode, SceneNodeKind, SceneTree};
     use gameplay_module_sdk::*;
+    use protocol_game_extension::GameplayInvocationReadRequirement;
     use rule_trigger_volume::TriggerOverlapFactKind;
     use serde::{Deserialize, Serialize};
+
+    fn empty_scheduler_definition() -> GameplayRuntimeSchedulerDefinition {
+        GameplayRuntimeSchedulerDefinition::new(
+            GameplayOwnerRef {
+                owner_id: "authority.fixture-scheduler".to_owned(),
+                provider_id: "provider.fixture-scheduler".to_owned(),
+            },
+            Vec::new(),
+            Vec::new(),
+        )
+    }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -1187,6 +1205,10 @@ mod tests {
                     family: GameplayInvocationFamily::Transform,
                     input_contract: proposal.clone(),
                     output_contract: decision_contract("workspace"),
+                    read_requirements: vec![GameplayInvocationReadRequirement {
+                        request_id: "target-collision".to_owned(),
+                        view: view.clone(),
+                    }],
                     max_outputs: 1,
                     max_payload_bytes: 4_096,
                 },
@@ -1195,6 +1217,7 @@ mod tests {
                     family: GameplayInvocationFamily::React,
                     input_contract: proposal.clone(),
                     output_contract: decision_contract("workspace"),
+                    read_requirements: Vec::new(),
                     max_outputs: 1,
                     max_payload_bytes: 4_096,
                 },
@@ -1357,6 +1380,7 @@ mod tests {
                 }],
             }],
             triggers: Vec::new(),
+            scheduler: empty_scheduler_definition(),
         }
     }
 
@@ -1518,16 +1542,25 @@ mod tests {
                 scope: "zone.host".to_owned(),
                 tags: vec!["door".to_owned()],
             }],
+            scheduler: empty_scheduler_definition(),
         })
         .unwrap();
+        let authority_hash_before = host.readout().authority_state_hash;
+        let runtime_hash_before = host.readout().runtime_host_hash;
         assert!(host
             .reconcile_triggers(1, TriggerReconcileCause::Tick)
             .unwrap()
             .collision
             .facts
             .is_empty());
+        let moved_without_overlap_change = host
+            .set_actor_translation_and_reconcile(EntityId::new(20), [3.0, 0.0, 0.0], 2)
+            .unwrap();
+        assert!(moved_without_overlap_change.collision.facts.is_empty());
+        assert_ne!(host.readout().authority_state_hash, authority_hash_before);
+        assert_ne!(host.readout().runtime_host_hash, runtime_hash_before);
         let entered = host
-            .set_actor_translation_and_reconcile(EntityId::new(20), [0.0, 0.0, 0.0], 2)
+            .set_actor_translation_and_reconcile(EntityId::new(20), [0.0, 0.0, 0.0], 3)
             .unwrap();
         assert_eq!(
             entered.collision.facts[0].kind,

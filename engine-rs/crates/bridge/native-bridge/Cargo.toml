@@ -20,6 +20,11 @@ crate-type = ["cdylib"]
 [dependencies]
 runtime-bridge-api = { path = "../runtime-bridge-api" }
 core-math = { path = "../../foundation/core-math" }
+core-space = { path = "../../foundation/core-space" }
+core-ids = { path = "../../foundation/core-ids" }
+protocol-assets = { path = "../../protocol/protocol-assets" }
+protocol-render = { path = "../../protocol/protocol-render" }
+protocol-scene = { path = "../../protocol/protocol-scene" }
 protocol-view = { path = "../../protocol/protocol-view" }
 # napi pulled only here — the only crate in the repo allowed to depend on it
 # (enforced by governance/ownership.toml `may_not_depend_on`).

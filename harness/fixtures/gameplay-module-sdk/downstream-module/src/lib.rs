@@ -105,8 +105,14 @@ impl GameplayModuleBehavior for PulseBehavior {
 
 pub struct PulseStateAdapter;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PulseConfiguration {
+    multiplier: u64,
+}
+
 impl GameplayTypedModuleStateAdapter for PulseStateAdapter {
-    type Config = u64;
+    type Config = PulseConfiguration;
     type State = u64;
     type Fact = u64;
     type View = u64;
@@ -150,7 +156,7 @@ impl GameplayTypedModuleStateAdapter for PulseStateAdapter {
     }
 
     fn initialize(&self, config: &Self::Config) -> Result<Self::State, String> {
-        Ok(*config)
+        Ok(config.multiplier)
     }
 
     fn apply_fact(&self, state: &Self::State, fact: &Self::Fact) -> Result<Self::State, String> {
@@ -232,6 +238,10 @@ pub fn provider(multiplier: u64) -> GameplayStaticModuleProvider {
                 family: GameplayInvocationFamily::Observe,
                 input_contract: contract("pulse"),
                 output_contract: contract("pulse-result"),
+                read_requirements: vec![GameplayInvocationReadRequirement {
+                    request_id: "pulse-state".to_owned(),
+                    view: contract("pulse-state-view"),
+                }],
                 max_outputs: 2,
                 max_payload_bytes: 1_024,
             },
@@ -240,6 +250,10 @@ pub fn provider(multiplier: u64) -> GameplayStaticModuleProvider {
                 family: GameplayInvocationFamily::Observe,
                 input_contract: StandardGameplayEventKind::TriggerEntered.contract(),
                 output_contract: contract("trigger-reaction-proposed"),
+                read_requirements: vec![GameplayInvocationReadRequirement {
+                    request_id: "current-trigger-overlaps".to_owned(),
+                    view: contract("trigger-overlaps-view"),
+                }],
                 max_outputs: 2,
                 max_payload_bytes: 1_024,
             },
@@ -287,6 +301,16 @@ pub fn provider(multiplier: u64) -> GameplayStaticModuleProvider {
         },
         deterministic_requirements: vec!["canonical-json".to_owned()],
         source_hash: format!("sha256:fixture-pulse-source-{multiplier}"),
+    };
+    let configuration_metadata = GameplayConfigurationSchemaMetadata {
+        module_id: "fixture.pulse.module".to_owned(),
+        configuration: contract("configuration"),
+        codec_id: "codec.fixture-pulse.configuration".to_owned(),
+        fields: vec![GameplayConfigurationFieldMetadata {
+            name: "multiplier".to_owned(),
+            value_type: "u64".to_owned(),
+            required: true,
+        }],
     };
     GameplayStaticModuleProvider::linked_from_manifest(manifest, PulseBehavior { multiplier })
         .event_codec(json_codec(contract("pulse"), "codec.fixture-pulse.pulse"))
@@ -336,16 +360,10 @@ pub fn provider(multiplier: u64) -> GameplayStaticModuleProvider {
             owner: pulse_owner(),
         })
         .state_adapter(GameplayModuleStateRegistration::typed(PulseStateAdapter))
-        .configuration_schema(GameplayConfigurationSchemaMetadata {
-            module_id: "fixture.pulse.module".to_owned(),
-            configuration: contract("configuration"),
-            codec_id: "codec.fixture-pulse.configuration".to_owned(),
-            fields: vec![GameplayConfigurationFieldMetadata {
-                name: "multiplier".to_owned(),
-                value_type: "u64".to_owned(),
-                required: true,
-            }],
-        })
+        .configuration_schema(configuration_metadata.clone())
+        .configuration_codec(GameplayConfigurationCodecRegistration::typed::<
+            PulseConfiguration,
+        >(configuration_metadata))
 }
 
 pub fn root_event(amount: u64) -> GameplayEventEnvelope {
@@ -382,7 +400,8 @@ pub fn root_event(amount: u64) -> GameplayEventEnvelope {
 
 pub fn binding_registry(multiplier: u64) -> GameplayModuleBindingRegistry {
     let module = provider(multiplier).manifest.module_ref;
-    let canonical_config = serde_json::to_vec(&multiplier).expect("multiplier serializes");
+    let canonical_config =
+        serde_json::to_vec(&PulseConfiguration { multiplier }).expect("multiplier serializes");
     let configuration = GameplayModuleConfiguration {
         configuration_id: "fixture.pulse.default".to_owned(),
         module,
@@ -411,6 +430,18 @@ pub fn composition(multiplier: u64) -> GameplayStaticComposition {
     builder.include_standard_owner_events();
     builder.add_provider(provider(multiplier));
     builder.build().expect("public provider composes")
+}
+
+pub fn conformance_needs_manifest_json() -> String {
+    include_str!("../../../../consumer-needs/manifests/gameplay-module-fixture.json").to_owned()
+}
+
+pub fn conformance_reachable_surfaces(
+) -> Vec<asha_gameplay_module_conformance::GameplayModuleConformanceReachableSurface> {
+    vec![
+        asha_gameplay_module_conformance::GameplayModuleConformanceReachableSurface::gameplay_module_sdk(),
+        asha_gameplay_module_conformance::GameplayModuleConformanceReachableSurface::gameplay_module_conformance(),
+    ]
 }
 
 pub fn trigger_entered_event(trigger: u64, subject: u64) -> GameplayEventEnvelope {
@@ -574,6 +605,10 @@ fn decision_provider() -> GameplayStaticModuleProvider {
                 family: GameplayInvocationFamily::Transform,
                 input_contract: proposal.clone(),
                 output_contract: workspace.clone(),
+                read_requirements: vec![GameplayInvocationReadRequirement {
+                    request_id: "decision-target-collision".to_owned(),
+                    view: view.clone(),
+                }],
                 max_outputs: 1,
                 max_payload_bytes: 4_096,
             },
@@ -582,6 +617,7 @@ fn decision_provider() -> GameplayStaticModuleProvider {
                 family: GameplayInvocationFamily::React,
                 input_contract: proposal.clone(),
                 output_contract: workspace,
+                read_requirements: Vec::new(),
                 max_outputs: 1,
                 max_payload_bytes: 4_096,
             },
@@ -653,14 +689,17 @@ mod tests {
     use super::*;
     use asha_gameplay_module_conformance::{
         run_gameplay_module_conformance, GameplayModuleConformanceCase,
-        GameplayModuleConformanceProject,
+        GameplayModuleConformanceNeedsManifest, GameplayModuleConformanceProject,
+        GameplayModuleConformanceReachableSurface,
     };
     use asha_gameplay_runtime_host::{
         BundleArtifacts, GameplayBindingEntityTargets, GameplayDecisionMoment,
         GameplayDecisionStatus, GameplayOperationWorkspace, GameplayRuntimeDecisionOwner,
         GameplayRuntimeDecisionOwnerOutput, GameplayRuntimeDeclaredReadPlan, GameplayRuntimeHost,
-        GameplayRuntimeProjectInput, GameplayRuntimeSpatialEntity, GameplayTriggerDefinition,
-        LoadPlan, LoadStep, RuntimeSessionId, SceneId, TriggerReconcileCause,
+        GameplayRuntimeProjectInput, GameplayRuntimeSchedulerDefinition,
+        GameplayRuntimeSpatialEntity, GameplaySchedulerCommand, GameplayTriggerDefinition,
+        LoadPlan, LoadStep, RuntimeSessionId, SceneId, ScheduledActionId,
+        ScheduledActionValidity, TickScheduledActionDraft, TriggerReconcileCause,
         GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION,
     };
 
@@ -671,6 +710,10 @@ mod tests {
 
     fn conformance_project() -> GameplayModuleConformanceProject {
         serde_json::from_str(include_str!("../project/gameplay-project.json")).unwrap()
+    }
+
+    fn conformance_needs_manifest() -> GameplayModuleConformanceNeedsManifest {
+        serde_json::from_str(&conformance_needs_manifest_json()).unwrap()
     }
 
     fn run_project(
@@ -685,8 +728,26 @@ mod tests {
         event: GameplayEventEnvelope,
         composition: fn() -> Result<GameplayStaticComposition, GameplayStaticCompositionError>,
     ) -> asha_gameplay_module_conformance::GameplayModuleConformanceReport {
+        run_with_inputs(
+            project,
+            event,
+            composition,
+            conformance_needs_manifest(),
+            conformance_reachable_surfaces(),
+        )
+    }
+
+    fn run_with_inputs(
+        project: GameplayModuleConformanceProject,
+        event: GameplayEventEnvelope,
+        composition: fn() -> Result<GameplayStaticComposition, GameplayStaticCompositionError>,
+        needs_manifest: GameplayModuleConformanceNeedsManifest,
+        reachable_surfaces: Vec<GameplayModuleConformanceReachableSurface>,
+    ) -> asha_gameplay_module_conformance::GameplayModuleConformanceReport {
         run_gameplay_module_conformance(GameplayModuleConformanceCase {
             project_bundle_json: serde_json::to_string(&project).unwrap(),
+            consumer_needs_manifest_json: serde_json::to_string(&needs_manifest).unwrap(),
+            reachable_surfaces,
             composition,
             events: vec![event],
         })
@@ -817,6 +878,14 @@ mod tests {
                 scope: "zone.exit".to_owned(),
                 tags: vec!["door".to_owned(), "exit".to_owned()],
             }],
+            scheduler: GameplayRuntimeSchedulerDefinition::new(
+                GameplayOwnerRef {
+                    owner_id: "authority.fixture-scheduler".to_owned(),
+                    provider_id: "provider.fixture-scheduler".to_owned(),
+                },
+                Vec::new(),
+                vec![StandardGameplayProposalKind::SetCapabilityActivation.contract()],
+            ),
         }
     }
 
@@ -838,6 +907,14 @@ mod tests {
             }],
         }];
         input.triggers = Vec::new();
+        input.scheduler = GameplayRuntimeSchedulerDefinition::new(
+            GameplayOwnerRef {
+                owner_id: "authority.fixture-scheduler".to_owned(),
+                provider_id: "provider.fixture-scheduler".to_owned(),
+            },
+            Vec::new(),
+            vec![decision_contract("operation")],
+        );
         input
     }
 
@@ -1003,6 +1080,90 @@ mod tests {
         frame_hashes
     }
 
+    fn scheduled_collision_deactivation() -> TickScheduledActionDraft {
+        let payload = CapabilityActivationGameplayProposal {
+            entity: 10,
+            capability: "collision".to_owned(),
+            action: "deactivate".to_owned(),
+        };
+        let canonical_payload = serde_json::to_vec(&payload).unwrap();
+        TickScheduledActionDraft {
+            id: ScheduledActionId::new("fixture.scheduler.disable-trigger-collision"),
+            execute_at: 5,
+            priority: 0,
+            proposal: GameplayProposalEnvelope {
+                proposal_id: "draft.scheduler.disable-trigger-collision".to_owned(),
+                proposal: StandardGameplayProposalKind::SetCapabilityActivation.contract(),
+                tick: 0,
+                root_sequence: 5,
+                wave: 0,
+                proposal_sequence: 0,
+                emitter: GameplayEmitterRef::Owner {
+                    owner_id: "authority.fixture".to_owned(),
+                },
+                causation: GameplayCausationRef {
+                    root_id: "fixture.scheduler.root".to_owned(),
+                    parent_event_id: None,
+                    decision_id: None,
+                },
+                originating_event_id: None,
+                source: None,
+                targets: vec![GameplayEntityRef {
+                    entity: EntityId::new(10),
+                }],
+                canonical_payload: canonical_payload.clone(),
+                payload_hash: gameplay_module_payload_hash(&canonical_payload),
+            },
+            source: GameplayEmitterRef::Owner {
+                owner_id: "authority.fixture".to_owned(),
+            },
+            causation: GameplayCausationRef {
+                root_id: "fixture.scheduler.root".to_owned(),
+                parent_event_id: None,
+                decision_id: None,
+            },
+        }
+    }
+
+    #[test]
+    fn public_runtime_host_schedules_routes_reads_and_restores_actions() {
+        let mut host = GameplayRuntimeHost::activate_project(runtime_host_project_input(4)).unwrap();
+        let initial = host.readout();
+        let scheduled = host
+            .apply_scheduler_command(GameplaySchedulerCommand::ScheduleTick(
+                scheduled_collision_deactivation(),
+            ))
+            .unwrap();
+        assert_eq!(scheduled.readout.pending_action_count, 1);
+        let action_id = ScheduledActionId::new("fixture.scheduler.disable-trigger-collision");
+        let triggered = host
+            .apply_scheduler_command(GameplaySchedulerCommand::ExecuteTick {
+                action_id: action_id.clone(),
+                tick: 5,
+                validity: ScheduledActionValidity::CURRENT,
+            })
+            .unwrap();
+        assert!(triggered.scheduler.dispatch.is_some());
+        assert_eq!(triggered.readout.outstanding_dispatch_count, 1);
+        let routed = host.route_scheduled_action(&action_id).unwrap();
+        assert!(routed.routing.accepted);
+        assert_eq!(routed.readout.pending_action_count, 0);
+        assert_eq!(routed.readout.outstanding_dispatch_count, 0);
+        assert_eq!(routed.readout.fact_count, 3);
+        assert_ne!(host.readout().scheduler.state_hash, initial.scheduler.state_hash);
+        assert_ne!(host.readout().authority_state_hash, initial.authority_state_hash);
+        assert_ne!(host.readout().runtime_host_hash, initial.runtime_host_hash);
+
+        let snapshot = host.compose_snapshot().unwrap();
+        let restored = GameplayRuntimeHost::restore_project(
+            runtime_host_project_input(4),
+            &snapshot.text,
+        )
+        .unwrap();
+        assert_eq!(restored.readout().scheduler, host.readout().scheduler);
+        assert_eq!(restored.readout().runtime_host_hash, host.readout().runtime_host_hash);
+    }
+
     #[test]
     fn approved_public_runtime_host_links_real_downstream_behavior() {
         let mut host =
@@ -1049,14 +1210,26 @@ mod tests {
 
     #[test]
     fn one_command_conformance_covers_bootstrap_invocation_state_and_replay() {
-        let report = run_project(conformance_project(), root_event(7));
+        let project = conformance_project();
+        let report = run_gameplay_module_conformance(GameplayModuleConformanceCase {
+            project_bundle_json: serde_json::to_string(&project).unwrap(),
+            consumer_needs_manifest_json: serde_json::to_string(&conformance_needs_manifest())
+                .unwrap(),
+            reachable_surfaces: conformance_reachable_surfaces(),
+            composition: conformance_composition,
+            events: vec![root_event(7), trigger_entered_event(10, 20)],
+        })
+        .unwrap();
         assert!(report.valid, "{}", report.trace);
         assert_eq!(
             report.module_ids,
             vec!["asha.owner-events", "fixture.pulse.module"]
         );
-        assert_eq!(report.reaction_frames.len(), 1);
-        assert!(report.reaction_frames[0].invocations.len() == 1);
+        assert_eq!(report.reaction_frames.len(), 2);
+        assert!(report
+            .reaction_frames
+            .iter()
+            .all(|frame| frame.invocations.len() == 1));
         assert!(report.checks.iter().all(|check| check.passed));
         assert!(report
             .to_pretty_json()
@@ -1089,7 +1262,10 @@ mod tests {
             gameplay_module_binding_registry_hash(&bad_config.gameplay_module_bindings);
         let report = run_project(bad_config, root_event(7));
         assert!(!report.valid);
-        assert!(report.gaps.iter().any(|gap| gap.code == "adapterRejected"));
+        assert!(report
+            .gaps
+            .iter()
+            .any(|gap| gap.code == "configurationSchemaMismatch"));
         assert!(report.initial_state_hash.is_empty());
         assert!(report.final_state_hash.is_empty());
     }
@@ -1105,6 +1281,118 @@ mod tests {
             .checks
             .iter()
             .any(|check| check.id == "actualInvocation" && !check.passed));
+    }
+
+    #[test]
+    fn valid_but_unmatched_event_cannot_fake_declared_read_delivery() {
+        let mut event = root_event(7);
+        event.event = StandardGameplayEventKind::TriggerExited.contract();
+        let report = run_project(conformance_project(), event);
+        assert!(!report.valid);
+        assert!(!report.gaps.iter().any(|gap| gap.code == "unknownEvent"));
+        assert!(report
+            .gaps
+            .iter()
+            .any(|gap| gap.code == "declaredReadNotDelivered"));
+        assert!(report
+            .checks
+            .iter()
+            .any(|check| check.id == "declaredReadDelivery" && !check.passed));
+    }
+
+    #[test]
+    fn consumer_needs_fail_with_typed_actual_surface_gaps() {
+        let cases = [
+            (
+                "pulse.publish",
+                "identity",
+                "fixture.pulse.missing.v1",
+                "consumerNeedMissingEvent",
+            ),
+            (
+                "pulse.read",
+                "provider",
+                "provider.missing",
+                "consumerNeedProviderMismatch",
+            ),
+            (
+                "pulse.read",
+                "fields",
+                "missingField",
+                "consumerNeedMissingField",
+            ),
+            (
+                "pulse.read",
+                "selectors",
+                "eventTarget",
+                "consumerNeedMissingSelector",
+            ),
+            (
+                "pulse.read",
+                "ordering",
+                "invented-order",
+                "consumerNeedOrderingMismatch",
+            ),
+            (
+                "pulse.proposal",
+                "identity",
+                "fixture.pulse.missing-proposal.v1",
+                "consumerNeedMissingProposal",
+            ),
+            (
+                "pulse.configuration",
+                "identity",
+                "fixture.pulse.missing-config.v1",
+                "consumerNeedMissingBinding",
+            ),
+            (
+                "pulse.configuration",
+                "target",
+                "invented-scope",
+                "consumerNeedBindingTargetMismatch",
+            ),
+        ];
+        for (need_id, field, replacement, expected_code) in cases {
+            let mut manifest = conformance_needs_manifest();
+            let need = manifest
+                .requirements
+                .iter_mut()
+                .find(|need| need.id == need_id)
+                .unwrap();
+            match field {
+                "identity" => need.identity = replacement.to_owned(),
+                "provider" => need.provider = Some(replacement.to_owned()),
+                "fields" => need.fields = vec![replacement.to_owned()],
+                "selectors" => need.selectors = vec![replacement.to_owned()],
+                "ordering" => need.ordering = Some(replacement.to_owned()),
+                "target" => need.target.scope = Some(replacement.to_owned()),
+                _ => unreachable!(),
+            }
+            let report = run_with_inputs(
+                conformance_project(),
+                root_event(7),
+                conformance_composition,
+                manifest,
+                conformance_reachable_surfaces(),
+            );
+            assert!(
+                report.gaps.iter().any(|gap| gap.code == expected_code),
+                "expected {expected_code}: {}",
+                report.trace
+            );
+        }
+
+        let report = run_with_inputs(
+            conformance_project(),
+            root_event(7),
+            conformance_composition,
+            conformance_needs_manifest(),
+            vec![GameplayModuleConformanceReachableSurface::gameplay_module_conformance()],
+        );
+        assert!(report
+            .gaps
+            .iter()
+            .any(|gap| gap.code == "consumerNeedUnreachableSurface"));
     }
 
     #[test]

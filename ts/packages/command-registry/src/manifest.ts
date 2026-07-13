@@ -431,7 +431,7 @@ const exportOutput = objectSchema('ExportAgentReadoutOutput', [field('artifactId
 
 
 const materialProjectionExample: MaterialProjection = {
-  render: { color: { r: 0.8, g: 0.4, b: 0.2, a: 1 }, texture: null, roughness: 0.6, emissive: 0, uvStrategy: 'flat' },
+  render: { color: { r: 0.8, g: 0.4, b: 0.2, a: 1 }, texture: null, roughness: 0.6, textureTint: { r: 1, g: 1, b: 1, a: 1 }, emissionColor: { r: 0.8, g: 0.4, b: 0.2, a: 1 }, emissive: 0, uvStrategy: 'flat' },
   collision: { solid: true, collidable: true, occludes: true, structuralClass: 'solid' },
 };
 const materialEntryExample: CatalogEntry = {
@@ -466,7 +466,7 @@ const meshAssetExample: StaticMeshAsset = {
 };
 const modelMaterialPreviewDiffExample: RenderFrameDiff = {
   ops: [
-    { op: 'defineMaterial', material: { id: 'material.copper', color: [0.8, 0.4, 0.2, 1], texture: null, roughness: 0.6, emissive: 0, uvStrategy: 'flat' } },
+    { op: 'defineMaterial', material: { schemaVersion: 2, id: 'material.copper', color: [0.8, 0.4, 0.2, 1], texture: null, roughness: 0.6, textureTint: [1, 1, 1, 1], emissionColor: [0, 0, 0], emissionIntensity: 0, uvStrategy: 'flat' } },
     { op: 'defineStaticMesh', asset: meshAssetExample },
     { op: 'createStaticMeshInstance', handle: 7001 as import('@asha/contracts').RenderHandle, parent: null, instance: { asset: 'mesh.preview-cube', transform: { translation: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, materialOverrides: [], metadata: { source: null, tags: [], label: 'Model/material preview' } } },
   ],
@@ -474,7 +474,7 @@ const modelMaterialPreviewDiffExample: RenderFrameDiff = {
 
 const loadSceneAssetDiffExample: RenderFrameDiff = {
   ops: [
-    { op: 'defineMaterial', material: { id: 'material.copper', color: [0.8, 0.4, 0.2, 1], texture: null, roughness: 0.6, emissive: 0, uvStrategy: 'flat' } },
+    { op: 'defineMaterial', material: { schemaVersion: 2, id: 'material.copper', color: [0.8, 0.4, 0.2, 1], texture: null, roughness: 0.6, textureTint: [1, 1, 1, 1], emissionColor: [0, 0, 0], emissionIntensity: 0, uvStrategy: 'flat' } },
     { op: 'defineStaticMesh', asset: meshAssetExample },
     { op: 'createStaticMeshInstance', handle: 7101 as import('@asha/contracts').RenderHandle, parent: null, instance: { asset: 'mesh.preview-cube', transform: { translation: [1, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, materialOverrides: [], metadata: { source: null, tags: [], label: 'Loaded demo asset instance' } } },
   ],

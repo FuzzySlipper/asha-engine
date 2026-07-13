@@ -1,9 +1,10 @@
 import type { EntityAuthoringCommand, EntityAuthoringOutcome, Face, PickRay, PickResult, VoxelCommand, VoxelCoord } from '@asha/contracts';
 import { EditorStore } from '@asha/editor-tools';
-import type { CommandResult, RuntimeBridge } from '@asha/runtime-bridge';
+import { type CommandResult, type RuntimeBridge } from '@asha/runtime-bridge';
 export { EditorStore } from '@asha/editor-tools';
 export type { EditorContext, EditorAction, VoxelSelection } from '@asha/editor-tools';
 export * from './shell.js';
+export * from './editor-input-composition.js';
 /**
  * Where committed commands go. The real wiring is {@link bridgeCommandSink}, which
  * sends the batch through `@asha/runtime-bridge` (`submitCommands`) to Rust for

@@ -582,6 +582,33 @@ pub struct AnimationTransitionProjection {
     pub target_motion: AnimationResolvedMotion,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AnimationTransitionFactMoment {
+    Started,
+    Completed,
+}
+
+/// Inspectable trace from controller projection back to one durable authority
+/// transition fact. This is copied evidence, never a presentation-owned event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnimationTransitionFactRef {
+    pub fact_id: String,
+    pub source_fact_id: String,
+    pub authority_tick: u64,
+    pub controller_input_sequence: u64,
+    pub controller_tick: u64,
+    pub causation_id: String,
+    pub correlation_id: String,
+    pub transition_id: String,
+    pub from_state_id: String,
+    pub to_state_id: String,
+    pub moment: AnimationTransitionFactMoment,
+    pub duration_ticks: u32,
+    pub fact_hash: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AnimationControllerProjectionState {
@@ -593,6 +620,7 @@ pub struct AnimationControllerProjectionState {
     pub state_hash: String,
     pub motion: AnimationResolvedMotion,
     pub transition: Option<AnimationTransitionProjection>,
+    pub timing_fact: Option<Box<AnimationTransitionFactRef>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

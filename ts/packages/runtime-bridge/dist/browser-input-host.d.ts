@@ -32,6 +32,7 @@ export type BrowserPointerLockIntent = {
 export interface BrowserInputDelivery {
     readonly sample: RawInputSample;
     readonly receipt: InputResolutionReceipt;
+    readonly activeContexts: readonly string[];
     readonly consumer: string | null;
     readonly reason: string;
 }

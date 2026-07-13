@@ -19,6 +19,7 @@ pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
             "GameplayEventEnvelope",
             "GameplayHeaderSelector",
             "GameplaySubscriptionDeclaration",
+            "GameplayInvocationReadRequirement",
             "GameplayInvocationDescriptor",
             "GameplayProposalDeclaration",
             "GameplayProposalEnvelope",
@@ -435,12 +436,13 @@ fn gameplay_fabric_rust_serialization_matches_ir_shape() {
         GameplayCausationRef, GameplayContractRef, GameplayEmitterRef, GameplayEntityRef,
         GameplayEventEnvelope, GameplayEventPhase, GameplayEventSchemaDeclaration,
         GameplayExecutionBudget, GameplayHeaderSelector, GameplayInvocationDescriptor,
-        GameplayInvocationFamily, GameplayModuleManifest, GameplayModuleRef,
-        GameplayOrderingConstraint, GameplayOwnedSchemaDeclaration, GameplayOwnerRef,
-        GameplayProposalDeclaration, GameplayProposalEnvelope, GameplayReadSelectorCapability,
-        GameplayReadViewKind, GameplayReadViewProviderReadout, GameplayReadViewRequirement,
-        GameplayRegistryDiagnostic, GameplayRegistryDiagnosticCode, GameplayRegistryReadout,
-        GameplayRegistryValidationOutcome, GameplaySubscriptionDeclaration, GameplayTopologyEdge,
+        GameplayInvocationFamily, GameplayInvocationReadRequirement, GameplayModuleManifest,
+        GameplayModuleRef, GameplayOrderingConstraint, GameplayOwnedSchemaDeclaration,
+        GameplayOwnerRef, GameplayProposalDeclaration, GameplayProposalEnvelope,
+        GameplayReadSelectorCapability, GameplayReadViewKind, GameplayReadViewProviderReadout,
+        GameplayReadViewRequirement, GameplayRegistryDiagnostic, GameplayRegistryDiagnosticCode,
+        GameplayRegistryReadout, GameplayRegistryValidationOutcome,
+        GameplaySubscriptionDeclaration, GameplayTopologyEdge,
     };
 
     let game_extension = module("gameExtension");
@@ -528,6 +530,10 @@ fn gameplay_fabric_rust_serialization_matches_ir_shape() {
         family: GameplayInvocationFamily::Observe,
         input_contract: event.clone(),
         output_contract: output.clone(),
+        read_requirements: vec![GameplayInvocationReadRequirement {
+            request_id: "damage-source".into(),
+            view: event.clone(),
+        }],
         max_outputs: 4,
         max_payload_bytes: 4_096,
     };
@@ -659,6 +665,10 @@ fn gameplay_fabric_rust_serialization_matches_ir_shape() {
         (
             "GameplaySubscriptionDeclaration",
             serde_json::to_value(&subscription).unwrap(),
+        ),
+        (
+            "GameplayInvocationReadRequirement",
+            serde_json::to_value(&invocation.read_requirements[0]).unwrap(),
         ),
         (
             "GameplayInvocationDescriptor",

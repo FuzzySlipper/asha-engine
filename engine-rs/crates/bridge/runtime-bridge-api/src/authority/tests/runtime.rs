@@ -737,6 +737,11 @@ fn buffer_view_round_trips_and_unknown_handle_errors() {
         .unwrap();
     let view = bridge.get_buffer(RuntimeBufferHandle::new(0)).unwrap();
     assert_eq!(view.bytes, &0x01020304u64.to_le_bytes());
+    bridge
+        .release_buffer(RuntimeBufferHandle::new(0))
+        .expect("manual buffer lifetime is owned by Rust authority");
+    let err = bridge.get_buffer(RuntimeBufferHandle::new(0)).unwrap_err();
+    assert_eq!(err.kind, RuntimeBridgeErrorKind::UnknownHandle);
     let err = bridge.get_buffer(RuntimeBufferHandle::new(99)).unwrap_err();
     assert_eq!(err.kind, RuntimeBridgeErrorKind::UnknownHandle);
 }

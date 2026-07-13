@@ -1,6 +1,18 @@
 use super::*;
 
 impl EngineBridge {
+    pub(super) fn project_primary_fire_feedback(
+        &mut self,
+        request: FpsPrimaryFireRequest,
+        result: &FpsPrimaryFireResult,
+    ) -> BridgeResult<()> {
+        self.project_primary_fire_audio(request, result)?;
+        self.project_primary_fire_particles(request, result)?;
+        self.project_primary_fire_billboards(request, result)?;
+        self.project_primary_fire_animation(request, result)?;
+        self.project_primary_fire_telemetry_overlay(request.tick, result)
+    }
+
     pub(super) fn require_initialized(&self, op: &str) -> BridgeResult<()> {
         if self.engine.is_none() {
             return Err(RuntimeBridgeError::new(
@@ -737,6 +749,20 @@ impl EngineBridge {
         u64::from_str_radix(&Self::fnv1a64(&key), 16).expect("fnv1a64 emits hex")
     }
 
+    fn primary_fire_presentation_origin(
+        &self,
+        authority_tick: u64,
+        result: &FpsPrimaryFireResult,
+    ) -> PresentationOriginRef {
+        PresentationOriginRef {
+            kind: PresentationOriginKind::OwnerFact,
+            id: format!("combat.primary-fire.accepted:{}", result.replay_hash),
+            authority_tick,
+            causation_id: Some(format!("combat.primary-fire:{}", result.replay_hash)),
+            correlation_id: Some(format!("fps.session:{}", self.fps_epoch)),
+        }
+    }
+
     pub(super) fn project_primary_fire_audio(
         &mut self,
         request: FpsPrimaryFireRequest,
@@ -749,13 +775,7 @@ impl EngineBridge {
             .map_or(0, |frame| frame.presentation.ops.len() as u32);
         let meta = PresentationOpMeta {
             sequence,
-            origin: Some(PresentationOriginRef {
-                kind: PresentationOriginKind::OwnerFact,
-                id: format!("combat.primary-fire.accepted:{}", result.replay_hash),
-                authority_tick: request.tick,
-                causation_id: Some(format!("fps.primary-fire:{}", result.replay_hash)),
-                correlation_id: Some(format!("fps.session:{}", self.fps_epoch)),
-            }),
+            origin: Some(self.primary_fire_presentation_origin(request.tick, result)),
         };
         let op = AudioProjectionOp::Emit {
             signal_id: format!("primary-fire:{}:{}", self.fps_epoch, result.replay_hash),
@@ -857,13 +877,7 @@ impl EngineBridge {
             };
             self.project_billboard_operation(
                 request.tick,
-                PresentationOriginRef {
-                    kind: PresentationOriginKind::CapabilityState,
-                    id: format!("entity:{}:player-identity", result.shooter),
-                    authority_tick: request.tick,
-                    causation_id: None,
-                    correlation_id: Some(format!("fps.session:{}", self.fps_epoch)),
-                },
+                self.primary_fire_presentation_origin(request.tick, result),
                 BillboardProjectionOp::Create {
                     handle: player_handle,
                     descriptor: player_descriptor,
@@ -930,13 +944,7 @@ impl EngineBridge {
         };
         self.project_billboard_operation(
             request.tick,
-            PresentationOriginRef {
-                kind: PresentationOriginKind::CapabilityState,
-                id: format!("entity:{target}:health:{}", result.health_hash),
-                authority_tick: request.tick,
-                causation_id: Some(format!("combat.primary-fire:{}", result.replay_hash)),
-                correlation_id: Some(format!("fps.session:{}", self.fps_epoch)),
-            },
+            self.primary_fire_presentation_origin(request.tick, result),
             operation,
         )
     }
@@ -970,6 +978,7 @@ impl EngineBridge {
                 offset: [0.0, 1.0, 0.0],
             },
         );
+        let origin = self.primary_fire_presentation_origin(authority_tick, result);
         let projected = self
             .particle_projector
             .as_mut()
@@ -982,13 +991,7 @@ impl EngineBridge {
             .project(
                 PresentationOpMeta {
                     sequence,
-                    origin: Some(PresentationOriginRef {
-                        kind: PresentationOriginKind::GameplayEvent,
-                        id: format!("combat.primary-fire.feedback:{}", result.replay_hash),
-                        authority_tick,
-                        causation_id: Some(format!("combat.primary-fire:{}", result.replay_hash)),
-                        correlation_id: Some(format!("fps.session:{}", self.fps_epoch)),
-                    }),
+                    origin: Some(origin),
                 },
                 ParticleProjectionOp::Emit {
                     signal_id: format!(
@@ -1055,6 +1058,187 @@ impl EngineBridge {
         Ok(())
     }
 
+    pub(super) fn project_primary_fire_animation(
+        &mut self,
+        request: FpsPrimaryFireRequest,
+        result: &FpsPrimaryFireResult,
+    ) -> BridgeResult<()> {
+        let entity = EntityId::new(result.shooter);
+        let player = self
+            .fps_session("project_primary_fire_animation")?
+            .role_entity(FpsRuntimeRole::Player)
+            .map_err(Self::fps_runtime_error)?;
+        if entity != player {
+            return Ok(());
+        }
+        let presentation_origin = self.primary_fire_presentation_origin(request.tick, result);
+        let source_fact_id = presentation_origin.id;
+        let causation_id = presentation_origin
+            .causation_id
+            .expect("primary-fire presentation origin has causation identity");
+        let correlation_id = presentation_origin
+            .correlation_id
+            .expect("primary-fire presentation origin has correlation identity");
+        let origin = rule_animation_controller::AnimationInputOrigin {
+            source_fact_id: source_fact_id.clone(),
+            authority_tick: request.tick,
+            causation_id: causation_id.clone(),
+            correlation_id: correlation_id.clone(),
+        };
+
+        let create_change = if self.animation_controller.is_none() {
+            let catalog = rule_animation_controller::validate_animation_catalog(
+                primary_fire_animation_catalog(),
+            )
+            .map_err(|error| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::Internal,
+                    format!("built-in animation catalog rejected: {error}"),
+                )
+            })?;
+            let mut controller =
+                rule_animation_controller::AnimationControllerAuthority::new(catalog);
+            let change = controller
+                .attach(entity, "fps.primary-fire")
+                .map_err(animation_authority_error)?
+                .change;
+            self.animation_controller = Some(controller);
+            change
+        } else {
+            None
+        };
+
+        if let Some(change) = create_change {
+            let meta = self.animation_presentation_meta(
+                request.tick,
+                request.tick,
+                source_fact_id.clone(),
+                causation_id.clone(),
+                correlation_id.clone(),
+            );
+            let projected = self
+                .animation_projector
+                .as_mut()
+                .ok_or_else(|| {
+                    RuntimeBridgeError::new(
+                        RuntimeBridgeErrorKind::Internal,
+                        "animation projector is unavailable after initialization",
+                    )
+                })?
+                .create(
+                    entity,
+                    protocol_render::RenderHandle::new(4_100),
+                    "mesh-animation/kenney-retro-character-medium",
+                    50,
+                    &change,
+                    meta,
+                )
+                .map_err(animation_projection_error)?;
+            self.push_animation_projection(request.tick, projected);
+        }
+
+        {
+            let controller = self.animation_controller.as_mut().ok_or_else(|| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::Internal,
+                    "animation controller is unavailable after initialization",
+                )
+            })?;
+            controller
+                .set_float(entity, "intensity", 650)
+                .map_err(animation_authority_error)?;
+            controller
+                .set_bool(entity, "active", true)
+                .map_err(animation_authority_error)?;
+        }
+        // One gameplay action advances two fixed controller quanta: the first
+        // accepts the semantic transition and the second publishes inspectable
+        // blend progress. Both are replayed from the same accepted owner fact.
+        for _ in 0..2 {
+            self.animation_tick = self.animation_tick.saturating_add(1);
+            let change = self
+                .animation_controller
+                .as_mut()
+                .expect("animation controller exists")
+                .tick_from_fact(entity, self.animation_tick, origin.clone())
+                .map_err(animation_authority_error)?
+                .change;
+            if let Some(change) = change {
+                let timing_source = change.state.timing_fact.as_ref().map(|fact| &fact.source);
+                let meta = self.animation_presentation_meta(
+                    request.tick,
+                    timing_source.map_or(request.tick, |source| source.authority_tick),
+                    timing_source.map_or_else(
+                        || source_fact_id.clone(),
+                        |source| source.source_fact_id.clone(),
+                    ),
+                    timing_source.map_or_else(
+                        || causation_id.clone(),
+                        |source| source.causation_id.clone(),
+                    ),
+                    timing_source.map_or_else(
+                        || correlation_id.clone(),
+                        |source| source.correlation_id.clone(),
+                    ),
+                );
+                let projected = self
+                    .animation_projector
+                    .as_ref()
+                    .ok_or_else(|| {
+                        RuntimeBridgeError::new(
+                            RuntimeBridgeErrorKind::Internal,
+                            "animation projector is unavailable after initialization",
+                        )
+                    })?
+                    .update(entity, &change, meta)
+                    .map_err(animation_projection_error)?;
+                self.push_animation_projection(request.tick, projected);
+            }
+        }
+        Ok(())
+    }
+
+    fn animation_presentation_meta(
+        &self,
+        frame_tick: u64,
+        origin_tick: u64,
+        source_fact_id: String,
+        causation_id: String,
+        correlation_id: String,
+    ) -> PresentationOpMeta {
+        let sequence = self
+            .projection_frame
+            .as_ref()
+            .filter(|frame| frame.authority_tick == frame_tick)
+            .map_or(0, |frame| frame.presentation.ops.len() as u32);
+        PresentationOpMeta {
+            sequence,
+            origin: Some(PresentationOriginRef {
+                kind: PresentationOriginKind::OwnerFact,
+                id: source_fact_id,
+                authority_tick: origin_tick,
+                causation_id: Some(causation_id),
+                correlation_id: Some(correlation_id),
+            }),
+        }
+    }
+
+    fn push_animation_projection(&mut self, authority_tick: u64, projected: PresentationOp) {
+        if self
+            .projection_frame
+            .as_ref()
+            .is_none_or(|frame| frame.authority_tick != authority_tick)
+        {
+            self.projection_frame = Some(RuntimeProjectionFrame::empty(authority_tick));
+        }
+        self.projection_frame
+            .as_mut()
+            .expect("projection frame was initialized")
+            .presentation
+            .ops
+            .push(projected);
+    }
+
     fn project_billboard_operation(
         &mut self,
         authority_tick: u64,
@@ -1112,6 +1296,7 @@ impl EngineBridge {
     pub(super) fn project_primary_fire_telemetry_overlay(
         &mut self,
         authority_tick: u64,
+        result: &FpsPrimaryFireResult,
     ) -> BridgeResult<()> {
         if self
             .projection_frame
@@ -1128,6 +1313,7 @@ impl EngineBridge {
             .ops
             .len() as u32;
         let handle = TelemetryOverlayHandle::new(1);
+        let origin = self.primary_fire_presentation_origin(authority_tick, result);
         let projector = self.telemetry_overlay_projector.as_mut().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::Internal,
@@ -1158,7 +1344,7 @@ impl EngineBridge {
             .project(
                 PresentationOpMeta {
                     sequence,
-                    origin: None,
+                    origin: Some(origin),
                 },
                 op,
             )
@@ -1194,9 +1380,96 @@ impl EngineBridge {
             .as_mut()
             .expect("particle projector exists after initialization")
             .reset();
+        self.animation_controller = None;
+        self.animation_projector = Some(render_animation::AnimationControllerProjector::new());
+        self.animation_tick = 0;
         self.telemetry_overlay_projector
             .as_mut()
             .expect("telemetry overlay projector exists after initialization")
             .reset();
+    }
+}
+
+fn animation_authority_error(
+    error: rule_animation_controller::AnimationAuthorityError,
+) -> RuntimeBridgeError {
+    RuntimeBridgeError::new(
+        RuntimeBridgeErrorKind::Internal,
+        format!("built-in animation authority rejected input: {error}"),
+    )
+}
+
+fn animation_projection_error(
+    error: render_animation::AnimationProjectionError,
+) -> RuntimeBridgeError {
+    RuntimeBridgeError::new(
+        RuntimeBridgeErrorKind::Internal,
+        format!("built-in animation projection rejected input: {error}"),
+    )
+}
+
+fn primary_fire_animation_catalog() -> rule_animation_controller::AnimationCatalog {
+    use rule_animation_controller::{
+        AnimationCatalog, AnimationClipAsset, AnimationCondition, AnimationGraphDefinition,
+        AnimationMotionDefinition, AnimationParameterDefinition, AnimationParameterKind,
+        AnimationParameterValue, AnimationStateDefinition, AnimationTransitionDefinition,
+    };
+
+    AnimationCatalog {
+        schema_version: rule_animation_controller::ANIMATION_CATALOG_SCHEMA_VERSION,
+        catalog_id: "asha.fps.animation".to_string(),
+        assets: vec![AnimationClipAsset {
+            asset_id: "mesh-animation/kenney-retro-character-medium".to_string(),
+            clips: vec!["idle".to_string(), "run".to_string(), "jump".to_string()],
+        }],
+        graphs: vec![AnimationGraphDefinition {
+            graph_id: "fps.primary-fire".to_string(),
+            version: 1,
+            asset_id: "mesh-animation/kenney-retro-character-medium".to_string(),
+            initial_state_id: "ready".to_string(),
+            parameters: vec![
+                AnimationParameterDefinition {
+                    parameter_id: "active".to_string(),
+                    kind: AnimationParameterKind::Bool,
+                    default_value: AnimationParameterValue::Bool(false),
+                },
+                AnimationParameterDefinition {
+                    parameter_id: "intensity".to_string(),
+                    kind: AnimationParameterKind::Float,
+                    default_value: AnimationParameterValue::Float(0),
+                },
+            ],
+            states: vec![
+                AnimationStateDefinition {
+                    state_id: "ready".to_string(),
+                    motion: AnimationMotionDefinition::Clip {
+                        clip_id: "idle".to_string(),
+                        speed_milli: 1_000,
+                    },
+                },
+                AnimationStateDefinition {
+                    state_id: "primary_fire".to_string(),
+                    motion: AnimationMotionDefinition::LinearBlend {
+                        parameter_id: "intensity".to_string(),
+                        low_clip_id: "run".to_string(),
+                        high_clip_id: "jump".to_string(),
+                        minimum_milli: 0,
+                        maximum_milli: 1_000,
+                        speed_milli: 1_000,
+                    },
+                },
+            ],
+            transitions: vec![AnimationTransitionDefinition {
+                transition_id: "ready.primary_fire".to_string(),
+                from_state_id: "ready".to_string(),
+                to_state_id: "primary_fire".to_string(),
+                priority: 0,
+                duration_ticks: 4,
+                conditions: vec![AnimationCondition::BoolEquals {
+                    parameter_id: "active".to_string(),
+                    value: true,
+                }],
+            }],
+        }],
     }
 }

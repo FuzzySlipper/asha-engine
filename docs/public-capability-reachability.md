@@ -17,7 +17,7 @@ records:
 - every advertised field and selector with provider evidence;
 - a stable bridge operation where a bridge operation is actually required;
 - the public TypeScript package or Rust facade and exported symbol;
-- an optional consumer-needs requirement; and
+- the independently governed consumer-needs requirement for that capability, when one exists; and
 - a real delivery/conformance proof.
 
 Catalog assertions pin the complete current counts for generated contract
@@ -28,11 +28,21 @@ catalogs and makes any addition/removal an explicit review event. The individual
 capability joins then pressure-test the cross-catalog paths where simple catalog
 validation is insufficient.
 
+The validator owns the complete current capability-to-consumer mapping separately
+from the authored manifest. Omitting a capability or relinking it to an unrelated
+need therefore fails even if the manifest remains structurally valid. Prose and
+README token matches are not accepted as provider or delivery evidence.
+
 Generic gameplay events and declared reads deliberately do not name a dedicated
 bridge operation. Their reachability ends at the public Rust gameplay-module SDK,
 closed provider registry, declared read assembler, and execution evidence. This
 preserves the fabric shape: adding a gameplay question does not require adding a
 new facade verb.
+
+Every public gameplay-read route must also carry an `exactlyOne` closed-registry
+provider constraint and namespace-ownership evidence. Where a gameplay consumer
+need participates in the compiled conformance case, reachability additionally
+requires that exact semantic check to pass.
 
 Authored gameplay bindings additionally require a bootstrap-adapter proof. The
 gate therefore catches a generated binding/configuration schema that still exists
@@ -54,6 +64,9 @@ task acceptance can consume this file without scraping CI text.
 Negative fixtures prove failures for a changed public catalog count, absent
 generated contract or provider, unsupported field/selector/quota, missing binding
 bootstrap adapter, absent bridge operation, and unjustified internal exemption.
+Adversarial checks also mutate the canonical manifest to prove that capability
+omission, unrelated consumer linkage, prose-only evidence, and removal of read
+provider cardinality fail with precise gap codes.
 
 Run:
 

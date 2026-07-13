@@ -72,7 +72,10 @@ attenuation and position.
 The downstream shell updates the Web Audio listener with
 `audioHost.updateListener({ position, forward, up })` from its current camera
 projection. Entity-attached emitters resolve through the host's injected
-read-only entity-position resolver; they do not read authority stores.
+read-only entity-position resolver; they do not read authority stores. After
+scene application on every runtime projection frame, the host refreshes all
+retained entity-attached panners from that resolver, so looping sources follow
+projected entity motion without requiring redundant audio descriptor updates.
 
 Browsers normally require `AudioContext.resume()` during a user gesture. A
 blocked or unavailable context yields `audioContextBlocked` or

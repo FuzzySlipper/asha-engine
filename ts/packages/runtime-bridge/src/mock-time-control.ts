@@ -58,7 +58,9 @@ export class MockTimeController {
       rejection = 'invalidStepCount';
     } else {
       exactTicksAdvanced = command.ticks;
-      this.#authorityTick += command.ticks;
+      for (let offset = 1; offset <= command.ticks; offset += 1) {
+        this.#executeFixedTick(this.#authorityTick + 1);
+      }
     }
     if (rejection === null) this.#revision += 1;
     const after = this.#state();
@@ -82,8 +84,23 @@ export class MockTimeController {
   step(tick: number): StepResult {
     this.#requireInitialized('stepSimulation');
     if (this.#mode === 'paused') return { tick: this.#authorityTick, diffCount: 0 };
+    let result: StepResult = { tick: this.#authorityTick, diffCount: 0 };
+    for (let offset = 0; offset < this.#speedMultiplier; offset += 1) {
+      const fixedTick = tick + offset;
+      const tickResult = this.#executeFixedTick(fixedTick);
+      result = {
+        tick: tickResult.tick,
+        diffCount: result.diffCount + tickResult.diffCount,
+      };
+    }
+    return result;
+  }
+
+  #executeFixedTick(tick: number): StepResult {
     this.#authorityTick = tick;
-    return { tick, diffCount: tick % 4 };
+    // The reference bridge has no queued Rust authority commands. Native reports
+    // the real accepted-event count from sim-runner rather than a tick surrogate.
+    return { tick, diffCount: 0 };
   }
 
   #state(): TimeControlState {

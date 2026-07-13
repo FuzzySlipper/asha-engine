@@ -147,10 +147,12 @@ function isMaterialProjection(value) {
     const render = value.render;
     const collision = value.collision;
     return isPlainObject(render)
-        && hasExactKeys(render, ['color', 'texture', 'roughness', 'emissive', 'uvStrategy'])
+        && hasExactKeys(render, ['color', 'texture', 'roughness', 'textureTint', 'emissionColor', 'emissive', 'uvStrategy'])
         && isRgbaObject(render.color)
         && (render.texture === null || isAssetReference(render.texture))
         && isFiniteNumber(render.roughness)
+        && isRgbaObject(render['textureTint'])
+        && isRgbaObject(render['emissionColor'])
         && isFiniteNumber(render.emissive)
         && isLiteral(render.uvStrategy, ['flat', 'planar', 'atlas'])
         && isPlainObject(collision)
@@ -215,7 +217,24 @@ function isRenderMetadata(value) {
     return isPlainObject(value) && hasExactKeys(value, ['source', 'tags', 'label']) && (value.source === null || isInteger(value.source)) && Array.isArray(value.tags) && value.tags.every(isInteger) && (value.label === null || isString(value.label));
 }
 function isRenderMaterialDescriptor(value) {
-    return isPlainObject(value) && hasExactKeys(value, ['id', 'color', 'texture', 'roughness', 'emissive', 'uvStrategy']) && isString(value.id) && isNumberTuple4(value.color) && (value.texture === null || isString(value.texture)) && isFiniteNumber(value.roughness) && isFiniteNumber(value.emissive) && isLiteral(value.uvStrategy, ['flat', 'planar', 'atlas']);
+    return isPlainObject(value)
+        && hasExactKeys(value, ['schemaVersion', 'id', 'color', 'texture', 'roughness', 'textureTint', 'emissionColor', 'emissionIntensity', 'uvStrategy'])
+        && value['schemaVersion'] === 2
+        && isString(value.id)
+        && isNumberTuple4(value.color)
+        && (value.texture === null || isString(value.texture))
+        && isFiniteNumber(value.roughness)
+        && isNumberTuple4(value['textureTint'])
+        && isNumberTuple3(value['emissionColor'])
+        && isFiniteNumber(value['emissionIntensity'])
+        && isLiteral(value.uvStrategy, ['flat', 'planar', 'atlas']);
+}
+function isMaterialInstanceParameters(value) {
+    return isPlainObject(value)
+        && hasExactKeys(value, ['textureTint', 'emissionColor', 'emissionIntensity'])
+        && isNumberTuple4(value['textureTint'])
+        && isNumberTuple3(value['emissionColor'])
+        && isFiniteNumber(value['emissionIntensity']);
 }
 function isRenderFrameDiff(value) {
     return isPlainObject(value) && hasExactKeys(value, ['ops']) && Array.isArray(value.ops) && value.ops.every((op) => {
@@ -223,6 +242,12 @@ function isRenderFrameDiff(value) {
             return false;
         if (op.op === 'defineMaterial')
             return hasExactKeys(op, ['op', 'material']) && isRenderMaterialDescriptor(op.material);
+        if (op.op === 'setMaterialInstanceParameters') {
+            return hasExactKeys(op, ['op', 'handle', 'slot', 'parameters'])
+                && isInteger(op.handle)
+                && isInteger(op.slot)
+                && (op['parameters'] === null || isMaterialInstanceParameters(op['parameters']));
+        }
         if (op.op === 'defineStaticMesh')
             return hasExactKeys(op, ['op', 'asset']) && isStaticMeshAsset(op.asset);
         if (op.op === 'createStaticMeshInstance') {

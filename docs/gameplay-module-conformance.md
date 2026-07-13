@@ -17,8 +17,10 @@ asha-gameplay-module-conformance = { path = "../asha-engine/public-rust/gameplay
 
 The caller supplies:
 
-- committed ProjectBundle-shaped JSON containing Session identity, consumer
-  need ids, and the generated `GameplayModuleBindingRegistry`;
+- committed ProjectBundle-shaped JSON containing Session identity, selected
+  consumer-need ids, and the generated `GameplayModuleBindingRegistry`;
+- the real role-scoped consumer-needs manifest and compile-time reachable public
+  surface markers for the linked SDK/conformance crates;
 - a function that builds the real `GameplayStaticComposition`; and
 - one or more typed root event envelopes.
 
@@ -36,17 +38,24 @@ Rust values.
    initialize all module state atomically.
 3. Invoke real downstream behavior, capture frozen-view/delivery evidence, and
    apply accepted module-local facts through the registered typed state adapter.
-4. Save the gameplay Session snapshot and restore it against a freshly built
+4. Match every selected consumer need against actual closed-registry providers,
+   event publications/subscriptions, invocation families, read views, fields,
+   selectors, quotas, ordering, proposal owners, authored bindings, delivered
+   configuration, reaction evidence, and compile-time reachable public surfaces.
+5. Require every authored declared-read request to appear in canonical frozen
+   read evidence for its exact module and invocation. A valid event that does
+   not select the invocation cannot satisfy read delivery.
+6. Save the gameplay Session snapshot and restore it against a freshly built
    composition and ProjectBundle authority.
-5. Restore the initial snapshot and apply only recorded accepted facts, proving
+7. Restore the initial snapshot and apply only recorded accepted facts, proving
    playback reconstructs the same final state without re-invoking behavior.
-6. Execute the entire case again and compare reaction frames, event/view/
+8. Execute the entire case again and compare reaction frames, event/view/
    invocation/fact evidence, diagnostics, state, snapshot, and final hashes.
 
 The schema-versioned `GameplayModuleConformanceReport` is machine-readable JSON.
-It includes the registry digest and topology dump, module/artifact identities,
-binding and activation hashes, reaction frames, checks, stable gap codes, and a
-compact human trace.
+It includes the canonical consumer-needs manifest hash, registry digest and
+topology dump, module/artifact identities, binding and activation hashes,
+reaction frames, checks, stable gap codes, and a compact human trace.
 
 ## Fail-closed behavior
 
@@ -57,10 +66,14 @@ broader gameplay-fabric suites retain stable-code negatives for missing codecs,
 providers and owners, foreign namespaces, cycles, undeclared events/reads/
 queries/proposals, stale revisions, and budget exhaustion.
 
-The conformance inventory joins this command to the same consumer-needs and
-reachability vocabulary as the engine gates. Changing a declared field,
-selector, quota, provider, binding shape, or delivery requirement invalidates
-the reviewed catalog-entry hash until its real semantic probe is updated.
+Consumer-needs ids are not labels copied into the report. The supplied manifest
+is decoded and each selected requirement gets a `consumerNeed.<id>` check plus a
+typed gap such as `consumerNeedMissingEvent`, `consumerNeedMissingField`,
+`consumerNeedMissingSelector`, `consumerNeedMissingProposal`,
+`consumerNeedMissingBinding`, `consumerNeedUnreachableSurface`, or
+`consumerNeedUndelivered`. Changing a field, selector, quota, provider, binding
+shape, or delivery requirement therefore fails the real conformance run as well
+as the repository inventory gate.
 
 ## Commands
 

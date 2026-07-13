@@ -113,8 +113,10 @@ is not part of this snapshot.
 `BrowserInputHost` is the one DOM keyboard/mouse normalization point. It owns
 listener attachment, monotonic raw-sample sequence numbers, pointer-lock
 intents, and a bounded diagnostic history. Each diagnostic delivery shows the
-normalized sample, active Session contexts, resolution receipt, chosen named
-consumer, and the first rejection or consumption reason.
+normalized sample, a delivery-time snapshot of active Session context ids,
+resolution receipt, chosen named consumer, and the first rejection or
+consumption reason. Later context pushes/pops do not rewrite older delivery
+records.
 
 The default catalog carries gameplay, editor, camera-navigation, menu, and dialog contexts. Menu
 and dialog have higher priority and consume unmatched controls, so `KeyW`
@@ -147,8 +149,11 @@ the DOM event.
 camera movement/look state. The renderer surface accepts an initialized public
 RuntimeSession input port; without one, interactive controls remain inactive
 rather than opening a private authority path. `EditorResolvedInputConsumer`
-similarly accepts only `editor.*` actions. Editor tools contain no DOM codes or
-binding table.
+similarly accepts only `editor.*` actions. The production `@asha/app`
+composition connects `BrowserInputHost` to that consumer, drains camera frames
+through an injected editor-camera port, and routes primary/cancel frames to the
+shell's one `VoxelEditController`. Editor tools contain no DOM codes or binding
+table.
 
 The former `BrowserFpsKeyCode` union and `BrowserFpsInputCollector` were removed
 in #5642. There is no compatibility export or production fallback. A downstream

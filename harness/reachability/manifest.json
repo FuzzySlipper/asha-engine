@@ -11,13 +11,13 @@
     {
       "id": "catalog.consumer-needs",
       "kind": "consumerNeeds",
-      "expectedCount": 34,
+      "expectedCount": 38,
       "proof": { "path": "harness/consumer-needs/validate.py", "token": "validate_manifest" }
     },
     {
       "id": "catalog.generated-contracts",
       "kind": "generatedContracts",
-      "expectedCount": 596,
+      "expectedCount": 610,
       "proof": { "path": "engine-rs/crates/protocol/protocol-codegen/src/lib.rs", "token": "rust_mirrored_ir_entries_have_round_trip_coverage_or_exemption" }
     },
     {
@@ -34,6 +34,21 @@
     }
   ],
   "capabilities": [
+    {
+      "id": "animation.runtime-projection",
+      "kind": "projectionChannel",
+      "protocol": { "path": "ts/packages/contracts/src/generated/presentation.ts", "symbol": "AnimationControllerProjectionState" },
+      "provider": { "path": "ts/packages/renderer-host/src/animation-host.ts", "token": "export class AshaAnimationHost" },
+      "fields": [
+        { "name": "origin", "path": "ts/packages/contracts/src/generated/presentation.ts", "token": "origin: PresentationOriginRef | null" },
+        { "name": "timingFact", "path": "ts/packages/contracts/src/generated/presentation.ts", "token": "timingFact: AnimationTransitionFactRef | null" },
+        { "name": "transition", "path": "ts/packages/contracts/src/generated/presentation.ts", "token": "transition: AnimationTransitionProjection | null" }
+      ],
+      "bridgeOperation": "read_projection_frame",
+      "publicSurface": { "kind": "typescript", "identity": "@asha/renderer-host" },
+      "consumerNeed": "asha-demo.animation-controller-projection",
+      "delivery": { "path": "../asha-demo/tests/live-ui.spec.mjs", "token": "animationProjectionEvidence" }
+    },
     {
       "id": "audio.runtime-projection",
       "kind": "projectionChannel",
@@ -103,6 +118,7 @@
       ],
       "bridgeOperation": "replay_resolved_input_action",
       "publicSurface": { "kind": "typescript", "identity": "@asha/runtime-session", "symbol": "RuntimeSessionFacade" },
+      "consumerNeed": "asha-demo.input-replay",
       "delivery": { "path": "ts/packages/runtime-bridge/src/browser-input-host.test.ts", "token": "resolved pause context records and replays without browser events or double delivery" }
     },
     {
@@ -112,7 +128,23 @@
       "provider": { "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/time_control.rs", "token": "pub(super) fn apply" },
       "bridgeOperation": "apply_time_control_command",
       "publicSurface": { "kind": "typescript", "identity": "@asha/runtime-session", "symbol": "RuntimeSessionFacade" },
+      "consumerNeed": "asha-demo.time-control-command",
       "delivery": { "path": "ts/packages/runtime-bridge/src/time-control.test.ts", "token": "headless RuntimeSession pause and exact stepping" }
+    },
+    {
+      "id": "feedback.integrated-public-projection",
+      "kind": "projectionChannel",
+      "protocol": { "path": "ts/packages/contracts/src/generated/presentation.ts", "symbol": "PresentationOriginRef" },
+      "provider": { "path": "ts/packages/renderer-host/src/audio-host.ts", "token": "export async function applyAshaRuntimeProjectionFrame" },
+      "fields": [
+        { "name": "origin", "path": "ts/packages/contracts/src/generated/presentation.ts", "token": "origin: PresentationOriginRef | null" },
+        { "name": "replayScope", "path": "ts/packages/contracts/src/generated/presentation.ts", "token": "replayScope: ProjectionReplayScope" },
+        { "name": "sequence", "path": "ts/packages/contracts/src/generated/presentation.ts", "token": "sequence: number" }
+      ],
+      "bridgeOperation": "read_projection_frame",
+      "publicSurface": { "kind": "typescript", "identity": "@asha/renderer-host" },
+      "consumerNeed": "asha-demo.integrated-feedback-projection",
+      "delivery": { "path": "../asha-demo/tests/live-ui.spec.mjs", "token": "integratedFeedbackEvidence" }
     },
     {
       "id": "gameplay.event-bound-read",
@@ -129,6 +161,8 @@
       "quotas": [
         { "name": "maxItems", "path": "engine-rs/crates/rules/rule-gameplay-fabric/tests/reads.rs", "token": "max_items: 2" }
       ],
+      "providerCardinality": { "constraint": "exactlyOne", "path": "engine-rs/crates/services/svc-gameplay-fabric/src/registry.rs", "token": "MultipleReadViewProviders" },
+      "namespaceOwnership": { "path": "engine-rs/crates/services/svc-gameplay-fabric/src/registry.rs", "token": "read view provider" },
       "publicSurface": { "kind": "rust", "identity": "asha-gameplay-module-sdk", "symbol": "GameplayReadRequest" },
       "delivery": { "path": "engine-rs/crates/rules/rule-gameplay-fabric/tests/reads.rs", "token": "coordinator_delivers_declared_reads_and_binds_them_into_delivery_evidence" }
     },
@@ -138,6 +172,7 @@
       "protocol": { "path": "ts/packages/contracts/src/generated/gameExtension.ts", "symbol": "GameplayEventEnvelope" },
       "provider": { "path": "engine-rs/crates/rules/gameplay-module-sdk/src/composition.rs", "token": "GameplayStaticInvocationHost" },
       "publicSurface": { "kind": "rust", "identity": "asha-gameplay-module-sdk", "symbol": "GameplayEventEnvelope" },
+      "providerIdentity": "provider.fixture-pulse",
       "consumerNeed": "pulse.subscribe",
       "delivery": { "path": "harness/fixtures/gameplay-module-sdk/downstream-module/src/lib.rs", "token": "public_facade_executes_real_downstream_code_and_hashes_behavior" }
     },
@@ -154,6 +189,7 @@
       ],
       "bootstrapAdapter": { "path": "engine-rs/crates/rules/rule-project-bundle/tests/gameplay_bindings.rs", "token": "CounterAdapter" },
       "publicSurface": { "kind": "rust", "identity": "asha-gameplay-module-sdk", "symbol": "GameplayModuleBindingRegistryBuilder" },
+      "providerIdentity": "provider.fixture-pulse",
       "consumerNeed": "pulse.configuration",
       "delivery": { "path": "engine-rs/crates/rules/rule-project-bundle/tests/gameplay_bindings.rs", "token": "bindings_activate_atomic_facets_and_round_trip_against_project_bundle_authority" }
     },
@@ -190,9 +226,11 @@
       "quotas": [
         { "name": "maxItems", "path": "engine-rs/crates/rules/gameplay-module-sdk/tests/static_composition.rs", "token": "max_items: 1" }
       ],
-      "providerCardinality": { "path": "engine-rs/crates/services/svc-gameplay-fabric/src/registry.rs", "token": "MultipleReadViewProviders" },
+      "providerCardinality": { "constraint": "exactlyOne", "path": "engine-rs/crates/services/svc-gameplay-fabric/src/registry.rs", "token": "MultipleReadViewProviders" },
       "namespaceOwnership": { "path": "engine-rs/crates/services/svc-gameplay-fabric/src/registry.rs", "token": "read view provider" },
       "publicSurface": { "kind": "rust", "identity": "asha-gameplay-module-sdk", "symbol": "GameplayReadViewRequirement" },
+      "providerIdentity": "provider.fixture-pulse",
+      "consumerNeed": "pulse.read",
       "delivery": { "path": "engine-rs/crates/rules/gameplay-module-sdk/tests/static_composition.rs", "token": "provider_state_adapters_initialize_and_apply_recorded_local_facts" }
     },
     {
@@ -267,6 +305,7 @@
       ],
       "bootstrapAdapter": { "path": "engine-rs/crates/rules/gameplay-module-sdk/src/composition.rs", "token": "include_standard_owner_events" },
       "publicSurface": { "kind": "rust", "identity": "asha-gameplay-module-sdk", "symbol": "TriggerOverlapGameplayPayload" },
+      "providerIdentity": "provider.fixture-pulse",
       "consumerNeed": "pulse.trigger-lifecycle",
       "delivery": { "path": "harness/fixtures/gameplay-module-sdk/downstream-module/src/lib.rs", "token": "downstream_trigger_observer_proposes_visible_follow_up_without_collision_access" }
     },
@@ -314,6 +353,7 @@
       ],
       "bootstrapAdapter": { "path": "engine-rs/crates/rules/gameplay-runtime-host/src/lib.rs", "token": "activate_project_with_prefabs" },
       "publicSurface": { "kind": "rust", "identity": "asha-gameplay-runtime-host", "symbol": "GameplayRuntimePrefabBootstrap" },
+      "providerIdentity": "@asha/runtime-session",
       "consumerNeed": "asha-demo.prefab-runtime-placement",
       "delivery": { "path": "../asha-demo/tests/live-ui.spec.mjs", "token": "prefabRuntimeReadout" }
     },

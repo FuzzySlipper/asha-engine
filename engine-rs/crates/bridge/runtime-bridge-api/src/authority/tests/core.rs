@@ -268,7 +268,7 @@ fn init_then_step_is_deterministic() {
         r,
         StepResult {
             tick: 6,
-            diff_count: 2
+            diff_count: 0
         }
     );
 }

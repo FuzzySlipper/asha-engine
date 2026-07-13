@@ -192,7 +192,15 @@
         "GameplayTriggerDefinition",
         "GameplayRuntimeHostReadout",
         "GameplayRuntimePrefabBootstrap",
-        "GameplayRuntimePrefabReadout"
+        "GameplayRuntimePrefabReadout",
+        "GameplayRuntimeSchedulerCommandReceipt",
+        "GameplayRuntimeSchedulerDefinition",
+        "GameplayRuntimeSchedulerReadout",
+        "GameplayRuntimeSchedulerRoutingReceipt",
+        "GameplaySchedulerCommand",
+        "ScheduledActionId",
+        "ScheduledActionValidity",
+        "TickScheduledActionDraft"
       ],
       "requiredExposes": [
         "GameplayRuntimeHost",
@@ -200,7 +208,10 @@
         "GameplayRuntimeProjectInput",
         "GameplayRuntimeDecisionOwner",
         "GameplayDecisionReceipt",
-        "GameplayRuntimeHostReadout"
+        "GameplayRuntimeHostReadout",
+        "GameplayRuntimeSchedulerDefinition",
+        "GameplayRuntimeSchedulerReadout",
+        "GameplaySchedulerCommand"
       ],
       "changelog": "docs/consumer-compatibility.md#rust-gameplay-runtime-host-compatibility-log"
     }

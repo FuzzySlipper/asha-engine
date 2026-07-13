@@ -46,6 +46,7 @@ import {
   type SpriteAttachment,
   type SpriteInstanceDescriptor,
   type RenderMaterialDescriptor,
+  type MaterialInstanceParameters,
   type MaterialUvStrategy,
   type TextureDescriptor,
   type TextureFilter,
@@ -204,6 +205,34 @@ function tuple3(v: unknown, path: string): [number, number, number] {
 function tuple4(v: unknown, path: string): [number, number, number, number] {
   const [a, b, c, d] = asNumberArray(v, 4, path);
   return [a!, b!, c!, d!];
+}
+
+function unitTuple3(v: unknown, path: string): [number, number, number] {
+  const values = tuple3(v, path);
+  values.forEach((value, index) => unitNumber(value, `${path}[${index}]`));
+  return values;
+}
+
+function unitTuple4(v: unknown, path: string): [number, number, number, number] {
+  const values = tuple4(v, path);
+  values.forEach((value, index) => unitNumber(value, `${path}[${index}]`));
+  return values;
+}
+
+function unitNumber(v: unknown, path: string): number {
+  const value = asNumber(v, path);
+  if (value < 0 || value > 1) {
+    throw new RenderDecodeError('expected a number in 0..=1', path);
+  }
+  return value;
+}
+
+function nonNegativeNumber(v: unknown, path: string): number {
+  const value = asNumber(v, path);
+  if (value < 0) {
+    throw new RenderDecodeError('expected a non-negative number', path);
+  }
+  return value;
 }
 
 function nullable<T>(v: unknown, decode: (v: unknown) => T): T | null {
@@ -428,18 +457,42 @@ export function decodeMaterialDescriptor(v: unknown, path = '$'): RenderMaterial
   if (typeof o.id !== 'string' || o.id.length === 0) {
     throw new RenderDecodeError('expected a non-empty material id', `${path}.id`);
   }
+  const color = unitTuple4(o.color, `${path}.color`);
+  const schemaVersion = o['schemaVersion'] === undefined ? 1 : asU32(o['schemaVersion'], `${path}.schemaVersion`);
+  if (schemaVersion !== 1 && schemaVersion !== 2) {
+    throw new RenderDecodeError(`unsupported material descriptor schema ${schemaVersion}`, `${path}.schemaVersion`);
+  }
+  const legacyEmissive = schemaVersion === 1
+    ? nonNegativeNumber(o.emissive ?? 0, `${path}.emissive`)
+    : null;
   return {
+    schemaVersion: 2,
     id: o.id,
-    color: tuple4(o.color, `${path}.color`),
+    color,
     texture: nullable(o.texture, (t) => {
       if (typeof t !== 'string' || t.length === 0) {
         throw new RenderDecodeError('expected a non-empty texture id', `${path}.texture`);
       }
       return t;
     }),
-    roughness: asNumber(o.roughness, `${path}.roughness`),
-    emissive: asNumber(o.emissive, `${path}.emissive`),
+    roughness: unitNumber(o.roughness, `${path}.roughness`),
+    textureTint: schemaVersion === 1
+      ? [1, 1, 1, 1]
+      : unitTuple4(o['textureTint'], `${path}.textureTint`),
+    emissionColor: schemaVersion === 1
+      ? [color[0], color[1], color[2]]
+      : unitTuple3(o['emissionColor'], `${path}.emissionColor`),
+    emissionIntensity: legacyEmissive ?? nonNegativeNumber(o['emissionIntensity'], `${path}.emissionIntensity`),
     uvStrategy: decodeUvStrategy(o.uvStrategy, `${path}.uvStrategy`),
+  };
+}
+
+function decodeMaterialInstanceParameters(v: unknown, path: string): MaterialInstanceParameters {
+  const o = asObject(v, path);
+  return {
+    textureTint: unitTuple4(o['textureTint'], `${path}.textureTint`),
+    emissionColor: unitTuple3(o['emissionColor'], `${path}.emissionColor`),
+    emissionIntensity: nonNegativeNumber(o['emissionIntensity'], `${path}.emissionIntensity`),
   };
 }
 
@@ -822,6 +875,16 @@ export function decodeRenderDiff(v: unknown, path = '$'): RenderDiff {
       return {
         op: 'defineMaterial',
         material: decodeMaterialDescriptor(o.material, `${path}.material`),
+      };
+    case 'setMaterialInstanceParameters':
+      return {
+        op: 'setMaterialInstanceParameters',
+        handle: decodeHandle(o.handle, `${path}.handle`),
+        slot: asU32(o.slot, `${path}.slot`),
+        parameters: nullable(
+          o['parameters'],
+          (parameters) => decodeMaterialInstanceParameters(parameters, `${path}.parameters`),
+        ),
       };
     case 'defineTexture':
       return {

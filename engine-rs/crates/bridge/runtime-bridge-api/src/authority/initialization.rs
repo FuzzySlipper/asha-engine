@@ -7,6 +7,7 @@ pub(super) fn initialize(
     let handle = EngineHandle::new(config.seed);
     bridge.engine = Some(handle);
     bridge.buffers.reset();
+    bridge.scene_document = Some(EngineBridge::initial_scene_document());
     let seed_handle = bridge.buffers.create(
         buffer_provider::BufferKind::Opaque,
         buffer_provider::BufferLifetime::Manual,
@@ -25,6 +26,7 @@ pub(super) fn initialize(
     bridge.fps_epoch = 0;
     bridge.input_session = None;
     bridge.time_controller = TimeController::default();
+    bridge.simulation = SimulationAuthority::new();
     bridge.authority_tick = 0;
     bridge.game_rule_modules.clear();
     bridge.game_rule_active_modifiers.clear();

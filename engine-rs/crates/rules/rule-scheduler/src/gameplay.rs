@@ -339,6 +339,14 @@ impl GameplayActionScheduler {
         &self.owner
     }
 
+    pub fn declared_events(&self) -> &BTreeSet<GameplayContractRef> {
+        &self.declared_events
+    }
+
+    pub fn declared_proposals(&self) -> &BTreeSet<GameplayContractRef> {
+        &self.declared_proposals
+    }
+
     pub fn pending_len(&self) -> usize {
         self.pending.len()
     }

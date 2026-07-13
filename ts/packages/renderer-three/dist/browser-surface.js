@@ -42,6 +42,13 @@ export function renderFirstPersonTunnelViewport(input, renderer = new ThreeRende
  */
 export function mountAshaRendererBrowserSurface(canvas, options = {}) {
     const renderer = new ThreeRenderer(options.animatedMeshSource === undefined ? {} : { animatedMeshSource: options.animatedMeshSource });
+    // Catalog materials use MeshStandardMaterial. Keep the browser host responsible
+    // for a small neutral light rig; the retained projection carries appearance
+    // parameters, never renderer-owned light state or gameplay authority.
+    const ambientLight = new THREE.HemisphereLight(0xffffff, 0x263238, 2.4);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
+    keyLight.position.set(5, 8, 6);
+    renderer.scene.add(ambientLight, keyLight);
     const frame = options.frame ?? createAshaRendererBrowserSurfaceFrame();
     renderer.applyFrame(frame);
     const webgl = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -254,7 +261,7 @@ function collectLabeledMeshes(scene, labels) {
         }
         const mesh = object;
         const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-        if (!(material instanceof THREE.MeshBasicMaterial)) {
+        if (!(material instanceof THREE.MeshBasicMaterial) && !(material instanceof THREE.MeshStandardMaterial)) {
             return;
         }
         targets.push({

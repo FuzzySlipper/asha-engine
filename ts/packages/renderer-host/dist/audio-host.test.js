@@ -237,6 +237,49 @@ void test('retained 2D/3D sources create update destroy and clean up independent
     assert.equal(context.sources.every((source) => source.stopped), true);
     assert.deepEqual(context.panners[0]?.positionX.writes, [11]);
 });
+void test('retained entity-attached audio follows scene movement without descriptor updates', async () => {
+    const context = new FakeContext();
+    let entityPosition = [10, 11, 12];
+    const audio = new AshaAudioHost({
+        createContext: () => context,
+        resolveEntityPosition: () => entityPosition,
+        resolveResource: async (clip) => ({
+            bytes: new Uint8Array([1, 2, 3, 4]).buffer,
+            contentHash: clip.contentHash,
+        }),
+    });
+    const handle = audioHandle(9);
+    await audio.applyPresentation(frame([
+        operation(0, {
+            op: 'create',
+            handle,
+            descriptor: {
+                ...descriptor({ kind: 'entityAttached', entity: 5, offset: [1, 0, -1] }),
+                looping: true,
+            },
+        }),
+    ]).presentation);
+    assert.deepEqual(context.panners[0]?.positionX.writes, [11]);
+    const receipt = await applyAshaRuntimeProjectionFrame(frame([]), {
+        applyScene: () => {
+            entityPosition = [20, 21, 22];
+        },
+        audioHost: audio,
+    });
+    assert.deepEqual(context.panners[0]?.positionX.writes, [11, 21]);
+    assert.deepEqual(context.panners[0]?.positionY.writes, [11, 21]);
+    assert.deepEqual(context.panners[0]?.positionZ.writes, [11, 21]);
+    assert.equal(receipt.audio.readout.activeSources, 1);
+    assert.deepEqual(receipt.audio.diagnostics, []);
+    entityPosition = null;
+    const missing = await applyAshaRuntimeProjectionFrame(frame([]), {
+        applyScene: () => { },
+        audioHost: audio,
+    });
+    assert.equal(missing.audio.diagnostics[0]?.code, 'hostFailure');
+    assert.equal(missing.audio.diagnostics[0]?.handle, handle);
+    assert.equal(missing.audio.readout.activeSources, 1);
+});
 void test('missing audio host degrades after scene application with origin diagnostics', async () => {
     let sceneApplied = false;
     const receipt = await applyAshaRuntimeProjectionFrame(frame([
@@ -273,6 +316,27 @@ void test('audio host hashes resolved bytes before decode and reports catalog dr
     assert.equal(receipt.readout.cachedClips, 0);
     assert.equal(receipt.readout.emittedSignals, 0);
     assert.equal(context.decodeCount, 0);
+});
+void test('missing audio resources fail locally with origin-preserving diagnostics', async () => {
+    const context = new FakeContext();
+    const audio = new AshaAudioHost({
+        createContext: () => context,
+        resolveResource: async () => {
+            throw new Error('fixture audio resource unavailable');
+        },
+    });
+    const receipt = await audio.applyPresentation(frame([
+        operation(0, {
+            op: 'emit',
+            signalId: 'missing-audio:44',
+            descriptor: descriptor(),
+        }),
+    ]).presentation);
+    assert.equal(receipt.applied, 0);
+    assert.equal(receipt.diagnostics[0]?.code, 'hostFailure');
+    assert.equal(receipt.diagnostics[0]?.origin?.id, 'combat.primary-fire.accepted:44');
+    assert.equal(receipt.readout.emittedSignals, 0);
+    assert.equal(receipt.readout.activeSources, 0);
 });
 void test('blocked AudioContext and malformed frame return explicit failures', async () => {
     const context = new FakeContext();

@@ -687,6 +687,48 @@ fn validate_module_declarations(
                     "invocation budgets must be greater than zero",
                 );
             }
+            let mut request_ids = BTreeSet::new();
+            for requirement in &invocation.read_requirements {
+                validate_contract(
+                    &requirement.view,
+                    "invocations.readRequirements.view",
+                    diagnostics,
+                );
+                if requirement.request_id.trim().is_empty()
+                    || !request_ids.insert(requirement.request_id.as_str())
+                {
+                    push_diagnostic(
+                        diagnostics,
+                        GameplayRegistryDiagnosticCode::DuplicateInvocationRead,
+                        format!(
+                            "modules.{module_id}.invocations.{}.readRequirements",
+                            invocation.invocation_id
+                        ),
+                        format!(
+                            "read request `{}` must be nonempty and unique within its invocation",
+                            requirement.request_id
+                        ),
+                    );
+                }
+                if !manifest
+                    .read_views
+                    .iter()
+                    .any(|declared| declared.view == requirement.view)
+                {
+                    push_diagnostic(
+                        diagnostics,
+                        GameplayRegistryDiagnosticCode::MissingInvocationReadView,
+                        format!(
+                            "modules.{module_id}.invocations.{}.readRequirements.{}",
+                            invocation.invocation_id, requirement.request_id
+                        ),
+                        format!(
+                            "invocation read `{}` is not declared by the module",
+                            requirement.view.key()
+                        ),
+                    );
+                }
+            }
         }
         for subscription in &manifest.subscriptions {
             let key = subscription.event.key();
