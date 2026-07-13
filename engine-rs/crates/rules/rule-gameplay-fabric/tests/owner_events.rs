@@ -199,6 +199,38 @@ fn combat_state_machine_and_process_outcomes_produce_rich_stable_events() {
 }
 
 #[test]
+fn combat_owner_payloads_are_admitted_for_runtime_distances() {
+    let combat = CombatReadout {
+        outcome: CombatFireOutcome::Hit {
+            target: EntityId::new(10),
+            distance: 0.060_139_368_429_633_036,
+            defeated: false,
+        },
+        events: vec![CombatEvent::FireHit {
+            shooter: EntityId::new(20),
+            target: EntityId::new(10),
+            distance: 0.060_139_368_429_633_036,
+            tick: 9,
+        }],
+        next_fire_control: FireControlState {
+            ammo: 2,
+            cooldown_ticks_remaining: 4,
+            cooldown_ticks_after_fire: 4,
+        },
+        health_hash: 77,
+        replay_hash: 9_050_254_006_610_280_778,
+    };
+    let envelopes = adapt_combat_readout(&context("svc-combat"), &combat).unwrap();
+    let mut builder = GameplayFabricRegistryBuilder::new();
+    register_standard_owner_events(&mut builder);
+    let registry = builder.build().unwrap();
+
+    for envelope in &envelopes {
+        registry.admit_event(envelope).unwrap();
+    }
+}
+
+#[test]
 fn accepted_modifier_facts_adapt_and_rejected_resolution_emits_nothing() {
     let request = EffectResolutionRequest {
         catalog: GameRuleCatalogRef {

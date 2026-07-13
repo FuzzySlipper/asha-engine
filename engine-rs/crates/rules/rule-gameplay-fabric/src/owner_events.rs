@@ -531,8 +531,13 @@ where
     ));
 }
 
-fn encode_json<T: Serialize>(payload: &T) -> Result<Vec<u8>, String> {
-    serde_json::to_vec(payload).map_err(|error| error.to_string())
+fn encode_json<T>(payload: &T) -> Result<Vec<u8>, String>
+where
+    T: Serialize + DeserializeOwned,
+{
+    let encoded = serde_json::to_vec(payload).map_err(|error| error.to_string())?;
+    let normalized: T = serde_json::from_slice(&encoded).map_err(|error| error.to_string())?;
+    serde_json::to_vec(&normalized).map_err(|error| error.to_string())
 }
 
 fn decode_json<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, String> {
@@ -1040,13 +1045,16 @@ pub fn adapt_scheduled_moment(
     )
 }
 
-fn envelope<T: Serialize>(
+fn envelope<T>(
     context: &GameplayOwnerEventContext,
     ordinal: usize,
     kind: StandardGameplayEventKind,
     payload: &T,
     mut route: GameplayOwnerEventRoute,
-) -> Result<GameplayEventEnvelope, GameplayOwnerEventError> {
+) -> Result<GameplayEventEnvelope, GameplayOwnerEventError>
+where
+    T: Serialize + DeserializeOwned,
+{
     let ordinal = u32::try_from(ordinal).map_err(|_| GameplayOwnerEventError::SequenceOverflow)?;
     let event_sequence = context
         .first_event_sequence
