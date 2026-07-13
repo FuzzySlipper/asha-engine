@@ -194,13 +194,6 @@ import type {
   RuntimeSessionGameRuleCatalogValidationReceipt,
   RuntimeSessionGameRuleEffectIntentReceipt,
   RuntimeSessionGameExtensionWeaponEffectReceipt,
-  GameplayRuntimeHostAdvanceReceipt,
-  GameplayRuntimeHostLoadInput,
-  GameplayRuntimeHostLoadReceipt,
-  GameplayRuntimeHostMoment,
-  GameplayRuntimeHostReadout,
-  GameplayRuntimeHostSnapshot,
-  GameplayRuntimeHostTransport,
   RuntimeSessionIdentity,
   RuntimeSessionInitializeInput,
   RuntimeSessionLifecycleHealthReadout,
@@ -222,7 +215,6 @@ import type {
 
 export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   readonly #bridge: RuntimeBridge;
-  readonly #gameplayHost: GameplayRuntimeHostTransport | null;
   #identity: RuntimeSessionIdentity | null = null;
   #engine: EngineHandle | null = null;
   readonly #progress = new RuntimeSessionProgress();
@@ -230,9 +222,8 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   #ecrpProjectState: RuntimeSessionEcrpProjectState | null = null;
   #runtimeTransforms = new Map<number, RuntimeSessionEcrpTransformState>();
   #replayRecords: RuntimeSessionReplayRecord[] = [];
-  constructor(bridge: RuntimeBridge, gameplayHost?: GameplayRuntimeHostTransport) {
+  constructor(bridge: RuntimeBridge) {
     this.#bridge = bridge;
-    this.#gameplayHost = gameplayHost ?? null;
   }
 
   initialize(input: RuntimeSessionInitializeInput): RuntimeSessionStateSummary {
@@ -1089,32 +1080,6 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     });
   }
 
-  loadGameplayRuntime(input: GameplayRuntimeHostLoadInput): GameplayRuntimeHostLoadReceipt {
-    this.#requireInitialized('loadGameplayRuntime');
-    return this.#requireGameplayHost('loadGameplayRuntime').load(input);
-  }
-  advanceGameplayRuntime(moment: GameplayRuntimeHostMoment): GameplayRuntimeHostAdvanceReceipt {
-    this.#requireInitialized('advanceGameplayRuntime');
-    return this.#requireGameplayHost('advanceGameplayRuntime').advance(moment);
-  }
-  readGameplayRuntime(): GameplayRuntimeHostReadout {
-    this.#requireInitialized('readGameplayRuntime');
-    return this.#requireGameplayHost('readGameplayRuntime').read();
-  }
-
-  saveGameplayRuntime(): GameplayRuntimeHostSnapshot {
-    this.#requireInitialized('saveGameplayRuntime');
-    return this.#requireGameplayHost('saveGameplayRuntime').save();
-  }
-
-  restoreGameplayRuntime(
-    input: GameplayRuntimeHostLoadInput,
-    snapshot: GameplayRuntimeHostSnapshot,
-  ): GameplayRuntimeHostLoadReceipt {
-    this.#requireInitialized('restoreGameplayRuntime');
-    return this.#requireGameplayHost('restoreGameplayRuntime').restore(input, snapshot);
-  }
-
   readCameraProjection(request: CameraProjectionRequest): RuntimeSessionCameraProjectionReadout {
     this.#requireInitialized('readCameraProjection');
     const snapshot = this.#bridge.readCameraProjection(request);
@@ -1293,16 +1258,6 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       throw new RuntimeBridgeError('not_initialized', 'FPS RuntimeSession snapshot is unavailable before initialize');
     }
     return this.#snapshot;
-  }
-
-  #requireGameplayHost(operation: string): GameplayRuntimeHostTransport {
-    if (this.#gameplayHost === null) {
-      throw new RuntimeBridgeError(
-        'operation_unimplemented',
-        `${operation} requires a statically linked public gameplay RuntimeSession host`,
-      );
-    }
-    return this.#gameplayHost;
   }
 
   #stateSummary(composition: CompositionStatus): RuntimeSessionStateSummary {

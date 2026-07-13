@@ -46,6 +46,19 @@
       }
     },
     {
+      "id": "pulse.runtime-session-composition",
+      "kind": "rustCrate",
+      "identity": "asha-runtime-session-composition",
+      "symbols": ["ComposedRuntimeSessionCheckpoint", "ComposedRuntimeSessionReadout", "GameplayRuntimeProjectInput", "RuntimeBridge", "StaticRuntimeSessionBuilder"],
+      "requiredLevel": "delivery",
+      "evidence": {
+        "type": ["public-rust/runtime-session-composition/src/lib.rs"],
+        "provider": ["harness/public-surface/rust-crates.json"],
+        "selector": ["harness/fixtures/gameplay-module-sdk/downstream-module/Cargo.toml"],
+        "delivery": ["harness/fixtures/gameplay-module-sdk/downstream-module/src/lib.rs"]
+      }
+    },
+    {
       "id": "pulse.module",
       "kind": "gameplayModule",
       "identity": "fixture.pulse.module",

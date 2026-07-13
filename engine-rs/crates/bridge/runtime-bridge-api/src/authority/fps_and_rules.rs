@@ -85,18 +85,6 @@ impl EngineBridge {
         Ok(receipt)
     }
 
-    pub(super) fn fps_session_mut(
-        &mut self,
-        op: &str,
-    ) -> BridgeResult<&mut FpsRuntimeSessionState> {
-        self.gameplay.fps_session.as_mut().ok_or_else(|| {
-            RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::NotInitialized,
-                format!("{op} called before load_fps_runtime_session"),
-            )
-        })
-    }
-
     pub(super) fn convert_fps_load_request(
         request: &FpsRuntimeSessionLoadRequest,
     ) -> BridgeResult<FpsProjectBundleLoadInput> {
@@ -104,6 +92,11 @@ impl EngineBridge {
         for entry in &request.definitions {
             let entity = EntityId::new(entry.entity);
             let mut capabilities = Vec::new();
+            let authored_translation = entry
+                .transform
+                .as_ref()
+                .map(|transform| transform.translation)
+                .unwrap_or([0.0, 0.0, 0.0]);
             if let Some(transform) = &entry.transform {
                 capabilities.push(EntityDefinitionCapability::Transform {
                     transform: AuthoringTransform {
@@ -114,9 +107,21 @@ impl EngineBridge {
                 });
             }
             if let Some(bounds) = entry.bounds {
+                // The historical FPS bridge DTO carries the authored world
+                // AABB. EntityStore bounds are local to the entity transform,
+                // so normalize once at admission and let every rule sample
+                // the same live transform + local-bounds authority thereafter.
                 capabilities.push(EntityDefinitionCapability::Bounds {
-                    min: bounds.min,
-                    max: bounds.max,
+                    min: [
+                        bounds.min[0] - authored_translation[0],
+                        bounds.min[1] - authored_translation[1],
+                        bounds.min[2] - authored_translation[2],
+                    ],
+                    max: [
+                        bounds.max[0] - authored_translation[0],
+                        bounds.max[1] - authored_translation[1],
+                        bounds.max[2] - authored_translation[2],
+                    ],
                 });
             }
             if let Some(visible) = entry.render_visible {
@@ -632,6 +637,7 @@ impl EngineBridge {
 
     pub(super) fn fps_snapshot(
         session: &FpsRuntimeSessionState,
+        entities: &EntityStore,
         epoch: u64,
     ) -> BridgeResult<FpsRuntimeSessionSnapshot> {
         let player = session
@@ -685,7 +691,7 @@ impl EngineBridge {
             policy_bindings,
             replay_records,
             read_sets: Self::fps_read_sets(),
-            entity_hash: session.entities.hash().0,
+            entity_hash: entities.hash().0,
             health_hash: session.combat.health_hash(),
             replay_hash: latest.map(|record| record.record_hash).unwrap_or(0),
         })

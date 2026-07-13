@@ -11,7 +11,7 @@ use rule_gameplay_fabric::{
     GameplayReactionSourceFact, GameplayTypedModuleStateAdapter, GameplayWaveBarrierEvidence,
     GameplayWaveStateHashes,
 };
-use std::rc::Rc;
+use std::sync::Arc;
 use svc_gameplay_fabric::{
     gameplay_contract, stable_identity, GameplayFabricRegistry, GameplayFabricRegistryBuilder,
     GameplayLinkedProvider, GameplayReadViewProviderRegistration, GameplayStateOwnerRegistration,
@@ -263,7 +263,7 @@ fn migration(
 
 #[test]
 fn typed_fact_updates_owned_state_and_rejects_foreign_or_stale_writes() {
-    let registry = Rc::new(registry());
+    let registry = Arc::new(registry());
     assert!(matches!(
         GameplayModuleStateStore::new(
             registry.clone(),
@@ -304,7 +304,7 @@ fn typed_fact_updates_owned_state_and_rejects_foreign_or_stale_writes() {
 
 #[test]
 fn initialization_is_atomic_and_entity_facets_are_separate() {
-    let registry = Rc::new(registry());
+    let registry = Arc::new(registry());
     let session = GameplayModuleStateScope::Session;
     let entity = GameplayModuleStateScope::Entity { entity: 42 };
     let mut store = GameplayModuleStateStore::new(registry, adapters()).unwrap();
@@ -329,7 +329,7 @@ fn initialization_is_atomic_and_entity_facets_are_separate() {
 
 #[test]
 fn snapshot_playback_and_migration_preserve_authority_evidence() {
-    let registry = Rc::new(registry());
+    let registry = Arc::new(registry());
     let scope = GameplayModuleStateScope::Session;
     let init = initialization("session", scope.clone(), b"2");
     let accepted = fact("fact.one", scope.clone(), 0, b"5");
@@ -434,7 +434,7 @@ fn snapshot_playback_and_migration_preserve_authority_evidence() {
 
 #[test]
 fn reaction_frame_verification_classifies_code_event_fact_and_post_state_drift() {
-    let registry = Rc::new(registry());
+    let registry = Arc::new(registry());
     let observe = GameplayObserveReceipt {
         registry_digest: registry.registry_digest().to_owned(),
         root_id: String::new(),

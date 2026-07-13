@@ -130,14 +130,6 @@ import type {
   FpsPrimaryFireRequest,
   GameRuleRuntimeReadout,
 } from './transport-contracts.js';
-import type {
-  GameplayRuntimeHostAdvanceReceipt,
-  GameplayRuntimeHostLoadInput,
-  GameplayRuntimeHostLoadReceipt,
-  GameplayRuntimeHostMoment,
-  GameplayRuntimeHostReadout,
-  GameplayRuntimeHostSnapshot,
-} from './gameplay-runtime-host.js';
 
 export interface RuntimeSessionFacade {
   initialize(input: RuntimeSessionInitializeInput): RuntimeSessionStateSummary;
@@ -213,14 +205,6 @@ export interface RuntimeSessionFacade {
   previewVoxelEditRevert(request: VoxelEditHistoryRevertRequest): VoxelEditHistoryRevertReceipt; applyVoxelEditRevert(request: VoxelEditHistoryRevertRequest): VoxelEditHistoryRevertReceipt;
   undoVoxelEdit(request: VoxelEditHistoryUndoRequest): VoxelEditHistoryUndoReceipt; redoVoxelEdit(request: VoxelEditHistoryRedoRequest): VoxelEditHistoryRedoReceipt;
   readEcrpRuntimeReadout(): RuntimeSessionEcrpReadout;
-  loadGameplayRuntime(input: GameplayRuntimeHostLoadInput): GameplayRuntimeHostLoadReceipt;
-  advanceGameplayRuntime(moment: GameplayRuntimeHostMoment): GameplayRuntimeHostAdvanceReceipt;
-  readGameplayRuntime(): GameplayRuntimeHostReadout;
-  saveGameplayRuntime(): GameplayRuntimeHostSnapshot;
-  restoreGameplayRuntime(
-    input: GameplayRuntimeHostLoadInput,
-    snapshot: GameplayRuntimeHostSnapshot,
-  ): GameplayRuntimeHostLoadReceipt;
   readCameraProjection(request: CameraProjectionRequest): RuntimeSessionCameraProjectionReadout;
   readAnimationIntent(): RuntimeSessionAnimationIntentReadout; readProjection(): RuntimeSessionProjectionSummary;
   readTelemetry(): RuntimeSessionTelemetrySummary;

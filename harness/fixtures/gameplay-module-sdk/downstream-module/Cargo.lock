@@ -45,6 +45,7 @@ dependencies = [
  "asha-gameplay-module-conformance",
  "asha-gameplay-module-sdk",
  "asha-gameplay-runtime-host",
+ "asha-runtime-session-composition",
  "serde",
  "serde_json",
 ]
@@ -64,6 +65,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "asha-runtime-session-composition"
+version = "0.1.0"
+dependencies = [
+ "gameplay-runtime-host",
+ "runtime-bridge-api",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -74,6 +83,15 @@ name = "bitflags"
 version = "2.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4388bee8683e3d04af747c73422af53102d2bd24d9eadb6cbc100baef4b43f8"
+
+[[package]]
+name = "block-buffer"
+version = "0.10.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71"
+dependencies = [
+ "generic-array",
+]
 
 [[package]]
 name = "bytemuck"
@@ -88,8 +106,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
+name = "cfg-if"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
+
+[[package]]
 name = "core-assets"
 version = "0.1.0"
+
+[[package]]
+name = "core-catalog"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "core-voxel",
+]
 
 [[package]]
 name = "core-commands"
@@ -152,8 +184,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "core-snapshot"
+version = "0.1.0"
+dependencies = [
+ "core-ids",
+ "core-state",
+]
+
+[[package]]
 name = "core-space"
 version = "0.1.0"
+
+[[package]]
+name = "core-state"
+version = "0.1.0"
+dependencies = [
+ "core-ids",
+]
 
 [[package]]
 name = "core-time"
@@ -162,6 +209,35 @@ version = "0.1.0"
 [[package]]
 name = "core-voxel"
 version = "0.1.0"
+
+[[package]]
+name = "cpufeatures"
+version = "0.2.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59ed5838eebb26a2bb2e58f6d5b5316989ae9d08bab10e0e6d103e656d1b0280"
+dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "crypto-common"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78c8292055d1c1df0cce5d180393dc8cce0abec0a7102adb6c7b1eef6016d60a"
+dependencies = [
+ "generic-array",
+ "typenum",
+]
+
+[[package]]
+name = "digest"
+version = "0.10.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
+dependencies = [
+ "block-buffer",
+ "crypto-common",
+]
 
 [[package]]
 name = "downcast-rs"
@@ -242,6 +318,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "generic-array"
+version = "0.14.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
+dependencies = [
+ "typenum",
+ "version_check",
+]
+
+[[package]]
 name = "glam"
 version = "0.33.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -261,6 +347,42 @@ dependencies = [
  "glam",
  "num-traits",
  "simba",
+]
+
+[[package]]
+name = "gltf"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3ce1918195723ce6ac74e80542c5a96a40c2b26162c1957a5cd70799b8cacf7"
+dependencies = [
+ "byteorder",
+ "gltf-json",
+ "lazy_static",
+ "serde_json",
+]
+
+[[package]]
+name = "gltf-derive"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14070e711538afba5d6c807edb74bcb84e5dbb9211a3bf5dea0dfab5b24f4c51"
+dependencies = [
+ "inflections",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "gltf-json"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6176f9d60a7eab0a877e8e96548605dedbde9190a7ae1e80bbcc1c9af03ab14"
+dependencies = [
+ "gltf-derive",
+ "serde",
+ "serde_derive",
+ "serde_json",
 ]
 
 [[package]]
@@ -303,10 +425,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "inflections"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a257582fdcde896fd96463bf2d40eefea0580021c0712a0e2b028b60b47a837a"
+
+[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
+
+[[package]]
+name = "lazy_static"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
+
+[[package]]
+name = "libc"
+version = "0.2.186"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68ab91017fe16c622486840e4c83c9a37afeff978bd239b5293d61ece587de66"
 
 [[package]]
 name = "libm"
@@ -402,6 +542,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "protocol-assets"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "core-ids",
+]
+
+[[package]]
 name = "protocol-diagnostics"
 version = "0.1.0"
 dependencies = [
@@ -435,6 +583,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "protocol-input"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "protocol-presentation"
+version = "0.1.0"
+dependencies = [
+ "core-ids",
+ "protocol-render",
+ "serde",
+]
+
+[[package]]
 name = "protocol-project-bundle"
 version = "0.1.0"
 dependencies = [
@@ -443,7 +607,71 @@ dependencies = [
 ]
 
 [[package]]
+name = "protocol-render"
+version = "0.1.0"
+dependencies = [
+ "core-ids",
+ "protocol-assets",
+ "serde",
+]
+
+[[package]]
+name = "protocol-replay"
+version = "0.1.0"
+dependencies = [
+ "core-commands",
+ "core-events",
+ "core-ids",
+]
+
+[[package]]
+name = "protocol-scene"
+version = "0.1.0"
+dependencies = [
+ "core-ids",
+]
+
+[[package]]
+name = "protocol-time-control"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "protocol-view"
+version = "0.1.0"
+dependencies = [
+ "core-space",
+ "serde",
+]
+
+[[package]]
 name = "protocol-voxel-annotation"
+version = "0.1.0"
+dependencies = [
+ "protocol-diagnostics",
+ "serde",
+]
+
+[[package]]
+name = "protocol-voxel-asset"
+version = "0.1.0"
+dependencies = [
+ "protocol-diagnostics",
+ "serde",
+]
+
+[[package]]
+name = "protocol-voxel-conversion"
+version = "0.1.0"
+dependencies = [
+ "protocol-diagnostics",
+ "serde",
+]
+
+[[package]]
+name = "protocol-voxel-edit-history"
 version = "0.1.0"
 dependencies = [
  "protocol-diagnostics",
@@ -457,6 +685,51 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfbc457d0c7a0759a614551b11a6409e5951f6c7537be1f1b7682b9ae9230368"
 dependencies = [
  "proc-macro2",
+]
+
+[[package]]
+name = "render-animation"
+version = "0.1.0"
+dependencies = [
+ "core-ids",
+ "protocol-presentation",
+ "protocol-render",
+ "rule-animation-controller",
+]
+
+[[package]]
+name = "render-audio"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "core-catalog",
+ "protocol-presentation",
+ "protocol-render",
+]
+
+[[package]]
+name = "render-billboard"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "core-catalog",
+ "protocol-presentation",
+]
+
+[[package]]
+name = "render-particle"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "core-catalog",
+ "protocol-presentation",
+]
+
+[[package]]
+name = "render-telemetry-overlay"
+version = "0.1.0"
+dependencies = [
+ "protocol-presentation",
 ]
 
 [[package]]
@@ -474,6 +747,16 @@ dependencies = [
  "heapless",
  "num-traits",
  "smallvec",
+]
+
+[[package]]
+name = "rule-animation-controller"
+version = "0.1.0"
+dependencies = [
+ "core-ids",
+ "rule-state-machine",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -496,6 +779,31 @@ dependencies = [
  "svc-game-rules",
  "svc-gameplay-fabric",
  "svc-serialization",
+]
+
+[[package]]
+name = "rule-input"
+version = "0.1.0"
+dependencies = [
+ "protocol-input",
+]
+
+[[package]]
+name = "rule-lifecycle"
+version = "0.1.0"
+dependencies = [
+ "core-entity",
+ "core-ids",
+ "core-space",
+ "protocol-entity-authoring",
+ "protocol-game-extension",
+ "protocol-game-rules",
+ "rule-gameplay-fabric",
+ "svc-collision",
+ "svc-combat",
+ "svc-entity-authoring",
+ "svc-game-rules",
+ "svc-pathfinding",
 ]
 
 [[package]]
@@ -569,6 +877,65 @@ dependencies = [
 ]
 
 [[package]]
+name = "runtime-bridge-api"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "core-catalog",
+ "core-commands",
+ "core-entity",
+ "core-error",
+ "core-ids",
+ "core-math",
+ "core-scene",
+ "core-space",
+ "core-voxel",
+ "game-rule-extension",
+ "gameplay-runtime-host",
+ "protocol-assets",
+ "protocol-diagnostics",
+ "protocol-entity-authoring",
+ "protocol-game-extension",
+ "protocol-game-rules",
+ "protocol-input",
+ "protocol-presentation",
+ "protocol-render",
+ "protocol-scene",
+ "protocol-time-control",
+ "protocol-view",
+ "protocol-voxel-annotation",
+ "protocol-voxel-asset",
+ "protocol-voxel-conversion",
+ "protocol-voxel-edit-history",
+ "render-animation",
+ "render-audio",
+ "render-billboard",
+ "render-particle",
+ "render-telemetry-overlay",
+ "rule-animation-controller",
+ "rule-gameplay-fabric",
+ "rule-input",
+ "rule-lifecycle",
+ "rule-voxel-edit",
+ "serde",
+ "serde_json",
+ "sim-runner",
+ "svc-collision",
+ "svc-combat",
+ "svc-game-rules",
+ "svc-levelgen",
+ "svc-mesh",
+ "svc-mesh-import",
+ "svc-pathfinding",
+ "svc-serialization",
+ "svc-spatial",
+ "svc-volume",
+ "svc-voxel-annotation",
+ "svc-voxel-asset",
+ "svc-voxel-conversion",
+]
+
+[[package]]
 name = "safe_arch"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -618,6 +985,71 @@ dependencies = [
  "serde",
  "serde_core",
  "zmij",
+]
+
+[[package]]
+name = "sha2"
+version = "0.10.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "digest",
+]
+
+[[package]]
+name = "sim-applier"
+version = "0.1.0"
+dependencies = [
+ "core-events",
+ "core-ids",
+ "core-state",
+]
+
+[[package]]
+name = "sim-kernel"
+version = "0.1.0"
+dependencies = [
+ "core-commands",
+ "core-events",
+ "core-ids",
+ "core-state",
+]
+
+[[package]]
+name = "sim-replay"
+version = "0.1.0"
+dependencies = [
+ "core-commands",
+ "core-events",
+ "core-ids",
+ "protocol-replay",
+]
+
+[[package]]
+name = "sim-runner"
+version = "0.1.0"
+dependencies = [
+ "core-commands",
+ "core-events",
+ "core-ids",
+ "core-snapshot",
+ "core-state",
+ "sim-applier",
+ "sim-kernel",
+ "sim-replay",
+ "sim-validator",
+]
+
+[[package]]
+name = "sim-validator"
+version = "0.1.0"
+dependencies = [
+ "core-commands",
+ "core-events",
+ "core-ids",
+ "core-state",
 ]
 
 [[package]]
@@ -713,6 +1145,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "svc-levelgen"
+version = "0.1.0"
+dependencies = [
+ "core-events",
+ "core-space",
+ "core-voxel",
+ "svc-rng",
+ "svc-spatial",
+ "svc-volume",
+]
+
+[[package]]
+name = "svc-mesh"
+version = "0.1.0"
+dependencies = [
+ "core-space",
+ "core-voxel",
+ "svc-spatial",
+ "svc-volume",
+]
+
+[[package]]
+name = "svc-mesh-import"
+version = "0.1.0"
+dependencies = [
+ "gltf",
+ "protocol-voxel-conversion",
+ "sha2",
+]
+
+[[package]]
+name = "svc-pathfinding"
+version = "0.1.0"
+dependencies = [
+ "core-math",
+ "core-space",
+ "svc-spatial",
+]
+
+[[package]]
 name = "svc-rng"
 version = "0.1.0"
 
@@ -755,6 +1227,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "svc-voxel-asset"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "protocol-diagnostics",
+ "protocol-voxel-asset",
+ "serde_json",
+]
+
+[[package]]
+name = "svc-voxel-conversion"
+version = "0.1.0"
+dependencies = [
+ "core-voxel",
+ "protocol-diagnostics",
+ "protocol-voxel-conversion",
+]
+
+[[package]]
 name = "syn"
 version = "2.0.118"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -786,10 +1277,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "typenum"
+version = "1.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
+
+[[package]]
 name = "unicode-ident"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
+
+[[package]]
+name = "version_check"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "wide"

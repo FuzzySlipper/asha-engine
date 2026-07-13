@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "valid": true,
   "manifest": "harness/reachability/manifest.json",
-  "manifestHash": "sha256:6c777f50f1f4e0099dd57b2ce78759bf642b8f2142a3c3bfa4606d63e6f115f3",
+  "manifestHash": "sha256:1fbd726defc297bf076c61d77587c2570fa56008f289f730743f3e5cba612612",
   "catalogs": [
     {
       "path": "engine-rs/crates/bridge/runtime-bridge-api/bridge-manifest.toml",
@@ -14,11 +14,11 @@
     },
     {
       "path": "harness/public-surface/rust-crates.json",
-      "hash": "sha256:20371c8358c1561e886ff5a24ccb0f0425c3387ceaf0def5b6f05c810522819a"
+      "hash": "sha256:516ae1d0465421f16c73fe4df186602f7676c01679c400abfe29570ae2297236"
     },
     {
       "path": "harness/consumer-needs/validation-report.json",
-      "hash": "sha256:1335b96725b8d63ca4b446b4f8cf0dfc1772d3572e8d8fdd1a8372398befef7f"
+      "hash": "sha256:ec5af2df5df99ad6c9fe6ef132bd501a4c776256a1fcb5b39821842951b5823c"
     },
     {
       "path": "ts/packages/contracts/src/generated/gameExtension.ts",
@@ -39,7 +39,7 @@
       "id": "catalog.consumer-needs",
       "kind": "consumerNeeds",
       "valid": true,
-      "actualCount": 38
+      "actualCount": 39
     },
     {
       "id": "catalog.generated-contracts",
@@ -51,7 +51,7 @@
       "id": "catalog.rust-public-surfaces",
       "kind": "rustPublicSurfaces",
       "valid": true,
-      "actualCount": 4
+      "actualCount": 5
     },
     {
       "id": "catalog.typescript-public-surfaces",
@@ -152,8 +152,8 @@
       "gapCount": 0
     },
     {
-      "id": "gameplay.runtime-host.transport",
-      "kind": "runtimeOperation",
+      "id": "gameplay.runtime-session-composition",
+      "kind": "gameplayRuntimeHost",
       "reachable": true,
       "gapCount": 0
     },

@@ -3,7 +3,7 @@
 use protocol_game_extension::{GameplayContractRef, GameplayEventEnvelope, GameplayOwnerRef};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
-use std::rc::Rc;
+use std::sync::Arc;
 use svc_gameplay_fabric::GameplayFabricRegistry;
 
 use crate::{observe::stable_hash, GameplayObserveReceipt};
@@ -313,7 +313,7 @@ pub trait GameplayTypedModuleStateAdapter {
     }
 }
 
-trait ErasedGameplayModuleStateAdapter {
+trait ErasedGameplayModuleStateAdapter: Send {
     fn module_id(&self) -> &str;
     fn state_schema(&self) -> &GameplayContractRef;
     fn fact_schema(&self) -> &GameplayContractRef;
@@ -329,7 +329,7 @@ struct TypedAdapter<T>(T);
 
 impl<T> ErasedGameplayModuleStateAdapter for TypedAdapter<T>
 where
-    T: GameplayTypedModuleStateAdapter,
+    T: GameplayTypedModuleStateAdapter + Send,
 {
     fn module_id(&self) -> &str {
         self.0.module_id()
@@ -386,7 +386,7 @@ pub struct GameplayModuleStateRegistration {
 impl GameplayModuleStateRegistration {
     pub fn typed<T>(adapter: T) -> Self
     where
-        T: GameplayTypedModuleStateAdapter + 'static,
+        T: GameplayTypedModuleStateAdapter + Send + 'static,
     {
         Self {
             adapter: Box::new(TypedAdapter(adapter)),
@@ -485,7 +485,7 @@ impl From<StoredGameplayModuleStateRecord> for GameplayModuleStateRecord {
 }
 
 pub struct GameplayModuleStateStore {
-    registry: Rc<GameplayFabricRegistry>,
+    registry: Arc<GameplayFabricRegistry>,
     adapters: BTreeMap<String, Box<dyn ErasedGameplayModuleStateAdapter>>,
     records: BTreeMap<RecordKey, GameplayModuleStateRecord>,
     applied_fact_ids: BTreeSet<String>,
@@ -518,7 +518,7 @@ impl GameplayModuleStateStore {
     }
 
     pub fn new(
-        registry: Rc<GameplayFabricRegistry>,
+        registry: Arc<GameplayFabricRegistry>,
         registrations: Vec<GameplayModuleStateRegistration>,
     ) -> Result<Self, GameplayModuleStateError> {
         let mut indexed = BTreeMap::new();
@@ -908,7 +908,7 @@ impl GameplayModuleStateStore {
     }
 
     pub fn decode_snapshot(
-        registry: Rc<GameplayFabricRegistry>,
+        registry: Arc<GameplayFabricRegistry>,
         adapters: Vec<GameplayModuleStateRegistration>,
         bytes: &[u8],
     ) -> Result<Self, GameplayModuleStateError> {
@@ -946,7 +946,7 @@ impl GameplayModuleStateStore {
     }
 
     pub fn decode_session_snapshot(
-        registry: Rc<GameplayFabricRegistry>,
+        registry: Arc<GameplayFabricRegistry>,
         adapters: Vec<GameplayModuleStateRegistration>,
         bytes: &[u8],
     ) -> Result<GameplaySessionRestore, GameplayModuleStateError> {
@@ -980,7 +980,7 @@ impl GameplayModuleStateStore {
     }
 
     pub fn playback(
-        registry: Rc<GameplayFabricRegistry>,
+        registry: Arc<GameplayFabricRegistry>,
         adapters: Vec<GameplayModuleStateRegistration>,
         initializations: Vec<GameplayModuleInitialization>,
         facts: &[GameplayModuleFact],
@@ -996,7 +996,7 @@ impl GameplayModuleStateStore {
     /// Applies the accepted module facts captured in a reaction frame without
     /// invoking gameplay module behavior or dispatching its recorded events.
     pub fn playback_frame(
-        registry: Rc<GameplayFabricRegistry>,
+        registry: Arc<GameplayFabricRegistry>,
         adapters: Vec<GameplayModuleStateRegistration>,
         initializations: Vec<GameplayModuleInitialization>,
         frame: &GameplayReactionFrame,

@@ -5,7 +5,7 @@
 //! existing gameplay state store then initializes every facet atomically.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use core_entity::{EntityLifecycle, EntityStore};
 use core_ids::{EntityId, PrefabInstanceId};
@@ -97,7 +97,7 @@ pub struct GameplayBoundProjectBundleSession {
     pub bundle: ProjectBundleLoadResult,
     pub activation: GameplayModuleBindingActivationReceipt,
     pub module_state: GameplayModuleStateStore,
-    registry: Rc<GameplayFabricRegistry>,
+    registry: Arc<GameplayFabricRegistry>,
     host: GameplayStaticInvocationHost,
     bindings: GameplayModuleBindingRegistry,
     triggers: TriggerVolumeRule,

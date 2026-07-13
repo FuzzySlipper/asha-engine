@@ -51,7 +51,6 @@ export function createNativeRustRuntimeBridgeProvider(request) {
             productAuthority: true,
             referenceFallback: false,
             createRuntimeBridge,
-            ...(request.gameplayHost === undefined ? {} : { gameplayHost: request.gameplayHost }),
         };
     }
     const bridge = request.bridge;
@@ -64,7 +63,6 @@ export function createNativeRustRuntimeBridgeProvider(request) {
         productAuthority: true,
         referenceFallback: false,
         bridge,
-        ...(request.gameplayHost === undefined ? {} : { gameplayHost: request.gameplayHost }),
     };
 }
 export function installNativeRustRuntimeBridgeProvider(request) {

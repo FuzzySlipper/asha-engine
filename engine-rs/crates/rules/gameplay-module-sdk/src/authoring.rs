@@ -180,7 +180,7 @@ impl From<GameplayModuleError> for GameplayHostError {
     }
 }
 
-pub trait GameplayModuleBehavior {
+pub trait GameplayModuleBehavior: Send {
     fn invoke(
         &self,
         context: &GameplayModuleContext<'_>,

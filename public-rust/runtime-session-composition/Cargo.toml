@@ -1,0 +1,17 @@
+[package]
+name = "asha-runtime-session-composition"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[package.metadata.asha.public-surface]
+status = "public"
+role = "downstream-native-runtime-session-composition"
+source-of-truth = "engine-rs/crates/bridge/runtime-bridge-api"
+allowed-consumer-roles = ["asha-demo", "asha-testing", "asha-rulebench"]
+
+[dependencies]
+gameplay-runtime-host = { path = "../../engine-rs/crates/rules/gameplay-runtime-host" }
+runtime-bridge-api = { path = "../../engine-rs/crates/bridge/runtime-bridge-api" }
+
+[workspace]

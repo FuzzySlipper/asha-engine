@@ -10,7 +10,6 @@ import type { GeneratedTunnelOperationRequest, GeneratedTunnelReadout, Generated
 import type { NavPathQueryRequest, NavPathReadout, NavPolicyViewReadout, NavProjectionReadout } from './nav-readout.js';
 import type { RuntimeActionIntentEnvelope } from './runtime-action.js';
 import type { FpsPrimaryFireRequest, GameRuleRuntimeReadout } from './transport-contracts.js';
-import type { GameplayRuntimeHostAdvanceReceipt, GameplayRuntimeHostLoadInput, GameplayRuntimeHostLoadReceipt, GameplayRuntimeHostMoment, GameplayRuntimeHostReadout, GameplayRuntimeHostSnapshot } from './gameplay-runtime-host.js';
 export interface RuntimeSessionFacade {
     initialize(input: RuntimeSessionInitializeInput): RuntimeSessionStateSummary;
     configureInputSession(request: InputSessionConfigureRequest): InputSessionSnapshot;
@@ -73,11 +72,6 @@ export interface RuntimeSessionFacade {
     undoVoxelEdit(request: VoxelEditHistoryUndoRequest): VoxelEditHistoryUndoReceipt;
     redoVoxelEdit(request: VoxelEditHistoryRedoRequest): VoxelEditHistoryRedoReceipt;
     readEcrpRuntimeReadout(): RuntimeSessionEcrpReadout;
-    loadGameplayRuntime(input: GameplayRuntimeHostLoadInput): GameplayRuntimeHostLoadReceipt;
-    advanceGameplayRuntime(moment: GameplayRuntimeHostMoment): GameplayRuntimeHostAdvanceReceipt;
-    readGameplayRuntime(): GameplayRuntimeHostReadout;
-    saveGameplayRuntime(): GameplayRuntimeHostSnapshot;
-    restoreGameplayRuntime(input: GameplayRuntimeHostLoadInput, snapshot: GameplayRuntimeHostSnapshot): GameplayRuntimeHostLoadReceipt;
     readCameraProjection(request: CameraProjectionRequest): RuntimeSessionCameraProjectionReadout;
     readAnimationIntent(): RuntimeSessionAnimationIntentReadout;
     readProjection(): RuntimeSessionProjectionSummary;

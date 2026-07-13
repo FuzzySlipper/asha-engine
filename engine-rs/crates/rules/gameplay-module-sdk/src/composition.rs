@@ -13,7 +13,7 @@ use rule_gameplay_fabric::{
 };
 use serde::{de::DeserializeOwned, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
-use std::rc::Rc;
+use std::sync::Arc;
 use svc_gameplay_fabric::{
     stable_bytes_identity, stable_identity, GameplayEventCodecRegistration, GameplayFabricRegistry,
     GameplayFabricRegistryBuilder, GameplayLinkedProvider, GameplayProposalOwnerRegistration,
@@ -125,10 +125,10 @@ pub struct GameplayConfigurationSchemaMetadata {
 #[derive(Clone)]
 pub struct GameplayConfigurationCodecRegistration {
     metadata: GameplayConfigurationSchemaMetadata,
-    validate: Rc<GameplayConfigurationValidator>,
+    validate: Arc<GameplayConfigurationValidator>,
 }
 
-type GameplayConfigurationValidator = dyn Fn(&[u8]) -> Result<(), String>;
+type GameplayConfigurationValidator = dyn Fn(&[u8]) -> Result<(), String> + Send + Sync;
 
 impl GameplayConfigurationCodecRegistration {
     pub fn typed<T>(metadata: GameplayConfigurationSchemaMetadata) -> Self
@@ -137,7 +137,7 @@ impl GameplayConfigurationCodecRegistration {
     {
         Self {
             metadata,
-            validate: Rc::new(|canonical| {
+            validate: Arc::new(|canonical| {
                 let decoded: T =
                     serde_json::from_slice(canonical).map_err(|error| error.to_string())?;
                 let encoded = serde_json::to_vec(&decoded).map_err(|error| error.to_string())?;
@@ -361,7 +361,7 @@ impl GameplayStaticCompositionBuilder {
                 registry_builder.register_state_owner(owner);
             }
         }
-        let registry = Rc::new(
+        let registry = Arc::new(
             registry_builder
                 .build()
                 .map_err(GameplayStaticCompositionError::Registry)?,
@@ -389,7 +389,7 @@ impl GameplayStaticCompositionBuilder {
 }
 
 pub struct GameplayStaticComposition {
-    registry: Rc<GameplayFabricRegistry>,
+    registry: Arc<GameplayFabricRegistry>,
     host: GameplayStaticInvocationHost,
     state_adapters: Vec<GameplayModuleStateRegistration>,
     configuration_schemas: Vec<GameplayConfigurationSchemaMetadata>,
@@ -495,7 +495,7 @@ fn limits_from_registry(registry: &GameplayFabricRegistry) -> GameplayRuntimeLim
 }
 
 pub struct GameplayStaticCompositionParts {
-    pub registry: Rc<GameplayFabricRegistry>,
+    pub registry: Arc<GameplayFabricRegistry>,
     pub host: GameplayStaticInvocationHost,
     pub state_adapters: Vec<GameplayModuleStateRegistration>,
     pub configuration_schemas: Vec<GameplayConfigurationSchemaMetadata>,

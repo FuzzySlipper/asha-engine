@@ -1,5 +1,4 @@
 import { type RuntimeBridge } from './bridge.js';
-import type { GameplayRuntimeHostTransport } from '@asha/runtime-session';
 export declare const NATIVE_RUST_RUNTIME_BRIDGE_PROVIDER_KIND = "asha.runtime_bridge.native_rust_provider.v1";
 export declare const LEGACY_ASHA_DEMO_NATIVE_RUST_RUNTIME_BRIDGE_PROVIDER_KIND = "asha_demo.native_runtime_bridge_provider.v1";
 export declare const NATIVE_RUST_RUNTIME_BRIDGE_PROVIDER_GLOBALS: readonly ["ashaRuntimeBridge", "ashaDemoRuntimeBridge"];
@@ -29,7 +28,6 @@ export interface NativeRustRuntimeBridgeProvider {
     readonly referenceFallback: false;
     readonly createRuntimeBridge?: () => RuntimeBridge | Promise<RuntimeBridge>;
     readonly bridge?: RuntimeBridge | Promise<RuntimeBridge>;
-    readonly gameplayHost?: GameplayRuntimeHostTransport;
 }
 export interface NativeRustRuntimeBridgeProviderCandidate {
     readonly kind?: string;
@@ -38,12 +36,10 @@ export interface NativeRustRuntimeBridgeProviderCandidate {
     readonly referenceFallback?: boolean;
     readonly createRuntimeBridge?: () => RuntimeBridge | Promise<RuntimeBridge>;
     readonly bridge?: RuntimeBridge | Promise<RuntimeBridge> | null;
-    readonly gameplayHost?: GameplayRuntimeHostTransport;
 }
 export interface CreateNativeRustRuntimeBridgeProviderRequest {
     readonly bridge?: RuntimeBridge | Promise<RuntimeBridge>;
     readonly createRuntimeBridge?: () => RuntimeBridge | Promise<RuntimeBridge>;
-    readonly gameplayHost?: GameplayRuntimeHostTransport;
 }
 export interface InstallNativeRustRuntimeBridgeProviderRequest extends CreateNativeRustRuntimeBridgeProviderRequest {
     readonly globalScope?: Record<string, NativeRustRuntimeBridgeProviderCandidate | null | undefined>;

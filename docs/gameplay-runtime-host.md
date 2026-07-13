@@ -1,6 +1,7 @@
 # Public Gameplay Runtime Host
 
-Status: implemented Wave 1 static-host boundary for Den tasks #5674 and #5677.
+Status: implemented gameplay subsystem; the preferred provider boundary is the
+one-cell builder documented in `runtime-session-static-composition.md`.
 
 `asha-gameplay-runtime-host` is the public Rust cell that turns a statically
 linked gameplay-module composition into an owning RuntimeSession subsystem. It
@@ -136,48 +137,21 @@ the registry-resolved owner and target, and applies it through
 
 ## Native/browser composition
 
-`@asha/runtime-session` defines `GameplayRuntimeHostTransport` and adds these
-operations to `RuntimeSessionFacade`:
-
-- `loadGameplayRuntime`;
-- `advanceGameplayRuntime`;
-- `readGameplayRuntime`;
-- `saveGameplayRuntime`; and
-- `restoreGameplayRuntime`.
-
-The advance envelope is a small union of tick, actor movement, accepted
-owner-event, scheduler-command, and scheduler-route moments, including a stable
-prefab instance-and-role interaction.
-It is not an arbitrary JSON authority dispatcher: every variant is typed, and
-the consumer-owned native provider maps it to the Rust host.
-`createRuntimeSessionFacade` accepts that transport in addition to the normal
-Rust bridge. The reference RuntimeSession fails closed for all five operations.
-
-```ts
-const provider = createNativeRustRuntimeBridgeProvider({
-  bridge: nativeBridge,
-  gameplayHost: downstreamNativeAddon.gameplayHost,
-});
-
-const session = createRuntimeSessionFacade({
-  bridge: provider.bridge,
-  gameplayHost: provider.gameplayHost,
-  mode: 'rust',
-});
-```
-
-The downstream native addon is the static link point: it owns which game module
-crates are compiled into the product. It does not own generic collision,
-capability mutation, replay semantics, or RuntimeSession validation.
+`asha-runtime-session-composition` installs this host inside `EngineBridge`.
+The downstream addon remains the static link point for game module crates, but
+TypeScript sees one `createRuntimeBridge` factory and one RuntimeBridge root.
+Accepted owner events and movement facts enter this host directly from their
+Rust authority source. The former `GameplayRuntimeHostTransport`, five-method
+facade lifecycle, browser provider property, and second HTTP endpoint are not
+part of the preferred surface.
 
 For event, decision, state, read/query, binding, proposal, trigger, and module
 addition recipes, see
 [Gameplay fabric growth recipes](gameplay-fabric-growth-recipes.md).
 
-`@asha/browser-host` accepts that same transport in its public provider launch
-options. Its injected provider preserves `gameplayHost` and proxies only the
-five closed operations; downstream browser code does not create a parallel JSON
-dispatcher or add per-game host routes.
+`@asha/browser-host` proxies only the integrated RuntimeBridge operation set.
+Downstream browser code cannot add a parallel gameplay JSON dispatcher or
+per-game host routes.
 
 ## Atomic load and replay
 

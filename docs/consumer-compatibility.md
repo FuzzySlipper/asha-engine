@@ -347,6 +347,14 @@ static composition only; runtime plugin loading is not part of this surface.
 
 ## Rust gameplay runtime host compatibility log
 
+- 2026-07-13: The preferred product topology moved to
+  `asha-runtime-session-composition`. `GameplayRuntimeHost` remains the module,
+  scheduler, trigger, snapshot, and replay subsystem inside that cell, but the
+  standalone TypeScript transport and second browser endpoint are no longer
+  public provider surfaces. Named downstream users of the old standalone host
+  are handled by the Wave 1 compatibility quarantine rather than presented as
+  new-consumer guidance.
+
 - 2026-07-12: `GameplayRuntimeHost` now owns the replayable gameplay action
   scheduler. `GameplayRuntimeProjectInput` adds the closed scheduler definition;
   public Rust exposes typed schedule/trigger/route commands and bounded
@@ -373,19 +381,39 @@ static composition only; runtime plugin loading is not part of this surface.
 
 ### `asha-gameplay-runtime-host` — static downstream RuntimeSession host
 
-Status: tasks #5674 and #5677 public Rust and transport-neutral host lane.
+Status: transitional standalone Rust host used internally by the preferred
+composition cell; compatibility ownership is tracked separately.
 
 - Public Rust facade: `public-rust/gameplay-runtime-host`.
 - Engine source: `engine-rs/crates/rules/gameplay-runtime-host`.
 - Browser contract: `@asha/runtime-session` package root.
 - Concrete facade construction: `@asha/runtime-bridge` package root.
 
-The compatibility boundary is additive and static. Consumers may use the
+The Rust boundary is static. Existing named consumers may use the
 generated `GameplayTriggerDefinition`, `GameplayModuleBindingRegistry`, host
-readout/frame hashes, validated prefab bootstrap/readouts, and the
-`GameplayRuntimeHostTransport` port. They may not
+readout/frame hashes, and validated prefab bootstrap/readouts while migrating
+to the one-cell builder. New consumers may not adopt the removed TypeScript
+`GameplayRuntimeHostTransport` sidecar. Consumers may not
 import `engine-rs/crates/*`, install JavaScript authority callbacks, substitute
 the reference RuntimeSession, or route arbitrary JSON mutations.
+
+## Rust runtime session composition compatibility log
+
+- 2026-07-13: Added `asha-runtime-session-composition` as the preferred public
+  static builder. It consumes a concrete gameplay ProjectBundle composition and
+  returns one EngineBridge authority cell with one EntityStore, in-process
+  combat/event and movement/trigger delivery, combined readout/checkpoint
+  hashes, and provider-level restore.
+
+### `asha-runtime-session-composition` — one native provider cell
+
+Status: task #5749 preferred public Rust provider boundary.
+
+- Public facade: `public-rust/runtime-session-composition`.
+- Engine source: `engine-rs/crates/bridge/runtime-bridge-api`.
+- Consumer shape: one `createRuntimeBridge` factory; no `gameplayHost` property.
+- Static only: no dynamic modules, callbacks, raw EntityStore access, or generic
+  RPC.
 
 ## Rust gameplay module conformance compatibility log
 
@@ -604,12 +632,11 @@ destination and publishes it with one atomic rename. Existing hosts retain their
 original mapped inode; newly launched hosts load the replacement. Build or test
 automation must never truncate or copy directly over a loaded `.node` file.
 
-#5674 adds optional static gameplay-host composition without changing the
-`browser-host.v0` command shape. A downstream host may supply the public
-`GameplayRuntimeHostTransport`; the injected provider exposes its closed
-load/advance/read/save/restore surface through host-owned HTTP transport. Games
-must continue to consume the typed RuntimeSession facade rather than inventing
-per-game bridge methods or browser-side authority.
+#5749 replaces the optional sidecar added by #5674 with one provider cell. The
+injected provider exposes only `createRuntimeBridge`, and browser-host proxies
+only the manifest RuntimeBridge endpoint. Gameplay modules, owner events,
+movement/trigger reconciliation, scheduler state, and replay remain inside the
+returned Rust cell.
 
 ## Command registry compatibility log
 

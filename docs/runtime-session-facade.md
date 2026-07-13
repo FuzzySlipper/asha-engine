@@ -111,40 +111,25 @@ Rust-capable bridge and `mode: 'rust'`; reference fixtures use
   [`integrated-feedback-projection.md`](integrated-feedback-projection.md) for
   the composed public-path proof and disposal boundary.
 - `readEcrpRuntimeReadout()`: returns live Entity/CapabilityState/event readouts derived from the selected backend. Rust-backed readouts identify `mode: 'rust'`, `source: 'rust_bridge'`, authority surface, and declared read sets.
-- `loadGameplayRuntime(input)`: atomically activates generated module bindings,
-  trigger definitions, and an optional validated prefab registry plus authored
-  or accepted player placements through a consumer-owned, statically linked
-  Rust gameplay host.
-- `advanceGameplayRuntime(moment)`: advances one typed tick,
-  collision-constrained actor movement, accepted semantic owner event, prefab
-  interaction, scheduler command, or scheduler owner-route moment through that
-  host and returns bounded reaction-frame evidence.
-- `readGameplayRuntime()`: reads registry, binding, prefab placement/role,
-  module-state, trigger, reaction-frame, current authority, scheduler, and
-  composed host hashes without exposing stores. `authorityStateHash` changes
-  with current EntityStore/prefab authority even when no trigger transition or
-  module fact occurs. The scheduler projection reports total pending and
-  outstanding counts plus a bounded ordered window and truncation evidence.
-- `saveGameplayRuntime()`: returns the canonical, hash-bound gameplay host
-  snapshot, including complete recoverable scheduler queue, fact, and
-  outstanding-dispatch authority.
-- `restoreGameplayRuntime(input, snapshot)`: restores matching
-  authority/module/trigger/frame/scheduler state through the same static
-  composition. A restored outstanding dispatch can be routed through its
-  registry-resolved owner and completed exactly once. Reference sessions fail
-  closed for all gameplay-host methods.
+- Statically linked gameplay modules are installed by the downstream native
+  provider's `StaticRuntimeSessionBuilder`. They participate in combat,
+  movement, triggers, decisions, scheduling, replay, and checkpointing inside
+  the same Rust bridge cell. The facade has no separate gameplay-host load,
+  advance, read, save, or restore lifecycle.
 - `readTelemetry()`: returns sequence/tick/composition/command/replay/hash summary.
 - `restart()`: unloads/reinitializes/reloads the same ProjectBundle input and resets tick/command counters and lifecycle state.
 
 See [`gameplay-runtime-host.md`](gameplay-runtime-host.md) for the downstream
-native-provider composition boundary and current Wave 1 limits.
+module host internals and current Wave 1 limits. See
+[`runtime-session-static-composition.md`](runtime-session-static-composition.md)
+for the preferred one-cell native-provider boundary.
 See
 [`prefab-authoring-and-placement.md`](prefab-authoring-and-placement.md) for
 the public draft-to-authority prefab path.
 Compiled Rust modules that need direct pre-commit Guard/Transform/React
-participation use the public `GameplayRuntimeHost::decide` and
-`GameplayRuntimeDecisionOwner` boundary inside their consumer-owned native
-provider; this is deliberately not a JavaScript callback on
+participation use `EngineBridge::decide_composed_gameplay` with a statically
+linked `GameplayRuntimeDecisionOwner` inside their consumer-owned native
+provider; this is deliberately not a JavaScript callback or a second host on
 `RuntimeSessionFacade`. See
 [`gameplay-fabric-growth-recipes.md`](gameplay-fabric-growth-recipes.md).
 See [`camera-modes.md`](camera-modes.md) for camera authority, named-input

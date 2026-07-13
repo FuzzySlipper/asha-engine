@@ -6,7 +6,7 @@
   "sourceOfTruth": "ts/packages/browser-host/src/index.ts plus @asha/runtime-bridge native provider contract",
   "changelog": "docs/consumer-compatibility.md#browser-host-compatibility-log",
   "migrationNoteTemplate": "docs/consumer-compatibility.md#migration-note-template",
-  "failClosedPolicy": "Consumers must stop on missing or spoofed native Rust RuntimeBridge providers. Products that require statically linked gameplay modules must also stop when provider.gameplayHost is absent. The browser host must install globalThis.ashaRuntimeBridge before the downstream app boots and must not fall back to reference/mock authority.",
+  "failClosedPolicy": "Consumers must stop on a missing or spoofed native Rust RuntimeBridge provider. Statically linked gameplay modules are part of the RuntimeBridge cell returned by createRuntimeBridge; no second gameplay host is accepted. The browser host must install globalThis.ashaRuntimeBridge before the downstream app boots and must not fall back to reference/mock authority.",
   "pinningGuidance": "Record ASHA git commit, browser-host.v0, and runtime-bridge.v0 in downstream browser-host evidence until registry/version publishing exists.",
   "breakingChangeRequires": [
     "browser-host compatibility log entry",

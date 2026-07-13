@@ -16,7 +16,7 @@ export function createRuntimeSessionFacade(options) {
     if (options.mode === 'reference') {
         return new ReferenceRuntimeSessionFacade(options.bridge);
     }
-    return new RustBackedRuntimeSessionFacade(options.bridge, options.gameplayHost);
+    return new RustBackedRuntimeSessionFacade(options.bridge);
 }
 class ReferenceRuntimeSessionFacade {
     #bridge;
@@ -664,25 +664,6 @@ class ReferenceRuntimeSessionFacade {
             tick: this.#tick,
             sessionHash: this.#sessionHash(),
         });
-    }
-    loadGameplayRuntime(_input) {
-        void _input;
-        return this.#unsupportedOperation('loadGameplayRuntime', 'Reference RuntimeSession cannot host statically linked Rust gameplay modules');
-    }
-    advanceGameplayRuntime(_moment) {
-        void _moment;
-        return this.#unsupportedOperation('advanceGameplayRuntime', 'Reference RuntimeSession cannot execute Rust gameplay-module authority');
-    }
-    readGameplayRuntime() {
-        return this.#unsupportedOperation('readGameplayRuntime', 'Reference RuntimeSession has no gameplay RuntimeSession host');
-    }
-    saveGameplayRuntime() {
-        return this.#unsupportedOperation('saveGameplayRuntime', 'Reference RuntimeSession has no gameplay RuntimeSession host');
-    }
-    restoreGameplayRuntime(_input, _snapshot) {
-        void _input;
-        void _snapshot;
-        return this.#unsupportedOperation('restoreGameplayRuntime', 'Reference RuntimeSession cannot restore Rust gameplay-module authority');
     }
     readCameraProjection(request) {
         this.#requireInitialized('readCameraProjection');

@@ -161,7 +161,7 @@ impl<T: 'static> TypedGameplayEventCodec<T> {
     }
 }
 
-pub(crate) trait ErasedGameplayEventCodec {
+pub(crate) trait ErasedGameplayEventCodec: Send + Sync {
     fn declaration(&self) -> &GameplayEventSchemaDeclaration;
     fn payload_type_id(&self) -> TypeId;
     fn encode_any(&self, payload: &dyn Any) -> Result<Vec<u8>, GameplayCodecError>;

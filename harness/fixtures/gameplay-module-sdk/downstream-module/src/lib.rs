@@ -1,6 +1,10 @@
 //! Downstream-shaped proof: this crate imports only the approved public facade.
 
 use asha_gameplay_module_sdk::*;
+use asha_runtime_session_composition::{
+    EngineBridge, GameplayRuntimeProjectInput, StaticRuntimeSessionBuilder,
+    StaticRuntimeSessionCompositionError,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -402,6 +406,15 @@ pub fn composition(multiplier: u64) -> GameplayStaticComposition {
     builder.build().expect("public provider composes")
 }
 
+/// Consumer-owned native provider root. Building this crate as its declared
+/// `cdylib` links the concrete downstream modules and returns the one bounded
+/// RuntimeBridge authority cell that transport glue exposes.
+pub fn build_native_runtime_session(
+    input: GameplayRuntimeProjectInput,
+) -> Result<EngineBridge, StaticRuntimeSessionCompositionError> {
+    StaticRuntimeSessionBuilder::activate_project(input)?.build()
+}
+
 pub fn conformance_needs_manifest_json() -> String {
     include_str!("../../../../consumer-needs/manifests/gameplay-module-fixture.json").to_owned()
 }
@@ -669,14 +682,19 @@ mod tests {
         GameplayModuleConformanceNeedsManifest, GameplayModuleConformanceProject,
         GameplayModuleConformanceReachableSurface,
     };
-    use asha_gameplay_runtime_host::{
-        BundleArtifacts, GameplayBindingEntityTargets, GameplayDecisionMoment,
-        GameplayDecisionStatus, GameplayOperationWorkspace, GameplayRuntimeDecisionOwner,
-        GameplayRuntimeDecisionOwnerOutput, GameplayRuntimeHost, GameplayRuntimeProjectInput,
-        GameplayRuntimeSchedulerCommand, GameplayRuntimeSchedulerDefinition,
-        GameplayRuntimeSpatialEntity, GameplayTriggerDefinition, LoadPlan, LoadStep,
+    use asha_gameplay_runtime_host::GameplayRuntimeHost;
+    use asha_runtime_session_composition::{
+        BundleArtifacts, EnemyDirectNavAuthoritySource, EnemyDirectNavMovementRequest,
+        EngineConfig, FpsBridgeBoundsCapability, FpsBridgeHealth, FpsBridgePolicyBinding,
+        FpsBridgeRole, FpsBridgeStoredEntityDefinition, FpsBridgeTransformCapability,
+        FpsBridgeWeaponMount, FpsPrimaryFireRequest, FpsRuntimeSessionLoadRequest,
+        GameplayBindingEntityTargets, GameplayDecisionMoment, GameplayDecisionStatus,
+        GameplayOperationWorkspace, GameplayRuntimeDecisionOwner,
+        GameplayRuntimeDecisionOwnerOutput, GameplayRuntimeSchedulerCommand,
+        GameplayRuntimeSchedulerDefinition, GameplayRuntimeSpatialEntity,
+        GameplayTriggerDefinition, LoadPlan, LoadStep, ProjectBundleLoadRequest, RuntimeBridge,
         RuntimeSessionId, SceneId, ScheduledActionId, ScheduledActionValidity,
-        TickScheduledActionDraft, TriggerReconcileCause,
+        StaticRuntimeSessionBuilder, TickScheduledActionDraft, TriggerReconcileCause, Vec3,
         GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION,
     };
 
@@ -700,6 +718,14 @@ mod tests {
 
     fn conformance_project() -> GameplayModuleConformanceProject {
         serde_json::from_str(include_str!("../project/gameplay-project.json")).unwrap()
+    }
+
+    #[test]
+    fn committed_project_uses_the_linked_provider_identity() {
+        assert_eq!(
+            conformance_project().gameplay_module_bindings,
+            binding_registry(4),
+        );
     }
 
     fn conformance_needs_manifest() -> GameplayModuleConformanceNeedsManifest {
@@ -849,6 +875,255 @@ mod tests {
                 vec![StandardGameplayProposalKind::SetCapabilityActivation.contract()],
             ),
         }
+    }
+
+    fn composed_fps_load_request() -> FpsRuntimeSessionLoadRequest {
+        FpsRuntimeSessionLoadRequest {
+            project_bundle: "downstream-composed-cell".to_owned(),
+            definitions: vec![
+                FpsBridgeStoredEntityDefinition {
+                    entity: 101,
+                    stable_id: "actor/composed-player".to_owned(),
+                    display_name: "Composed Player".to_owned(),
+                    source_path: "catalogs/player.entity.json".to_owned(),
+                    tags: vec!["player".to_owned()],
+                    role: FpsBridgeRole::Player,
+                    transform: Some(FpsBridgeTransformCapability {
+                        translation: [2.5, 1.5, 1.5],
+                        rotation: [0.0, 0.0, 0.0, 1.0],
+                        scale: [1.0, 1.0, 1.0],
+                    }),
+                    bounds: Some(FpsBridgeBoundsCapability {
+                        min: [2.2, 1.0, 1.0],
+                        max: [2.8, 2.0, 2.0],
+                    }),
+                    render_visible: Some(true),
+                    static_collider: Some(false),
+                    health: Some(FpsBridgeHealth {
+                        current: 88,
+                        max: 88,
+                    }),
+                    weapon: Some(FpsBridgeWeaponMount {
+                        weapon_id: "weapon.composed.primary".to_owned(),
+                        damage: 75,
+                        range_units: 16,
+                        ammo: 3,
+                        cooldown_ticks_after_fire: 4,
+                    }),
+                    policy_binding: None,
+                },
+                FpsBridgeStoredEntityDefinition {
+                    entity: 777,
+                    stable_id: "actor/composed-enemy".to_owned(),
+                    display_name: "Composed Enemy".to_owned(),
+                    source_path: "catalogs/enemy.entity.json".to_owned(),
+                    tags: vec!["enemy".to_owned()],
+                    role: FpsBridgeRole::Enemy,
+                    transform: Some(FpsBridgeTransformCapability {
+                        translation: [2.5, 1.5, 5.2],
+                        rotation: [0.0, 0.0, 0.0, 1.0],
+                        scale: [1.0, 1.0, 1.0],
+                    }),
+                    bounds: Some(FpsBridgeBoundsCapability {
+                        min: [2.2, 1.0, 5.0],
+                        max: [2.8, 2.0, 5.8],
+                    }),
+                    render_visible: Some(true),
+                    static_collider: Some(false),
+                    health: Some(FpsBridgeHealth {
+                        current: 150,
+                        max: 150,
+                    }),
+                    weapon: None,
+                    policy_binding: Some(FpsBridgePolicyBinding {
+                        binding_id: "binding.composed-enemy.v0".to_owned(),
+                        policy_id: "policy.composed-enemy.v0".to_owned(),
+                        view_kind: "runtime_session.nav_policy_view.v0".to_owned(),
+                        view_version: "v0".to_owned(),
+                        allowed_intents: vec!["runtime.intent.move_direct_nav.v0".to_owned()],
+                        runtime_moment: "runtime.tick.enemy_policy.v0".to_owned(),
+                    }),
+                },
+            ],
+            game_rule_modules: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn public_static_builder_composes_one_bridge_cell_and_restores_it() {
+        let mut first = build_native_runtime_session(runtime_host_project_input(4)).unwrap();
+        let initial = first.read_composed_runtime_session().unwrap();
+
+        first.initialize_engine(EngineConfig { seed: 41 }).unwrap();
+        first
+            .load_project_bundle(ProjectBundleLoadRequest {
+                bundle_schema_version: 1,
+                protocol_version: 1,
+                scene_id: 1,
+            })
+            .unwrap();
+        first
+            .load_fps_runtime_session(composed_fps_load_request())
+            .unwrap();
+        let loaded = first.read_composed_runtime_session().unwrap();
+        assert_ne!(loaded.entity_authority_hash, initial.entity_authority_hash);
+        assert_eq!(loaded.fps_session_epoch, 1);
+
+        let frames_before = loaded.gameplay.reaction_frame_count;
+        first
+            .apply_fps_primary_fire(FpsPrimaryFireRequest {
+                tick: 9,
+                origin: [2.5, 1.5, 1.5],
+                direction: [0.0, 0.0, 1.0],
+                shooter_role: None,
+                target_role: None,
+            })
+            .unwrap();
+        let reacted = first.read_composed_runtime_session().unwrap();
+        assert!(reacted.gameplay.reaction_frame_count > frames_before);
+        assert_ne!(reacted.runtime_session_hash, loaded.runtime_session_hash);
+
+        let moved = first
+            .apply_enemy_direct_nav_movement(EnemyDirectNavMovementRequest {
+                entity: 777,
+                seed_position: Vec3::new(2.5, 1.5, 5.2),
+                target: Vec3::new(0.0, 0.0, 0.0),
+                max_step_units: 16.0,
+            })
+            .unwrap();
+        assert_eq!(
+            moved.authority_source,
+            EnemyDirectNavAuthoritySource::RustEntityStore,
+        );
+        assert!(moved.reached);
+        let trigger_reacted = first.read_composed_runtime_session().unwrap();
+        assert!(
+            trigger_reacted.gameplay.reaction_frame_count > reacted.gameplay.reaction_frame_count
+        );
+        assert_eq!(trigger_reacted.gameplay.active_overlap_count, 1);
+        assert_ne!(
+            trigger_reacted.entity_authority_hash,
+            reacted.entity_authority_hash,
+        );
+
+        let checkpoint = first.checkpoint_composed_runtime_session().unwrap();
+        let mut restored = StaticRuntimeSessionBuilder::restore_project(
+            runtime_host_project_input(4),
+            &checkpoint,
+        )
+        .unwrap()
+        .build()
+        .unwrap();
+        assert_eq!(
+            restored.read_composed_runtime_session().unwrap(),
+            *checkpoint.readout(),
+        );
+
+        let mut isolated =
+            StaticRuntimeSessionBuilder::activate_project(runtime_host_project_input(4))
+                .unwrap()
+                .build()
+                .unwrap();
+        let isolated_readout = isolated.read_composed_runtime_session().unwrap();
+        assert_eq!(isolated_readout, initial);
+        assert_ne!(
+            checkpoint.readout().runtime_session_hash,
+            isolated_readout.runtime_session_hash,
+        );
+    }
+
+    #[test]
+    fn composed_bridge_runs_decision_transform_and_exactly_once_resume() {
+        let mut bridge =
+            StaticRuntimeSessionBuilder::activate_project(decision_runtime_host_project_input())
+                .unwrap()
+                .build()
+                .unwrap();
+        let mut owner = PublicDecisionOwner::default();
+        let suspended = bridge
+            .decide_composed_gameplay(public_decision_moment("composed-decision"), &mut owner)
+            .unwrap();
+        assert_eq!(suspended.status, GameplayDecisionStatus::Suspended);
+        assert!(suspended.invocations[0].declared_read_set_hash.is_some());
+        let continuation = suspended.continuation.unwrap();
+
+        let mut resumed = public_decision_moment("composed-decision");
+        resumed.workspace = continuation.workspace.clone();
+        resumed.resume_token = Some(continuation.token.clone());
+        let accepted = bridge
+            .decide_composed_gameplay(resumed, &mut owner)
+            .unwrap();
+        assert_eq!(accepted.status, GameplayDecisionStatus::Accepted);
+        assert_eq!(owner.commits.len(), 1);
+        let committed: DecisionWorkspace = serde_json::from_slice(&owner.commits[0]).unwrap();
+        assert_eq!(committed.amount, 6);
+        assert!(committed.transformed);
+
+        let before_replay = bridge.read_composed_runtime_session().unwrap();
+        let mut replayed = public_decision_moment("composed-decision");
+        replayed.workspace = continuation.workspace;
+        replayed.resume_token = Some(continuation.token);
+        let replayed_receipt = bridge
+            .decide_composed_gameplay(replayed, &mut owner)
+            .unwrap();
+        assert_eq!(replayed_receipt.status, GameplayDecisionStatus::Failed);
+        assert!(replayed_receipt.invocations.is_empty());
+        assert_eq!(owner.commits.len(), 1);
+        assert_eq!(
+            bridge.read_composed_runtime_session().unwrap(),
+            before_replay,
+        );
+    }
+
+    #[test]
+    fn composed_bridge_restores_and_finishes_interrupted_scheduler_delivery() {
+        let mut bridge =
+            StaticRuntimeSessionBuilder::activate_project(runtime_host_project_input(4))
+                .unwrap()
+                .build()
+                .unwrap();
+        let action_id = ScheduledActionId::new("fixture.scheduler.disable-trigger-collision");
+        bridge
+            .apply_composed_gameplay_scheduler_command(
+                GameplayRuntimeSchedulerCommand::ScheduleTick(scheduled_collision_deactivation()),
+            )
+            .unwrap();
+        let dispatched = bridge
+            .apply_composed_gameplay_scheduler_command(
+                GameplayRuntimeSchedulerCommand::ExecuteTick {
+                    action_id: action_id.clone(),
+                    tick: 5,
+                    validity: ScheduledActionValidity::CURRENT,
+                },
+            )
+            .unwrap();
+        assert_eq!(dispatched.readout.outstanding_dispatch_count, 1);
+
+        let checkpoint = bridge.checkpoint_composed_runtime_session().unwrap();
+        let mut restored = StaticRuntimeSessionBuilder::restore_project(
+            runtime_host_project_input(4),
+            &checkpoint,
+        )
+        .unwrap()
+        .build()
+        .unwrap();
+        assert_eq!(
+            restored
+                .read_composed_runtime_session()
+                .unwrap()
+                .gameplay
+                .scheduler
+                .outstanding_dispatch_count,
+            1,
+        );
+        let routed = restored
+            .route_composed_gameplay_scheduled_action(&action_id)
+            .unwrap();
+        assert!(routed.routing.accepted);
+        assert_eq!(routed.readout.outstanding_dispatch_count, 0);
+        assert_eq!(routed.readout.outstanding_event_delivery_count, 0);
+        assert_eq!(routed.readout.pending_action_count, 0);
+        assert!(routed.reaction.unwrap().observe.accepted());
     }
 
     fn decision_runtime_host_project_input() -> GameplayRuntimeProjectInput {

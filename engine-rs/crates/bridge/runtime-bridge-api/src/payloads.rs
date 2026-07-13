@@ -588,6 +588,9 @@ pub struct FpsBridgeTransformCapability {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FpsBridgeBoundsCapability {
+    /// Authored world-space AABB at the accompanying transform. Admission
+    /// normalizes it into EntityStore-local bounds so movement, collision,
+    /// triggers, and combat all sample one current transform.
     pub min: [f32; 3],
     pub max: [f32; 3],
 }

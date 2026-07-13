@@ -30,6 +30,7 @@ protocol-render = { path = "../../protocol/protocol-render" }
 protocol-presentation = { path = "../../protocol/protocol-presentation" }
 protocol-diagnostics = { path = "../../protocol/protocol-diagnostics" }
 protocol-game-rules = { path = "../../protocol/protocol-game-rules" }
+protocol-game-extension = { path = "../../protocol/protocol-game-extension" }
 protocol-input = { path = "../../protocol/protocol-input" }
 protocol-time-control = { path = "../../protocol/protocol-time-control" }
 protocol-voxel-asset = { path = "../../protocol/protocol-voxel-asset" }
@@ -61,6 +62,7 @@ rule-voxel-edit = { path = "../../rules/rule-voxel-edit" }
 protocol-entity-authoring = { path = "../../protocol/protocol-entity-authoring" }
 game-rule-extension = { path = "../../rules/game-rule-extension" }
 rule-gameplay-fabric = { path = "../../rules/rule-gameplay-fabric" }
+gameplay-runtime-host = { path = "../../rules/gameplay-runtime-host" }
 rule-lifecycle = { path = "../../rules/rule-lifecycle" }
 rule-input = { path = "../../rules/rule-input" }
 svc-combat = { path = "../../services/svc-combat" }

@@ -7,10 +7,10 @@ import type { EncounterDirectorReadout, EncounterDirectorReadoutRequest, Encount
 import type { NavPathQueryRequest, NavPathReadout, NavPolicyViewReadout, NavProjectionReadout } from '@asha/runtime-session';
 import type { RuntimeActionIntentEnvelope } from '@asha/runtime-session';
 import { type RuntimeSessionAnimationIntentReadout } from './runtime-session-animation.js';
-import type { RuntimeSessionActionIntentReceipt, RuntimeSessionAutonomousPolicyTickInput, RuntimeSessionAutonomousPolicyTickReadout, RuntimeSessionCameraCollisionInputReceipt, RuntimeSessionCameraCreateReceipt, RuntimeSessionCameraInputReceipt, RuntimeSessionCameraProjectionReadout, RuntimeSessionCommandReceipt, RuntimeSessionCombatFeedbackProjectionRequest, RuntimeSessionCombatReadoutRequest, RuntimeSessionEcrpProjectLoadInput, RuntimeSessionEcrpProjectLoadReceipt, RuntimeSessionEcrpReadout, RuntimeSessionFacade, RuntimeSessionGeneratedTunnelOperationReceipt, RuntimeSessionGameRuleCatalogValidationReceipt, RuntimeSessionGameRuleEffectIntentReceipt, RuntimeSessionGameExtensionWeaponEffectReceipt, GameplayRuntimeHostAdvanceReceipt, GameplayRuntimeHostLoadInput, GameplayRuntimeHostLoadReceipt, GameplayRuntimeHostMoment, GameplayRuntimeHostReadout, GameplayRuntimeHostSnapshot, GameplayRuntimeHostTransport, RuntimeSessionInitializeInput, RuntimeSessionLifecycleRestartReceipt, RuntimeSessionLifecycleStatusReadout, RuntimeSessionLifecycleStatusRequest, RuntimeSessionProjectionSummary, RuntimeSessionRestartIntent, RuntimeSessionRestartResult, RuntimeSessionStateSummary, RuntimeSessionTelemetrySummary, RuntimeSessionTickInput, RuntimeSessionTickResult } from '@asha/runtime-session';
+import type { RuntimeSessionActionIntentReceipt, RuntimeSessionAutonomousPolicyTickInput, RuntimeSessionAutonomousPolicyTickReadout, RuntimeSessionCameraCollisionInputReceipt, RuntimeSessionCameraCreateReceipt, RuntimeSessionCameraInputReceipt, RuntimeSessionCameraProjectionReadout, RuntimeSessionCommandReceipt, RuntimeSessionCombatFeedbackProjectionRequest, RuntimeSessionCombatReadoutRequest, RuntimeSessionEcrpProjectLoadInput, RuntimeSessionEcrpProjectLoadReceipt, RuntimeSessionEcrpReadout, RuntimeSessionFacade, RuntimeSessionGeneratedTunnelOperationReceipt, RuntimeSessionGameRuleCatalogValidationReceipt, RuntimeSessionGameRuleEffectIntentReceipt, RuntimeSessionGameExtensionWeaponEffectReceipt, RuntimeSessionInitializeInput, RuntimeSessionLifecycleRestartReceipt, RuntimeSessionLifecycleStatusReadout, RuntimeSessionLifecycleStatusRequest, RuntimeSessionProjectionSummary, RuntimeSessionRestartIntent, RuntimeSessionRestartResult, RuntimeSessionStateSummary, RuntimeSessionTelemetrySummary, RuntimeSessionTickInput, RuntimeSessionTickResult } from '@asha/runtime-session';
 export declare class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     #private;
-    constructor(bridge: RuntimeBridge, gameplayHost?: GameplayRuntimeHostTransport);
+    constructor(bridge: RuntimeBridge);
     initialize(input: RuntimeSessionInitializeInput): RuntimeSessionStateSummary;
     configureInputSession(request: InputSessionConfigureRequest): InputSessionSnapshot;
     applyInputContextCommand(command: InputContextCommand): InputContextChangeReceipt;
@@ -72,11 +72,6 @@ export declare class RustBackedRuntimeSessionFacade implements RuntimeSessionFac
     undoVoxelEdit(request: VoxelEditHistoryUndoRequest): VoxelEditHistoryUndoReceipt;
     redoVoxelEdit(request: VoxelEditHistoryRedoRequest): VoxelEditHistoryRedoReceipt;
     readEcrpRuntimeReadout(): RuntimeSessionEcrpReadout;
-    loadGameplayRuntime(input: GameplayRuntimeHostLoadInput): GameplayRuntimeHostLoadReceipt;
-    advanceGameplayRuntime(moment: GameplayRuntimeHostMoment): GameplayRuntimeHostAdvanceReceipt;
-    readGameplayRuntime(): GameplayRuntimeHostReadout;
-    saveGameplayRuntime(): GameplayRuntimeHostSnapshot;
-    restoreGameplayRuntime(input: GameplayRuntimeHostLoadInput, snapshot: GameplayRuntimeHostSnapshot): GameplayRuntimeHostLoadReceipt;
     readCameraProjection(request: CameraProjectionRequest): RuntimeSessionCameraProjectionReadout;
     readAnimationIntent(): RuntimeSessionAnimationIntentReadout;
     readProjection(): RuntimeSessionProjectionSummary;

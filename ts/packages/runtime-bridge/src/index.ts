@@ -230,17 +230,3 @@ export {
   createRuntimeSessionFacade,
   type RuntimeSessionFacadeOptions,
 } from './runtime-session-adapter.js';
-export type {
-  GameplayRuntimeHostAdvanceReceipt,
-  GameplayRuntimeHostLoadInput,
-  GameplayRuntimeHostLoadReceipt,
-  GameplayRuntimeHostMoment,
-  GameplayRuntimeHostReadout,
-  GameplayRuntimeHostSnapshot,
-  GameplayRuntimeHostTransport,
-  GameplayRuntimeSchedulerCommand,
-  GameplayRuntimeSchedulerDefinition,
-  GameplayRuntimeSchedulerReadout,
-  GameplayRuntimeScheduledAction,
-  GameplayRuntimeScheduledDispatch,
-} from '@asha/runtime-session';

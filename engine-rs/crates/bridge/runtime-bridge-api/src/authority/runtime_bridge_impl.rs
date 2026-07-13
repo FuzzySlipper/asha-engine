@@ -154,6 +154,9 @@ impl RuntimeBridge for EngineBridge {
             attempted.pose,
             envelope.shape,
         )?;
+        let collision_identity = projection.identity(world);
+        let collision_projection_hash = collision_identity.projection_hash_label();
+        let collision_source_hash = collision_identity.source_hash_hex();
         let after = CameraSnapshot {
             tick: envelope.tick,
             pose: after_pose,
@@ -161,19 +164,42 @@ impl RuntimeBridge for EngineBridge {
             ..before
         };
         self.camera.cameras.insert(envelope.camera.raw(), after);
-        let controller = Self::sync_first_person_controller(&controller, after).map_err(|_| {
-            RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::InvalidInput,
-                "collision-constrained input requires firstPerson camera mode",
-            )
-        })?;
+        let accepted_controller =
+            Self::sync_first_person_controller(&controller, after).map_err(|_| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::InvalidInput,
+                    "collision-constrained input requires firstPerson camera mode",
+                )
+            })?;
         self.camera
             .camera_controllers
-            .insert(envelope.camera.raw(), controller);
+            .insert(envelope.camera.raw(), accepted_controller);
+        if self.has_static_gameplay_runtime() && self.gameplay.fps_session.is_some() {
+            let player = self
+                .fps_session("apply_collision_constrained_camera_input")?
+                .role_entity(FpsRuntimeRole::Player)
+                .map_err(Self::fps_runtime_error)?;
+            let entities_before = self.scene.entities.clone();
+            let gameplay_result = self.with_static_gameplay_runtime(
+                "apply_collision_constrained_camera_input.trigger_reconciliation",
+                |host| {
+                    host.set_actor_translation_and_reconcile(
+                        player,
+                        after.pose.position,
+                        envelope.tick,
+                    )
+                },
+            );
+            if let Err(error) = gameplay_result {
+                self.scene.entities = entities_before;
+                self.camera.cameras.insert(envelope.camera.raw(), before);
+                self.camera
+                    .camera_controllers
+                    .insert(envelope.camera.raw(), controller);
+                return Err(error);
+            }
+        }
         let (min, max) = Self::aabb_for_pose(after.pose, envelope.shape);
-        let collision_identity = projection.identity(world);
-        let collision_projection_hash = collision_identity.projection_hash_label();
-        let collision_source_hash = collision_identity.source_hash_hex();
         let correction = [
             after.pose.position[0] - attempted.pose.position[0],
             after.pose.position[1] - attempted.pose.position[1],
@@ -1105,26 +1131,14 @@ impl RuntimeBridge for EngineBridge {
         &mut self,
         request: FpsRuntimeSessionLoadRequest,
     ) -> BridgeResult<FpsRuntimeSessionSnapshot> {
-        self.require_initialized("load_fps_runtime_session")?;
-        let input = Self::convert_fps_load_request(&request)?;
-        let game_rule_modules = Self::verify_game_rule_modules(&request.game_rule_modules)?;
-        let loaded = load_fps_project_bundle(input).map_err(Self::fps_runtime_error)?;
-        // Commit only after the full authority bootstrap succeeds.
-        self.gameplay.fps_session = Some(loaded);
-        self.gameplay.fps_seed = Some(request);
-        self.gameplay.fps_epoch = self.gameplay.fps_epoch.saturating_add(1);
-        self.gameplay.game_rule_modules = game_rule_modules;
-        self.reset_presentation_projection();
-        Self::fps_snapshot(
-            self.gameplay.fps_session.as_ref().expect("just committed"),
-            self.gameplay.fps_epoch,
-        )
+        self.load_fps_runtime_session_authority(request)
     }
 
     fn read_fps_runtime_session(&self) -> BridgeResult<FpsRuntimeSessionSnapshot> {
         self.require_initialized("read_fps_runtime_session")?;
         Self::fps_snapshot(
             self.fps_session("read_fps_runtime_session")?,
+            &self.scene.entities,
             self.gameplay.fps_epoch,
         )
     }
@@ -1133,31 +1147,7 @@ impl RuntimeBridge for EngineBridge {
         &mut self,
         request: FpsPrimaryFireRequest,
     ) -> BridgeResult<FpsPrimaryFireResult> {
-        self.require_initialized("apply_fps_primary_fire")?;
-        let tick = request.tick;
-        let shooter_role = request
-            .shooter_role
-            .map(Self::fps_runtime_role)
-            .unwrap_or(FpsRuntimeRole::Player);
-        let target_role = request
-            .target_role
-            .map(Self::fps_runtime_role)
-            .unwrap_or(FpsRuntimeRole::Enemy);
-        let ray = Self::ray_from_primary_fire(request)?;
-        let world = self.voxel.voxel.as_ref().ok_or_else(|| {
-            RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::NotInitialized,
-                "apply_fps_primary_fire called before initialize_engine",
-            )
-        })?;
-        let projection = self.collision_projection(world);
-        let receipt = self
-            .fps_session_mut("apply_fps_primary_fire")?
-            .apply_primary_fire_for_roles(&projection, ray, tick, shooter_role, target_role, 0)
-            .map_err(Self::fps_runtime_error)?;
-        let result = Self::primary_fire_result(receipt);
-        self.project_primary_fire_feedback(request, &result)?;
-        Ok(result)
+        self.apply_fps_primary_fire_authority(request)
     }
 
     fn read_projection_frame(&self, cursor: u64) -> BridgeResult<RuntimeProjectionFrame> {
@@ -1277,17 +1267,33 @@ impl RuntimeBridge for EngineBridge {
             )
         })?;
         let projection = self.collision_projection(world);
-        let receipt = self
-            .fps_session_mut("invoke_game_extension_weapon_effect")?
-            .apply_primary_fire_for_roles(
-                &projection,
+        let fps_before = self
+            .fps_session("invoke_game_extension_weapon_effect")?
+            .clone();
+        let entities_before = self.scene.entities.clone();
+        let session = self.gameplay.fps_session.as_mut().ok_or_else(|| {
+            RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::NotInitialized,
+                "invoke_game_extension_weapon_effect called before load_fps_runtime_session",
+            )
+        })?;
+        let receipt = session
+            .apply_primary_fire_for_roles_with_entities(FpsPrimaryFireAuthorityInput {
+                entities: &mut self.scene.entities,
+                projection: &projection,
                 ray,
-                primary_fire.tick,
+                tick: primary_fire.tick,
                 shooter_role,
                 target_role,
                 damage_delta,
-            )
+            })
             .map_err(Self::fps_runtime_error)?;
+        let gameplay_events = receipt.gameplay_events.clone();
+        if let Err(error) = self.deliver_static_gameplay_owner_events(gameplay_events) {
+            self.gameplay.fps_session = Some(fps_before);
+            self.scene.entities = entities_before;
+            return Err(error);
+        }
         let primary_fire = Self::primary_fire_result(receipt);
         self.project_primary_fire_feedback(request.primary_fire, &primary_fire)?;
         let replay_evidence = Self::extension_replay_evidence(
@@ -1384,31 +1390,7 @@ impl RuntimeBridge for EngineBridge {
         &mut self,
         request: FpsRuntimeSessionRestartRequest,
     ) -> BridgeResult<FpsRuntimeSessionSnapshot> {
-        self.require_initialized("restart_fps_runtime_session")?;
-        if request.expected_epoch != self.gameplay.fps_epoch {
-            return Err(RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::InvalidInput,
-                format!(
-                    "restart expected epoch {} but current epoch is {}",
-                    request.expected_epoch, self.gameplay.fps_epoch
-                ),
-            ));
-        }
-        let seed = self.gameplay.fps_seed.clone().ok_or_else(|| {
-            RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::NotInitialized,
-                "restart_fps_runtime_session called before load_fps_runtime_session",
-            )
-        })?;
-        let input = Self::convert_fps_load_request(&seed)?;
-        let loaded = load_fps_project_bundle(input).map_err(Self::fps_runtime_error)?;
-        self.gameplay.fps_session = Some(loaded);
-        self.gameplay.fps_epoch = self.gameplay.fps_epoch.saturating_add(1);
-        self.reset_presentation_projection();
-        Self::fps_snapshot(
-            self.gameplay.fps_session.as_ref().expect("just restarted"),
-            self.gameplay.fps_epoch,
-        )
+        self.restart_fps_runtime_session_authority(request)
     }
 
     fn read_fps_encounter_director(
@@ -1426,15 +1408,7 @@ impl RuntimeBridge for EngineBridge {
         &mut self,
         request: FpsEncounterTransitionRequest,
     ) -> BridgeResult<FpsEncounterTransitionResult> {
-        self.require_initialized("apply_fps_encounter_transition")?;
-        let action = Self::encounter_action(&request.action)?;
-        let lifecycle = request.lifecycle;
-        let rule_lifecycle = Self::bridge_encounter_lifecycle(lifecycle.clone());
-        let receipt = self
-            .fps_session_mut("apply_fps_encounter_transition")?
-            .apply_encounter_transition(&request.preset_id, action, &rule_lifecycle)
-            .map_err(Self::fps_runtime_error)?;
-        Ok(Self::encounter_transition_result(receipt, lifecycle))
+        self.apply_fps_encounter_transition_authority(request)
     }
 
     fn step_simulation(&mut self, input: StepInputEnvelope) -> BridgeResult<StepResult> {
@@ -1480,14 +1454,38 @@ impl RuntimeBridge for EngineBridge {
         self.require_initialized("apply_enemy_direct_nav_movement")?;
         let entity = Self::enemy_entity_id(request.entity)?;
         if self.gameplay.fps_session.is_some() {
-            let receipt = self
-                .fps_session_mut("apply_enemy_direct_nav_movement")?
-                .apply_autonomous_enemy_direct_nav_movement(
+            let fps_before = self.fps_session("apply_enemy_direct_nav_movement")?.clone();
+            let entities_before = self.scene.entities.clone();
+            let session = self
+                .gameplay
+                .fps_session
+                .as_mut()
+                .expect("FPS session checked above");
+            let receipt = session
+                .apply_autonomous_enemy_direct_nav_movement_with_entities(
+                    &mut self.scene.entities,
                     entity,
                     request.target.to_array(),
                     request.max_step_units,
                 )
                 .map_err(Self::fps_runtime_error)?;
+            if self.has_static_gameplay_runtime() {
+                let tick = self.time.authority_tick;
+                let reconcile = self.with_static_gameplay_runtime(
+                    "apply_enemy_direct_nav_movement.trigger_reconciliation",
+                    |host| {
+                        host.reconcile_triggers(
+                            tick,
+                            gameplay_runtime_host::TriggerReconcileCause::Movement,
+                        )
+                    },
+                );
+                if let Err(error) = reconcile {
+                    self.gameplay.fps_session = Some(fps_before);
+                    self.scene.entities = entities_before;
+                    return Err(error);
+                }
+            }
             return Ok(EnemyDirectNavMovementResult {
                 entity: receipt.entity.raw(),
                 authority_source: EnemyDirectNavAuthoritySource::RustEntityStore,

@@ -10,7 +10,6 @@ export * from './facade-gameplay.js';
 export * from './facade-lifecycle.js';
 export * from './facade.js';
 export * from './generated-tunnel.js';
-export * from './gameplay-runtime-host.js';
 export * from './nav-readout.js';
 export * from './runtime-action.js';
 export * from './transport-contracts.js';

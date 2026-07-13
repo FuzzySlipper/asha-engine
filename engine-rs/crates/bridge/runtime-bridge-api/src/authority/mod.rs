@@ -134,11 +134,13 @@ struct BridgeCameraState {
     next_camera: u64,
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 struct BridgeGameplayState {
     fps_session: Option<FpsRuntimeSessionState>,
     fps_seed: Option<FpsRuntimeSessionLoadRequest>,
     fps_epoch: u64,
+    static_gameplay_host: Option<gameplay_runtime_host::GameplayRuntimeHost>,
+    static_gameplay_base_entities: Option<EntityStore>,
     game_rule_modules: BTreeMap<String, GameRuleModuleManifest>,
     game_rule_active_modifiers: Vec<GameRuleModifierState>,
     game_rule_recent_trace: Vec<GameRuleTraceEntry>,
@@ -165,7 +167,7 @@ struct BridgeReplayEvidenceState {
 /// Engine-owned RuntimeBridge authority state. Large payloads are owned by the
 /// [`RuntimeBufferProvider`]; the seed buffer is allocated as the first handle
 /// (`0`) so buffer verbs exercise the real provider rather than a bespoke `Vec`.
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct EngineBridge {
     bundle: BridgeBundleLifecycleState,
     input: BridgeInputState,
@@ -428,7 +430,9 @@ fn built_in_game_rule_declared_manifest() -> GameRuleModuleManifest {
 }
 
 mod camera;
+mod composition;
 mod fps_and_rules;
+mod fps_runtime_session;
 mod presentation_catalog;
 mod project_and_sources;
 mod runtime_bridge_impl;
@@ -437,6 +441,11 @@ mod voxel_assets;
 mod voxel_authoring;
 mod voxel_history;
 mod voxel_palette_limits;
+
+pub use composition::{
+    ComposedRuntimeSessionCheckpoint, ComposedRuntimeSessionReadout, StaticRuntimeSessionBuilder,
+    StaticRuntimeSessionCompositionError,
+};
 
 #[cfg(test)]
 mod game_extension_tests;

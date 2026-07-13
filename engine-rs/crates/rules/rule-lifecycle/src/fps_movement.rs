@@ -1,15 +1,15 @@
 use super::*;
 
 impl FpsRuntimeSessionState {
-    pub fn apply_autonomous_enemy_direct_nav_movement(
+    pub fn apply_autonomous_enemy_direct_nav_movement_with_entities(
         &mut self,
+        entities: &mut EntityStore,
         entity: EntityId,
         target: [f32; 3],
         max_step_units: f32,
     ) -> Result<FpsAutonomousMovementReceipt, FpsRuntimeError> {
         self.require_autonomous_enemy_movement(entity)?;
-        let current = self
-            .entities
+        let current = entities
             .transform(entity)
             .ok_or(FpsRuntimeError::RuleMutationRejected {
                 entity,
@@ -37,7 +37,7 @@ impl FpsRuntimeSessionState {
             scale: current.scale.to_array(),
         };
         let outcome = svc_entity_authoring::validate_and_apply_rule_owned(
-            &mut self.entities,
+            entities,
             EcrpRuleOwner::TransformRule,
             &EntityAuthoringCommand::SetTransform {
                 id: entity,
@@ -55,12 +55,11 @@ impl FpsRuntimeSessionState {
             }
         }
 
-        let transform = self
-            .entities
+        let transform = entities
             .transform(entity)
             .expect("accepted transform remains attached")
             .transform;
-        let entity_hash = self.entities.hash().0;
+        let entity_hash = entities.hash().0;
         let health_hash = self.combat.health_hash();
         let replay_hash = hash_autonomous_movement(entity, navigation.path_hash, entity_hash);
         self.replay_records.push(FpsReplayRecord {
@@ -99,6 +98,23 @@ impl FpsRuntimeSessionState {
             return Err(FpsRuntimeError::UnauthorizedAutonomousMovement { entity });
         }
         Ok(())
+    }
+}
+
+impl LoadedFpsRuntimeSession {
+    pub fn apply_autonomous_enemy_direct_nav_movement(
+        &mut self,
+        entity: EntityId,
+        target: [f32; 3],
+        max_step_units: f32,
+    ) -> Result<FpsAutonomousMovementReceipt, FpsRuntimeError> {
+        self.session
+            .apply_autonomous_enemy_direct_nav_movement_with_entities(
+                &mut self.entities,
+                entity,
+                target,
+                max_step_units,
+            )
     }
 }
 

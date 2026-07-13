@@ -190,13 +190,6 @@ import type {
   RuntimeSessionGameExtensionWeaponEffectReceipt,
   RuntimeSessionGameRuleCatalogValidationReceipt,
   RuntimeSessionGameRuleEffectIntentReceipt,
-  GameplayRuntimeHostAdvanceReceipt,
-  GameplayRuntimeHostLoadInput,
-  GameplayRuntimeHostLoadReceipt,
-  GameplayRuntimeHostMoment,
-  GameplayRuntimeHostReadout,
-  GameplayRuntimeHostSnapshot,
-  GameplayRuntimeHostTransport,
   RuntimeSessionGeneratedTunnelOperationReceipt,
   RuntimeSessionIdentity,
   RuntimeSessionInitializeInput,
@@ -219,13 +212,12 @@ import type {
 export interface RuntimeSessionFacadeOptions {
   readonly bridge: RuntimeBridge;
   readonly mode?: RuntimeSessionMode;
-  readonly gameplayHost?: GameplayRuntimeHostTransport;
 }
 export function createRuntimeSessionFacade(options: RuntimeSessionFacadeOptions): RuntimeSessionFacade {
   if (options.mode === 'reference') {
     return new ReferenceRuntimeSessionFacade(options.bridge);
   }
-  return new RustBackedRuntimeSessionFacade(options.bridge, options.gameplayHost);
+  return new RustBackedRuntimeSessionFacade(options.bridge);
 }
 
 class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
@@ -977,44 +969,6 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
       tick: this.#tick,
       sessionHash: this.#sessionHash(),
     });
-  }
-
-  loadGameplayRuntime(_input: GameplayRuntimeHostLoadInput): GameplayRuntimeHostLoadReceipt {
-    void _input;
-    return this.#unsupportedOperation(
-      'loadGameplayRuntime',
-      'Reference RuntimeSession cannot host statically linked Rust gameplay modules',
-    );
-  }
-  advanceGameplayRuntime(_moment: GameplayRuntimeHostMoment): GameplayRuntimeHostAdvanceReceipt {
-    void _moment;
-    return this.#unsupportedOperation(
-      'advanceGameplayRuntime',
-      'Reference RuntimeSession cannot execute Rust gameplay-module authority',
-    );
-  }
-  readGameplayRuntime(): GameplayRuntimeHostReadout {
-    return this.#unsupportedOperation(
-      'readGameplayRuntime',
-      'Reference RuntimeSession has no gameplay RuntimeSession host',
-    );
-  }
-  saveGameplayRuntime(): GameplayRuntimeHostSnapshot {
-    return this.#unsupportedOperation(
-      'saveGameplayRuntime',
-      'Reference RuntimeSession has no gameplay RuntimeSession host',
-    );
-  }
-  restoreGameplayRuntime(
-    _input: GameplayRuntimeHostLoadInput,
-    _snapshot: GameplayRuntimeHostSnapshot,
-  ): GameplayRuntimeHostLoadReceipt {
-    void _input;
-    void _snapshot;
-    return this.#unsupportedOperation(
-      'restoreGameplayRuntime',
-      'Reference RuntimeSession cannot restore Rust gameplay-module authority',
-    );
   }
 
   readCameraProjection(request: CameraProjectionRequest): RuntimeSessionCameraProjectionReadout {

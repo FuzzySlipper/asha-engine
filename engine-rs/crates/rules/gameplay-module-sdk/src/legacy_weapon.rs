@@ -17,7 +17,7 @@ impl<M> LegacyWeaponEffectTransformBehavior<M> {
     }
 }
 
-impl<M: GameRuleModule> GameplayModuleBehavior for LegacyWeaponEffectTransformBehavior<M> {
+impl<M: GameRuleModule + Send> GameplayModuleBehavior for LegacyWeaponEffectTransformBehavior<M> {
     fn invoke(
         &self,
         context: &GameplayModuleContext<'_>,

@@ -11,7 +11,6 @@ import { RuntimeSessionProgress } from './runtime-session-rust-progress.js';
 import { encounterReadoutFromFpsSnapshot, encounterTransitionResultForReceipt, fpsEncounterLifecycleInput, fpsEncounterStateToReadoutState, } from './runtime-session-rust-encounter.js';
 export class RustBackedRuntimeSessionFacade {
     #bridge;
-    #gameplayHost;
     #identity = null;
     #engine = null;
     #progress = new RuntimeSessionProgress();
@@ -19,9 +18,8 @@ export class RustBackedRuntimeSessionFacade {
     #ecrpProjectState = null;
     #runtimeTransforms = new Map();
     #replayRecords = [];
-    constructor(bridge, gameplayHost) {
+    constructor(bridge) {
         this.#bridge = bridge;
-        this.#gameplayHost = gameplayHost ?? null;
     }
     initialize(input) {
         validateInitializeInput(input);
@@ -762,26 +760,6 @@ export class RustBackedRuntimeSessionFacade {
             },
         });
     }
-    loadGameplayRuntime(input) {
-        this.#requireInitialized('loadGameplayRuntime');
-        return this.#requireGameplayHost('loadGameplayRuntime').load(input);
-    }
-    advanceGameplayRuntime(moment) {
-        this.#requireInitialized('advanceGameplayRuntime');
-        return this.#requireGameplayHost('advanceGameplayRuntime').advance(moment);
-    }
-    readGameplayRuntime() {
-        this.#requireInitialized('readGameplayRuntime');
-        return this.#requireGameplayHost('readGameplayRuntime').read();
-    }
-    saveGameplayRuntime() {
-        this.#requireInitialized('saveGameplayRuntime');
-        return this.#requireGameplayHost('saveGameplayRuntime').save();
-    }
-    restoreGameplayRuntime(input, snapshot) {
-        this.#requireInitialized('restoreGameplayRuntime');
-        return this.#requireGameplayHost('restoreGameplayRuntime').restore(input, snapshot);
-    }
     readCameraProjection(request) {
         this.#requireInitialized('readCameraProjection');
         const snapshot = this.#bridge.readCameraProjection(request);
@@ -936,12 +914,6 @@ export class RustBackedRuntimeSessionFacade {
             throw new RuntimeBridgeError('not_initialized', 'FPS RuntimeSession snapshot is unavailable before initialize');
         }
         return this.#snapshot;
-    }
-    #requireGameplayHost(operation) {
-        if (this.#gameplayHost === null) {
-            throw new RuntimeBridgeError('operation_unimplemented', `${operation} requires a statically linked public gameplay RuntimeSession host`);
-        }
-        return this.#gameplayHost;
     }
     #stateSummary(composition) {
         const identity = this.#requireInitialized('stateSummary');

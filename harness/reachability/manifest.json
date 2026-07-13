@@ -11,7 +11,7 @@
     {
       "id": "catalog.consumer-needs",
       "kind": "consumerNeeds",
-      "expectedCount": 38,
+      "expectedCount": 39,
       "proof": { "path": "harness/consumer-needs/validate.py", "token": "validate_manifest" }
     },
     {
@@ -23,7 +23,7 @@
     {
       "id": "catalog.rust-public-surfaces",
       "kind": "rustPublicSurfaces",
-      "expectedCount": 4,
+      "expectedCount": 5,
       "proof": { "path": "harness/public-surface/check-public-boundary.py", "token": "check_rust_manifest" }
     },
     {
@@ -270,19 +270,19 @@
       "delivery": { "path": "harness/fixtures/gameplay-module-sdk/downstream-module/src/lib.rs", "token": "approved_public_decision_host_resumes_exactly_once_with_declared_reads" }
     },
     {
-      "id": "gameplay.runtime-host.transport",
-      "kind": "runtimeOperation",
-      "protocol": { "path": "ts/packages/runtime-session/src/gameplay-runtime-host.ts", "symbol": "GameplayRuntimeHostTransport" },
-      "provider": { "path": "ts/packages/runtime-bridge/src/runtime-session-rust-facade.ts", "token": "advanceGameplayRuntime" },
+      "id": "gameplay.runtime-session-composition",
+      "kind": "gameplayRuntimeHost",
+      "protocol": { "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/composition.rs", "symbol": "ComposedRuntimeSessionReadout" },
+      "provider": { "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/composition.rs", "token": "pub struct StaticRuntimeSessionBuilder" },
       "fields": [
-        { "name": "actorMovement", "path": "ts/packages/runtime-session/src/gameplay-runtime-host.ts", "token": "kind: 'actorMovement'" },
-        { "name": "ownerEvent", "path": "ts/packages/runtime-session/src/gameplay-runtime-host.ts", "token": "kind: 'ownerEvent'" },
-        { "name": "prefabInteraction", "path": "ts/packages/runtime-session/src/gameplay-runtime-host.ts", "token": "kind: 'prefabInteraction'" },
-        { "name": "tick", "path": "ts/packages/runtime-session/src/gameplay-runtime-host.ts", "token": "kind: 'tick'" }
+        { "name": "entityAuthorityHash", "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/composition.rs", "token": "pub entity_authority_hash: String" },
+        { "name": "gameplay", "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/composition.rs", "token": "pub gameplay: GameplayRuntimeHostReadout" },
+        { "name": "runtimeSessionHash", "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/composition.rs", "token": "pub runtime_session_hash: String" }
       ],
-      "publicSurface": { "kind": "typescript", "identity": "@asha/runtime-session" },
-      "consumerNeed": "asha-demo.gameplay-runtime-host",
-      "delivery": { "path": "ts/packages/runtime-bridge/src/runtime-session-gameplay-host.test.ts", "token": "Rust-backed RuntimeSession consumes a consumer-owned static gameplay host" }
+      "bootstrapAdapter": { "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/composition.rs", "token": "pub fn build(mut self)" },
+      "publicSurface": { "kind": "rust", "identity": "asha-runtime-session-composition", "symbol": "StaticRuntimeSessionBuilder" },
+      "consumerNeed": "pulse.runtime-session-composition",
+      "delivery": { "path": "harness/fixtures/gameplay-module-sdk/downstream-module/src/lib.rs", "token": "public_static_builder_composes_one_bridge_cell_and_restores_it" }
     },
     {
       "id": "gameplay.trigger-lifecycle",

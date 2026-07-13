@@ -52,8 +52,11 @@ use svc_pathfinding::{
     DirectNavMovementRequest,
 };
 
+mod fps_loaded;
 mod fps_movement;
 pub mod lifecycle_primitives;
+
+pub use fps_loaded::{FpsPrimaryFireAuthorityInput, LoadedFpsRuntimeSession};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FpsRuntimeRole {
@@ -217,7 +220,6 @@ pub struct FpsEncounterTransitionReceipt {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FpsRuntimeSessionState {
-    pub entities: EntityStore,
     pub combat: CombatState,
     pub project_bundle: String,
     pub bootstrap: ProjectBundleEntityDefinitionBootstrapRecord,
@@ -252,10 +254,20 @@ pub const FPS_AUTONOMOUS_DIRECT_NAV_INTENT: &str = "runtime.intent.move_direct_n
 
 pub fn load_fps_project_bundle(
     input: FpsProjectBundleLoadInput,
+) -> Result<LoadedFpsRuntimeSession, FpsRuntimeError> {
+    let mut entities = EntityStore::new();
+    let session = load_fps_project_bundle_into(&mut entities, input)?;
+    Ok(LoadedFpsRuntimeSession { session, entities })
+}
+
+/// Bootstrap FPS rule state into a surrounding RuntimeSession authority store;
+/// atomic commit prevents parallel gameplay and FPS entity worlds.
+pub fn load_fps_project_bundle_into(
+    entities: &mut EntityStore,
+    input: FpsProjectBundleLoadInput,
 ) -> Result<FpsRuntimeSessionState, FpsRuntimeError> {
     validate_load_input(&input)?;
 
-    let mut entities = EntityStore::new();
     let request = ProjectBundleEntityDefinitionBootstrapRequest {
         project_bundle: input.project_bundle.clone(),
         entries: input
@@ -267,7 +279,7 @@ pub fn load_fps_project_bundle(
             })
             .collect(),
     };
-    let bootstrap = bootstrap_project_bundle_entity_definitions(&mut entities, &request)
+    let bootstrap = bootstrap_project_bundle_entity_definitions(entities, &request)
         .map_err(FpsRuntimeError::Bootstrap)?;
 
     let mut combat = CombatState::new();
@@ -284,7 +296,7 @@ pub fn load_fps_project_bundle(
             }
         }
         if let Some(render) = &entry.render_projection {
-            attach_render_projection(&mut entities, entry.entity, render.visible)?;
+            attach_render_projection(entities, entry.entity, render.visible)?;
             render_projection.insert(entry.entity, render.clone());
         }
         if matches!(entry.role, FpsRuntimeRole::Player | FpsRuntimeRole::Enemy) {
@@ -303,7 +315,6 @@ pub fn load_fps_project_bundle(
     };
 
     Ok(FpsRuntimeSessionState {
-        entities,
         combat,
         project_bundle: input.project_bundle,
         bootstrap,
@@ -317,8 +328,9 @@ pub fn load_fps_project_bundle(
 }
 
 impl FpsRuntimeSessionState {
-    pub fn apply_encounter_transition(
+    pub fn apply_encounter_transition_with_entities(
         &mut self,
+        entities: &EntityStore,
         preset_id: &str,
         action: FpsEncounterTransitionAction,
         lifecycle: &FpsEncounterLifecycleInput,
@@ -401,7 +413,7 @@ impl FpsRuntimeSessionState {
         if accepted {
             self.replay_records.push(FpsReplayRecord {
                 kind: event_kind.unwrap_or("runtime_session.fps.encounter_transition.v0"),
-                entity_hash: self.entities.hash().0,
+                entity_hash: entities.hash().0,
                 health_hash: self.combat.health_hash(),
                 record_hash: replay_hash,
             });
@@ -416,48 +428,19 @@ impl FpsRuntimeSessionState {
         })
     }
 
-    pub fn apply_primary_fire(
+    pub fn apply_primary_fire_for_roles_with_entities(
         &mut self,
-        projection: &CollisionProjection,
-        ray: Ray,
-        tick: u64,
+        input: FpsPrimaryFireAuthorityInput<'_>,
     ) -> Result<FpsPrimaryFireReceipt, FpsRuntimeError> {
-        self.apply_primary_fire_for_roles(
+        let FpsPrimaryFireAuthorityInput {
+            entities,
             projection,
             ray,
             tick,
-            FpsRuntimeRole::Player,
-            FpsRuntimeRole::Enemy,
-            0,
-        )
-    }
-
-    pub fn apply_primary_fire_with_damage_delta(
-        &mut self,
-        projection: &CollisionProjection,
-        ray: Ray,
-        tick: u64,
-        damage_delta: i64,
-    ) -> Result<FpsPrimaryFireReceipt, FpsRuntimeError> {
-        self.apply_primary_fire_for_roles(
-            projection,
-            ray,
-            tick,
-            FpsRuntimeRole::Player,
-            FpsRuntimeRole::Enemy,
+            shooter_role,
+            target_role,
             damage_delta,
-        )
-    }
-
-    pub fn apply_primary_fire_for_roles(
-        &mut self,
-        projection: &CollisionProjection,
-        ray: Ray,
-        tick: u64,
-        shooter_role: FpsRuntimeRole,
-        target_role: FpsRuntimeRole,
-        damage_delta: i64,
-    ) -> Result<FpsPrimaryFireReceipt, FpsRuntimeError> {
+        } = input;
         let shooter = self.role_entity(shooter_role)?;
         let target = self.role_entity(target_role)?;
         let shooter_definition = self
@@ -489,7 +472,7 @@ impl FpsRuntimeSessionState {
             target_before,
             tick,
         )?;
-        let combat_target = self.combat_target(target)?;
+        let combat_target = self.combat_target(entities, target)?;
         let combat_before = self.combat.clone();
         let combat = apply_fire_intent(
             &mut self.combat,
@@ -527,11 +510,11 @@ impl FpsRuntimeSessionState {
                 )
             })
         {
-            self.apply_enemy_defeated(target, tick)?;
+            self.apply_enemy_defeated(entities, target, tick)?;
         }
 
         let target_after = self.combat.health(target);
-        let entity_hash = self.entities.hash().0;
+        let entity_hash = entities.hash().0;
         let health_hash = self.combat.health_hash();
         let replay_hash = hash_primary_fire(shooter, target, tick, &combat, entity_hash);
         self.replay_records.push(FpsReplayRecord {
@@ -563,8 +546,12 @@ impl FpsRuntimeSessionState {
         self.combat.health(entity)
     }
 
-    pub fn entity_lifecycle(&self, entity: EntityId) -> Option<EntityLifecycle> {
-        self.entities.lifecycle(entity)
+    pub fn entity_lifecycle_with_entities(
+        &self,
+        entities: &EntityStore,
+        entity: EntityId,
+    ) -> Option<EntityLifecycle> {
+        entities.lifecycle(entity)
     }
 
     pub fn role_entity(&self, role: FpsRuntimeRole) -> Result<EntityId, FpsRuntimeError> {
@@ -575,9 +562,14 @@ impl FpsRuntimeSessionState {
         })
     }
 
-    fn apply_enemy_defeated(&mut self, entity: EntityId, tick: u64) -> Result<(), FpsRuntimeError> {
+    fn apply_enemy_defeated(
+        &mut self,
+        entities: &mut EntityStore,
+        entity: EntityId,
+        tick: u64,
+    ) -> Result<(), FpsRuntimeError> {
         let disable = svc_entity_authoring::validate_and_apply_rule_owned(
-            &mut self.entities,
+            entities,
             EcrpRuleOwner::LifecycleRule,
             &EntityAuthoringCommand::Disable { id: entity },
         );
@@ -594,13 +586,17 @@ impl FpsRuntimeSessionState {
 
         if let Some(render) = self.render_projection.get_mut(&entity) {
             render.visible = false;
-            attach_render_projection(&mut self.entities, entity, false)?;
+            attach_render_projection(entities, entity, false)?;
         }
         self.lifecycle_status = FpsLifecycleStatus::EnemyDefeated { entity, tick };
         Ok(())
     }
 
-    fn combat_target(&self, entity: EntityId) -> Result<CombatTarget, FpsRuntimeError> {
+    fn combat_target(
+        &self,
+        entities: &EntityStore,
+        entity: EntityId,
+    ) -> Result<CombatTarget, FpsRuntimeError> {
         let definition = self
             .definitions
             .get(&entity)
@@ -614,36 +610,21 @@ impl FpsRuntimeSessionState {
                 _ => None,
             })
             .ok_or(FpsRuntimeError::MissingEnemyBounds { entity })?;
-        let authored_translation = definition
-            .definition
-            .capabilities
-            .iter()
-            .find_map(|capability| match capability {
-                EntityDefinitionCapability::Transform { transform } => Some(transform.translation),
-                _ => None,
-            })
-            .unwrap_or([0.0, 0.0, 0.0]);
-        let runtime_translation = self
-            .entities
+        let runtime_translation = entities
             .transform(entity)
             .map(|capability| capability.transform.translation.to_array())
-            .unwrap_or(authored_translation);
-        let translation_delta = [
-            (runtime_translation[0] - authored_translation[0]) as f64,
-            (runtime_translation[1] - authored_translation[1]) as f64,
-            (runtime_translation[2] - authored_translation[2]) as f64,
-        ];
+            .unwrap_or([0.0, 0.0, 0.0]);
         Ok(CombatTarget {
             entity,
             min: WorldPos::new(
-                bounds.0[0] as f64 + translation_delta[0],
-                bounds.0[1] as f64 + translation_delta[1],
-                bounds.0[2] as f64 + translation_delta[2],
+                bounds.0[0] as f64 + runtime_translation[0] as f64,
+                bounds.0[1] as f64 + runtime_translation[1] as f64,
+                bounds.0[2] as f64 + runtime_translation[2] as f64,
             ),
             max: WorldPos::new(
-                bounds.1[0] as f64 + translation_delta[0],
-                bounds.1[1] as f64 + translation_delta[1],
-                bounds.1[2] as f64 + translation_delta[2],
+                bounds.1[0] as f64 + runtime_translation[0] as f64,
+                bounds.1[1] as f64 + runtime_translation[1] as f64,
+                bounds.1[2] as f64 + runtime_translation[2] as f64,
             ),
         })
     }
@@ -1102,7 +1083,7 @@ mod tests {
         }
     }
 
-    fn load_custom_session() -> FpsRuntimeSessionState {
+    fn load_custom_session() -> LoadedFpsRuntimeSession {
         load_fps_project_bundle(custom_load_input()).expect("load session")
     }
 

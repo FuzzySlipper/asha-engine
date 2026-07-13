@@ -7,13 +7,15 @@
         "asha-game-rule-extension",
         "asha-gameplay-module-conformance",
         "asha-gameplay-module-sdk",
-        "asha-gameplay-runtime-host"
+        "asha-gameplay-runtime-host",
+        "asha-runtime-session-composition"
       ],
       "approvedDependencyPaths": [
         "../asha-engine/public-rust/game-rule-extension",
         "../asha-engine/public-rust/gameplay-module-conformance",
         "../asha-engine/public-rust/gameplay-module-sdk",
-        "../asha-engine/public-rust/gameplay-runtime-host"
+        "../asha-engine/public-rust/gameplay-runtime-host",
+        "../asha-engine/public-rust/runtime-session-composition"
       ],
       "forbiddenPathPatterns": [
         "engine-rs/crates/*"
@@ -24,12 +26,14 @@
       "approvedCrates": [
         "asha-gameplay-module-conformance",
         "asha-gameplay-module-sdk",
-        "asha-gameplay-runtime-host"
+        "asha-gameplay-runtime-host",
+        "asha-runtime-session-composition"
       ],
       "approvedDependencyPaths": [
         "../asha-engine/public-rust/gameplay-module-conformance",
         "../asha-engine/public-rust/gameplay-module-sdk",
-        "../asha-engine/public-rust/gameplay-runtime-host"
+        "../asha-engine/public-rust/gameplay-runtime-host",
+        "../asha-engine/public-rust/runtime-session-composition"
       ],
       "forbiddenPathPatterns": [
         "engine-rs/crates/*"
@@ -40,12 +44,14 @@
       "approvedCrates": [
         "asha-gameplay-module-conformance",
         "asha-gameplay-module-sdk",
-        "asha-gameplay-runtime-host"
+        "asha-gameplay-runtime-host",
+        "asha-runtime-session-composition"
       ],
       "approvedDependencyPaths": [
         "../asha-engine/public-rust/gameplay-module-conformance",
         "../asha-engine/public-rust/gameplay-module-sdk",
-        "../asha-engine/public-rust/gameplay-runtime-host"
+        "../asha-engine/public-rust/gameplay-runtime-host",
+        "../asha-engine/public-rust/runtime-session-composition"
       ],
       "forbiddenPathPatterns": [
         "engine-rs/crates/*"
@@ -214,6 +220,39 @@
         "GameplaySchedulerCommand"
       ],
       "changelog": "docs/consumer-compatibility.md#rust-gameplay-runtime-host-compatibility-log"
+    },
+    {
+      "crate": "asha-runtime-session-composition",
+      "status": "public",
+      "facadePath": "public-rust/runtime-session-composition",
+      "sourceOfTruth": "engine-rs/crates/bridge/runtime-bridge-api",
+      "intendedConsumerRole": "Public builder for one native RuntimeSession authority cell containing the bounded RuntimeBridge root and statically linked gameplay modules.",
+      "allowedConsumerRoles": [
+        "asha-demo",
+        "asha-testing",
+        "asha-rulebench"
+      ],
+      "dependencyForm": {
+        "kind": "path",
+        "example": "asha-runtime-session-composition = { path = \"../asha-engine/public-rust/runtime-session-composition\" }"
+      },
+      "exposes": [
+        "StaticRuntimeSessionBuilder",
+        "StaticRuntimeSessionCompositionError",
+        "ComposedRuntimeSessionCheckpoint",
+        "ComposedRuntimeSessionReadout",
+        "EngineBridge",
+        "GameplayRuntimeProjectInput",
+        "RuntimeBridge",
+        "Vec3"
+      ],
+      "requiredExposes": [
+        "StaticRuntimeSessionBuilder",
+        "ComposedRuntimeSessionCheckpoint",
+        "ComposedRuntimeSessionReadout",
+        "RuntimeBridge"
+      ],
+      "changelog": "docs/consumer-compatibility.md#rust-runtime-session-composition-compatibility-log"
     }
   ]
 }

@@ -31,7 +31,7 @@ pub(crate) use core_entity::{
 };
 pub(crate) use core_error::ErrorCategory;
 pub(crate) use core_ids::{EntityId, SceneId, SceneNodeId};
-pub(crate) use core_math::Vec3;
+pub use core_math::Vec3;
 pub(crate) use core_space::{
     ChunkCoord, ChunkDims, Direction6, Face, GridId, VoxelCoord, VoxelGridSpec, WorldPos, WorldVec,
 };
@@ -175,12 +175,12 @@ pub(crate) use render_particle::{ParticleProjectionLimits, ParticleProjector};
 pub(crate) use render_telemetry_overlay::TelemetryOverlayProjector;
 pub(crate) use rule_input::InputSessionResolver;
 pub(crate) use rule_lifecycle::{
-    load_fps_project_bundle, FpsEncounterLastTransition,
+    load_fps_project_bundle_into, FpsEncounterLastTransition,
     FpsEncounterLifecycleInput as RuleFpsEncounterLifecycleInput, FpsEncounterState,
     FpsEncounterStatus, FpsEncounterTransitionAction, FpsEncounterTransitionReceipt,
-    FpsLifecycleStatus, FpsPolicyBinding, FpsPrimaryFireReceipt, FpsProjectBundleLoadInput,
-    FpsRenderProjectionState, FpsRuntimeError, FpsRuntimeRole, FpsRuntimeSessionState,
-    FpsStoredEntityDefinition, FpsWeaponMount,
+    FpsLifecycleStatus, FpsPolicyBinding, FpsPrimaryFireAuthorityInput, FpsPrimaryFireReceipt,
+    FpsProjectBundleLoadInput, FpsRenderProjectionState, FpsRuntimeError, FpsRuntimeRole,
+    FpsRuntimeSessionState, FpsStoredEntityDefinition, FpsWeaponMount,
 };
 pub use rule_voxel_edit::VoxelEditRejection;
 pub(crate) use sim_runner::{SimulationAuthority, TimeController};
@@ -204,6 +204,10 @@ mod handles;
 mod payloads;
 
 pub use authority::EngineBridge;
+pub use authority::{
+    ComposedRuntimeSessionCheckpoint, ComposedRuntimeSessionReadout, StaticRuntimeSessionBuilder,
+    StaticRuntimeSessionCompositionError,
+};
 pub use bridge::RuntimeBridge;
 pub use buffer_provider::{
     fixtures, BufferKind, BufferLifetime, BufferMetadata, RuntimeBufferProvider,

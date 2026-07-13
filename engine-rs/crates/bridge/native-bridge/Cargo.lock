@@ -260,6 +260,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "gameplay-module-sdk"
+version = "0.1.0"
+dependencies = [
+ "core-ids",
+ "core-time",
+ "game-rule-extension",
+ "protocol-game-extension",
+ "rule-gameplay-fabric",
+ "serde",
+ "serde_json",
+ "svc-gameplay-fabric",
+ "svc-rng",
+]
+
+[[package]]
+name = "gameplay-runtime-host"
+version = "0.1.0"
+dependencies = [
+ "core-entity",
+ "core-ids",
+ "core-math",
+ "gameplay-module-sdk",
+ "protocol-entity-authoring",
+ "protocol-game-extension",
+ "protocol-project-bundle",
+ "rule-gameplay-fabric",
+ "rule-project-bundle",
+ "rule-scheduler",
+ "rule-trigger-volume",
+ "serde",
+ "serde_json",
+ "svc-entity-authoring",
+ "svc-gameplay-fabric",
+ "svc-serialization",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -871,6 +908,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "rule-project-bundle"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "core-entity",
+ "core-events",
+ "core-ids",
+ "core-math",
+ "core-scene",
+ "core-space",
+ "core-voxel",
+ "gameplay-module-sdk",
+ "protocol-game-extension",
+ "protocol-voxel-annotation",
+ "rule-gameplay-fabric",
+ "rule-trigger-volume",
+ "rule-voxel-edit",
+ "serde",
+ "serde_json",
+ "svc-gameplay-fabric",
+ "svc-serialization",
+ "svc-spatial",
+ "svc-volume",
+ "svc-voxel-annotation",
+]
+
+[[package]]
+name = "rule-scheduler"
+version = "0.1.0"
+dependencies = [
+ "core-space",
+ "protocol-game-extension",
+ "rule-gameplay-fabric",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "rule-state-machine"
 version = "0.1.0"
 dependencies = [
@@ -917,9 +992,11 @@ dependencies = [
  "core-space",
  "core-voxel",
  "game-rule-extension",
+ "gameplay-runtime-host",
  "protocol-assets",
  "protocol-diagnostics",
  "protocol-entity-authoring",
+ "protocol-game-extension",
  "protocol-game-rules",
  "protocol-input",
  "protocol-presentation",

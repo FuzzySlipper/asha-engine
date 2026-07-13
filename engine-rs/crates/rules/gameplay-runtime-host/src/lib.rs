@@ -220,6 +220,34 @@ pub struct GameplayRuntimeHost {
 }
 
 impl GameplayRuntimeHost {
+    /// Transfer the live entity authority into a surrounding composed
+    /// RuntimeSession cell. This integration seam is intentionally ownership
+    /// based: no clone or mutable handle can create a shadow authority store.
+    #[doc(hidden)]
+    pub fn take_entity_authority(&mut self) -> Result<EntityStore, GameplayRuntimeHostError> {
+        self.session
+            .bundle
+            .runtime_entities
+            .take()
+            .ok_or(GameplayRuntimeHostError::MissingEntityAuthority)
+    }
+
+    /// Return the composed cell's sole entity authority for one in-process
+    /// gameplay operation. A host may never retain a second store.
+    #[doc(hidden)]
+    pub fn install_entity_authority(
+        &mut self,
+        entities: EntityStore,
+    ) -> Result<(), GameplayRuntimeHostError> {
+        if self.session.bundle.runtime_entities.is_some() {
+            return Err(GameplayRuntimeHostError::Snapshot(
+                "gameplay host already has entity authority installed".to_owned(),
+            ));
+        }
+        self.session.bundle.runtime_entities = Some(entities);
+        Ok(())
+    }
+
     pub fn activate_project(
         input: GameplayRuntimeProjectInput,
     ) -> Result<Self, GameplayRuntimeHostError> {
@@ -414,6 +442,16 @@ impl GameplayRuntimeHost {
         self.observe_with_source_facts(event, Vec::new())
     }
 
+    /// Deliver one authoritative owner-emitted batch as a single root cascade.
+    /// This is the in-process composition seam used by engine rules: TypeScript
+    /// never fabricates, orders, or ferries the semantic events.
+    pub fn observe_owner_events(
+        &mut self,
+        events: Vec<GameplayEventEnvelope>,
+    ) -> Result<GameplayRuntimeReactionReceipt, GameplayRuntimeHostError> {
+        self.observe_routed_events_with_source_facts(events, Vec::new())
+    }
+
     pub fn tick(
         &mut self,
         tick: u64,
@@ -438,6 +476,11 @@ impl GameplayRuntimeHost {
         moment: GameplayDecisionMoment,
         owner: &mut dyn GameplayRuntimeDecisionOwner,
     ) -> GameplayDecisionReceipt {
+        let records_receipt = moment.resume_token.is_none()
+            || self
+                .decision_continuations
+                .pending(&moment.decision_id)
+                .is_some();
         let entities = self
             .session
             .bundle
@@ -463,10 +506,12 @@ impl GameplayRuntimeHost {
             self.session.invocation_host(),
             &mut RuntimeSessionDecisionOwner { owner },
         );
-        if self.decision_receipts.len() == MAX_DECISION_RECEIPTS {
-            self.decision_receipts.remove(0);
+        if records_receipt {
+            if self.decision_receipts.len() == MAX_DECISION_RECEIPTS {
+                self.decision_receipts.remove(0);
+            }
+            self.decision_receipts.push(receipt.clone());
         }
-        self.decision_receipts.push(receipt.clone());
         receipt
     }
 
@@ -2160,10 +2205,14 @@ mod tests {
         let mut replayed = decision_moment("decision-1", 0);
         replayed.workspace = continuation.workspace;
         replayed.resume_token = Some(continuation.token);
+        let before_replay = restored.readout();
+        let frames_before_replay = restored.reaction_frames().to_vec();
         let replayed_receipt = restored.decide(replayed, &mut owner);
         assert_eq!(replayed_receipt.status, GameplayDecisionStatus::Failed);
         assert!(replayed_receipt.invocations.is_empty());
         assert_eq!(owner.committed_payloads.len(), 1);
+        assert_eq!(restored.readout(), before_replay);
+        assert_eq!(restored.reaction_frames(), frames_before_replay);
 
         let suspended_stale = restored.decide(decision_moment("decision-2", 1), &mut owner);
         let stale_continuation = suspended_stale.continuation.expect("stale continuation");

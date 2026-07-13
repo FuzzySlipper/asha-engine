@@ -52,6 +52,16 @@ impl EngineBridge {
     pub(super) fn unload_project_bundle_authority(&mut self) -> BridgeResult<()> {
         self.bundle.loaded_project_bundle = None;
         self.input.input_session = None;
+        self.scene.entities = EntityStore::new();
+        self.gameplay.fps_session = None;
+        self.gameplay.fps_seed = None;
+        self.gameplay.fps_epoch = 0;
+        self.gameplay.static_gameplay_host = None;
+        self.gameplay.static_gameplay_base_entities = None;
+        self.gameplay.game_rule_modules.clear();
+        self.gameplay.game_rule_active_modifiers.clear();
+        self.gameplay.game_rule_recent_trace.clear();
+        self.evidence.game_rule_recent_replay_hashes.clear();
         Ok(())
     }
 

@@ -5,7 +5,7 @@ use protocol_project_bundle::PrefabPartReference;
 use rule_gameplay_fabric::*;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::rc::Rc;
+use std::sync::Arc;
 use svc_gameplay_fabric::*;
 use svc_serialization::{
     PrefabDefinition, PrefabPart, PrefabPartRoleBinding, PrefabPartSource, PrefabRegistry,
@@ -568,7 +568,7 @@ fn fixture() -> Fixture {
 
 fn state_store(_registry: &GameplayFabricRegistry) -> GameplayModuleStateStore {
     let mut state = GameplayModuleStateStore::new(
-        Rc::new(registry()),
+        Arc::new(registry()),
         vec![GameplayModuleStateRegistration::typed(CounterAdapter)],
     )
     .unwrap();

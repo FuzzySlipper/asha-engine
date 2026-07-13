@@ -17,5 +17,4 @@ export * from './native-runtime-provider.js';
 export * from './playable-encounter-tick.js';
 export * from './playable-loop-state.js';
 export { createRuntimeSessionFacade, type RuntimeSessionFacadeOptions, } from './runtime-session-adapter.js';
-export type { GameplayRuntimeHostAdvanceReceipt, GameplayRuntimeHostLoadInput, GameplayRuntimeHostLoadReceipt, GameplayRuntimeHostMoment, GameplayRuntimeHostReadout, GameplayRuntimeHostSnapshot, GameplayRuntimeHostTransport, GameplayRuntimeSchedulerCommand, GameplayRuntimeSchedulerDefinition, GameplayRuntimeSchedulerReadout, GameplayRuntimeScheduledAction, GameplayRuntimeScheduledDispatch, } from '@asha/runtime-session';
 //# sourceMappingURL=index.d.ts.map

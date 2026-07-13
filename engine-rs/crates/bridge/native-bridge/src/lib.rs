@@ -96,7 +96,7 @@ pub use voxel_assets::{
 pub use voxel_readout::{pick_voxel, read_voxel_mesh_evidence, select_voxel};
 pub use voxel_rejections::NativeCommandResult;
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 struct NativeSessions {
     next_handle: u64,
     bridges: BTreeMap<u64, EngineBridge>,
