@@ -438,7 +438,7 @@ function normalizeComposedRuntimeSessionReadout(
     schemaVersion: u32(value.schemaVersion, 'schemaVersion'),
     entityAuthorityHash: hashString(value.entityAuthorityHash, 'entityAuthorityHash'),
     fpsSessionEpoch: nonNegativeSafeInteger(value.fpsSessionEpoch, 'fpsSessionEpoch'),
-    fpsReplayHash: value.fpsReplayHash === null
+    fpsReplayHash: value.fpsReplayHash == null
       ? null
       : hashString(value.fpsReplayHash, 'fpsReplayHash'),
     runtimeSessionHash: hashString(value.runtimeSessionHash, 'runtimeSessionHash'),
@@ -468,7 +468,7 @@ function normalizeComposedRuntimeSessionReadout(
       ),
       activeOverlapCount: u32(value.gameplay.activeOverlapCount, 'gameplay.activeOverlapCount'),
       reactionFrameCount: u32(value.gameplay.reactionFrameCount, 'gameplay.reactionFrameCount'),
-      lastReactionFrameHash: value.gameplay.lastReactionFrameHash === null
+      lastReactionFrameHash: value.gameplay.lastReactionFrameHash == null
         ? null
         : hashString(value.gameplay.lastReactionFrameHash, 'gameplay.lastReactionFrameHash'),
       decisionReceiptCount: u32(
@@ -479,7 +479,7 @@ function normalizeComposedRuntimeSessionReadout(
         value.gameplay.pendingDecisionCount,
         'gameplay.pendingDecisionCount',
       ),
-      lastDecisionReceiptHash: value.gameplay.lastDecisionReceiptHash === null
+      lastDecisionReceiptHash: value.gameplay.lastDecisionReceiptHash == null
         ? null
         : hashString(value.gameplay.lastDecisionReceiptHash, 'gameplay.lastDecisionReceiptHash'),
       schedulerStateHash: hashString(

@@ -48,6 +48,28 @@ void test('native facade routes composed evidence views and prefab interaction',
   ]);
 });
 
+void test('native facade canonicalizes omitted napi Option hashes as null', () => {
+  const calls: string[] = [];
+  const addon = composedAddon(calls);
+  const readComposed = addon.readComposedRuntimeSession;
+  addon.readComposedRuntimeSession = (handle) => {
+    const value = readComposed(handle);
+    const gameplay = { ...value.gameplay } as Record<string, unknown>;
+    delete gameplay['lastReactionFrameHash'];
+    delete gameplay['lastDecisionReceiptHash'];
+    const omitted = { ...value, gameplay } as Record<string, unknown>;
+    delete omitted['fpsReplayHash'];
+    return omitted as unknown as ReturnType<typeof readComposed>;
+  };
+  const bridge = new NativeRuntimeBridge(addon);
+  bridge.initializeEngine({ seed: 1 });
+
+  const readout = bridge.readComposedRuntimeSession();
+  assert.equal(readout.fpsReplayHash, null);
+  assert.equal(readout.gameplay.lastReactionFrameHash, null);
+  assert.equal(readout.gameplay.lastDecisionReceiptHash, null);
+});
+
 void test('composed gameplay requests and native identities fail closed', () => {
   const calls: string[] = [];
   const addon = composedAddon(calls);
