@@ -59,6 +59,19 @@
       }
     },
     {
+      "id": "pulse.native-runtime-provider",
+      "kind": "rustCrate",
+      "identity": "asha-native-runtime-provider",
+      "symbols": ["install_native_engine_bridge_factory", "native_provider_module_init"],
+      "requiredLevel": "delivery",
+      "evidence": {
+        "type": ["public-rust/native-runtime-provider/src/lib.rs"],
+        "provider": ["harness/public-surface/rust-crates.json"],
+        "selector": ["harness/fixtures/composed-native-provider/Cargo.toml"],
+        "delivery": ["harness/fixtures/composed-native-provider/smoke.mjs", "harness/fixtures/composed-native-provider/src/lib.rs"]
+      }
+    },
+    {
       "id": "pulse.module",
       "kind": "gameplayModule",
       "identity": "fixture.pulse.module",

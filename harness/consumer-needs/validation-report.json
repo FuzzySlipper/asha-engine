@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "valid": true,
   "manifestCount": 2,
-  "requirementCount": 39,
+  "requirementCount": 40,
   "manifests": [
     {
       "manifest": "harness/consumer-needs/manifests/asha-demo.json",
@@ -13,10 +13,10 @@
     },
     {
       "manifest": "harness/consumer-needs/manifests/gameplay-module-fixture.json",
-      "manifestHash": "sha256:f96f81e8859d4656bd441e4753a8a39dd72fa65a6e29637286f0bf337893b6bc",
+      "manifestHash": "sha256:eba9b1d8bb9b5dc2845301f94945832df4f96806fccc0087512dead59112fa64",
       "consumerId": "gameplay-module-sdk.pulse-fixture",
       "consumerRole": "asha-testing",
-      "requirementCount": 12
+      "requirementCount": 13
     }
   ],
   "surfaceUsage": [
@@ -190,6 +190,12 @@
     },
     {
       "consumerId": "gameplay-module-sdk.pulse-fixture",
+      "requirement": "pulse.native-runtime-provider",
+      "surface": "asha-native-runtime-provider",
+      "disposition": "preferred"
+    },
+    {
+      "consumerId": "gameplay-module-sdk.pulse-fixture",
       "requirement": "pulse.public-sdk",
       "surface": "asha-gameplay-module-sdk",
       "disposition": "preferred"
@@ -208,13 +214,13 @@
     }
   ],
   "gaps": [],
-  "identityCatalogHash": "sha256:5c19f709979b0aa6b4e995fd58a719a849f69e459f40db92a8f1b2c6dfa26419",
+  "identityCatalogHash": "sha256:e67b07a5fadcadd2d4d46871f4c04dcc07d058cb71b5b4a2ccbb99d1f9bb4906",
   "semanticValidation": {
     "runner": "harness/fixtures/gameplay-module-sdk/downstream-module/src/bin/conformance.rs",
     "valid": true,
-    "consumerNeedsManifestHash": "fnv1a64:d9db1ebdb1c2daf8",
-    "registryDigest": "fnv1a64:153b7b52a4ee1769",
-    "bindingRegistryHash": "fnv1a64:84d16603e2307058",
+    "consumerNeedsManifestHash": "fnv1a64:0695f007e3d82758",
+    "registryDigest": "fnv1a64:9f955823fc93ff2f",
+    "bindingRegistryHash": "fnv1a64:c7cf6560dcceb67e",
     "checks": [
       {
         "id": "consumerNeed.pulse.configuration",

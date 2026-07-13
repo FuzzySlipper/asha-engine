@@ -6,6 +6,7 @@
       "preferredCrates": [
         "asha-gameplay-module-conformance",
         "asha-gameplay-module-sdk",
+        "asha-native-runtime-provider",
         "asha-runtime-session-composition"
       ],
       "quarantinedCrates": [
@@ -15,6 +16,7 @@
       "preferredDependencyPaths": [
         "../asha-engine/public-rust/gameplay-module-conformance",
         "../asha-engine/public-rust/gameplay-module-sdk",
+        "../asha-engine/public-rust/native-runtime-provider",
         "../asha-engine/public-rust/runtime-session-composition"
       ],
       "quarantinedDependencyPaths": [
@@ -30,6 +32,7 @@
       "preferredCrates": [
         "asha-gameplay-module-conformance",
         "asha-gameplay-module-sdk",
+        "asha-native-runtime-provider",
         "asha-runtime-session-composition"
       ],
       "quarantinedCrates": [
@@ -38,6 +41,7 @@
       "preferredDependencyPaths": [
         "../asha-engine/public-rust/gameplay-module-conformance",
         "../asha-engine/public-rust/gameplay-module-sdk",
+        "../asha-engine/public-rust/native-runtime-provider",
         "../asha-engine/public-rust/runtime-session-composition"
       ],
       "quarantinedDependencyPaths": [
@@ -52,6 +56,7 @@
       "preferredCrates": [
         "asha-gameplay-module-conformance",
         "asha-gameplay-module-sdk",
+        "asha-native-runtime-provider",
         "asha-runtime-session-composition"
       ],
       "quarantinedCrates": [
@@ -60,6 +65,7 @@
       "preferredDependencyPaths": [
         "../asha-engine/public-rust/gameplay-module-conformance",
         "../asha-engine/public-rust/gameplay-module-sdk",
+        "../asha-engine/public-rust/native-runtime-provider",
         "../asha-engine/public-rust/runtime-session-composition"
       ],
       "quarantinedDependencyPaths": [
@@ -274,6 +280,33 @@
         "RuntimeBridge"
       ],
       "changelog": "docs/consumer-compatibility.md#rust-runtime-session-composition-compatibility-log"
+    },
+    {
+      "crate": "asha-native-runtime-provider",
+      "status": "public",
+      "disposition": "preferred",
+      "facadePath": "public-rust/native-runtime-provider",
+      "sourceOfTruth": "engine-rs/crates/bridge/native-bridge",
+      "intendedConsumerRole": "Links one downstream static RuntimeSession composition into the generated N-API operation table without copying transport verbs.",
+      "allowedConsumerRoles": [
+        "asha-demo",
+        "asha-testing",
+        "asha-rulebench"
+      ],
+      "dependencyForm": {
+        "kind": "path",
+        "example": "asha-native-runtime-provider = { path = \"../asha-engine/public-rust/native-runtime-provider\" }"
+      },
+      "exposes": [
+        "install_native_engine_bridge_factory",
+        "native_provider_module_init",
+        "NativeEngineBridgeFactory"
+      ],
+      "requiredExposes": [
+        "install_native_engine_bridge_factory",
+        "native_provider_module_init"
+      ],
+      "changelog": "docs/consumer-compatibility.md#rust-native-runtime-provider-compatibility-log"
     }
   ]
 }

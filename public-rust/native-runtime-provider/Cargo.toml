@@ -1,0 +1,17 @@
+[package]
+name = "asha-native-runtime-provider"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[package.metadata.asha.public-surface]
+status = "public"
+disposition = "preferred"
+role = "downstream-native-addon-provider"
+source-of-truth = "engine-rs/crates/bridge/native-bridge"
+allowed-consumer-roles = ["asha-demo", "asha-testing", "asha-rulebench"]
+
+[dependencies]
+native-bridge = { path = "../../engine-rs/crates/bridge/native-bridge" }
+
+[workspace]

@@ -50,6 +50,11 @@
       "executionId": "rust.downstream-gameplay-module"
     },
     {
+      "id": "gameplay.native-provider",
+      "executionClass": "nativeTransport",
+      "executionId": "gate.composed-native-provider"
+    },
+    {
       "id": "gameplay.reads",
       "executionClass": "compiledRustAuthority",
       "executionId": "rust.gameplay-fabric.reads"
@@ -183,6 +188,31 @@
       "claims": [
         "actualModuleInvocation",
         "eventIdentity"
+      ]
+    },
+    {
+      "id": "gameplay.native-runtime-provider",
+      "suite": "gameplay.native-provider",
+      "evidence": [
+        {
+          "assertionId": "assertion.gameplay.native-runtime-provider.composed-addon-retains-generated-exports-and-runs-primary-fire-transform",
+          "artifactId": "evidence.gameplay.native-runtime-provider.composed-addon-retains-generated-exports-and-runs-primary-fire-transform",
+          "path": "harness/fixtures/composed-native-provider/smoke.mjs",
+          "token": "assert.equal(fired.targetHealthAfter.current, 0)"
+        }
+      ],
+      "capabilities": [
+        "gameplay.native-runtime-provider"
+      ],
+      "consumerNeeds": [
+        "pulse.native-runtime-provider"
+      ],
+      "publicSurfaces": [
+        "asha-native-runtime-provider"
+      ],
+      "claims": [
+        "actualModuleInvocation",
+        "typedViewDelivery"
       ]
     },
     {

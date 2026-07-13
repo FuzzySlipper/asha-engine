@@ -423,6 +423,22 @@ Status: task #5749 preferred public Rust provider boundary.
 - Static only: no dynamic modules, callbacks, raw EntityStore access, or generic
   RPC.
 
+## Rust native runtime provider compatibility log
+
+- 2026-07-13: Added `asha-native-runtime-provider` as the preferred linkage
+  facade between a downstream static RuntimeSession composition and ASHA's
+  generated N-API operation table. The committed `.node` fixture proves the
+  complete generated export set and a composed primary-fire Transform without
+  downstream transport duplication.
+
+### `asha-native-runtime-provider` — generated transport linkage
+
+- Public facade: `public-rust/native-runtime-provider`.
+- Consumer shape: one module-load constructor installation before JavaScript
+  can initialize a session.
+- No semantic callbacks, operation hooks, mutable registry, or second authority
+  store are exposed.
+
 ## Rust gameplay module conformance compatibility log
 
 - 2026-07-11: Added `asha-gameplay-module-conformance` as an additive public

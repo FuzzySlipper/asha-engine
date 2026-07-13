@@ -2,12 +2,12 @@
   "schemaVersion": 1,
   "valid": true,
   "manifest": "harness/reachability/manifest.json",
-  "manifestHash": "sha256:377723241d6eeee3a710877afce5238d400f9c093e3a3c94126873787de2ef12",
-  "identityCatalogHash": "sha256:5c19f709979b0aa6b4e995fd58a719a849f69e459f40db92a8f1b2c6dfa26419",
+  "manifestHash": "sha256:419288f89a06fc6d683be6ce548659e8f184f6a7228f55934de2bd000b71bf3f",
+  "identityCatalogHash": "sha256:e67b07a5fadcadd2d4d46871f4c04dcc07d058cb71b5b4a2ccbb99d1f9bb4906",
   "catalogs": [
     {
       "path": "harness/identity/catalog.json",
-      "hash": "sha256:9289ac61a5da48e32ccbbd0f8ef1befb06ac2b105ca019fb13ee02f4053c0dc5"
+      "hash": "sha256:c1b0472181c2f0915771f4c0fbf316385b37c87154985cd73a9041635c130aab"
     },
     {
       "path": "engine-rs/crates/bridge/runtime-bridge-api/bridge-manifest.toml",
@@ -19,18 +19,18 @@
     },
     {
       "path": "harness/public-surface/rust-crates.json",
-      "hash": "sha256:201042bf9ba0d56d779ef7c3b4c1a933280af0ebe6b8e9bea1c9e8f9de041aeb"
+      "hash": "sha256:3a28327a22b3ffab58c9ea222e9dcb3da3730d60106d1e0a5409200e34f6ed6d"
     },
     {
       "path": "harness/consumer-needs/validation-report.json",
-      "hash": "sha256:5c805f0b4e659f8c668423a3eac95c53bbf1bbe9c5bee269691522f8501f0dc5"
+      "hash": "sha256:cf821bb153df889d82eda55820c23801f1bfe839e745a6d3e241e11aa198ad1f"
     },
     {
       "path": "ts/packages/contracts/src/generated/gameExtension.ts",
       "hash": "sha256:ea671385db805d0e4ff20d347d6a4771b34923d055d5fd13746c4fc7fbb044ca"
     }
   ],
-  "capabilityCount": 22,
+  "capabilityCount": 23,
   "catalogAssertionCount": 5,
   "internalExemptionCount": 2,
   "catalogAssertions": [
@@ -44,7 +44,7 @@
       "id": "catalog.consumer-needs",
       "kind": "consumerNeeds",
       "valid": true,
-      "actualCount": 39
+      "actualCount": 40
     },
     {
       "id": "catalog.generated-contracts",
@@ -56,7 +56,7 @@
       "id": "catalog.rust-public-surfaces",
       "kind": "rustPublicSurfaces",
       "valid": true,
-      "actualCount": 5
+      "actualCount": 6
     },
     {
       "id": "catalog.typescript-public-surfaces",
@@ -141,6 +141,12 @@
     {
       "id": "gameplay.module-named-read",
       "kind": "gameplayRead",
+      "reachable": true,
+      "gapCount": 0
+    },
+    {
+      "id": "gameplay.native-runtime-provider",
+      "kind": "gameplayRuntimeHost",
       "reachable": true,
       "gapCount": 0
     },

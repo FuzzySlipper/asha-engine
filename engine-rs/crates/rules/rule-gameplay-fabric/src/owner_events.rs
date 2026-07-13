@@ -25,10 +25,12 @@ use crate::gameplay_payload_hash;
 const STANDARD_OWNER_MODULE_ID: &str = "asha.owner-events";
 const STANDARD_OWNER_PROVIDER_ID: &str = "provider.asha-owner-events";
 pub const CAPABILITY_ACTIVATION_PROPOSAL_OWNER_ID: &str = "authority.capability-activation";
+pub const PRIMARY_FIRE_DECISION_OWNER_ID: &str = "rule-lifecycle.combat.primary-fire";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum StandardGameplayProposalKind {
     SetCapabilityActivation,
+    ResolvePrimaryFire,
 }
 
 impl StandardGameplayProposalKind {
@@ -36,6 +38,9 @@ impl StandardGameplayProposalKind {
         match self {
             Self::SetCapabilityActivation => {
                 "CapabilityActivationGameplayProposal{entity:u64,capability:string,action:string};canonical-json-v1"
+            }
+            Self::ResolvePrimaryFire => {
+                "PrimaryFireGameplayDecisionWorkspace{shooter:u64,target:?u64,rangeMillimeters:?u32,baseDamage:u32,damage:u32,channelId:string,tick:u64};canonical-json-v1"
             }
         }
     }
@@ -48,12 +53,22 @@ impl StandardGameplayProposalKind {
                 1,
                 self.schema_descriptor(),
             ),
+            Self::ResolvePrimaryFire => gameplay_contract(
+                "asha.combat",
+                "resolve-primary-fire",
+                1,
+                self.schema_descriptor(),
+            ),
         }
     }
 
     pub fn owner(self) -> GameplayOwnerRef {
+        let owner_id = match self {
+            Self::SetCapabilityActivation => CAPABILITY_ACTIVATION_PROPOSAL_OWNER_ID,
+            Self::ResolvePrimaryFire => PRIMARY_FIRE_DECISION_OWNER_ID,
+        };
         GameplayOwnerRef {
-            owner_id: CAPABILITY_ACTIVATION_PROPOSAL_OWNER_ID.to_owned(),
+            owner_id: owner_id.to_owned(),
             provider_id: STANDARD_OWNER_PROVIDER_ID.to_owned(),
         }
     }
@@ -65,6 +80,21 @@ pub struct CapabilityActivationGameplayProposal {
     pub entity: u64,
     pub capability: String,
     pub action: String,
+}
+
+/// Canonical pre-commit Workspace for FPS primary-fire authority. Downstream
+/// Transform modules may replace only `damage`; the registered combat owner
+/// revalidates every authoritative identity/range/channel field before commit.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PrimaryFireGameplayDecisionWorkspace {
+    pub shooter: u64,
+    pub target: Option<u64>,
+    pub range_millimeters: Option<u32>,
+    pub base_damage: u32,
+    pub damage: u32,
+    pub channel_id: String,
+    pub tick: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -339,10 +369,16 @@ pub fn standard_owner_event_manifest() -> GameplayModuleManifest {
         subscriptions: Vec::new(),
         invocations: Vec::new(),
         read_views: Vec::new(),
-        proposal_kinds: vec![GameplayProposalDeclaration {
-            proposal: StandardGameplayProposalKind::SetCapabilityActivation.contract(),
-            owner: StandardGameplayProposalKind::SetCapabilityActivation.owner(),
-        }],
+        proposal_kinds: [
+            StandardGameplayProposalKind::SetCapabilityActivation,
+            StandardGameplayProposalKind::ResolvePrimaryFire,
+        ]
+        .into_iter()
+        .map(|proposal| GameplayProposalDeclaration {
+            proposal: proposal.contract(),
+            owner: proposal.owner(),
+        })
+        .collect(),
         state_schemas: Vec::new(),
         fact_schemas: Vec::new(),
         ordering: Vec::new(),
@@ -377,6 +413,10 @@ pub fn register_standard_owner_events(builder: &mut GameplayFabricRegistryBuilde
         .register_proposal_owner(GameplayProposalOwnerRegistration {
             proposal: StandardGameplayProposalKind::SetCapabilityActivation.contract(),
             owner: StandardGameplayProposalKind::SetCapabilityActivation.owner(),
+        })
+        .register_proposal_owner(GameplayProposalOwnerRegistration {
+            proposal: StandardGameplayProposalKind::ResolvePrimaryFire.contract(),
+            owner: StandardGameplayProposalKind::ResolvePrimaryFire.owner(),
         });
 
     register_codec::<EntityLifecycleGameplayPayload>(
@@ -444,6 +484,17 @@ pub fn register_standard_owner_events(builder: &mut GameplayFabricRegistryBuilde
         proposal.schema_descriptor(),
         encode_json::<CapabilityActivationGameplayProposal>,
         decode_json::<CapabilityActivationGameplayProposal>,
+    ));
+    let proposal = StandardGameplayProposalKind::ResolvePrimaryFire;
+    let contract = proposal.contract();
+    builder.register_event_codec(TypedGameplayEventCodec::new(
+        GameplayEventSchemaDeclaration {
+            codec_id: gameplay_canonical_codec_id(&contract.schema_hash),
+            event: contract,
+        },
+        proposal.schema_descriptor(),
+        encode_json::<PrimaryFireGameplayDecisionWorkspace>,
+        decode_json::<PrimaryFireGameplayDecisionWorkspace>,
     ));
 }
 

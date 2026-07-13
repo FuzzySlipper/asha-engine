@@ -11,6 +11,7 @@ prefabs, declared reads, triggers, and scheduler definition, and consumes a
 ```toml
 [dependencies]
 asha-gameplay-module-sdk = { path = "../asha-engine/public-rust/gameplay-module-sdk" }
+asha-native-runtime-provider = { path = "../asha-engine/public-rust/native-runtime-provider" }
 asha-runtime-session-composition = { path = "../asha-engine/public-rust/runtime-session-composition" }
 ```
 
@@ -21,6 +22,13 @@ let bridge = StaticRuntimeSessionBuilder::activate_project(project_input())?
     .build()?;
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
+
+A loadable downstream `.node` addon annotates one module-load function with
+`asha_native_runtime_provider::native_provider_module_init` and installs a
+constructor with `install_native_engine_bridge_factory`. That constructor
+returns the bridge built above. ASHA's generated N-API operation table remains
+the transport implementation; the downstream crate supplies only its closed
+RuntimeSession composition and never copies individual verbs.
 
 The returned bridge is the native provider cell. It owns one EntityStore. FPS
 combat/lifecycle rules borrow that store from the bridge rather than embedding

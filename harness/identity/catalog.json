@@ -18,6 +18,11 @@
         "evidenceArtifactId": "evidence.gameplay.downstream.invocation.public-facade-executes-real-downstream-code-and-hashes-behavior"
       },
       {
+        "id": "assertion.gameplay.native-runtime-provider.composed-addon-retains-generated-exports-and-runs-primary-fire-transform",
+        "probeId": "gameplay.native-runtime-provider",
+        "evidenceArtifactId": "evidence.gameplay.native-runtime-provider.composed-addon-retains-generated-exports-and-runs-primary-fire-transform"
+      },
+      {
         "id": "assertion.gameplay.read.event-bound.coordinator-delivers-declared-reads-and-binds-them-into-delivery-evidence",
         "probeId": "gameplay.read.event-bound",
         "evidenceArtifactId": "evidence.gameplay.read.event-bound.coordinator-delivers-declared-reads-and-binds-them-into-delivery-evidence"
@@ -354,6 +359,13 @@
         "providerId": "provider.fixture-pulse",
         "publicSurfaceId": "asha-gameplay-module-sdk",
         "sourceHash": "sha256:0b20352f6bc7fb375de66c3b74a80c4cfa63639c4d3f74420cfefa669712a68f"
+      },
+      {
+        "id": "gameplay.native-runtime-provider",
+        "consumerRequirementId": "pulse.native-runtime-provider",
+        "providerId": "asha-native-runtime-provider",
+        "publicSurfaceId": "asha-native-runtime-provider",
+        "sourceHash": "sha256:0f7fbf8d32dcc36c01949f6fa2374071c19e2d3bf5025d28846110dd0bb96177"
       },
       {
         "id": "gameplay.runtime-host",
@@ -721,6 +733,16 @@
         "sourceHash": "sha256:da28f8e2ca847fa03f7564540284eae4d94d0abaa2db6f09857981edf5d8bb9a"
       },
       {
+        "id": "pulse.native-runtime-provider",
+        "consumerId": "gameplay-module-sdk.pulse-fixture",
+        "identity": "asha-native-runtime-provider",
+        "kind": "rustCrate",
+        "providerId": null,
+        "requiredLevel": "delivery",
+        "source": "harness/consumer-needs/manifests/gameplay-module-fixture.json",
+        "sourceHash": "sha256:6af9835c255ff148d23ef188ac9fc1df008dd7da4939bc2c7ab03c80c2051742"
+      },
+      {
         "id": "pulse.observe",
         "consumerId": "gameplay-module-sdk.pulse-fixture",
         "identity": "fixture.pulse.observe",
@@ -823,6 +845,11 @@
         "executionId": "gate.asha-demo-input-live"
       },
       {
+        "id": "evidence.execution.composed-native-provider",
+        "kind": "proofExecution",
+        "executionId": "gate.composed-native-provider"
+      },
+      {
         "id": "evidence.execution.downstream-gameplay-module",
         "kind": "proofExecution",
         "executionId": "rust.downstream-gameplay-module"
@@ -902,6 +929,13 @@
         "path": "harness/fixtures/gameplay-module-sdk/downstream-module/src/lib.rs",
         "token": "public_facade_executes_real_downstream_code_and_hashes_behavior",
         "sourceHash": "sha256:0a05fbe67531ae32811c956b6889f68575ba01ed2769359abf23f2b5fc42968e"
+      },
+      {
+        "id": "evidence.gameplay.native-runtime-provider.composed-addon-retains-generated-exports-and-runs-primary-fire-transform",
+        "kind": "sourceAssertion",
+        "path": "harness/fixtures/composed-native-provider/smoke.mjs",
+        "token": "assert.equal(fired.targetHealthAfter.current, 0)",
+        "sourceHash": "sha256:76da4004af13fb74f7d5b60f92136b3c678e0381a54baf00a81d95a8cf93dfeb"
       },
       {
         "id": "evidence.gameplay.read.event-bound.coordinator-delivers-declared-reads-and-binds-them-into-delivery-evidence",
@@ -1252,6 +1286,11 @@
         "id": "gate.asha-demo-input-live",
         "artifactId": "evidence.execution.asha-demo-input-live",
         "sourceHash": "sha256:68f09c11337f173efde88c0fb70dbfb3b091f4ae4c756b21fb41b609a3bc4bbc"
+      },
+      {
+        "id": "gate.composed-native-provider",
+        "artifactId": "evidence.execution.composed-native-provider",
+        "sourceHash": "sha256:d41bb3f0a2539a2c26fd7bba4ad19dc8b270f16129e33f9d8cde749ebe92b2da"
       },
       {
         "id": "gate.gameplay-runtime-host",
@@ -1757,6 +1796,11 @@
         "id": "gameplay.downstream.invocation",
         "suiteId": "gameplay.downstream-module",
         "sourceHash": "sha256:eca9b6c1af2129ae6f80d3186c9bcb6e01064fc6f853c84772f85e70ff7f7557"
+      },
+      {
+        "id": "gameplay.native-runtime-provider",
+        "suiteId": "gameplay.native-provider",
+        "sourceHash": "sha256:8b29252a8613af48aa3594254dce57d44b8a34bc843049e825b5f977fedf538e"
       },
       {
         "id": "gameplay.read.event-bound",
@@ -2298,6 +2342,22 @@
         "sourceHash": "sha256:8809a8b0ab6792286db30287318f403794632bbbf94f0c5452744e5b149cbbee"
       },
       {
+        "id": "asha-native-runtime-provider",
+        "references": [
+          {
+            "capabilityId": "gameplay.native-runtime-provider",
+            "evidence": {
+              "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+              "token": "pub fn install_native_engine_bridge_factory"
+            }
+          },
+          {
+            "publicSurfaceId": "asha-native-runtime-provider"
+          }
+        ],
+        "sourceHash": "sha256:1f9d64f15085fa1b8a2ad4b703857f9d2f19a81f93259f03b6bd8ffee336eb70"
+      },
+      {
         "id": "asha-runtime-session-composition",
         "references": [
           {
@@ -2542,6 +2602,12 @@
         "sourceHash": "sha256:2e438e49476fa27b557bba508544ca70d09800d64c2712c508f0d93a7c4b815b"
       },
       {
+        "id": "asha-native-runtime-provider",
+        "kind": "rust",
+        "disposition": "preferred",
+        "sourceHash": "sha256:8c76ccf792a60ed56d772400310845f3ac0b72fc83609ecaf743b629d4fc6b23"
+      },
+      {
         "id": "asha-runtime-session-composition",
         "kind": "rust",
         "disposition": "preferred",
@@ -2572,6 +2638,12 @@
         "executionId": "rust.downstream-gameplay-module",
         "executionClass": "compiledDownstreamConsumer",
         "sourceHash": "sha256:5f1da53beadb155278dbb12f799f4232a215638cc0c04b7f09de5c40938b8dd6"
+      },
+      {
+        "id": "gameplay.native-provider",
+        "executionId": "gate.composed-native-provider",
+        "executionClass": "nativeTransport",
+        "sourceHash": "sha256:f63bf333acb84b3c24acae9c9274d2fbd07852cea8b804ca6234221b0dadf395"
       },
       {
         "id": "gameplay.reads",
@@ -2659,5 +2731,5 @@
       }
     ]
   },
-  "catalogHash": "sha256:5c19f709979b0aa6b4e995fd58a719a849f69e459f40db92a8f1b2c6dfa26419"
+  "catalogHash": "sha256:e67b07a5fadcadd2d4d46871f4c04dcc07d058cb71b5b4a2ccbb99d1f9bb4906"
 }

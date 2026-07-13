@@ -27,6 +27,13 @@
       "providerIds": ["@asha/runtime-session"]
     },
     {
+      "id": "gate.composed-native-provider",
+      "artifactId": "evidence.execution.composed-native-provider",
+      "command": ["harness/ci/check-composed-native-provider.sh"],
+      "inputs": ["engine-rs/crates/bridge", "harness/ci/check-composed-native-provider.sh", "harness/fixtures/composed-native-provider", "harness/fixtures/gameplay-module-sdk", "public-rust/native-runtime-provider", "public-rust/runtime-session-composition"],
+      "providerIds": ["asha-native-runtime-provider"]
+    },
+    {
       "id": "gate.gameplay-runtime-host",
       "artifactId": "evidence.execution.gameplay-runtime-host",
       "command": ["harness/ci/check-gameplay-runtime-host.sh"],

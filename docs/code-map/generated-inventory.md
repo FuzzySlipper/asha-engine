@@ -312,7 +312,7 @@ Committed path classes: 678 source; 26 generated source; 517 other; 0 build/cach
 | `game-rule-extension` (rust-rule) | actual: `core-ids`, `protocol-diagnostics`, `protocol-game-extension`<br>allowed: `core-ids`, `protocol-diagnostics`, `protocol-game-extension` | 3/3 | none | `gameplay-module-sdk`, `rule-gameplay-fabric`, `runtime-bridge-api`, `role:asha-demo` |
 | `gameplay-module-sdk` (rust-rule) | actual: `core-ids`, `core-time`, `game-rule-extension`, `protocol-game-extension`, `rule-gameplay-fabric`, `svc-gameplay-fabric`, `svc-rng`<br>allowed: `core-ids`, `core-time`, `game-rule-extension`, `protocol-game-extension`, `rule-gameplay-fabric`, `svc-gameplay-fabric`, `svc-rng` | 2/7 | none | `gameplay-runtime-host`, `rule-project-bundle`, `role:asha-demo`, `role:asha-testing`, `role:asha-rulebench` |
 | `gameplay-runtime-host` (rust-rule) | actual: `core-entity`, `core-ids`, `core-math`, `core-scene`, `gameplay-module-sdk`, `protocol-entity-authoring`, `protocol-game-extension`, `protocol-project-bundle`, `rule-gameplay-fabric`, `rule-project-bundle`, `rule-scheduler`, `rule-trigger-volume`, `svc-entity-authoring`, `svc-gameplay-fabric`, `svc-serialization`<br>allowed: `core-entity`, `core-ids`, `core-math`, `core-scene`, `gameplay-module-sdk`, `protocol-entity-authoring`, `protocol-game-extension`, `protocol-project-bundle`, `rule-gameplay-fabric`, `rule-project-bundle`, `rule-scheduler`, `rule-trigger-volume`, `svc-entity-authoring`, `svc-gameplay-fabric`, `svc-serialization` | 1/15 | none | `runtime-bridge-api`, `role:asha-demo`, `role:asha-testing`, `role:asha-rulebench` |
-| `native-bridge` (rust-bridge) | actual: `core-ids`, `core-math`, `core-space`, `core-voxel`, `protocol-assets`, `protocol-render`, `protocol-scene`, `protocol-view`, `runtime-bridge-api`<br>allowed: `core-ids`, `core-math`, `core-space`, `core-voxel`, `protocol-assets`, `protocol-render`, `protocol-replay`, `protocol-scene`, `protocol-script`, `protocol-view`, `render-bridge`, `runtime-bridge-api`, `sim-runner` | 0/9 | none | none |
+| `native-bridge` (rust-bridge) | actual: `core-ids`, `core-math`, `core-space`, `core-voxel`, `protocol-assets`, `protocol-render`, `protocol-scene`, `protocol-view`, `runtime-bridge-api`<br>allowed: `core-ids`, `core-math`, `core-space`, `core-voxel`, `protocol-assets`, `protocol-render`, `protocol-replay`, `protocol-scene`, `protocol-script`, `protocol-view`, `render-bridge`, `runtime-bridge-api`, `sim-runner` | 0/9 | none | `role:asha-demo`, `role:asha-testing`, `role:asha-rulebench` |
 | `protocol-assets` (contract-steward) | actual: `core-assets`, `core-ids`<br>allowed: `core-assets`, `core-ids` | 4/2 | none | `native-bridge`, `protocol-codegen`, `protocol-render`, `runtime-bridge-api` |
 | `protocol-codegen` (contract-steward) | actual: `core-ids`, `protocol-assets`, `protocol-diagnostics`, `protocol-entity-authoring`, `protocol-game-extension`, `protocol-game-rules`, `protocol-ids`, `protocol-input`, `protocol-policy-view`, `protocol-presentation`, `protocol-project-bundle`, `protocol-render`, `protocol-replay`, `protocol-scene`, `protocol-telemetry`, `protocol-time-control`, `protocol-view`, `protocol-voxel-annotation`, `protocol-voxel-asset`, `protocol-voxel-conversion`, `protocol-voxel-edit-history`<br>allowed: `core-ids`, `protocol-assets`, `protocol-diagnostics`, `protocol-entity-authoring`, `protocol-game-extension`, `protocol-game-rules`, `protocol-ids`, `protocol-input`, `protocol-policy-view`, `protocol-presentation`, `protocol-project-bundle`, `protocol-render`, `protocol-replay`, `protocol-scene`, `protocol-script`, `protocol-telemetry`, `protocol-time-control`, `protocol-view`, `protocol-voxel-annotation`, `protocol-voxel-asset`, `protocol-voxel-conversion`, `protocol-voxel-edit-history` | 1/21 | none | `protocol-dump` |
 | `protocol-diagnostics` (contract-steward) | actual: none<br>allowed: none | 15/0 | none | `game-rule-extension`, `protocol-codegen`, `protocol-game-extension`, `protocol-game-rules`, `protocol-voxel-annotation`, `protocol-voxel-asset`, `protocol-voxel-conversion`, `protocol-voxel-edit-history`, `runtime-bridge-api`, `scene-diagnostics`, `svc-game-rules`, `svc-gameplay-fabric`, `svc-voxel-annotation`, `svc-voxel-asset`, `svc-voxel-conversion` |
@@ -421,7 +421,6 @@ Committed path classes: 678 source; 26 generated source; 517 other; 0 build/cach
 |---|---:|---|---|
 | `engine-rs/crates/protocol/protocol-codegen/src/lib.rs` | 1601 / 1560 / 1601 | contract-steward | 2026-10-15 |
 | `engine-rs/crates/render/render-bridge/src/presentation.rs` | 1600 / 1400 / 1600 | rust-render | global policy |
-| `engine-rs/crates/rules/gameplay-runtime-host/src/lib.rs` | 2795 / 2600 / 2795 | rust-rule | 2026-09-15 |
 | `engine-rs/crates/rules/rule-gameplay-fabric/src/observe.rs` | 1622 / 1580 / 1622 | rust-rule | 2026-10-15 |
 | `engine-rs/crates/services/svc-voxel-conversion/src/lib.rs` | 2064 / 2000 / 2064 | rust-service | 2026-09-15 |
 | `ts/packages/app/src/index.ts` | 224 / 200 / 224 | ts-shell | 2026-10-15 |
@@ -434,22 +433,23 @@ Committed path classes: 678 source; 26 generated source; 517 other; 0 build/cach
 | `ts/packages/script-host/src/index.ts` | 133 / 115 / 133 | ts-policy | 2026-10-15 |
 | `ts/packages/script-sdk/src/index.ts` | 207 / 180 / 207 | ts-policy | 2026-10-15 |
 | `ts/packages/wasm-replay-bridge/src/index.ts` | 190 / 170 / 190 | ts-shell | 2026-10-15 |
+| `engine-rs/crates/rules/gameplay-runtime-host/src/lib.rs` | 2793 / 2600 / 2795 | rust-rule | 2026-09-15 |
 | `ts/packages/runtime-bridge/src/native-fail-closed.test.ts` | 1596 / 1400 / 1600 | ts-shell | global policy |
 | `engine-rs/crates/bridge/runtime-bridge-api/src/authority/runtime_bridge_impl.rs` | 1603 / 1570 / 1612 | rust-bridge | 2026-10-15 |
+| `engine-rs/crates/rules/rule-lifecycle/src/lib.rs` | 1578 / 1400 / 1600 | rust-rule | global policy |
 | `engine-rs/crates/rules/rule-voxel-edit/src/history.rs` | 1571 / 1400 / 1600 | rust-rule | global policy |
 | `engine-rs/crates/bridge/runtime-bridge-api/src/authority/fps_and_rules.rs` | 1567 / 1400 / 1600 | rust-bridge | global policy |
 | `ts/packages/runtime-bridge/src/mock.ts` | 1586 / 1580 / 1620 | ts-shell | 2026-10-15 |
-| `engine-rs/crates/rules/rule-lifecycle/src/lib.rs` | 1566 / 1400 / 1600 | rust-rule | global policy |
 | `engine-rs/crates/rules/rule-animation-controller/src/lib.rs` | 1565 / 1400 / 1600 | rust-rule | global policy |
 | `ts/packages/runtime-bridge/src/runtime-session.test.ts` | 1563 / 1400 / 1600 | ts-shell | global policy |
 | `engine-rs/crates/protocol/protocol-render/src/lib.rs` | 1893 / 1880 / 1941 | contract-steward | 2026-10-15 |
 | `engine-rs/crates/rules/rule-gameplay-fabric/src/state.rs` | 1555 / 1400 / 1600 | rust-rule | global policy |
+| `engine-rs/crates/bridge/native-bridge/src/lib.rs` | 1546 / 1400 / 1600 | rust-bridge | global policy |
 | `ts/packages/runtime-bridge/src/runtime-session-rust-facade.ts` | 1545 / 1400 / 1600 | ts-shell | global policy |
 | `engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_assets.rs` | 1531 / 1400 / 1600 | rust-bridge | global policy |
 | `engine-rs/crates/protocol/protocol-codegen/src/source.rs` | 1528 / 1400 / 1600 | contract-steward | global policy |
 | `engine-rs/crates/rules/rule-voxel-edit/src/lib.rs` | 1510 / 1400 / 1600 | rust-rule | global policy |
 | `engine-rs/crates/services/svc-entity-authoring/src/lib.rs` | 1508 / 1400 / 1600 | rust-service | global policy |
-| `engine-rs/crates/bridge/native-bridge/src/lib.rs` | 1501 / 1400 / 1600 | rust-bridge | global policy |
 | `engine-rs/crates/rules/rule-input/src/lib.rs` | 1485 / 1400 / 1600 | rust-rule | global policy |
 | `engine-rs/crates/rules/rule-gameplay-fabric/src/reads.rs` | 1481 / 1400 / 1600 | rust-rule | global policy |
 | `engine-rs/crates/services/svc-pathfinding/src/lib.rs` | 1444 / 1400 / 1600 | rust-service | global policy |
@@ -459,7 +459,7 @@ Committed path classes: 678 source; 26 generated source; 517 other; 0 build/cach
 
 ## Evidence Entrypoints
 
-### harness/fixtures (35 groups)
+### harness/fixtures (36 groups)
 
 - [`harness/fixtures/asset-catalog`](../../harness/fixtures/asset-catalog) — 4 files
 - [`harness/fixtures/asset-import`](../../harness/fixtures/asset-import) — 4 files
@@ -467,6 +467,7 @@ Committed path classes: 678 source; 26 generated source; 517 other; 0 build/cach
 - [`harness/fixtures/combat`](../../harness/fixtures/combat) — 1 files
 - [`harness/fixtures/combat-feedback`](../../harness/fixtures/combat-feedback) — 2 files
 - [`harness/fixtures/commands`](../../harness/fixtures/commands) — 3 files
+- [`harness/fixtures/composed-native-provider`](../../harness/fixtures/composed-native-provider) — 4 files
 - [`harness/fixtures/diagnostics`](../../harness/fixtures/diagnostics) — 15 files
 - [`harness/fixtures/encounters`](../../harness/fixtures/encounters) — 1 files
 - [`harness/fixtures/entities`](../../harness/fixtures/entities) — 1 files

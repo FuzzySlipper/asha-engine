@@ -36,6 +36,8 @@ use runtime_bridge_api::{
 };
 use serde::Serialize;
 
+pub use napi::module_init as native_provider_module_init;
+
 mod animation_projection;
 mod audio_projection;
 mod billboard_projection;
@@ -46,9 +48,9 @@ mod generated_tunnel;
 mod input_session;
 mod particle_projection;
 mod presentation_operation;
-mod scene_preview;
 #[cfg(test)]
 mod resource_limit_tests;
+mod scene_preview;
 mod telemetry_overlay_projection;
 mod time_control;
 mod voxel_assets;
@@ -60,10 +62,10 @@ mod wire;
 pub use camera::{
     apply_camera_mode_command, apply_camera_navigation_input,
     apply_collision_constrained_camera_input, apply_first_person_camera_input, create_camera,
-    read_camera_controller_state, read_camera_projection,
-    NativeCameraBasis, NativeCameraCollisionEvidence, NativeCameraCollisionPolicy,
-    NativeCameraCollisionShape, NativeCameraCollisionSnapshot, NativeCameraCreateRequest,
-    NativeCameraPose, NativeCameraSnapshot, NativeCollisionAabbEvidence,
+    read_camera_controller_state, read_camera_projection, NativeCameraBasis,
+    NativeCameraCollisionEvidence, NativeCameraCollisionPolicy, NativeCameraCollisionShape,
+    NativeCameraCollisionSnapshot, NativeCameraCreateRequest, NativeCameraPose,
+    NativeCameraSnapshot, NativeCollisionAabbEvidence,
     NativeCollisionConstrainedCameraInputEnvelope, NativeFirstPersonCameraInput,
     NativeFirstPersonCameraInputEnvelope, NativePerspectiveProjection, NativeViewportSize,
 };
@@ -81,14 +83,14 @@ pub use fps::{
     NativeGameExtensionWeaponEffectInvocationResult,
 };
 pub use generated_tunnel::apply_generated_tunnel_to_runtime_world;
-pub use scene_preview::{
-    apply_scene_object_command, read_model_material_preview, read_scene_object_snapshot,
-};
 pub use input_session::{
     apply_input_context_command, configure_input_session, read_input_context_state,
     replay_resolved_input_action, submit_raw_input,
 };
 use presentation_operation::NativePresentationOp;
+pub use scene_preview::{
+    apply_scene_object_command, read_model_material_preview, read_scene_object_snapshot,
+};
 pub use time_control::{apply_time_control_command, read_time_control_state};
 pub use voxel_assets::{
     export_voxel_volume_asset, import_voxel_conversion_mesh_source,
@@ -105,6 +107,44 @@ struct NativeSessions {
 }
 
 static SESSIONS: OnceLock<Mutex<NativeSessions>> = OnceLock::new();
+
+/// Statically linked bridge constructor installed by a downstream native
+/// provider when its addon is loaded. The provider returns the same
+/// `EngineBridge` root consumed by the generated N-API operation table; no
+/// semantic callback or per-operation hook crosses the transport boundary.
+pub type NativeEngineBridgeFactory = fn() -> Result<EngineBridge, RuntimeBridgeError>;
+
+static ENGINE_BRIDGE_FACTORY: OnceLock<NativeEngineBridgeFactory> = OnceLock::new();
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NativeEngineBridgeFactoryInstallError;
+
+impl core::fmt::Display for NativeEngineBridgeFactoryInstallError {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        formatter.write_str("a native EngineBridge factory is already installed")
+    }
+}
+
+impl std::error::Error for NativeEngineBridgeFactoryInstallError {}
+
+/// Install the one bridge constructor for this native addon image.
+///
+/// Downstream addons call this from [`native_provider_module_init`] so factory
+/// selection completes before JavaScript can invoke `initializeEngine`.
+pub fn install_native_engine_bridge_factory(
+    factory: NativeEngineBridgeFactory,
+) -> Result<(), NativeEngineBridgeFactoryInstallError> {
+    ENGINE_BRIDGE_FACTORY
+        .set(factory)
+        .map_err(|_| NativeEngineBridgeFactoryInstallError)
+}
+
+fn create_engine_bridge() -> Result<EngineBridge, RuntimeBridgeError> {
+    match ENGINE_BRIDGE_FACTORY.get() {
+        Some(factory) => factory(),
+        None => Ok(EngineBridge::new()),
+    }
+}
 
 fn sessions() -> &'static Mutex<NativeSessions> {
     SESSIONS.get_or_init(|| {
@@ -559,7 +599,7 @@ pub fn initialize_engine(seed: i64) -> napi::Result<i64> {
             "seed must be non-negative",
         )));
     }
-    let mut bridge = EngineBridge::new();
+    let mut bridge = create_engine_bridge().map_err(to_napi)?;
     bridge
         .initialize_engine(EngineConfig { seed: seed as u64 })
         .map_err(to_napi)?;
@@ -720,7 +760,9 @@ pub fn release_buffer(handle: i64, buffer_handle: i64) -> napi::Result<()> {
 
 #[napi]
 pub fn unload_project_bundle(handle: i64) -> napi::Result<()> {
-    with_bridge(handle, |bridge| bridge.unload_project_bundle().map_err(to_napi))
+    with_bridge(handle, |bridge| {
+        bridge.unload_project_bundle().map_err(to_napi)
+    })
 }
 
 #[napi]
@@ -1252,7 +1294,10 @@ mod tests {
         )
         .expect("model material preview JSON decodes");
         assert_eq!(model_preview["rendererClassification"], "runtime_readback");
-        assert_eq!(model_preview["previewDiff"]["ops"].as_array().map(Vec::len), Some(3));
+        assert_eq!(
+            model_preview["previewDiff"]["ops"].as_array().map(Vec::len),
+            Some(3)
+        );
         let orbit: runtime_bridge_api::CameraModeChangeReceipt = serde_json::from_str(
             &apply_camera_mode_command(
                 handle,

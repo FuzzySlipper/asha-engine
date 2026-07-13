@@ -2,8 +2,10 @@
 
 use asha_gameplay_module_sdk::*;
 use asha_runtime_session_composition::{
-    EngineBridge, GameplayRuntimeProjectInput, StaticRuntimeSessionBuilder,
-    StaticRuntimeSessionCompositionError,
+    BundleArtifacts, EngineBridge, GameplayBindingEntityTargets, GameplayRuntimeProjectInput,
+    GameplayRuntimeSchedulerDefinition, GameplayRuntimeSpatialEntity, GameplayTriggerDefinition,
+    LoadPlan, LoadStep, RuntimeSessionId, SceneId, StaticRuntimeSessionBuilder,
+    StaticRuntimeSessionCompositionError, GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION,
 };
 use serde::{Deserialize, Serialize};
 
@@ -55,6 +57,105 @@ fn capability_activation_codec() -> TypedGameplayEventCodec<CapabilityActivation
     let kind = StandardGameplayProposalKind::SetCapabilityActivation;
     let event = kind.contract();
     gameplay_serde_json_codec(event, kind.schema_descriptor())
+}
+
+pub struct PrimaryFireDamageBehavior;
+
+impl GameplayModuleBehavior for PrimaryFireDamageBehavior {
+    fn invoke(
+        &self,
+        context: &GameplayModuleContext<'_>,
+    ) -> Result<GameplayModuleActions, GameplayModuleError> {
+        let mut workspace: PrimaryFireGameplayDecisionWorkspace = context.decision_workspace()?;
+        let is_close_hit = workspace.target.is_some()
+            && workspace
+                .range_millimeters
+                .is_some_and(|range| range <= 4_000);
+        let mut actions = context.actions();
+        if is_close_hit {
+            workspace.damage = workspace.damage.saturating_mul(2);
+        }
+        actions.transform_workspace_json(
+            StandardGameplayProposalKind::ResolvePrimaryFire.contract(),
+            context
+                .decision_workspace_hash()
+                .expect("primary-fire Transform receives a Workspace hash"),
+            &workspace,
+        )?;
+        Ok(actions)
+    }
+}
+
+fn primary_fire_topology() -> GameplayDerivedModuleTopology {
+    let proposal = StandardGameplayProposalKind::ResolvePrimaryFire.contract();
+    GameplayDerivedModuleTopology::derive(
+        "fixture.primary-fire.module",
+        vec![GameplayModuleInvocationTopology::decision(
+            "fixture.primary-fire.close-range-transform",
+            GameplayInvocationFamily::Transform,
+            proposal.clone(),
+            proposal,
+            1,
+            4_096,
+        )],
+    )
+    .expect("primary-fire topology is unambiguous")
+}
+
+fn primary_fire_provider_with_behavior<B>(behavior: B) -> GameplayStaticModuleProvider
+where
+    B: GameplayModuleBehavior + 'static,
+{
+    let proposal = StandardGameplayProposalKind::ResolvePrimaryFire;
+    let topology = primary_fire_topology();
+    let mut manifest = GameplayModuleManifest {
+        module_ref: GameplayModuleRef {
+            module_id: "fixture.primary-fire.module".to_owned(),
+            namespace: "fixture.primary-fire".to_owned(),
+            version: "1.0.0".to_owned(),
+            sdk_hash: "sha256:gameplay-sdk-v1".to_owned(),
+            contract_hash: "sha256:fixture-primary-fire-contract-v1".to_owned(),
+            artifact_hash: "sha256:fixture-primary-fire-artifact-v1".to_owned(),
+            provider_id: "provider.fixture-primary-fire".to_owned(),
+        },
+        published_events: Vec::new(),
+        subscriptions: Vec::new(),
+        invocations: Vec::new(),
+        read_views: Vec::new(),
+        proposal_kinds: vec![GameplayProposalDeclaration {
+            proposal: proposal.contract(),
+            owner: proposal.owner(),
+        }],
+        state_schemas: Vec::new(),
+        fact_schemas: Vec::new(),
+        ordering: Vec::new(),
+        budget: GameplayExecutionBudget {
+            max_waves: 1,
+            max_events_per_root: 4,
+            max_proposals_per_root: 1,
+            max_invocations_per_root: 2,
+            max_payload_bytes_per_root: 4_096,
+        },
+        deterministic_requirements: vec!["canonical-json".to_owned()],
+        source_hash: "sha256:fixture-primary-fire-source-v1".to_owned(),
+    };
+    topology
+        .apply_to_manifest(&mut manifest)
+        .expect("primary-fire topology belongs to its manifest");
+    build_provenance().apply_to_manifest::<B>(&mut manifest);
+    GameplayStaticModuleProvider::linked_from_manifest(manifest, &build_provenance(), behavior)
+        .derived_topology(&topology)
+}
+
+fn primary_fire_provider() -> GameplayStaticModuleProvider {
+    primary_fire_provider_with_behavior(PrimaryFireDamageBehavior)
+}
+
+pub fn primary_fire_composition() -> GameplayStaticComposition {
+    let mut builder = GameplayStaticCompositionBuilder::new();
+    builder.include_standard_owner_events();
+    builder.add_provider(primary_fire_provider());
+    builder.build().expect("primary-fire provider composes")
 }
 
 pub struct PulseBehavior {
@@ -423,6 +524,70 @@ pub fn build_native_runtime_session(
     input: GameplayRuntimeProjectInput,
 ) -> Result<EngineBridge, StaticRuntimeSessionCompositionError> {
     StaticRuntimeSessionBuilder::activate_project(input)?.build()
+}
+
+pub fn primary_fire_runtime_host_project_input() -> GameplayRuntimeProjectInput {
+    let plan = LoadPlan {
+        steps: vec![
+            LoadStep::ValidateVersions {
+                bundle_schema_version: 1,
+                protocol_version: 1,
+            },
+            LoadStep::LoadAssetLock {
+                artifact: "assets/lock.json".to_owned(),
+                asset_count: 0,
+            },
+            LoadStep::LoadSceneDocument {
+                artifact: "scene/scene.json".to_owned(),
+                scene: SceneId::new(1),
+            },
+            LoadStep::BootstrapScene {
+                scene: SceneId::new(1),
+                runtime_session: RuntimeSessionId::new(1),
+            },
+            LoadStep::ValidateFinalState,
+        ],
+    };
+    let scene = r#"{
+  "schemaVersion": 1,
+  "id": 1,
+  "metadata": { "name": "primary-fire-provider", "authoringFormatVersion": 1 },
+  "dependencies": [],
+  "nodes": [
+    { "id": 1, "parent": null, "childOrder": 0, "label": null, "tags": [], "transform": { "translation": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] }, "kind": { "kind": "emptyGroup" } }
+  ]
+}"#;
+    let artifacts = BundleArtifacts::new()
+        .with_artifact("assets/lock.json", "{ \"entries\": [] }\n")
+        .with_artifact("scene/scene.json", scene);
+    GameplayRuntimeProjectInput {
+        load_plan: plan,
+        artifacts,
+        composition: primary_fire_composition(),
+        bindings: GameplayModuleBindingRegistryBuilder::new().build(),
+        entity_targets: GameplayBindingEntityTargets::new(),
+        spatial_entities: vec![GameplayRuntimeSpatialEntity {
+            entity: EntityId::new(10),
+            translation: [0.0, 0.0, 0.0],
+            half_extents: [0.5, 0.5, 0.5],
+            static_collider: false,
+        }],
+        declared_reads: primary_fire_topology().declared_reads().to_vec(),
+        triggers: vec![GameplayTriggerDefinition {
+            schema_version: GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION,
+            entity: 10,
+            scope: "fixture.primary-fire".to_owned(),
+            tags: vec!["fixture".to_owned()],
+        }],
+        scheduler: GameplayRuntimeSchedulerDefinition::new(
+            GameplayOwnerRef {
+                owner_id: "authority.fixture-scheduler".to_owned(),
+                provider_id: "provider.fixture-scheduler".to_owned(),
+            },
+            Vec::new(),
+            vec![StandardGameplayProposalKind::ResolvePrimaryFire.contract()],
+        ),
+    }
 }
 
 pub fn conformance_needs_manifest_json() -> String {
@@ -1000,6 +1165,128 @@ mod tests {
             ],
             game_rule_modules: Vec::new(),
         }
+    }
+
+    struct CorruptPrimaryFireIdentityBehavior;
+
+    impl GameplayModuleBehavior for CorruptPrimaryFireIdentityBehavior {
+        fn invoke(
+            &self,
+            context: &GameplayModuleContext<'_>,
+        ) -> Result<GameplayModuleActions, GameplayModuleError> {
+            let mut workspace: PrimaryFireGameplayDecisionWorkspace =
+                context.decision_workspace()?;
+            workspace.shooter = workspace.shooter.saturating_add(1);
+            let mut actions = context.actions();
+            actions.transform_workspace_json(
+                StandardGameplayProposalKind::ResolvePrimaryFire.contract(),
+                context
+                    .decision_workspace_hash()
+                    .expect("corrupt fixture receives a Workspace hash"),
+                &workspace,
+            )?;
+            Ok(actions)
+        }
+    }
+
+    fn corrupt_primary_fire_project_input() -> GameplayRuntimeProjectInput {
+        let mut input = primary_fire_runtime_host_project_input();
+        let mut composition = GameplayStaticCompositionBuilder::new();
+        composition.include_standard_owner_events();
+        composition.add_provider(primary_fire_provider_with_behavior(
+            CorruptPrimaryFireIdentityBehavior,
+        ));
+        input.composition = composition.build().expect("corrupt fixture composes");
+        input
+    }
+
+    fn initialized_primary_fire_bridge(input: GameplayRuntimeProjectInput) -> EngineBridge {
+        let mut bridge = StaticRuntimeSessionBuilder::activate_project(input)
+            .unwrap()
+            .build()
+            .unwrap();
+        bridge.initialize_engine(EngineConfig { seed: 41 }).unwrap();
+        bridge
+            .load_project_bundle(ProjectBundleLoadRequest {
+                bundle_schema_version: 1,
+                protocol_version: 1,
+                scene_id: 1,
+            })
+            .unwrap();
+        bridge
+    }
+
+    #[test]
+    fn composed_primary_fire_transform_commits_once_and_preserves_far_range_damage() {
+        let mut close = initialized_primary_fire_bridge(primary_fire_runtime_host_project_input());
+        close
+            .load_fps_runtime_session(composed_fps_load_request())
+            .unwrap();
+        let close_result = close
+            .apply_fps_primary_fire(FpsPrimaryFireRequest {
+                tick: 9,
+                origin: [2.5, 1.5, 1.5],
+                direction: [0.0, 0.0, 1.0],
+                shooter_role: None,
+                target_role: None,
+            })
+            .unwrap();
+        assert_eq!(close_result.target_health_before.unwrap().current, 150);
+        assert_eq!(close_result.target_health_after.unwrap().current, 0);
+        assert_eq!(close_result.workspace_trace.len(), 3);
+        let close_readout = close.read_composed_runtime_session().unwrap();
+        assert_eq!(close_readout.gameplay.decision_receipt_count, 1);
+
+        let mut far_request = composed_fps_load_request();
+        far_request.definitions[1].transform = Some(FpsBridgeTransformCapability {
+            translation: [2.5, 1.5, 8.0],
+            rotation: [0.0, 0.0, 0.0, 1.0],
+            scale: [1.0, 1.0, 1.0],
+        });
+        far_request.definitions[1].bounds = Some(FpsBridgeBoundsCapability {
+            min: [2.2, 1.0, 7.8],
+            max: [2.8, 2.0, 8.6],
+        });
+        let mut far = initialized_primary_fire_bridge(primary_fire_runtime_host_project_input());
+        far.load_fps_runtime_session(far_request).unwrap();
+        let far_result = far
+            .apply_fps_primary_fire(FpsPrimaryFireRequest {
+                tick: 9,
+                origin: [2.5, 1.5, 1.5],
+                direction: [0.0, 0.0, 1.0],
+                shooter_role: None,
+                target_role: None,
+            })
+            .unwrap();
+        assert_eq!(far_result.target_health_before.unwrap().current, 150);
+        assert_eq!(far_result.target_health_after.unwrap().current, 75);
+        assert_eq!(
+            far.read_composed_runtime_session()
+                .unwrap()
+                .gameplay
+                .decision_receipt_count,
+            1,
+        );
+    }
+
+    #[test]
+    fn rejected_primary_fire_transform_restores_authority_and_fabric_evidence() {
+        let mut bridge = initialized_primary_fire_bridge(corrupt_primary_fire_project_input());
+        bridge
+            .load_fps_runtime_session(composed_fps_load_request())
+            .unwrap();
+        let before = bridge.read_composed_runtime_session().unwrap();
+        let error = bridge
+            .apply_fps_primary_fire(FpsPrimaryFireRequest {
+                tick: 9,
+                origin: [2.5, 1.5, 1.5],
+                direction: [0.0, 0.0, 1.0],
+                shooter_role: None,
+                target_role: None,
+            })
+            .expect_err("the combat owner rejects a transformed shooter identity");
+        assert!(error.message.contains("not accepted"), "{error}");
+        assert_eq!(bridge.read_composed_runtime_session().unwrap(), before);
     }
 
     #[test]

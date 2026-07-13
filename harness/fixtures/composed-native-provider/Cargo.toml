@@ -1,0 +1,15 @@
+[package]
+name = "asha-composed-native-provider-fixture"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+asha-gameplay-module-fixture = { path = "../gameplay-module-sdk/downstream-module" }
+asha-native-runtime-provider = { path = "../../../public-rust/native-runtime-provider" }
+asha-runtime-session-composition = { path = "../../../public-rust/runtime-session-composition" }
+
+[workspace]

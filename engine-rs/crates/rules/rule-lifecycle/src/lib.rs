@@ -443,26 +443,7 @@ impl FpsRuntimeSessionState {
         } = input;
         let shooter = self.role_entity(shooter_role)?;
         let target = self.role_entity(target_role)?;
-        let shooter_definition = self
-            .definitions
-            .get(&shooter)
-            .expect("role map is populated from definitions");
-        let enemy_policy_weapon = FpsWeaponMount {
-            weapon_id: "weapon.enemy_policy.primary".to_string(),
-            damage: 10,
-            range_units: 16,
-            ammo: 2,
-            cooldown_ticks_after_fire: 4,
-        };
-        let weapon = match shooter_definition.weapon.as_ref() {
-            Some(weapon) => weapon,
-            None if shooter_role == FpsRuntimeRole::Enemy
-                && target_role == FpsRuntimeRole::Player =>
-            {
-                &enemy_policy_weapon
-            }
-            None => return Err(FpsRuntimeError::MissingPlayerWeapon { entity: shooter }),
-        };
+        let weapon = self.primary_fire_weapon_for_roles(shooter_role, target_role)?;
         let target_before = self.combat.health(target);
         let resolved_damage = resolve_primary_fire_damage(
             shooter,
@@ -560,6 +541,37 @@ impl FpsRuntimeSessionState {
             FpsRuntimeRole::Enemy => FpsRuntimeError::MissingEnemy,
             FpsRuntimeRole::Neutral => FpsRuntimeError::MissingEnemy,
         })
+    }
+
+    /// Return the rule-owned primary-fire weapon facts used to construct a
+    /// pre-commit gameplay Workspace. The eventual commit re-resolves the
+    /// same facts, so this is evidence input rather than a mutable authority
+    /// handle.
+    pub fn primary_fire_weapon_for_roles(
+        &self,
+        shooter_role: FpsRuntimeRole,
+        target_role: FpsRuntimeRole,
+    ) -> Result<FpsWeaponMount, FpsRuntimeError> {
+        let shooter = self.role_entity(shooter_role)?;
+        let shooter_definition = self
+            .definitions
+            .get(&shooter)
+            .expect("role map is populated from definitions");
+        match shooter_definition.weapon.as_ref() {
+            Some(weapon) => Ok(weapon.clone()),
+            None if shooter_role == FpsRuntimeRole::Enemy
+                && target_role == FpsRuntimeRole::Player =>
+            {
+                Ok(FpsWeaponMount {
+                    weapon_id: "weapon.enemy_policy.primary".to_string(),
+                    damage: 10,
+                    range_units: 16,
+                    ammo: 2,
+                    cooldown_ticks_after_fire: 4,
+                })
+            }
+            None => Err(FpsRuntimeError::MissingPlayerWeapon { entity: shooter }),
+        }
     }
 
     fn apply_enemy_defeated(

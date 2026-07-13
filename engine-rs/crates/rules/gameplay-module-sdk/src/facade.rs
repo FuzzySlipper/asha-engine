@@ -26,8 +26,9 @@ pub use rule_gameplay_fabric::{
     GameplayReadDiagnostic, GameplayReadDiagnosticCode, GameplayReadPlan,
     GameplayReadPlanEntryReadout, GameplayReadPlanReadout, GameplayReadRequest,
     GameplayReadSelector, GameplayReadValue, GameplayRelationshipReadKind, GameplayScalarReadValue,
-    GameplayTypedModuleStateAdapter, GameplayWorkspaceTransform, StandardGameplayEventKind,
-    StandardGameplayProposalKind, TriggerOverlapGameplayPayload,
+    GameplayTypedModuleStateAdapter, GameplayWorkspaceTransform,
+    PrimaryFireGameplayDecisionWorkspace, StandardGameplayEventKind, StandardGameplayProposalKind,
+    TriggerOverlapGameplayPayload,
 };
 pub use svc_gameplay_fabric::{
     gameplay_canonical_codec_id, gameplay_canonical_payload_hash, gameplay_contract,

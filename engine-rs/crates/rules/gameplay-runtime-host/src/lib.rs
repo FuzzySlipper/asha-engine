@@ -9,9 +9,12 @@
 mod owner_router;
 mod prefab;
 mod scheduler;
+mod transaction;
 
 pub use prefab::*;
 pub use scheduler::*;
+use transaction::activation_hash;
+pub use transaction::GameplayRuntimeTransactionCheckpoint;
 
 use owner_router::{RuntimeSessionDecisionOwner, RuntimeSessionOwnerRouter};
 
@@ -1260,11 +1263,6 @@ fn limits_from_registry(
             .saturating_add(budget.max_payload_bytes_per_root);
     }
     limits
-}
-
-fn activation_hash(activation: &GameplayModuleBindingActivationReceipt) -> String {
-    let bytes = serde_json::to_vec(activation).expect("activation receipt serializes");
-    rule_gameplay_fabric::gameplay_module_payload_hash(&bytes)
 }
 
 fn prepare_runtime_entities(

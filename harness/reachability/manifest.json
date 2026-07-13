@@ -11,7 +11,7 @@
     {
       "id": "catalog.consumer-needs",
       "kind": "consumerNeeds",
-      "expectedCount": 39,
+      "expectedCount": 40,
       "proof": { "path": "harness/consumer-needs/validate.py", "token": "validate_manifest" }
     },
     {
@@ -23,7 +23,7 @@
     {
       "id": "catalog.rust-public-surfaces",
       "kind": "rustPublicSurfaces",
-      "expectedCount": 5,
+      "expectedCount": 6,
       "proof": { "path": "harness/public-surface/check-public-boundary.py", "token": "check_rust_manifest" }
     },
     {
@@ -232,6 +232,20 @@
       "providerIdentity": "provider.fixture-pulse",
       "consumerNeed": "pulse.read",
       "delivery": { "path": "engine-rs/crates/rules/gameplay-module-sdk/tests/static_composition.rs", "token": "provider_state_adapters_initialize_and_apply_recorded_local_facts" }
+    },
+    {
+      "id": "gameplay.native-runtime-provider",
+      "kind": "gameplayRuntimeHost",
+      "protocol": { "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs", "symbol": "NativeEngineBridgeFactory" },
+      "provider": { "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs", "token": "pub fn install_native_engine_bridge_factory" },
+      "fields": [
+        { "name": "generatedExports", "path": "harness/fixtures/composed-native-provider/smoke.mjs", "token": "assert.deepEqual(Object.keys(addon).sort(), expectedExports)" },
+        { "name": "primaryFireWorkspace", "path": "engine-rs/crates/rules/rule-gameplay-fabric/src/owner_events.rs", "token": "pub struct PrimaryFireGameplayDecisionWorkspace" }
+      ],
+      "bootstrapAdapter": { "path": "public-rust/native-runtime-provider/src/lib.rs", "token": "native_provider_module_init" },
+      "publicSurface": { "kind": "rust", "identity": "asha-native-runtime-provider", "symbol": "install_native_engine_bridge_factory" },
+      "consumerNeed": "pulse.native-runtime-provider",
+      "delivery": { "path": "harness/fixtures/composed-native-provider/smoke.mjs", "token": "targetHealthAfter" }
     },
     {
       "id": "gameplay.runtime-host",
