@@ -2,17 +2,29 @@
 import { lstatSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
+import { validateBaselineChange, validateExemptionMetadata } from './ts-source-shape-policy-audit.mjs';
+
 const repoRoot = process.argv[2] ?? process.cwd();
 const policyPath = join(repoRoot, 'harness/depgraph/rust-source-shape-policy.json');
 const policy = JSON.parse(readFileSync(policyPath, 'utf8'));
 const maxSourceLines = Number(policy.maxSourceLines);
+const warningSourceLines = Number(policy.warningSourceLines);
 const failures = [];
+const warnings = [];
+const today = process.env.ASHA_SOURCE_SHAPE_TODAY ?? new Date().toISOString().slice(0, 10);
 const rawFileLineExemptions = policy.fileLineExemptions ?? {};
 const fileLineExemptions = readExemptionMap(rawFileLineExemptions);
 const checkedFileLineExemptions = new Set();
 
 if (!Number.isSafeInteger(maxSourceLines) || maxSourceLines <= 0) {
   failures.push('FAIL: rust-source-shape-policy.json maxSourceLines must be a positive integer');
+}
+if (
+  !Number.isSafeInteger(warningSourceLines) ||
+  warningSourceLines <= 0 ||
+  warningSourceLines >= maxSourceLines
+) {
+  failures.push('FAIL: rust-source-shape-policy.json warningSourceLines must be below maxSourceLines');
 }
 
 function readExemptionMap(value) {
@@ -26,7 +38,7 @@ function readExemptionMap(value) {
 function readExemption(rel, value) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     failures.push(
-      `FAIL: ${rel} fileLineExemptions entry must be an object with maxLines and justification fields.`,
+      `FAIL: ${rel} fileLineExemptions entry must be an object with governed metadata.`,
     );
     return undefined;
   }
@@ -34,10 +46,9 @@ function readExemption(rel, value) {
   if (typeof maxLines !== 'number' || !Number.isSafeInteger(maxLines) || maxLines <= 0) {
     failures.push(`FAIL: ${rel} fileLineExemptions entry maxLines must be a positive integer.`);
   }
-  if (typeof value.justification !== 'string' || value.justification.trim().length < 20) {
-    failures.push(`FAIL: ${rel} fileLineExemptions entry must include a specific justification.`);
-  }
-  return { maxLines };
+  validateExemptionMetadata('fileLineExemptions', rel, value, failures, today);
+  validateBaselineChange('fileLineExemptions', rel, value.baselineChange, failures);
+  return { maxLines, warningLines: value.warningLines };
 }
 
 function walk(dir) {
@@ -77,12 +88,18 @@ for (const file of walk(rustRoot)) {
           'source-shape policy baseline.',
       );
     }
+    if (parsedExemption !== undefined && lineCount >= parsedExemption.warningLines) {
+      warnings.push(`${rel} ${lineCount}/${parsedExemption.maxLines}`);
+    }
   }
   if (lineCount > maxSourceLines && exemption === undefined) {
     failures.push(
       `FAIL: ${rel} has ${lineCount} lines; limit is ${maxSourceLines}. ` +
         'Split the file or add a justified fileLineExemptions entry.',
     );
+  }
+  if (exemption === undefined && lineCount >= warningSourceLines) {
+    warnings.push(`${rel} ${lineCount}/${maxSourceLines}`);
   }
 }
 
@@ -104,4 +121,8 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('Rust source shape check: OK');
+if (warnings.length > 0) {
+  console.warn(`WARN: Rust source-shape hotspots: ${warnings.sort().join('; ')}`);
+}
+
+console.log(`Rust source shape check: OK (${warnings.length} near-cap hotspots)`);

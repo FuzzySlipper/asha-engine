@@ -8,12 +8,18 @@ bash "$REPO_ROOT/harness/depgraph/verify-rust-deps.sh"
 
 echo "==> Rust source shape guard"
 node "$REPO_ROOT/harness/depgraph/check-rust-source-shape.mjs" "$REPO_ROOT"
+node "$REPO_ROOT/harness/depgraph/check-rust-source-shape-policy-diff.mjs" "$REPO_ROOT"
 
 echo "==> Rust source shape fixtures"
 node "$REPO_ROOT/harness/depgraph/check-rust-source-shape-fixtures.mjs" "$REPO_ROOT"
+node "$REPO_ROOT/harness/depgraph/check-rust-source-shape-policy-fixtures.mjs" "$REPO_ROOT"
 
 echo "==> Verifying TypeScript dependency graph"
 bash "$REPO_ROOT/harness/depgraph/verify-ts-deps.sh"
+
+echo "==> Committed path classification"
+python3 "$REPO_ROOT/harness/depgraph/check-committed-path-classification.py"
+python3 "$REPO_ROOT/harness/depgraph/check-committed-path-classification-fixtures.py"
 
 echo "==> Runtime bridge root isolation"
 node "$REPO_ROOT/harness/depgraph/check-runtime-bridge-root-isolation.mjs" "$REPO_ROOT"

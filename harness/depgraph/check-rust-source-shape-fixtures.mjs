@@ -19,8 +19,25 @@ function makeFixture(name, sourceLineCount, policy) {
   mkdirSync(dirname(sourcePath), { recursive: true });
   mkdirSync(dirname(policyPath), { recursive: true });
   writeFileSync(sourcePath, sourceLines(sourceLineCount));
-  writeFileSync(policyPath, `${JSON.stringify(policy, null, 2)}\n`);
+  writeFileSync(
+    policyPath,
+    `${JSON.stringify({ warningSourceLines: 2, ...policy }, null, 2)}\n`,
+  );
   return root;
+}
+
+function entry(maxLines, overrides = {}) {
+  return {
+    maxLines,
+    warningLines: typeof maxLines === 'number' && maxLines > 1 ? maxLines - 1 : 1,
+    owner: 'rust-foundation',
+    rationale: 'Temporary fixture exception retained until its focused source split lands.',
+    introducedBy: '#5761',
+    reviewBy: '2026-10-15',
+    reviewTrigger: 'Review when the fixture source changes or its recorded baseline changes.',
+    removalCondition: 'Remove when the fixture source is split below the global source cap.',
+    ...overrides,
+  };
 }
 
 function runChecker(root) {
@@ -54,10 +71,7 @@ try {
     makeFixture('shrink-pass', 4, {
       maxSourceLines: 3,
       fileLineExemptions: {
-        [sourcePath]: {
-          maxLines: 5,
-          justification: 'Temporary fixture exemption with explicit shrink-only headroom.',
-        },
+        [sourcePath]: entry(5),
       },
     }),
   );
@@ -79,7 +93,7 @@ try {
         [sourcePath]: 'legacy prose-only exemption',
       },
     }),
-    'entry must be an object with maxLines and justification fields',
+    'entry must be an object with governed metadata',
   );
 
   expectFailure(
@@ -87,10 +101,7 @@ try {
     makeFixture('invalid-baseline', 4, {
       maxSourceLines: 3,
       fileLineExemptions: {
-        [sourcePath]: {
-          maxLines: 0,
-          justification: 'This fixture deliberately supplies an invalid numeric baseline.',
-        },
+        [sourcePath]: entry(0),
       },
     }),
     'entry maxLines must be a positive integer',
@@ -101,27 +112,21 @@ try {
     makeFixture('string-baseline', 4, {
       maxSourceLines: 3,
       fileLineExemptions: {
-        [sourcePath]: {
-          maxLines: '4',
-          justification: 'This fixture proves numeric-looking strings are not numeric baselines.',
-        },
+        [sourcePath]: entry('4'),
       },
     }),
     'entry maxLines must be a positive integer',
   );
 
   expectFailure(
-    'vague Rust exemption justification',
+    'vague Rust exemption rationale',
     makeFixture('vague-justification', 4, {
       maxSourceLines: 3,
       fileLineExemptions: {
-        [sourcePath]: {
-          maxLines: 4,
-          justification: 'temporary',
-        },
+        [sourcePath]: entry(4, { rationale: 'temporary' }),
       },
     }),
-    'entry must include a specific justification',
+    'rationale must explain the structural exception',
   );
 
   expectFailure(
@@ -129,10 +134,7 @@ try {
     makeFixture('stale-exemption', 2, {
       maxSourceLines: 3,
       fileLineExemptions: {
-        'engine-rs/crates/foundation/missing/src/lib.rs': {
-          maxLines: 4,
-          justification: 'This fixture entry deliberately points at a missing Rust source file.',
-        },
+        'engine-rs/crates/foundation/missing/src/lib.rs': entry(4),
       },
     }),
     'stale fileLineExemptions entry for missing file',
@@ -143,13 +145,21 @@ try {
     makeFixture('exemption-growth', 5, {
       maxSourceLines: 3,
       fileLineExemptions: {
-        [sourcePath]: {
-          maxLines: 4,
-          justification: 'Temporary fixture exemption whose numeric baseline must not grow.',
-        },
+        [sourcePath]: entry(4),
       },
     }),
     'has 5 lines; fileLineExemptions baseline is 4',
+  );
+
+  expectFailure(
+    'expired Rust exemption metadata',
+    makeFixture('expired-review', 4, {
+      maxSourceLines: 3,
+      fileLineExemptions: {
+        [sourcePath]: entry(4, { reviewBy: '2026-07-12' }),
+      },
+    }),
+    'review metadata expired on 2026-07-12',
   );
 } finally {
   rmSync(tempRoot, { recursive: true, force: true });

@@ -31,7 +31,6 @@ function change(previousMaxLines, newMaxLines, overrides = {}) {
     changedAt: '2026-07-09',
     changeTask: '#5505',
     reason: 'A reviewed temporary increase is required while the focused split proceeds.',
-    removalTask: '#5506',
     previousMaxLines,
     newMaxLines,
     ...overrides,

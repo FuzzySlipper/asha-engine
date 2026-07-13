@@ -57,6 +57,29 @@ make_rust_invalid_status_fixture() {
   printf '[crate."engine-rs/crates/foundation/core-a"]\nlane = "rust-foundation"\nimplementation_status = "maybe-later"\nmay_depend_on = []\n' > "$root/governance/ownership.toml"
 }
 
+make_rust_missing_ownership_fixture() {
+  local root="$1"
+  mkdir -p "$root/governance" "$root/engine-rs/crates/foundation/core-a/src"
+  printf '[workspace]\nmembers = ["crates/foundation/core-a"]\nresolver = "2"\n' > "$root/engine-rs/Cargo.toml"
+  printf '[package]\nname = "core-a"\nversion = "0.1.0"\nedition = "2021"\n' > "$root/engine-rs/crates/foundation/core-a/Cargo.toml"
+  printf 'pub fn a() {}\n' > "$root/engine-rs/crates/foundation/core-a/src/lib.rs"
+  printf '' > "$root/governance/ownership.toml"
+}
+
+make_rust_excluded_illegal_edge_fixture() {
+  local root="$1"
+  mkdir -p \
+    "$root/governance" \
+    "$root/engine-rs/crates/foundation/core-a/src" \
+    "$root/engine-rs/crates/bridge/native-a/src"
+  printf '[workspace]\nmembers = ["crates/foundation/core-a"]\nexclude = ["crates/bridge/native-a"]\nresolver = "2"\n' > "$root/engine-rs/Cargo.toml"
+  printf '[package]\nname = "core-a"\nversion = "0.1.0"\nedition = "2021"\n' > "$root/engine-rs/crates/foundation/core-a/Cargo.toml"
+  printf 'pub fn a() {}\n' > "$root/engine-rs/crates/foundation/core-a/src/lib.rs"
+  printf '[package]\nname = "native-a"\nversion = "0.1.0"\nedition = "2021"\n\n[workspace]\n\n[dependencies]\ncore-a = { path = "../../foundation/core-a" }\n' > "$root/engine-rs/crates/bridge/native-a/Cargo.toml"
+  printf 'pub fn native() {}\n' > "$root/engine-rs/crates/bridge/native-a/src/lib.rs"
+  printf '[crate."engine-rs/crates/foundation/core-a"]\nlane = "rust-foundation"\nmay_depend_on = []\n\n[crate."engine-rs/crates/bridge/native-a"]\nlane = "rust-bridge"\nmay_depend_on = []\n' > "$root/governance/ownership.toml"
+}
+
 make_ts_unlisted_fixture() {
   local root="$1"
   mkdir -p "$root/governance" "$root/ts/packages/app/src" "$root/ts/packages/contracts/src"
@@ -131,6 +154,20 @@ expect_failure \
   "invalid Rust implementation status" \
   "has invalid Rust ownership implementation_status 'maybe-later'" \
   bash "$REPO_ROOT/harness/depgraph/verify-rust-deps.sh" "$RUST_INVALID_STATUS_FIXTURE"
+
+RUST_MISSING_FIXTURE="$TMP_ROOT/rust-missing-ownership"
+make_rust_missing_ownership_fixture "$RUST_MISSING_FIXTURE"
+expect_failure \
+  "missing Rust ownership cell" \
+  "has no ownership entry in governance/ownership.toml" \
+  bash "$REPO_ROOT/harness/depgraph/verify-rust-deps.sh" "$RUST_MISSING_FIXTURE"
+
+RUST_EXCLUDED_EDGE_FIXTURE="$TMP_ROOT/rust-excluded-illegal-edge"
+make_rust_excluded_illegal_edge_fixture "$RUST_EXCLUDED_EDGE_FIXTURE"
+expect_failure \
+  "illegal edge in excluded Rust ownership cell" \
+  "depends on unlisted internal crate 'core-a'" \
+  bash "$REPO_ROOT/harness/depgraph/verify-rust-deps.sh" "$RUST_EXCLUDED_EDGE_FIXTURE"
 
 TS_UNLISTED_FIXTURE="$TMP_ROOT/ts-unlisted"
 make_ts_unlisted_fixture "$TS_UNLISTED_FIXTURE"

@@ -46,8 +46,10 @@ The validator is also part of:
 ```
 
 It checks Markdown path links, required code-map sections, and whether
-`docs/code-map/generated-inventory.md` matches current ownership, package,
-public-surface, bridge, fixture, and golden metadata.
+`docs/code-map/generated-inventory.md` matches current ownership, actual and
+allowed dependency edges, fan-in/fan-out, public consumers, source hotspots,
+committed-path classifications, public surfaces, bridge operations, fixtures,
+and goldens.
 
 ## Stable Sources
 

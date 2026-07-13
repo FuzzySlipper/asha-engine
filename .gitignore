@@ -13,6 +13,9 @@ ts/packages/*/node_modules/
 coverage/
 .nyc_output/
 .vite/
+dist/
+__pycache__/
+*.pyc
 
 # ── Generated smoke-harness artifacts ───────────────────────────────────────────
 harness/smoke-out/

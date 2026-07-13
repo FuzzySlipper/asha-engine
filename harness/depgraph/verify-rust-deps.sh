@@ -37,6 +37,19 @@ for rel_path in workspace_members:
     if package_name:
         internal_crates[package_name] = f"engine-rs/{rel_path}"
 
+# Ownership also governs intentionally excluded standalone crates such as the
+# napi addon. Include them in the name map and edge validation even though Cargo
+# workspace membership is deliberately absent.
+for ownership_key in crates:
+    cargo_toml = repo / ownership_key / "Cargo.toml"
+    if not cargo_toml.exists():
+        continue
+    with open(cargo_toml, "rb") as f:
+        crate_cfg = tomllib.load(f)
+    package_name = crate_cfg.get("package", {}).get("name")
+    if package_name:
+        internal_crates[package_name] = ownership_key
+
 for ownership_key, crate_meta in crates.items():
     implementation_status = crate_meta.get("implementation_status", "active")
     if implementation_status not in valid_implementation_statuses:
@@ -74,9 +87,15 @@ def internal_dependencies(crate_cfg: dict):
     return deps
 
 
-for rel_path in workspace_members:
-    crate_path = engine_rs / rel_path
-    ownership_key = f"engine-rs/{rel_path}"
+checked_ownership_keys = {f"engine-rs/{rel_path}" for rel_path in workspace_members}
+checked_ownership_keys.update(
+    ownership_key
+    for ownership_key in crates
+    if (repo / ownership_key / "Cargo.toml").exists()
+)
+
+for ownership_key in sorted(checked_ownership_keys):
+    crate_path = repo / ownership_key
 
     if ownership_key not in crates and ownership_key not in ownership_exempt:
         failures.append(f"FAIL: {ownership_key} has no ownership entry in governance/ownership.toml")

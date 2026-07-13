@@ -13,11 +13,18 @@ from collections import defaultdict
 from typing import Any, NoReturn
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT / "harness" / "depgraph"))
+
+from committed_paths import classify, report as committed_path_report, tracked_paths
+
 ATLAS_INDEX = REPO_ROOT / "docs" / "agent-code-atlas.md"
 CODE_MAP_DIR = REPO_ROOT / "docs" / "code-map"
 GENERATED_INVENTORY = CODE_MAP_DIR / "generated-inventory.md"
 OWNERSHIP_PATH = REPO_ROOT / "governance" / "ownership.toml"
 PUBLIC_SURFACE_PATH = REPO_ROOT / "harness" / "public-surface" / "ts-packages.json"
+RUST_PUBLIC_SURFACE_PATH = REPO_ROOT / "harness" / "public-surface" / "rust-crates.json"
+RUST_SHAPE_POLICY = REPO_ROOT / "harness" / "depgraph" / "rust-source-shape-policy.json"
+TS_SHAPE_POLICY = REPO_ROOT / "harness" / "depgraph" / "ts-source-shape-policy.json"
 BRIDGE_MANIFEST_PATH = (
     REPO_ROOT / "engine-rs" / "crates" / "bridge" / "runtime-bridge-api" / "bridge-manifest.toml"
 )
@@ -139,6 +146,7 @@ def inventory_header() -> list[str]:
         "Source metadata:",
         f"- [governance/ownership.toml]({relative_link(GENERATED_INVENTORY, OWNERSHIP_PATH)})",
         f"- [harness/public-surface/ts-packages.json]({relative_link(GENERATED_INVENTORY, PUBLIC_SURFACE_PATH)})",
+        f"- [harness/public-surface/rust-crates.json]({relative_link(GENERATED_INVENTORY, RUST_PUBLIC_SURFACE_PATH)})",
         f"- [runtime bridge manifest]({relative_link(GENERATED_INVENTORY, BRIDGE_MANIFEST_PATH)})",
         "",
     ]
@@ -235,6 +243,217 @@ def render_evidence_inventory() -> list[str]:
     return lines
 
 
+def normalized(name: str) -> str:
+    return name.replace("_", "-")
+
+
+def dependency_names(cargo: dict[str, Any]) -> set[str]:
+    names: set[str] = set()
+    for section in ("dependencies", "dev-dependencies", "build-dependencies"):
+        for dependency, value in cargo.get(section, {}).items():
+            package = value.get("package", dependency) if isinstance(value, dict) else dependency
+            names.add(normalized(package))
+    return names
+
+
+def rust_dependency_cells(ownership: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    records = ownership.get("crate", {})
+    name_by_path = {path: normalized(crate_name(path)) for path in records}
+    internal_names = set(name_by_path.values())
+    cells: dict[str, dict[str, Any]] = {}
+    for path, record in records.items():
+        name = name_by_path[path]
+        cargo_path = REPO_ROOT / path / "Cargo.toml"
+        actual = dependency_names(read_toml(cargo_path)) & internal_names if cargo_path.is_file() else set()
+        configured = record.get("may_depend_on", [])
+        allowed = (
+            internal_names - {name}
+            if configured == "unrestricted"
+            else {normalized(item) for item in configured} & internal_names
+        )
+        cells[name] = {
+            "name": name,
+            "path": path,
+            "lane": record.get("lane", "unknown"),
+            "actual": actual,
+            "allowed": allowed,
+        }
+    return cells
+
+
+def ts_source_imports(package_path: pathlib.Path) -> set[str]:
+    imports: set[str] = set()
+    source = package_path / "src"
+    if not source.is_dir():
+        return imports
+    pattern = re.compile(
+        r"(?:from\s+|import\s+(?:type\s+)?|import\s*\(\s*)"
+        r"[\"'](@asha/[a-z0-9-]+)(?:/[^\"']*)?[\"']"
+    )
+    for path in source.rglob("*.ts"):
+        imports.update(match.group(1) for match in pattern.finditer(path.read_text()))
+    return imports
+
+
+def ts_dependency_cells(ownership: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    records = ownership.get("package", {})
+    name_by_path = {path: package_name(path) for path in records}
+    internal_names = set(name_by_path.values())
+    cells: dict[str, dict[str, Any]] = {}
+    for path, record in records.items():
+        name = name_by_path[path]
+        package_path = REPO_ROOT / path
+        package_json = package_path / "package.json"
+        manifest_dependencies: set[str] = set()
+        if package_json.is_file():
+            manifest = read_json(package_json)
+            for section in ("dependencies", "devDependencies", "peerDependencies"):
+                manifest_dependencies.update(manifest.get(section, {}))
+        actual = (manifest_dependencies | ts_source_imports(package_path)) & internal_names - {name}
+        configured = record.get("may_import", [])
+        allowed = (
+            internal_names - {name}
+            if configured == "unrestricted"
+            else set(configured) & internal_names
+        )
+        cells[name] = {
+            "name": name,
+            "path": path,
+            "lane": record.get("lane", "unknown"),
+            "actual": actual,
+            "allowed": allowed,
+        }
+    return cells
+
+
+def has_path(graph: dict[str, set[str]], start: str, target: str) -> bool:
+    pending = list(graph.get(start, set()))
+    seen: set[str] = set()
+    while pending:
+        current = pending.pop()
+        if current == target:
+            return True
+        if current in seen:
+            continue
+        seen.add(current)
+        pending.extend(graph.get(current, set()))
+    return False
+
+
+def public_consumer_roles() -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    ts_roles = {
+        item["package"]: item.get("allowedConsumerRoles", [])
+        for item in read_json(PUBLIC_SURFACE_PATH).get("packages", [])
+    }
+    rust_roles: dict[str, list[str]] = {}
+    for item in read_json(RUST_PUBLIC_SURFACE_PATH).get("crates", []):
+        source = item.get("sourceOfTruth")
+        if isinstance(source, str):
+            rust_roles[normalized(crate_name(source))] = item.get("allowedConsumerRoles", [])
+    return rust_roles, ts_roles
+
+
+def render_dependency_table(
+    title: str,
+    cells: dict[str, dict[str, Any]],
+    public_roles: dict[str, list[str]],
+) -> list[str]:
+    incoming = {name: set() for name in cells}
+    actual_graph = {name: set(cell["actual"]) for name, cell in cells.items()}
+    allowed_graph = {name: set(cell["allowed"]) for name, cell in cells.items()}
+    for source, targets in actual_graph.items():
+        for target in targets:
+            incoming.setdefault(target, set()).add(source)
+    lines = [f"### {title}", ""]
+    lines.append("| Cell | Actual edges / allowed edges | Fan in/out | Cycle risk | Public consumers |")
+    lines.append("|---|---|---:|---|---|")
+    for name in sorted(cells):
+        cell = cells[name]
+        actual = ", ".join(f"`{item}`" for item in sorted(cell["actual"])) or "none"
+        allowed = ", ".join(f"`{item}`" for item in sorted(cell["allowed"])) or "none"
+        actual_cycle = any(has_path(actual_graph, target, name) for target in cell["actual"])
+        mutual_allowed = any(name in allowed_graph.get(target, set()) for target in cell["allowed"])
+        cycle_risk = "actual cycle" if actual_cycle else "mutual allowance" if mutual_allowed else "none"
+        internal = sorted(incoming.get(name, set()))
+        external = [f"role:{role}" for role in public_roles.get(name, [])]
+        consumers = ", ".join(f"`{item}`" for item in [*internal, *external]) or "none"
+        lines.append(
+            f"| `{name}` ({cell['lane']}) | actual: {actual}<br>allowed: {allowed} | "
+            f"{len(internal)}/{len(cell['actual'])} | {cycle_risk} | {consumers} |"
+        )
+    lines.append("")
+    return lines
+
+
+def ownership_for_source(path: str, ownership: dict[str, Any]) -> str:
+    candidates = [
+        (prefix, record.get("lane", "unknown"))
+        for family in ("crate", "package")
+        for prefix, record in ownership.get(family, {}).items()
+        if path.startswith(prefix + "/")
+    ]
+    return max(candidates, key=lambda item: len(item[0]))[1] if candidates else "unowned"
+
+
+def source_hotspots(ownership: dict[str, Any]) -> list[dict[str, Any]]:
+    hotspots: list[dict[str, Any]] = []
+    configurations = [
+        (REPO_ROOT / "engine-rs", ".rs", read_json(RUST_SHAPE_POLICY)),
+        (REPO_ROOT / "ts" / "packages", ".ts", read_json(TS_SHAPE_POLICY)),
+    ]
+    for root, suffix, policy in configurations:
+        exemptions = {
+            **policy.get("fileLineExemptions", {}),
+            **policy.get("rootBarrelExemptions", {}),
+        }
+        for path in root.rglob(f"*{suffix}"):
+            rel = path.relative_to(REPO_ROOT).as_posix()
+            if classify(rel) != "committedSource":
+                continue
+            lines = len(path.read_text().splitlines()) + 1
+            exemption = exemptions.get(rel)
+            cap = exemption["maxLines"] if exemption else policy["maxSourceLines"]
+            warning = exemption["warningLines"] if exemption else policy["warningSourceLines"]
+            if lines < warning:
+                continue
+            hotspots.append({
+                "path": rel,
+                "lines": lines,
+                "warning": warning,
+                "cap": cap,
+                "owner": exemption.get("owner") if exemption else ownership_for_source(rel, ownership),
+                "reviewBy": exemption.get("reviewBy", "global policy") if exemption else "global policy",
+            })
+    return sorted(hotspots, key=lambda item: (-item["lines"] / item["cap"], item["path"]))
+
+
+def render_structure_pressure(ownership: dict[str, Any]) -> list[str]:
+    path_report = committed_path_report(tracked_paths(REPO_ROOT))
+    if path_report["buildCacheOutputPaths"]:
+        fail("tracked build/cache/output paths must be removed before generating architecture pressure")
+    counts = path_report["counts"]
+    rust_roles, ts_roles = public_consumer_roles()
+    lines = ["## Assignment And Dependency Pressure", ""]
+    lines.append(
+        "Committed path classes: "
+        f"{counts['committedSource']} source; {counts['generatedSource']} generated source; "
+        f"{counts['otherCommitted']} other; {counts['buildCacheOutput']} build/cache/output."
+    )
+    lines.append("")
+    lines.extend(render_dependency_table("Rust actual and allowed edges", rust_dependency_cells(ownership), rust_roles))
+    lines.extend(render_dependency_table("TypeScript actual and allowed edges", ts_dependency_cells(ownership), ts_roles))
+    lines.extend(["### Near-cap source hotspots", ""])
+    lines.append("| Source | Lines / warning / cap | Owner | Review by |")
+    lines.append("|---|---:|---|---|")
+    for item in source_hotspots(ownership):
+        lines.append(
+            f"| `{item['path']}` | {item['lines']} / {item['warning']} / {item['cap']} | "
+            f"{item['owner']} | {item['reviewBy']} |"
+        )
+    lines.append("")
+    return lines
+
+
 def generated_inventory() -> str:
     ownership = read_toml(OWNERSHIP_PATH)
     sections = [
@@ -243,6 +462,7 @@ def generated_inventory() -> str:
         render_package_inventory(ownership),
         render_public_surface_inventory(),
         render_bridge_inventory(),
+        render_structure_pressure(ownership),
         render_evidence_inventory(),
     ]
     return "\n".join(line for section in sections for line in section).rstrip() + "\n"

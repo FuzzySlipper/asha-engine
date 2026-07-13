@@ -1,63 +1,148 @@
 {
   "maxSourceLines": 1600,
+  "warningSourceLines": 1400,
   "fileLineExemptions": {
     "ts/packages/runtime-bridge/src/mock.ts": {
       "maxLines": 1620,
-      "justification": "MockRuntimeBridge remains the single fail-closed implementation of the RuntimeBridge interface; additive manifest verbs must be explicit here until runtime-bridge mock capability modules are split."
+      "warningLines": 1580,
+      "owner": "ts-shell",
+      "rationale": "MockRuntimeBridge remains the single fail-closed implementation of the RuntimeBridge interface until its capability groups are split behind the same contract.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-10-15",
+      "reviewTrigger": "Review on any RuntimeBridge operation, mock capability group, or attempted baseline increase.",
+      "removalCondition": "Remove after mock capability modules replace the consolidated implementation and all files fit the global cap."
     }
   },
   "rootBarrelExemptions": {
     "ts/packages/app/src/index.ts": {
       "maxLines": 224,
-      "justification": "Application composition root still owns shell wiring; split when app shell state is broken into focused modules."
+      "warningLines": 200,
+      "owner": "ts-shell",
+      "rationale": "Application composition root still owns shell wiring while public behavior remains delegated to focused modules.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-10-15",
+      "reviewTrigger": "Review on any shell capability addition, composition owner change, or baseline increase.",
+      "removalCondition": "Remove after application shell state and wiring move into focused modules and the root becomes exports-only."
     },
     "ts/packages/catalog-core/src/index.ts": {
       "maxLines": 1140,
-      "justification": "Catalog DTOs and validators are still consolidated until catalog schema modules are split."
+      "warningLines": 1050,
+      "owner": "ts-catalog",
+      "rationale": "Catalog DTOs and validators predate the barrel rule and remain consolidated pending schema-family modules.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-09-15",
+      "reviewTrigger": "Review on any catalog schema family, validator family, or attempted baseline increase.",
+      "removalCondition": "Remove after catalog schema and validation families move to focused modules and the root is exports-only."
     },
     "ts/packages/devtools/src/index.ts": {
       "maxLines": 81,
-      "justification": "Devtools package root is a compact implementation surface pending panel/protocol module split."
+      "warningLines": 70,
+      "owner": "ts-tools",
+      "rationale": "The compact devtools root contains its remaining implementation while protocol and panel work is still small.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-10-15",
+      "reviewTrigger": "Review when a second panel family lands, the root grows, or package ownership changes.",
+      "removalCondition": "Remove when devtools implementation moves behind focused panel and protocol modules and the root is exports-only."
     },
     "ts/packages/editor-tools/src/index.ts": {
       "maxLines": 261,
-      "justification": "Editor-tool read models and command builders predate the barrel convention; keep explicit until sliced."
+      "warningLines": 235,
+      "owner": "ts-shell",
+      "rationale": "Editor read models and command builders predate the barrel convention and remain explicit at the package root.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-10-15",
+      "reviewTrigger": "Review on any editor capability family, command builder family, or baseline increase.",
+      "removalCondition": "Remove after editor read models and command builders move to focused modules and the root is exports-only."
     },
     "ts/packages/electron-main/src/index.ts": {
       "maxLines": 102,
-      "justification": "Electron host package has one small host-capability implementation surface."
+      "warningLines": 90,
+      "owner": "ts-shell",
+      "rationale": "The Electron package has one small host-capability implementation surface at its root.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-10-15",
+      "reviewTrigger": "Review on any second host capability, lifecycle responsibility, or baseline increase.",
+      "removalCondition": "Remove when host implementation moves to a focused module and the package root becomes exports-only."
     },
     "ts/packages/native-bridge/src/index.ts": {
       "maxLines": 360,
-      "justification": "Native bridge package root is the transport loader boundary; additive native RuntimeBridge exports are kept here until generated transport glue replaces the hand-written loader."
+      "warningLines": 300,
+      "owner": "ts-shell",
+      "rationale": "Native bridge root is the transport loader boundary pending complete generated transport glue.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-10-15",
+      "reviewTrigger": "Review on any loader responsibility, native transport export, or baseline increase.",
+      "removalCondition": "Remove when generated transport glue owns the loader implementation and the root is exports-only."
     },
     "ts/packages/policy-core/src/index.ts": {
       "maxLines": 21,
-      "justification": "Policy-core root exports the tiny default policy implementation."
+      "warningLines": 15,
+      "owner": "ts-policy",
+      "rationale": "Policy-core root contains the tiny default policy implementation and no hidden runtime coupling.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-10-15",
+      "reviewTrigger": "Review when another policy implementation or helper responsibility is added to the root.",
+      "removalCondition": "Remove when the default policy moves to a focused module and the root becomes exports-only."
     },
     "ts/packages/policy-examples/src/index.ts": {
       "maxLines": 93,
-      "justification": "Example policy package intentionally keeps examples in the root until example modules grow."
+      "warningLines": 80,
+      "owner": "ts-policy",
+      "rationale": "Example policies remain colocated at the root while the example set is small and intentionally inspectable.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-10-15",
+      "reviewTrigger": "Review when a new example family lands, examples gain shared state, or the cap changes.",
+      "removalCondition": "Remove when examples split into named modules and the package root becomes exports-only."
     },
     "ts/packages/render-projection/src/index.ts": {
       "maxLines": 591,
-      "justification": "Render projection owns a focused retained read-model implementation pending a projection module split."
+      "warningLines": 500,
+      "owner": "ts-shell",
+      "rationale": "Render projection historically owned a focused retained read-model implementation at its root.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-10-15",
+      "reviewTrigger": "Review on any retained projection family, renderer responsibility, or baseline increase.",
+      "removalCondition": "Remove once the retained projection implementation is fully modular and the root remains exports-only."
     },
     "ts/packages/script-host/src/index.ts": {
       "maxLines": 133,
-      "justification": "Script host package root owns the small sandbox runner implementation."
+      "warningLines": 115,
+      "owner": "ts-policy",
+      "rationale": "Script host root owns the small sandbox runner implementation pending a dedicated runner module.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-10-15",
+      "reviewTrigger": "Review on any sandbox capability, host lifecycle responsibility, or baseline increase.",
+      "removalCondition": "Remove when sandbox runner implementation moves to a focused module and the root is exports-only."
     },
     "ts/packages/script-sdk/src/index.ts": {
       "maxLines": 207,
-      "justification": "Script SDK root contains author-facing helpers until SDK commands/signals split."
+      "warningLines": 180,
+      "owner": "ts-policy",
+      "rationale": "Script SDK root contains author-facing helpers pending separation of command and signal families.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-10-15",
+      "reviewTrigger": "Review on any SDK command family, signal family, stateful helper, or baseline increase.",
+      "removalCondition": "Remove after SDK commands and signals move to focused modules and the root is exports-only."
     },
     "ts/packages/ui-dom/src/index.ts": {
       "maxLines": 662,
-      "justification": "DOM UI package root still contains component helpers; future UI package split should retire this exemption."
+      "warningLines": 600,
+      "owner": "ts-shell",
+      "rationale": "DOM UI root still contains component helpers while panels and composition remain within one package.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-09-15",
+      "reviewTrigger": "Review on any component family, stateful UI service, renderer coupling, or baseline increase.",
+      "removalCondition": "Remove after DOM components move to focused modules and the package root becomes exports-only."
     },
     "ts/packages/wasm-replay-bridge/src/index.ts": {
       "maxLines": 190,
-      "justification": "WASM replay bridge root owns the loader/facade boundary until bridge modules split."
+      "warningLines": 170,
+      "owner": "ts-shell",
+      "rationale": "WASM replay bridge root owns its loader and facade boundary pending a dedicated loader module.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-10-15",
+      "reviewTrigger": "Review on any WASM loader capability, replay facade responsibility, or baseline increase.",
+      "removalCondition": "Remove when loader and facade implementations move to focused modules and the root is exports-only."
     }
   }
 }

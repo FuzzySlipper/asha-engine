@@ -2,20 +2,33 @@
 import { lstatSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-import { validateBaselineChange } from './ts-source-shape-policy-audit.mjs';
+import {
+  validateBaselineChange,
+  validateExemptionMetadata,
+} from './ts-source-shape-policy-audit.mjs';
 
 const repoRoot = process.argv[2] ?? process.cwd();
 const policyPath = join(repoRoot, 'harness/depgraph/ts-source-shape-policy.json');
 const policy = JSON.parse(readFileSync(policyPath, 'utf8'));
 const maxSourceLines = Number(policy.maxSourceLines);
+const warningSourceLines = Number(policy.warningSourceLines);
 const fileLineExemptions = policy.fileLineExemptions ?? {};
 const rootBarrelExemptions = policy.rootBarrelExemptions ?? {};
 const failures = [];
+const warnings = [];
+const today = process.env.ASHA_SOURCE_SHAPE_TODAY ?? new Date().toISOString().slice(0, 10);
 const checkedFileLineExemptions = new Set();
 const checkedRootBarrelExemptions = new Set();
 
 if (!Number.isSafeInteger(maxSourceLines) || maxSourceLines <= 0) {
   failures.push('FAIL: ts-source-shape-policy.json maxSourceLines must be a positive integer');
+}
+if (
+  !Number.isSafeInteger(warningSourceLines) ||
+  warningSourceLines <= 0 ||
+  warningSourceLines >= maxSourceLines
+) {
+  failures.push('FAIL: ts-source-shape-policy.json warningSourceLines must be below maxSourceLines');
 }
 
 function walk(dir) {
@@ -79,7 +92,7 @@ function readExemption(kind, rel, value) {
   }
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     failures.push(
-      `FAIL: ${rel} ${kind} entry must be an object with maxLines and justification fields.`,
+      `FAIL: ${rel} ${kind} entry must be an object with governed metadata.`,
     );
     return undefined;
   }
@@ -87,11 +100,9 @@ function readExemption(kind, rel, value) {
   if (typeof maxLines !== 'number' || !Number.isSafeInteger(maxLines) || maxLines <= 0) {
     failures.push(`FAIL: ${rel} ${kind} entry maxLines must be a positive integer.`);
   }
-  if (typeof value.justification !== 'string' || value.justification.trim().length < 20) {
-    failures.push(`FAIL: ${rel} ${kind} entry must include a specific justification.`);
-  }
+  validateExemptionMetadata(kind, rel, value, failures, today);
   validateBaselineChange(kind, rel, value.baselineChange, failures);
-  return { maxLines };
+  return { maxLines, warningLines: value.warningLines };
 }
 
 function checkExemptionBaseline(kind, rel, lineCount, value) {
@@ -104,6 +115,9 @@ function checkExemptionBaseline(kind, rel, lineCount, value) {
       `FAIL: ${rel} has ${lineCount} lines; ${kind} baseline is ${exemption.maxLines}. ` +
         'Shrink the file or update the reviewed source-shape policy baseline.',
     );
+  }
+  if (lineCount >= exemption.warningLines) {
+    warnings.push(`${rel} ${lineCount}/${exemption.maxLines}`);
   }
 }
 
@@ -122,6 +136,9 @@ for (const file of walk(packageRoot)) {
       `FAIL: ${rel} has ${lineCount} lines; limit is ${maxSourceLines}. ` +
         'Split the file or add a justified fileLineExemptions entry.',
     );
+  }
+  if (exemption === undefined && lineCount >= warningSourceLines) {
+    warnings.push(`${rel} ${lineCount}/${maxSourceLines}`);
   }
 
   if (!rel.endsWith('/src/index.ts')) {
@@ -174,4 +191,8 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('TypeScript source shape check: OK');
+if (warnings.length > 0) {
+  console.warn(`WARN: TypeScript source-shape hotspots: ${warnings.sort().join('; ')}`);
+}
+
+console.log(`TypeScript source shape check: OK (${warnings.length} near-cap hotspots)`);

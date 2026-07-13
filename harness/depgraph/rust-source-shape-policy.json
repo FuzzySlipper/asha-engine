@@ -1,17 +1,87 @@
 {
   "maxSourceLines": 1600,
+  "warningSourceLines": 1400,
   "fileLineExemptions": {
+    "engine-rs/crates/bridge/runtime-bridge-api/src/authority/runtime_bridge_impl.rs": {
+      "maxLines": 1612,
+      "warningLines": 1570,
+      "owner": "rust-bridge",
+      "rationale": "RuntimeBridge is one Rust trait implementation whose operation bodies delegate to lane-specific authority modules; this narrow exception records the public routing surface.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-10-15",
+      "reviewTrigger": "Review on any new bridge operation, baseline change, or authority-lane ownership change.",
+      "removalCondition": "Remove when the routing implementation falls below the global cap without obscuring the single authoritative RuntimeBridge implementation."
+    },
+    "engine-rs/crates/protocol/protocol-codegen/src/lib.rs": {
+      "maxLines": 1601,
+      "warningLines": 1560,
+      "owner": "contract-steward",
+      "rationale": "Protocol code generation retains the cross-contract orchestration and completeness tests in one steward entrypoint while generated-family emitters remain separately owned.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-10-15",
+      "reviewTrigger": "Review on any new protocol family, completeness exemption, or attempted baseline increase.",
+      "removalCondition": "Remove after orchestration and completeness fixtures are separated into focused modules below the global source cap.",
+      "baselineChange": {
+        "changedAt": "2026-07-13",
+        "changeTask": "#5761",
+        "reason": "The existing file exceeded the global cap by one line before governed metadata was available; no growth headroom is granted.",
+        "previousMaxLines": null,
+        "newMaxLines": 1601
+      }
+    },
     "engine-rs/crates/protocol/protocol-render/src/lib.rs": {
       "maxLines": 1941,
-      "justification": "Protocol-render is an older consolidated border DTO crate; split render material, texture, sprite, mesh, and diff shape families during the next protocol-surface module pass."
+      "warningLines": 1880,
+      "owner": "contract-steward",
+      "rationale": "Protocol-render is an older consolidated border DTO crate awaiting separation of material, texture, sprite, mesh, and render-diff shape families.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-10-15",
+      "reviewTrigger": "Review on any new render protocol family, baseline change, or generated-contract expansion.",
+      "removalCondition": "Remove after render protocol families move into focused modules and every source file is below the global cap."
+    },
+    "engine-rs/crates/rules/gameplay-runtime-host/src/lib.rs": {
+      "maxLines": 2795,
+      "warningLines": 2600,
+      "owner": "rust-rule",
+      "rationale": "The first public gameplay host slice accumulated orchestration, restore, decision, scheduler, prefab, and lifecycle composition before the structural trend gate existed.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-09-15",
+      "reviewTrigger": "Review on any new host capability, public facade expansion, or attempted baseline increase.",
+      "removalCondition": "Remove after host orchestration, restore, decision, and lifecycle responsibilities are split into focused private modules behind the same public facade.",
+      "baselineChange": {
+        "changedAt": "2026-07-13",
+        "changeTask": "#5761",
+        "reason": "Wave 1 completed before the source-shape gate covered this file; the exact current size is recorded with no growth headroom.",
+        "previousMaxLines": null,
+        "newMaxLines": 2795
+      }
+    },
+    "engine-rs/crates/rules/rule-gameplay-fabric/src/observe.rs": {
+      "maxLines": 1622,
+      "warningLines": 1580,
+      "owner": "rust-rule",
+      "rationale": "The observe coordinator currently keeps transactional waves, continuation authority, routing evidence, and verification replay adjacent for reviewability.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-10-15",
+      "reviewTrigger": "Review on any new reaction phase, continuation rule, replay field, or attempted baseline increase.",
+      "removalCondition": "Remove after continuation and verification replay helpers are extracted without splitting transactional wave authority across crates.",
+      "baselineChange": {
+        "changedAt": "2026-07-13",
+        "changeTask": "#5761",
+        "reason": "The Wave 1 coordinator exceeded the global cap before the trend gate landed; the exact current size is recorded without headroom.",
+        "previousMaxLines": null,
+        "newMaxLines": 1622
+      }
     },
     "engine-rs/crates/services/svc-voxel-conversion/src/lib.rs": {
       "maxLines": 2064,
-      "justification": "Voxel conversion service currently keeps registration, planning, preview, apply, diagnostics, quotas, and model-info evidence in one authority file after the native coverage hardening slices; split conversion topology, rasterization, guardrail, and readout modules in the next service-shape cleanup."
-    },
-    "engine-rs/crates/bridge/runtime-bridge-api/src/authority/runtime_bridge_impl.rs": {
-      "maxLines": 1612,
-      "justification": "RuntimeBridge is one Rust trait implementation and cannot be split across implementation blocks; operation bodies remain delegated to lane-specific authority modules, and this narrow baseline records the public routing surface."
+      "warningLines": 2000,
+      "owner": "rust-service",
+      "rationale": "Voxel conversion keeps registration, planning, preview, apply, diagnostics, quotas, and model-info evidence in one authority file after native coverage hardening.",
+      "introducedBy": "#5761",
+      "reviewBy": "2026-09-15",
+      "reviewTrigger": "Review on any new conversion input family, authority phase, or attempted baseline increase.",
+      "removalCondition": "Remove after conversion topology, rasterization, guardrails, and readouts are separated into focused service modules."
     }
   }
 }
