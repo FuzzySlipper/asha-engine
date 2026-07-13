@@ -358,6 +358,30 @@
       "delivery": { "path": "../asha-demo/tests/live-ui.spec.mjs", "token": "prefabRuntimeReadout" }
     },
     {
+      "id": "renderer.projection-pick",
+      "kind": "projectionChannel",
+      "protocol": { "path": "ts/packages/contracts/src/generated/render.ts", "symbol": "RenderMetadata" },
+      "provider": { "path": "ts/packages/renderer-host/src/surface.ts", "token": "export interface AshaRendererSurfacePickReceipt" },
+      "fields": [
+        { "name": "handle", "path": "ts/packages/renderer-host/src/surface.ts", "token": "readonly handle: RenderHandle" },
+        { "name": "layer", "path": "ts/packages/renderer-host/src/surface.ts", "token": "readonly layer: RenderLayer" },
+        { "name": "normal", "path": "ts/packages/renderer-host/src/surface.ts", "token": "readonly normal: AshaRendererSurfaceVec3" },
+        { "name": "position", "path": "ts/packages/renderer-host/src/surface.ts", "token": "readonly position: AshaRendererSurfaceVec3" },
+        { "name": "sourceTrace", "path": "ts/packages/renderer-host/src/surface.ts", "token": "readonly sourceTrace:" }
+      ],
+      "selectors": [
+        { "name": "handles", "path": "ts/packages/renderer-host/src/surface.ts", "token": "readonly handles?: readonly RenderHandle[]" },
+        { "name": "labels", "path": "ts/packages/renderer-host/src/surface.ts", "token": "readonly labels?: readonly string[]" },
+        { "name": "layers", "path": "ts/packages/renderer-host/src/surface.ts", "token": "readonly layers?: readonly RenderLayer[]" },
+        { "name": "tags", "path": "ts/packages/renderer-host/src/surface.ts", "token": "readonly tags?: readonly TagId[]" }
+      ],
+      "quotas": [
+        { "name": "maxFilterValues", "path": "ts/packages/renderer-three/src/browser-surface.ts", "token": "const MAX_PICK_FILTER_VALUES = 128" }
+      ],
+      "publicSurface": { "kind": "typescript", "identity": "@asha/renderer-host", "symbol": "AshaRendererSurfacePickReceipt" },
+      "delivery": { "path": "ts/packages/renderer-three/src/browser-surface-pick.test.ts", "token": "projection pick returns typed source evidence without changing projection or authority-shaped state" }
+    },
+    {
       "id": "telemetry.live-snapshot-overlay",
       "kind": "projectionChannel",
       "protocol": { "path": "ts/packages/contracts/src/generated/telemetry.ts", "symbol": "LiveTelemetrySnapshot" },

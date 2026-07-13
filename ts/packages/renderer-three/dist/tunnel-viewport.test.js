@@ -164,7 +164,9 @@ void test('renderer-three backend declarations stay render-backend scoped', () =
     const declarationPath = fileURLToPath(new URL('../dist/browser-surface.d.ts', import.meta.url));
     const declarationText = readFileSync(declarationPath, 'utf8');
     assert.match(declarationText, /mountAshaRendererBrowserSurface/);
-    assert.match(declarationText, /pickCenterObject/);
+    assert.match(declarationText, /readonly pick:/);
+    assert.match(declarationText, /AshaRendererBrowserSurfacePickReceipt/);
+    assert.doesNotMatch(declarationText, /pickCenterObject/);
     assert.doesNotMatch(declarationText, /createAshaRendererGeneratedTunnelRoomSurfaceFrame/);
     assert.doesNotMatch(declarationText, /firePrimary/);
     assert.doesNotMatch(declarationText, /lockPointer/);

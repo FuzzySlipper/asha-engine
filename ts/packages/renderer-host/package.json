@@ -13,7 +13,7 @@
   },
   "asha": {
     "compatibility": {
-      "version": "renderer-host.v0",
+      "version": "renderer-host.v1",
       "metadataFile": "compatibility.json",
       "changelog": "docs/consumer-compatibility.md#renderer-host-compatibility-log"
     }

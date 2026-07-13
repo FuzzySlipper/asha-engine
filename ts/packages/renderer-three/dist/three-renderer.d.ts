@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { type RuntimeBufferHandle, type RuntimeBufferView } from '@asha/runtime-bridge';
-import type { MeshPickHit, RenderDiff, RenderFrameDiff, RenderHandle, RenderMaterialDescriptor, SpriteAtlasDescriptor, SpritePickHit, TextureDescriptor } from '@asha/contracts';
+import type { MeshPickHit, RenderDiff, RenderFrameDiff, RenderHandle, RenderLayer, RenderMaterialDescriptor, RenderMetadata, SpriteAtlasDescriptor, SpritePickHit, TextureDescriptor } from '@asha/contracts';
 import { type AnimatedMeshAssetSource, type AnimatedMeshControllerClip, type AnimatedMeshPlaybackReadout } from './animated-mesh.js';
 /** Raised when a diff cannot be applied (duplicate, unknown, or stale handle). */
 export declare class RenderApplyError extends Error {
@@ -21,6 +21,11 @@ export declare class RenderApplyError extends Error {
 export interface MeshBufferSource {
     getBuffer(handle: RuntimeBufferHandle): RuntimeBufferView;
     releaseBuffer(handle: RuntimeBufferHandle): void;
+}
+export interface RendererProjectionIdentity {
+    readonly handle: RenderHandle;
+    readonly layer: RenderLayer;
+    readonly metadata: RenderMetadata;
 }
 /**
  * A retained Three.js scene driven entirely by render diffs.
@@ -54,6 +59,13 @@ export declare class ThreeRenderer {
     get handleCount(): number;
     /** The Three.js object for a handle, for inspection/tests. */
     objectFor(handle: RenderHandle): THREE.Object3D | undefined;
+    /**
+     * Resolve a renderer object (or one of its backend-owned descendants) to the
+     * retained projection identity that created it. This is disposable picking
+     * evidence only: callers receive generated handle/metadata values and no
+     * mutable Three.js object or authority capability.
+     */
+    projectionIdentityForObject(object: THREE.Object3D): RendererProjectionIdentity | undefined;
     /** Advance projection-only animation mixers by an explicit renderer frame delta. */
     advanceAnimation(deltaSeconds: number): void;
     /** Projection/debug readback for animated mesh playback; never authority. */

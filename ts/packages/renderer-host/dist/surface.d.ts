@@ -1,8 +1,8 @@
-import type { CameraBasis, RenderFrameDiff, RenderHandle } from '@asha/contracts';
+import type { CameraBasis, EntityId, RenderFrameDiff, RenderHandle, RenderLayer, TagId } from '@asha/contracts';
 import { type GeneratedTunnelFrameReadout, type RenderProjectionInstruction, type RenderProjectionSnapshot, type TunnelViewportMaterialPalette } from '@asha/render-projection';
 import { type BrowserInputHostReadout, type BrowserInputSessionPort } from '@asha/runtime-bridge';
 import { type AshaRendererAnimatedMeshProjection, type AshaRendererAnimatedMeshFrameReceipt, type AshaRendererAnimatedMeshPlaybackReadout, type AshaRendererAnimatedMeshResourceManifest, type AshaRendererAnimatedMeshResourceResolver } from './animated-mesh-host.js';
-export declare const ASHA_RENDERER_HOST_COMPATIBILITY_VERSION = "renderer-host.v0";
+export declare const ASHA_RENDERER_HOST_COMPATIBILITY_VERSION = "renderer-host.v1";
 export type AshaRendererBackendFamily = 'threejs';
 export interface AshaRendererBackendDiagnostics {
     readonly family: AshaRendererBackendFamily;
@@ -64,41 +64,57 @@ export interface AshaRendererSurfaceMovementState {
     readonly collided: boolean;
     readonly movementHash: string | null;
 }
-export interface AshaRendererSurfaceFireResult {
-    readonly distance: number | null;
-    readonly hit: boolean;
-    readonly label: string | null;
-    readonly remainingTargets: number;
-    readonly shotsFired: number;
-    readonly targetHealth: number | null;
-}
-export interface AshaRendererSurfaceInteractionState {
-    readonly hits: number;
-    readonly lastEvent: string;
-    readonly remainingTargets: number;
-    readonly shotsFired: number;
-    readonly totalTargets: number;
-}
 export type AshaRendererSurfaceVec3 = readonly [number, number, number];
-export interface AshaRendererSurfaceTargetProjection {
-    readonly lastEvent?: string;
-    readonly position?: AshaRendererSurfaceVec3;
-    readonly scale?: AshaRendererSurfaceVec3;
-    readonly visible: boolean;
+export type AshaRendererSurfacePickRay = {
+    readonly kind: 'viewport';
+    /** Normalized device coordinates, each bounded to [-1, 1]. */
+    readonly point: readonly [number, number];
+} | {
+    readonly kind: 'world_ray';
+    readonly direction: AshaRendererSurfaceVec3;
+    readonly origin: AshaRendererSurfaceVec3;
+};
+export interface AshaRendererSurfacePickFilter {
+    readonly handles?: readonly RenderHandle[];
+    readonly labels?: readonly string[];
+    readonly layers?: readonly RenderLayer[];
+    readonly tags?: readonly TagId[];
 }
-export interface AshaRendererSurfaceRenderTargetIdentity {
-    readonly kind: 'runtime_session.ecrp_render_target.v0';
-    readonly renderLabel: string;
+export interface AshaRendererSurfacePickRequest {
+    readonly filter?: AshaRendererSurfacePickFilter;
+    readonly maxDistance?: number;
+    readonly ray: AshaRendererSurfacePickRay;
+}
+export type AshaRendererSurfacePickDiagnosticCode = 'invalid_viewport_point' | 'invalid_world_ray' | 'invalid_max_distance' | 'filter_limit_exceeded';
+export interface AshaRendererSurfacePickDiagnostic {
+    readonly code: AshaRendererSurfacePickDiagnosticCode;
+    readonly message: string;
+}
+/** Disposable projection evidence. This is never a combat or authority receipt. */
+export interface AshaRendererSurfacePickHint {
+    readonly channel: 'render_projection';
+    readonly distance: number;
+    readonly handle: RenderHandle;
+    readonly label: string | null;
+    readonly layer: RenderLayer;
+    readonly normal: AshaRendererSurfaceVec3;
     readonly position: AshaRendererSurfaceVec3;
-    readonly scale: AshaRendererSurfaceVec3 | null;
-    readonly visible: boolean;
+    readonly sourceTrace: {
+        readonly entity: EntityId;
+        readonly kind: 'render_metadata_entity';
+    } | null;
+    readonly tags: readonly TagId[];
+}
+export interface AshaRendererSurfacePickReceipt {
+    readonly diagnostics: readonly AshaRendererSurfacePickDiagnostic[];
+    readonly hint: AshaRendererSurfacePickHint | null;
+    readonly kind: 'asha_renderer_surface_pick.v0';
 }
 export interface AshaRendererGeneratedTunnelRoomTarget {
     readonly label?: string;
     readonly position: AshaRendererSurfaceVec3;
     readonly scale?: AshaRendererSurfaceVec3;
 }
-export type AshaRendererSurfaceColor = readonly [number, number, number, number];
 export type AshaRendererGeneratedTunnelMaterialPalette = TunnelViewportMaterialPalette;
 export type AshaRendererGeneratedTunnelReadout = GeneratedTunnelFrameReadout;
 export interface AshaRendererGeneratedTunnelRoomSurfaceInput {
@@ -121,17 +137,12 @@ export interface AshaRendererSurface {
     readonly applyFrame: (frame: RenderFrameDiff) => AshaRendererAnimatedMeshFrameReceipt;
     readonly projectionSnapshot: () => RenderProjectionSnapshot;
     readonly cameraPose: () => AshaRendererSurfaceCameraPose;
-    readonly firePrimary: () => AshaRendererSurfaceFireResult;
-    readonly interactionState: () => AshaRendererSurfaceInteractionState;
+    readonly pick: (request: AshaRendererSurfacePickRequest) => AshaRendererSurfacePickReceipt;
     readonly lockPointer: () => void;
     readonly movementState: () => AshaRendererSurfaceMovementState;
     readonly pointerLocked: () => boolean;
     readonly inputReadout: () => BrowserInputHostReadout | null;
-    readonly projectRenderTargetProjection: (target: AshaRendererSurfaceRenderTargetIdentity, options?: {
-        readonly lastEvent?: string;
-    }) => void;
-    readonly projectTargetProjection: (projection: AshaRendererSurfaceTargetProjection) => void;
-    readonly reset: () => void;
+    readonly resetCamera: () => void;
     readonly snapshot: () => string;
     readonly renderOnce: (timeMs?: number) => void;
     readonly start: () => void;
@@ -141,11 +152,6 @@ export interface AshaRendererSurface {
 export declare function createAshaRendererSurfaceProjection(frame: RenderFrameDiff): AshaRendererSurfaceProjectionReceipt;
 export declare function createAshaRendererDefaultSurfaceFrame(): RenderFrameDiff;
 export declare function createAshaRendererGeneratedTunnelRoomSurfaceFrame(input: AshaRendererGeneratedTunnelRoomSurfaceInput): RenderFrameDiff;
-export declare function surfaceTargetProjectionFromRenderTarget(target: AshaRendererSurfaceRenderTargetIdentity, options?: {
-    readonly lastEvent?: string;
-}): AshaRendererSurfaceTargetProjection & {
-    readonly label: string;
-};
 export declare function mountAshaRendererSurface(canvas: HTMLCanvasElement, options?: AshaRendererSurfaceOptions): AshaRendererSurface;
 export declare function mountAshaRendererAnimatedMeshSurface(canvas: HTMLCanvasElement, options: AshaRendererAnimatedMeshSurfaceOptions): Promise<AshaRendererSurface>;
 //# sourceMappingURL=surface.d.ts.map

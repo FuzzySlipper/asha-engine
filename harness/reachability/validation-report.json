@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "valid": true,
   "manifest": "harness/reachability/manifest.json",
-  "manifestHash": "sha256:1fbd726defc297bf076c61d77587c2570fa56008f289f730743f3e5cba612612",
+  "manifestHash": "sha256:9052f35daae42e8effc736d1bf2b01fdba7deab466efa36e5542929b0af3eec4",
   "catalogs": [
     {
       "path": "engine-rs/crates/bridge/runtime-bridge-api/bridge-manifest.toml",
@@ -10,7 +10,7 @@
     },
     {
       "path": "harness/public-surface/ts-packages.json",
-      "hash": "sha256:46f8aeb3f9ecccaadb68bbdb504c18c8333d44b88b444a23bc965e24e2cccb4d"
+      "hash": "sha256:2a0d100e17877d2a6e296fdb9c6353e450c4a58094d779acad985b18f5044be2"
     },
     {
       "path": "harness/public-surface/rust-crates.json",
@@ -25,7 +25,7 @@
       "hash": "sha256:ea671385db805d0e4ff20d347d6a4771b34923d055d5fd13746c4fc7fbb044ca"
     }
   ],
-  "capabilityCount": 21,
+  "capabilityCount": 22,
   "catalogAssertionCount": 5,
   "internalExemptionCount": 2,
   "catalogAssertions": [
@@ -178,6 +178,12 @@
     {
       "id": "prefab.runtime-placement",
       "kind": "runtimeOperation",
+      "reachable": true,
+      "gapCount": 0
+    },
+    {
+      "id": "renderer.projection-pick",
+      "kind": "projectionChannel",
       "reachable": true,
       "gapCount": 0
     },

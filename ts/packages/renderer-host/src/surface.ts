@@ -1,6 +1,13 @@
 // Backend-neutral browser render surface host.
 
-import type { CameraBasis, RenderFrameDiff, RenderHandle } from '@asha/contracts';
+import type {
+  CameraBasis,
+  EntityId,
+  RenderFrameDiff,
+  RenderHandle,
+  RenderLayer,
+  TagId,
+} from '@asha/contracts';
 import {
   createGeneratedTunnelRoomFrame,
   RenderProjection,
@@ -30,7 +37,7 @@ import {
   type AshaRendererAnimatedMeshResourceResolver,
 } from './animated-mesh-host.js';
 
-export const ASHA_RENDERER_HOST_COMPATIBILITY_VERSION = 'renderer-host.v0';
+export const ASHA_RENDERER_HOST_COMPATIBILITY_VERSION = 'renderer-host.v1';
 
 export type AshaRendererBackendFamily = 'threejs';
 
@@ -106,38 +113,64 @@ export interface AshaRendererSurfaceMovementState {
   readonly movementHash: string | null;
 }
 
-export interface AshaRendererSurfaceFireResult {
-  readonly distance: number | null;
-  readonly hit: boolean;
-  readonly label: string | null;
-  readonly remainingTargets: number;
-  readonly shotsFired: number;
-  readonly targetHealth: number | null;
-}
-
-export interface AshaRendererSurfaceInteractionState {
-  readonly hits: number;
-  readonly lastEvent: string;
-  readonly remainingTargets: number;
-  readonly shotsFired: number;
-  readonly totalTargets: number;
-}
-
 export type AshaRendererSurfaceVec3 = readonly [number, number, number];
 
-export interface AshaRendererSurfaceTargetProjection {
-  readonly lastEvent?: string;
-  readonly position?: AshaRendererSurfaceVec3;
-  readonly scale?: AshaRendererSurfaceVec3;
-  readonly visible: boolean;
+export type AshaRendererSurfacePickRay =
+  | {
+      readonly kind: 'viewport';
+      /** Normalized device coordinates, each bounded to [-1, 1]. */
+      readonly point: readonly [number, number];
+    }
+  | {
+      readonly kind: 'world_ray';
+      readonly direction: AshaRendererSurfaceVec3;
+      readonly origin: AshaRendererSurfaceVec3;
+    };
+
+export interface AshaRendererSurfacePickFilter {
+  readonly handles?: readonly RenderHandle[];
+  readonly labels?: readonly string[];
+  readonly layers?: readonly RenderLayer[];
+  readonly tags?: readonly TagId[];
 }
 
-export interface AshaRendererSurfaceRenderTargetIdentity {
-  readonly kind: 'runtime_session.ecrp_render_target.v0';
-  readonly renderLabel: string;
+export interface AshaRendererSurfacePickRequest {
+  readonly filter?: AshaRendererSurfacePickFilter;
+  readonly maxDistance?: number;
+  readonly ray: AshaRendererSurfacePickRay;
+}
+
+export type AshaRendererSurfacePickDiagnosticCode =
+  | 'invalid_viewport_point'
+  | 'invalid_world_ray'
+  | 'invalid_max_distance'
+  | 'filter_limit_exceeded';
+
+export interface AshaRendererSurfacePickDiagnostic {
+  readonly code: AshaRendererSurfacePickDiagnosticCode;
+  readonly message: string;
+}
+
+/** Disposable projection evidence. This is never a combat or authority receipt. */
+export interface AshaRendererSurfacePickHint {
+  readonly channel: 'render_projection';
+  readonly distance: number;
+  readonly handle: RenderHandle;
+  readonly label: string | null;
+  readonly layer: RenderLayer;
+  readonly normal: AshaRendererSurfaceVec3;
   readonly position: AshaRendererSurfaceVec3;
-  readonly scale: AshaRendererSurfaceVec3 | null;
-  readonly visible: boolean;
+  readonly sourceTrace: {
+    readonly entity: EntityId;
+    readonly kind: 'render_metadata_entity';
+  } | null;
+  readonly tags: readonly TagId[];
+}
+
+export interface AshaRendererSurfacePickReceipt {
+  readonly diagnostics: readonly AshaRendererSurfacePickDiagnostic[];
+  readonly hint: AshaRendererSurfacePickHint | null;
+  readonly kind: 'asha_renderer_surface_pick.v0';
 }
 
 export interface AshaRendererGeneratedTunnelRoomTarget {
@@ -145,8 +178,6 @@ export interface AshaRendererGeneratedTunnelRoomTarget {
   readonly position: AshaRendererSurfaceVec3;
   readonly scale?: AshaRendererSurfaceVec3;
 }
-
-export type AshaRendererSurfaceColor = readonly [number, number, number, number];
 
 export type AshaRendererGeneratedTunnelMaterialPalette = TunnelViewportMaterialPalette;
 
@@ -174,18 +205,12 @@ export interface AshaRendererSurface {
   readonly applyFrame: (frame: RenderFrameDiff) => AshaRendererAnimatedMeshFrameReceipt;
   readonly projectionSnapshot: () => RenderProjectionSnapshot;
   readonly cameraPose: () => AshaRendererSurfaceCameraPose;
-  readonly firePrimary: () => AshaRendererSurfaceFireResult;
-  readonly interactionState: () => AshaRendererSurfaceInteractionState;
+  readonly pick: (request: AshaRendererSurfacePickRequest) => AshaRendererSurfacePickReceipt;
   readonly lockPointer: () => void;
   readonly movementState: () => AshaRendererSurfaceMovementState;
   readonly pointerLocked: () => boolean;
   readonly inputReadout: () => BrowserInputHostReadout | null;
-  readonly projectRenderTargetProjection: (
-    target: AshaRendererSurfaceRenderTargetIdentity,
-    options?: { readonly lastEvent?: string },
-  ) => void;
-  readonly projectTargetProjection: (projection: AshaRendererSurfaceTargetProjection) => void;
-  readonly reset: () => void;
+  readonly resetCamera: () => void;
   readonly snapshot: () => string;
   readonly renderOnce: (timeMs?: number) => void;
   readonly start: () => void;
@@ -222,19 +247,6 @@ export function createAshaRendererGeneratedTunnelRoomSurfaceFrame(
   });
 }
 
-export function surfaceTargetProjectionFromRenderTarget(
-  target: AshaRendererSurfaceRenderTargetIdentity,
-  options: { readonly lastEvent?: string } = {},
-): AshaRendererSurfaceTargetProjection & { readonly label: string } {
-  return {
-    label: target.renderLabel,
-    ...(options.lastEvent === undefined ? {} : { lastEvent: options.lastEvent }),
-    position: target.position,
-    ...(target.scale === null ? {} : { scale: target.scale }),
-    visible: target.visible,
-  };
-}
-
 export function mountAshaRendererSurface(
   canvas: HTMLCanvasElement,
   options: AshaRendererSurfaceOptions = {},
@@ -262,7 +274,6 @@ function mountPreparedAshaRendererSurface(
   const projection = new RenderProjection();
   projection.applyFrame(frame);
   const controls = createAshaRendererSurfaceFirstPersonControls(canvas, options.controls);
-  const interactions = createAshaRendererSurfaceInteractionController(frame);
 
   const backendSurface = mountThreeBackedBrowserSurface(canvas, {
     autoStart: false,
@@ -308,9 +319,8 @@ function mountPreparedAshaRendererSurface(
     animationFrame = null;
   };
 
-  const reset = (): void => {
+  const resetCamera = (): void => {
     controls.resetCamera();
-    interactions.reset((projectionUpdate) => backendSurface.projectObjectProjection(projectionUpdate));
     lastRenderTimeMs = null;
     renderOnce(0);
   };
@@ -371,26 +381,19 @@ function mountPreparedAshaRendererSurface(
     applyFrame,
     projectionSnapshot: () => projection.snapshot(),
     cameraPose: () => controls.cameraPose(),
-    firePrimary: () =>
-      interactions.firePrimary(
-        (labels) => backendSurface.pickCenterObject({ labels }),
-        (projectionUpdate) => backendSurface.projectObjectProjection(projectionUpdate),
-      ),
-    interactionState: () => interactions.state(),
+    pick: (request) => {
+      const receipt = backendSurface.pick(request);
+      return {
+        diagnostics: receipt.diagnostics,
+        hint: receipt.hit,
+        kind: 'asha_renderer_surface_pick.v0',
+      };
+    },
     lockPointer: () => controls.lockPointer(),
     movementState: () => controls.movementState(),
     pointerLocked: () => controls.pointerLocked(),
     inputReadout: () => controls.inputReadout(),
-    projectRenderTargetProjection: (target, targetProjectionOptions) =>
-      interactions.projectRenderTargetProjection(
-        surfaceTargetProjectionFromRenderTarget(target, targetProjectionOptions),
-        (projectionUpdate) => backendSurface.projectObjectProjection(projectionUpdate),
-      ),
-    projectTargetProjection: (targetProjection) =>
-      interactions.projectTargetProjection(targetProjection, (projectionUpdate) =>
-        backendSurface.projectObjectProjection(projectionUpdate),
-      ),
-    reset,
+    resetCamera,
     snapshot: () => backendSurface.snapshot(),
     renderOnce,
     start,
@@ -613,182 +616,6 @@ function createAshaRendererSurfaceFirstPersonControls(
     inputReadout: () => inputHost?.readout() ?? null,
     resetCamera,
     update,
-  };
-}
-
-interface AshaRendererSurfaceBackendObjectProjection {
-  readonly color?: AshaRendererSurfaceColor;
-  readonly label: string;
-  readonly position?: AshaRendererSurfaceVec3;
-  readonly scale?: AshaRendererSurfaceVec3;
-  readonly visible: boolean;
-}
-
-interface AshaRendererSurfaceBackendPickResult {
-  readonly distance: number;
-  readonly label: string;
-}
-
-interface AshaRendererSurfaceInteractionController {
-  readonly firePrimary: (
-    pickCenterObject: (labels: readonly string[]) => AshaRendererSurfaceBackendPickResult | null,
-    projectObject: (projection: AshaRendererSurfaceBackendObjectProjection) => void,
-  ) => AshaRendererSurfaceFireResult;
-  readonly projectTargetProjection: (
-    projection: AshaRendererSurfaceTargetProjection,
-    projectObject: (projection: AshaRendererSurfaceBackendObjectProjection) => void,
-  ) => void;
-  readonly projectRenderTargetProjection: (
-    projection: AshaRendererSurfaceTargetProjection & { readonly label: string },
-    projectObject: (projection: AshaRendererSurfaceBackendObjectProjection) => void,
-  ) => void;
-  readonly reset: (projectObject: (projection: AshaRendererSurfaceBackendObjectProjection) => void) => void;
-  readonly state: () => AshaRendererSurfaceInteractionState;
-}
-
-interface AshaRendererSurfaceTargetState {
-  readonly label: string;
-  readonly maxHealth: number;
-  health: number;
-}
-
-function createAshaRendererSurfaceInteractionController(
-  frame: RenderFrameDiff,
-): AshaRendererSurfaceInteractionController {
-  const targets = collectAshaRendererSurfaceTargets(frame);
-  let hits = 0;
-  let lastEvent = 'Ready';
-  let shotsFired = 0;
-
-  const state = (): AshaRendererSurfaceInteractionState => ({
-    hits,
-    lastEvent,
-    remainingTargets: targets.filter((target) => target.health > 0).length,
-    shotsFired,
-    totalTargets: targets.length,
-  });
-
-  const firePrimary = (
-    pickCenterObject: (labels: readonly string[]) => AshaRendererSurfaceBackendPickResult | null,
-    projectObject: (projection: AshaRendererSurfaceBackendObjectProjection) => void,
-  ): AshaRendererSurfaceFireResult => {
-    shotsFired += 1;
-    const liveTargets = targets.filter((target) => target.health > 0);
-    const picked = pickCenterObject(liveTargets.map((target) => target.label));
-    if (picked === null) {
-      lastEvent = 'Miss';
-      return missFireResult(state().remainingTargets, shotsFired);
-    }
-    const target = liveTargets.find((candidate) => candidate.label === picked.label);
-    if (target === undefined) {
-      lastEvent = 'Miss';
-      return missFireResult(state().remainingTargets, shotsFired);
-    }
-
-    target.health -= 1;
-    hits += 1;
-    if (target.health <= 0) {
-      lastEvent = `Destroyed ${displayTargetLabel(target.label)}`;
-      projectObject({ label: target.label, visible: false });
-    } else {
-      lastEvent = `Hit ${displayTargetLabel(target.label)}`;
-      projectObject({ color: [1, 0.28, 0.18, 1], label: target.label, visible: true });
-    }
-
-    return {
-      distance: picked.distance,
-      hit: true,
-      label: displayTargetLabel(target.label),
-      remainingTargets: state().remainingTargets,
-      shotsFired,
-      targetHealth: Math.max(0, target.health),
-    };
-  };
-
-  const reset = (projectObject: (projection: AshaRendererSurfaceBackendObjectProjection) => void): void => {
-    hits = 0;
-    lastEvent = 'Reset';
-    shotsFired = 0;
-    for (const target of targets) {
-      target.health = target.maxHealth;
-      projectObject({ label: target.label, visible: true });
-    }
-  };
-
-  const projectTargetProjection = (
-    projection: AshaRendererSurfaceTargetProjection,
-    projectObject: (projection: AshaRendererSurfaceBackendObjectProjection) => void,
-  ): void => {
-    lastEvent = projection.lastEvent ?? lastEvent;
-    for (const target of targets) {
-      target.health = projection.visible ? target.maxHealth : 0;
-      projectObject({
-        label: target.label,
-        ...(projection.position === undefined ? {} : { position: projection.position }),
-        ...(projection.scale === undefined ? {} : { scale: projection.scale }),
-        visible: projection.visible,
-      });
-    }
-  };
-
-  const projectRenderTargetProjection = (
-    projection: AshaRendererSurfaceTargetProjection & { readonly label: string },
-    projectObject: (projection: AshaRendererSurfaceBackendObjectProjection) => void,
-  ): void => {
-    lastEvent = projection.lastEvent ?? lastEvent;
-    const target = targets.find((candidate) => candidate.label === projection.label);
-    if (target === undefined) {
-      return;
-    }
-    target.health = projection.visible ? target.maxHealth : 0;
-    projectObject({
-      label: target.label,
-      ...(projection.position === undefined ? {} : { position: projection.position }),
-      ...(projection.scale === undefined ? {} : { scale: projection.scale }),
-      visible: projection.visible,
-    });
-  };
-
-  return {
-    firePrimary,
-    projectRenderTargetProjection,
-    projectTargetProjection,
-    reset,
-    state,
-  };
-}
-
-function collectAshaRendererSurfaceTargets(frame: RenderFrameDiff): AshaRendererSurfaceTargetState[] {
-  const targets: AshaRendererSurfaceTargetState[] = [];
-  for (const op of frame.ops) {
-    if (op.op !== 'create') {
-      continue;
-    }
-    const label = op.node.metadata.label;
-    if (label === null || label === undefined || !isAshaRendererSurfaceTargetLabel(label)) {
-      continue;
-    }
-    targets.push({ health: 2, label, maxHealth: 2 });
-  }
-  return targets;
-}
-
-function isAshaRendererSurfaceTargetLabel(label: string): boolean {
-  return label.includes('generated-tunnel-enemy') || label.startsWith('asha-renderer-random-cube-');
-}
-
-function displayTargetLabel(label: string): string {
-  return label.replace('asha-renderer-random-cube-', 'cube ');
-}
-
-function missFireResult(remainingTargets: number, shotsFired: number): AshaRendererSurfaceFireResult {
-  return {
-    distance: null,
-    hit: false,
-    label: null,
-    remainingTargets,
-    shotsFired,
-    targetHealth: null,
   };
 }
 

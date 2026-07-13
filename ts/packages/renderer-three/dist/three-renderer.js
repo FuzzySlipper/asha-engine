@@ -143,6 +143,33 @@ export class ThreeRenderer {
     objectFor(handle) {
         return this.#handles.get(handle)?.object;
     }
+    /**
+     * Resolve a renderer object (or one of its backend-owned descendants) to the
+     * retained projection identity that created it. This is disposable picking
+     * evidence only: callers receive generated handle/metadata values and no
+     * mutable Three.js object or authority capability.
+     */
+    projectionIdentityForObject(object) {
+        let candidate = object;
+        while (candidate !== null) {
+            for (const [handle, entry] of this.#handles.entries()) {
+                if (entry.object !== candidate) {
+                    continue;
+                }
+                return {
+                    handle,
+                    layer: isDescendantOf(entry.object, this.#debugGroup) ? 'debug' : 'scene',
+                    metadata: {
+                        label: entry.object.name === '' ? null : entry.object.name,
+                        source: entry.object.userData['source'] ?? null,
+                        tags: entry.object.userData['tags'] ?? [],
+                    },
+                };
+            }
+            candidate = candidate.parent;
+        }
+        return undefined;
+    }
     /** Advance projection-only animation mixers by an explicit renderer frame delta. */
     advanceAnimation(deltaSeconds) {
         try {
@@ -707,6 +734,16 @@ export class ThreeRenderer {
         }
         return entry;
     }
+}
+function isDescendantOf(object, ancestor) {
+    let candidate = object.parent;
+    while (candidate !== null) {
+        if (candidate === ancestor) {
+            return true;
+        }
+        candidate = candidate.parent;
+    }
+    return false;
 }
 function snapshotLine(handle, entry) {
     const o = entry.object;

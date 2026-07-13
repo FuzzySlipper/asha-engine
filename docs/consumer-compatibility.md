@@ -64,7 +64,7 @@ metadata while their consumer role is still being ratified.
 | `@asha/devtools` | `unstable` | `ts/packages/devtools/compatibility.json` | `devtools-protocol.v0` | Observational attach/readout protocol for tools and testing harnesses. |
 | `@asha/game-workspace` | `unstable` | `ts/packages/game-workspace/compatibility.json` | `game-workspace.v0` | Typed game/workspace manifest validation for consumer repos. |
 | `@asha/render-projection` | `unstable` | `ts/packages/render-projection/compatibility.json` | `render-projection.v0` | Renderer-neutral retained render-diff application model. |
-| `@asha/renderer-host` | `unstable` | `ts/packages/renderer-host/compatibility.json` | `renderer-host.v0` | Backend-neutral browser render surface host for demos. |
+| `@asha/renderer-host` | `unstable` | `ts/packages/renderer-host/compatibility.json` | `renderer-host.v1` | Backend-neutral browser render surface host for demos. |
 | `@asha/ui-dom` | `unstable` | none | none | Render-agnostic UI projection/control descriptors; not authority. |
 
 Additional unstable package statuses:
@@ -740,9 +740,45 @@ Additive notes under `render-projection.v0`:
 
 ## Renderer host compatibility log
 
-### `renderer-host.v0` - unstable backend-neutral browser render host
+### `renderer-host.v1` - projection-only browser render host
 
 Status: unstable root-barrel package surface for browser demo renderer mounting.
+
+Breaking correction in #5747:
+
+- The mounted host no longer exposes `firePrimary`, `interactionState`,
+  `projectTargetProjection`, or `projectRenderTargetProjection`. It owns no
+  health, damage, hit/destruction decision, shot counter, target discovery, or
+  gameplay reset state. Visibility, material feedback, HUD state, and cosmetic
+  cues arrive only through accepted projection frames.
+- `reset` is replaced by `resetCamera`; it resets disposable camera/input
+  realization only and cannot restore gameplay or projection state.
+- `pick(request)` accepts a bounded normalized viewport point or world ray plus
+  optional handle/label/layer/tag filters and maximum distance. It returns a
+  disposable `AshaRendererSurfacePickHint` with projection channel/layer,
+  `RenderHandle`, optional render-metadata entity source trace, world
+  position/normal/distance, tags, and typed diagnostics. A pick cannot mutate
+  projection or authority and is never a hit, damage, or command receipt.
+- `asha-demo` is the named current `renderer-host.v0` consumer. Its #5732
+  migration must route primary-fire intent to RuntimeSession authority, derive
+  HUD/presentation from accepted RuntimeSession projection/readout, replace
+  direct target projection calls with accepted render diffs, and use
+  `resetCamera` for camera-only reset. Studio #5741 may consume the new pick
+  hint as selection input, but must submit any edit through authoritative
+  commands.
+
+Consumer behavior:
+
+- Consumers import only from `@asha/renderer-host` root export.
+- Consumers feed public `RenderFrameDiff` values to `applyFrame`; those accepted
+  projections are the only path that changes retained scene realization.
+- Consumers treat pick results as transient projection hints. Render handles,
+  labels, and tags are filters/evidence, never Entity or gameplay authority.
+- Concrete Three.js objects remain private behind the backend-neutral facade.
+
+### `renderer-host.v0` - historical mixed interaction host
+
+Status: superseded by `renderer-host.v1`; retained here only as migration history.
 
 Consumer behavior:
 

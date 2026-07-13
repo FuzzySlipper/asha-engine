@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "surface": "@asha/renderer-host",
-  "compatibilityVersion": "renderer-host.v0",
+  "compatibilityVersion": "renderer-host.v1",
   "packageVersion": "0.1.0",
   "sourceOfTruth": "ts/packages/renderer-host/src/index.ts plus @asha/render-projection and generated @asha/contracts render DTOs",
   "animatedMeshGuide": "docs/renderer-host-animated-mesh.md",
   "changelog": "docs/consumer-compatibility.md#renderer-host-compatibility-log",
   "migrationNoteTemplate": "docs/consumer-compatibility.md#migration-note-template",
   "failClosedPolicy": "Consumers must fail closed if the compatibility marker is unknown, the host cannot mount, animated-mesh resource/hash/clip validation fails, or a later frame receipt is rejected.",
-  "pinningGuidance": "Record ASHA git commit plus renderer-host.v0 in downstream demo compatibility artifacts.",
+  "pinningGuidance": "Record ASHA git commit plus renderer-host.v1 in downstream demo compatibility artifacts.",
   "breakingChangeRequires": [
     "renderer-host compatibility log entry",
     "consumer boundary review if allowed roles change",

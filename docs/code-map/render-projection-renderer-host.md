@@ -11,10 +11,14 @@ renderer packages display those projections without owning authority.
 - Renderer-neutral retained projection model.
 - Browser renderer host facade for demos and product surfaces.
 - Concrete Three.js backend isolation behind engine-owned packages.
+- Disposable, typed projection picking by bounded viewport/world ray and
+  projection metadata filters.
 
 ## Does Not Own
 
 - Runtime SessionState or gameplay authority.
+- Combat hits, health, damage, shot counters, target discovery, or gameplay
+  reset behavior.
 - Consumer direct access to Three.js internals.
 - Stored scene truth or asset catalog authority.
 
@@ -39,6 +43,8 @@ renderer packages display those projections without owning authority.
 
 - Downstream demo code must not import Three.js directly as an engine bypass.
 - Renderers must not mutate Rust authority or invent gameplay state.
+- A projection pick is selection/interaction evidence only; it is never a hit,
+  damage, command, or accepted-state receipt.
 - Rust render crates must not render directly or own UI/product decisions.
 
 ## Proof Gates And Goldens

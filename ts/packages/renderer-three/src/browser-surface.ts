@@ -7,10 +7,20 @@ import {
   summarizeFirstPersonTunnelViewport,
   type FirstPersonTunnelViewportInput,
   type FirstPersonTunnelViewportSummary,
-  type TunnelViewportVec3,
 } from '@asha/render-projection';
-import { renderHandle, type CameraBasis, type Geometry, type RenderFrameDiff, type RenderNode, type Transform } from '@asha/contracts';
-import { ThreeRenderer } from './three-renderer.js';
+import {
+  renderHandle,
+  type CameraBasis,
+  type EntityId,
+  type Geometry,
+  type RenderFrameDiff,
+  type RenderHandle,
+  type RenderLayer,
+  type RenderNode,
+  type TagId,
+  type Transform,
+} from '@asha/contracts';
+import { ThreeRenderer, type RendererProjectionIdentity } from './three-renderer.js';
 import type { AnimatedMeshAssetSource, AnimatedMeshPlaybackReadout } from './animated-mesh.js';
 
 export interface ProjectedThreeRenderResult {
@@ -46,22 +56,61 @@ export interface AshaRendererBrowserSurfaceCameraOptions {
   readonly initialPose?: AshaRendererBrowserSurfaceCameraPose;
 }
 
-export interface AshaRendererBrowserSurfaceObjectProjection {
-  readonly color?: readonly [number, number, number, number];
-  readonly label: string;
-  readonly lastEvent?: string;
-  readonly position?: TunnelViewportVec3;
-  readonly scale?: TunnelViewportVec3;
-  readonly visible: boolean;
+export type AshaRendererBrowserSurfacePickRay =
+  | {
+      readonly kind: 'viewport';
+      /** Normalized device coordinates, each bounded to [-1, 1]. */
+      readonly point: readonly [number, number];
+    }
+  | {
+      readonly kind: 'world_ray';
+      readonly direction: readonly [number, number, number];
+      readonly origin: readonly [number, number, number];
+    };
+
+export interface AshaRendererBrowserSurfacePickFilter {
+  readonly handles?: readonly RenderHandle[];
+  readonly labels?: readonly string[];
+  readonly layers?: readonly RenderLayer[];
+  readonly tags?: readonly TagId[];
 }
 
 export interface AshaRendererBrowserSurfacePickRequest {
-  readonly labels: readonly string[];
+  readonly filter?: AshaRendererBrowserSurfacePickFilter;
+  readonly maxDistance?: number;
+  readonly ray: AshaRendererBrowserSurfacePickRay;
 }
 
-export interface AshaRendererBrowserSurfacePickResult {
+export type AshaRendererBrowserSurfacePickDiagnosticCode =
+  | 'invalid_viewport_point'
+  | 'invalid_world_ray'
+  | 'invalid_max_distance'
+  | 'filter_limit_exceeded';
+
+export interface AshaRendererBrowserSurfacePickDiagnostic {
+  readonly code: AshaRendererBrowserSurfacePickDiagnosticCode;
+  readonly message: string;
+}
+
+export interface AshaRendererBrowserSurfacePickHit {
+  readonly channel: 'render_projection';
   readonly distance: number;
-  readonly label: string;
+  readonly handle: RenderHandle;
+  readonly label: string | null;
+  readonly layer: RenderLayer;
+  readonly normal: readonly [number, number, number];
+  readonly position: readonly [number, number, number];
+  readonly sourceTrace: {
+    readonly entity: EntityId;
+    readonly kind: 'render_metadata_entity';
+  } | null;
+  readonly tags: readonly TagId[];
+}
+
+export interface AshaRendererBrowserSurfacePickReceipt {
+  readonly diagnostics: readonly AshaRendererBrowserSurfacePickDiagnostic[];
+  readonly hit: AshaRendererBrowserSurfacePickHit | null;
+  readonly kind: 'asha_renderer_browser_surface_pick.v0';
 }
 
 export interface AshaRendererBrowserSurface {
@@ -72,8 +121,7 @@ export interface AshaRendererBrowserSurface {
   readonly cameraPose: () => AshaRendererBrowserSurfaceCameraPose;
   readonly animatedMeshPlayback: (handle: import('@asha/contracts').RenderHandle) => AnimatedMeshPlaybackReadout | undefined;
   readonly applyFrame: (frame: RenderFrameDiff) => void;
-  readonly pickCenterObject: (request: AshaRendererBrowserSurfacePickRequest) => AshaRendererBrowserSurfacePickResult | null;
-  readonly projectObjectProjection: (projection: AshaRendererBrowserSurfaceObjectProjection) => void;
+  readonly pick: (request: AshaRendererBrowserSurfacePickRequest) => AshaRendererBrowserSurfacePickReceipt;
   readonly snapshot: () => string;
   readonly renderOnce: (timeMs?: number) => void;
   readonly setCameraPose: (
@@ -250,8 +298,7 @@ export function mountAshaRendererBrowserSurface(
     animatedMeshPlayback: (handle) => renderer.animatedMeshPlayback(handle),
     applyFrame: (nextFrame) => renderer.applyFrame(nextFrame),
     cameraPose: () => currentCameraPose,
-    pickCenterObject: (request) => pickCenterObject(renderer.scene, camera, raycaster, center, request),
-    projectObjectProjection: (projection) => projectObjectProjection(renderer.scene, projection),
+    pick: (request) => pickProjectedObject(renderer, camera, raycaster, center, request),
     snapshot: () => renderer.snapshot(),
     renderOnce,
     setCameraPose,
@@ -336,87 +383,121 @@ export function createAshaRendererBrowserSurfaceFrame(): RenderFrameDiff {
   };
 }
 
-function pickCenterObject(
-  scene: THREE.Scene,
+const MAX_PICK_FILTER_VALUES = 128;
+
+export function pickProjectedObject(
+  renderer: ThreeRenderer,
   camera: THREE.PerspectiveCamera,
   raycaster: THREE.Raycaster,
   center: THREE.Vector2,
   request: AshaRendererBrowserSurfacePickRequest,
-): AshaRendererBrowserSurfacePickResult | null {
-  const requestedLabels = new Set(request.labels);
-  const meshes = collectLabeledMeshes(scene, requestedLabels);
-  if (meshes.length === 0) {
-    return null;
+): AshaRendererBrowserSurfacePickReceipt {
+  const diagnostics = validatePickRequest(request);
+  if (diagnostics.length > 0) {
+    return { diagnostics, hit: null, kind: 'asha_renderer_browser_surface_pick.v0' };
   }
-  scene.updateMatrixWorld(true);
-  raycaster.setFromCamera(center, camera);
-  const intersection = raycaster.intersectObjects(
-    meshes.map((target) => target.mesh),
-    false,
-  )[0];
-  if (intersection === undefined) {
-    return null;
+
+  renderer.scene.updateMatrixWorld(true);
+  configurePickRay(raycaster, camera, center, request.ray);
+  raycaster.far = request.maxDistance ?? Number.POSITIVE_INFINITY;
+  const intersections = raycaster.intersectObjects(renderer.scene.children, true);
+  for (const intersection of intersections) {
+    const identity = renderer.projectionIdentityForObject(intersection.object);
+    if (identity === undefined || !pickIdentityMatches(identity, request.filter)) {
+      continue;
+    }
+    const worldNormal = intersection.face?.normal.clone() ?? new THREE.Vector3(0, 0, 0);
+    if (intersection.face !== null) {
+      worldNormal.transformDirection(intersection.object.matrixWorld);
+    }
+    return {
+      diagnostics: [],
+      hit: {
+        channel: 'render_projection',
+        distance: Number(intersection.distance.toFixed(4)),
+        handle: identity.handle,
+        label: identity.metadata.label,
+        layer: identity.layer,
+        normal: [worldNormal.x, worldNormal.y, worldNormal.z],
+        position: [intersection.point.x, intersection.point.y, intersection.point.z],
+        sourceTrace: identity.metadata.source === null
+          ? null
+          : { entity: identity.metadata.source, kind: 'render_metadata_entity' },
+        tags: [...identity.metadata.tags],
+      },
+      kind: 'asha_renderer_browser_surface_pick.v0',
+    };
   }
-  const picked = meshes.find((candidate) => candidate.mesh === intersection.object);
-  if (picked === undefined) {
-    return null;
-  }
-  return {
-    distance: Number(intersection.distance.toFixed(2)),
-    label: picked.label,
-  };
+  return { diagnostics: [], hit: null, kind: 'asha_renderer_browser_surface_pick.v0' };
 }
 
-function projectObjectProjection(
-  scene: THREE.Scene,
-  projection: AshaRendererBrowserSurfaceObjectProjection,
+function configurePickRay(
+  raycaster: THREE.Raycaster,
+  camera: THREE.PerspectiveCamera,
+  center: THREE.Vector2,
+  request: AshaRendererBrowserSurfacePickRay,
 ): void {
-  const [target] = collectLabeledMeshes(scene, new Set([projection.label]));
-  if (target === undefined) {
+  if (request.kind === 'viewport') {
+    center.set(request.point[0], request.point[1]);
+    raycaster.setFromCamera(center, camera);
     return;
   }
-  target.mesh.visible = projection.visible;
-  if (projection.position !== undefined) {
-    target.mesh.position.set(projection.position[0], projection.position[1], projection.position[2]);
-  }
-  if (projection.scale !== undefined) {
-    target.mesh.scale.set(projection.scale[0], projection.scale[1], projection.scale[2]);
-  }
-  if (projection.color !== undefined) {
-    target.material.color.setRGB(projection.color[0], projection.color[1], projection.color[2]);
-    return;
-  }
-  if (projection.visible) {
-    target.material.color.copy(target.baseColor);
-  }
+  raycaster.set(
+    new THREE.Vector3(...request.origin),
+    new THREE.Vector3(...request.direction).normalize(),
+  );
 }
 
-interface LabeledMesh {
-  readonly baseColor: THREE.Color;
-  readonly label: string;
-  readonly material: THREE.MeshBasicMaterial | THREE.MeshStandardMaterial;
-  readonly mesh: THREE.Mesh;
+function validatePickRequest(
+  request: AshaRendererBrowserSurfacePickRequest,
+): AshaRendererBrowserSurfacePickDiagnostic[] {
+  if (request.maxDistance !== undefined && (!Number.isFinite(request.maxDistance) || request.maxDistance <= 0)) {
+    return [{ code: 'invalid_max_distance', message: 'maxDistance must be finite and greater than zero' }];
+  }
+  const filterCounts = [
+    request.filter?.handles?.length ?? 0,
+    request.filter?.labels?.length ?? 0,
+    request.filter?.layers?.length ?? 0,
+    request.filter?.tags?.length ?? 0,
+  ];
+  if (filterCounts.some((count) => count > MAX_PICK_FILTER_VALUES)) {
+    return [{ code: 'filter_limit_exceeded', message: `pick filters may contain at most ${MAX_PICK_FILTER_VALUES} values` }];
+  }
+  if (request.ray.kind === 'viewport') {
+    const [x, y] = request.ray.point;
+    if (![x, y].every(Number.isFinite) || x < -1 || x > 1 || y < -1 || y > 1) {
+      return [{ code: 'invalid_viewport_point', message: 'viewport coordinates must be finite and within [-1, 1]' }];
+    }
+    return [];
+  }
+  const values = [...request.ray.origin, ...request.ray.direction];
+  const directionLength = Math.hypot(...request.ray.direction);
+  if (!values.every(Number.isFinite) || directionLength === 0) {
+    return [{ code: 'invalid_world_ray', message: 'world ray values must be finite and direction must be non-zero' }];
+  }
+  return [];
 }
 
-function collectLabeledMeshes(scene: THREE.Scene, labels: ReadonlySet<string>): LabeledMesh[] {
-  const targets: LabeledMesh[] = [];
-  scene.traverse((object) => {
-    if (!labels.has(object.name)) {
-      return;
-    }
-    const mesh = object as THREE.Mesh;
-    const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-    if (!(material instanceof THREE.MeshBasicMaterial) && !(material instanceof THREE.MeshStandardMaterial)) {
-      return;
-    }
-    targets.push({
-      baseColor: material.color.clone(),
-      label: object.name,
-      material,
-      mesh,
-    });
-  });
-  return targets;
+function pickIdentityMatches(
+  identity: RendererProjectionIdentity,
+  filter: AshaRendererBrowserSurfacePickFilter | undefined,
+): boolean {
+  if (filter === undefined) {
+    return true;
+  }
+  if (filter.handles !== undefined && !filter.handles.includes(identity.handle)) {
+    return false;
+  }
+  if (filter.labels !== undefined && (identity.metadata.label === null || !filter.labels.includes(identity.metadata.label))) {
+    return false;
+  }
+  if (filter.layers !== undefined && !filter.layers.includes(identity.layer)) {
+    return false;
+  }
+  if (filter.tags !== undefined && !filter.tags.every((tag) => identity.metadata.tags.some((value) => value === tag))) {
+    return false;
+  }
+  return true;
 }
 
 interface BrowserSurfaceCubeSpec {

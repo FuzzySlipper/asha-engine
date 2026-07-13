@@ -3,7 +3,7 @@ import { createGeneratedTunnelRoomFrame, RenderProjection, } from '@asha/render-
 import { createAshaRendererBrowserSurfaceFrame as createBackendBrowserSurfaceFrame, mountAshaRendererBrowserSurface as mountThreeBackedBrowserSurface, } from '@asha/renderer-three/backend';
 import { BrowserFpsResolvedActionConsumer, BrowserInputHost, } from '@asha/runtime-bridge';
 import { animationPlaybackReadout, loadRendererAnimatedMeshSource, } from './animated-mesh-host.js';
-export const ASHA_RENDERER_HOST_COMPATIBILITY_VERSION = 'renderer-host.v0';
+export const ASHA_RENDERER_HOST_COMPATIBILITY_VERSION = 'renderer-host.v1';
 const THREE_BACKEND_DIAGNOSTICS = {
     family: 'threejs',
     implementation: 'engine-owned-renderer-backend',
@@ -27,15 +27,6 @@ export function createAshaRendererGeneratedTunnelRoomSurfaceFrame(input) {
         tunnel: input.tunnel,
     });
 }
-export function surfaceTargetProjectionFromRenderTarget(target, options = {}) {
-    return {
-        label: target.renderLabel,
-        ...(options.lastEvent === undefined ? {} : { lastEvent: options.lastEvent }),
-        position: target.position,
-        ...(target.scale === null ? {} : { scale: target.scale }),
-        visible: target.visible,
-    };
-}
 export function mountAshaRendererSurface(canvas, options = {}) {
     return mountPreparedAshaRendererSurface(canvas, options);
 }
@@ -48,7 +39,6 @@ function mountPreparedAshaRendererSurface(canvas, options, animatedMeshSource) {
     const projection = new RenderProjection();
     projection.applyFrame(frame);
     const controls = createAshaRendererSurfaceFirstPersonControls(canvas, options.controls);
-    const interactions = createAshaRendererSurfaceInteractionController(frame);
     const backendSurface = mountThreeBackedBrowserSurface(canvas, {
         autoStart: false,
         ...(animatedMeshSource === undefined ? {} : { animatedMeshSource }),
@@ -86,9 +76,8 @@ function mountPreparedAshaRendererSurface(canvas, options, animatedMeshSource) {
         globalThis.cancelAnimationFrame(animationFrame);
         animationFrame = null;
     };
-    const reset = () => {
+    const resetCamera = () => {
         controls.resetCamera();
-        interactions.reset((projectionUpdate) => backendSurface.projectObjectProjection(projectionUpdate));
         lastRenderTimeMs = null;
         renderOnce(0);
     };
@@ -142,15 +131,19 @@ function mountPreparedAshaRendererSurface(canvas, options, animatedMeshSource) {
         applyFrame,
         projectionSnapshot: () => projection.snapshot(),
         cameraPose: () => controls.cameraPose(),
-        firePrimary: () => interactions.firePrimary((labels) => backendSurface.pickCenterObject({ labels }), (projectionUpdate) => backendSurface.projectObjectProjection(projectionUpdate)),
-        interactionState: () => interactions.state(),
+        pick: (request) => {
+            const receipt = backendSurface.pick(request);
+            return {
+                diagnostics: receipt.diagnostics,
+                hint: receipt.hit,
+                kind: 'asha_renderer_surface_pick.v0',
+            };
+        },
         lockPointer: () => controls.lockPointer(),
         movementState: () => controls.movementState(),
         pointerLocked: () => controls.pointerLocked(),
         inputReadout: () => controls.inputReadout(),
-        projectRenderTargetProjection: (target, targetProjectionOptions) => interactions.projectRenderTargetProjection(surfaceTargetProjectionFromRenderTarget(target, targetProjectionOptions), (projectionUpdate) => backendSurface.projectObjectProjection(projectionUpdate)),
-        projectTargetProjection: (targetProjection) => interactions.projectTargetProjection(targetProjection, (projectionUpdate) => backendSurface.projectObjectProjection(projectionUpdate)),
-        reset,
+        resetCamera,
         snapshot: () => backendSurface.snapshot(),
         renderOnce,
         start,
@@ -334,123 +327,6 @@ function createAshaRendererSurfaceFirstPersonControls(canvas, options) {
         inputReadout: () => inputHost?.readout() ?? null,
         resetCamera,
         update,
-    };
-}
-function createAshaRendererSurfaceInteractionController(frame) {
-    const targets = collectAshaRendererSurfaceTargets(frame);
-    let hits = 0;
-    let lastEvent = 'Ready';
-    let shotsFired = 0;
-    const state = () => ({
-        hits,
-        lastEvent,
-        remainingTargets: targets.filter((target) => target.health > 0).length,
-        shotsFired,
-        totalTargets: targets.length,
-    });
-    const firePrimary = (pickCenterObject, projectObject) => {
-        shotsFired += 1;
-        const liveTargets = targets.filter((target) => target.health > 0);
-        const picked = pickCenterObject(liveTargets.map((target) => target.label));
-        if (picked === null) {
-            lastEvent = 'Miss';
-            return missFireResult(state().remainingTargets, shotsFired);
-        }
-        const target = liveTargets.find((candidate) => candidate.label === picked.label);
-        if (target === undefined) {
-            lastEvent = 'Miss';
-            return missFireResult(state().remainingTargets, shotsFired);
-        }
-        target.health -= 1;
-        hits += 1;
-        if (target.health <= 0) {
-            lastEvent = `Destroyed ${displayTargetLabel(target.label)}`;
-            projectObject({ label: target.label, visible: false });
-        }
-        else {
-            lastEvent = `Hit ${displayTargetLabel(target.label)}`;
-            projectObject({ color: [1, 0.28, 0.18, 1], label: target.label, visible: true });
-        }
-        return {
-            distance: picked.distance,
-            hit: true,
-            label: displayTargetLabel(target.label),
-            remainingTargets: state().remainingTargets,
-            shotsFired,
-            targetHealth: Math.max(0, target.health),
-        };
-    };
-    const reset = (projectObject) => {
-        hits = 0;
-        lastEvent = 'Reset';
-        shotsFired = 0;
-        for (const target of targets) {
-            target.health = target.maxHealth;
-            projectObject({ label: target.label, visible: true });
-        }
-    };
-    const projectTargetProjection = (projection, projectObject) => {
-        lastEvent = projection.lastEvent ?? lastEvent;
-        for (const target of targets) {
-            target.health = projection.visible ? target.maxHealth : 0;
-            projectObject({
-                label: target.label,
-                ...(projection.position === undefined ? {} : { position: projection.position }),
-                ...(projection.scale === undefined ? {} : { scale: projection.scale }),
-                visible: projection.visible,
-            });
-        }
-    };
-    const projectRenderTargetProjection = (projection, projectObject) => {
-        lastEvent = projection.lastEvent ?? lastEvent;
-        const target = targets.find((candidate) => candidate.label === projection.label);
-        if (target === undefined) {
-            return;
-        }
-        target.health = projection.visible ? target.maxHealth : 0;
-        projectObject({
-            label: target.label,
-            ...(projection.position === undefined ? {} : { position: projection.position }),
-            ...(projection.scale === undefined ? {} : { scale: projection.scale }),
-            visible: projection.visible,
-        });
-    };
-    return {
-        firePrimary,
-        projectRenderTargetProjection,
-        projectTargetProjection,
-        reset,
-        state,
-    };
-}
-function collectAshaRendererSurfaceTargets(frame) {
-    const targets = [];
-    for (const op of frame.ops) {
-        if (op.op !== 'create') {
-            continue;
-        }
-        const label = op.node.metadata.label;
-        if (label === null || label === undefined || !isAshaRendererSurfaceTargetLabel(label)) {
-            continue;
-        }
-        targets.push({ health: 2, label, maxHealth: 2 });
-    }
-    return targets;
-}
-function isAshaRendererSurfaceTargetLabel(label) {
-    return label.includes('generated-tunnel-enemy') || label.startsWith('asha-renderer-random-cube-');
-}
-function displayTargetLabel(label) {
-    return label.replace('asha-renderer-random-cube-', 'cube ');
-}
-function missFireResult(remainingTargets, shotsFired) {
-    return {
-        distance: null,
-        hit: false,
-        label: null,
-        remainingTargets,
-        shotsFired,
-        targetHealth: null,
     };
 }
 function calculateCameraRelativeMovement(yawRadians, forwardAxis, strafeAxis) {

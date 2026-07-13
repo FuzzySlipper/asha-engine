@@ -40,6 +40,7 @@ EXPECTED_CAPABILITIES: dict[str, str | None] = {
     "particle.runtime-projection": "asha-demo.particle-projection",
     "prefab.public-authoring": "asha-demo.game-workspace-prefab-authoring",
     "prefab.runtime-placement": "asha-demo.prefab-runtime-placement",
+    "renderer.projection-pick": None,
     "telemetry.live-snapshot-overlay": "asha-demo.telemetry-live-overlay",
 }
 

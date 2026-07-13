@@ -94,6 +94,12 @@ interface NodeEntry {
   materialParameterOverrides?: Map<number, MaterialInstanceParameters>;
 }
 
+export interface RendererProjectionIdentity {
+  readonly handle: RenderHandle;
+  readonly layer: RenderLayer;
+  readonly metadata: RenderMetadata;
+}
+
 /** A defined static mesh asset: one shared geometry + materials, reference-counted. */
 interface StaticMeshDef {
   readonly geometry: THREE.BufferGeometry;
@@ -248,6 +254,34 @@ export class ThreeRenderer {
   /** The Three.js object for a handle, for inspection/tests. */
   objectFor(handle: RenderHandle): THREE.Object3D | undefined {
     return this.#handles.get(handle)?.object;
+  }
+
+  /**
+   * Resolve a renderer object (or one of its backend-owned descendants) to the
+   * retained projection identity that created it. This is disposable picking
+   * evidence only: callers receive generated handle/metadata values and no
+   * mutable Three.js object or authority capability.
+   */
+  projectionIdentityForObject(object: THREE.Object3D): RendererProjectionIdentity | undefined {
+    let candidate: THREE.Object3D | null = object;
+    while (candidate !== null) {
+      for (const [handle, entry] of this.#handles.entries()) {
+        if (entry.object !== candidate) {
+          continue;
+        }
+        return {
+          handle,
+          layer: isDescendantOf(entry.object, this.#debugGroup) ? 'debug' : 'scene',
+          metadata: {
+            label: entry.object.name === '' ? null : entry.object.name,
+            source: (entry.object.userData['source'] as RenderMetadata['source'] | undefined) ?? null,
+            tags: (entry.object.userData['tags'] as RenderMetadata['tags'] | undefined) ?? [],
+          },
+        };
+      }
+      candidate = candidate.parent;
+    }
+    return undefined;
   }
 
   /** Advance projection-only animation mixers by an explicit renderer frame delta. */
@@ -880,6 +914,17 @@ export class ThreeRenderer {
     }
     return entry;
   }
+}
+
+function isDescendantOf(object: THREE.Object3D, ancestor: THREE.Object3D): boolean {
+  let candidate = object.parent;
+  while (candidate !== null) {
+    if (candidate === ancestor) {
+      return true;
+    }
+    candidate = candidate.parent;
+  }
+  return false;
 }
 
 function snapshotLine(handle: number, entry: NodeEntry): string {

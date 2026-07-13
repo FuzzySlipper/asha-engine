@@ -190,7 +190,7 @@
       "ownershipKey": "ts/packages/renderer-host",
       "intendedConsumerRole": "Backend-neutral browser render surface plus generated audio, billboard, particle, and live telemetry projection hosts for demos; concrete renderer packages stay behind this facade.",
       "allowedConsumerRoles": ["asha-demo"],
-      "compatibilityMarker": "renderer-host.v0",
+      "compatibilityMarker": "renderer-host.v1",
       "changelog": "docs/consumer-compatibility.md#renderer-host-compatibility-log"
     },
     {

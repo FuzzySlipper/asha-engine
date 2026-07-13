@@ -1,5 +1,6 @@
-import { RenderProjection, type FirstPersonTunnelViewportInput, type FirstPersonTunnelViewportSummary, type TunnelViewportVec3 } from '@asha/render-projection';
-import { type CameraBasis, type RenderFrameDiff } from '@asha/contracts';
+import * as THREE from 'three';
+import { RenderProjection, type FirstPersonTunnelViewportInput, type FirstPersonTunnelViewportSummary } from '@asha/render-projection';
+import { type CameraBasis, type EntityId, type RenderFrameDiff, type RenderHandle, type RenderLayer, type TagId } from '@asha/contracts';
 import { ThreeRenderer } from './three-renderer.js';
 import type { AnimatedMeshAssetSource, AnimatedMeshPlaybackReadout } from './animated-mesh.js';
 export interface ProjectedThreeRenderResult {
@@ -29,20 +30,49 @@ export interface AshaRendererBrowserSurfaceCameraOptions {
     readonly initialBasis?: AshaRendererBrowserSurfaceCameraBasis;
     readonly initialPose?: AshaRendererBrowserSurfaceCameraPose;
 }
-export interface AshaRendererBrowserSurfaceObjectProjection {
-    readonly color?: readonly [number, number, number, number];
-    readonly label: string;
-    readonly lastEvent?: string;
-    readonly position?: TunnelViewportVec3;
-    readonly scale?: TunnelViewportVec3;
-    readonly visible: boolean;
+export type AshaRendererBrowserSurfacePickRay = {
+    readonly kind: 'viewport';
+    /** Normalized device coordinates, each bounded to [-1, 1]. */
+    readonly point: readonly [number, number];
+} | {
+    readonly kind: 'world_ray';
+    readonly direction: readonly [number, number, number];
+    readonly origin: readonly [number, number, number];
+};
+export interface AshaRendererBrowserSurfacePickFilter {
+    readonly handles?: readonly RenderHandle[];
+    readonly labels?: readonly string[];
+    readonly layers?: readonly RenderLayer[];
+    readonly tags?: readonly TagId[];
 }
 export interface AshaRendererBrowserSurfacePickRequest {
-    readonly labels: readonly string[];
+    readonly filter?: AshaRendererBrowserSurfacePickFilter;
+    readonly maxDistance?: number;
+    readonly ray: AshaRendererBrowserSurfacePickRay;
 }
-export interface AshaRendererBrowserSurfacePickResult {
+export type AshaRendererBrowserSurfacePickDiagnosticCode = 'invalid_viewport_point' | 'invalid_world_ray' | 'invalid_max_distance' | 'filter_limit_exceeded';
+export interface AshaRendererBrowserSurfacePickDiagnostic {
+    readonly code: AshaRendererBrowserSurfacePickDiagnosticCode;
+    readonly message: string;
+}
+export interface AshaRendererBrowserSurfacePickHit {
+    readonly channel: 'render_projection';
     readonly distance: number;
-    readonly label: string;
+    readonly handle: RenderHandle;
+    readonly label: string | null;
+    readonly layer: RenderLayer;
+    readonly normal: readonly [number, number, number];
+    readonly position: readonly [number, number, number];
+    readonly sourceTrace: {
+        readonly entity: EntityId;
+        readonly kind: 'render_metadata_entity';
+    } | null;
+    readonly tags: readonly TagId[];
+}
+export interface AshaRendererBrowserSurfacePickReceipt {
+    readonly diagnostics: readonly AshaRendererBrowserSurfacePickDiagnostic[];
+    readonly hit: AshaRendererBrowserSurfacePickHit | null;
+    readonly kind: 'asha_renderer_browser_surface_pick.v0';
 }
 export interface AshaRendererBrowserSurface {
     readonly kind: 'asha_renderer_browser_surface.v0';
@@ -52,8 +82,7 @@ export interface AshaRendererBrowserSurface {
     readonly cameraPose: () => AshaRendererBrowserSurfaceCameraPose;
     readonly animatedMeshPlayback: (handle: import('@asha/contracts').RenderHandle) => AnimatedMeshPlaybackReadout | undefined;
     readonly applyFrame: (frame: RenderFrameDiff) => void;
-    readonly pickCenterObject: (request: AshaRendererBrowserSurfacePickRequest) => AshaRendererBrowserSurfacePickResult | null;
-    readonly projectObjectProjection: (projection: AshaRendererBrowserSurfaceObjectProjection) => void;
+    readonly pick: (request: AshaRendererBrowserSurfacePickRequest) => AshaRendererBrowserSurfacePickReceipt;
     readonly snapshot: () => string;
     readonly renderOnce: (timeMs?: number) => void;
     readonly setCameraPose: (pose: AshaRendererBrowserSurfaceCameraPose, basis?: AshaRendererBrowserSurfaceCameraBasis) => void;
@@ -77,4 +106,5 @@ export declare function renderFirstPersonTunnelViewport(input: FirstPersonTunnel
  */
 export declare function mountAshaRendererBrowserSurface(canvas: HTMLCanvasElement, options?: AshaRendererBrowserSurfaceOptions): AshaRendererBrowserSurface;
 export declare function createAshaRendererBrowserSurfaceFrame(): RenderFrameDiff;
+export declare function pickProjectedObject(renderer: ThreeRenderer, camera: THREE.PerspectiveCamera, raycaster: THREE.Raycaster, center: THREE.Vector2, request: AshaRendererBrowserSurfacePickRequest): AshaRendererBrowserSurfacePickReceipt;
 //# sourceMappingURL=browser-surface.d.ts.map

@@ -11,7 +11,6 @@ import {
   createAshaRendererAnimatedMeshProjection,
   createAshaRendererSurfaceProjection,
   createAshaRendererDefaultSurfaceFrame,
-  surfaceTargetProjectionFromRenderTarget,
 } from './index.js';
 
 function animationIntentFrame(clip = 'run'): RenderFrameDiff {
@@ -88,7 +87,7 @@ void test('renderer-host projects render frames through the neutral projection m
 
   const receipt = createAshaRendererSurfaceProjection(frame);
 
-  assert.equal(ASHA_RENDERER_HOST_COMPATIBILITY_VERSION, 'renderer-host.v0');
+  assert.equal(ASHA_RENDERER_HOST_COMPATIBILITY_VERSION, 'renderer-host.v1');
   assert.equal(receipt.instructions.length, 1);
   assert.equal(receipt.snapshot.nodes.length, 1);
   assert.equal(receipt.snapshot.nodes[0]?.handle, 4385001);
@@ -99,41 +98,6 @@ void test('renderer-host can create the default visible surface frame', () => {
 
   assert.ok(frame.ops.length > 0);
   assert.ok(frame.ops.some((op) => op.op === 'create'));
-});
-
-void test('renderer-host maps runtime render target identity to backend-neutral projection input', () => {
-  const projection = surfaceTargetProjectionFromRenderTarget(
-    {
-      kind: 'runtime_session.ecrp_render_target.v0',
-      renderLabel: 'actor/generated-tunnel-enemy',
-      position: [0, 0.5, -2.6],
-      scale: [0.5, 1, 0.5],
-      visible: false,
-    },
-    { lastEvent: 'Enemy defeated' },
-  );
-
-  assert.deepEqual(projection, {
-    label: 'actor/generated-tunnel-enemy',
-    lastEvent: 'Enemy defeated',
-    position: [0, 0.5, -2.6],
-    scale: [0.5, 1, 0.5],
-    visible: false,
-  });
-});
-
-void test('renderer-host accepts render target identity without a concrete render scale', () => {
-  const projection = surfaceTargetProjectionFromRenderTarget({
-    kind: 'runtime_session.ecrp_render_target.v0',
-    renderLabel: 'actor/demo-player',
-    position: [0, 1.62, 1.25],
-    scale: null,
-    visible: true,
-  });
-
-  assert.equal(projection.label, 'actor/demo-player');
-  assert.equal('scale' in projection, false);
-  assert.equal(projection.visible, true);
 });
 
 void test('renderer-host public projection loads the real fixture and advances command-selected run playback', async () => {
@@ -217,10 +181,23 @@ void test('renderer-host animation resources and playback fail closed with typed
 void test('renderer-host declarations do not expose concrete Three.js backend types', () => {
   const declarationPath = fileURLToPath(new URL('./index.d.ts', import.meta.url));
   const declarationText = readFileSync(declarationPath, 'utf8');
+  const surfaceDeclarationPath = fileURLToPath(new URL('./surface.d.ts', import.meta.url));
+  const surfaceDeclarationText = readFileSync(surfaceDeclarationPath, 'utf8');
 
   assert.doesNotMatch(declarationText, /@asha\/renderer-three/);
   assert.doesNotMatch(declarationText, /ThreeRenderer/);
   assert.doesNotMatch(declarationText, /WebGLRenderer/);
   assert.doesNotMatch(declarationText, /from ['"]three['"]/);
   assert.doesNotMatch(declarationText, /@asha\/runtime-bridge/);
+  assert.match(surfaceDeclarationText, /AshaRendererSurfacePickRequest/);
+  assert.match(surfaceDeclarationText, /AshaRendererSurfacePickHint/);
+  assert.match(surfaceDeclarationText, /readonly pick:/);
+  assert.match(surfaceDeclarationText, /readonly resetCamera:/);
+  assert.doesNotMatch(surfaceDeclarationText, /firePrimary/);
+  assert.doesNotMatch(surfaceDeclarationText, /interactionState/);
+  assert.doesNotMatch(surfaceDeclarationText, /targetHealth/);
+  assert.doesNotMatch(surfaceDeclarationText, /shotsFired/);
+  assert.doesNotMatch(surfaceDeclarationText, /remainingTargets/);
+  assert.doesNotMatch(surfaceDeclarationText, /projectTargetProjection/);
+  assert.doesNotMatch(surfaceDeclarationText, /projectRenderTargetProjection/);
 });
