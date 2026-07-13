@@ -9,15 +9,16 @@ use game_rule_extension::{
 };
 use protocol_game_extension::{
     GameplayCausationRef, GameplayContractRef, GameplayEmitterRef, GameplayEntityRef,
-    GameplayExecutionBudget, GameplayInvocationDescriptor, GameplayInvocationFamily,
-    GameplayModuleManifest, GameplayModuleRef, GameplayOwnerRef, GameplayProposalDeclaration,
-    GameplayProposalEnvelope,
+    GameplayEventSchemaDeclaration, GameplayExecutionBudget, GameplayInvocationDescriptor,
+    GameplayInvocationFamily, GameplayModuleManifest, GameplayModuleRef, GameplayOwnerRef,
+    GameplayProposalDeclaration, GameplayProposalEnvelope,
 };
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use svc_gameplay_fabric::{
-    GameplayFabricRegistryBuilder, GameplayLinkedProvider, GameplayProposalOwnerRegistration,
-    GameplayRegistryBuildError,
+    gameplay_canonical_codec_id, gameplay_contract, stable_identity, GameplayFabricRegistryBuilder,
+    GameplayLinkedProvider, GameplayProposalOwnerRegistration, GameplayRegistryBuildError,
+    TypedGameplayEventCodec,
 };
 
 use crate::{
@@ -109,7 +110,7 @@ pub fn run_legacy_weapon_effect_transform(
             .map(|entity| GameplayEntityRef { entity })
             .collect(),
         canonical_payload: workspace.canonical_payload.clone(),
-        payload_hash: workspace.workspace_hash.clone(),
+        payload_hash: crate::gameplay_payload_hash(&workspace.canonical_payload),
     };
     let moment = GameplayDecisionMoment {
         decision_id: request.request_id.clone(),
@@ -322,6 +323,19 @@ fn compatibility_registry(
             proposal: compatibility_operation_contract(),
             owner,
         })
+        .register_event_codec(TypedGameplayEventCodec::new(
+            GameplayEventSchemaDeclaration {
+                event: compatibility_operation_contract(),
+                codec_id: gameplay_canonical_codec_id(
+                    &compatibility_operation_contract().schema_hash,
+                ),
+            },
+            compatibility_operation_schema(),
+            |payload: &LegacyWeaponEffectWorkspace| {
+                serde_json::to_vec(payload).map_err(|error| error.to_string())
+            },
+            |bytes| serde_json::from_slice(bytes).map_err(|error| error.to_string()),
+        ))
         .register_module(manifest);
     builder.build()
 }
@@ -335,8 +349,14 @@ fn compatibility_manifest(module: &dyn GameRuleModule) -> GameplayModuleManifest
             namespace: compatibility_module_id(module),
             version: legacy.module_ref.version.clone(),
             sdk_hash: crate::gameplay_payload_hash(b"legacy-game-rule-extension-sdk-v0"),
-            contract_hash: legacy.module_ref.contract_hash.clone(),
-            artifact_hash: legacy.source_hash.clone(),
+            contract_hash: stable_identity([
+                "legacy-game-rule-contract.v1",
+                legacy.module_ref.contract_hash.as_str(),
+            ]),
+            artifact_hash: stable_identity([
+                "legacy-game-rule-linked-provenance.v1",
+                legacy.source_hash.as_str(),
+            ]),
             provider_id: format!("provider.{}", compatibility_module_id(module)),
         },
         published_events: Vec::new(),
@@ -366,7 +386,10 @@ fn compatibility_manifest(module: &dyn GameRuleModule) -> GameplayModuleManifest
             max_payload_bytes_per_root: 16_384,
         },
         deterministic_requirements: legacy.deterministic_requirements.clone(),
-        source_hash: legacy.source_hash.clone(),
+        source_hash: stable_identity([
+            "legacy-game-rule-source-provenance.v1",
+            legacy.source_hash.as_str(),
+        ]),
     }
 }
 
@@ -395,19 +418,18 @@ fn compatibility_owner() -> GameplayOwnerRef {
 }
 
 fn contract(namespace: &str, name: &str, schema: &str) -> GameplayContractRef {
-    GameplayContractRef {
-        namespace: namespace.to_owned(),
-        name: name.to_owned(),
-        version: 1,
-        schema_hash: crate::gameplay_payload_hash(schema.as_bytes()),
-    }
+    gameplay_contract(namespace, name, 1, schema)
+}
+
+fn compatibility_operation_schema() -> &'static str {
+    "LegacyWeaponEffectWorkspace{requestId:string,baseDamage:i64,proposal:?GameExtensionProposal};canonical-json-v1"
 }
 
 fn compatibility_operation_contract() -> GameplayContractRef {
     contract(
         "asha.combat",
         "primary-fire",
-        "compat-primary-fire-operation-v1",
+        compatibility_operation_schema(),
     )
 }
 

@@ -41,7 +41,19 @@ pub(crate) fn budget_values(manifest: &GameplayModuleManifest) -> [u32; 5] {
 }
 
 pub(crate) fn is_hash(value: &str) -> bool {
-    !value.is_empty() && !value.chars().any(char::is_whitespace) && value.contains(':')
+    let (algorithm, digest) = match value.split_once(':') {
+        Some(parts) => parts,
+        None => return false,
+    };
+    let expected_len = match algorithm {
+        "fnv1a64" => 16,
+        "sha256" => 64,
+        _ => return false,
+    };
+    digest.len() == expected_len
+        && digest
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 pub(crate) fn is_version(value: &str) -> bool {

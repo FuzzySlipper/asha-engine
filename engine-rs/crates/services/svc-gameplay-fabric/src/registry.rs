@@ -7,9 +7,11 @@ use crate::validation::{
     namespace_owns, push_diagnostic, validate_contract,
 };
 use protocol_game_extension::{
-    GameplayContractRef, GameplayInvocationFamily, GameplayModuleManifest, GameplayOwnerRef,
-    GameplayReadSelectorCapability, GameplayReadViewKind, GameplayRegistryDiagnostic,
-    GameplayRegistryDiagnosticCode, GameplayRegistryReadout,
+    GameplayCausationRef, GameplayContractRef, GameplayEmitterRef, GameplayEntityRef,
+    GameplayEventEnvelope, GameplayEventPhase, GameplayInvocationFamily, GameplayModuleManifest,
+    GameplayOwnerRef, GameplayProposalEnvelope, GameplayReadSelectorCapability,
+    GameplayReadViewKind, GameplayRegistryDiagnostic, GameplayRegistryDiagnosticCode,
+    GameplayRegistryReadout,
 };
 use std::any::{Any, TypeId};
 use std::collections::{BTreeMap, BTreeSet};
@@ -46,6 +48,37 @@ pub struct GameplayReadViewProviderRegistration {
 pub struct GameplayStateOwnerRegistration {
     pub schema: GameplayContractRef,
     pub owner: GameplayOwnerRef,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GameplayEventMetadata {
+    pub event_id: String,
+    pub tick: u64,
+    pub root_sequence: u64,
+    pub wave: u32,
+    pub event_sequence: u32,
+    pub phase: GameplayEventPhase,
+    pub emitter: GameplayEmitterRef,
+    pub causation: GameplayCausationRef,
+    pub source: Option<GameplayEntityRef>,
+    pub subjects: Vec<GameplayEntityRef>,
+    pub targets: Vec<GameplayEntityRef>,
+    pub scope: Option<String>,
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GameplayProposalMetadata {
+    pub proposal_id: String,
+    pub tick: u64,
+    pub root_sequence: u64,
+    pub wave: u32,
+    pub proposal_sequence: u32,
+    pub emitter: GameplayEmitterRef,
+    pub causation: GameplayCausationRef,
+    pub originating_event_id: Option<String>,
+    pub source: Option<GameplayEntityRef>,
+    pub targets: Vec<GameplayEntityRef>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -154,6 +187,7 @@ impl GameplayFabricRegistryBuilder {
         let codecs = collect_codec_refs(&self.codecs, &mut diagnostics);
         validate_event_codecs(&events, &codecs, &mut diagnostics);
         validate_module_declarations(&modules, &events, &mut diagnostics);
+        validate_proposal_codecs(&modules, &codecs, &mut diagnostics);
         validate_proposal_owners(&modules, &self.proposal_owners, &mut diagnostics);
         validate_read_view_providers(&modules, &self.read_view_providers, &mut diagnostics);
         validate_state_owners(&modules, &self.state_owners, &mut diagnostics);
@@ -340,11 +374,68 @@ impl GameplayFabricRegistry {
             .codecs
             .get(&key)
             .filter(|codec| codec.event == *event)
-            .ok_or_else(|| GameplayCodecError::UnknownEvent { event: key.clone() })?;
+            .ok_or_else(|| GameplayCodecError::UnknownContract {
+                contract: key.clone(),
+            })?;
         if codec.codec.payload_type_id() != TypeId::of::<T>() {
-            return Err(GameplayCodecError::WrongPayloadType { event: key });
+            return Err(GameplayCodecError::WrongPayloadType { contract: key });
         }
         codec.codec.encode_any(payload as &dyn Any)
+    }
+
+    pub fn event<T: 'static>(
+        &self,
+        event: &GameplayContractRef,
+        payload: &T,
+        metadata: GameplayEventMetadata,
+    ) -> Result<GameplayEventEnvelope, GameplayCodecError> {
+        let canonical_payload = self.encode_event(event, payload)?;
+        let envelope = GameplayEventEnvelope {
+            event_id: metadata.event_id,
+            event: event.clone(),
+            tick: metadata.tick,
+            root_sequence: metadata.root_sequence,
+            wave: metadata.wave,
+            event_sequence: metadata.event_sequence,
+            phase: metadata.phase,
+            emitter: metadata.emitter,
+            causation: metadata.causation,
+            source: metadata.source,
+            subjects: metadata.subjects,
+            targets: metadata.targets,
+            scope: metadata.scope,
+            tags: metadata.tags,
+            payload_hash: crate::gameplay_canonical_payload_hash(&canonical_payload),
+            canonical_payload,
+        };
+        self.admit_event(&envelope)?;
+        Ok(envelope)
+    }
+
+    pub fn proposal<T: 'static>(
+        &self,
+        proposal: &GameplayContractRef,
+        payload: &T,
+        metadata: GameplayProposalMetadata,
+    ) -> Result<GameplayProposalEnvelope, GameplayCodecError> {
+        let canonical_payload = self.encode_event(proposal, payload)?;
+        let envelope = GameplayProposalEnvelope {
+            proposal_id: metadata.proposal_id,
+            proposal: proposal.clone(),
+            tick: metadata.tick,
+            root_sequence: metadata.root_sequence,
+            wave: metadata.wave,
+            proposal_sequence: metadata.proposal_sequence,
+            emitter: metadata.emitter,
+            causation: metadata.causation,
+            originating_event_id: metadata.originating_event_id,
+            source: metadata.source,
+            targets: metadata.targets,
+            payload_hash: crate::gameplay_canonical_payload_hash(&canonical_payload),
+            canonical_payload,
+        };
+        self.admit_proposal(&envelope)?;
+        Ok(envelope)
     }
 
     pub fn decode_event<T: 'static>(
@@ -357,16 +448,60 @@ impl GameplayFabricRegistry {
             .codecs
             .get(&key)
             .filter(|codec| codec.event == *event)
-            .ok_or_else(|| GameplayCodecError::UnknownEvent { event: key.clone() })?;
+            .ok_or_else(|| GameplayCodecError::UnknownContract {
+                contract: key.clone(),
+            })?;
         if codec.codec.payload_type_id() != TypeId::of::<T>() {
-            return Err(GameplayCodecError::WrongPayloadType { event: key });
+            return Err(GameplayCodecError::WrongPayloadType { contract: key });
         }
         codec
             .codec
             .decode_any(bytes)?
             .downcast::<T>()
             .map(|payload| *payload)
-            .map_err(|_| GameplayCodecError::WrongPayloadType { event: key })
+            .map_err(|_| GameplayCodecError::WrongPayloadType { contract: key })
+    }
+
+    pub fn admit_event(&self, event: &GameplayEventEnvelope) -> Result<(), GameplayCodecError> {
+        self.admit_payload(&event.event, &event.canonical_payload, &event.payload_hash)
+    }
+
+    pub fn admit_proposal(
+        &self,
+        proposal: &GameplayProposalEnvelope,
+    ) -> Result<(), GameplayCodecError> {
+        self.admit_payload(
+            &proposal.proposal,
+            &proposal.canonical_payload,
+            &proposal.payload_hash,
+        )
+    }
+
+    pub fn admit_payload(
+        &self,
+        contract: &GameplayContractRef,
+        bytes: &[u8],
+        payload_hash: &str,
+    ) -> Result<(), GameplayCodecError> {
+        let key = contract.key();
+        let codec = self
+            .codecs
+            .get(&key)
+            .filter(|codec| codec.event == *contract)
+            .ok_or_else(|| GameplayCodecError::UnknownContract {
+                contract: key.clone(),
+            })?;
+        if !codec.codec.descriptor_matches_contract() {
+            return Err(GameplayCodecError::SchemaDescriptorMismatch { contract: key });
+        }
+        let canonical = codec.codec.canonicalize(bytes)?;
+        if canonical != bytes {
+            return Err(GameplayCodecError::NonCanonical { contract: key });
+        }
+        if crate::gameplay_canonical_payload_hash(&canonical) != payload_hash {
+            return Err(GameplayCodecError::PayloadHashMismatch { contract: key });
+        }
+        Ok(())
     }
 }
 
@@ -634,6 +769,50 @@ fn validate_event_codecs(
                     "codecs",
                     format!("typed codec for `{key}` carries different schema metadata"),
                 );
+            }
+            if !codec.codec.descriptor_matches_contract() {
+                push_diagnostic(
+                    diagnostics,
+                    GameplayRegistryDiagnosticCode::SchemaHashMismatch,
+                    "codecs",
+                    format!(
+                        "typed codec for `{key}` is not derived from its canonical schema descriptor"
+                    ),
+                );
+            }
+        }
+    }
+}
+
+fn validate_proposal_codecs(
+    modules: &BTreeMap<String, &GameplayModuleManifest>,
+    codecs: &BTreeMap<String, Vec<&RegisteredCodec>>,
+    diagnostics: &mut Vec<GameplayRegistryDiagnostic>,
+) {
+    for manifest in modules.values() {
+        for declaration in &manifest.proposal_kinds {
+            let key = declaration.proposal.key();
+            let Some(values) = codecs.get(&key) else {
+                push_diagnostic(
+                    diagnostics,
+                    GameplayRegistryDiagnosticCode::MissingCodec,
+                    format!("modules.{}.proposalKinds", manifest.module_ref.module_id),
+                    format!("proposal `{key}` has no registered canonical codec"),
+                );
+                continue;
+            };
+            if let Some(codec) = values.first() {
+                if codec.event != declaration.proposal || !codec.codec.descriptor_matches_contract()
+                {
+                    push_diagnostic(
+                        diagnostics,
+                        GameplayRegistryDiagnosticCode::SchemaHashMismatch,
+                        format!("modules.{}.proposalKinds", manifest.module_ref.module_id),
+                        format!(
+                            "proposal codec for `{key}` does not match its canonical schema descriptor"
+                        ),
+                    );
+                }
             }
         }
     }

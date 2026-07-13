@@ -49,13 +49,29 @@ pub(crate) fn topology_dump(
             requirements.join(",")
         ));
         for invocation in &manifest.invocations {
+            let mut declared_reads = invocation
+                .read_requirements
+                .iter()
+                .map(|requirement| {
+                    format!(
+                        "{}={}@{}",
+                        requirement.request_id,
+                        requirement.view.key(),
+                        requirement.view.schema_hash
+                    )
+                })
+                .collect::<Vec<_>>();
+            declared_reads.sort();
             lines.push(format!(
-                "invocation {} module={} family={} input={} output={} maxOutputs={} maxPayloadBytes={}",
+                "invocation {} module={} family={} input={}@{} output={}@{} reads={} maxOutputs={} maxPayloadBytes={}",
                 invocation.invocation_id,
                 module.module_id,
                 invocation.family.as_str(),
                 invocation.input_contract.key(),
+                invocation.input_contract.schema_hash,
                 invocation.output_contract.key(),
+                invocation.output_contract.schema_hash,
+                declared_reads.join(","),
                 invocation.max_outputs,
                 invocation.max_payload_bytes,
             ));
@@ -110,6 +126,16 @@ pub(crate) fn topology_dump(
                 "factDeclaration module={} schema={} owner={} provider={}",
                 module.module_id,
                 declaration.schema.key(),
+                declaration.owner.owner_id,
+                declaration.owner.provider_id,
+            ));
+        }
+        for declaration in &manifest.proposal_kinds {
+            lines.push(format!(
+                "proposalDeclaration module={} proposal={} schema={} owner={} provider={}",
+                module.module_id,
+                declaration.proposal.key(),
+                declaration.proposal.schema_hash,
                 declaration.owner.owner_id,
                 declaration.owner.provider_id,
             ));

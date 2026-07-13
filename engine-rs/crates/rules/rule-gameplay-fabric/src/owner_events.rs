@@ -16,8 +16,8 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use svc_combat::{CombatEvent, CombatReadout, FireMissReason};
 use svc_game_rules::EffectResolutionRequest;
 use svc_gameplay_fabric::{
-    GameplayFabricRegistryBuilder, GameplayLinkedProvider, GameplayProposalOwnerRegistration,
-    TypedGameplayEventCodec,
+    gameplay_canonical_codec_id, gameplay_contract, GameplayFabricRegistryBuilder,
+    GameplayLinkedProvider, GameplayProposalOwnerRegistration, TypedGameplayEventCodec,
 };
 
 use crate::gameplay_payload_hash;
@@ -32,14 +32,22 @@ pub enum StandardGameplayProposalKind {
 }
 
 impl StandardGameplayProposalKind {
+    pub fn schema_descriptor(self) -> &'static str {
+        match self {
+            Self::SetCapabilityActivation => {
+                "CapabilityActivationGameplayProposal{entity:u64,capability:string,action:string};canonical-json-v1"
+            }
+        }
+    }
+
     pub fn contract(self) -> GameplayContractRef {
         match self {
-            Self::SetCapabilityActivation => GameplayContractRef {
-                namespace: "asha.entity".to_owned(),
-                name: "set-capability-activation".to_owned(),
-                version: 1,
-                schema_hash: gameplay_payload_hash(b"set-capability-activation-v1"),
-            },
+            Self::SetCapabilityActivation => gameplay_contract(
+                "asha.entity",
+                "set-capability-activation",
+                1,
+                self.schema_descriptor(),
+            ),
         }
     }
 
@@ -106,65 +114,70 @@ impl StandardGameplayEventKind {
     ];
 
     pub fn contract(self) -> GameplayContractRef {
-        let (namespace, name, schema) = match self {
-            Self::EntityCreated => ("asha.entity", "created", "entity-created-v1"),
-            Self::EntityDestroyed => ("asha.entity", "destroyed", "entity-destroyed-v1"),
-            Self::EntityLifecycleChanged => (
-                "asha.entity",
-                "lifecycle-changed",
-                "entity-lifecycle-changed-v1",
-            ),
-            Self::CapabilityActivationChanged => (
-                "asha.entity",
-                "capability-activation-changed",
-                "capability-activation-changed-v1",
-            ),
-            Self::TriggerEntered => ("asha.trigger", "entered", "trigger-entered-v1"),
-            Self::TriggerExited => ("asha.trigger", "exited", "trigger-exited-v1"),
-            Self::CombatFireHit => ("asha.combat", "fire-hit", "combat-fire-hit-v1"),
-            Self::CombatFireMissed => ("asha.combat", "fire-missed", "combat-fire-missed-v1"),
-            Self::CombatDamageApplied => {
-                ("asha.combat", "damage-applied", "combat-damage-applied-v1")
-            }
-            Self::CombatEntityDefeated => (
-                "asha.combat",
-                "entity-defeated",
-                "combat-entity-defeated-v1",
-            ),
-            Self::StateMachineAttached => (
-                "asha.state-machine",
-                "attached",
-                "state-machine-attached-v1",
-            ),
-            Self::StateMachineTransitioned => (
-                "asha.state-machine",
-                "transitioned",
-                "state-machine-transitioned-v1",
-            ),
-            Self::ProcessStarted => ("asha.process", "started", "process-started-v1"),
-            Self::ProcessModeSet => ("asha.process", "mode-set", "process-mode-set-v1"),
-            Self::ProcessStopped => ("asha.process", "stopped", "process-stopped-v1"),
-            Self::ValueDeltaResolved => (
-                "asha.game-rules",
-                "value-delta-resolved",
-                "value-delta-resolved-v1",
-            ),
-            Self::ModifierApplied => ("asha.game-rules", "modifier-applied", "modifier-applied-v1"),
-            Self::SessionTick => ("asha.session", "tick", "session-tick-v1"),
-            Self::ScheduledMomentDue => ("asha.scheduler", "moment-due", "scheduled-moment-due-v1"),
+        let (namespace, name) = match self {
+            Self::EntityCreated => ("asha.entity", "created"),
+            Self::EntityDestroyed => ("asha.entity", "destroyed"),
+            Self::EntityLifecycleChanged => ("asha.entity", "lifecycle-changed"),
+            Self::CapabilityActivationChanged => ("asha.entity", "capability-activation-changed"),
+            Self::TriggerEntered => ("asha.trigger", "entered"),
+            Self::TriggerExited => ("asha.trigger", "exited"),
+            Self::CombatFireHit => ("asha.combat", "fire-hit"),
+            Self::CombatFireMissed => ("asha.combat", "fire-missed"),
+            Self::CombatDamageApplied => ("asha.combat", "damage-applied"),
+            Self::CombatEntityDefeated => ("asha.combat", "entity-defeated"),
+            Self::StateMachineAttached => ("asha.state-machine", "attached"),
+            Self::StateMachineTransitioned => ("asha.state-machine", "transitioned"),
+            Self::ProcessStarted => ("asha.process", "started"),
+            Self::ProcessModeSet => ("asha.process", "mode-set"),
+            Self::ProcessStopped => ("asha.process", "stopped"),
+            Self::ValueDeltaResolved => ("asha.game-rules", "value-delta-resolved"),
+            Self::ModifierApplied => ("asha.game-rules", "modifier-applied"),
+            Self::SessionTick => ("asha.session", "tick"),
+            Self::ScheduledMomentDue => ("asha.scheduler", "moment-due"),
         };
-        GameplayContractRef {
-            namespace: namespace.to_owned(),
-            name: name.to_owned(),
-            version: 1,
-            schema_hash: gameplay_payload_hash(schema.as_bytes()),
+        gameplay_contract(namespace, name, 1, self.schema_descriptor())
+    }
+
+    pub fn schema_descriptor(self) -> &'static str {
+        match self {
+            Self::EntityCreated | Self::EntityDestroyed | Self::EntityLifecycleChanged => {
+                "EntityLifecycleGameplayPayload{entity:u64,action:string,sourceKind:?string,labels:[u64]};canonical-json-v1"
+            }
+            Self::CapabilityActivationChanged => {
+                "CapabilityActivationGameplayPayload{entity:u64,capability:string,from:string,to:string};canonical-json-v1"
+            }
+            Self::TriggerEntered | Self::TriggerExited => {
+                "TriggerOverlapGameplayPayload{trigger:u64,subject:u64,action:string,scope:string,tags:[string],tick:u64,cause:string,pairHash:string};canonical-json-v1"
+            }
+            Self::CombatFireHit
+            | Self::CombatFireMissed
+            | Self::CombatDamageApplied
+            | Self::CombatEntityDefeated => {
+                "CombatGameplayPayload{shooter:?u64,target:?u64,distance:?f64,missReason:?string,damage:?u32,healthBefore:?u32,healthAfter:?u32,defeated:bool,tick:u64,combatReplayHash:u64};canonical-json-v1"
+            }
+            Self::StateMachineAttached | Self::StateMachineTransitioned => {
+                "StateMachineGameplayPayload{entity:u64,machine:u64,from:?u64,to:u64,revision:u64};canonical-json-v1"
+            }
+            Self::ProcessStarted | Self::ProcessModeSet | Self::ProcessStopped => {
+                "ProcessGameplayPayload{process:u64,mode:?u64,action:string};canonical-json-v1"
+            }
+            Self::ValueDeltaResolved => {
+                "ValueDeltaGameplayPayload{source:u64,target:u64,bundleId:string,channelId:string,amount:i64,requestHash:string,replayHash:string};canonical-json-v1"
+            }
+            Self::ModifierApplied => {
+                "ModifierGameplayPayload{source:u64,target:u64,modifierId:string,stacks:u32,appliedTick:u64,expiresTick:?u64,nextTick:?u64,sourceHash:string,requestHash:string,replayHash:string};canonical-json-v1"
+            }
+            Self::SessionTick => "SessionTickGameplayPayload{tick:u64};canonical-json-v1",
+            Self::ScheduledMomentDue => {
+                "ScheduledMomentGameplayPayload{scheduleId:string,dueTick:u64,proposalKind:GameplayContractRef};canonical-json-v1"
+            }
         }
     }
 
     pub fn declaration(self) -> GameplayEventSchemaDeclaration {
         let event = self.contract();
         GameplayEventSchemaDeclaration {
-            codec_id: format!("codec.{}", event.key()),
+            codec_id: gameplay_canonical_codec_id(&event.schema_hash),
             event,
         }
     }
@@ -421,6 +434,17 @@ pub fn register_standard_owner_events(builder: &mut GameplayFabricRegistryBuilde
         builder,
         StandardGameplayEventKind::ScheduledMomentDue,
     );
+    let proposal = StandardGameplayProposalKind::SetCapabilityActivation;
+    let contract = proposal.contract();
+    builder.register_event_codec(TypedGameplayEventCodec::new(
+        GameplayEventSchemaDeclaration {
+            codec_id: gameplay_canonical_codec_id(&contract.schema_hash),
+            event: contract,
+        },
+        proposal.schema_descriptor(),
+        encode_json::<CapabilityActivationGameplayProposal>,
+        decode_json::<CapabilityActivationGameplayProposal>,
+    ));
 }
 
 fn register_codec<T>(builder: &mut GameplayFabricRegistryBuilder, kind: StandardGameplayEventKind)
@@ -429,6 +453,7 @@ where
 {
     builder.register_event_codec(TypedGameplayEventCodec::new(
         kind.declaration(),
+        kind.schema_descriptor(),
         encode_json::<T>,
         decode_json::<T>,
     ));

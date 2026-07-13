@@ -12,11 +12,97 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 use svc_gameplay_fabric::{
-    GameplayEventCodecRegistration, GameplayFabricRegistry, GameplayFabricRegistryBuilder,
-    GameplayLinkedProvider, GameplayProposalOwnerRegistration,
+    stable_bytes_identity, stable_identity, GameplayEventCodecRegistration, GameplayFabricRegistry,
+    GameplayFabricRegistryBuilder, GameplayLinkedProvider, GameplayProposalOwnerRegistration,
     GameplayReadViewProviderRegistration, GameplayRegistryBuildError,
     GameplayStateOwnerRegistration,
 };
+
+const GAMEPLAY_PUBLIC_CONTRACT_VERSION: &str = "gameplay-module-contract-v1";
+const GAMEPLAY_PUBLIC_SDK_PACKAGE: &str = "asha-gameplay-module-sdk";
+
+/// Computed provenance for one statically linked gameplay provider.
+///
+/// `source_hash` covers the caller-supplied source bytes, lockfile bytes, and
+/// sorted feature set. `artifact_hash` is deliberately a linked-provenance
+/// identity (source + contract + SDK + behavior type), not a claim that Rust
+/// machine code is reproducible across toolchains.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GameplayModuleBuildProvenance {
+    package_name: String,
+    package_version: String,
+    features: Vec<String>,
+    source_inputs_hash: String,
+    lockfile_hash: String,
+}
+
+impl GameplayModuleBuildProvenance {
+    pub fn from_build_inputs(
+        package_name: impl Into<String>,
+        package_version: impl Into<String>,
+        source_inputs: &[&[u8]],
+        lockfile: &[u8],
+        features: &[&str],
+    ) -> Self {
+        assert!(
+            !source_inputs.is_empty(),
+            "gameplay module provenance requires at least one source input"
+        );
+        assert!(
+            !lockfile.is_empty(),
+            "gameplay module provenance requires lockfile bytes"
+        );
+        let mut features = features
+            .iter()
+            .map(|feature| (*feature).to_owned())
+            .collect::<Vec<_>>();
+        features.sort();
+        features.dedup();
+        Self {
+            package_name: package_name.into(),
+            package_version: package_version.into(),
+            features,
+            source_inputs_hash: stable_bytes_identity(source_inputs.iter().copied()),
+            lockfile_hash: stable_bytes_identity([lockfile]),
+        }
+    }
+
+    pub fn apply_to_manifest<B: 'static>(&self, manifest: &mut GameplayModuleManifest) {
+        manifest.module_ref.sdk_hash = stable_identity([
+            "asha.gameplay-sdk.v1",
+            GAMEPLAY_PUBLIC_SDK_PACKAGE,
+            env!("CARGO_PKG_VERSION"),
+            GAMEPLAY_PUBLIC_CONTRACT_VERSION,
+        ]);
+        manifest.source_hash = stable_identity([
+            "asha.gameplay-source-provenance.v1",
+            self.package_name.as_str(),
+            self.package_version.as_str(),
+            self.source_inputs_hash.as_str(),
+            self.lockfile_hash.as_str(),
+            self.features.join(",").as_str(),
+        ]);
+
+        let mut contract_manifest = manifest.clone();
+        contract_manifest.module_ref.sdk_hash.clear();
+        contract_manifest.module_ref.contract_hash.clear();
+        contract_manifest.module_ref.artifact_hash.clear();
+        contract_manifest.source_hash.clear();
+        let contract_bytes = serde_json::to_vec(&contract_manifest)
+            .expect("GameplayModuleManifest always has a JSON representation");
+        manifest.module_ref.contract_hash = stable_bytes_identity([
+            b"asha.gameplay-module-contract.v1".as_slice(),
+            contract_bytes.as_slice(),
+        ]);
+        manifest.module_ref.artifact_hash = stable_identity([
+            "asha.gameplay-linked-provenance.v1",
+            manifest.module_ref.sdk_hash.as_str(),
+            manifest.module_ref.contract_hash.as_str(),
+            manifest.source_hash.as_str(),
+            core::any::type_name::<B>(),
+        ]);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GameplayConfigurationFieldMetadata {
@@ -104,11 +190,14 @@ impl GameplayStaticModuleProvider {
         }
     }
 
-    pub fn linked_from_manifest(
+    pub fn linked_from_manifest<B: GameplayModuleBehavior + 'static>(
         manifest: GameplayModuleManifest,
-        behavior: impl GameplayModuleBehavior + 'static,
+        provenance: &GameplayModuleBuildProvenance,
+        behavior: B,
     ) -> Self {
-        let module = &manifest.module_ref;
+        let mut linked_manifest = manifest.clone();
+        provenance.apply_to_manifest::<B>(&mut linked_manifest);
+        let module = &linked_manifest.module_ref;
         let linked = GameplayLinkedProvider {
             provider_id: module.provider_id.clone(),
             module_id: module.module_id.clone(),
@@ -116,12 +205,20 @@ impl GameplayStaticModuleProvider {
             contract_hash: module.contract_hash.clone(),
             artifact_hash: module.artifact_hash.clone(),
             sdk_hash: module.sdk_hash.clone(),
-            source_hash: manifest.source_hash.clone(),
+            source_hash: linked_manifest.source_hash,
         };
         Self::new(manifest, linked, behavior)
     }
 
     pub fn event_codec(mut self, registration: GameplayEventCodecRegistration) -> Self {
+        self.event_codecs.push(registration);
+        self
+    }
+
+    /// Register the canonical typed codec for a proposal declared by this
+    /// module. Proposals and events share the same closed codec table, while
+    /// the named method keeps provider composition intent inspectable.
+    pub fn proposal_codec(mut self, registration: GameplayEventCodecRegistration) -> Self {
         self.event_codecs.push(registration);
         self
     }

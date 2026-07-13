@@ -19,7 +19,8 @@ pub use protocol_game_extension::{
     GameplayOrderingConstraint, GameplayOwnedSchemaDeclaration, GameplayOwnerRef,
     GameplayProposalDeclaration, GameplayProposalEnvelope, GameplayReadSelectorCapability,
     GameplayReadViewKind, GameplayReadViewProviderReadout, GameplayReadViewRequirement,
-    GameplaySubscriptionDeclaration, PrefabPartReference, WeaponEffectHookRequest,
+    GameplayRegistryDiagnosticCode, GameplaySubscriptionDeclaration, PrefabPartReference,
+    WeaponEffectHookRequest,
 };
 pub use rule_gameplay_fabric::{
     gameplay_module_payload_hash, CapabilityActivationGameplayProposal, GameplayCapabilityReadKind,
@@ -34,7 +35,10 @@ pub use rule_gameplay_fabric::{
     StandardGameplayProposalKind, TriggerOverlapGameplayPayload,
 };
 pub use svc_gameplay_fabric::{
-    GameplayEventCodecRegistration, GameplayLinkedProvider, GameplayProposalOwnerRegistration,
+    gameplay_canonical_codec_id, gameplay_canonical_payload_hash, gameplay_contract,
+    gameplay_schema_hash, stable_bytes_identity, stable_identity, GameplayCodecError,
+    GameplayEventCodecRegistration, GameplayEventMetadata, GameplayLinkedProvider,
+    GameplayProposalMetadata, GameplayProposalOwnerRegistration,
     GameplayReadViewProviderRegistration, GameplayStateOwnerRegistration, TypedGameplayEventCodec,
 };
 pub use svc_rng::{RngSeed, ScopedRng};

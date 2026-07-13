@@ -82,6 +82,7 @@ pub enum GameplayRuntimeHostError {
     SpatialEntity { entity: u64, code: &'static str },
     Movement { entity: u64, code: &'static str },
     State(GameplayModuleStateError),
+    Codec(String),
     Scheduler(GameplaySchedulerError),
     SchedulerRouting(GameplayRuntimeDiagnostic),
 }
@@ -401,6 +402,8 @@ impl GameplayRuntimeHost {
                 "authored scheduler definition does not match the saved host".to_owned(),
             ));
         }
+        validate_replayed_scheduler_codecs(session.registry(), &scheduler)?;
+        validate_replayed_reaction_frames(session.registry(), &stored.reaction_frames)?;
         Ok(Self {
             session,
             prefab_registry,
@@ -763,6 +766,34 @@ impl GameplayRuntimeHost {
     }
 }
 
+fn validate_replayed_reaction_frames(
+    registry: &svc_gameplay_fabric::GameplayFabricRegistry,
+    frames: &[GameplayReactionFrame],
+) -> Result<(), GameplayRuntimeHostError> {
+    for (frame_index, frame) in frames.iter().enumerate() {
+        if frame.registry_digest != registry.registry_digest()
+            || frame.frame_hash != frame.canonical_hash()
+        {
+            return Err(GameplayRuntimeHostError::Snapshot(format!(
+                "reaction frame {frame_index} registry or canonical hash mismatch"
+            )));
+        }
+        for (kind, events) in [
+            ("root", frame.root_events.as_slice()),
+            ("delivered", frame.delivered_events.as_slice()),
+        ] {
+            for (event_index, event) in events.iter().enumerate() {
+                registry.admit_event(event).map_err(|error| {
+                    GameplayRuntimeHostError::Snapshot(format!(
+                        "reaction frame {frame_index} {kind} event {event_index} failed codec admission: {error}"
+                    ))
+                })?;
+            }
+        }
+    }
+    Ok(())
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct StoredGameplayRuntimeHostSnapshot {
@@ -911,6 +942,22 @@ impl RuntimeSessionViews<'_> {
             .filter(|plan| plan.module_id == module_id && plan.invocation_id == invocation_id)
             .collect::<Vec<_>>();
         if matching.is_empty() {
+            let requires_reads = self
+                .registry
+                .module(module_id)
+                .and_then(|module| {
+                    module
+                        .invocations
+                        .iter()
+                        .find(|invocation| invocation.invocation_id == invocation_id)
+                })
+                .is_some_and(|invocation| !invocation.read_requirements.is_empty());
+            if requires_reads {
+                return Err(read_assembly_error(
+                    "missingPlan",
+                    "the invocation declares reads but no matching runtime read plan was supplied",
+                ));
+            }
             return Ok(None);
         }
         if matching.len() != 1 {
@@ -926,6 +973,32 @@ impl RuntimeSessionViews<'_> {
             wave: event.wave,
             requests: matching[0].requests.clone(),
         };
+        let invocation = self
+            .registry
+            .module(module_id)
+            .and_then(|module| {
+                module
+                    .invocations
+                    .iter()
+                    .find(|invocation| invocation.invocation_id == invocation_id)
+            })
+            .expect("coordinator invocation is closed-registry topology");
+        let expected_topology = invocation
+            .read_requirements
+            .iter()
+            .map(|requirement| (requirement.request_id.as_str(), &requirement.view))
+            .collect::<BTreeSet<_>>();
+        let runtime_topology = plan
+            .requests
+            .iter()
+            .map(|request| (request.request_id.as_str(), &request.view))
+            .collect::<BTreeSet<_>>();
+        if runtime_topology != expected_topology {
+            return Err(read_assembly_error(
+                "topologyDrift",
+                "the runtime read plan does not exactly match the invocation's typed read requirements",
+            ));
+        }
         let provider_ids = plan
             .requests
             .iter()
@@ -1223,13 +1296,47 @@ mod tests {
 
     const WAVE_FIXTURE_MODULE_ID: &str = "fixture.wave-barrier.module";
 
-    fn wave_fixture_contract(name: &str) -> GameplayContractRef {
-        GameplayContractRef {
-            namespace: "fixture.wave-barrier".to_owned(),
-            name: name.to_owned(),
-            version: 1,
-            schema_hash: format!("sha256:fixture-wave-barrier-{name}"),
+    fn fixture_schema_descriptor(namespace: &str, name: &str) -> String {
+        format!("fixture:{namespace}.{name};canonical-json-v1")
+    }
+
+    fn fixture_declaration(event: GameplayContractRef) -> GameplayEventSchemaDeclaration {
+        GameplayEventSchemaDeclaration {
+            codec_id: gameplay_canonical_codec_id(&event.schema_hash),
+            event,
         }
+    }
+
+    fn fixture_json_codec<T>(event: GameplayContractRef) -> TypedGameplayEventCodec<T>
+    where
+        T: Serialize + for<'de> Deserialize<'de> + 'static,
+    {
+        let descriptor = fixture_schema_descriptor(&event.namespace, &event.name);
+        TypedGameplayEventCodec::new(
+            fixture_declaration(event),
+            descriptor,
+            |value: &T| serde_json::to_vec(value).map_err(|error| error.to_string()),
+            |bytes| serde_json::from_slice(bytes).map_err(|error| error.to_string()),
+        )
+    }
+
+    fn test_provenance() -> GameplayModuleBuildProvenance {
+        GameplayModuleBuildProvenance::from_build_inputs(
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION"),
+            &[include_bytes!("lib.rs")],
+            include_bytes!("../../../../Cargo.lock"),
+            &[],
+        )
+    }
+
+    fn wave_fixture_contract(name: &str) -> GameplayContractRef {
+        gameplay_contract(
+            "fixture.wave-barrier",
+            name,
+            1,
+            &fixture_schema_descriptor("fixture.wave-barrier", name),
+        )
     }
 
     fn wave_fixture_owner() -> GameplayOwnerRef {
@@ -1239,7 +1346,7 @@ mod tests {
         }
     }
 
-    fn wave_fixture_module_ref() -> GameplayModuleRef {
+    fn wave_fixture_base_module_ref() -> GameplayModuleRef {
         GameplayModuleRef {
             module_id: WAVE_FIXTURE_MODULE_ID.to_owned(),
             namespace: "fixture.wave-barrier".to_owned(),
@@ -1357,8 +1464,8 @@ mod tests {
                     &1_u64,
                 )?;
             }
-            actions.emit_json(
-                wave_fixture_contract("loop"),
+            actions.emit(
+                &fixture_json_codec::<u64>(wave_fixture_contract("loop")),
                 &current_revision.saturating_add(1),
                 None,
                 Vec::new(),
@@ -1368,7 +1475,7 @@ mod tests {
         }
     }
 
-    fn wave_fixture_provider() -> GameplayStaticModuleProvider {
+    fn wave_fixture_manifest() -> GameplayModuleManifest {
         let owner = wave_fixture_owner();
         let invocation = |invocation_id: &str, input_contract: GameplayContractRef| {
             GameplayInvocationDescriptor {
@@ -1403,17 +1510,11 @@ mod tests {
                     max_deliveries_per_root: 4,
                 }
             };
-        let manifest = GameplayModuleManifest {
-            module_ref: wave_fixture_module_ref(),
+        let mut manifest = GameplayModuleManifest {
+            module_ref: wave_fixture_base_module_ref(),
             published_events: vec![
-                GameplayEventSchemaDeclaration {
-                    event: wave_fixture_contract("root"),
-                    codec_id: "codec.fixture-wave-barrier.root".to_owned(),
-                },
-                GameplayEventSchemaDeclaration {
-                    event: wave_fixture_contract("loop"),
-                    codec_id: "codec.fixture-wave-barrier.loop".to_owned(),
-                },
+                fixture_declaration(wave_fixture_contract("root")),
+                fixture_declaration(wave_fixture_contract("loop")),
             ],
             subscriptions: vec![
                 subscription(
@@ -1465,6 +1566,17 @@ mod tests {
             deterministic_requirements: vec!["canonical-json".to_owned()],
             source_hash: "sha256:fixture-wave-barrier-source".to_owned(),
         };
+        test_provenance().apply_to_manifest::<WaveFixtureBehavior>(&mut manifest);
+        manifest
+    }
+
+    fn wave_fixture_module_ref() -> GameplayModuleRef {
+        wave_fixture_manifest().module_ref
+    }
+
+    fn wave_fixture_provider() -> GameplayStaticModuleProvider {
+        let owner = wave_fixture_owner();
+        let manifest = wave_fixture_manifest();
         let configuration_metadata = GameplayConfigurationSchemaMetadata {
             module_id: WAVE_FIXTURE_MODULE_ID.to_owned(),
             configuration: wave_fixture_contract("configuration"),
@@ -1475,49 +1587,46 @@ mod tests {
                 required: true,
             }],
         };
-        let event_codec = |event: GameplayContractRef, codec_id: &str| {
-            GameplayEventCodecRegistration::typed(TypedGameplayEventCodec::new(
-                GameplayEventSchemaDeclaration {
-                    event,
-                    codec_id: codec_id.to_owned(),
-                },
-                |value: &u64| serde_json::to_vec(value).map_err(|error| error.to_string()),
-                |bytes| serde_json::from_slice(bytes).map_err(|error| error.to_string()),
-            ))
+        let event_codec = |event: GameplayContractRef, _legacy_codec_id: &str| {
+            GameplayEventCodecRegistration::typed(fixture_json_codec::<u64>(event))
         };
-        GameplayStaticModuleProvider::linked_from_manifest(manifest, WaveFixtureBehavior)
-            .event_codec(event_codec(
-                wave_fixture_contract("root"),
-                "codec.fixture-wave-barrier.root",
-            ))
-            .event_codec(event_codec(
-                wave_fixture_contract("loop"),
-                "codec.fixture-wave-barrier.loop",
-            ))
-            .state_owner(GameplayStateOwnerRegistration {
-                schema: wave_fixture_contract("state"),
-                owner: owner.clone(),
-            })
-            .state_owner(GameplayStateOwnerRegistration {
-                schema: wave_fixture_contract("fact"),
-                owner,
-            })
-            .state_adapter(GameplayModuleStateRegistration::typed(
-                WaveFixtureStateAdapter,
-            ))
-            .read_view_provider(GameplayReadViewProviderRegistration {
-                view: wave_fixture_contract("view"),
-                provider_id: wave_fixture_owner().provider_id,
-                kind: GameplayReadViewKind::ModuleNamed,
-                fields: vec!["value".to_owned()],
-                selector_capabilities: vec![GameplayReadSelectorCapability::ModuleStateScope],
-                max_items: 1,
-                ordering: "singleValue".to_owned(),
-            })
-            .configuration_schema(configuration_metadata.clone())
-            .configuration_codec(GameplayConfigurationCodecRegistration::typed::<
-                WaveFixtureConfiguration,
-            >(configuration_metadata))
+        GameplayStaticModuleProvider::linked_from_manifest(
+            manifest,
+            &test_provenance(),
+            WaveFixtureBehavior,
+        )
+        .event_codec(event_codec(
+            wave_fixture_contract("root"),
+            "codec.fixture-wave-barrier.root",
+        ))
+        .event_codec(event_codec(
+            wave_fixture_contract("loop"),
+            "codec.fixture-wave-barrier.loop",
+        ))
+        .state_owner(GameplayStateOwnerRegistration {
+            schema: wave_fixture_contract("state"),
+            owner: owner.clone(),
+        })
+        .state_owner(GameplayStateOwnerRegistration {
+            schema: wave_fixture_contract("fact"),
+            owner,
+        })
+        .state_adapter(GameplayModuleStateRegistration::typed(
+            WaveFixtureStateAdapter,
+        ))
+        .read_view_provider(GameplayReadViewProviderRegistration {
+            view: wave_fixture_contract("view"),
+            provider_id: wave_fixture_owner().provider_id,
+            kind: GameplayReadViewKind::ModuleNamed,
+            fields: vec!["value".to_owned()],
+            selector_capabilities: vec![GameplayReadSelectorCapability::ModuleStateScope],
+            max_items: 1,
+            ordering: "singleValue".to_owned(),
+        })
+        .configuration_schema(configuration_metadata.clone())
+        .configuration_codec(GameplayConfigurationCodecRegistration::typed::<
+            WaveFixtureConfiguration,
+        >(configuration_metadata))
     }
 
     fn wave_fixture_host_input() -> GameplayRuntimeHostInput {
@@ -1591,7 +1700,7 @@ mod tests {
             targets: Vec::new(),
             scope: None,
             tags: Vec::new(),
-            payload_hash: gameplay_module_payload_hash(&canonical_payload),
+            payload_hash: gameplay_canonical_payload_hash(&canonical_payload),
             canonical_payload,
         }
     }
@@ -1656,12 +1765,12 @@ mod tests {
     }
 
     fn decision_contract(name: &str) -> GameplayContractRef {
-        GameplayContractRef {
-            namespace: "fixture.decision".to_owned(),
-            name: name.to_owned(),
-            version: 1,
-            schema_hash: format!("sha256:fixture-decision-{name}"),
-        }
+        gameplay_contract(
+            "fixture.decision",
+            name,
+            1,
+            &fixture_schema_descriptor("fixture.decision", name),
+        )
     }
 
     fn decision_owner_ref() -> GameplayOwnerRef {
@@ -1675,7 +1784,7 @@ mod tests {
         let proposal = decision_contract("operation");
         let view = decision_contract("target-collision-view");
         let owner = decision_owner_ref();
-        let manifest = GameplayModuleManifest {
+        let mut manifest = GameplayModuleManifest {
             module_ref: GameplayModuleRef {
                 module_id: "fixture.decision.module".to_owned(),
                 namespace: "fixture.decision".to_owned(),
@@ -1738,20 +1847,30 @@ mod tests {
             deterministic_requirements: vec!["canonical-json".to_owned()],
             source_hash: "sha256:fixture-decision-source".to_owned(),
         };
-        GameplayStaticModuleProvider::linked_from_manifest(manifest, DecisionBehavior)
-            .proposal_owner(GameplayProposalOwnerRegistration { proposal, owner })
-            .read_view_provider(GameplayReadViewProviderRegistration {
-                view,
-                provider_id: "provider.fixture-decision".to_owned(),
-                kind: GameplayReadViewKind::EntityCapability,
-                fields: vec!["staticCollider".to_owned()],
-                selector_capabilities: vec![
-                    GameplayReadSelectorCapability::EventTarget,
-                    GameplayReadSelectorCapability::CollisionCapability,
-                ],
-                max_items: 1,
-                ordering: "entityIdAscending".to_owned(),
-            })
+        test_provenance().apply_to_manifest::<DecisionBehavior>(&mut manifest);
+        GameplayStaticModuleProvider::linked_from_manifest(
+            manifest,
+            &test_provenance(),
+            DecisionBehavior,
+        )
+        .proposal_codec(GameplayEventCodecRegistration::typed(fixture_json_codec::<
+            DecisionWorkspace,
+        >(
+            proposal.clone()
+        )))
+        .proposal_owner(GameplayProposalOwnerRegistration { proposal, owner })
+        .read_view_provider(GameplayReadViewProviderRegistration {
+            view,
+            provider_id: "provider.fixture-decision".to_owned(),
+            kind: GameplayReadViewKind::EntityCapability,
+            fields: vec!["staticCollider".to_owned()],
+            selector_capabilities: vec![
+                GameplayReadSelectorCapability::EventTarget,
+                GameplayReadSelectorCapability::CollisionCapability,
+            ],
+            max_items: 1,
+            ordering: "entityIdAscending".to_owned(),
+        })
     }
 
     #[derive(Default)]
@@ -1932,7 +2051,7 @@ mod tests {
                 targets: vec![protocol_game_extension::GameplayEntityRef {
                     entity: EntityId::new(10),
                 }],
-                payload_hash: gameplay_module_payload_hash(&canonical_payload),
+                payload_hash: gameplay_canonical_payload_hash(&canonical_payload),
                 canonical_payload,
             },
             source: protocol_game_extension::GameplayEmitterRef::Owner {
@@ -1981,7 +2100,7 @@ mod tests {
                     entity: EntityId::new(20),
                 }],
                 canonical_payload: payload.clone(),
-                payload_hash: gameplay_module_payload_hash(&payload),
+                payload_hash: gameplay_canonical_payload_hash(&payload),
             },
             expected_owner_revision: format!("revision:{owner_revision}"),
             workspace,
@@ -2205,6 +2324,34 @@ mod tests {
             rollback_golden,
             include_str!("fixtures/rejected-root-wave-rollback.golden")
         );
+    }
+
+    #[test]
+    fn snapshot_replay_rejects_noncanonical_event_even_with_rehashed_evidence() {
+        let mut host = GameplayRuntimeHost::activate(wave_fixture_host_input()).unwrap();
+        host.observe_with_source_facts(wave_fixture_root_event(), Vec::new())
+            .expect("reaction frame is recorded");
+        let snapshot = host.compose_snapshot().expect("snapshot");
+        let mut stored: StoredGameplayRuntimeHostSnapshot =
+            serde_json::from_str(&snapshot.text).expect("stored host snapshot");
+        let tampered_payload = b" 0".to_vec();
+        let root_event = &mut stored.reaction_frames[0].root_events[0];
+        root_event.canonical_payload = tampered_payload.clone();
+        root_event.payload_hash = gameplay_canonical_payload_hash(&tampered_payload);
+        stored.reaction_frames[0].frame_hash = stored.reaction_frames[0].canonical_hash();
+        stored.snapshot_hash = gameplay_runtime_snapshot_hash(&stored);
+        let tampered = serde_json::to_string(&stored).expect("tampered snapshot serializes");
+
+        let error = match GameplayRuntimeHost::restore(wave_fixture_host_input(), &tampered) {
+            Ok(_) => panic!("replayed envelope must pass canonical codec admission"),
+            Err(error) => error,
+        };
+        assert!(matches!(
+            error,
+            GameplayRuntimeHostError::Snapshot(message)
+                if message.contains("failed codec admission")
+                    && message.contains("not canonical")
+        ));
     }
 
     #[test]

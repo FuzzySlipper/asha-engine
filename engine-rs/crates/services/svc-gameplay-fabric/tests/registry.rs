@@ -8,9 +8,9 @@ use protocol_game_extension::{
 };
 use serde::{Deserialize, Serialize};
 use svc_gameplay_fabric::{
-    GameplayFabricRegistry, GameplayFabricRegistryBuilder, GameplayLinkedProvider,
-    GameplayProposalOwnerRegistration, GameplayReadViewProviderRegistration,
-    TypedGameplayEventCodec,
+    gameplay_canonical_codec_id, gameplay_contract, stable_identity, GameplayFabricRegistry,
+    GameplayFabricRegistryBuilder, GameplayLinkedProvider, GameplayProposalOwnerRegistration,
+    GameplayReadViewProviderRegistration, TypedGameplayEventCodec,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -18,19 +18,19 @@ struct DamageApplied {
     amount: u32,
 }
 
-fn contract(namespace: &str, name: &str, hash: &str) -> GameplayContractRef {
-    GameplayContractRef {
-        namespace: namespace.into(),
-        name: name.into(),
-        version: 1,
-        schema_hash: hash.into(),
-    }
+fn schema_descriptor(namespace: &str, name: &str) -> String {
+    format!("fixture:{namespace}.{name};canonical-json-v1")
+}
+
+fn contract(namespace: &str, name: &str, _legacy_hash: &str) -> GameplayContractRef {
+    gameplay_contract(namespace, name, 1, &schema_descriptor(namespace, name))
 }
 
 fn event_declaration() -> GameplayEventSchemaDeclaration {
+    let event = contract("game.combat", "damage-applied", "sha256:event-v1");
     GameplayEventSchemaDeclaration {
-        event: contract("game.combat", "damage-applied", "sha256:event-v1"),
-        codec_id: "asha.canonical-json-v1".into(),
+        codec_id: gameplay_canonical_codec_id(&event.schema_hash),
+        event,
     }
 }
 
@@ -40,9 +40,9 @@ fn module(module_id: &str, namespace: &str, provider_id: &str) -> GameplayModule
             module_id: module_id.into(),
             namespace: namespace.into(),
             version: "1.0.0".into(),
-            sdk_hash: "sha256:sdk".into(),
-            contract_hash: format!("sha256:{module_id}-contract"),
-            artifact_hash: format!("sha256:{module_id}-artifact"),
+            sdk_hash: stable_identity(["sdk", module_id]),
+            contract_hash: stable_identity(["contract", module_id]),
+            artifact_hash: stable_identity(["artifact", module_id]),
             provider_id: provider_id.into(),
         },
         published_events: Vec::new(),
@@ -61,7 +61,7 @@ fn module(module_id: &str, namespace: &str, provider_id: &str) -> GameplayModule
             max_payload_bytes_per_root: 65_536,
         },
         deterministic_requirements: vec!["canonical-input-order".into()],
-        source_hash: format!("sha256:{module_id}-source"),
+        source_hash: stable_identity(["source", module_id]),
     }
 }
 
@@ -78,8 +78,10 @@ fn provider(manifest: &GameplayModuleManifest) -> GameplayLinkedProvider {
 }
 
 fn codec(declaration: GameplayEventSchemaDeclaration) -> TypedGameplayEventCodec<DamageApplied> {
+    let descriptor = schema_descriptor(&declaration.event.namespace, &declaration.event.name);
     TypedGameplayEventCodec::new(
         declaration,
+        descriptor,
         |payload| serde_json::to_vec(payload).map_err(|error| error.to_string()),
         |bytes| serde_json::from_slice(bytes).map_err(|error| error.to_string()),
     )
@@ -208,6 +210,117 @@ fn typed_codecs_and_two_namespaces_produce_order_independent_topology() {
 }
 
 #[test]
+fn codec_admission_rejects_noncanonical_unknown_and_wrong_hash_payloads() {
+    let registry = build_pair(false);
+    let event = event_declaration().event;
+    let noncanonical = br#"{ "amount": 17 }"#;
+    assert!(matches!(
+        registry.admit_payload(
+            &event,
+            noncanonical,
+            &svc_gameplay_fabric::gameplay_canonical_payload_hash(noncanonical),
+        ),
+        Err(svc_gameplay_fabric::GameplayCodecError::NonCanonical { .. })
+    ));
+    let canonical = serde_json::to_vec(&DamageApplied { amount: 17 }).unwrap();
+    assert!(matches!(
+        registry.encode_event(&event, &17_u64),
+        Err(svc_gameplay_fabric::GameplayCodecError::WrongPayloadType { .. })
+    ));
+    assert!(matches!(
+        registry.admit_payload(&event, &canonical, "fnv1a64:0000000000000000"),
+        Err(svc_gameplay_fabric::GameplayCodecError::PayloadHashMismatch { .. })
+    ));
+    assert!(matches!(
+        registry.admit_payload(
+            &contract("game.missing", "event", "unused"),
+            &canonical,
+            &svc_gameplay_fabric::gameplay_canonical_payload_hash(&canonical),
+        ),
+        Err(svc_gameplay_fabric::GameplayCodecError::UnknownContract { .. })
+    ));
+}
+
+#[test]
+fn codec_descriptor_and_placeholder_identities_fail_closed() {
+    let (combat, feedback) = valid_pair();
+    let mut bad_codec = GameplayFabricRegistryBuilder::new();
+    bad_codec
+        .register_linked_provider(provider(&combat))
+        .register_linked_provider(provider(&feedback))
+        .register_event_codec(TypedGameplayEventCodec::new(
+            event_declaration(),
+            "wrong-schema-descriptor",
+            |payload: &DamageApplied| {
+                serde_json::to_vec(payload).map_err(|error| error.to_string())
+            },
+            |bytes| serde_json::from_slice(bytes).map_err(|error| error.to_string()),
+        ))
+        .register_module(combat)
+        .register_module(feedback);
+    assert!(codes(&rejected(bad_codec.build()))
+        .contains(&GameplayRegistryDiagnosticCode::SchemaHashMismatch));
+
+    let (mut combat, feedback) = valid_pair();
+    combat.module_ref.sdk_hash = "sha256:name-v1".to_owned();
+    let mut placeholder = GameplayFabricRegistryBuilder::new();
+    placeholder
+        .register_linked_provider(provider(&combat))
+        .register_linked_provider(provider(&feedback))
+        .register_event_codec(codec(event_declaration()))
+        .register_module(combat)
+        .register_module(feedback);
+    assert!(codes(&rejected(placeholder.build()))
+        .contains(&GameplayRegistryDiagnosticCode::InvalidIdentifier));
+}
+
+#[test]
+fn registry_digest_binds_actual_invocation_read_topology() {
+    let baseline = build_pair(false);
+    let (combat, mut feedback) = valid_pair();
+    let view = contract(
+        "game.presentation-feedback",
+        "target-view",
+        "legacy-target-view",
+    );
+    feedback.read_views.push(GameplayReadViewRequirement {
+        view: view.clone(),
+        provider_id: "provider.feedback".into(),
+        kind: GameplayReadViewKind::EntityCapability,
+        fields: vec!["lifecycle".into()],
+        selector_capabilities: vec![GameplayReadSelectorCapability::LifecycleCapability],
+        max_items: 1,
+    });
+    feedback.invocations[0]
+        .read_requirements
+        .push(GameplayInvocationReadRequirement {
+            request_id: "target-lifecycle".into(),
+            view: view.clone(),
+        });
+    let mut builder = GameplayFabricRegistryBuilder::new();
+    builder
+        .register_linked_provider(provider(&combat))
+        .register_linked_provider(provider(&feedback))
+        .register_event_codec(codec(event_declaration()))
+        .register_read_view_provider(GameplayReadViewProviderRegistration {
+            view,
+            provider_id: "provider.feedback".into(),
+            kind: GameplayReadViewKind::EntityCapability,
+            fields: vec!["lifecycle".into()],
+            selector_capabilities: vec![GameplayReadSelectorCapability::LifecycleCapability],
+            max_items: 1,
+            ordering: "singleValue".into(),
+        })
+        .register_module(combat)
+        .register_module(feedback);
+    let changed = builder.build().expect("valid read topology");
+    assert_ne!(baseline.registry_digest(), changed.registry_digest());
+    assert!(changed
+        .topology_dump()
+        .contains("reads=target-lifecycle=game.presentation-feedback.target-view.v1@fnv1a64:"));
+}
+
+#[test]
 fn duplicate_event_kind_and_schema_conflict_reject_registry_construction() {
     let (combat, mut feedback) = valid_pair();
     let mut conflicting = event_declaration();
@@ -256,6 +369,10 @@ fn missing_codec_and_owner_cardinality_reject_registry_construction() {
         .register_linked_provider(provider(&combat))
         .register_linked_provider(provider(&feedback))
         .register_event_codec(codec(event_declaration()))
+        .register_event_codec(codec(GameplayEventSchemaDeclaration {
+            codec_id: gameplay_canonical_codec_id(&owner.proposal.schema_hash),
+            event: owner.proposal.clone(),
+        }))
         .register_proposal_owner(owner.clone())
         .register_module(combat.clone())
         .register_module(feedback.clone());
@@ -268,6 +385,10 @@ fn missing_codec_and_owner_cardinality_reject_registry_construction() {
         .register_linked_provider(provider(&combat))
         .register_linked_provider(provider(&feedback))
         .register_event_codec(codec(event_declaration()))
+        .register_event_codec(codec(GameplayEventSchemaDeclaration {
+            codec_id: gameplay_canonical_codec_id(&owner.proposal.schema_hash),
+            event: owner.proposal.clone(),
+        }))
         .register_proposal_owner(owner.clone())
         .register_proposal_owner(owner)
         .register_module(combat)
@@ -292,11 +413,12 @@ fn missing_compiled_provider_rejects_registry_construction() {
 #[test]
 fn foreign_namespace_and_missing_invocation_reject_registry_construction() {
     let (combat, mut feedback) = valid_pair();
+    let foreign_event = contract("game.combat", "foreign-cue", "sha256:foreign-v1");
     feedback
         .published_events
         .push(GameplayEventSchemaDeclaration {
-            event: contract("game.combat", "foreign-cue", "sha256:foreign-v1"),
-            codec_id: "asha.canonical-json-v1".into(),
+            codec_id: gameplay_canonical_codec_id(&foreign_event.schema_hash),
+            event: foreign_event,
         });
     feedback.subscriptions[0].invocation_id = "not-registered".into();
     let foreign = feedback.published_events[0].clone();

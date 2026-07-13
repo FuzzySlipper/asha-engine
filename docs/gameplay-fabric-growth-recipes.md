@@ -45,8 +45,8 @@ owners of the originating fact.
 ## Add a gameplay event
 
 1. Define an open `GameplayContractRef` in the publisher's namespace with an
-   explicit version and schema hash.
-2. Define the typed Rust payload and register its codec in the compiled
+   explicit version and a hash derived from its canonical schema descriptor.
+2. Define the typed Rust payload and register that descriptor-bound codec in the compiled
    provider.
 3. Publish it from an accepted semantic origin. Engine meanings use an
    `asha.*` owner adapter; downstream meanings stay in the game's namespace.

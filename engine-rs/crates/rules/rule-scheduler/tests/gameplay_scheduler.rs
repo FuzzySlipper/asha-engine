@@ -15,17 +15,34 @@ use rule_scheduler::{
 };
 use std::collections::BTreeSet;
 use svc_gameplay_fabric::{
-    GameplayFabricRegistry, GameplayFabricRegistryBuilder, GameplayLinkedProvider,
-    GameplayProposalOwnerRegistration, TypedGameplayEventCodec,
+    gameplay_canonical_codec_id, gameplay_contract, stable_identity, GameplayFabricRegistry,
+    GameplayFabricRegistryBuilder, GameplayLinkedProvider, GameplayProposalOwnerRegistration,
+    TypedGameplayEventCodec,
 };
 
 fn contract(namespace: &str, name: &str) -> GameplayContractRef {
-    GameplayContractRef {
-        namespace: namespace.to_owned(),
-        name: name.to_owned(),
-        version: 1,
-        schema_hash: format!("sha256:{namespace}.{name}.v1"),
+    gameplay_contract(namespace, name, 1, &schema_descriptor(namespace, name))
+}
+
+fn schema_descriptor(namespace: &str, name: &str) -> String {
+    format!("fixture:{namespace}.{name};opaque-bytes-v1")
+}
+
+fn declaration(event: GameplayContractRef) -> GameplayEventSchemaDeclaration {
+    GameplayEventSchemaDeclaration {
+        codec_id: gameplay_canonical_codec_id(&event.schema_hash),
+        event,
     }
+}
+
+fn bytes_codec(event: GameplayContractRef) -> TypedGameplayEventCodec<Vec<u8>> {
+    let descriptor = schema_descriptor(&event.namespace, &event.name);
+    TypedGameplayEventCodec::new(
+        declaration(event),
+        descriptor,
+        |payload: &Vec<u8>| Ok(payload.clone()),
+        |bytes| Ok(bytes.to_vec()),
+    )
 }
 
 fn completion_event_contract() -> GameplayContractRef {
@@ -68,15 +85,12 @@ fn fabric_registry() -> GameplayFabricRegistry {
             module_id: "game.progression-rules".to_owned(),
             namespace: "game.progression".to_owned(),
             version: "1.0.0".to_owned(),
-            sdk_hash: "sha256:sdk".to_owned(),
-            contract_hash: "sha256:progression-contract".to_owned(),
-            artifact_hash: "sha256:progression-artifact".to_owned(),
+            sdk_hash: stable_identity(["progression", "sdk"]),
+            contract_hash: stable_identity(["progression", "contract"]),
+            artifact_hash: stable_identity(["progression", "artifact"]),
             provider_id: "provider.progression".to_owned(),
         },
-        published_events: vec![GameplayEventSchemaDeclaration {
-            event: incremented_event_contract(),
-            codec_id: "codec.game.progression.production-incremented.v1".to_owned(),
-        }],
+        published_events: vec![declaration(incremented_event_contract())],
         subscriptions: Vec::new(),
         invocations: Vec::new(),
         read_views: Vec::new(),
@@ -95,18 +109,12 @@ fn fabric_registry() -> GameplayFabricRegistry {
             max_payload_bytes_per_root: 16_384,
         },
         deterministic_requirements: vec!["canonical-input-order".to_owned()],
-        source_hash: "sha256:progression-source".to_owned(),
+        source_hash: stable_identity(["progression", "source"]),
     };
     let mut builder = GameplayFabricRegistryBuilder::new();
     builder
-        .register_event_codec(TypedGameplayEventCodec::<Vec<u8>>::new(
-            GameplayEventSchemaDeclaration {
-                event: incremented_event_contract(),
-                codec_id: "codec.game.progression.production-incremented.v1".to_owned(),
-            },
-            |payload| Ok(payload.clone()),
-            |bytes| Ok(bytes.to_vec()),
-        ))
+        .register_event_codec(bytes_codec(incremented_event_contract()))
+        .register_event_codec(bytes_codec(increment_proposal_contract()))
         .register_linked_provider(GameplayLinkedProvider {
             provider_id: module.module_ref.provider_id.clone(),
             module_id: module.module_ref.module_id.clone(),
@@ -143,6 +151,7 @@ fn causation() -> GameplayCausationRef {
 }
 
 fn proposal() -> GameplayProposalEnvelope {
+    let canonical_payload = br#"{"counter":"widgets","amount":1}"#.to_vec();
     GameplayProposalEnvelope {
         proposal_id: "draft".to_owned(),
         proposal: increment_proposal_contract(),
@@ -157,8 +166,8 @@ fn proposal() -> GameplayProposalEnvelope {
         originating_event_id: None,
         source: None,
         targets: Vec::new(),
-        canonical_payload: br#"{"counter":"widgets","amount":1}"#.to_vec(),
-        payload_hash: "sha256:increment-one".to_owned(),
+        payload_hash: gameplay_payload_hash(&canonical_payload),
+        canonical_payload,
     }
 }
 
@@ -198,6 +207,7 @@ fn conditioned_draft(id: &str, timeout_at: Option<u64>) -> EventConditionedActio
 }
 
 fn completion_event(tick: u64) -> GameplayEventEnvelope {
+    let canonical_payload = br#"{"recipe":"widget"}"#.to_vec();
     GameplayEventEnvelope {
         event_id: format!("craft-completed-{tick}"),
         event: completion_event_contract(),
@@ -215,8 +225,8 @@ fn completion_event(tick: u64) -> GameplayEventEnvelope {
         targets: Vec::new(),
         scope: Some("factory.floor-a".to_owned()),
         tags: vec!["production".to_owned()],
-        canonical_payload: br#"{"recipe":"widget"}"#.to_vec(),
-        payload_hash: "sha256:widget-complete".to_owned(),
+        payload_hash: gameplay_payload_hash(&canonical_payload),
+        canonical_payload,
     }
 }
 

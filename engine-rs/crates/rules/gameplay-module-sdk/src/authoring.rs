@@ -9,6 +9,7 @@ use rule_gameplay_fabric::{
     GameplayWorkspaceTransform,
 };
 use serde::{de::DeserializeOwned, Serialize};
+use svc_gameplay_fabric::{gameplay_canonical_payload_hash, TypedGameplayEventCodec};
 
 /// Read-only, handler-height view of one coordinator invocation. Raw Session
 /// stores and authority owners are intentionally absent.
@@ -233,19 +234,22 @@ impl GameplayModuleActions {
         }
     }
 
-    pub fn emit_json<T: Serialize>(
+    pub fn emit<T: 'static>(
         &mut self,
-        event: GameplayContractRef,
+        codec: &TypedGameplayEventCodec<T>,
         payload: &T,
         source: Option<u64>,
         subjects: Vec<u64>,
         targets: Vec<u64>,
     ) -> Result<&mut Self, GameplayModuleError> {
-        let canonical_payload = encode(payload)?;
+        let canonical_payload = codec.encode(payload).map_err(|error| GameplayModuleError {
+            code: "eventEncodeFailed".to_owned(),
+            message: error.to_string(),
+        })?;
         let ordinal = self.events.len();
         self.events.push(GameplayEventEnvelope {
             event_id: format!("candidate-event-{ordinal}"),
-            event,
+            event: codec.contract().clone(),
             tick: self.tick,
             root_sequence: self.root_sequence,
             wave: self.wave,
@@ -260,24 +264,27 @@ impl GameplayModuleActions {
             targets: targets.into_iter().map(entity_ref).collect(),
             scope: None,
             tags: Vec::new(),
-            payload_hash: gameplay_module_payload_hash(&canonical_payload),
+            payload_hash: gameplay_canonical_payload_hash(&canonical_payload),
             canonical_payload,
         });
         Ok(self)
     }
 
-    pub fn propose_json<T: Serialize>(
+    pub fn propose<T: 'static>(
         &mut self,
-        proposal: GameplayContractRef,
+        codec: &TypedGameplayEventCodec<T>,
         payload: &T,
         source: Option<u64>,
         targets: Vec<u64>,
     ) -> Result<&mut Self, GameplayModuleError> {
-        let canonical_payload = encode(payload)?;
+        let canonical_payload = codec.encode(payload).map_err(|error| GameplayModuleError {
+            code: "proposalEncodeFailed".to_owned(),
+            message: error.to_string(),
+        })?;
         let ordinal = self.proposals.len();
         self.proposals.push(GameplayProposalEnvelope {
             proposal_id: format!("candidate-proposal-{ordinal}"),
-            proposal,
+            proposal: codec.contract().clone(),
             tick: self.tick,
             root_sequence: self.root_sequence,
             wave: self.wave,
@@ -289,7 +296,7 @@ impl GameplayModuleActions {
             originating_event_id: None,
             source: source.map(entity_ref),
             targets: targets.into_iter().map(entity_ref).collect(),
-            payload_hash: gameplay_module_payload_hash(&canonical_payload),
+            payload_hash: gameplay_canonical_payload_hash(&canonical_payload),
             canonical_payload,
         });
         Ok(self)

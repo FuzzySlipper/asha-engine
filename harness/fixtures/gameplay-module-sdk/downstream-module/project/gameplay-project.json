@@ -24,16 +24,16 @@
           "moduleId": "fixture.pulse.module",
           "namespace": "fixture.pulse",
           "version": "1.0.0",
-          "sdkHash": "sha256:gameplay-sdk-v1",
-          "contractHash": "sha256:fixture-pulse-contract",
-          "artifactHash": "sha256:fixture-pulse-behavior-4",
+          "sdkHash": "fnv1a64:423dbcb90d661cd7",
+          "contractHash": "fnv1a64:5a5792efccd06c64",
+          "artifactHash": "fnv1a64:1164b196701287ed",
           "providerId": "provider.fixture-pulse"
         },
         "configuration": {
           "namespace": "fixture.pulse",
           "name": "configuration",
           "version": 1,
-          "schemaHash": "sha256:fixture.pulse.configuration"
+          "schemaHash": "fnv1a64:57a761e015753dd0"
         },
         "codecId": "codec.fixture-pulse.configuration",
         "canonicalConfig": [123, 34, 109, 117, 108, 116, 105, 112, 108, 105, 101, 114, 34, 58, 52, 125],
@@ -49,7 +49,7 @@
           "namespace": "fixture.pulse",
           "name": "pulse-state",
           "version": 1,
-          "schemaHash": "sha256:fixture.pulse.pulse-state"
+          "schemaHash": "fnv1a64:5ba7a97dbb53f951"
         },
         "target": { "kind": "session" },
         "requiredReads": [],
@@ -58,14 +58,14 @@
             "namespace": "fixture.pulse",
             "name": "pulse-result",
             "version": 1,
-            "schemaHash": "sha256:fixture.pulse.pulse-result"
+            "schemaHash": "fnv1a64:9cf3ed4219ac2196"
           }
         ],
         "enabled": true
       }
     ],
     "overrides": [],
-    "registryHash": "fnv1a64:50c701397e1fb09f"
+    "registryHash": "fnv1a64:5cc45af6acb49703"
   },
   "declaredReads": [
     {
@@ -76,7 +76,7 @@
         "namespace": "fixture.pulse",
         "name": "pulse-state-view",
         "version": 1,
-        "schemaHash": "sha256:fixture.pulse.pulse-state-view"
+        "schemaHash": "fnv1a64:67048ec3babae8be"
       },
       "scope": { "kind": "session" },
       "fields": ["amount"]

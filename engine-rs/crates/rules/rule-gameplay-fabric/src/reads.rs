@@ -422,6 +422,7 @@ impl std::error::Error for GameplayReadAssemblyError {}
 pub struct GameplayReadPlanEntryReadout {
     pub request_id: String,
     pub view: String,
+    pub view_schema_hash: String,
     pub provider_id: String,
     pub kind: GameplayReadViewKind,
     pub selectors: Vec<GameplayReadSelectorCapability>,
@@ -555,6 +556,7 @@ impl<'a, 'registry> GameplayReadAssembler<'a, 'registry> {
             entries.push(GameplayReadPlanEntryReadout {
                 request_id: request.request_id.clone(),
                 view: request.view.key(),
+                view_schema_hash: request.view.schema_hash.clone(),
                 provider_id: metadata.provider_id,
                 kind: metadata.kind,
                 selectors: metadata.selectors,
@@ -643,11 +645,11 @@ impl<'a, 'registry> GameplayReadAssembler<'a, 'registry> {
                 format!("unknown module `{}`", plan.module_id),
             ));
         };
-        if !module
+        let Some(_invocation) = module
             .invocations
             .iter()
-            .any(|invocation| invocation.invocation_id == plan.invocation_id)
-        {
+            .find(|invocation| invocation.invocation_id == plan.invocation_id)
+        else {
             return Err(error(
                 "plan",
                 GameplayReadDiagnosticCode::UndeclaredRead,
@@ -656,7 +658,7 @@ impl<'a, 'registry> GameplayReadAssembler<'a, 'registry> {
                     plan.invocation_id
                 ),
             ));
-        }
+        };
         Ok(())
     }
 

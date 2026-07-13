@@ -24,8 +24,9 @@ coordinator-authorized resume from the initial decision. The token is evidence,
 not module-owned authority: the public runtime host validates and consumes it
 before invoking the module.
 
-`GameplayModuleActions` fills canonical JSON, payload hashes, candidate ids,
-and envelope boilerplate for:
+`GameplayModuleActions::emit<T>` and `propose<T>` accept the same typed codec
+definition registered by the provider. They fill canonical payloads, hashes,
+candidate ids, and envelope boilerplate for:
 
 - namespaced gameplay events;
 - shared proposals that still route to their registered Rust owner;
@@ -45,6 +46,17 @@ existing manifest, linked-provider identity, typed codec registrations,
 proposal/state owners, read providers, state adapters, and configuration schema
 metadata. `GameplayStaticCompositionBuilder` consumes those exact registration
 types and builds one `GameplayFabricRegistry`.
+
+Providers also supply `GameplayModuleBuildProvenance`. Its computed source
+identity covers the package name/version, supplied source bytes, sorted Cargo
+feature set, and lockfile bytes. SDK identity derives from the linked public SDK
+package/version and gameplay contract version. Contract identity derives from
+the canonical manifest with identity fields removed. The historical
+`artifact_hash` field now has the explicit meaning *linked provenance identity*:
+SDK + contract + source provenance + concrete behavior type. It does not claim
+reproducible machine-code hashing. `linked_from_manifest` computes provider
+evidence independently, so stale manifest identities fail composition instead
+of being copied into a tautological match.
 
 Composition fails before activation for duplicate behavior instances,
 linked-provider/version/contract/artifact disagreement, missing codecs or

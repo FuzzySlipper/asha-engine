@@ -43,6 +43,9 @@ impl<'registry> GameplayFabricCoordinator<'registry> {
         first_event_sequence: u32,
         router: &mut dyn GameplayProposalRouter,
     ) -> Result<GameplayRoutingReceipt, GameplayRuntimeDiagnostic> {
+        self.registry
+            .admit_proposal(&proposal)
+            .map_err(|error| payload_codec_diagnostic("proposal.canonicalPayload", error))?;
         let Some(owner) = self.registry.proposal_owner(&proposal.proposal).cloned() else {
             return Err(GameplayRuntimeDiagnostic {
                 code: GameplayRuntimeDiagnosticCode::MissingProposalOwner,
@@ -98,17 +101,12 @@ impl<'registry> GameplayFabricCoordinator<'registry> {
                     message: format!("owner emitted undeclared event `{}`", event.event.key()),
                 });
             }
-            let actual_hash = crate::gameplay_payload_hash(&event.canonical_payload);
-            if event.payload_hash != actual_hash {
-                return Err(invalid_owner_event(
-                    &call.proposal,
-                    format!(
-                        "owner event `{}` payload hash `{}` does not match `{actual_hash}`",
-                        event.event.key(),
-                        event.payload_hash
-                    ),
-                ));
-            }
+            self.registry.admit_event(event).map_err(|error| {
+                payload_codec_diagnostic(
+                    format!("proposals.{}.events", call.proposal.proposal_id),
+                    error,
+                )
+            })?;
         }
         output.events.sort_by(|left, right| {
             (left.event.key(), semantic_event_hash(left))
@@ -364,6 +362,12 @@ impl<'registry> GameplayFabricCoordinator<'registry> {
                     GameplayRuntimeDiagnosticCode::UnknownEvent,
                     format!("rootEvents[{index}].event"),
                     format!("root event `{}` is not declared", event.event.key()),
+                );
+            } else if let Err(error) = state.registry.admit_event(event) {
+                state.diagnostic(
+                    GameplayRuntimeDiagnosticCode::PayloadCodecRejected,
+                    format!("rootEvents[{index}].canonicalPayload"),
+                    error.to_string(),
                 );
             }
             if event.causation.root_id != state.root_id
@@ -655,6 +659,17 @@ fn invalid_owner_event(
     }
 }
 
+fn payload_codec_diagnostic(
+    path: impl Into<String>,
+    error: svc_gameplay_fabric::GameplayCodecError,
+) -> GameplayRuntimeDiagnostic {
+    GameplayRuntimeDiagnostic {
+        code: GameplayRuntimeDiagnosticCode::PayloadCodecRejected,
+        path: path.into(),
+        message: error.to_string(),
+    }
+}
+
 fn empty_observe_receipt(registry_digest: &str) -> GameplayObserveReceipt {
     let diagnostic = GameplayRuntimeDiagnostic {
         code: GameplayRuntimeDiagnosticCode::InvalidOwnerEvent,
@@ -877,6 +892,15 @@ impl<'registry> ObserveState<'registry> {
                     ),
                     format!("module emitted undeclared event `{}`", event.event.key()),
                 );
+            } else if let Err(error) = self.registry.admit_event(event) {
+                self.diagnostic(
+                    GameplayRuntimeDiagnosticCode::PayloadCodecRejected,
+                    format!(
+                        "modules.{module_id}.invocations.{}.events",
+                        invocation.invocation_id
+                    ),
+                    error.to_string(),
+                );
             }
         }
         for proposal in &output.proposals {
@@ -894,6 +918,15 @@ impl<'registry> ObserveState<'registry> {
                         "module emitted undeclared proposal `{}`",
                         proposal.proposal.key()
                     ),
+                );
+            } else if let Err(error) = self.registry.admit_proposal(proposal) {
+                self.diagnostic(
+                    GameplayRuntimeDiagnosticCode::PayloadCodecRejected,
+                    format!(
+                        "modules.{module_id}.invocations.{}.proposals",
+                        invocation.invocation_id
+                    ),
+                    error.to_string(),
                 );
             }
         }
@@ -1534,6 +1567,7 @@ pub(crate) fn diagnostic_code(code: GameplayRuntimeDiagnosticCode) -> &'static s
         GameplayRuntimeDiagnosticCode::ReactionSuspended => "reactionSuspended",
         GameplayRuntimeDiagnosticCode::OwnerRejected => "ownerRejected",
         GameplayRuntimeDiagnosticCode::InvalidOwnerEvent => "invalidOwnerEvent",
+        GameplayRuntimeDiagnosticCode::PayloadCodecRejected => "payloadCodecRejected",
     }
 }
 

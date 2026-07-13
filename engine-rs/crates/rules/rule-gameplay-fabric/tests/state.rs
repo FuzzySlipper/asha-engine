@@ -13,17 +13,17 @@ use rule_gameplay_fabric::{
 };
 use std::rc::Rc;
 use svc_gameplay_fabric::{
-    GameplayFabricRegistry, GameplayFabricRegistryBuilder, GameplayLinkedProvider,
-    GameplayReadViewProviderRegistration, GameplayStateOwnerRegistration,
+    gameplay_contract, stable_identity, GameplayFabricRegistry, GameplayFabricRegistryBuilder,
+    GameplayLinkedProvider, GameplayReadViewProviderRegistration, GameplayStateOwnerRegistration,
 };
 
 fn contract(name: &str, version: u32) -> GameplayContractRef {
-    GameplayContractRef {
-        namespace: "game.counter".to_owned(),
-        name: name.to_owned(),
+    gameplay_contract(
+        "game.counter",
+        name,
         version,
-        schema_hash: format!("sha256:{name}.v{version}"),
-    }
+        &format!("fixture:game.counter.{name}.v{version};canonical-json-v1"),
+    )
 }
 
 fn state_schema() -> GameplayContractRef {
@@ -51,9 +51,9 @@ fn registry() -> GameplayFabricRegistry {
             module_id: "game.counter-module".to_owned(),
             namespace: "game.counter".to_owned(),
             version: "1.0.0".to_owned(),
-            sdk_hash: "sha256:sdk".to_owned(),
-            contract_hash: "sha256:contract".to_owned(),
-            artifact_hash: "sha256:artifact".to_owned(),
+            sdk_hash: stable_identity(["counter", "sdk"]),
+            contract_hash: stable_identity(["counter", "contract"]),
+            artifact_hash: stable_identity(["counter", "artifact"]),
             provider_id: "provider.game-counter".to_owned(),
         },
         published_events: Vec::new(),
@@ -85,7 +85,7 @@ fn registry() -> GameplayFabricRegistry {
             max_payload_bytes_per_root: 16_384,
         },
         deterministic_requirements: vec!["canonical-state".to_owned()],
-        source_hash: "sha256:source".to_owned(),
+        source_hash: stable_identity(["counter", "source"]),
     };
     let provider = GameplayLinkedProvider {
         provider_id: module.module_ref.provider_id.clone(),

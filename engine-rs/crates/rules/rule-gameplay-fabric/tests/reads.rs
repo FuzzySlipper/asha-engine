@@ -14,12 +14,11 @@ use svc_serialization::{
 };
 
 fn contract(name: &str) -> GameplayContractRef {
-    GameplayContractRef {
-        namespace: "game.fixture".to_owned(),
-        name: name.to_owned(),
-        version: 1,
-        schema_hash: format!("sha256:{name}"),
-    }
+    gameplay_contract("game.fixture", name, 1, &schema_descriptor(name))
+}
+
+fn schema_descriptor(name: &str) -> String {
+    format!("fixture:game.fixture.{name};canonical-json-v1")
 }
 
 fn owner() -> GameplayOwnerRef {
@@ -108,14 +107,14 @@ fn registry() -> GameplayFabricRegistry {
             module_id: "game.fixture-module".to_owned(),
             namespace: "game.fixture".to_owned(),
             version: "1.0.0".to_owned(),
-            sdk_hash: "sha256:sdk".to_owned(),
-            contract_hash: "sha256:contract".to_owned(),
-            artifact_hash: "sha256:artifact".to_owned(),
+            sdk_hash: stable_identity(["fixture", "sdk"]),
+            contract_hash: stable_identity(["fixture", "contract"]),
+            artifact_hash: stable_identity(["fixture", "artifact"]),
             provider_id: "provider.fixture".to_owned(),
         },
         published_events: vec![GameplayEventSchemaDeclaration {
             event: contract("source-event"),
-            codec_id: "codec.fixture-source".to_owned(),
+            codec_id: gameplay_canonical_codec_id(&contract("source-event").schema_hash),
         }],
         subscriptions: vec![GameplaySubscriptionDeclaration {
             subscription_id: "fixture.source.observe".to_owned(),
@@ -184,7 +183,7 @@ fn registry() -> GameplayFabricRegistry {
             max_payload_bytes_per_root: 16_384,
         },
         deterministic_requirements: vec!["frozen-read-wave".to_owned()],
-        source_hash: "sha256:source".to_owned(),
+        source_hash: stable_identity(["fixture", "source"]),
     };
     let mut builder = GameplayFabricRegistryBuilder::new();
     builder
@@ -192,10 +191,10 @@ fn registry() -> GameplayFabricRegistry {
             provider_id: "provider.fixture".to_owned(),
             module_id: "game.fixture-module".to_owned(),
             version: "1.0.0".to_owned(),
-            contract_hash: "sha256:contract".to_owned(),
-            artifact_hash: "sha256:artifact".to_owned(),
-            sdk_hash: "sha256:sdk".to_owned(),
-            source_hash: "sha256:source".to_owned(),
+            contract_hash: stable_identity(["fixture", "contract"]),
+            artifact_hash: stable_identity(["fixture", "artifact"]),
+            sdk_hash: stable_identity(["fixture", "sdk"]),
+            source_hash: stable_identity(["fixture", "source"]),
         })
         .register_state_owner(GameplayStateOwnerRegistration {
             schema: contract("counter-state"),
@@ -208,8 +207,9 @@ fn registry() -> GameplayFabricRegistry {
         .register_event_codec(TypedGameplayEventCodec::new(
             GameplayEventSchemaDeclaration {
                 event: contract("source-event"),
-                codec_id: "codec.fixture-source".to_owned(),
+                codec_id: gameplay_canonical_codec_id(&contract("source-event").schema_hash),
             },
+            schema_descriptor("source-event"),
             |payload: &u64| serde_json::to_vec(payload).map_err(|error| error.to_string()),
             |bytes| serde_json::from_slice(bytes).map_err(|error| error.to_string()),
         ));
@@ -436,6 +436,10 @@ struct RecordedReplayRunner<'a> {
 }
 
 impl GameplayVerificationReplayRunner for RecordedReplayRunner<'_> {
+    fn registry(&self) -> &GameplayFabricRegistry {
+        &self.fixture.registry
+    }
+
     fn rerun(
         &self,
         recorded: &GameplayVerificationReplayInput,
@@ -583,6 +587,7 @@ fn state_store(_registry: &GameplayFabricRegistry) -> GameplayModuleStateStore {
 }
 
 fn event() -> GameplayEventEnvelope {
+    let canonical_payload = serde_json::to_vec(&0_u64).expect("fixture event payload");
     GameplayEventEnvelope {
         event_id: "event-1".to_owned(),
         event: contract("source-event"),
@@ -608,8 +613,8 @@ fn event() -> GameplayEventEnvelope {
         }],
         scope: Some("arena".to_owned()),
         tags: vec![],
-        canonical_payload: vec![],
-        payload_hash: gameplay_payload_hash(&[]),
+        payload_hash: gameplay_payload_hash(&canonical_payload),
+        canonical_payload,
     }
 }
 

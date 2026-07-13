@@ -1601,6 +1601,7 @@ fn runtime_diagnostic_code(
         Code::ReactionSuspended => "reactionSuspended",
         Code::OwnerRejected => "ownerRejected",
         Code::InvalidOwnerEvent => "invalidOwnerEvent",
+        Code::PayloadCodecRejected => "payloadCodecRejected",
     }
 }
 

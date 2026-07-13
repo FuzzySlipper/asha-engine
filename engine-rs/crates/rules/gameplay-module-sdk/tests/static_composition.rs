@@ -11,11 +11,17 @@ use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 
 fn contract(namespace: &str, name: &str) -> GameplayContractRef {
-    GameplayContractRef {
-        namespace: namespace.to_owned(),
-        name: name.to_owned(),
-        version: 1,
-        schema_hash: format!("sha256:{namespace}.{name}"),
+    gameplay_contract(namespace, name, 1, &schema_descriptor(namespace, name))
+}
+
+fn schema_descriptor(namespace: &str, name: &str) -> String {
+    format!("fixture:{namespace}.{name};canonical-json-v1")
+}
+
+fn declaration(event: GameplayContractRef) -> GameplayEventSchemaDeclaration {
+    GameplayEventSchemaDeclaration {
+        codec_id: gameplay_canonical_codec_id(&event.schema_hash),
+        event,
     }
 }
 
@@ -30,14 +36,31 @@ fn codec<T>(event: GameplayContractRef, codec_id: &str) -> GameplayEventCodecReg
 where
     T: Serialize + for<'de> Deserialize<'de> + 'static,
 {
-    GameplayEventCodecRegistration::typed(TypedGameplayEventCodec::new(
-        GameplayEventSchemaDeclaration {
-            event,
-            codec_id: codec_id.to_owned(),
-        },
+    let _legacy_codec_label = codec_id;
+    GameplayEventCodecRegistration::typed(typed_codec::<T>(event))
+}
+
+fn typed_codec<T>(event: GameplayContractRef) -> TypedGameplayEventCodec<T>
+where
+    T: Serialize + for<'de> Deserialize<'de> + 'static,
+{
+    let descriptor = schema_descriptor(&event.namespace, &event.name);
+    TypedGameplayEventCodec::new(
+        declaration(event),
+        descriptor,
         |payload: &T| serde_json::to_vec(payload).map_err(|error| error.to_string()),
         |bytes| serde_json::from_slice(bytes).map_err(|error| error.to_string()),
-    ))
+    )
+}
+
+fn test_provenance() -> GameplayModuleBuildProvenance {
+    GameplayModuleBuildProvenance::from_build_inputs(
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+        &[include_bytes!("static_composition.rs")],
+        include_bytes!("../../../../Cargo.lock"),
+        &[],
+    )
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -141,16 +164,16 @@ impl GameplayModuleBehavior for CounterBehavior {
         let input: RootPayload = context.event_payload()?;
         let amount = input.amount.saturating_mul(self.multiplier);
         let mut actions = context.actions();
-        actions.emit_json(
-            contract(self.namespace, "result"),
+        actions.emit(
+            &typed_codec::<ResultPayload>(contract(self.namespace, "result")),
             &ResultPayload { amount },
             context.source(),
             vec![],
             context.target(0).into_iter().collect(),
         )?;
         if self.proposes {
-            actions.propose_json(
-                contract(self.namespace, "shared-delta"),
+            actions.propose(
+                &typed_codec::<ResultPayload>(contract(self.namespace, "shared-delta")),
                 &ResultPayload { amount },
                 context.source(),
                 context.target(0).into_iter().collect(),
@@ -183,7 +206,7 @@ fn manifest(
             owner: state_owner.clone(),
         });
     }
-    GameplayModuleManifest {
+    let mut manifest = GameplayModuleManifest {
         module_ref: GameplayModuleRef {
             module_id: module_id.clone(),
             namespace: namespace.to_owned(),
@@ -193,10 +216,7 @@ fn manifest(
             artifact_hash: format!("sha256:{namespace}-artifact"),
             provider_id: provider_id.clone(),
         },
-        published_events: vec![GameplayEventSchemaDeclaration {
-            event: contract(namespace, "result"),
-            codec_id: format!("codec.{namespace}.result"),
-        }],
+        published_events: vec![declaration(contract(namespace, "result"))],
         subscriptions: vec![GameplaySubscriptionDeclaration {
             subscription_id: format!("{namespace}.root.observe"),
             event: root.clone(),
@@ -245,7 +265,9 @@ fn manifest(
         },
         deterministic_requirements: vec!["canonical-json".to_owned()],
         source_hash: format!("sha256:{namespace}-source"),
-    }
+    };
+    test_provenance().apply_to_manifest::<CounterBehavior>(&mut manifest);
+    manifest
 }
 
 fn provider(
@@ -278,6 +300,7 @@ fn provider_with_adapter_view(
     };
     let mut provider = GameplayStaticModuleProvider::linked_from_manifest(
         manifest,
+        &test_provenance(),
         CounterBehavior {
             namespace,
             multiplier,
@@ -321,10 +344,15 @@ fn provider_with_adapter_view(
         CounterConfiguration,
     >(configuration_metadata));
     if proposes {
-        provider = provider.proposal_owner(GameplayProposalOwnerRegistration {
-            proposal: contract(namespace, "shared-delta"),
-            owner,
-        });
+        provider = provider
+            .proposal_codec(codec::<ResultPayload>(
+                contract(namespace, "shared-delta"),
+                "proposal",
+            ))
+            .proposal_owner(GameplayProposalOwnerRegistration {
+                proposal: contract(namespace, "shared-delta"),
+                owner,
+            });
     }
     provider
 }
@@ -349,10 +377,7 @@ fn standalone_provider_with_adapter_view(
     provider
         .manifest
         .published_events
-        .push(GameplayEventSchemaDeclaration {
-            event: root.clone(),
-            codec_id: format!("codec.{namespace}.root"),
-        });
+        .push(declaration(root.clone()));
     provider.event_codec(codec::<RootPayload>(
         root,
         &format!("codec.{namespace}.root"),
@@ -365,10 +390,7 @@ fn composition(alpha_multiplier: u64) -> GameplayStaticComposition {
     alpha
         .manifest
         .published_events
-        .push(GameplayEventSchemaDeclaration {
-            event: root.clone(),
-            codec_id: "codec.game.alpha.root".to_owned(),
-        });
+        .push(declaration(root.clone()));
     alpha = alpha.event_codec(codec::<RootPayload>(root.clone(), "codec.game.alpha.root"));
     let beta = provider("game.beta", &root, 5, false);
     let mut builder = GameplayStaticCompositionBuilder::new();
@@ -398,36 +420,38 @@ impl GameplayProposalRouter for Router {
     }
 }
 
-fn root_event() -> GameplayEventEnvelope {
-    let payload = serde_json::to_vec(&RootPayload { amount: 4 }).unwrap();
-    GameplayEventEnvelope {
-        event_id: "root-event".to_owned(),
-        event: contract("game.alpha", "root"),
-        tick: 3,
-        root_sequence: 1,
-        wave: 0,
-        event_sequence: 0,
-        phase: GameplayEventPhase::PostCommit,
-        emitter: GameplayEmitterRef::Owner {
-            owner_id: "authority.fixture".to_owned(),
-        },
-        causation: GameplayCausationRef {
-            root_id: "root-1".to_owned(),
-            parent_event_id: None,
-            decision_id: None,
-        },
-        source: Some(GameplayEntityRef {
-            entity: EntityId::new(1),
-        }),
-        subjects: vec![],
-        targets: vec![GameplayEntityRef {
-            entity: EntityId::new(2),
-        }],
-        scope: None,
-        tags: vec![],
-        payload_hash: gameplay_module_payload_hash(&payload),
-        canonical_payload: payload,
-    }
+fn root_event(registry: &svc_gameplay_fabric::GameplayFabricRegistry) -> GameplayEventEnvelope {
+    registry
+        .event(
+            &contract("game.alpha", "root"),
+            &RootPayload { amount: 4 },
+            GameplayEventMetadata {
+                event_id: "root-event".to_owned(),
+                tick: 3,
+                root_sequence: 1,
+                wave: 0,
+                event_sequence: 0,
+                phase: GameplayEventPhase::PostCommit,
+                emitter: GameplayEmitterRef::Owner {
+                    owner_id: "authority.fixture".to_owned(),
+                },
+                causation: GameplayCausationRef {
+                    root_id: "root-1".to_owned(),
+                    parent_event_id: None,
+                    decision_id: None,
+                },
+                source: Some(GameplayEntityRef {
+                    entity: EntityId::new(1),
+                }),
+                subjects: vec![],
+                targets: vec![GameplayEntityRef {
+                    entity: EntityId::new(2),
+                }],
+                scope: None,
+                tags: vec![],
+            },
+        )
+        .expect("typed root event")
 }
 
 fn limits() -> GameplayRuntimeLimits {
@@ -446,7 +470,7 @@ fn two_real_modules_execute_and_behavior_changes_evidence() {
     assert_eq!(first.registry().readout().module_ids.len(), 2);
     assert_eq!(first.configuration_schemas().len(), 2);
     let receipt = GameplayFabricCoordinator::new(first.registry(), limits()).observe(
-        root_event(),
+        root_event(first.registry()),
         &Views,
         first.invocation_host(),
         &mut Router,
@@ -458,7 +482,7 @@ fn two_real_modules_execute_and_behavior_changes_evidence() {
 
     let changed = composition(3);
     let changed_receipt = GameplayFabricCoordinator::new(changed.registry(), limits()).observe(
-        root_event(),
+        root_event(changed.registry()),
         &Views,
         changed.invocation_host(),
         &mut Router,
@@ -489,7 +513,7 @@ fn provider_state_adapters_initialize_and_apply_recorded_local_facts() {
             .unwrap();
     }
     let receipt = GameplayFabricCoordinator::new(&parts.registry, limits()).observe(
-        root_event(),
+        root_event(&parts.registry),
         &Views,
         &parts.host,
         &mut Router,
@@ -579,8 +603,79 @@ fn mismatched_link_identity_and_configuration_schema_fail_before_activation() {
     ));
 }
 
+#[test]
+fn computed_provenance_changes_with_source_features_lock_and_behavior_type() {
+    let root = contract("game.alpha", "root");
+    let base = manifest("game.alpha", &root, false);
+    let provenance = |source: &'static [u8], lock: &'static [u8], features: &[&str]| {
+        GameplayModuleBuildProvenance::from_build_inputs(
+            "fixture-package",
+            "1.2.3",
+            &[source],
+            lock,
+            features,
+        )
+    };
+    let mut first = base.clone();
+    provenance(b"source-a", b"lock-a", &["feature-a"])
+        .apply_to_manifest::<CounterBehavior>(&mut first);
+    let mut source_changed = base.clone();
+    provenance(b"source-b", b"lock-a", &["feature-a"])
+        .apply_to_manifest::<CounterBehavior>(&mut source_changed);
+    let mut feature_changed = base.clone();
+    provenance(b"source-a", b"lock-a", &["feature-b"])
+        .apply_to_manifest::<CounterBehavior>(&mut feature_changed);
+    let mut lock_changed = base.clone();
+    provenance(b"source-a", b"lock-b", &["feature-a"])
+        .apply_to_manifest::<CounterBehavior>(&mut lock_changed);
+    let mut behavior_changed = base;
+    provenance(b"source-a", b"lock-a", &["feature-a"])
+        .apply_to_manifest::<RangeWeaponModule>(&mut behavior_changed);
+
+    assert_eq!(
+        first.module_ref.contract_hash,
+        source_changed.module_ref.contract_hash
+    );
+    assert_ne!(first.source_hash, source_changed.source_hash);
+    assert_ne!(first.source_hash, feature_changed.source_hash);
+    assert_ne!(first.source_hash, lock_changed.source_hash);
+    assert_ne!(
+        first.module_ref.artifact_hash,
+        behavior_changed.module_ref.artifact_hash
+    );
+
+    let stale_provider = GameplayStaticModuleProvider::linked_from_manifest(
+        first,
+        &provenance(b"source-b", b"lock-a", &["feature-a"]),
+        CounterBehavior {
+            namespace: "game.alpha",
+            multiplier: 1,
+            proposes: false,
+        },
+    );
+    assert_ne!(
+        stale_provider.manifest.source_hash,
+        stale_provider.linked_provider.source_hash
+    );
+    let mut builder = GameplayStaticCompositionBuilder::new();
+    builder.add_provider(stale_provider);
+    let Err(GameplayStaticCompositionError::Registry(error)) = builder.build() else {
+        panic!("stale source identity must fail composition");
+    };
+    assert!(error.diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == GameplayRegistryDiagnosticCode::ProviderManifestMismatch
+    }));
+}
+
 struct RangeWeaponModule {
     manifest: GameRuleModuleManifest,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+enum LegacyWeaponWorkspacePayload {
+    Request(WeaponEffectHookRequest),
+    Proposal(GameExtensionProposal),
 }
 
 impl GameRuleModule for RangeWeaponModule {
@@ -633,7 +728,7 @@ fn legacy_composition() -> GameplayStaticComposition {
         owner_id: "authority.weapon-effect".to_owned(),
         provider_id: "provider.weapon-effect-owner".to_owned(),
     };
-    let manifest = GameplayModuleManifest {
+    let mut manifest = GameplayModuleManifest {
         module_ref: GameplayModuleRef {
             module_id: "game.weapon.range".to_owned(),
             namespace: "game.weapon".to_owned(),
@@ -672,12 +767,19 @@ fn legacy_composition() -> GameplayStaticComposition {
         deterministic_requirements: vec!["canonical-json".to_owned()],
         source_hash: "sha256:range-source".to_owned(),
     };
+    test_provenance()
+        .apply_to_manifest::<LegacyWeaponEffectTransformBehavior<RangeWeaponModule>>(&mut manifest);
     let provider = GameplayStaticModuleProvider::linked_from_manifest(
         manifest,
+        &test_provenance(),
         LegacyWeaponEffectTransformBehavior::new(RangeWeaponModule {
             manifest: legacy_manifest(),
         }),
     )
+    .proposal_codec(codec::<LegacyWeaponWorkspacePayload>(
+        workspace.clone(),
+        "legacy-workspace-proposal",
+    ))
     .proposal_owner(GameplayProposalOwnerRegistration {
         proposal: workspace,
         owner: operation_owner,
@@ -752,7 +854,7 @@ fn weapon_moment(range_millimeters: u32) -> GameplayDecisionMoment {
             targets: vec![GameplayEntityRef {
                 entity: EntityId::new(2),
             }],
-            payload_hash: gameplay_module_payload_hash(&workspace_payload),
+            payload_hash: gameplay_canonical_payload_hash(&workspace_payload),
             canonical_payload: workspace_payload.clone(),
         },
         expected_owner_revision: "revision-1".to_owned(),
@@ -785,8 +887,18 @@ fn legacy_weapon_compatibility_executes_real_range_sensitive_module() {
         composition.invocation_host(),
         &mut far_owner,
     );
-    assert_eq!(close.status, GameplayDecisionStatus::Accepted);
-    assert_eq!(far.status, GameplayDecisionStatus::Accepted);
+    assert_eq!(
+        close.status,
+        GameplayDecisionStatus::Accepted,
+        "{:?}",
+        close.diagnostics
+    );
+    assert_eq!(
+        far.status,
+        GameplayDecisionStatus::Accepted,
+        "{:?}",
+        far.diagnostics
+    );
     assert_eq!(*close_owner.amount.borrow(), Some(-4));
     assert_eq!(*far_owner.amount.borrow(), Some(-1));
     assert_ne!(close.final_workspace_hash, far.final_workspace_hash);

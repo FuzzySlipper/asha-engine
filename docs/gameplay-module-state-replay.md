@@ -134,6 +134,12 @@ verification replay input. Snapshot/restore therefore preserves both accepted
 multi-wave transitions and rejected-root evidence; malformed, reordered, or
 disconnected barriers classify as view divergence before final-state comparison.
 
+Runtime-host restore additionally admits every serialized root and delivered
+event through the current closed registry codec after verifying the frame and
+registry hashes. Rehashing a tampered snapshot is insufficient: malformed,
+noncanonical, wrong-kind, or wrong-payload-hash replay bytes are rejected before
+the frame becomes live state.
+
 ## Structural Boundaries
 
 - There is no runtime state-owner registration or mutable callback registry.

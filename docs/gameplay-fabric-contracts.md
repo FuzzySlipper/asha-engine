@@ -26,7 +26,11 @@ publish arbitrary JSON.
 - an owned namespace such as `game.combat`;
 - a kebab-case name such as `damage-applied`;
 - a positive schema version; and
-- an algorithm-prefixed schema hash.
+- a computed schema hash derived from a canonical descriptor of the payload
+  fields, value shapes, optionality, and codec semantics.
+
+Hash syntax is fail-closed: current identities are full `fnv1a64` or SHA-256
+digests, not algorithm-prefixed labels such as `sha256:damage-v1`.
 
 Event, proposal, read-view, fact, state, invocation-input, and
 invocation-output meanings use this open reference shape. Adding a downstream
@@ -89,7 +93,9 @@ Validation fails before a Session can receive the registry when it finds:
 - unknown ordering targets or an ordering cycle.
 
 Successful construction produces a deterministic registry digest, canonical
-topology dump, and `GameplayRegistryReadout`. Reversing registration order does
+topology dump, and `GameplayRegistryReadout`. The digest includes SDK,
+contract, source, linked-provenance, proposal-schema, invocation input/output,
+and exact invocation-local read topology. Reversing registration order does
 not change these artifacts.
 
 Read-view registrations are also closed topology. They name a semantic view
@@ -108,6 +114,15 @@ Modules register `TypedGameplayEventCodec<T>` values. Their public edges encode
 and decode a concrete Rust payload type. Type erasure exists only inside the
 registry/queue boundary so heterogeneous events can be indexed and replayed;
 callers must request the exact registered `T` or receive a typed codec error.
+
+The codec carries the same canonical schema descriptor used to derive its
+contract and codec identity. Root `event<T>` and proposal constructors resolve
+the registered codec; module `emit<T>` and `propose<T>` take the typed codec
+directly. Raw JSON/bytes are persistence, wire, and replay internals rather than
+the normal authoring API. Every root, module output, owner output, proposal, and
+restored reaction-frame envelope is decoded and canonically re-encoded before
+invocation or mutation. Unknown kinds, wrong typed codecs, valid but
+noncanonical bytes, and wrong payload hashes fail closed.
 
 This keeps the extension surface open to new gameplay meanings without making
 the transport shape the gameplay API. There is no `serde_json::Value` bus, no

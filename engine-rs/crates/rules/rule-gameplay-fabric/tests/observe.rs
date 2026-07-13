@@ -24,17 +24,17 @@ use std::cell::{Cell, RefCell};
 use std::collections::BTreeSet;
 use std::rc::Rc;
 use svc_gameplay_fabric::{
-    GameplayFabricRegistry, GameplayFabricRegistryBuilder, GameplayLinkedProvider,
-    GameplayProposalOwnerRegistration, GameplayStateOwnerRegistration, TypedGameplayEventCodec,
+    gameplay_canonical_codec_id, gameplay_contract, stable_identity, GameplayFabricRegistry,
+    GameplayFabricRegistryBuilder, GameplayLinkedProvider, GameplayProposalOwnerRegistration,
+    GameplayStateOwnerRegistration, TypedGameplayEventCodec,
 };
 
 fn contract(namespace: &str, name: &str) -> GameplayContractRef {
-    GameplayContractRef {
-        namespace: namespace.to_owned(),
-        name: name.to_owned(),
-        version: 1,
-        schema_hash: format!("sha256:{namespace}.{name}.v1"),
-    }
+    gameplay_contract(namespace, name, 1, &schema_descriptor(namespace, name))
+}
+
+fn schema_descriptor(namespace: &str, name: &str) -> String {
+    format!("fixture:{namespace}.{name};opaque-bytes-v1")
 }
 
 fn root_contract() -> GameplayContractRef {
@@ -79,9 +79,9 @@ fn module(module_id: &str, namespace: &str, provider_id: &str) -> GameplayModule
             module_id: module_id.to_owned(),
             namespace: namespace.to_owned(),
             version: "1.0.0".to_owned(),
-            sdk_hash: "sha256:sdk".to_owned(),
-            contract_hash: format!("sha256:{module_id}.contract"),
-            artifact_hash: format!("sha256:{module_id}.artifact"),
+            sdk_hash: stable_identity(["sdk", module_id]),
+            contract_hash: stable_identity(["contract", module_id]),
+            artifact_hash: stable_identity(["artifact", module_id]),
             provider_id: provider_id.to_owned(),
         },
         published_events: Vec::new(),
@@ -94,7 +94,7 @@ fn module(module_id: &str, namespace: &str, provider_id: &str) -> GameplayModule
         ordering: Vec::new(),
         budget: budget(),
         deterministic_requirements: vec!["canonical-input-order".to_owned()],
-        source_hash: format!("sha256:{module_id}.source"),
+        source_hash: stable_identity(["source", module_id]),
     }
 }
 
@@ -112,15 +112,17 @@ fn provider(manifest: &GameplayModuleManifest) -> GameplayLinkedProvider {
 
 fn event_declaration(event: GameplayContractRef) -> GameplayEventSchemaDeclaration {
     GameplayEventSchemaDeclaration {
+        codec_id: gameplay_canonical_codec_id(&event.schema_hash),
         event,
-        codec_id: "asha.bytes-v1".to_owned(),
     }
 }
 
 fn codec(declaration: GameplayEventSchemaDeclaration) -> TypedGameplayEventCodec<Vec<u8>> {
+    let descriptor = schema_descriptor(&declaration.event.namespace, &declaration.event.name);
     TypedGameplayEventCodec::new(
         declaration,
-        |payload| Ok(payload.clone()),
+        descriptor,
+        |payload: &Vec<u8>| Ok(payload.clone()),
         |bytes| Ok(bytes.to_vec()),
     )
 }
@@ -202,6 +204,7 @@ fn registry(observer_count: usize, observe_applied: bool) -> GameplayFabricRegis
     builder
         .register_event_codec(codec(event_declaration(root_contract())))
         .register_event_codec(codec(event_declaration(applied_contract())))
+        .register_event_codec(codec(event_declaration(proposal_contract())))
         .register_proposal_owner(GameplayProposalOwnerRegistration {
             proposal: proposal_contract(),
             owner: owner(),
@@ -283,7 +286,7 @@ fn dummy_proposal() -> GameplayProposalEnvelope {
         source: None,
         targets: Vec::new(),
         canonical_payload: vec![1, 2, 3],
-        payload_hash: "sha256:proposal-payload".to_owned(),
+        payload_hash: gameplay_payload_hash(&[1, 2, 3]),
     }
 }
 
@@ -658,6 +661,7 @@ fn reverse_declared_subscription_registry() -> GameplayFabricRegistry {
     builder
         .register_event_codec(codec(event_declaration(root_contract())))
         .register_event_codec(codec(event_declaration(applied_contract())))
+        .register_event_codec(codec(event_declaration(proposal_contract())))
         .register_proposal_owner(GameplayProposalOwnerRegistration {
             proposal: proposal_contract(),
             owner: owner(),
@@ -813,6 +817,7 @@ fn decision_registry() -> GameplayFabricRegistry {
 
     let mut builder = GameplayFabricRegistryBuilder::new();
     builder
+        .register_event_codec(codec(event_declaration(proposal_contract())))
         .register_proposal_owner(GameplayProposalOwnerRegistration {
             proposal: proposal_contract(),
             owner: owner(),
@@ -829,7 +834,7 @@ fn decision_moment(expected_owner_revision: &str) -> GameplayDecisionMoment {
     let mut operation = dummy_proposal();
     operation.proposal_id = "operation-1".to_owned();
     operation.canonical_payload = workspace.canonical_payload.clone();
-    operation.payload_hash = workspace.workspace_hash.clone();
+    operation.payload_hash = gameplay_payload_hash(&operation.canonical_payload);
     GameplayDecisionMoment {
         decision_id: "decision-1".to_owned(),
         operation,
@@ -1372,7 +1377,7 @@ fn canonical_route_rejects_missing_owner_undeclared_event_and_wrong_payload_hash
         .expect_err("missing owner fails closed");
     assert_eq!(
         missing.code,
-        GameplayRuntimeDiagnosticCode::MissingProposalOwner
+        GameplayRuntimeDiagnosticCode::PayloadCodecRejected
     );
 
     let mut undeclared = dummy_event(contract("game.missing", "event"));
@@ -1402,7 +1407,7 @@ fn canonical_route_rejects_missing_owner_undeclared_event_and_wrong_payload_hash
         .expect_err("wrong owner event hash fails closed");
     assert_eq!(
         wrong_hash.code,
-        GameplayRuntimeDiagnosticCode::InvalidOwnerEvent
+        GameplayRuntimeDiagnosticCode::PayloadCodecRejected
     );
 }
 

@@ -14,9 +14,14 @@ mod registry;
 mod topology;
 mod validation;
 
-pub use codec::{GameplayCodecError, GameplayEventCodecRegistration, TypedGameplayEventCodec};
+pub use codec::{
+    gameplay_canonical_codec_id, gameplay_canonical_payload_hash, gameplay_contract,
+    gameplay_schema_hash, stable_bytes_identity, stable_identity, GameplayCodecError,
+    GameplayEventCodecRegistration, TypedGameplayEventCodec,
+};
 pub use registry::{
-    GameplayFabricRegistry, GameplayFabricRegistryBuilder, GameplayLinkedProvider,
-    GameplayProposalOwnerRegistration, GameplayReadViewProviderRegistration,
-    GameplayRegistryBuildError, GameplayStateOwnerRegistration,
+    GameplayEventMetadata, GameplayFabricRegistry, GameplayFabricRegistryBuilder,
+    GameplayLinkedProvider, GameplayProposalMetadata, GameplayProposalOwnerRegistration,
+    GameplayReadViewProviderRegistration, GameplayRegistryBuildError,
+    GameplayStateOwnerRegistration,
 };

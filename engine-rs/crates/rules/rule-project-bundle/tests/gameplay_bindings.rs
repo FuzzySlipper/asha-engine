@@ -22,12 +22,28 @@ const MODULE_ID: &str = "game.binding-fixture.module";
 const NAMESPACE: &str = "game.binding-fixture";
 
 fn contract(name: &str) -> GameplayContractRef {
-    GameplayContractRef {
-        namespace: NAMESPACE.to_owned(),
-        name: name.to_owned(),
-        version: 1,
-        schema_hash: format!("sha256:{NAMESPACE}.{name}"),
+    gameplay_contract(NAMESPACE, name, 1, &schema_descriptor(name))
+}
+
+fn schema_descriptor(name: &str) -> String {
+    format!("fixture:{NAMESPACE}.{name};canonical-json-v1")
+}
+
+fn declaration(event: GameplayContractRef) -> GameplayEventSchemaDeclaration {
+    GameplayEventSchemaDeclaration {
+        codec_id: gameplay_canonical_codec_id(&event.schema_hash),
+        event,
     }
+}
+
+fn test_provenance() -> GameplayModuleBuildProvenance {
+    GameplayModuleBuildProvenance::from_build_inputs(
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+        &[include_bytes!("gameplay_bindings.rs")],
+        include_bytes!("../../../../Cargo.lock"),
+        &[],
+    )
 }
 
 fn owner() -> GameplayOwnerRef {
@@ -37,7 +53,7 @@ fn owner() -> GameplayOwnerRef {
     }
 }
 
-fn module_ref() -> GameplayModuleRef {
+fn base_module_ref() -> GameplayModuleRef {
     GameplayModuleRef {
         module_id: MODULE_ID.to_owned(),
         namespace: NAMESPACE.to_owned(),
@@ -59,8 +75,8 @@ impl GameplayModuleBehavior for FixtureBehavior {
         let value: u64 = context.event_payload()?;
         let configuration: CounterConfiguration = context.configuration()?;
         let mut actions = context.actions();
-        actions.emit_json(
-            contract("result"),
+        actions.emit(
+            &json_u64_typed_codec(contract("result")),
             &value.saturating_mul(configuration.multiplier),
             context.source(),
             Vec::new(),
@@ -132,19 +148,13 @@ impl GameplayTypedModuleStateAdapter for CounterAdapter {
     }
 }
 
-fn composition() -> GameplayStaticComposition {
+fn fixture_manifest() -> GameplayModuleManifest {
     let owner = owner();
-    let manifest = GameplayModuleManifest {
-        module_ref: module_ref(),
+    let mut manifest = GameplayModuleManifest {
+        module_ref: base_module_ref(),
         published_events: vec![
-            GameplayEventSchemaDeclaration {
-                event: contract("root"),
-                codec_id: "codec.binding-fixture.root".to_owned(),
-            },
-            GameplayEventSchemaDeclaration {
-                event: contract("result"),
-                codec_id: "codec.binding-fixture.result".to_owned(),
-            },
+            declaration(contract("root")),
+            declaration(contract("result")),
         ],
         subscriptions: vec![GameplaySubscriptionDeclaration {
             subscription_id: "binding-fixture.observe".to_owned(),
@@ -188,6 +198,17 @@ fn composition() -> GameplayStaticComposition {
         deterministic_requirements: vec!["canonical-json".to_owned()],
         source_hash: "sha256:binding-source".to_owned(),
     };
+    test_provenance().apply_to_manifest::<FixtureBehavior>(&mut manifest);
+    manifest
+}
+
+fn module_ref() -> GameplayModuleRef {
+    fixture_manifest().module_ref
+}
+
+fn composition() -> GameplayStaticComposition {
+    let owner = owner();
+    let manifest = fixture_manifest();
     let configuration_metadata = GameplayConfigurationSchemaMetadata {
         module_id: MODULE_ID.to_owned(),
         configuration: contract("configuration"),
@@ -198,28 +219,32 @@ fn composition() -> GameplayStaticComposition {
             required: true,
         }],
     };
-    let provider = GameplayStaticModuleProvider::linked_from_manifest(manifest, FixtureBehavior)
-        .event_codec(json_u64_codec(
-            contract("root"),
-            "codec.binding-fixture.root",
-        ))
-        .event_codec(json_u64_codec(
-            contract("result"),
-            "codec.binding-fixture.result",
-        ))
-        .state_owner(GameplayStateOwnerRegistration {
-            schema: contract("state"),
-            owner: owner.clone(),
-        })
-        .state_owner(GameplayStateOwnerRegistration {
-            schema: contract("fact"),
-            owner,
-        })
-        .state_adapter(GameplayModuleStateRegistration::typed(CounterAdapter))
-        .configuration_schema(configuration_metadata.clone())
-        .configuration_codec(GameplayConfigurationCodecRegistration::typed::<
-            CounterConfiguration,
-        >(configuration_metadata));
+    let provider = GameplayStaticModuleProvider::linked_from_manifest(
+        manifest,
+        &test_provenance(),
+        FixtureBehavior,
+    )
+    .event_codec(json_u64_codec(
+        contract("root"),
+        "codec.binding-fixture.root",
+    ))
+    .event_codec(json_u64_codec(
+        contract("result"),
+        "codec.binding-fixture.result",
+    ))
+    .state_owner(GameplayStateOwnerRegistration {
+        schema: contract("state"),
+        owner: owner.clone(),
+    })
+    .state_owner(GameplayStateOwnerRegistration {
+        schema: contract("fact"),
+        owner,
+    })
+    .state_adapter(GameplayModuleStateRegistration::typed(CounterAdapter))
+    .configuration_schema(configuration_metadata.clone())
+    .configuration_codec(GameplayConfigurationCodecRegistration::typed::<
+        CounterConfiguration,
+    >(configuration_metadata));
     let mut builder = GameplayStaticCompositionBuilder::new();
     builder.include_standard_owner_events();
     builder.add_provider(provider);
@@ -227,14 +252,18 @@ fn composition() -> GameplayStaticComposition {
 }
 
 fn json_u64_codec(event: GameplayContractRef, codec_id: &str) -> GameplayEventCodecRegistration {
-    GameplayEventCodecRegistration::typed(TypedGameplayEventCodec::new(
-        GameplayEventSchemaDeclaration {
-            event,
-            codec_id: codec_id.to_owned(),
-        },
+    let _legacy_codec_label = codec_id;
+    GameplayEventCodecRegistration::typed(json_u64_typed_codec(event))
+}
+
+fn json_u64_typed_codec(event: GameplayContractRef) -> TypedGameplayEventCodec<u64> {
+    let descriptor = schema_descriptor(&event.name);
+    TypedGameplayEventCodec::new(
+        declaration(event),
+        descriptor,
         |value: &u64| serde_json::to_vec(value).map_err(|error| error.to_string()),
         |bytes| serde_json::from_slice(bytes).map_err(|error| error.to_string()),
-    ))
+    )
 }
 
 fn root_event(value: u64) -> GameplayEventEnvelope {
@@ -267,7 +296,7 @@ fn root_event_for(value: u64, target: Option<EntityId>, event_id: &str) -> Gamep
             .collect(),
         scope: None,
         tags: Vec::new(),
-        payload_hash: gameplay_module_payload_hash(&canonical_payload),
+        payload_hash: gameplay_canonical_payload_hash(&canonical_payload),
         canonical_payload,
     }
 }

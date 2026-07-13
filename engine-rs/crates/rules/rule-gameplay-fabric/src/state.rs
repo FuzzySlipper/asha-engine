@@ -243,6 +243,8 @@ pub struct GameplayVerificationReplayInput {
 }
 
 pub trait GameplayVerificationReplayRunner {
+    fn registry(&self) -> &GameplayFabricRegistry;
+
     /// Reruns the fabric using the statically linked module set identified by
     /// the expected frame. Registry and artifact drift is reported by the
     /// resulting frame comparison before the result can be accepted.
@@ -999,6 +1001,7 @@ impl GameplayModuleStateStore {
         initializations: Vec<GameplayModuleInitialization>,
         frame: &GameplayReactionFrame,
     ) -> Result<Self, GameplayModuleStateError> {
+        validate_reaction_frame_codecs(registry.as_ref(), frame)?;
         Self::playback(
             registry,
             adapters,
@@ -1517,14 +1520,35 @@ pub fn run_verification_replay(
     expected: &GameplayReactionFrame,
     runner: &dyn GameplayVerificationReplayRunner,
 ) -> Result<GameplayVerificationReplayReceipt, GameplayModuleStateError> {
+    validate_reaction_frame_codecs(runner.registry(), expected)?;
     let encoded = serde_json::to_vec(&expected.verification_replay_input())
         .map_err(|error| GameplayModuleStateError::InvalidSnapshot(error.to_string()))?;
     let recorded: GameplayVerificationReplayInput = serde_json::from_slice(&encoded)
         .map_err(|error| GameplayModuleStateError::InvalidSnapshot(error.to_string()))?;
     let actual = runner.rerun(&recorded)?;
+    validate_reaction_frame_codecs(runner.registry(), &actual)?;
     Ok(GameplayVerificationReplayReceipt {
         expected_frame_hash: expected.frame_hash.clone(),
         actual_frame_hash: actual.frame_hash.clone(),
         divergences: verify_reaction_frame(expected, &actual),
     })
+}
+
+pub fn validate_reaction_frame_codecs(
+    registry: &GameplayFabricRegistry,
+    frame: &GameplayReactionFrame,
+) -> Result<(), GameplayModuleStateError> {
+    if frame.registry_digest != registry.registry_digest() {
+        return Err(GameplayModuleStateError::InvalidSnapshot(
+            "reaction frame registry digest mismatch".to_owned(),
+        ));
+    }
+    for event in frame.root_events.iter().chain(&frame.delivered_events) {
+        registry.admit_event(event).map_err(|error| {
+            GameplayModuleStateError::InvalidSnapshot(format!(
+                "reaction frame event failed canonical codec admission: {error}"
+            ))
+        })?;
+    }
+    Ok(())
 }

@@ -92,6 +92,7 @@ impl GameplayRuntimeHost {
         &mut self,
         command: GameplaySchedulerCommand,
     ) -> Result<GameplayRuntimeSchedulerCommandReceipt, GameplayRuntimeHostError> {
+        validate_scheduler_command_codecs(self.session.registry(), &command)?;
         let owner = self.scheduler.owner().clone();
         let scheduler = self.scheduler.apply(&owner, command)?;
         Ok(GameplayRuntimeSchedulerCommandReceipt {
@@ -315,6 +316,84 @@ impl GameplayRuntimeHost {
                 || outstanding_dispatch_count > MAX_SCHEDULER_READOUT_ITEMS
                 || outstanding_event_delivery_count > MAX_SCHEDULER_READOUT_ITEMS,
         }
+    }
+}
+
+fn validate_scheduler_command_codecs(
+    registry: &svc_gameplay_fabric::GameplayFabricRegistry,
+    command: &GameplaySchedulerCommand,
+) -> Result<(), GameplayRuntimeHostError> {
+    match command {
+        GameplaySchedulerCommand::ScheduleTick(draft) => registry.admit_proposal(&draft.proposal),
+        GameplaySchedulerCommand::ScheduleEventConditioned(draft) => {
+            registry.admit_proposal(&draft.proposal)
+        }
+        GameplaySchedulerCommand::TriggerEvent { event, .. } => registry.admit_event(event),
+        GameplaySchedulerCommand::RecordRouting { receipt, .. } => {
+            for event in receipt.accepted_events() {
+                registry
+                    .admit_event(event)
+                    .map_err(|error| GameplayRuntimeHostError::Codec(error.to_string()))?;
+            }
+            return Ok(());
+        }
+        GameplaySchedulerCommand::ExecuteTick { .. }
+        | GameplaySchedulerCommand::Timeout { .. }
+        | GameplaySchedulerCommand::Cancel { .. }
+        | GameplaySchedulerCommand::CompleteEventDelivery { .. } => return Ok(()),
+    }
+    .map_err(|error| GameplayRuntimeHostError::Codec(error.to_string()))
+}
+
+pub(crate) fn validate_replayed_scheduler_codecs(
+    registry: &svc_gameplay_fabric::GameplayFabricRegistry,
+    scheduler: &GameplayActionScheduler,
+) -> Result<(), GameplayRuntimeHostError> {
+    for fact in scheduler.facts() {
+        match fact {
+            GameplaySchedulerFact::Scheduled { action } => {
+                registry
+                    .admit_proposal(scheduled_action_proposal(action))
+                    .map_err(|error| {
+                        GameplayRuntimeHostError::Snapshot(format!(
+                            "replayed scheduler proposal failed codec admission: {error}"
+                        ))
+                    })?;
+            }
+            GameplaySchedulerFact::Triggered { dispatch, .. } => {
+                registry
+                    .admit_proposal(&dispatch.proposal)
+                    .map_err(|error| {
+                        GameplayRuntimeHostError::Snapshot(format!(
+                            "replayed scheduler dispatch failed codec admission: {error}"
+                        ))
+                    })?;
+            }
+            GameplaySchedulerFact::RoutingAccepted { events, .. } => {
+                for event in events {
+                    registry.admit_event(event).map_err(|error| {
+                        GameplayRuntimeHostError::Snapshot(format!(
+                            "replayed scheduler owner event failed codec admission: {error}"
+                        ))
+                    })?;
+                }
+            }
+            GameplaySchedulerFact::TimedOut { .. }
+            | GameplaySchedulerFact::Cancelled { .. }
+            | GameplaySchedulerFact::Rejected { .. }
+            | GameplaySchedulerFact::RoutingRejected { .. }
+            | GameplaySchedulerFact::EventDeliveryCompleted { .. } => {}
+        }
+    }
+    Ok(())
+}
+
+fn scheduled_action_proposal(
+    action: &ScheduledGameplayAction,
+) -> &protocol_game_extension::GameplayProposalEnvelope {
+    match action {
+        ScheduledGameplayAction::Tick { proposal, .. }
+        | ScheduledGameplayAction::EventConditioned { proposal, .. } => proposal,
     }
 }
 

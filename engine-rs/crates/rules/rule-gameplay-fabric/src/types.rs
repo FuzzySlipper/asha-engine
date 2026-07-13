@@ -294,6 +294,7 @@ pub enum GameplayRuntimeDiagnosticCode {
     ProposalBudgetExceeded,
     InvocationBudgetExceeded,
     PayloadBudgetExceeded,
+    PayloadCodecRejected,
     InvocationOutputBudgetExceeded,
     SubscriptionDeliveryBudgetExceeded,
     UnexpectedDecisionOutput,

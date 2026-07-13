@@ -28,16 +28,7 @@ impl GameplayOperationWorkspace {
 
 /// Hash convention for operation workspaces owned by this coordinator.
 pub fn gameplay_payload_hash(payload: &[u8]) -> String {
-    let mut hash = 0xcbf2_9ce4_8422_2325u64;
-    for byte in (payload.len() as u64)
-        .to_le_bytes()
-        .into_iter()
-        .chain(payload.iter().copied())
-    {
-        hash ^= u64::from(byte);
-        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-    }
-    format!("fnv1a64:{hash:016x}")
+    svc_gameplay_fabric::gameplay_canonical_payload_hash(payload)
 }
 
 impl GameplayDecisionReceipt {
@@ -57,6 +48,9 @@ impl GameplayFabricCoordinator<'_> {
         host: &dyn GameplayInvocationHost,
         owner_port: &mut dyn GameplayDecisionOwner,
     ) -> GameplayDecisionReceipt {
+        if let Err(error) = self.registry.admit_proposal(&moment.operation) {
+            return DecisionState::failed_payload(self, &moment, error.to_string());
+        }
         let Some(owner) = self
             .registry
             .proposal_owner(&moment.operation.proposal)
@@ -120,6 +114,14 @@ impl GameplayFabricCoordinator<'_> {
 
         moment.operation.canonical_payload = moment.workspace.canonical_payload.clone();
         moment.operation.payload_hash = moment.workspace.workspace_hash.clone();
+        if let Err(error) = self.registry.admit_proposal(&moment.operation) {
+            state.diagnostic(
+                GameplayRuntimeDiagnosticCode::PayloadCodecRejected,
+                "operation.canonicalPayload",
+                error.to_string(),
+            );
+            return state.finish();
+        }
         let call = GameplayOwnerRoutingCall {
             owner: owner.clone(),
             proposal: moment.operation.clone(),
@@ -383,6 +385,20 @@ impl<'registry> DecisionState<'registry> {
                 "proposal `{}` has no registered owner",
                 moment.operation.proposal.key()
             ),
+        );
+        state.finish()
+    }
+
+    fn failed_payload(
+        coordinator: &'registry GameplayFabricCoordinator<'registry>,
+        moment: &GameplayDecisionMoment,
+        message: String,
+    ) -> GameplayDecisionReceipt {
+        let mut state = Self::new(coordinator, moment, "unresolved".to_owned());
+        state.diagnostic(
+            GameplayRuntimeDiagnosticCode::PayloadCodecRejected,
+            "operation.canonicalPayload",
+            message,
         );
         state.finish()
     }

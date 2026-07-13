@@ -24,15 +24,25 @@ pub fn module_id() -> &'static str {
     "__MODULE_ID__"
 }
 
+fn build_provenance() -> GameplayModuleBuildProvenance {
+    GameplayModuleBuildProvenance::from_build_inputs(
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+        &[include_bytes!("lib.rs")],
+        include_bytes!("../Cargo.lock"),
+        &[],
+    )
+}
+
 pub fn manifest() -> GameplayModuleManifest {
-    GameplayModuleManifest {
+    let mut manifest = GameplayModuleManifest {
         module_ref: GameplayModuleRef {
             module_id: module_id().to_owned(),
             namespace: "__MODULE_ID__".to_owned(),
             version: "0.1.0".to_owned(),
-            sdk_hash: "sha256:replace-with-sdk-hash".to_owned(),
-            contract_hash: "sha256:replace-with-contract-hash".to_owned(),
-            artifact_hash: "sha256:replace-with-artifact-hash".to_owned(),
+            sdk_hash: String::new(),
+            contract_hash: String::new(),
+            artifact_hash: String::new(),
             provider_id: "provider.__MODULE_ID__".to_owned(),
         },
         published_events: vec![],
@@ -51,12 +61,18 @@ pub fn manifest() -> GameplayModuleManifest {
             max_payload_bytes_per_root: 65_536,
         },
         deterministic_requirements: vec!["canonical-json".to_owned()],
-        source_hash: "sha256:replace-with-source-hash".to_owned(),
-    }
+        source_hash: String::new(),
+    };
+    build_provenance().apply_to_manifest::<__TYPE_NAME__Behavior>(&mut manifest);
+    manifest
 }
 
 pub fn provider() -> GameplayStaticModuleProvider {
-    GameplayStaticModuleProvider::linked_from_manifest(manifest(), __TYPE_NAME__Behavior)
+    GameplayStaticModuleProvider::linked_from_manifest(
+        manifest(),
+        &build_provenance(),
+        __TYPE_NAME__Behavior,
+    )
 }
 
 #[cfg(test)]

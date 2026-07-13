@@ -18,6 +18,54 @@ pub struct TriggerReactionProposal {
     pub overlap_read_hash: Option<String>,
 }
 
+fn schema_descriptor(namespace: &str, name: &str) -> String {
+    format!("fixture:{namespace}.{name};canonical-json-v1")
+}
+
+fn declaration(event: GameplayContractRef) -> GameplayEventSchemaDeclaration {
+    GameplayEventSchemaDeclaration {
+        codec_id: gameplay_canonical_codec_id(&event.schema_hash),
+        event,
+    }
+}
+
+fn typed_json_codec<T>(event: GameplayContractRef) -> TypedGameplayEventCodec<T>
+where
+    T: Serialize + for<'de> Deserialize<'de> + 'static,
+{
+    let descriptor = schema_descriptor(&event.namespace, &event.name);
+    TypedGameplayEventCodec::new(
+        declaration(event),
+        descriptor,
+        |payload: &T| serde_json::to_vec(payload).map_err(|error| error.to_string()),
+        |bytes| serde_json::from_slice(bytes).map_err(|error| error.to_string()),
+    )
+}
+
+fn build_provenance() -> GameplayModuleBuildProvenance {
+    GameplayModuleBuildProvenance::from_build_inputs(
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+        &[include_bytes!("lib.rs")],
+        include_bytes!("../Cargo.lock"),
+        &[],
+    )
+}
+
+fn capability_activation_codec() -> TypedGameplayEventCodec<CapabilityActivationGameplayProposal> {
+    let kind = StandardGameplayProposalKind::SetCapabilityActivation;
+    let event = kind.contract();
+    TypedGameplayEventCodec::new(
+        GameplayEventSchemaDeclaration {
+            codec_id: gameplay_canonical_codec_id(&event.schema_hash),
+            event,
+        },
+        kind.schema_descriptor(),
+        |payload| serde_json::to_vec(payload).map_err(|error| error.to_string()),
+        |bytes| serde_json::from_slice(bytes).map_err(|error| error.to_string()),
+    )
+}
+
 pub struct PulseBehavior {
     pub multiplier: u64,
 }
@@ -48,8 +96,8 @@ impl GameplayModuleBehavior for PulseBehavior {
                 })
                 .transpose()?;
             let mut actions = context.actions();
-            actions.emit_json(
-                contract("trigger-reaction-proposed"),
+            actions.emit(
+                &typed_json_codec::<TriggerReactionProposal>(contract("trigger-reaction-proposed")),
                 &TriggerReactionProposal {
                     action: "door.open".to_owned(),
                     trigger: entered.trigger,
@@ -61,8 +109,8 @@ impl GameplayModuleBehavior for PulseBehavior {
                 vec![entered.subject],
                 Vec::new(),
             )?;
-            actions.propose_json(
-                StandardGameplayProposalKind::SetCapabilityActivation.contract(),
+            actions.propose(
+                &capability_activation_codec(),
                 &CapabilityActivationGameplayProposal {
                     entity: entered.trigger,
                     capability: "collision".to_owned(),
@@ -85,8 +133,8 @@ impl GameplayModuleBehavior for PulseBehavior {
             .amount
             .saturating_mul(self.multiplier)
             .saturating_add(current_state);
-        actions.emit_json(
-            contract("pulse-result"),
+        actions.emit(
+            &typed_json_codec::<Pulse>(contract("pulse-result")),
             &Pulse { amount: result },
             context.source(),
             vec![],
@@ -182,7 +230,7 @@ impl GameplayTypedModuleStateAdapter for PulseStateAdapter {
 }
 
 pub fn provider(multiplier: u64) -> GameplayStaticModuleProvider {
-    let manifest = GameplayModuleManifest {
+    let mut manifest = GameplayModuleManifest {
         module_ref: GameplayModuleRef {
             module_id: "fixture.pulse.module".to_owned(),
             namespace: "fixture.pulse".to_owned(),
@@ -193,18 +241,9 @@ pub fn provider(multiplier: u64) -> GameplayStaticModuleProvider {
             provider_id: "provider.fixture-pulse".to_owned(),
         },
         published_events: vec![
-            GameplayEventSchemaDeclaration {
-                event: contract("pulse"),
-                codec_id: "codec.fixture-pulse.pulse".to_owned(),
-            },
-            GameplayEventSchemaDeclaration {
-                event: contract("pulse-result"),
-                codec_id: "codec.fixture-pulse.result".to_owned(),
-            },
-            GameplayEventSchemaDeclaration {
-                event: contract("trigger-reaction-proposed"),
-                codec_id: "codec.fixture-pulse.trigger-reaction".to_owned(),
-            },
+            declaration(contract("pulse")),
+            declaration(contract("pulse-result")),
+            declaration(contract("trigger-reaction-proposed")),
         ],
         subscriptions: vec![
             GameplaySubscriptionDeclaration {
@@ -302,6 +341,7 @@ pub fn provider(multiplier: u64) -> GameplayStaticModuleProvider {
         deterministic_requirements: vec!["canonical-json".to_owned()],
         source_hash: format!("sha256:fixture-pulse-source-{multiplier}"),
     };
+    build_provenance().apply_to_manifest::<PulseBehavior>(&mut manifest);
     let configuration_metadata = GameplayConfigurationSchemaMetadata {
         module_id: "fixture.pulse.module".to_owned(),
         configuration: contract("configuration"),
@@ -312,90 +352,90 @@ pub fn provider(multiplier: u64) -> GameplayStaticModuleProvider {
             required: true,
         }],
     };
-    GameplayStaticModuleProvider::linked_from_manifest(manifest, PulseBehavior { multiplier })
-        .event_codec(json_codec(contract("pulse"), "codec.fixture-pulse.pulse"))
-        .event_codec(json_codec(
-            contract("pulse-result"),
-            "codec.fixture-pulse.result",
-        ))
-        .event_codec(GameplayEventCodecRegistration::typed(
-            TypedGameplayEventCodec::new(
-                GameplayEventSchemaDeclaration {
-                    event: contract("trigger-reaction-proposed"),
-                    codec_id: "codec.fixture-pulse.trigger-reaction".to_owned(),
-                },
-                |payload: &TriggerReactionProposal| {
-                    serde_json::to_vec(payload).map_err(|error| error.to_string())
-                },
-                |bytes| serde_json::from_slice(bytes).map_err(|error| error.to_string()),
-            ),
-        ))
-        .read_view_provider(GameplayReadViewProviderRegistration {
-            view: contract("pulse-state-view"),
-            provider_id: "provider.fixture-pulse".to_owned(),
-            kind: GameplayReadViewKind::ModuleNamed,
-            fields: vec!["amount".to_owned()],
-            selector_capabilities: vec![GameplayReadSelectorCapability::ModuleStateScope],
-            max_items: 1,
-            ordering: "single-module-state".to_owned(),
-        })
-        .read_view_provider(GameplayReadViewProviderRegistration {
-            view: contract("trigger-overlaps-view"),
-            provider_id: "provider.fixture-trigger-overlaps".to_owned(),
-            kind: GameplayReadViewKind::OwnerQuery,
-            fields: vec!["trigger".to_owned(), "subjects".to_owned()],
-            selector_capabilities: vec![
-                GameplayReadSelectorCapability::EventSource,
-                GameplayReadSelectorCapability::OwnerQuery,
-            ],
-            max_items: 8,
-            ordering: "entity-id-ascending".to_owned(),
-        })
-        .state_owner(GameplayStateOwnerRegistration {
-            schema: contract("pulse-state"),
-            owner: pulse_owner(),
-        })
-        .state_owner(GameplayStateOwnerRegistration {
-            schema: contract("pulse-fact"),
-            owner: pulse_owner(),
-        })
-        .state_adapter(GameplayModuleStateRegistration::typed(PulseStateAdapter))
-        .configuration_schema(configuration_metadata.clone())
-        .configuration_codec(GameplayConfigurationCodecRegistration::typed::<
-            PulseConfiguration,
-        >(configuration_metadata))
+    GameplayStaticModuleProvider::linked_from_manifest(
+        manifest,
+        &build_provenance(),
+        PulseBehavior { multiplier },
+    )
+    .event_codec(json_codec(contract("pulse"), "codec.fixture-pulse.pulse"))
+    .event_codec(json_codec(
+        contract("pulse-result"),
+        "codec.fixture-pulse.result",
+    ))
+    .event_codec(GameplayEventCodecRegistration::typed(typed_json_codec::<
+        TriggerReactionProposal,
+    >(contract(
+        "trigger-reaction-proposed",
+    ))))
+    .read_view_provider(GameplayReadViewProviderRegistration {
+        view: contract("pulse-state-view"),
+        provider_id: "provider.fixture-pulse".to_owned(),
+        kind: GameplayReadViewKind::ModuleNamed,
+        fields: vec!["amount".to_owned()],
+        selector_capabilities: vec![GameplayReadSelectorCapability::ModuleStateScope],
+        max_items: 1,
+        ordering: "single-module-state".to_owned(),
+    })
+    .read_view_provider(GameplayReadViewProviderRegistration {
+        view: contract("trigger-overlaps-view"),
+        provider_id: "provider.fixture-trigger-overlaps".to_owned(),
+        kind: GameplayReadViewKind::OwnerQuery,
+        fields: vec!["trigger".to_owned(), "subjects".to_owned()],
+        selector_capabilities: vec![
+            GameplayReadSelectorCapability::EventSource,
+            GameplayReadSelectorCapability::OwnerQuery,
+        ],
+        max_items: 8,
+        ordering: "entity-id-ascending".to_owned(),
+    })
+    .state_owner(GameplayStateOwnerRegistration {
+        schema: contract("pulse-state"),
+        owner: pulse_owner(),
+    })
+    .state_owner(GameplayStateOwnerRegistration {
+        schema: contract("pulse-fact"),
+        owner: pulse_owner(),
+    })
+    .state_adapter(GameplayModuleStateRegistration::typed(PulseStateAdapter))
+    .configuration_schema(configuration_metadata.clone())
+    .configuration_codec(GameplayConfigurationCodecRegistration::typed::<
+        PulseConfiguration,
+    >(configuration_metadata))
 }
 
 pub fn root_event(amount: u64) -> GameplayEventEnvelope {
-    let payload = serde_json::to_vec(&Pulse { amount }).expect("pulse serializes");
-    GameplayEventEnvelope {
-        event_id: "fixture-root".to_owned(),
-        event: contract("pulse"),
-        tick: 0,
-        root_sequence: 0,
-        wave: 0,
-        event_sequence: 0,
-        phase: GameplayEventPhase::PostCommit,
-        emitter: GameplayEmitterRef::Owner {
-            owner_id: "authority.fixture".to_owned(),
-        },
-        causation: GameplayCausationRef {
-            root_id: "fixture-root".to_owned(),
-            parent_event_id: None,
-            decision_id: None,
-        },
-        source: Some(GameplayEntityRef {
-            entity: EntityId::new(1),
-        }),
-        subjects: vec![],
-        targets: vec![GameplayEntityRef {
-            entity: EntityId::new(2),
-        }],
-        scope: None,
-        tags: vec![],
-        payload_hash: gameplay_module_payload_hash(&payload),
-        canonical_payload: payload,
-    }
+    composition(4)
+        .registry()
+        .event(
+            &contract("pulse"),
+            &Pulse { amount },
+            GameplayEventMetadata {
+                event_id: "fixture-root".to_owned(),
+                tick: 0,
+                root_sequence: 0,
+                wave: 0,
+                event_sequence: 0,
+                phase: GameplayEventPhase::PostCommit,
+                emitter: GameplayEmitterRef::Owner {
+                    owner_id: "authority.fixture".to_owned(),
+                },
+                causation: GameplayCausationRef {
+                    root_id: "fixture-root".to_owned(),
+                    parent_event_id: None,
+                    decision_id: None,
+                },
+                source: Some(GameplayEntityRef {
+                    entity: EntityId::new(1),
+                }),
+                subjects: vec![],
+                targets: vec![GameplayEntityRef {
+                    entity: EntityId::new(2),
+                }],
+                scope: None,
+                tags: vec![],
+            },
+        )
+        .expect("typed pulse root event")
 }
 
 pub fn binding_registry(multiplier: u64) -> GameplayModuleBindingRegistry {
@@ -455,44 +495,47 @@ pub fn trigger_entered_event(trigger: u64, subject: u64) -> GameplayEventEnvelop
         cause: "teleport".to_owned(),
         pair_hash: gameplay_module_payload_hash(format!("{trigger}|{subject}").as_bytes()),
     };
-    let canonical_payload = serde_json::to_vec(&payload).expect("trigger payload serializes");
-    GameplayEventEnvelope {
-        event_id: "fixture-trigger-enter".to_owned(),
-        event: StandardGameplayEventKind::TriggerEntered.contract(),
-        tick: 7,
-        root_sequence: 2,
-        wave: 0,
-        event_sequence: 0,
-        phase: GameplayEventPhase::PostCommit,
-        emitter: GameplayEmitterRef::Owner {
-            owner_id: "rule-trigger-volume".to_owned(),
-        },
-        causation: GameplayCausationRef {
-            root_id: "fixture-trigger-root".to_owned(),
-            parent_event_id: Some("accepted-trigger-fact".to_owned()),
-            decision_id: None,
-        },
-        source: Some(GameplayEntityRef {
-            entity: EntityId::new(trigger),
-        }),
-        subjects: vec![GameplayEntityRef {
-            entity: EntityId::new(subject),
-        }],
-        targets: Vec::new(),
-        scope: Some("zone.exit".to_owned()),
-        tags: vec!["door".to_owned(), "enter".to_owned(), "exit".to_owned()],
-        payload_hash: gameplay_module_payload_hash(&canonical_payload),
-        canonical_payload,
-    }
+    composition(4)
+        .registry()
+        .event(
+            &StandardGameplayEventKind::TriggerEntered.contract(),
+            &payload,
+            GameplayEventMetadata {
+                event_id: "fixture-trigger-enter".to_owned(),
+                tick: 7,
+                root_sequence: 2,
+                wave: 0,
+                event_sequence: 0,
+                phase: GameplayEventPhase::PostCommit,
+                emitter: GameplayEmitterRef::Owner {
+                    owner_id: "rule-trigger-volume".to_owned(),
+                },
+                causation: GameplayCausationRef {
+                    root_id: "fixture-trigger-root".to_owned(),
+                    parent_event_id: Some("accepted-trigger-fact".to_owned()),
+                    decision_id: None,
+                },
+                source: Some(GameplayEntityRef {
+                    entity: EntityId::new(trigger),
+                }),
+                subjects: vec![GameplayEntityRef {
+                    entity: EntityId::new(subject),
+                }],
+                targets: Vec::new(),
+                scope: Some("zone.exit".to_owned()),
+                tags: vec!["door".to_owned(), "enter".to_owned(), "exit".to_owned()],
+            },
+        )
+        .expect("typed trigger root event")
 }
 
 fn contract(name: &str) -> GameplayContractRef {
-    GameplayContractRef {
-        namespace: "fixture.pulse".to_owned(),
-        name: name.to_owned(),
-        version: 1,
-        schema_hash: format!("sha256:fixture.pulse.{name}"),
-    }
+    gameplay_contract(
+        "fixture.pulse",
+        name,
+        1,
+        &schema_descriptor("fixture.pulse", name),
+    )
 }
 
 fn pulse_owner() -> GameplayOwnerRef {
@@ -565,12 +608,12 @@ impl GameplayModuleBehavior for FixtureDecisionBehavior {
 
 #[cfg(test)]
 fn decision_contract(name: &str) -> GameplayContractRef {
-    GameplayContractRef {
-        namespace: "fixture.decision".to_owned(),
-        name: name.to_owned(),
-        version: 1,
-        schema_hash: format!("sha256:fixture.decision.{name}"),
-    }
+    gameplay_contract(
+        "fixture.decision",
+        name,
+        1,
+        &schema_descriptor("fixture.decision", name),
+    )
 }
 
 #[cfg(test)]
@@ -587,7 +630,7 @@ fn decision_provider() -> GameplayStaticModuleProvider {
     let workspace = decision_contract("workspace");
     let view = decision_contract("target-collision-view");
     let owner = decision_owner();
-    let manifest = GameplayModuleManifest {
+    let mut manifest = GameplayModuleManifest {
         module_ref: GameplayModuleRef {
             module_id: "fixture.decision.module".to_owned(),
             namespace: "fixture.decision".to_owned(),
@@ -650,20 +693,30 @@ fn decision_provider() -> GameplayStaticModuleProvider {
         deterministic_requirements: vec!["canonical-json".to_owned()],
         source_hash: "sha256:fixture-decision-source".to_owned(),
     };
-    GameplayStaticModuleProvider::linked_from_manifest(manifest, FixtureDecisionBehavior)
-        .proposal_owner(GameplayProposalOwnerRegistration { proposal, owner })
-        .read_view_provider(GameplayReadViewProviderRegistration {
-            view,
-            provider_id: "provider.fixture-decision".to_owned(),
-            kind: GameplayReadViewKind::EntityCapability,
-            fields: vec!["staticCollider".to_owned()],
-            selector_capabilities: vec![
-                GameplayReadSelectorCapability::EventTarget,
-                GameplayReadSelectorCapability::CollisionCapability,
-            ],
-            max_items: 1,
-            ordering: "entityIdAscending".to_owned(),
-        })
+    build_provenance().apply_to_manifest::<FixtureDecisionBehavior>(&mut manifest);
+    GameplayStaticModuleProvider::linked_from_manifest(
+        manifest,
+        &build_provenance(),
+        FixtureDecisionBehavior,
+    )
+    .proposal_codec(GameplayEventCodecRegistration::typed(typed_json_codec::<
+        DecisionWorkspace,
+    >(
+        proposal.clone()
+    )))
+    .proposal_owner(GameplayProposalOwnerRegistration { proposal, owner })
+    .read_view_provider(GameplayReadViewProviderRegistration {
+        view,
+        provider_id: "provider.fixture-decision".to_owned(),
+        kind: GameplayReadViewKind::EntityCapability,
+        fields: vec!["staticCollider".to_owned()],
+        selector_capabilities: vec![
+            GameplayReadSelectorCapability::EventTarget,
+            GameplayReadSelectorCapability::CollisionCapability,
+        ],
+        max_items: 1,
+        ordering: "entityIdAscending".to_owned(),
+    })
 }
 
 #[cfg(test)]
@@ -674,14 +727,8 @@ fn decision_composition() -> GameplayStaticComposition {
 }
 
 fn json_codec(event: GameplayContractRef, codec_id: &str) -> GameplayEventCodecRegistration {
-    GameplayEventCodecRegistration::typed(TypedGameplayEventCodec::new(
-        GameplayEventSchemaDeclaration {
-            event,
-            codec_id: codec_id.to_owned(),
-        },
-        |payload: &Pulse| serde_json::to_vec(payload).map_err(|error| error.to_string()),
-        |bytes| serde_json::from_slice(bytes).map_err(|error| error.to_string()),
-    ))
+    let _legacy_codec_label = codec_id;
+    GameplayEventCodecRegistration::typed(typed_json_codec::<Pulse>(event))
 }
 
 #[cfg(test)]
@@ -698,8 +745,8 @@ mod tests {
         GameplayRuntimeDecisionOwnerOutput, GameplayRuntimeDeclaredReadPlan, GameplayRuntimeHost,
         GameplayRuntimeProjectInput, GameplayRuntimeSchedulerDefinition,
         GameplayRuntimeSpatialEntity, GameplaySchedulerCommand, GameplayTriggerDefinition,
-        LoadPlan, LoadStep, RuntimeSessionId, SceneId, ScheduledActionId,
-        ScheduledActionValidity, TickScheduledActionDraft, TriggerReconcileCause,
+        LoadPlan, LoadStep, RuntimeSessionId, SceneId, ScheduledActionId, ScheduledActionValidity,
+        TickScheduledActionDraft, TriggerReconcileCause,
         GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION,
     };
 
@@ -949,7 +996,7 @@ mod tests {
                     entity: EntityId::new(20),
                 }],
                 canonical_payload: payload.clone(),
-                payload_hash: gameplay_module_payload_hash(&payload),
+                payload_hash: gameplay_canonical_payload_hash(&payload),
             },
             expected_owner_revision: "revision:0".to_owned(),
             workspace: GameplayOperationWorkspace::from_payload(
@@ -1112,7 +1159,7 @@ mod tests {
                     entity: EntityId::new(10),
                 }],
                 canonical_payload: canonical_payload.clone(),
-                payload_hash: gameplay_module_payload_hash(&canonical_payload),
+                payload_hash: gameplay_canonical_payload_hash(&canonical_payload),
             },
             source: GameplayEmitterRef::Owner {
                 owner_id: "authority.fixture".to_owned(),
@@ -1127,7 +1174,8 @@ mod tests {
 
     #[test]
     fn public_runtime_host_schedules_routes_reads_and_restores_actions() {
-        let mut host = GameplayRuntimeHost::activate_project(runtime_host_project_input(4)).unwrap();
+        let mut host =
+            GameplayRuntimeHost::activate_project(runtime_host_project_input(4)).unwrap();
         let initial = host.readout();
         let scheduled = host
             .apply_scheduler_command(GameplaySchedulerCommand::ScheduleTick(
@@ -1153,18 +1201,25 @@ mod tests {
         assert_eq!(routed.readout.outstanding_dispatch_count, 0);
         assert_eq!(routed.readout.outstanding_event_delivery_count, 0);
         assert_eq!(routed.readout.fact_count, 4);
-        assert_ne!(host.readout().scheduler.state_hash, initial.scheduler.state_hash);
-        assert_ne!(host.readout().authority_state_hash, initial.authority_state_hash);
+        assert_ne!(
+            host.readout().scheduler.state_hash,
+            initial.scheduler.state_hash
+        );
+        assert_ne!(
+            host.readout().authority_state_hash,
+            initial.authority_state_hash
+        );
         assert_ne!(host.readout().runtime_host_hash, initial.runtime_host_hash);
 
         let snapshot = host.compose_snapshot().unwrap();
-        let restored = GameplayRuntimeHost::restore_project(
-            runtime_host_project_input(4),
-            &snapshot.text,
-        )
-        .unwrap();
+        let restored =
+            GameplayRuntimeHost::restore_project(runtime_host_project_input(4), &snapshot.text)
+                .unwrap();
         assert_eq!(restored.readout().scheduler, host.readout().scheduler);
-        assert_eq!(restored.readout().runtime_host_hash, host.readout().runtime_host_hash);
+        assert_eq!(
+            restored.readout().runtime_host_hash,
+            host.readout().runtime_host_hash
+        );
     }
 
     #[test]

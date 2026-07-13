@@ -345,12 +345,26 @@ mod tests {
     }
 
     fn read_contract(name: &str) -> GameplayContractRef {
-        GameplayContractRef {
-            namespace: "fixture.prefab-read".to_owned(),
-            name: name.to_owned(),
-            version: 1,
-            schema_hash: format!("sha256:fixture-prefab-read-{name}"),
-        }
+        gameplay_contract(
+            "fixture.prefab-read",
+            name,
+            1,
+            &read_schema_descriptor(name),
+        )
+    }
+
+    fn read_schema_descriptor(name: &str) -> String {
+        format!("fixture:fixture.prefab-read.{name};canonical-json-v1")
+    }
+
+    fn test_provenance() -> GameplayModuleBuildProvenance {
+        GameplayModuleBuildProvenance::from_build_inputs(
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION"),
+            &[include_bytes!("prefab.rs")],
+            include_bytes!("../../../../Cargo.lock"),
+            &[],
+        )
     }
 
     fn prefab_read_provider() -> GameplayStaticModuleProvider {
@@ -358,7 +372,7 @@ mod tests {
         let prefab_view = read_contract("prefab-part-view");
         let scope_view = read_contract("scope-view");
         let provider_id = "provider.fixture-prefab-read".to_owned();
-        let manifest = GameplayModuleManifest {
+        let mut manifest = GameplayModuleManifest {
             module_ref: GameplayModuleRef {
                 module_id: "fixture.prefab-read.module".to_owned(),
                 namespace: "fixture.prefab-read".to_owned(),
@@ -369,8 +383,8 @@ mod tests {
                 provider_id: provider_id.clone(),
             },
             published_events: vec![GameplayEventSchemaDeclaration {
+                codec_id: gameplay_canonical_codec_id(&event.schema_hash),
                 event: event.clone(),
-                codec_id: "codec.fixture-prefab-read.inspect".to_owned(),
             }],
             subscriptions: vec![GameplaySubscriptionDeclaration {
                 subscription_id: "fixture.prefab-read.inspect".to_owned(),
@@ -434,35 +448,41 @@ mod tests {
             deterministic_requirements: vec!["frozen-read-wave".to_owned()],
             source_hash: "sha256:fixture-prefab-read-source".to_owned(),
         };
-        GameplayStaticModuleProvider::linked_from_manifest(manifest, PrefabReadBehavior)
-            .event_codec(GameplayEventCodecRegistration::typed(
-                TypedGameplayEventCodec::new(
-                    GameplayEventSchemaDeclaration {
-                        event,
-                        codec_id: "codec.fixture-prefab-read.inspect".to_owned(),
-                    },
-                    |payload: &u64| serde_json::to_vec(payload).map_err(|error| error.to_string()),
-                    |bytes| serde_json::from_slice(bytes).map_err(|error| error.to_string()),
-                ),
-            ))
-            .read_view_provider(GameplayReadViewProviderRegistration {
-                view: prefab_view,
-                provider_id: provider_id.clone(),
-                kind: GameplayReadViewKind::PrefabPart,
-                fields: vec!["entity".to_owned(), "part".to_owned(), "role".to_owned()],
-                selector_capabilities: vec![GameplayReadSelectorCapability::PrefabPartRole],
-                max_items: 1,
-                ordering: "singlePart".to_owned(),
-            })
-            .read_view_provider(GameplayReadViewProviderRegistration {
-                view: scope_view,
-                provider_id,
-                kind: GameplayReadViewKind::Selection,
-                fields: vec!["entities".to_owned()],
-                selector_capabilities: vec![GameplayReadSelectorCapability::ScopeSelection],
-                max_items: 4,
-                ordering: "entityIdAscending".to_owned(),
-            })
+        test_provenance().apply_to_manifest::<PrefabReadBehavior>(&mut manifest);
+        GameplayStaticModuleProvider::linked_from_manifest(
+            manifest,
+            &test_provenance(),
+            PrefabReadBehavior,
+        )
+        .event_codec(GameplayEventCodecRegistration::typed(
+            TypedGameplayEventCodec::new(
+                GameplayEventSchemaDeclaration {
+                    codec_id: gameplay_canonical_codec_id(&event.schema_hash),
+                    event,
+                },
+                read_schema_descriptor("inspect"),
+                |payload: &u64| serde_json::to_vec(payload).map_err(|error| error.to_string()),
+                |bytes| serde_json::from_slice(bytes).map_err(|error| error.to_string()),
+            ),
+        ))
+        .read_view_provider(GameplayReadViewProviderRegistration {
+            view: prefab_view,
+            provider_id: provider_id.clone(),
+            kind: GameplayReadViewKind::PrefabPart,
+            fields: vec!["entity".to_owned(), "part".to_owned(), "role".to_owned()],
+            selector_capabilities: vec![GameplayReadSelectorCapability::PrefabPartRole],
+            max_items: 1,
+            ordering: "singlePart".to_owned(),
+        })
+        .read_view_provider(GameplayReadViewProviderRegistration {
+            view: scope_view,
+            provider_id,
+            kind: GameplayReadViewKind::Selection,
+            fields: vec!["entities".to_owned()],
+            selector_capabilities: vec![GameplayReadSelectorCapability::ScopeSelection],
+            max_items: 4,
+            ordering: "entityIdAscending".to_owned(),
+        })
     }
 
     fn prefab_project_input() -> GameplayRuntimeProjectInput {
