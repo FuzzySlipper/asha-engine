@@ -8,8 +8,16 @@ from collections import Counter
 
 OUTPUT_PARTS = {
     ".cache",
+    ".mypy_cache",
     ".nyc_output",
+    ".parcel-cache",
+    ".pnpm-store",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".turbo",
+    ".vite",
     "__pycache__",
+    "bower_components",
     "coverage",
     "dist",
     "node_modules",
@@ -17,6 +25,20 @@ OUTPUT_PARTS = {
     "shell-out",
     "smoke-out",
     "target",
+}
+OUTPUT_PREFIXES = ("ts/artifacts/",)
+OUTPUT_SUFFIXES = {
+    ".a",
+    ".dll",
+    ".dylib",
+    ".node",
+    ".o",
+    ".obj",
+    ".pyc",
+    ".pyo",
+    ".rlib",
+    ".rmeta",
+    ".so",
 }
 GENERATED_PREFIXES = (
     "docs/code-map/generated-",
@@ -28,7 +50,11 @@ SOURCE_SUFFIXES = {".cjs", ".js", ".mjs", ".py", ".rs", ".sh", ".ts", ".tsx"}
 
 def classify(path: str) -> str:
     pure = pathlib.PurePosixPath(path)
-    if any(part in OUTPUT_PARTS for part in pure.parts):
+    if (
+        any(part in OUTPUT_PARTS for part in pure.parts)
+        or path.startswith(OUTPUT_PREFIXES)
+        or pure.suffix in OUTPUT_SUFFIXES
+    ):
         return "buildCacheOutput"
     if path.startswith(GENERATED_PREFIXES) or path in GENERATED_FILES:
         return "generatedSource"

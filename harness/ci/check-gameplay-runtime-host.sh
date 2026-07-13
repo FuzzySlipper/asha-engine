@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$ROOT/target/gameplay-runtime-host}"
 ARTIFACT_DIR="${ASHA_GAMEPLAY_RUNTIME_HOST_ARTIFACT_DIR:-$ROOT/harness/smoke-out/gameplay-runtime-host}"
 EVIDENCE="$ARTIFACT_DIR/integration-evidence.jsonl"
 FAILURE_LOG="$ARTIFACT_DIR/failure.log"

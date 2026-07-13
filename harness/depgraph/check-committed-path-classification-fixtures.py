@@ -33,9 +33,17 @@ valid = run([
 if valid.returncode != 0:
     raise SystemExit(f"classification valid fixture failed:\n{valid.stdout}{valid.stderr}")
 
-invalid = run(["ts/packages/app/dist/index.js"])
-output = invalid.stdout + invalid.stderr
-if invalid.returncode == 0 or "tracked build/cache/output path" not in output:
-    raise SystemExit(f"classification negative fixture failed:\n{output}")
+for path in [
+    "harness/fixtures/example/target/debug/example",
+    "harness/depgraph/__pycache__/checker.cpython-312.pyc",
+    "ts/node_modules/example/index.js",
+    "ts/packages/app/dist/index.js",
+    "ts/packages/native-bridge/asha_engine.node",
+    "ts/artifacts/transient-report.json",
+]:
+    invalid = run([path])
+    output = invalid.stdout + invalid.stderr
+    if invalid.returncode == 0 or "tracked build/cache/output path" not in output:
+        raise SystemExit(f"classification negative fixture failed for {path}:\n{output}")
 
-print("Committed path classification fixtures: OK (tracked build path rejected)")
+print("Committed path classification fixtures: OK (tracked output classes rejected)")

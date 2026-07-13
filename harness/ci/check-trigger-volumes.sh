@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$ROOT/target/trigger-volumes}"
 
 cargo test --locked --offline --manifest-path "$ROOT/engine-rs/Cargo.toml" -p rule-trigger-volume
 cargo test --locked --offline --manifest-path "$ROOT/engine-rs/Cargo.toml" -p rule-gameplay-fabric --test owner_events

@@ -7,6 +7,7 @@ if [[ $# -ne 3 ]]; then
 fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$REPO_ROOT/target/gameplay-module-scaffolds}"
 TEMPLATE="$REPO_ROOT/harness/templates/gameplay-module"
 DESTINATION="$1"
 CRATE_NAME="$2"

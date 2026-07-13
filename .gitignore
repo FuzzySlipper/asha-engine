@@ -13,9 +13,27 @@ ts/packages/*/node_modules/
 coverage/
 .nyc_output/
 .vite/
+.parcel-cache/
+.pnpm-store/
+.turbo/
 dist/
 __pycache__/
 *.pyc
+*.pyo
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Native/compiler outputs are rebuilt by their owning gate and are never source.
+*.node
+*.so
+*.dylib
+*.dll
+*.o
+*.obj
+*.a
+*.rlib
+*.rmeta
 
 # ── Generated smoke-harness artifacts ───────────────────────────────────────────
 harness/smoke-out/

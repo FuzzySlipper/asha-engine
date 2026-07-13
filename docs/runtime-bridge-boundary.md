@@ -4,9 +4,10 @@
 > Source decision note: Den doc `runtime-boundary-napi-wasm-replay-strategy`.
 
 This document fixes the **package/crate shape**, the **allowed dependency graph**, and the
-**migration plan** for ASHA's runtime boundary. It is the cold-start reference for the
-runtime-boundary implementation tasks (#2249 manifest/glue, #2250 native prototype,
-#2251 WASM replay).
+**migration plan** for ASHA's runtime boundary. It began as the cold-start reference for
+the runtime-boundary implementation tasks (#2249 manifest/glue, #2250 native prototype,
+#2251 WASM replay) and now records the implemented boundary plus its #5753–#5755
+refinement.
 
 ## 1. Decision in one paragraph
 
@@ -15,6 +16,17 @@ WASM stays the canonical **replay/golden verification** target, not the runtime 
 Neither the native addon nor the WASM module is a public interface: app / UI / renderer /
 devtools depend only on a narrow, transport-agnostic facade. Generated contracts remain the
 semantic/governance border; native and WASM are transport glue underneath it.
+
+The public root stays one bounded `RuntimeBridge`/RuntimeSession surface. Its
+implementation is now grouped beneath that root into explicit input,
+time/simulation, scene/entity, voxel/asset/buffer, camera, gameplay,
+projection, bundle/lifecycle, and replay/evidence ports. These are typed
+construction-time subsets, not a public service locator. The bridge manifest
+generates the mechanical grouped interfaces, integrated root, native addon
+declarations, wired-operation inventory, wire descriptors, and parity checks.
+Rust and TypeScript validate every native request/response against those
+descriptors and carry structured bounded errors; semantic authority and domain
+conversion remain handwritten in their owning Rust lanes.
 
 ## 2. Layers
 
@@ -40,18 +52,18 @@ The facade selects an implementation at composition time: **native** (production
 TypeScript (`ts/packages/`):
 
 - `contracts` — unchanged. Generated semantic TS contracts.
-- `runtime-bridge` — **new.** Public facade: interfaces, mock implementation, buffer-handle
+- `runtime-bridge` — public facade: interfaces, mock implementation, buffer-handle
   API, error taxonomy, generated conformance tests. Render-diff decoding moves here (see §6).
-- `native-bridge` — **new.** Thin wrapper over the `napi-rs` addon. Imported **only** by
+- `native-bridge` — thin wrapper over the `napi-rs` addon. Imported **only** by
   `runtime-bridge`. Holds no semantic logic.
-- `wasm-replay-bridge` — **rename/repurpose of `wasm-bridge`.** Replay/golden/devtools WASM
+- `wasm-replay-bridge` — the repurposed successor to `wasm-bridge`. Replay/golden/devtools WASM
   path only. Imported by tests/devtools, never by `app`/`renderer-three`/`ui-dom`.
 
 Rust (`engine-rs/crates/bridge/`, a new layer between `render`/`wasm` and `tools`):
 
-- `runtime-bridge-api` — **new.** Owns the bridge manifest, the N-API-visible boundary types,
+- `runtime-bridge-api` — owns the bridge manifest, the N-API-visible boundary types,
   protocol↔boundary conversion stubs, and conformance helpers. No `napi` dependency itself.
-- `native-bridge` — **new.** The `napi-rs` `cdylib` addon. Depends on `runtime-bridge-api`
+- `native-bridge` — the `napi-rs` `cdylib` addon. Depends on `runtime-bridge-api`
   plus the engine crates (sim/services/render). The only crate that depends on `napi`.
 - `wasm-api` — **existing.** Stays the replay/golden WASM authority surface. Its scope is
   replay decode/diff/classification only: no runtime init/tick, command submission,

@@ -15,7 +15,7 @@ from typing import Any, NoReturn
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "harness" / "depgraph"))
 
-from committed_paths import classify, report as committed_path_report, tracked_paths
+from committed_paths import OUTPUT_PARTS, classify, report as committed_path_report, tracked_paths
 
 ATLAS_INDEX = REPO_ROOT / "docs" / "agent-code-atlas.md"
 CODE_MAP_DIR = REPO_ROOT / "docs" / "code-map"
@@ -42,6 +42,7 @@ REQUIRED_PAGE_SECTIONS = [
 ]
 
 IGNORED_LINK_PREFIXES = ("http://", "https://", "mailto:", "#")
+IGNORED_TRAVERSAL_PARTS = OUTPUT_PARTS | {".git"}
 
 
 def fail(message: str) -> NoReturn:
@@ -133,6 +134,21 @@ def package_name(package_path: str) -> str:
 
 def relative_link(from_path: pathlib.Path, to_path: pathlib.Path) -> str:
     return pathlib.Path(os.path.relpath(to_path, from_path.parent)).as_posix()
+
+
+def traversed_files(root: pathlib.Path, suffix: str | None = None) -> list[pathlib.Path]:
+    """Walk source/evidence trees without descending into local build output."""
+    files: list[pathlib.Path] = []
+    for directory, child_directories, child_files in os.walk(root):
+        child_directories[:] = sorted(
+            name for name in child_directories if name not in IGNORED_TRAVERSAL_PARTS
+        )
+        directory_path = pathlib.Path(directory)
+        for name in sorted(child_files):
+            path = directory_path / name
+            if suffix is None or path.suffix == suffix:
+                files.append(path)
+    return files
 
 
 def inventory_header() -> list[str]:
@@ -235,7 +251,7 @@ def render_evidence_inventory() -> list[str]:
         lines.append(f"### harness/{root_name} ({len(child_dirs)} groups)")
         lines.append("")
         for child in child_dirs:
-            file_count = len([path for path in child.rglob("*") if path.is_file()])
+            file_count = len(traversed_files(child))
             lines.append(
                 f"- [`{child.relative_to(REPO_ROOT).as_posix()}`]({relative_link(GENERATED_INVENTORY, child)}) — {file_count} files"
             )
@@ -290,7 +306,7 @@ def ts_source_imports(package_path: pathlib.Path) -> set[str]:
         r"(?:from\s+|import\s+(?:type\s+)?|import\s*\(\s*)"
         r"[\"'](@asha/[a-z0-9-]+)(?:/[^\"']*)?[\"']"
     )
-    for path in source.rglob("*.ts"):
+    for path in traversed_files(source, ".ts"):
         imports.update(match.group(1) for match in pattern.finditer(path.read_text()))
     return imports
 
@@ -406,7 +422,7 @@ def source_hotspots(ownership: dict[str, Any]) -> list[dict[str, Any]]:
             **policy.get("fileLineExemptions", {}),
             **policy.get("rootBarrelExemptions", {}),
         }
-        for path in root.rglob(f"*{suffix}"):
+        for path in traversed_files(root, suffix):
             rel = path.relative_to(REPO_ROOT).as_posix()
             if classify(rel) != "committedSource":
                 continue

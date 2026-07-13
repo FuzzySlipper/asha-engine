@@ -1,9 +1,12 @@
 # Gameplay Fabric Runtime Coordination
 
-Status: first runtime coordinator for Den task #5600. This surface executes the
-four stable invocation families over the immutable registry from #5630. Host,
-owner, and read-view implementations are statically composed by the
-`RuntimeSession`; there is no runtime callback registry.
+Status: current canonical runtime coordinator after #5748/#5750/#5751. This
+surface executes the four stable invocation families over the immutable
+registry, routes every proposal through one owner-routing primitive, admits
+payloads through canonical typed codecs, and advances wave-frozen generations
+under root-atomic rollback. Host, owner, and read-view implementations are
+statically composed by the `RuntimeSession`; there is no runtime callback
+registry.
 
 The endpoint is expressive gameplay composition: downstream Rust modules can
 observe semantic events, participate before an operation commits, and request

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$REPO_ROOT/target/gameplay-module-sdk}"
 FIXTURE="$REPO_ROOT/harness/fixtures/gameplay-module-sdk/downstream-module"
 SCRATCH="$(mktemp -d)"
 trap 'rm -rf "$SCRATCH"' EXIT

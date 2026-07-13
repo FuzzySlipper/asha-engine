@@ -19,6 +19,11 @@ CATALOG = ROOT / "harness/identity/catalog.json"
 CONFORMANCE = ROOT / "harness/conformance/probe-inventory.json"
 IGNORED_PARTS = {".git", "node_modules", "target", "smoke-out", "__pycache__"}
 
+# Downstream Cargo fixtures share a disposable build root outside their source
+# workspaces. The effective value is part of the proof-execution fingerprint via
+# the existing CARGO_ environment-prefix rule.
+os.environ.setdefault("CARGO_TARGET_DIR", str(ROOT / "target" / "proof-execution"))
+
 
 class ExecutionError(ValueError):
     """An execution definition is ambiguous or cannot be resolved."""

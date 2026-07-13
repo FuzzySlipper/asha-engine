@@ -2,6 +2,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$REPO_ROOT/target/gameplay-module-conformance}"
 PUBLIC_CRATE="$REPO_ROOT/public-rust/gameplay-module-conformance/Cargo.toml"
 FIXTURE="$REPO_ROOT/harness/fixtures/gameplay-module-sdk/downstream-module/Cargo.toml"
 REPORT="$(mktemp)"

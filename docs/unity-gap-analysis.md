@@ -1,4 +1,4 @@
-# Asha Engine — Unity Gap Analysis (2026-07-10)
+# Asha Engine — Unity Gap Analysis (2026-07-10; reconciled 2026-07-13)
 
 What Unity provides as fundamental infrastructure that Asha Engine currently
 lacks or only partially covers. Scoped to what matters for OSHApunk: a voxel
@@ -6,8 +6,10 @@ factory builder + Rimworld-style simulation with an FPS exploration mode.
 **Not** scoped to Unity-specific features like lightmap baking, Mecanim,
 terrain heightmaps, asset store integration, or multi-vendor platform support.
 
-Assessment basis: `/home/dev/asha-engine` (93K LOC Rust, 78 crates, 257 files)
-+ `/home/dev/asha-studio` (60K LOC TypeScript, Nx monorepo).
+Assessment basis: the committed ASHA engine and Studio repositories, reconciled
+after Batteries-for-Agents Wave 1 and the #5746 architecture-refinement
+campaign. Structural counts belong to the generated code atlas rather than
+this narrative snapshot.
 
 ---
 
@@ -18,12 +20,12 @@ Assessment basis: `/home/dev/asha-engine` (93K LOC Rust, 78 crates, 257 files)
 | 1 | Scene graph / entity hierarchy | **EXISTS** | — |
 | 2 | Animation | **PARTIAL** | Medium |
 | 3 | Audio | **BASELINE IMPLEMENTED** | Medium |
-| 4 | Input handling | **PARTIAL** | High |
+| 4 | Input handling | **BASELINE IMPLEMENTED** | Medium |
 | 5 | Physics (dynamics) | **STUB** | Medium |
 | 6 | Navigation / pathfinding | **EXISTS** | — |
 | 7 | Particle systems / VFX | **BASELINE IMPLEMENTED** | Medium |
-| 8 | World-space UI | **MISSING** | High |
-| 9 | Prefabs / templates | **PARTIAL** | High |
+| 8 | World-space UI | **BASELINE IMPLEMENTED** | High |
+| 9 | Prefabs / templates | **SUBSTANTIAL WAVE 1** | High |
 | 10 | Serialization / persistence | **EXISTS** | — |
 | 11 | Resource / asset management | **EXISTS** | — |
 | 12 | Scripting / hot-reload | **MISSING** | Low |
@@ -31,7 +33,7 @@ Assessment basis: `/home/dev/asha-engine` (93K LOC Rust, 78 crates, 257 files)
 | 14 | Profiling / stats | **PARTIAL** | Low-Medium |
 | 15 | Coroutines / scheduling | **PARTIAL** | Medium |
 | 16 | Camera system | **PARTIAL** | Medium |
-| 17 | Material system | **BASIC** | Medium |
+| 17 | Material system | **FEEDBACK SLICE IMPLEMENTED** | Medium |
 | 18 | LOD system | **MISSING** | Low-Medium |
 | 19 | Gameplay fabric | **IMPLEMENTED (Wave 1 static)** | Medium |
 | 20 | Component lifecycle | **PARTIAL** | Medium |
@@ -66,7 +68,17 @@ runtime.
 **What it has:**
 - `renderer-host/animated-mesh-host.ts`: GLB skeletal mesh loading with named
   clips (`idle`, `run`, `jump`)
-- Playback operations: play/pause/stop/resume a named clip on a `RenderHandle`
+- a Rust `rule-animation-controller` authority over versioned graphs, float,
+  bool, and trigger parameters, deterministic transitions, fixed-point blend
+  weights, playback speed, snapshots, and verification replay;
+- states with either one clip or a linear two-clip blend, plus transition
+  crossfades projected as bounded weighted clip sets;
+- gameplay-origin timing facts that bind controller transitions to accepted
+  owner facts without making renderer mixer time authoritative;
+- renderer-local typed clip/keyframe cues for cosmetic audio/VFX, explicitly
+  excluded from replay truth and forbidden from mutating gameplay;
+- compatibility playback operations for direct play/pause/stop/resume of a
+  named clip on a `RenderHandle`;
 - Pose sampling (root transform + hierarchy summary) for readout
 - Fixture manifest with content-hash validation
 
@@ -74,23 +86,17 @@ runtime.
 
 | Unity Concept | Asha Gap | Why It Matters |
 |---|---|---|
-| Animation Controller / State Machine | No blend trees, no transitions, no parameter-driven state | Factory machines cycle through idle→active→idle; characters transition walk→run→idle. Doing this with raw clip-name calls per tick requires ad-hoc state in every consumer. |
-| Animation events | No callback/event at specific keyframes | Footstep sounds, attack hitboxes, machine activation sparks — all need keyframe-anchored callbacks. |
-| Blend trees / layered animation | Single clip at a time | Upper-body aiming while lower-body runs. Walk speed blending between slow and fast gaits. |
+| Nested blend trees / layered animation | One linear two-clip blend per state; no layers or masks | Upper-body aiming while lower-body runs and richer locomotion spaces need explicit future graph vocabulary. |
+| Gameplay-critical keyframe actions | Renderer markers are cosmetic only by design | Attack hitboxes and damage must originate from gameplay authority; authored timing can request presentation but cannot become the fact source. |
 | Animation curves / parameter binding | No float curves driving material/property changes | Machine glow intensity pulsing with a cycle. Conveyor belt UV scroll rate. |
 | IK / procedural animation | None | Foot placement on stairs/slopes. Looking at target. Hand reaching for lever. |
 
-**Recommendation:** Don't build a Mecanim clone. But define a minimal
-`AnimationController` protocol type and a simple state-machine evaluator in
-Rust that takes named float parameters → selects clip + blend weight. Note the
-engine already has `rule-state-machine`, a generic finite-state transition
-authority (specs, transitions over `EntityId`/`ProcessId`/`ModeId`) — evaluate
-reusing it as the FSM core before writing a new evaluator (#5601). This
-keeps animation logic deterministic and replayable. Keyframe events can be a
-separate concern (or deferred to the audio system landing first).
-
-**Current workaround:** Consumers call `playClip(handle, 'idle')` directly.
-Fine for proofs. Won't scale past ~5 animated entity types.
+**Current posture:** author gameplay-facing graphs and parameters through the
+implemented controller; use sampled keyframe cues only for disposable
+presentation. Extend blend/layer/curve vocabulary when product graphs prove the
+need rather than building a Mecanim clone. See
+[`animation-controller-authority.md`](animation-controller-authority.md) and
+[`animation-timing-semantics.md`](animation-timing-semantics.md).
 
 ### 3. Audio — BASELINE IMPLEMENTED ✅ (Wave 1)
 
@@ -135,36 +141,33 @@ replayable. `protocol-presentation` owns the shared generated envelope,
 **Still deferred:** reverb zones, occlusion, mixer snapshots/automation,
 custom HRTF, streaming, and procedural synthesis.
 
-### 4. Input Handling — PARTIAL ⚠️ (High Priority)
+### 4. Input Handling — BASELINE IMPLEMENTED ✅ (Medium Priority)
 
 **What it has:**
-- `browser-fps-input.ts`: raw DOM keyboard/mouse → FPS camera movement
-  (WASD + mouse look + pointer lock)
-- `FirstPersonMotionInput` / `FirstPersonMotionCommand` in Rust
-- Camera collision constraints in the bridge authority
+- generated named action, binding, context, receipt, and replay contracts;
+- Rust-owned catalog validation, priority/consumption resolution, active
+  context stack, and deterministic recorded-action replay;
+- `BrowserInputHost` as the DOM keyboard/pointer/wheel adapter, with raw browser
+  details removed before gameplay/editor consumers see the action;
+- separate FPS and editor consumers over the same platform-neutral action
+  vocabulary, including high-priority menu/dialog/camera-navigation contexts;
+- RuntimeSession readout and commands for configuration, context changes, raw
+  sample submission, resolved-action replay, and inspection;
+- collision-constrained first-person movement remains Rust authority.
 
 **What's missing:**
 
 | Unity Concept | Asha Gap | Why It Matters |
 |---|---|---|
-| Input Action Maps | No action abstraction — raw key codes | "Jump" is Space in FPS mode but should be a UI button in editor mode. "Interact" is E near machines but Enter in dialogs. Without action maps, every mode switch requires if/else on raw key codes. |
-| Input rebinding | No rebinding infrastructure | Not urgent for v1, but OSHApunk's factory controls will want customizable hotkeys (tool palette, camera bookmarks, overlay toggles). |
+| Input rebinding UI | Catalogs are typed and replaceable, but there is no player-facing capture/conflict/save workflow | OSHApunk will eventually want customizable tool, camera, and overlay bindings. |
 | Gamepad support | None | Factory builder on Steam Deck? Deferrable but worth not closing the door. |
-| Input consumption / priority | No focus/layer system | When an IMGUI panel is open, should WASD move the camera or type in the text field? Current code has no concept of input focus. |
-| Editor vs gameplay modes | Raw key codes hardcoded in FPS input | Tool mode switch (place/remove/paint/select) vs FPS movement vs UI panel interaction — three input contexts with no abstraction. |
+| Touch/gesture/accessibility devices | No approved raw adapters yet | These should map into the same named-action resolver without changing gameplay consumers. |
+| Text/IME composition | Deliberately outside semantic action replay | Dialog and text widgets need a separate focused text-input lane rather than pretending characters are gameplay actions. |
 
-**Recommendation:** Define a small `InputAction` protocol: named actions
-("move_forward", "jump", "interact", "tool_place", "tool_select") with
-platform-agnostic bindings. Actions map to contexts ("fps", "editor",
-"menu"). The bridge validates and routes per context. No need for Unity's
-full input system with processors and interactions — just named actions +
-context switching + deterministic binding lookup.
-
-**Why this matters now:** The `editor-tools` package already has a `ToolMode`
-concept. The FPS pipeline has `FirstPersonMotionInput`. These are two separate
-input systems with no shared vocabulary. Adding a third (UI panel interaction)
-would create a three-way ad-hoc input routing problem. A small input action
-layer prevents that.
+**Current posture:** extend the adapter and authoring surfaces, not the
+authority model. New devices produce normalized raw samples; new modes declare
+contexts/actions; Rust retains priority, consumption, replay, and Session-state
+ownership. See [`named-input-actions.md`](named-input-actions.md).
 
 ### 5. Physics (Dynamics) — STUB ⚠️ (Medium Priority)
 
@@ -173,11 +176,12 @@ layer prevents that.
   AABB, raycasting, collision world as derived projection from voxel state.
 - `svc-physics`: exists but minimal (depends on core-error, core-math,
   core-time — no rapier dynamics, no rigid bodies, no joints).
+- Kinematic trigger volumes publish deterministic enter/exit owner facts from
+  authoritative transforms and persist overlap lifecycle across snapshots.
 
 **What's missing:**
 - Rigid body dynamics (gravity, velocity integration, force application)
 - Joints/constraints (hinges, sliders for machine parts)
-- Trigger volumes (enter/exit callbacks for factory zones)
 - Continuous collision detection (fast-moving belt items)
 - Physics materials (friction, restitution)
 
@@ -421,46 +425,54 @@ adapters; route the eventual shared keyboard binding through the input work in
   queues and version checking (Generate→Mesh→Collision→Upload)
 - `core-time::TickInterval`: periodic cadence ("every N ticks")
 - Work items are `Ord`, enabling parallel execution with deterministic apply
+- a separate gameplay action scheduler for tick- and event-conditioned work,
+  with stable IDs/priorities, full retained proposal envelopes, canonical owner
+  routing, exactly-once event delivery, interruption recovery, snapshots, replay,
+  and public RuntimeSession readout;
+- a scoped Rust scheduler port as the command-authority boundary, rather than a
+  caller-supplied owner string or TypeScript callback.
 
 **What's missing:**
-- **Yield-over-time for game logic:** "Wait 3 seconds, then activate machine"
-  currently requires manually tracking elapsed ticks in game rule state.
-  Unity's `yield return new WaitForSeconds(3)` is sugar, but the underlying
-  pattern (register a callback at tick + N) is genuinely useful.
-- **Condition-based waiting:** "Wait until belt has 5 items, then start
-  assembler." Currently requires polling every tick.
-- **Parallel composition:** "Start these 3 machines simultaneously, proceed
-  when all are done."
+- **Arbitrary coroutine continuations:** there is no general suspended stack or
+  callback capture, intentionally. Gameplay schedules typed moments/proposals.
+- **Composite joins:** "run three actions, continue when all complete" needs an
+  explicit rule/state-machine owner; the scheduler does not invent a hidden
+  orchestration graph.
+- **Wall-clock waits:** gameplay timing remains tick-based. Browser timers do
+  not become simulation authority.
 
-**Recommendation:** Don't build a full coroutine system. Add a `DeferredAction`
-concept to the rule layer: `{ execute_at: Tick, action: Command }`. The rule
-scheduler checks each tick for due deferred actions and feeds them back into
-the command pipeline. This is 90% of the value for 10% of the complexity.
+**Current posture:** the implemented gameplay scheduler is the governed
+`DeferredAction` equivalent. Add new typed conditions/moments through the
+gameplay fabric when real gameplay demands them; do not add ambient callbacks
+or a general coroutine runtime. See
+[`gameplay-action-scheduler.md`](gameplay-action-scheduler.md).
 
 ### 16. Camera System — PARTIAL ⚠️ (Medium Priority)
 
 **What it has:**
-- FPS camera: `FirstPersonMotionInput` → collision-constrained movement
-- `CameraCreateRequest`, `CameraProjectionRequest`, `CameraCollisionSnapshot`
-- Single active camera at a time
+- one Rust-owned camera controller with first-person, orbit, and top-down modes;
+- revision-guarded mode changes plus orbit/top-down pan, rotate, and zoom;
+- voxel collision/terrain clearance, typed atomic rejection, stable controller
+  state/readout, and accepted endpoint hashes;
+- named-input context exclusion so FPS movement and pivot navigation cannot run
+  together;
+- renderer-only interpolation between accepted endpoints.
 
 **What's missing:**
-- **Multiple camera types:** The factory builder needs an orbit/top-down camera
-  for building mode, an FPS camera for walking around, and potentially a
-  cinematic camera for cutscenes. Currently only FPS exists.
 - **Camera stack / layering:** Overlay camera for UI in world space, main
   camera for world, minimap camera. Unity's camera stacking.
-- **Camera transitions:** Blend from orbit to FPS when entering first-person
-  mode. Currently a hard cut.
+- **Cinematic rails/follow/shake:** There is no authored target-follow,
+  cutscene rail, or camera-shake system.
+- **Multiple active viewports:** One accepted controller is active per current
+  Session surface; minimap and editor split-view composition remain future work.
 - **Post-processing volumes:** Entering a smokey factory wing triggers
   different color grading / fog than outdoor areas. Pure renderer concern
   but needs camera-relative triggers.
 
-**Recommendation:** The FPS camera works. Add an `OrbitCameraController` as a
-parallel mode (not replacing FPS, just adding a second mode). Note there is
-**no camera mode enum in the protocol today** (`protocol-view` has only
-`CameraCollisionPolicyMode`) — a `CameraMode` enum must be introduced (#5604).
-Post-processing can be deferred to the material/renderer upgrade pass.
+**Current posture:** use the shared controller for ordinary embodied play and
+factory/editor navigation. Add cinematic or multi-viewport projection as
+separate typed concerns without creating another active camera authority. See
+[`camera-modes.md`](camera-modes.md).
 
 ### 17. Material System — FEEDBACK SLICE IMPLEMENTED ✅ (Medium Priority)
 
@@ -593,21 +605,26 @@ explicit.
 - Serialization with schema versioning and hash verification
 - CI governance and agent lane enforcement
 
-**The critical gaps for a playable OSHApunk v1:**
+**The critical integration work for a playable OSHApunk v1:**
 
-1. **Input action system** — raw keycodes don't survive mode switches.
-2. **World-space UI** — no way to show machine status at a glance.
-3. **Gameplay fabric adoption** — the substrate exists; individual game owners
-   still need to publish rich semantic facts and build real modules.
-4. **Domain lifecycle design** — use named facts/moments and compiled modules,
-   not per-entity callback emulation.
+1. **Gameplay fabric adoption** — the substrate and one-cell RuntimeSession
+   path exist; individual game owners still need to publish rich semantic facts
+   and build real modules.
+2. **World-space UI authoring/content** — the billboard path exists; machine,
+   belt, character, prompt, and zone projections still need product content and
+   Studio workflows.
+3. **Input catalog/product coverage** — named contexts and browser FPS/editor
+   routing exist; the game still needs its complete action catalog, rebinding
+   UX, and eventual non-keyboard adapters.
+4. **Domain lifecycle design** — use named facts/moments, the gameplay
+   scheduler, and compiled modules rather than per-entity callback emulation.
 
 **The "nice to have" gaps:**
-- Animation state machines (manual clip control works for now)
-- Material upgrades (emission, texture tint)
+- Animation layers, nested blends, curves, and IK beyond the controller baseline
+- Material PBR maps and continuous parameter animation beyond feedback tint/emission
 - Particle/VFX authoring beyond the baseline emitters
-- Camera modes beyond FPS
-- Deferred action scheduling
+- Cinematic, multi-viewport, and camera-stack behavior beyond FPS/orbit/top-down
+- Composite scheduling/join authoring beyond the typed deferred-action baseline
 - Per-system profiling and memory overlay beyond the delivered live stats baseline
 
 **The defer-to-v1+ gaps:**
