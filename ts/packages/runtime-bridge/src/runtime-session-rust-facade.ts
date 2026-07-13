@@ -434,9 +434,9 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#requireInitialized('submitRuntimeActionIntent');
     validateRuntimeActionIntentEnvelope(envelope);
     const before = this.#sessionHash();
-    this.#progress.advanceSequence();
 
     if (envelope.action !== 'primary_fire' || envelope.phase !== 'pressed') {
+      this.#progress.advanceSequence();
       this.#record('submitRuntimeActionIntent', undefined, envelope.source);
       return {
         sequenceId: this.#progress.sequenceId,
@@ -455,10 +455,12 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       };
     }
 
+    const camera = this.#bridge.readCameraControllerState({ camera: envelope.camera }).snapshot;
+    this.#progress.advanceSequence();
     const fire = this.#bridge.applyFpsPrimaryFire({
       tick: envelope.tick,
-      origin: [0, 1.62, 0],
-      direction: [0, 0, -1],
+      origin: camera.pose.position,
+      direction: camera.basis.forward,
     });
     this.#progress.recordProjectedAuthorityTick(envelope.tick);
     this.#snapshot = this.#bridge.readFpsRuntimeSession();

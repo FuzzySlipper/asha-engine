@@ -565,12 +565,17 @@ void test('Rust-backed RuntimeSession routes ECRP load, primary fire, and restar
   assert.equal(rustReadout.authority.source, 'rust_bridge');
   assert.equal(rustReadout.authority.surface, 'runtime_session.fps.reference.v0');
   assert.equal(rustReadout.authority.readSets[0]?.owner, 'rule-lifecycle');
+  const fireCamera = session.createCamera({
+    initialPose: { position: [0, 1.62, 0], yawDegrees: 0, pitchDegrees: 0 },
+    projection: { fovYDegrees: 55, near: 0.1, far: 100 },
+    viewport: { width: 1280, height: 720 },
+  }).snapshot.camera;
 
   const receipt = session.submitRuntimeActionIntent({
     kind: 'runtime_action_intent.v0',
     action: 'primary_fire',
     phase: 'pressed',
-    camera: cameraHandle(1),
+    camera: fireCamera,
     tick: 7,
     source: 'programmatic',
     pressed: true,

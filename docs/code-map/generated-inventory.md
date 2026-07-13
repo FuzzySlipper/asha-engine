@@ -288,7 +288,7 @@ Source: [bridge-manifest.toml](../../engine-rs/crates/bridge/runtime-bridge-api/
 
 ## Assignment And Dependency Pressure
 
-Committed path classes: 683 source; 26 generated source; 520 other; 0 build/cache/output.
+Committed path classes: 686 source; 26 generated source; 520 other; 0 build/cache/output.
 
 ### Rust actual and allowed edges
 
@@ -443,13 +443,13 @@ Committed path classes: 683 source; 26 generated source; 520 other; 0 build/cach
 | `ts/packages/runtime-bridge/src/mock.ts` | 1610 / 1580 / 1620 | ts-shell | 2026-10-15 |
 | `engine-rs/crates/rules/rule-lifecycle/src/lib.rs` | 1578 / 1400 / 1600 | rust-rule | global policy |
 | `engine-rs/crates/rules/rule-voxel-edit/src/history.rs` | 1571 / 1400 / 1600 | rust-rule | global policy |
+| `ts/packages/runtime-bridge/src/runtime-session.test.ts` | 1568 / 1400 / 1600 | ts-shell | global policy |
 | `engine-rs/crates/bridge/runtime-bridge-api/src/authority/fps_and_rules.rs` | 1567 / 1400 / 1600 | rust-bridge | global policy |
 | `engine-rs/crates/rules/rule-animation-controller/src/lib.rs` | 1565 / 1400 / 1600 | rust-rule | global policy |
-| `ts/packages/runtime-bridge/src/runtime-session.test.ts` | 1563 / 1400 / 1600 | ts-shell | global policy |
 | `engine-rs/crates/protocol/protocol-render/src/lib.rs` | 1893 / 1880 / 1941 | contract-steward | 2026-10-15 |
 | `engine-rs/crates/rules/rule-gameplay-fabric/src/state.rs` | 1555 / 1400 / 1600 | rust-rule | global policy |
 | `engine-rs/crates/bridge/native-bridge/src/lib.rs` | 1549 / 1400 / 1600 | rust-bridge | global policy |
-| `ts/packages/runtime-bridge/src/runtime-session-rust-facade.ts` | 1545 / 1400 / 1600 | ts-shell | global policy |
+| `ts/packages/runtime-bridge/src/runtime-session-rust-facade.ts` | 1547 / 1400 / 1600 | ts-shell | global policy |
 | `engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_assets.rs` | 1531 / 1400 / 1600 | rust-bridge | global policy |
 | `engine-rs/crates/protocol/protocol-codegen/src/source.rs` | 1528 / 1400 / 1600 | contract-steward | global policy |
 | `engine-rs/crates/rules/rule-voxel-edit/src/lib.rs` | 1510 / 1400 / 1600 | rust-rule | global policy |
