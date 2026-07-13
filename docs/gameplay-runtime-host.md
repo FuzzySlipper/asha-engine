@@ -65,10 +65,12 @@ meaning:
   exactly-once enter/exit events;
 - `move_actor_and_reconcile` applies collision-constrained movement first and
   samples triggers against the accepted pose;
-- `apply_scheduler_command` schedules, triggers, times out, or cancels a typed
-  tick/event-conditioned action while retaining complete recoverable proposal
-  state;
-- `route_scheduled_action` routes an outstanding dispatch through the same
+- `scheduler_port` lends the trusted Rust composition/transport adapter a
+  non-cloneable borrow of this host's scheduler command authority;
+- the port's `apply` operation schedules, triggers, times out, or cancels a
+  typed tick/event-conditioned action while retaining complete recoverable
+  proposal state;
+- the port's `route` operation routes an outstanding dispatch through the same
   closed registry and concrete owner router used by module proposals, then
   records the typed routing fact exactly once;
 - `readout` exposes bounded hashes/counts plus the same bounded reaction-frame
@@ -84,6 +86,15 @@ therefore changes the public host hash even when it does not cross a trigger or
 change any module state. The nested scheduler readout exposes its owner, full
 state hash, total counts, and up to 256 ordered pending actions/outstanding
 dispatches with an explicit truncation bit.
+
+The scheduler port is the honest command authorization boundary. It borrows one
+live host, accepts no owner/session/generation token, and cannot be cloned,
+serialized, redirected to another host, or carried through snapshot/restore.
+The configured scheduler owner is routing and evidence identity only. Gameplay
+modules and TypeScript do not receive the port; the statically linked native
+adapter borrows it only while translating one closed transport moment. A
+restored host therefore requires a new borrow, while duplicate action commands
+still fail through scheduler replay/id retirement checks before mutation.
 
 Each invocation freezes entity, module-state, trigger, and registry evidence.
 The committed downstream fixture proves both a module-named state read and a

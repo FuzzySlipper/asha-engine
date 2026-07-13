@@ -40,7 +40,7 @@ state are absent.
 queries over a frozen queue. Matching an event does not immediately mutate the
 queue or apply its proposal.
 
-The next explicit boundary routes an owner-gated `GameplaySchedulerCommand`:
+The scheduler core accepts an explicit `GameplaySchedulerCommand`:
 
 - schedule tick/event action;
 - execute a due tick action;
@@ -53,9 +53,35 @@ against one frozen wave, then the scheduler owner records the trigger and emits
 one `GameplayScheduledDispatch` for normal proposal-owner routing. A scheduled
 event cannot retroactively change the fact it observed.
 
-Only the registered scheduler owner may apply commands. Schedule requests with
+The core command is not a caller-authentication envelope. In the product path,
+only a `GameplayRuntimeSchedulerPort` borrowed from one live
+`GameplayRuntimeHost` can apply the safe command subset. Schedule requests with
 undeclared event or proposal contracts fail before queue mutation. Action ids
 are retired after any terminal outcome and cannot execute or be reused.
+
+## Command authority threat model
+
+The trusted downstream Rust composition/transport adapter owns the live host.
+Gameplay modules receive only `GameplayModuleContext`; TypeScript receives only
+generated transport moments. Neither receives the host or scheduler port.
+
+Possession of `GameplayRuntimeSchedulerPort<'host>` is therefore the command
+authorization boundary. The port:
+
+- borrows exactly one live host and has no target Session argument;
+- is not cloneable or serializable;
+- cannot outlive, replace, snapshot, or restore its borrowed host;
+- exposes schedule/trigger/timeout/cancel plus one canonical `route` operation;
+  and
+- does not expose the internal routing-receipt or delivery-completion commands.
+
+There is intentionally no caller-supplied owner id. The owner in
+`GameplayRuntimeSchedulerDefinition` identifies the scheduler in snapshots,
+readouts, and routing evidence; it is not an authentication principal. Missing,
+foreign, cross-Session, stale-generation, and replayed port evidence are
+unrepresentable rather than string-compared. After restore, the adapter must
+borrow a fresh port from the restored host. Commands still reject repeated or
+retired action ids before state mutation.
 
 ## Typed Outcomes
 
@@ -109,12 +135,12 @@ mutation.
 `GameplayRuntimeHost` owns the product-facing scheduler authority. Project
 activation requires a `GameplayRuntimeSchedulerDefinition` whose owner, event
 contracts, and proposal contracts validate against the same closed gameplay
-registry used by module dispatch. The host exposes typed
-`apply_scheduler_command` and `route_scheduled_action` operations; routing
-consumes the actual fabric receipt from the registry-resolved proposal owner,
-not caller-authored completion evidence.
+registry used by module dispatch. The trusted composition adapter borrows a
+typed port with `scheduler_port`, then uses `apply` and `route`. Routing consumes
+the actual fabric receipt from the registry-resolved proposal owner, not
+caller-authored completion evidence.
 
-`route_scheduled_action` is also the retry operation. For an outstanding
+The port's `route` operation is also the retry operation. For an outstanding
 dispatch it routes authority, records the typed result, delivers any returned
 events, and records completion as one host transaction. For an outstanding
 event delivery it skips authority and resumes only the recorded Observe batch.
@@ -132,9 +158,9 @@ EntityStore/prefab authority hash.
 The transport-neutral TypeScript host contract exposes the same authority as a
 required scheduler load definition, typed `schedulerCommand` and
 `schedulerRoute` moments, and a nested scheduler readout. A downstream product
-still supplies the small statically linked native provider that maps these
-closed variants to Rust; it does not implement a parallel scheduler or send a
-raw completion receipt.
+still supplies the small statically linked native provider that borrows the
+scoped Rust port while mapping each closed moment; it does not retain the port,
+implement a parallel scheduler, or send a raw completion receipt.
 
 The integration fixture models a factory `crafting-completed` event triggering
 a progression-counter proposal, then routes that proposal through a closed

@@ -743,11 +743,11 @@ mod tests {
         BundleArtifacts, GameplayBindingEntityTargets, GameplayDecisionMoment,
         GameplayDecisionStatus, GameplayOperationWorkspace, GameplayRuntimeDecisionOwner,
         GameplayRuntimeDecisionOwnerOutput, GameplayRuntimeDeclaredReadPlan, GameplayRuntimeHost,
-        GameplayRuntimeProjectInput, GameplayRuntimeSchedulerDefinition,
-        GameplayRuntimeSpatialEntity, GameplaySchedulerCommand, GameplayTriggerDefinition,
-        LoadPlan, LoadStep, RuntimeSessionId, SceneId, ScheduledActionId, ScheduledActionValidity,
-        TickScheduledActionDraft, TriggerReconcileCause,
-        GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION,
+        GameplayRuntimeProjectInput, GameplayRuntimeSchedulerCommand,
+        GameplayRuntimeSchedulerDefinition, GameplayRuntimeSpatialEntity,
+        GameplayTriggerDefinition, LoadPlan, LoadStep, RuntimeSessionId, SceneId,
+        ScheduledActionId, ScheduledActionValidity, TickScheduledActionDraft,
+        TriggerReconcileCause, GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION,
     };
 
     fn conformance_composition() -> Result<GameplayStaticComposition, GameplayStaticCompositionError>
@@ -1177,23 +1177,26 @@ mod tests {
         let mut host =
             GameplayRuntimeHost::activate_project(runtime_host_project_input(4)).unwrap();
         let initial = host.readout();
-        let scheduled = host
-            .apply_scheduler_command(GameplaySchedulerCommand::ScheduleTick(
-                scheduled_collision_deactivation(),
-            ))
-            .unwrap();
-        assert_eq!(scheduled.readout.pending_action_count, 1);
         let action_id = ScheduledActionId::new("fixture.scheduler.disable-trigger-collision");
-        let triggered = host
-            .apply_scheduler_command(GameplaySchedulerCommand::ExecuteTick {
-                action_id: action_id.clone(),
-                tick: 5,
-                validity: ScheduledActionValidity::CURRENT,
-            })
-            .unwrap();
-        assert!(triggered.scheduler.dispatch.is_some());
-        assert_eq!(triggered.readout.outstanding_dispatch_count, 1);
-        let routed = host.route_scheduled_action(&action_id).unwrap();
+        let routed = {
+            let mut scheduler = host.scheduler_port();
+            let scheduled = scheduler
+                .apply(GameplayRuntimeSchedulerCommand::ScheduleTick(
+                    scheduled_collision_deactivation(),
+                ))
+                .unwrap();
+            assert_eq!(scheduled.readout.pending_action_count, 1);
+            let triggered = scheduler
+                .apply(GameplayRuntimeSchedulerCommand::ExecuteTick {
+                    action_id: action_id.clone(),
+                    tick: 5,
+                    validity: ScheduledActionValidity::CURRENT,
+                })
+                .unwrap();
+            assert!(triggered.scheduler.dispatch.is_some());
+            assert_eq!(triggered.readout.outstanding_dispatch_count, 1);
+            scheduler.route(&action_id).unwrap()
+        };
         assert!(routed.routing.accepted);
         assert_eq!(routed.delivered_events.len(), 1);
         assert!(routed.reaction.as_ref().unwrap().observe.accepted());

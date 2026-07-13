@@ -3,19 +3,19 @@
 use std::collections::BTreeSet;
 
 use core_entity::EntityStore;
-use protocol_game_extension::{GameplayContractRef, GameplayOwnerRef};
+use protocol_game_extension::{GameplayContractRef, GameplayEventEnvelope, GameplayOwnerRef};
 use rule_gameplay_fabric::{
     GameplayFabricCoordinator, GameplayReactionSourceFact, GameplayRoutingEvidence,
 };
 use serde::{Deserialize, Serialize};
 
 pub use rule_scheduler::{
-    EventConditionedActionDraft, GameplayActionScheduler, GameplayEventCondition,
-    GameplayScheduledDispatch, GameplayScheduledEventDelivery, GameplaySchedulerCommand,
-    GameplaySchedulerError, GameplaySchedulerFact, GameplaySchedulerReceipt, ScheduledActionId,
-    ScheduledActionRejectionReason, ScheduledActionValidity, ScheduledGameplayAction,
-    TickScheduledActionDraft,
+    EventConditionedActionDraft, GameplayEventCondition, GameplayScheduledDispatch,
+    GameplayScheduledEventDelivery, GameplaySchedulerError, GameplaySchedulerFact,
+    GameplaySchedulerReceipt, ScheduledActionId, ScheduledActionRejectionReason,
+    ScheduledActionValidity, ScheduledGameplayAction, TickScheduledActionDraft,
 };
+use rule_scheduler::{GameplayActionScheduler, GameplaySchedulerCommand};
 
 use crate::{
     limits_from_registry, GameplayRuntimeHost, GameplayRuntimeHostError, RuntimeSessionOwnerRouter,
@@ -74,6 +74,117 @@ pub struct GameplayRuntimeSchedulerCommandReceipt {
     pub readout: GameplayRuntimeSchedulerReadout,
 }
 
+/// Product-facing scheduler mutations available through a scoped
+/// [`GameplayRuntimeSchedulerPort`]. Closed-registry routing and delivery
+/// acknowledgement are deliberately absent; the host performs those steps as
+/// one recoverable operation through [`GameplayRuntimeSchedulerPort::route`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GameplayRuntimeSchedulerCommand {
+    ScheduleTick(TickScheduledActionDraft),
+    ScheduleEventConditioned(EventConditionedActionDraft),
+    ExecuteTick {
+        action_id: ScheduledActionId,
+        tick: u64,
+        validity: ScheduledActionValidity,
+    },
+    TriggerEvent {
+        action_id: ScheduledActionId,
+        event: GameplayEventEnvelope,
+        validity: ScheduledActionValidity,
+    },
+    Timeout {
+        action_id: ScheduledActionId,
+        tick: u64,
+    },
+    Cancel {
+        action_id: ScheduledActionId,
+        reason: String,
+    },
+}
+
+impl GameplayRuntimeSchedulerCommand {
+    fn into_core(self) -> GameplaySchedulerCommand {
+        match self {
+            Self::ScheduleTick(draft) => GameplaySchedulerCommand::ScheduleTick(draft),
+            Self::ScheduleEventConditioned(draft) => {
+                GameplaySchedulerCommand::ScheduleEventConditioned(draft)
+            }
+            Self::ExecuteTick {
+                action_id,
+                tick,
+                validity,
+            } => GameplaySchedulerCommand::ExecuteTick {
+                action_id,
+                tick,
+                validity,
+            },
+            Self::TriggerEvent {
+                action_id,
+                event,
+                validity,
+            } => GameplaySchedulerCommand::TriggerEvent {
+                action_id,
+                event,
+                validity,
+            },
+            Self::Timeout { action_id, tick } => {
+                GameplaySchedulerCommand::Timeout { action_id, tick }
+            }
+            Self::Cancel { action_id, reason } => {
+                GameplaySchedulerCommand::Cancel { action_id, reason }
+            }
+        }
+    }
+}
+
+/// Lexically scoped authority for scheduler mutation and routing.
+///
+/// The port cannot be cloned or serialized and borrows exactly one live host.
+/// Possession, granted by the trusted Rust composition/transport adapter, is
+/// the authorization boundary. There is no caller-supplied owner string or
+/// bearer token to forge, replay, redirect to another Session, or carry across
+/// restore.
+///
+/// The borrow cannot be promoted into persistent or replayable authority:
+///
+/// ```compile_fail
+/// # use gameplay_runtime_host::GameplayRuntimeSchedulerPort;
+/// fn persist(
+///     port: GameplayRuntimeSchedulerPort<'_>,
+/// ) -> GameplayRuntimeSchedulerPort<'static> {
+///     port
+/// }
+/// ```
+///
+/// The port is deliberately non-cloneable:
+///
+/// ```compile_fail
+/// # use gameplay_runtime_host::GameplayRuntimeSchedulerPort;
+/// fn duplicate(port: GameplayRuntimeSchedulerPort<'_>) {
+///     let _copy = port.clone();
+/// }
+/// ```
+#[must_use = "scheduler authority is exercised through the scoped port"]
+pub struct GameplayRuntimeSchedulerPort<'host> {
+    host: &'host mut GameplayRuntimeHost,
+}
+
+impl GameplayRuntimeSchedulerPort<'_> {
+    pub fn apply(
+        &mut self,
+        command: GameplayRuntimeSchedulerCommand,
+    ) -> Result<GameplayRuntimeSchedulerCommandReceipt, GameplayRuntimeHostError> {
+        self.host.apply_scheduler_command(command.into_core())
+    }
+
+    pub fn route(
+        &mut self,
+        action_id: &ScheduledActionId,
+    ) -> Result<GameplayRuntimeSchedulerRoutingReceipt, GameplayRuntimeHostError> {
+        self.host.route_scheduled_action(action_id)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GameplayRuntimeSchedulerRoutingReceipt {
     pub routing: GameplayRoutingEvidence,
@@ -85,16 +196,22 @@ pub struct GameplayRuntimeSchedulerRoutingReceipt {
 }
 
 impl GameplayRuntimeHost {
-    /// Apply one owner-gated scheduler command. Triggering commands retain the
-    /// complete proposal in recoverable scheduler state until the caller routes
-    /// it through [`Self::route_scheduled_action`].
-    pub fn apply_scheduler_command(
+    /// Borrow scheduler authority for this live host instance. The configured
+    /// scheduler owner remains routing/evidence identity; it is not caller
+    /// authentication.
+    pub fn scheduler_port(&mut self) -> GameplayRuntimeSchedulerPort<'_> {
+        GameplayRuntimeSchedulerPort { host: self }
+    }
+
+    /// Apply one command after the public scoped port has granted access.
+    /// Triggering commands retain the complete proposal in recoverable
+    /// scheduler state until the same port routes it.
+    fn apply_scheduler_command(
         &mut self,
         command: GameplaySchedulerCommand,
     ) -> Result<GameplayRuntimeSchedulerCommandReceipt, GameplayRuntimeHostError> {
         validate_scheduler_command_codecs(self.session.registry(), &command)?;
-        let owner = self.scheduler.owner().clone();
-        let scheduler = self.scheduler.apply(&owner, command)?;
+        let scheduler = self.scheduler.apply(command)?;
         Ok(GameplayRuntimeSchedulerCommandReceipt {
             scheduler,
             readout: self.scheduler_readout(),
@@ -103,7 +220,7 @@ impl GameplayRuntimeHost {
 
     /// Route one recoverable scheduled dispatch through the same closed fabric
     /// registry and concrete RuntimeSession owner router used by module output.
-    pub fn route_scheduled_action(
+    fn route_scheduled_action(
         &mut self,
         action_id: &ScheduledActionId,
     ) -> Result<GameplayRuntimeSchedulerRoutingReceipt, GameplayRuntimeHostError> {
@@ -125,7 +242,7 @@ impl GameplayRuntimeHost {
                         GameplaySchedulerFact::RoutingAccepted {
                             action_id: routed_action_id,
                             ..
-                        } if routed_action_id == action_id
+                        } if routed_action_id.as_str() == action_id.as_str()
                     )
                 })
                 .cloned()
@@ -167,15 +284,13 @@ impl GameplayRuntimeHost {
                 return Err(error);
             }
         };
-        let owner = self.scheduler.owner().clone();
         let routing_evidence = routing.evidence().clone();
-        let recorded = self.scheduler.apply(
-            &owner,
-            GameplaySchedulerCommand::RecordRouting {
+        let recorded = self
+            .scheduler
+            .apply(GameplaySchedulerCommand::RecordRouting {
                 action_id: action_id.clone(),
                 receipt: routing,
-            },
-        );
+            });
         let recorded = match recorded {
             Ok(recorded) => recorded,
             Err(error) => {
@@ -226,14 +341,12 @@ impl GameplayRuntimeHost {
             .as_ref()
             .ok_or(GameplayRuntimeHostError::MissingEntityAuthority)?
             .snapshot_durable();
-        let scheduler_owner = self.scheduler.owner().clone();
-        let completed = self.scheduler.apply(
-            &scheduler_owner,
-            GameplaySchedulerCommand::CompleteEventDelivery {
+        let completed = self
+            .scheduler
+            .apply(GameplaySchedulerCommand::CompleteEventDelivery {
                 action_id: delivery.action_id.clone(),
                 routing_hash: delivery.routing.routing_hash.clone(),
-            },
-        )?;
+            })?;
         let source_fact = GameplayReactionSourceFact::new(
             delivery.routing.owner_id.clone(),
             "gameplayOwnerRouting".to_owned(),

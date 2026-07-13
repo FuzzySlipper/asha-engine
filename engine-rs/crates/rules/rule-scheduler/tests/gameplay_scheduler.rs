@@ -234,9 +234,7 @@ fn apply(
     scheduler: &mut GameplayActionScheduler,
     command: GameplaySchedulerCommand,
 ) -> rule_scheduler::GameplaySchedulerReceipt {
-    scheduler
-        .apply(&scheduler_owner(), command)
-        .expect("scheduler command")
+    scheduler.apply(command).expect("scheduler command")
 }
 
 #[test]
@@ -273,21 +271,19 @@ fn tick_actions_execute_once_at_or_after_the_tick_in_stable_order() {
     assert!(receipt.dispatch.is_some());
     assert_eq!(scheduler.due_action_ids(20).len(), 3);
     assert_eq!(
-        scheduler.apply(
-            &scheduler_owner(),
-            GameplaySchedulerCommand::ExecuteTick {
-                action_id: ScheduledActionId::new("action.early"),
-                tick: 20,
-                validity: ScheduledActionValidity::CURRENT,
-            },
-        ),
+        scheduler.apply(GameplaySchedulerCommand::ExecuteTick {
+            action_id: ScheduledActionId::new("action.early"),
+            tick: 20,
+            validity: ScheduledActionValidity::CURRENT,
+        }),
         Err(GameplaySchedulerError::UnknownAction)
     );
     assert_eq!(
-        scheduler.apply(
-            &scheduler_owner(),
-            GameplaySchedulerCommand::ScheduleTick(tick_draft("action.early", 30, 0)),
-        ),
+        scheduler.apply(GameplaySchedulerCommand::ScheduleTick(tick_draft(
+            "action.early",
+            30,
+            0,
+        ))),
         Err(GameplaySchedulerError::DuplicateAction)
     );
 }
@@ -591,13 +587,10 @@ fn triggered_dispatch_survives_reload_and_fact_replay_until_routing_acceptance()
         .route_proposal(wrong_proposal, &mut wrong_router)
         .expect("other proposal routes through the same closed registry");
     assert_eq!(
-        restored.apply(
-            &scheduler_owner(),
-            GameplaySchedulerCommand::RecordRouting {
-                action_id: expected.action_id.clone(),
-                receipt: wrong_receipt,
-            },
-        ),
+        restored.apply(GameplaySchedulerCommand::RecordRouting {
+            action_id: expected.action_id.clone(),
+            receipt: wrong_receipt,
+        }),
         Err(GameplaySchedulerError::RoutingMismatch)
     );
     assert_eq!(restored.outstanding_dispatches(), vec![&expected]);
@@ -672,13 +665,10 @@ fn accepted_owner_events_survive_interruption_and_complete_delivery_exactly_once
 
     let before_wrong = restored.state_hash();
     assert_eq!(
-        restored.apply(
-            &scheduler_owner(),
-            GameplaySchedulerCommand::CompleteEventDelivery {
-                action_id: dispatch.action_id.clone(),
-                routing_hash: "wrong-routing-hash".to_owned(),
-            },
-        ),
+        restored.apply(GameplaySchedulerCommand::CompleteEventDelivery {
+            action_id: dispatch.action_id.clone(),
+            routing_hash: "wrong-routing-hash".to_owned(),
+        }),
         Err(GameplaySchedulerError::RoutingMismatch)
     );
     assert_eq!(restored.state_hash(), before_wrong);
@@ -692,13 +682,10 @@ fn accepted_owner_events_survive_interruption_and_complete_delivery_exactly_once
     );
     assert!(restored.outstanding_event_deliveries().is_empty());
     assert_eq!(
-        restored.apply(
-            &scheduler_owner(),
-            GameplaySchedulerCommand::CompleteEventDelivery {
-                action_id: dispatch.action_id,
-                routing_hash: delivery.routing.routing_hash,
-            },
-        ),
+        restored.apply(GameplaySchedulerCommand::CompleteEventDelivery {
+            action_id: dispatch.action_id,
+            routing_hash: delivery.routing.routing_hash,
+        }),
         Err(GameplaySchedulerError::UnknownAction)
     );
     GameplayActionScheduler::replay(
@@ -711,23 +698,13 @@ fn accepted_owner_events_survive_interruption_and_complete_delivery_exactly_once
 }
 
 #[test]
-fn foreign_owner_and_undeclared_contracts_fail_without_mutation() {
+fn undeclared_contracts_fail_without_mutation() {
     let mut scheduler = scheduler();
     let before = scheduler.state_hash();
-    assert_eq!(
-        scheduler.apply(
-            &progression_owner(),
-            GameplaySchedulerCommand::ScheduleTick(tick_draft("action.foreign", 1, 0)),
-        ),
-        Err(GameplaySchedulerError::ForeignOwner)
-    );
     let mut undeclared = tick_draft("action.undeclared", 1, 0);
     undeclared.proposal.proposal = contract("game.unknown", "proposal");
     assert_eq!(
-        scheduler.apply(
-            &scheduler_owner(),
-            GameplaySchedulerCommand::ScheduleTick(undeclared),
-        ),
+        scheduler.apply(GameplaySchedulerCommand::ScheduleTick(undeclared)),
         Err(GameplaySchedulerError::UndeclaredProposal)
     );
     assert_eq!(scheduler.state_hash(), before);

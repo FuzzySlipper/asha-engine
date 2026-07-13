@@ -41,6 +41,7 @@ use rule_gameplay_fabric::{
 use rule_project_bundle::{
     GameplayBindingActivationError, GameplayBoundProjectBundleSession, SessionStateArtifact,
 };
+use rule_scheduler::GameplayActionScheduler;
 use serde::{Deserialize, Serialize};
 
 // These are deliberately re-exported from the public host altitude. Consumers
@@ -1992,6 +1993,10 @@ mod tests {
     }
 
     fn scheduler_host_input() -> GameplayRuntimeHostInput {
+        scheduler_host_input_for("authority.fixture-scheduler")
+    }
+
+    fn scheduler_host_input_for(owner_id: &str) -> GameplayRuntimeHostInput {
         let mut bundle = bundle();
         create_spatial(&mut bundle, EntityId::new(10), 0.0, true);
         let mut composition = GameplayStaticCompositionBuilder::new();
@@ -2006,8 +2011,8 @@ mod tests {
             triggers: Vec::new(),
             scheduler: GameplayRuntimeSchedulerDefinition::new(
                 GameplayOwnerRef {
-                    owner_id: "authority.fixture-scheduler".to_owned(),
-                    provider_id: "provider.fixture-scheduler".to_owned(),
+                    owner_id: owner_id.to_owned(),
+                    provider_id: format!("provider.{owner_id}"),
                 },
                 Vec::new(),
                 vec![
@@ -2355,19 +2360,109 @@ mod tests {
     }
 
     #[test]
-    fn scheduler_restore_delivers_recorded_owner_events_without_rerouting_authority() {
-        let mut host = GameplayRuntimeHost::activate(scheduler_host_input()).unwrap();
-        host.apply_scheduler_command(GameplaySchedulerCommand::ScheduleTick(
-            scheduled_collision_deactivation(),
+    fn scheduler_ports_bind_one_live_host_across_concurrent_sessions_and_restore() {
+        let mut first = GameplayRuntimeHost::activate(scheduler_host_input_for(
+            "authority.fixture-scheduler-first",
         ))
         .unwrap();
-        let action_id = ScheduledActionId::new("fixture.scheduler.deactivate-collision");
-        host.apply_scheduler_command(GameplaySchedulerCommand::ExecuteTick {
-            action_id: action_id.clone(),
-            tick: 5,
-            validity: ScheduledActionValidity::CURRENT,
-        })
+        let second = GameplayRuntimeHost::activate(scheduler_host_input_for(
+            "authority.fixture-scheduler-second",
+        ))
         .unwrap();
+        let second_before = second.scheduler_readout();
+        let action_id = ScheduledActionId::new("fixture.scheduler.deactivate-collision");
+        let mut draft = scheduled_collision_deactivation();
+
+        // Owner-shaped strings are event provenance, not command authority.
+        // Even a label copied from the other Session cannot redirect the port.
+        let foreign_label = "authority.fixture-scheduler-second".to_owned();
+        draft.source = protocol_game_extension::GameplayEmitterRef::Owner {
+            owner_id: foreign_label.clone(),
+        };
+        draft.proposal.emitter = protocol_game_extension::GameplayEmitterRef::Owner {
+            owner_id: foreign_label,
+        };
+        first
+            .scheduler_port()
+            .apply(GameplayRuntimeSchedulerCommand::ScheduleTick(draft))
+            .unwrap();
+        assert_eq!(first.scheduler_readout().pending_action_count, 1);
+        assert_eq!(second.scheduler_readout(), second_before);
+
+        let snapshot = first.compose_snapshot().unwrap();
+        let mut restored = GameplayRuntimeHost::restore(
+            scheduler_host_input_for("authority.fixture-scheduler-first"),
+            &snapshot.text,
+        )
+        .expect("restored host mints its own new port");
+        assert_eq!(restored.scheduler_readout().pending_action_count, 1);
+
+        // A port borrowed from the original host cannot target the restored
+        // host. Cancelling through it changes only the original instance.
+        first
+            .scheduler_port()
+            .apply(GameplayRuntimeSchedulerCommand::Cancel {
+                action_id: action_id.clone(),
+                reason: "original-session-only".to_owned(),
+            })
+            .unwrap();
+        assert_eq!(first.scheduler_readout().pending_action_count, 0);
+        assert_eq!(restored.scheduler_readout().pending_action_count, 1);
+
+        let mut restored_port = restored.scheduler_port();
+        let executed = restored_port
+            .apply(GameplayRuntimeSchedulerCommand::ExecuteTick {
+                action_id: action_id.clone(),
+                tick: 5,
+                validity: ScheduledActionValidity::CURRENT,
+            })
+            .unwrap();
+        let state_after_execution = executed.readout.state_hash;
+        assert!(matches!(
+            restored_port.apply(GameplayRuntimeSchedulerCommand::ExecuteTick {
+                action_id,
+                tick: 5,
+                validity: ScheduledActionValidity::CURRENT,
+            }),
+            Err(GameplayRuntimeHostError::Scheduler(
+                GameplaySchedulerError::UnknownAction
+            ))
+        ));
+        drop(restored_port);
+        assert_eq!(
+            restored.scheduler_readout().state_hash,
+            state_after_execution
+        );
+
+        let error = match GameplayRuntimeHost::restore(
+            scheduler_host_input_for("authority.fixture-scheduler-second"),
+            &snapshot.text,
+        ) {
+            Ok(_) => panic!("foreign scheduler owner must not restore as the saved host"),
+            Err(error) => error,
+        };
+        assert!(matches!(error, GameplayRuntimeHostError::Snapshot(_)));
+    }
+
+    #[test]
+    fn scheduler_restore_delivers_recorded_owner_events_without_rerouting_authority() {
+        let mut host = GameplayRuntimeHost::activate(scheduler_host_input()).unwrap();
+        let action_id = ScheduledActionId::new("fixture.scheduler.deactivate-collision");
+        {
+            let mut scheduler = host.scheduler_port();
+            scheduler
+                .apply(GameplayRuntimeSchedulerCommand::ScheduleTick(
+                    scheduled_collision_deactivation(),
+                ))
+                .unwrap();
+            scheduler
+                .apply(GameplayRuntimeSchedulerCommand::ExecuteTick {
+                    action_id: action_id.clone(),
+                    tick: 5,
+                    validity: ScheduledActionValidity::CURRENT,
+                })
+                .unwrap();
+        }
 
         // Model interruption after authority routing was durably recorded but
         // before the returned owner event entered its next Observe wave.
@@ -2384,15 +2479,11 @@ mod tests {
             },
         )
         .unwrap();
-        let scheduler_owner = host.scheduler.owner().clone();
         host.scheduler
-            .apply(
-                &scheduler_owner,
-                GameplaySchedulerCommand::RecordRouting {
-                    action_id: action_id.clone(),
-                    receipt: route,
-                },
-            )
+            .apply(rule_scheduler::GameplaySchedulerCommand::RecordRouting {
+                action_id: action_id.clone(),
+                receipt: route,
+            })
             .unwrap();
         host.session.bundle.runtime_entities = Some(entities);
         assert_eq!(host.scheduler.outstanding_event_deliveries().len(), 1);
@@ -2407,7 +2498,7 @@ mod tests {
                 .outstanding_event_delivery_count,
             1
         );
-        let delivered = restored.route_scheduled_action(&action_id).unwrap();
+        let delivered = restored.scheduler_port().route(&action_id).unwrap();
         assert_eq!(delivered.delivered_events.len(), 1);
         assert!(delivered.reaction.as_ref().unwrap().observe.accepted());
         assert!(matches!(
@@ -2426,7 +2517,7 @@ mod tests {
         );
         assert_eq!(restored.reaction_frames().len(), 1);
         assert!(matches!(
-            restored.route_scheduled_action(&action_id),
+            restored.scheduler_port().route(&action_id),
             Err(GameplayRuntimeHostError::Scheduler(
                 GameplaySchedulerError::UnknownAction
             ))

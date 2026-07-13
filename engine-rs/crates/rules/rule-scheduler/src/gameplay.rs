@@ -1,8 +1,9 @@
 //! Replayable shared gameplay-action scheduling authority.
 //!
-//! Matching is read-only. Queue mutation happens only through owner-gated
-//! commands, so an Observe participant can collect matches in one frozen wave
-//! and route trigger proposals at the next explicit authority boundary.
+//! Matching is read-only. Queue mutation happens only through explicit
+//! commands. The product runtime scopes possession of this authority behind a
+//! host-borrowing scheduler port, so an Observe participant can collect matches
+//! in one frozen wave and route trigger proposals at the next explicit boundary.
 
 use protocol_game_extension::{
     GameplayCausationRef, GameplayContractRef, GameplayEmitterRef, GameplayEventEnvelope,
@@ -252,7 +253,6 @@ pub struct GameplaySchedulerReceipt {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GameplaySchedulerError {
-    ForeignOwner,
     InvalidActionId,
     UndeclaredEvent,
     UndeclaredProposal,
@@ -269,9 +269,6 @@ pub enum GameplaySchedulerError {
 impl core::fmt::Display for GameplaySchedulerError {
     fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::ForeignOwner => {
-                formatter.write_str("only the registered scheduler owner may mutate the queue")
-            }
             Self::InvalidActionId => formatter.write_str("scheduled action id is invalid"),
             Self::UndeclaredEvent => formatter.write_str("scheduled event contract is undeclared"),
             Self::UndeclaredProposal => {
@@ -468,12 +465,8 @@ impl GameplayActionScheduler {
 
     pub fn apply(
         &mut self,
-        acting_owner: &GameplayOwnerRef,
         command: GameplaySchedulerCommand,
     ) -> Result<GameplaySchedulerReceipt, GameplaySchedulerError> {
-        if acting_owner != &self.owner {
-            return Err(GameplaySchedulerError::ForeignOwner);
-        }
         let state_hash_before = self.state_hash();
         let (fact, dispatch) = match command {
             GameplaySchedulerCommand::ScheduleTick(draft) => {
