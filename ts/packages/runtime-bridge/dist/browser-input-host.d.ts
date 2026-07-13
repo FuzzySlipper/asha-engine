@@ -1,10 +1,6 @@
-import type { InputBindingCatalog, InputContextChangeReceipt, InputContextCommand, InputContextStackState, InputResolutionReceipt, InputSessionConfigureRequest, InputSessionSnapshot, RawInputSample, ResolvedInputAction } from '@asha/contracts';
-export interface BrowserInputSessionPort {
-    configureInputSession(request: InputSessionConfigureRequest): InputSessionSnapshot;
-    applyInputContextCommand(command: InputContextCommand): InputContextChangeReceipt;
-    submitRawInput(sample: RawInputSample): InputResolutionReceipt;
-    readInputContextState(): InputContextStackState;
-}
+import type { InputBindingCatalog, InputContextChangeReceipt, InputContextCommand, InputContextStackState, InputResolutionReceipt, RawInputSample, ResolvedInputAction } from '@asha/contracts';
+import type { RuntimeInputPort } from './bridge.js';
+export type BrowserInputSessionPort = Pick<RuntimeInputPort, 'configureInputSession' | 'applyInputContextCommand' | 'submitRawInput' | 'readInputContextState'>;
 export interface BrowserKeyboardInput {
     readonly code: string;
     readonly repeat?: boolean;

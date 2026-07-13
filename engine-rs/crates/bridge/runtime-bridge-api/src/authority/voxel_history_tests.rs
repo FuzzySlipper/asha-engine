@@ -112,7 +112,7 @@ fn mixed_batches_preserve_partial_acceptance_and_record_one_accepted_transaction
 #[test]
 fn command_and_expanded_work_quotas_reject_without_world_or_history_mutation() {
     let mut bridge = init_bridge();
-    let world_hash_before = rule_voxel_edit::voxel_world_hash(bridge.voxel.as_ref().unwrap());
+    let world_hash_before = rule_voxel_edit::voxel_world_hash(bridge.voxel.voxel.as_ref().unwrap());
     let history_before = bridge.read_voxel_edit_history(read_request()).unwrap();
 
     let command_error = bridge
@@ -142,7 +142,7 @@ fn command_and_expanded_work_quotas_reject_without_world_or_history_mutation() {
         .contains("expanded touched-voxel limit"));
 
     assert_eq!(
-        rule_voxel_edit::voxel_world_hash(bridge.voxel.as_ref().unwrap()),
+        rule_voxel_edit::voxel_world_hash(bridge.voxel.voxel.as_ref().unwrap()),
         world_hash_before
     );
     assert_eq!(
@@ -154,14 +154,14 @@ fn command_and_expanded_work_quotas_reject_without_world_or_history_mutation() {
 #[test]
 fn preview_then_apply_revert_uses_rust_replay_without_preview_mutation() {
     let mut bridge = init_bridge();
-    let base_hash = rule_voxel_edit::voxel_world_hash(bridge.voxel.as_ref().unwrap());
+    let base_hash = rule_voxel_edit::voxel_world_hash(bridge.voxel.voxel.as_ref().unwrap());
     bridge
         .submit_commands(CommandBatch {
             commands: vec![set_voxel(VoxelCoord::new(1, 1, 1), 2)],
         })
         .unwrap();
     let edited = bridge.read_voxel_edit_history(read_request()).unwrap();
-    let edited_hash = rule_voxel_edit::voxel_world_hash(bridge.voxel.as_ref().unwrap());
+    let edited_hash = rule_voxel_edit::voxel_world_hash(bridge.voxel.voxel.as_ref().unwrap());
     let request = VoxelEditHistoryRevertRequest {
         history_id: edited.history_id.clone(),
         mode: protocol_voxel_edit_history::VoxelEditHistoryRevertMode::PreviewRevert,
@@ -185,7 +185,7 @@ fn preview_then_apply_revert_uses_rust_replay_without_preview_mutation() {
         1
     );
     assert_eq!(
-        rule_voxel_edit::voxel_world_hash(bridge.voxel.as_ref().unwrap()),
+        rule_voxel_edit::voxel_world_hash(bridge.voxel.voxel.as_ref().unwrap()),
         edited_hash,
         "preview must not mutate live authority"
     );
@@ -199,7 +199,7 @@ fn preview_then_apply_revert_uses_rust_replay_without_preview_mutation() {
     assert!(applied.applied);
     assert!(!applied.preview);
     assert_eq!(
-        rule_voxel_edit::voxel_world_hash(bridge.voxel.as_ref().unwrap()),
+        rule_voxel_edit::voxel_world_hash(bridge.voxel.voxel.as_ref().unwrap()),
         base_hash
     );
 }
@@ -207,14 +207,14 @@ fn preview_then_apply_revert_uses_rust_replay_without_preview_mutation() {
 #[test]
 fn undo_and_redo_move_the_rust_history_cursor_and_live_voxel_state_together() {
     let mut bridge = init_bridge();
-    let base_hash = rule_voxel_edit::voxel_world_hash(bridge.voxel.as_ref().unwrap());
+    let base_hash = rule_voxel_edit::voxel_world_hash(bridge.voxel.voxel.as_ref().unwrap());
     bridge
         .submit_commands(CommandBatch {
             commands: vec![set_voxel(VoxelCoord::new(1, 1, 1), 2)],
         })
         .unwrap();
     let edited = bridge.read_voxel_edit_history(read_request()).unwrap();
-    let edited_hash = rule_voxel_edit::voxel_world_hash(bridge.voxel.as_ref().unwrap());
+    let edited_hash = rule_voxel_edit::voxel_world_hash(bridge.voxel.voxel.as_ref().unwrap());
     assert_ne!(edited_hash, base_hash);
 
     let undo = bridge
@@ -228,7 +228,7 @@ fn undo_and_redo_move_the_rust_history_cursor_and_live_voxel_state_together() {
         .unwrap();
     assert!(undo.receipt.applied);
     assert_eq!(
-        rule_voxel_edit::voxel_world_hash(bridge.voxel.as_ref().unwrap()),
+        rule_voxel_edit::voxel_world_hash(bridge.voxel.voxel.as_ref().unwrap()),
         base_hash
     );
     let undone = bridge.read_voxel_edit_history(read_request()).unwrap();
@@ -246,7 +246,7 @@ fn undo_and_redo_move_the_rust_history_cursor_and_live_voxel_state_together() {
         .unwrap();
     assert!(redo.receipt.applied);
     assert_eq!(
-        rule_voxel_edit::voxel_world_hash(bridge.voxel.as_ref().unwrap()),
+        rule_voxel_edit::voxel_world_hash(bridge.voxel.voxel.as_ref().unwrap()),
         edited_hash
     );
 }
@@ -259,7 +259,7 @@ fn stale_or_unknown_history_requests_fail_closed_without_mutation() {
             commands: vec![set_voxel(VoxelCoord::new(1, 1, 1), 2)],
         })
         .unwrap();
-    let before_hash = rule_voxel_edit::voxel_world_hash(bridge.voxel.as_ref().unwrap());
+    let before_hash = rule_voxel_edit::voxel_world_hash(bridge.voxel.voxel.as_ref().unwrap());
 
     let mut unknown = read_request();
     unknown.history_id = "history/unknown".to_string();
@@ -275,7 +275,7 @@ fn stale_or_unknown_history_requests_fail_closed_without_mutation() {
         RuntimeBridgeErrorKind::InvalidInput
     );
     assert_eq!(
-        rule_voxel_edit::voxel_world_hash(bridge.voxel.as_ref().unwrap()),
+        rule_voxel_edit::voxel_world_hash(bridge.voxel.voxel.as_ref().unwrap()),
         before_hash
     );
 }

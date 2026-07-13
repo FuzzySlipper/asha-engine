@@ -14,7 +14,7 @@ export { buildRuntimeSessionAnimationControllerTargetFrame } from './runtime-ses
 // Render-diff decode (moved from the former @asha/wasm-bridge). Transport-neutral
 // payload -> contract types; backs `readRenderDiffs`. See render-decode.ts.
 export { decodeRenderDiff, decodeRenderFrameDiff, RenderDecodeError, RenderDiffStream, FrameMemory, } from './render-decode.js';
-export { RuntimeBridgeError, frameCursor } from './bridge.js';
+export { RUNTIME_BRIDGE_PORT_CONTRACTS, RuntimeBridgeError, frameCursor, runtimeBridgePorts, } from './bridge.js';
 export { SelectedBackendGameRuntimeLauncher, createNativeGameRuntimeLauncher, createSelectedBackendGameRuntimeLauncher, nativeBackendProfile, validateGameRuntimeBackendProfile, } from './launcher.js';
 export * from './native.js';
 export * from './browser-input-host.js';

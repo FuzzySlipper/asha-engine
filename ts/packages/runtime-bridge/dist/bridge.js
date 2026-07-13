@@ -21,4 +21,78 @@ export function u32(value, field) {
     }
     return value;
 }
+/**
+ * Produce fixed typed views over one root. Every property is statically named;
+ * callers cannot request arbitrary capabilities or discover mutable state.
+ */
+export function runtimeBridgePorts(bridge) {
+    return {
+        input: bridge,
+        timeSimulation: bridge,
+        sceneEntities: bridge,
+        voxelAssetsBuffers: bridge,
+        camera: bridge,
+        gameplay: bridge,
+        projection: bridge,
+        bundleLifecycle: bridge,
+        replayEvidence: bridge,
+    };
+}
+/** Reviewable lifecycle rules for the fixed port set. */
+export const RUNTIME_BRIDGE_PORT_CONTRACTS = {
+    input: {
+        initialization: 'requiresEngine',
+        projectBundle: 'retainedAcrossLoadUnload',
+        snapshotHash: 'inputEvidence',
+        resourceLifetime: 'session',
+    },
+    timeSimulation: {
+        initialization: 'requiresEngine',
+        projectBundle: 'retainedAcrossLoadUnload',
+        snapshotHash: 'timeState',
+        resourceLifetime: 'session',
+    },
+    sceneEntities: {
+        initialization: 'requiresEngine',
+        projectBundle: 'retainedAcrossLoadUnload',
+        snapshotHash: 'sceneDocument',
+        resourceLifetime: 'session',
+    },
+    voxelAssetsBuffers: {
+        initialization: 'requiresEngine',
+        projectBundle: 'retainedAcrossLoadUnload',
+        snapshotHash: 'voxelStateAndResources',
+        resourceLifetime: 'mixedExplicitAndSession',
+    },
+    camera: {
+        initialization: 'requiresEngine',
+        projectBundle: 'retainedAcrossLoadUnload',
+        snapshotHash: 'cameraProjection',
+        resourceLifetime: 'session',
+    },
+    gameplay: {
+        initialization: 'requiresEngine',
+        projectBundle: 'retainedAcrossLoadUnload',
+        snapshotHash: 'gameplaySessionAndReplay',
+        resourceLifetime: 'session',
+    },
+    projection: {
+        initialization: 'requiresEngine',
+        projectBundle: 'retainedAcrossLoadUnload',
+        snapshotHash: 'projectionFrame',
+        resourceLifetime: 'frame',
+    },
+    bundleLifecycle: {
+        initialization: 'createsEngine',
+        projectBundle: 'ownsLoadUnload',
+        snapshotHash: 'compositionStatus',
+        resourceLifetime: 'session',
+    },
+    replayEvidence: {
+        initialization: 'requiresEngine',
+        projectBundle: 'retainedAcrossLoadUnload',
+        snapshotHash: 'replayEvidence',
+        resourceLifetime: 'session',
+    },
+};
 //# sourceMappingURL=bridge.js.map

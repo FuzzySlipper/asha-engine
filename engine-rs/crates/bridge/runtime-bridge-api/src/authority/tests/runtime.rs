@@ -28,7 +28,7 @@ fn accepted_voxel_command_mutates_authority_and_marks_dirty() {
     assert_eq!(result.rejected, 0);
     assert!(result.rejections.is_empty());
 
-    let world = bridge.voxel.as_ref().unwrap();
+    let world = bridge.voxel.voxel.as_ref().unwrap();
     let chunk = world.get(ChunkCoord::new(0, 0, 0)).unwrap();
     assert_eq!(
         chunk.get(LocalVoxelCoord::new(0, 0, 0)),
@@ -45,6 +45,7 @@ fn accepted_voxel_command_mutates_authority_and_marks_dirty() {
 fn rejected_unknown_material_is_classified_and_does_not_mutate() {
     let mut bridge = init_bridge();
     let before = bridge
+        .voxel
         .voxel
         .as_ref()
         .unwrap()
@@ -65,6 +66,7 @@ fn rejected_unknown_material_is_classified_and_does_not_mutate() {
     ));
 
     let after = bridge
+        .voxel
         .voxel
         .as_ref()
         .unwrap()
@@ -266,6 +268,7 @@ fn collision_camera_requires_an_explicit_grounded_or_free_flight_basis() {
     assert_eq!(vertical_error.kind, RuntimeBridgeErrorKind::InvalidInput);
     assert_eq!(
         bridge
+            .camera
             .cameras
             .get(&grounded_camera.camera.raw())
             .unwrap()
@@ -487,6 +490,7 @@ fn collision_camera_travel_limit_accepts_boundary_and_rejects_over_limit_without
     assert!(rejected.message.contains("maximum axis travel of 256"));
     assert_eq!(
         bridge
+            .camera
             .cameras
             .get(&rejected_camera.camera.raw())
             .unwrap()

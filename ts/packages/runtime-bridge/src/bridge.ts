@@ -295,25 +295,34 @@ export interface VoxelMeshEvidenceSnapshot {
   readonly diagnostics: readonly string[];
 }
 
-// ── The facade surface ────────────────────────────────────────────────────────
-// Bounded verbs only — mirrors bridge-manifest.toml. No generic call(method, json).
+// ── Fixed capability ports ───────────────────────────────────────────────────
+// These are compile-time subsets of one bridge cell, never service names or a
+// runtime lookup table. The public RuntimeBridge root composes every port below.
 
-export interface RuntimeBridge {
-  initializeEngine(config: EngineConfig): EngineHandle;
+export interface RuntimeInputPort {
   configureInputSession(request: InputSessionConfigureRequest): InputSessionSnapshot;
   applyInputContextCommand(command: InputContextCommand): InputContextChangeReceipt;
   submitRawInput(sample: RawInputSample): InputResolutionReceipt;
   replayResolvedInputAction(record: RecordedInputAction): InputActionReplayReceipt;
   readInputContextState(): InputContextStackState;
+}
+
+export interface RuntimeTimeSimulationPort {
   applyTimeControlCommand(command: TimeControlCommand): TimeControlReceipt;
   readTimeControlState(): TimeControlState;
   stepSimulation(input: StepInputEnvelope): StepResult;
+}
+
+export interface RuntimeSceneEntityPort {
+  readModelMaterialPreview(request: ModelMaterialPreviewRequest): ModelMaterialPreviewSnapshot;
+  readSceneObjectSnapshot(): SceneObjectSnapshot;
+  applySceneObjectCommand(request: SceneObjectCommandRequest): SceneObjectCommandResult;
+  applyEnemyDirectNavMovement(request: EnemyDirectNavMovementRequest): EnemyDirectNavMovementResult;
+}
+
+export interface RuntimeVoxelAssetBufferPort {
   submitCommands(batch: CommandBatch): CommandResult;
   pickVoxel(ray: PickRay): PickResult;
-  applyCollisionConstrainedCameraInput(input: CollisionConstrainedCameraInputEnvelope): CameraCollisionSnapshot;
-  applyGeneratedTunnelToRuntimeWorld(
-    request: GeneratedTunnelRuntimeApplyRequest,
-  ): GeneratedTunnelRuntimeApplyReceipt;
   selectVoxel(request: ScreenPointToPickRayRequest): VoxelSelectionSnapshot;
   readVoxelMeshEvidence(request: VoxelMeshEvidenceRequest): VoxelMeshEvidenceSnapshot;
   planVoxelConversion(request: VoxelConversionPlanRequest): VoxelConversionPlan;
@@ -323,7 +332,6 @@ export interface RuntimeBridge {
   readVoxelConversionSourceMetadata(request: VoxelConversionSourceMetadataRequest): VoxelConversionSourceMetadataReadout;
   previewVoxelConversion(request: VoxelConversionPreviewRequest): VoxelConversionPreview;
   applyVoxelConversion(request: VoxelConversionApplyRequest): VoxelConversionReceipt;
-  exportVoxelConversionEvidence(evidence: readonly VoxelConversionEvidenceRef[]): readonly VoxelConversionEvidenceRef[];
   readVoxelModelInfo(request: VoxelModelInfoRequest): VoxelModelInfoReadout;
   readVoxelModelWindow(request: VoxelModelWindowRequest): VoxelModelWindowReadout;
   exportVoxelVolumeAsset(request: VoxelVolumeAssetExportRequest): VoxelVolumeAssetExportReceipt;
@@ -342,6 +350,24 @@ export interface RuntimeBridge {
   applyVoxelEditRevert(request: VoxelEditHistoryRevertRequest): VoxelEditHistoryRevertReceipt;
   undoVoxelEdit(request: VoxelEditHistoryUndoRequest): VoxelEditHistoryUndoReceipt;
   redoVoxelEdit(request: VoxelEditHistoryRedoRequest): VoxelEditHistoryRedoReceipt;
+  getBuffer(handle: RuntimeBufferHandle): RuntimeBufferView;
+  releaseBuffer(handle: RuntimeBufferHandle): void;
+}
+
+export interface RuntimeCameraPort {
+  applyCollisionConstrainedCameraInput(input: CollisionConstrainedCameraInputEnvelope): CameraCollisionSnapshot;
+  createCamera(request: CameraCreateRequest): CameraSnapshot;
+  applyCameraModeCommand(command: CameraModeCommand): CameraModeChangeReceipt;
+  applyCameraNavigationInput(input: CameraNavigationInputEnvelope): CameraNavigationReceipt;
+  readCameraControllerState(request: CameraControllerReadRequest): CameraControllerState;
+  applyFirstPersonCameraInput(input: FirstPersonCameraInputEnvelope): CameraSnapshot;
+  readCameraProjection(request: CameraProjectionRequest): CameraProjectionSnapshot;
+}
+
+export interface RuntimeGameplayPort {
+  applyGeneratedTunnelToRuntimeWorld(
+    request: GeneratedTunnelRuntimeApplyRequest,
+  ): GeneratedTunnelRuntimeApplyReceipt;
   loadFpsRuntimeSession(request: FpsRuntimeSessionLoadRequest): FpsRuntimeSessionSnapshot;
   readFpsRuntimeSession(): FpsRuntimeSessionSnapshot;
   applyFpsPrimaryFire(request: FpsPrimaryFireRequest): FpsPrimaryFireResult;
@@ -354,26 +380,145 @@ export interface RuntimeBridge {
   restartFpsRuntimeSession(request: FpsRuntimeSessionRestartRequest): FpsRuntimeSessionSnapshot;
   readFpsEncounterDirector(lifecycle: FpsEncounterLifecycleInput): FpsEncounterDirectorSnapshot;
   applyFpsEncounterTransition(request: FpsEncounterTransitionRequest): FpsEncounterTransitionResult;
-  readModelMaterialPreview(request: ModelMaterialPreviewRequest): ModelMaterialPreviewSnapshot;
-  readSceneObjectSnapshot(): SceneObjectSnapshot;
-  applySceneObjectCommand(request: SceneObjectCommandRequest): SceneObjectCommandResult;
+}
+
+export interface RuntimeProjectionPort {
   readRenderDiffs(cursor: FrameCursor): RenderFrameDiff;
   readProjectionFrame(cursor: FrameCursor): RuntimeProjectionFrame;
-  createCamera(request: CameraCreateRequest): CameraSnapshot;
-  applyCameraModeCommand(command: CameraModeCommand): CameraModeChangeReceipt;
-  applyCameraNavigationInput(input: CameraNavigationInputEnvelope): CameraNavigationReceipt;
-  readCameraControllerState(request: CameraControllerReadRequest): CameraControllerState;
-  applyFirstPersonCameraInput(input: FirstPersonCameraInputEnvelope): CameraSnapshot;
-  applyEnemyDirectNavMovement(request: EnemyDirectNavMovementRequest): EnemyDirectNavMovementResult;
-  readCameraProjection(request: CameraProjectionRequest): CameraProjectionSnapshot;
-  getBuffer(handle: RuntimeBufferHandle): RuntimeBufferView;
-  releaseBuffer(handle: RuntimeBufferHandle): void;
-  // ProjectBundle load/save composition (operational; not a replay-verification replacement).
+}
+
+export interface RuntimeBundleLifecyclePort {
+  initializeEngine(config: EngineConfig): EngineHandle;
   loadProjectBundle(request: ProjectBundleLoadRequest): CompositionStatus;
   saveProjectBundle(): ProjectBundleSaveSummary;
   getProjectBundleCompositionStatus(): CompositionStatus;
   unloadProjectBundle(): void;
-  // Quarantined: replay/golden harness, not the production renderer path.
+}
+
+export interface RuntimeReplayEvidencePort {
+  exportVoxelConversionEvidence(
+    evidence: readonly VoxelConversionEvidenceRef[],
+  ): readonly VoxelConversionEvidenceRef[];
   loadReplayFixture(fixture: ReplayFixture): ReplaySessionHandle;
   runReplayStep(session: ReplaySessionHandle): ReplayStepReport;
 }
+
+/** Bounded verbs only — mirrors bridge-manifest.toml. No generic call(method, json). */
+export interface RuntimeBridge
+  extends RuntimeInputPort,
+    RuntimeTimeSimulationPort,
+    RuntimeSceneEntityPort,
+    RuntimeVoxelAssetBufferPort,
+    RuntimeCameraPort,
+    RuntimeGameplayPort,
+    RuntimeProjectionPort,
+    RuntimeBundleLifecyclePort,
+    RuntimeReplayEvidencePort {}
+
+export interface RuntimeBridgePorts {
+  readonly input: RuntimeInputPort;
+  readonly timeSimulation: RuntimeTimeSimulationPort;
+  readonly sceneEntities: RuntimeSceneEntityPort;
+  readonly voxelAssetsBuffers: RuntimeVoxelAssetBufferPort;
+  readonly camera: RuntimeCameraPort;
+  readonly gameplay: RuntimeGameplayPort;
+  readonly projection: RuntimeProjectionPort;
+  readonly bundleLifecycle: RuntimeBundleLifecyclePort;
+  readonly replayEvidence: RuntimeReplayEvidencePort;
+}
+
+/**
+ * Produce fixed typed views over one root. Every property is statically named;
+ * callers cannot request arbitrary capabilities or discover mutable state.
+ */
+export function runtimeBridgePorts(bridge: RuntimeBridge): RuntimeBridgePorts {
+  return {
+    input: bridge,
+    timeSimulation: bridge,
+    sceneEntities: bridge,
+    voxelAssetsBuffers: bridge,
+    camera: bridge,
+    gameplay: bridge,
+    projection: bridge,
+    bundleLifecycle: bridge,
+    replayEvidence: bridge,
+  };
+}
+
+export type RuntimeBridgePortId = keyof RuntimeBridgePorts;
+
+export interface RuntimeBridgePortContract {
+  readonly initialization: 'requiresEngine' | 'createsEngine';
+  readonly projectBundle: 'retainedAcrossLoadUnload' | 'ownsLoadUnload';
+  readonly snapshotHash:
+    | 'inputEvidence'
+    | 'timeState'
+    | 'sceneDocument'
+    | 'voxelStateAndResources'
+    | 'cameraProjection'
+    | 'gameplaySessionAndReplay'
+    | 'projectionFrame'
+    | 'compositionStatus'
+    | 'replayEvidence';
+  readonly resourceLifetime: 'session' | 'frame' | 'mixedExplicitAndSession';
+}
+
+/** Reviewable lifecycle rules for the fixed port set. */
+export const RUNTIME_BRIDGE_PORT_CONTRACTS: Readonly<
+  Record<RuntimeBridgePortId, RuntimeBridgePortContract>
+> = {
+  input: {
+    initialization: 'requiresEngine',
+    projectBundle: 'retainedAcrossLoadUnload',
+    snapshotHash: 'inputEvidence',
+    resourceLifetime: 'session',
+  },
+  timeSimulation: {
+    initialization: 'requiresEngine',
+    projectBundle: 'retainedAcrossLoadUnload',
+    snapshotHash: 'timeState',
+    resourceLifetime: 'session',
+  },
+  sceneEntities: {
+    initialization: 'requiresEngine',
+    projectBundle: 'retainedAcrossLoadUnload',
+    snapshotHash: 'sceneDocument',
+    resourceLifetime: 'session',
+  },
+  voxelAssetsBuffers: {
+    initialization: 'requiresEngine',
+    projectBundle: 'retainedAcrossLoadUnload',
+    snapshotHash: 'voxelStateAndResources',
+    resourceLifetime: 'mixedExplicitAndSession',
+  },
+  camera: {
+    initialization: 'requiresEngine',
+    projectBundle: 'retainedAcrossLoadUnload',
+    snapshotHash: 'cameraProjection',
+    resourceLifetime: 'session',
+  },
+  gameplay: {
+    initialization: 'requiresEngine',
+    projectBundle: 'retainedAcrossLoadUnload',
+    snapshotHash: 'gameplaySessionAndReplay',
+    resourceLifetime: 'session',
+  },
+  projection: {
+    initialization: 'requiresEngine',
+    projectBundle: 'retainedAcrossLoadUnload',
+    snapshotHash: 'projectionFrame',
+    resourceLifetime: 'frame',
+  },
+  bundleLifecycle: {
+    initialization: 'createsEngine',
+    projectBundle: 'ownsLoadUnload',
+    snapshotHash: 'compositionStatus',
+    resourceLifetime: 'session',
+  },
+  replayEvidence: {
+    initialization: 'requiresEngine',
+    projectBundle: 'retainedAcrossLoadUnload',
+    snapshotHash: 'replayEvidence',
+    resourceLifetime: 'session',
+  },
+};

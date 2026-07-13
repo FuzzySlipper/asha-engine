@@ -133,13 +133,14 @@ fn exact_steps_execute_each_fixed_tick_in_sequence() {
     assert_eq!(receipt.after.authority_tick, 9);
     assert_eq!(receipt.exact_ticks_advanced, 3);
     assert!(bridge
+        .time
         .simulation
         .state()
         .entity(EntityId::new(12))
         .expect("exact stepping created the scheduled entity")
         .tags
         .contains(&TagId::new(3)));
-    assert_eq!(bridge.simulation.queued_tick_count(), 0);
+    assert_eq!(bridge.time.simulation.queued_tick_count(), 0);
 
     bridge
         .apply_time_control_command(TimeControlCommand::Resume)
@@ -248,11 +249,13 @@ fn speed_multiplier_executes_multiple_fixed_ticks_per_cadence_pulse() {
     assert_eq!(faster_step.diff_count, 4);
     assert_eq!(faster.read_time_control_state().unwrap().authority_tick, 10);
     assert!(normal
+        .time
         .simulation
         .state()
         .entity(EntityId::new(12))
         .is_none());
     assert!(faster
+        .time
         .simulation
         .state()
         .entity(EntityId::new(12))
@@ -260,6 +263,7 @@ fn speed_multiplier_executes_multiple_fixed_ticks_per_cadence_pulse() {
         .tags
         .contains(&TagId::new(3)));
     assert!(faster
+        .time
         .simulation
         .state()
         .entity(EntityId::new(13))

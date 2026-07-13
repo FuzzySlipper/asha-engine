@@ -31,11 +31,43 @@ exclude_quarantine() {
     | grep -vE ':[0-9]+:[[:space:]]*(//|/\*|\*|#)'
 }
 
+# Rust often keeps unit tests in a trailing `#[cfg(test)] mod tests` within a
+# stable source file. Treat that module like a separate test file without
+# excluding earlier production items that may also carry `#[cfg(test)]`.
+exclude_inline_test_modules() {
+  declare -A test_module_start_by_file=()
+  local hit path remainder line test_module_start
+  while IFS= read -r hit; do
+    [ -n "$hit" ] || continue
+    path="${hit%%:*}"
+    remainder="${hit#*:}"
+    line="${remainder%%:*}"
+    if [[ "$path" != *.rs ]]; then
+      printf '%s\n' "$hit"
+      continue
+    fi
+    if [[ ! -v "test_module_start_by_file[$path]" ]]; then
+      test_module_start_by_file["$path"]="$(awk '
+        previous == "#[cfg(test)]" && $0 ~ /^mod[[:space:]]+tests[[:space:]]*\{/ {
+          print NR - 1
+          exit
+        }
+        { previous = $0 }
+      ' "$path")"
+    fi
+    test_module_start="${test_module_start_by_file[$path]}"
+    if [ -z "$test_module_start" ] || [ "$line" -lt "$test_module_start" ]; then
+      printf '%s\n' "$hit"
+    fi
+  done
+}
+
 scan() {
   local label="$1" pattern="$2" dir="$3" extra_exclude="${4:-}"
   [ -d "$dir" ] || return 0
   local hits
   hits="$(grep -rnE "$pattern" "$dir" --include='*.rs' --include='*.ts' 2>/dev/null \
+            | exclude_inline_test_modules \
             | exclude_quarantine || true)"
   if [ -n "$extra_exclude" ]; then
     hits="$(printf '%s\n' "$hits" | grep -vE "$extra_exclude" || true)"
@@ -61,6 +93,18 @@ for d in "${TS_DIRS[@]}"; do
   scan "TS unknown payload" ':\s*unknown\b' "$d" 'render-decode\.ts'
   scan "callRust dispatcher" 'callRust\s*\(' "$d"
 done
+
+# Capability ports are fixed compile-time subsets of the one public root. A
+# port may not inherit the full root or become a second dynamically dispatched
+# RuntimeBridge surface.
+scan \
+  "capability port inherits full RuntimeBridge" \
+  'interface Runtime[A-Za-z]+Port[[:space:]]+extends[[:space:]]+RuntimeBridge' \
+  "ts/packages/runtime-bridge/src"
+scan \
+  "dynamic capability port lookup" \
+  'runtimeBridgePorts[[:space:]]*\([^)]*,|RuntimeBridgePorts\[[^]]+\]' \
+  "ts/packages/runtime-bridge/src"
 
 if [ "$fail" -eq 0 ]; then
   echo "Bridge guardrails: OK (no opaque escape hatches in stable surfaces)"

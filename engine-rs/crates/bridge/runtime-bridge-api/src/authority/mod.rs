@@ -10,84 +10,172 @@ mod time_control;
 // Domain mutation remains delegated to the owning rules and services. This type
 // holds bridge-visible session state and coordinates typed RuntimeBridge verbs.
 
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BridgeCapabilityPortContract {
+    pub id: &'static str,
+    pub initialization: &'static str,
+    pub project_bundle: &'static str,
+    pub snapshot_hash: &'static str,
+    pub resource_lifetime: &'static str,
+}
+
+#[cfg(test)]
+pub(crate) const ENGINE_BRIDGE_CAPABILITY_PORTS: &[BridgeCapabilityPortContract] = &[
+    BridgeCapabilityPortContract {
+        id: "input",
+        initialization: "requiresEngine",
+        project_bundle: "retainedAcrossLoadUnload",
+        snapshot_hash: "inputEvidence",
+        resource_lifetime: "session",
+    },
+    BridgeCapabilityPortContract {
+        id: "timeSimulation",
+        initialization: "requiresEngine",
+        project_bundle: "retainedAcrossLoadUnload",
+        snapshot_hash: "timeState",
+        resource_lifetime: "session",
+    },
+    BridgeCapabilityPortContract {
+        id: "sceneEntities",
+        initialization: "requiresEngine",
+        project_bundle: "retainedAcrossLoadUnload",
+        snapshot_hash: "sceneDocument",
+        resource_lifetime: "session",
+    },
+    BridgeCapabilityPortContract {
+        id: "voxelAssetsBuffers",
+        initialization: "requiresEngine",
+        project_bundle: "retainedAcrossLoadUnload",
+        snapshot_hash: "voxelStateAndResources",
+        resource_lifetime: "mixedExplicitAndSession",
+    },
+    BridgeCapabilityPortContract {
+        id: "camera",
+        initialization: "requiresEngine",
+        project_bundle: "retainedAcrossLoadUnload",
+        snapshot_hash: "cameraProjection",
+        resource_lifetime: "session",
+    },
+    BridgeCapabilityPortContract {
+        id: "gameplay",
+        initialization: "requiresEngine",
+        project_bundle: "retainedAcrossLoadUnload",
+        snapshot_hash: "gameplaySessionAndReplay",
+        resource_lifetime: "session",
+    },
+    BridgeCapabilityPortContract {
+        id: "projection",
+        initialization: "requiresEngine",
+        project_bundle: "retainedAcrossLoadUnload",
+        snapshot_hash: "projectionFrame",
+        resource_lifetime: "frame",
+    },
+    BridgeCapabilityPortContract {
+        id: "bundleLifecycle",
+        initialization: "createsEngine",
+        project_bundle: "ownsLoadUnload",
+        snapshot_hash: "compositionStatus",
+        resource_lifetime: "session",
+    },
+    BridgeCapabilityPortContract {
+        id: "replayEvidence",
+        initialization: "requiresEngine",
+        project_bundle: "retainedAcrossLoadUnload",
+        snapshot_hash: "replayEvidence",
+        resource_lifetime: "session",
+    },
+];
+
+#[derive(Debug, Default)]
+struct BridgeBundleLifecycleState {
+    engine: Option<EngineHandle>,
+    loaded_project_bundle: Option<u64>,
+}
+
+#[derive(Debug, Default)]
+struct BridgeInputState {
+    input_session: Option<InputSessionResolver>,
+}
+
+#[derive(Debug, Default)]
+struct BridgeTimeSimulationState {
+    time_controller: TimeController,
+    simulation: SimulationAuthority,
+    authority_tick: u64,
+}
+
+#[derive(Debug, Default)]
+struct BridgeSceneEntityState {
+    scene_document: Option<core_scene::FlatSceneDocument>,
+    entities: EntityStore,
+}
+
+#[derive(Debug, Default)]
+struct BridgeVoxelAssetBufferState {
+    buffers: buffer_provider::RuntimeBufferProvider,
+    voxel: Option<VoxelWorld>,
+    collision_world_offset: [f64; 3],
+    voxel_edit_history: Option<rule_voxel_edit::history::VoxelEditHistory>,
+    materials: MaterialCatalog,
+    voxel_conversion_sources: BTreeMap<String, StaticMeshSource>,
+    voxel_conversion_source_metadata: BTreeMap<String, VoxelConversionSourceMetadataAuthority>,
+    voxel_conversion_targets: BTreeMap<(u64, Option<String>), VoxelConversionTargetAuthority>,
+    voxel_conversion_plan: Option<PlannedConversion>,
+    voxel_model_infos: BTreeMap<(u64, Option<String>), VoxelModelInfoAuthority>,
+    active_voxel_model: Option<(u64, Option<String>)>,
+    voxel_annotation_layers: BTreeMap<String, VoxelAnnotationLayer>,
+}
+
+#[derive(Debug, Default)]
+struct BridgeCameraState {
+    cameras: BTreeMap<u64, CameraSnapshot>,
+    camera_controllers: BTreeMap<u64, CameraControllerState>,
+    next_camera: u64,
+}
+
+#[derive(Debug, Default)]
+struct BridgeGameplayState {
+    fps_session: Option<FpsRuntimeSessionState>,
+    fps_seed: Option<FpsRuntimeSessionLoadRequest>,
+    fps_epoch: u64,
+    game_rule_modules: BTreeMap<String, GameRuleModuleManifest>,
+    game_rule_active_modifiers: Vec<GameRuleModifierState>,
+    game_rule_recent_trace: Vec<GameRuleTraceEntry>,
+}
+
+#[derive(Debug, Default)]
+struct BridgeProjectionState {
+    projection_frame: Option<RuntimeProjectionFrame>,
+    audio_projector: Option<AudioProjector>,
+    billboard_projector: Option<BillboardProjector>,
+    particle_projector: Option<ParticleProjector>,
+    animation_controller: Option<rule_animation_controller::AnimationControllerAuthority>,
+    animation_projector: Option<render_animation::AnimationControllerProjector>,
+    animation_tick: u64,
+    telemetry_overlay_projector: Option<TelemetryOverlayProjector>,
+}
+
+#[derive(Debug, Default)]
+struct BridgeReplayEvidenceState {
+    game_rule_recent_replay_hashes: Vec<String>,
+    voxel_conversion_evidence: Vec<VoxelConversionEvidenceRef>,
+}
+
 /// Engine-owned RuntimeBridge authority state. Large payloads are owned by the
 /// [`RuntimeBufferProvider`]; the seed buffer is allocated as the first handle
 /// (`0`) so buffer verbs exercise the real provider rather than a bespoke `Vec`.
 #[derive(Debug, Default)]
 pub struct EngineBridge {
-    engine: Option<EngineHandle>,
-    buffers: buffer_provider::RuntimeBufferProvider,
-    /// The currently-loaded ProjectBundle scene identity.
-    loaded_project_bundle: Option<u64>,
-    /// Canonical authored scene document exposed through bounded hierarchy verbs.
-    /// Runtime entity transforms remain separately owned after bootstrap.
-    scene_document: Option<core_scene::FlatSceneDocument>,
-    /// Live voxel authority for the launch/edit loop (launchable-voxel, #2436).
-    /// Present once `initialize_engine` has set up the runtime.
-    voxel: Option<VoxelWorld>,
-    /// Translation from canonical voxel coordinates into the active runtime
-    /// room frame. Generic voxel worlds use zero; generated centered rooms set it.
-    collision_world_offset: [f64; 3],
-    /// Rust-owned accepted voxel transaction timeline for the live voxel authority.
-    voxel_edit_history: Option<rule_voxel_edit::history::VoxelEditHistory>,
-    /// The material catalog voxel edits validate against.
-    materials: MaterialCatalog,
-    /// Bridge-owned runtime view cameras (view/projection evidence, not gameplay authority).
-    cameras: BTreeMap<u64, CameraSnapshot>,
-    /// Deterministic controller/mode state for each bridge-owned camera. The
-    /// renderer may interpolate receipts, but this map owns the accepted pose.
-    camera_controllers: BTreeMap<u64, CameraControllerState>,
-    next_camera: u64,
-    /// Minimal authority-owned runtime entity state for bridge-level actor
-    /// movement verbs. TypeScript may propose targets, but transform mutation is
-    /// applied here through `core-entity`.
-    entities: EntityStore,
-    /// FPS/ECRP RuntimeSession authority state. Stored definitions seed this
-    /// through rule-lifecycle; TS callers only receive typed readouts/receipts.
-    fps_session: Option<FpsRuntimeSessionState>,
-    fps_seed: Option<FpsRuntimeSessionLoadRequest>,
-    fps_epoch: u64,
-    /// Session-owned named input catalog and active context stack. Platform
-    /// hosts submit normalized samples; Entity state never owns this resolver.
-    input_session: Option<InputSessionResolver>,
-    /// Session-level authority pacing. Fixed-tick simulation stays deterministic;
-    /// this controller governs pause, wall-clock cadence density, and exact steps.
-    time_controller: TimeController,
-    /// Runner-owned command validation/event-application pipeline. Both cadence
-    /// and exact stepping execute this same authority state.
-    simulation: SimulationAuthority,
-    authority_tick: u64,
-    game_rule_modules: BTreeMap<String, GameRuleModuleManifest>,
-    game_rule_active_modifiers: Vec<GameRuleModifierState>,
-    game_rule_recent_trace: Vec<GameRuleTraceEntry>,
-    game_rule_recent_replay_hashes: Vec<String>,
-    /// Latest disposable scene+presentation frame. This is projection state,
-    /// never Session authority or replay truth.
-    projection_frame: Option<RuntimeProjectionFrame>,
-    /// Catalog and retained-handle validator for admitted audio operations.
-    audio_projector: Option<AudioProjector>,
-    /// Catalog and retained-handle validator for admitted billboard operations.
-    billboard_projector: Option<BillboardProjector>,
-    /// Catalog and budget validator for disposable particle operations.
-    particle_projector: Option<ParticleProjector>,
-    /// Replayable semantic controller authority used by the public FPS proof.
-    /// Renderer pose/mixer state never enters this field.
-    animation_controller: Option<rule_animation_controller::AnimationControllerAuthority>,
-    /// One-way G1 lifecycle for the controller-owned animated mesh target.
-    animation_projector: Option<render_animation::AnimationControllerProjector>,
-    animation_tick: u64,
-    /// Retained lifecycle validator for the disposable developer telemetry overlay.
-    telemetry_overlay_projector: Option<TelemetryOverlayProjector>,
-    /// Last planned voxel conversion. This is bridge-owned authority state used
-    /// by preview/apply hash guards; callers cannot provide their own output.
-    voxel_conversion_sources: BTreeMap<String, StaticMeshSource>,
-    voxel_conversion_source_metadata: BTreeMap<String, VoxelConversionSourceMetadataAuthority>,
-    voxel_conversion_targets: BTreeMap<(u64, Option<String>), VoxelConversionTargetAuthority>,
-    voxel_conversion_plan: Option<PlannedConversion>,
-    voxel_conversion_evidence: Vec<VoxelConversionEvidenceRef>,
-    voxel_model_infos: BTreeMap<(u64, Option<String>), VoxelModelInfoAuthority>,
-    active_voxel_model: Option<(u64, Option<String>)>,
-    voxel_annotation_layers: BTreeMap<String, VoxelAnnotationLayer>,
+    bundle: BridgeBundleLifecycleState,
+    input: BridgeInputState,
+    time: BridgeTimeSimulationState,
+    scene: BridgeSceneEntityState,
+    voxel: BridgeVoxelAssetBufferState,
+    camera: BridgeCameraState,
+    gameplay: BridgeGameplayState,
+    projection: BridgeProjectionState,
+    evidence: BridgeReplayEvidenceState,
 }
 
 /// The bundle schema and protocol versions this engine bridge understands.

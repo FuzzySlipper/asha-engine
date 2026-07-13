@@ -94,7 +94,8 @@ impl EngineBridge {
         &self,
         target: &protocol_voxel_conversion::VoxelConversionTargetRef,
     ) -> Option<VoxelConversionTargetAuthority> {
-        self.voxel_conversion_targets
+        self.voxel
+            .voxel_conversion_targets
             .get(&(target.grid, target.volume_asset_id.clone()))
             .cloned()
     }
@@ -213,7 +214,7 @@ impl EngineBridge {
         target: &VoxelConversionTargetAuthority,
         planned: &PlannedConversion,
     ) -> BridgeResult<VoxelWorld> {
-        self.voxel.as_ref().ok_or_else(|| {
+        self.voxel.voxel.as_ref().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
                 "apply_voxel_conversion called before initialize_engine",
@@ -221,12 +222,13 @@ impl EngineBridge {
         })?;
         let should_replace_world = self
             .voxel
+            .voxel
             .as_ref()
             .is_none_or(|world| world.grid().id() != target.spec.id());
         let mut candidate = if should_replace_world {
             VoxelWorld::new(target.spec)
         } else {
-            self.voxel.as_ref().expect("checked above").clone()
+            self.voxel.voxel.as_ref().expect("checked above").clone()
         };
 
         let Some(output) = &planned.output else {
@@ -247,8 +249,8 @@ impl EngineBridge {
         refs: impl IntoIterator<Item = VoxelConversionEvidenceRef>,
     ) {
         for evidence in refs {
-            if !self.voxel_conversion_evidence.contains(&evidence) {
-                self.voxel_conversion_evidence.push(evidence);
+            if !self.evidence.voxel_conversion_evidence.contains(&evidence) {
+                self.evidence.voxel_conversion_evidence.push(evidence);
             }
         }
     }
@@ -268,7 +270,7 @@ impl EngineBridge {
         };
         let grid = target.spec.id().raw() as u64;
         let model_id = Self::voxel_model_id(grid, &target.volume_asset_id);
-        let mut evidence = self.voxel_conversion_evidence.clone();
+        let mut evidence = self.evidence.voxel_conversion_evidence.clone();
         for item in &receipt.evidence {
             if !evidence.contains(item) {
                 evidence.push(item.clone());
@@ -286,7 +288,7 @@ impl EngineBridge {
             })
             .collect::<BTreeMap<_, _>>();
         let (resident_voxels, prior_voxels) = Self::cumulative_voxel_model_footprint(
-            self.voxel_model_infos.get(&key),
+            self.voxel.voxel_model_infos.get(&key),
             latest_resident_voxels,
             prior_world,
         );
@@ -315,7 +317,7 @@ impl EngineBridge {
         );
         let material_palette =
             Self::material_palette_for_model_export(planned, &resident_voxels).unwrap_or_default();
-        self.voxel_model_infos.insert(
+        self.voxel.voxel_model_infos.insert(
             key.clone(),
             VoxelModelInfoAuthority {
                 model_id,
@@ -341,7 +343,7 @@ impl EngineBridge {
                 prior_voxels,
             },
         );
-        self.active_voxel_model = Some(key);
+        self.voxel.active_voxel_model = Some(key);
     }
 
     pub(super) fn remember_active_voxel_model_edits(
@@ -350,10 +352,10 @@ impl EngineBridge {
         prior_world: &VoxelWorld,
         current_world: &VoxelWorld,
     ) {
-        let Some(key) = self.active_voxel_model.clone() else {
+        let Some(key) = self.voxel.active_voxel_model.clone() else {
             return;
         };
-        let Some(info) = self.voxel_model_infos.get_mut(&key) else {
+        let Some(info) = self.voxel.voxel_model_infos.get_mut(&key) else {
             return;
         };
 
@@ -1148,10 +1150,14 @@ impl EngineBridge {
             .target_volume_asset_id
             .clone()
             .or_else(|| Some(request.asset.asset_id.clone()));
-        if let Some(existing) = self.voxel_conversion_targets.get(&Self::voxel_model_key(
-            request.target_grid,
-            &volume_asset_id,
-        )) {
+        if let Some(existing) = self
+            .voxel
+            .voxel_conversion_targets
+            .get(&Self::voxel_model_key(
+                request.target_grid,
+                &volume_asset_id,
+            ))
+        {
             if (existing.spec.voxel_size() - request.asset.grid.cell_size).abs() > f64::EPSILON {
                 return Err(Self::voxel_asset_diagnostic(
                     VoxelAssetDiagnosticCode::InvalidGrid,
@@ -1216,7 +1222,7 @@ impl EngineBridge {
         if replace_existing {
             return VoxelWorld::new(target.spec);
         }
-        match &self.voxel {
+        match &self.voxel.voxel {
             Some(world) if world.grid().id() == target.spec.id() => world.clone(),
             _ => VoxelWorld::new(target.spec),
         }
@@ -1355,7 +1361,7 @@ impl EngineBridge {
     ) -> BridgeResult<VoxelVolumeAssetUnloadReceipt> {
         self.require_initialized("unload_voxel_volume_asset")?;
         let key = Self::voxel_model_key(request.grid, &request.volume_asset_id);
-        let Some(info) = self.voxel_model_infos.get(&key).cloned() else {
+        let Some(info) = self.voxel.voxel_model_infos.get(&key).cloned() else {
             return Ok(Self::rejected_voxel_volume_asset_unload(
                 request,
                 vec![Self::voxel_asset_diagnostic(
@@ -1375,7 +1381,7 @@ impl EngineBridge {
                 )],
             ));
         }
-        let Some(world) = self.voxel.as_ref() else {
+        let Some(world) = self.voxel.voxel.as_ref() else {
             return Ok(Self::rejected_voxel_volume_asset_unload(
                 request,
                 vec![Self::voxel_asset_diagnostic(
@@ -1414,7 +1420,8 @@ impl EngineBridge {
                 .collect(),
         };
         let expected = batch.commands.len() as u32;
-        let result = Self::apply_command_batch_to_world(&batch, &mut candidate, &self.materials)?;
+        let result =
+            Self::apply_command_batch_to_world(&batch, &mut candidate, &self.voxel.materials)?;
         if result.accepted != expected || result.rejected != 0 {
             return Ok(Self::rejected_voxel_volume_asset_unload(
                 request,
@@ -1425,14 +1432,19 @@ impl EngineBridge {
                 )],
             ));
         }
-        if self.voxel_model_infos.iter().any(|(other_key, other)| {
-            other_key != &key
-                && other.grid == info.grid
-                && other.resident_voxels.iter().any(|(coord, value)| {
-                    info.resident_voxels.contains_key(coord)
-                        && Self::voxel_value_at(&candidate, *coord) != *value
-                })
-        }) {
+        if self
+            .voxel
+            .voxel_model_infos
+            .iter()
+            .any(|(other_key, other)| {
+                other_key != &key
+                    && other.grid == info.grid
+                    && other.resident_voxels.iter().any(|(coord, value)| {
+                        info.resident_voxels.contains_key(coord)
+                            && Self::voxel_value_at(&candidate, *coord) != *value
+                    })
+            })
+        {
             return Ok(Self::rejected_voxel_volume_asset_unload(
                 request,
                 vec![Self::voxel_asset_diagnostic(
@@ -1444,12 +1456,13 @@ impl EngineBridge {
         }
 
         self.reset_voxel_edit_history(candidate);
-        self.voxel_model_infos.remove(&key);
-        if self.active_voxel_model.as_ref() == Some(&key) {
-            self.active_voxel_model = None;
+        self.voxel.voxel_model_infos.remove(&key);
+        if self.voxel.active_voxel_model.as_ref() == Some(&key) {
+            self.voxel.active_voxel_model = None;
         }
         if let Some(volume_asset_id) = &request.volume_asset_id {
-            self.voxel_annotation_layers
+            self.voxel
+                .voxel_annotation_layers
                 .retain(|_, layer| layer.target_voxel_volume_asset_id != *volume_asset_id);
         }
         let removed_voxel_count = info.voxel_count;

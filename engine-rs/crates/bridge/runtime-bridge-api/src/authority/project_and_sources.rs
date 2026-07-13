@@ -17,7 +17,7 @@ impl EngineBridge {
                 ),
             ));
         }
-        self.loaded_project_bundle = Some(request.scene_id);
+        self.bundle.loaded_project_bundle = Some(request.scene_id);
         Ok(CompositionStatus {
             loaded_project_bundle: Some(request.scene_id),
             ..CompositionStatus::empty()
@@ -27,7 +27,7 @@ impl EngineBridge {
     pub(super) fn save_project_bundle_authority(
         &mut self,
     ) -> BridgeResult<ProjectBundleSaveSummary> {
-        if self.loaded_project_bundle.is_none() {
+        if self.bundle.loaded_project_bundle.is_none() {
             return Err(RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
                 "save_project_bundle called with no ProjectBundle loaded",
@@ -44,14 +44,14 @@ impl EngineBridge {
         &self,
     ) -> BridgeResult<CompositionStatus> {
         Ok(CompositionStatus {
-            loaded_project_bundle: self.loaded_project_bundle,
+            loaded_project_bundle: self.bundle.loaded_project_bundle,
             ..CompositionStatus::empty()
         })
     }
 
     pub(super) fn unload_project_bundle_authority(&mut self) -> BridgeResult<()> {
-        self.loaded_project_bundle = None;
-        self.input_session = None;
+        self.bundle.loaded_project_bundle = None;
+        self.input.input_session = None;
         Ok(())
     }
 
@@ -69,13 +69,14 @@ impl EngineBridge {
                 ));
             }
         };
-        self.voxel_conversion_sources
+        self.voxel
+            .voxel_conversion_sources
             .insert(source.asset_id.clone(), source);
-        self.voxel_conversion_source_metadata.insert(
+        self.voxel.voxel_conversion_source_metadata.insert(
             request.source.asset_id.clone(),
             Self::source_metadata_from_project_mesh_asset(&request),
         );
-        self.voxel_conversion_plan = None;
+        self.voxel.voxel_conversion_plan = None;
         let evidence = vec![VoxelConversionEvidenceRef {
             kind: protocol_voxel_conversion::VoxelConversionEvidenceKind::SourceSnapshot,
             uri: format!(
@@ -187,11 +188,13 @@ impl EngineBridge {
             }
         };
         let metadata = Self::source_metadata_from_project_mesh_asset(&registration_request);
-        self.voxel_conversion_sources
+        self.voxel
+            .voxel_conversion_sources
             .insert(source.asset_id.clone(), source);
-        self.voxel_conversion_source_metadata
+        self.voxel
+            .voxel_conversion_source_metadata
             .insert(imported.source.asset_id.clone(), metadata.clone());
-        self.voxel_conversion_plan = None;
+        self.voxel.voxel_conversion_plan = None;
         self.remember_voxel_conversion_evidence(metadata.evidence.clone());
         Ok(VoxelConversionMeshSourceImportReceipt {
             source: imported.source,
@@ -689,7 +692,8 @@ impl EngineBridge {
         &self,
         request: &VoxelConversionPlanRequest,
     ) -> StaticMeshSource {
-        self.voxel_conversion_sources
+        self.voxel
+            .voxel_conversion_sources
             .get(&request.source.asset_id)
             .cloned()
             .unwrap_or_else(|| Self::empty_unsupported_source(&request.source))

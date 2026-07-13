@@ -29,9 +29,9 @@ impl EngineBridge {
         world: VoxelWorld,
         collision_world_offset: [f64; 3],
     ) {
-        self.voxel_edit_history = Some(AuthorityVoxelEditHistory::new(world.clone()));
-        self.voxel = Some(world);
-        self.collision_world_offset = collision_world_offset;
+        self.voxel.voxel_edit_history = Some(AuthorityVoxelEditHistory::new(world.clone()));
+        self.voxel.voxel = Some(world);
+        self.voxel.collision_world_offset = collision_world_offset;
     }
 
     pub(super) fn submit_commands_with_voxel_history(
@@ -39,12 +39,17 @@ impl EngineBridge {
         batch: CommandBatch,
     ) -> BridgeResult<CommandResult> {
         self.require_initialized("submit_commands")?;
-        let current_grid = self.voxel.as_ref().map(VoxelWorld::grid).ok_or_else(|| {
-            RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::NotInitialized,
-                "submit_commands called before voxel authority was initialized",
-            )
-        })?;
+        let current_grid = self
+            .voxel
+            .voxel
+            .as_ref()
+            .map(VoxelWorld::grid)
+            .ok_or_else(|| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::NotInitialized,
+                    "submit_commands called before voxel authority was initialized",
+                )
+            })?;
         preflight_transaction(
             &batch.commands,
             current_grid,
@@ -53,6 +58,7 @@ impl EngineBridge {
         .map_err(Self::voxel_command_batch_preflight_error)?;
 
         let current_world = self
+            .voxel
             .voxel
             .as_ref()
             .expect("voxel authority checked before resource preflight")
@@ -63,7 +69,7 @@ impl EngineBridge {
         let mut accepted_commands = Vec::new();
         let mut rejections = Vec::new();
         for command in &batch.commands {
-            match rule_voxel_edit::validate(command, &validation_world, &self.materials) {
+            match rule_voxel_edit::validate(command, &validation_world, &self.voxel.materials) {
                 Ok(events) => {
                     for event in &events {
                         rule_voxel_edit::apply(&mut validation_world, event).map_err(|rejection| {
@@ -92,7 +98,7 @@ impl EngineBridge {
 
         let mut next_world = current_world.clone();
         let transaction = VoxelEditTransaction::apply(&accepted_commands);
-        let receipt = execute_transaction(&mut next_world, &self.materials, &transaction);
+        let receipt = execute_transaction(&mut next_world, &self.voxel.materials, &transaction);
         if !receipt.applied
             || receipt.rejected != 0
             || receipt.accepted != result.accepted
@@ -116,8 +122,8 @@ impl EngineBridge {
         }
 
         self.remember_active_voxel_model_edits(&accepted_commands, &current_world, &next_world);
-        self.voxel = Some(next_world);
-        self.voxel_edit_history = Some(next_history);
+        self.voxel.voxel = Some(next_world);
+        self.voxel.voxel_edit_history = Some(next_history);
         Ok(result)
     }
 
@@ -329,7 +335,7 @@ impl EngineBridge {
     }
 
     fn voxel_edit_history(&self) -> BridgeResult<&AuthorityVoxelEditHistory> {
-        self.voxel_edit_history.as_ref().ok_or_else(|| {
+        self.voxel.voxel_edit_history.as_ref().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
                 "voxel edit history authority is not loaded in the engine bridge",
@@ -338,8 +344,8 @@ impl EngineBridge {
     }
 
     fn commit_voxel_edit_history(&mut self, history: AuthorityVoxelEditHistory) {
-        self.voxel = Some(history.current_world().clone());
-        self.voxel_edit_history = Some(history);
+        self.voxel.voxel = Some(history.current_world().clone());
+        self.voxel.voxel_edit_history = Some(history);
     }
 
     fn validate_history_id(history_id: &str) -> BridgeResult<()> {
@@ -512,6 +518,7 @@ impl EngineBridge {
 
     fn voxel_material_catalog_hash(&self) -> String {
         let key = self
+            .voxel
             .materials
             .ids()
             .map(|material| material.raw().to_string())

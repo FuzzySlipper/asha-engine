@@ -114,7 +114,12 @@ export {
   FrameMemory,
 } from './render-decode.js';
 
-export { RuntimeBridgeError, frameCursor } from './bridge.js';
+export {
+  RUNTIME_BRIDGE_PORT_CONTRACTS,
+  RuntimeBridgeError,
+  frameCursor,
+  runtimeBridgePorts,
+} from './bridge.js';
 export type {
   CompositionStatus,
   EnemyDirectNavAuthoritySource,
@@ -154,7 +159,19 @@ export type {
   ReplaySessionHandle,
   ReplayStepReport,
   RuntimeBridge,
+  RuntimeBridgePortContract,
+  RuntimeBridgePortId,
+  RuntimeBridgePorts,
+  RuntimeBundleLifecyclePort,
+  RuntimeCameraPort,
   RuntimeBridgeErrorKind,
+  RuntimeGameplayPort,
+  RuntimeInputPort,
+  RuntimeProjectionPort,
+  RuntimeReplayEvidencePort,
+  RuntimeSceneEntityPort,
+  RuntimeTimeSimulationPort,
+  RuntimeVoxelAssetBufferPort,
   RuntimeBufferHandle,
   RuntimeBufferView,
   StepInputEnvelope,

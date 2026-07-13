@@ -119,7 +119,10 @@ fn voxel_volume_asset_unload_is_hash_guarded_and_preserves_unrelated_models() {
         .unwrap();
     assert!(second_info.resident);
     assert_eq!(
-        EngineBridge::voxel_value_at(bridge.voxel.as_ref().unwrap(), VoxelCoord::new(4, 0, 0)),
+        EngineBridge::voxel_value_at(
+            bridge.voxel.voxel.as_ref().unwrap(),
+            VoxelCoord::new(4, 0, 0)
+        ),
         VoxelValue::solid_raw(1)
     );
 
@@ -170,7 +173,10 @@ fn voxel_volume_asset_unload_restores_disjoint_same_identity_footprints() {
 
     for x in [0, 1, 4, 5] {
         assert_eq!(
-            EngineBridge::voxel_value_at(bridge.voxel.as_ref().unwrap(), VoxelCoord::new(x, 0, 0)),
+            EngineBridge::voxel_value_at(
+                bridge.voxel.voxel.as_ref().unwrap(),
+                VoxelCoord::new(x, 0, 0)
+            ),
             VoxelValue::solid_raw(1)
         );
     }
@@ -186,7 +192,10 @@ fn voxel_volume_asset_unload_restores_disjoint_same_identity_footprints() {
     assert_eq!(unloaded.removed_voxel_count, 4);
     for x in [0, 1, 4, 5] {
         assert_eq!(
-            EngineBridge::voxel_value_at(bridge.voxel.as_ref().unwrap(), VoxelCoord::new(x, 0, 0)),
+            EngineBridge::voxel_value_at(
+                bridge.voxel.voxel.as_ref().unwrap(),
+                VoxelCoord::new(x, 0, 0)
+            ),
             VoxelValue::EMPTY
         );
     }
@@ -279,9 +288,10 @@ fn voxel_volume_asset_session_hash_captures_unload_restoration_state() {
     EngineBridge::ensure_candidate_chunks_for_asset(
         &asset,
         &target.spec,
-        solid_prior_bridge.voxel.as_mut().unwrap(),
+        solid_prior_bridge.voxel.voxel.as_mut().unwrap(),
     );
-    solid_prior_bridge.reset_voxel_edit_history(solid_prior_bridge.voxel.as_ref().unwrap().clone());
+    solid_prior_bridge
+        .reset_voxel_edit_history(solid_prior_bridge.voxel.voxel.as_ref().unwrap().clone());
     let seeded = solid_prior_bridge
         .submit_commands(CommandBatch {
             commands: vec![
@@ -302,7 +312,7 @@ fn voxel_volume_asset_session_hash_captures_unload_restoration_state() {
     for x in [0, 1] {
         assert_eq!(
             EngineBridge::voxel_value_at(
-                solid_prior_bridge.voxel.as_ref().unwrap(),
+                solid_prior_bridge.voxel.voxel.as_ref().unwrap(),
                 VoxelCoord::new(x, 0, 0),
             ),
             VoxelValue::solid_raw(2)
@@ -312,6 +322,7 @@ fn voxel_volume_asset_session_hash_captures_unload_restoration_state() {
         .load_voxel_volume_asset(load_request(false))
         .unwrap();
     let solid_prior_info = solid_prior_bridge
+        .voxel
         .voxel_model_infos
         .get(&EngineBridge::voxel_model_key(
             7,
@@ -339,7 +350,7 @@ fn voxel_volume_asset_session_hash_captures_unload_restoration_state() {
     for x in [0, 1] {
         assert_eq!(
             EngineBridge::voxel_value_at(
-                solid_prior_bridge.voxel.as_ref().unwrap(),
+                solid_prior_bridge.voxel.voxel.as_ref().unwrap(),
                 VoxelCoord::new(x, 0, 0),
             ),
             VoxelValue::solid_raw(2)

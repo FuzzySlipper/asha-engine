@@ -50,7 +50,7 @@ impl RuntimeBridge for EngineBridge {
     }
 
     fn pick_voxel(&self, ray: PickRay) -> BridgeResult<PickResult> {
-        let world = self.voxel.as_ref().ok_or_else(|| {
+        let world = self.voxel.voxel.as_ref().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
                 "pick_voxel called before initialize_engine",
@@ -88,7 +88,7 @@ impl RuntimeBridge for EngineBridge {
         &mut self,
         envelope: CollisionConstrainedCameraInputEnvelope,
     ) -> BridgeResult<CameraCollisionSnapshot> {
-        let world = self.voxel.as_ref().ok_or_else(|| {
+        let world = self.voxel.voxel.as_ref().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
                 "apply_collision_constrained_camera_input called before initialize_engine",
@@ -112,13 +112,18 @@ impl RuntimeBridge for EngineBridge {
                 "only axis_separable_slide with max_iterations in 1..=3 is supported",
             ));
         }
-        let before = *self.cameras.get(&envelope.camera.raw()).ok_or_else(|| {
-            RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::UnknownHandle,
-                "unknown camera handle",
-            )
-        })?;
+        let before = *self
+            .camera
+            .cameras
+            .get(&envelope.camera.raw())
+            .ok_or_else(|| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::UnknownHandle,
+                    "unknown camera handle",
+                )
+            })?;
         let controller = self
+            .camera
             .camera_controllers
             .get(&envelope.camera.raw())
             .cloned()
@@ -155,14 +160,15 @@ impl RuntimeBridge for EngineBridge {
             basis: Self::basis_from_pose(after_pose),
             ..before
         };
-        self.cameras.insert(envelope.camera.raw(), after);
+        self.camera.cameras.insert(envelope.camera.raw(), after);
         let controller = Self::sync_first_person_controller(&controller, after).map_err(|_| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::InvalidInput,
                 "collision-constrained input requires firstPerson camera mode",
             )
         })?;
-        self.camera_controllers
+        self.camera
+            .camera_controllers
             .insert(envelope.camera.raw(), controller);
         let (min, max) = Self::aabb_for_pose(after.pose, envelope.shape);
         let collision_identity = projection.identity(world);
@@ -216,58 +222,23 @@ impl RuntimeBridge for EngineBridge {
         &mut self,
         request: GeneratedTunnelRuntimeApplyRequest,
     ) -> BridgeResult<GeneratedTunnelRuntimeApplyReceipt> {
-        self.require_initialized("apply_generated_tunnel_to_runtime_world")?;
-        self.fps_session("apply_generated_tunnel_to_runtime_world")?;
-        let config = match request.preset {
-            GeneratedTunnelPreset::TinyEnclosed => {
-                svc_levelgen::TunnelGeneratorConfig::tiny_enclosed(request.seed)
-            }
-        };
-        let tunnel = svc_levelgen::generate_tunnel(config).map_err(|error| {
-            RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::InvalidInput,
-                format!("generated tunnel request was rejected: {error}"),
-            )
-        })?;
-        let runtime_frame = tunnel.runtime_frame();
-        let collision_world_offset = runtime_frame.world_offset.to_array();
-        let projection = CollisionProjection::build_with_offset(
-            &tunnel.world,
-            WorldVec::new(
-                collision_world_offset[0],
-                collision_world_offset[1],
-                collision_world_offset[2],
-            ),
-        );
-        let collision_identity = projection.identity(&tunnel.world);
-        let receipt = GeneratedTunnelRuntimeApplyReceipt {
-            preset: request.preset,
-            seed: request.seed,
-            grid: tunnel.grid.id().raw() as u64,
-            config_hash: format!("{:016x}", tunnel.record.config_hash),
-            output_hash: format!("{:016x}", tunnel.record.output_hash),
-            collision_source_hash: collision_identity.source_hash_hex(),
-            collision_projection_hash: collision_identity.projection_hash_label(),
-            runtime_frame: GeneratedTunnelRuntimeFrame {
-                world_offset: collision_world_offset,
-                playable_min: runtime_frame.playable_min.to_array(),
-                playable_max: runtime_frame.playable_max.to_array(),
-            },
-        };
-        self.reset_voxel_edit_history_with_collision_offset(tunnel.world, collision_world_offset);
-        Ok(receipt)
+        self.apply_generated_tunnel_runtime_authority(request)
     }
 
     fn select_voxel(
         &self,
         request: ScreenPointToPickRayRequest,
     ) -> BridgeResult<VoxelSelectionSnapshot> {
-        let snapshot = *self.cameras.get(&request.camera.raw()).ok_or_else(|| {
-            RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::UnknownHandle,
-                "unknown camera handle",
-            )
-        })?;
+        let snapshot = *self
+            .camera
+            .cameras
+            .get(&request.camera.raw())
+            .ok_or_else(|| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::UnknownHandle,
+                    "unknown camera handle",
+                )
+            })?;
         let pick_ray = Self::pick_ray_snapshot(snapshot, request)?;
         let ray = PickRay {
             grid: pick_ray.grid,
@@ -319,7 +290,7 @@ impl RuntimeBridge for EngineBridge {
         &self,
         request: VoxelMeshEvidenceRequest,
     ) -> BridgeResult<VoxelMeshEvidenceSnapshot> {
-        let world = self.voxel.as_ref().ok_or_else(|| {
+        let world = self.voxel.voxel.as_ref().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
                 "read_voxel_mesh_evidence called before initialize_engine",
@@ -369,8 +340,8 @@ impl RuntimeBridge for EngineBridge {
         let source = self.source_for_voxel_conversion(&request);
         let planned = svc_voxel_conversion::plan_conversion(&request, &source);
         let plan = planned.plan.clone();
-        self.voxel_conversion_plan = Some(planned);
-        self.voxel_conversion_evidence.clear();
+        self.voxel.voxel_conversion_plan = Some(planned);
+        self.evidence.voxel_conversion_evidence.clear();
         self.remember_voxel_conversion_evidence(plan.evidence.clone());
         Ok(plan)
     }
@@ -389,13 +360,14 @@ impl RuntimeBridge for EngineBridge {
                 ));
             }
         };
-        self.voxel_conversion_sources
+        self.voxel
+            .voxel_conversion_sources
             .insert(source.asset_id.clone(), source);
-        self.voxel_conversion_source_metadata.insert(
+        self.voxel.voxel_conversion_source_metadata.insert(
             request.source.asset_id.clone(),
             Self::source_metadata_from_registration(&request),
         );
-        self.voxel_conversion_plan = None;
+        self.voxel.voxel_conversion_plan = None;
         let evidence = vec![VoxelConversionEvidenceRef {
             kind: protocol_voxel_conversion::VoxelConversionEvidenceKind::SourceSnapshot,
             uri: format!(
@@ -434,6 +406,7 @@ impl RuntimeBridge for EngineBridge {
     ) -> BridgeResult<VoxelConversionSourceMetadataReadout> {
         self.require_initialized("read_voxel_conversion_source_metadata")?;
         let Some(metadata) = self
+            .voxel
             .voxel_conversion_source_metadata
             .get(&request.source.asset_id)
         else {
@@ -449,6 +422,7 @@ impl RuntimeBridge for EngineBridge {
             ));
         }
         let latest_plan = self
+            .voxel
             .voxel_conversion_plan
             .as_ref()
             .map(|planned| &planned.plan)
@@ -475,7 +449,7 @@ impl RuntimeBridge for EngineBridge {
         request: VoxelConversionPreviewRequest,
     ) -> BridgeResult<VoxelConversionPreview> {
         self.require_initialized("preview_voxel_conversion")?;
-        let planned = self.voxel_conversion_plan.as_ref().ok_or_else(|| {
+        let planned = self.voxel.voxel_conversion_plan.as_ref().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::InvalidInput,
                 "preview_voxel_conversion called before a conversion plan exists",
@@ -491,7 +465,7 @@ impl RuntimeBridge for EngineBridge {
         request: VoxelConversionApplyRequest,
     ) -> BridgeResult<VoxelConversionReceipt> {
         self.require_initialized("apply_voxel_conversion")?;
-        let planned = self.voxel_conversion_plan.clone().ok_or_else(|| {
+        let planned = self.voxel.voxel_conversion_plan.clone().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::InvalidInput,
                 "apply_voxel_conversion called before a conversion plan exists",
@@ -518,7 +492,7 @@ impl RuntimeBridge for EngineBridge {
             }
         };
 
-        self.voxel.as_ref().ok_or_else(|| {
+        self.voxel.voxel.as_ref().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
                 "apply_voxel_conversion called before initialize_engine",
@@ -539,7 +513,7 @@ impl RuntimeBridge for EngineBridge {
         let prior_world = candidate.clone();
         let expected = batch.commands.len() as u32;
         let command_result =
-            Self::apply_command_batch_to_world(&batch, &mut candidate, &self.materials)?;
+            Self::apply_command_batch_to_world(&batch, &mut candidate, &self.voxel.materials)?;
         if command_result.accepted != expected || command_result.rejected != 0 {
             receipt = Self::rejected_voxel_conversion_receipt(
                 request.plan_id,
@@ -566,7 +540,7 @@ impl RuntimeBridge for EngineBridge {
     ) -> BridgeResult<Vec<VoxelConversionEvidenceRef>> {
         self.require_initialized("export_voxel_conversion_evidence")?;
         for requested in &evidence {
-            if !self.voxel_conversion_evidence.contains(requested) {
+            if !self.evidence.voxel_conversion_evidence.contains(requested) {
                 return Err(RuntimeBridgeError::new(
                     RuntimeBridgeErrorKind::InvalidInput,
                     format!(
@@ -585,13 +559,13 @@ impl RuntimeBridge for EngineBridge {
     ) -> BridgeResult<VoxelModelInfoReadout> {
         self.require_initialized("read_voxel_model_info")?;
         let key = Self::voxel_model_key(request.grid, &request.volume_asset_id);
-        if !self.voxel_conversion_targets.contains_key(&key) {
+        if !self.voxel.voxel_conversion_targets.contains_key(&key) {
             return Ok(Self::voxel_model_missing_readout(
                 request,
                 "voxel model request targets an unknown conversion target",
             ));
         }
-        let Some(info) = self.voxel_model_infos.get(&key) else {
+        let Some(info) = self.voxel.voxel_model_infos.get(&key) else {
             return Ok(Self::voxel_model_missing_readout(
                 request,
                 "voxel model is not resident in current authority state; apply a conversion first",
@@ -626,19 +600,20 @@ impl RuntimeBridge for EngineBridge {
     ) -> BridgeResult<VoxelModelWindowReadout> {
         self.require_initialized("read_voxel_model_window")?;
         let key = Self::voxel_model_key(request.grid, &request.volume_asset_id);
-        if !self.voxel_conversion_targets.contains_key(&key) {
+        if !self.voxel.voxel_conversion_targets.contains_key(&key) {
             return Ok(Self::voxel_model_window_missing_readout(
                 request,
                 "voxel model window request targets an unknown conversion target",
             ));
         }
-        let Some(info) = self.voxel_model_infos.get(&key) else {
+        let Some(info) = self.voxel.voxel_model_infos.get(&key) else {
             return Ok(Self::voxel_model_window_missing_readout(
                 request,
                 "voxel model is not resident in current authority state; apply a conversion first",
             ));
         };
         let Some(world) = self
+            .voxel
             .voxel
             .as_ref()
             .filter(|world| world.grid().id().raw() as u64 == request.grid)
@@ -704,7 +679,7 @@ impl RuntimeBridge for EngineBridge {
     ) -> BridgeResult<VoxelVolumeAssetExportReceipt> {
         self.require_initialized("export_voxel_volume_asset")?;
         let key = Self::voxel_model_key(request.grid, &request.volume_asset_id);
-        let Some(info) = self.voxel_model_infos.get(&key) else {
+        let Some(info) = self.voxel.voxel_model_infos.get(&key) else {
             return Ok(Self::rejected_voxel_volume_asset_export(
                 request,
                 vec![Self::voxel_asset_diagnostic(
@@ -726,7 +701,7 @@ impl RuntimeBridge for EngineBridge {
                 ));
             }
         }
-        let Some(target) = self.voxel_conversion_targets.get(&key) else {
+        let Some(target) = self.voxel.voxel_conversion_targets.get(&key) else {
             return Ok(Self::rejected_voxel_volume_asset_export(
                 request,
                 vec![Self::voxel_asset_diagnostic(
@@ -908,7 +883,7 @@ impl RuntimeBridge for EngineBridge {
             request.export_request.grid,
             &request.export_request.volume_asset_id,
         );
-        let Some(info) = self.voxel_model_infos.get(&key) else {
+        let Some(info) = self.voxel.voxel_model_infos.get(&key) else {
             return Ok(Self::rejected_voxel_volume_asset_save(
                 request,
                 vec![Self::voxel_asset_diagnostic(
@@ -997,7 +972,7 @@ impl RuntimeBridge for EngineBridge {
         Self::ensure_candidate_chunks_for_asset(asset, &target.spec, &mut candidate);
         let expected = batch.commands.len() as u32;
         let command_result =
-            Self::apply_command_batch_to_world(&batch, &mut candidate, &self.materials)?;
+            Self::apply_command_batch_to_world(&batch, &mut candidate, &self.voxel.materials)?;
         if command_result.accepted != expected || command_result.rejected != 0 {
             return Ok(Self::rejected_voxel_volume_asset_load(
                 &request,
@@ -1016,18 +991,18 @@ impl RuntimeBridge for EngineBridge {
         let existing = if request.replace_existing {
             None
         } else {
-            self.voxel_model_infos.get(&key)
+            self.voxel.voxel_model_infos.get(&key)
         };
         let info = Self::loaded_voxel_asset_info(&request, &target, &prior_world, existing);
         let receipt =
             Self::voxel_volume_asset_load_receipt(&request, &target, &info, true, Vec::new());
         self.reset_voxel_edit_history(candidate);
-        self.voxel_conversion_targets.insert(
+        self.voxel.voxel_conversion_targets.insert(
             Self::voxel_model_key(info.grid, &info.volume_asset_id),
             target,
         );
-        self.voxel_model_infos.insert(key.clone(), info);
-        self.active_voxel_model = Some(key);
+        self.voxel.voxel_model_infos.insert(key.clone(), info);
+        self.voxel.active_voxel_model = Some(key);
         Ok(receipt)
     }
 
@@ -1135,14 +1110,14 @@ impl RuntimeBridge for EngineBridge {
         let game_rule_modules = Self::verify_game_rule_modules(&request.game_rule_modules)?;
         let loaded = load_fps_project_bundle(input).map_err(Self::fps_runtime_error)?;
         // Commit only after the full authority bootstrap succeeds.
-        self.fps_session = Some(loaded);
-        self.fps_seed = Some(request);
-        self.fps_epoch = self.fps_epoch.saturating_add(1);
-        self.game_rule_modules = game_rule_modules;
+        self.gameplay.fps_session = Some(loaded);
+        self.gameplay.fps_seed = Some(request);
+        self.gameplay.fps_epoch = self.gameplay.fps_epoch.saturating_add(1);
+        self.gameplay.game_rule_modules = game_rule_modules;
         self.reset_presentation_projection();
         Self::fps_snapshot(
-            self.fps_session.as_ref().expect("just committed"),
-            self.fps_epoch,
+            self.gameplay.fps_session.as_ref().expect("just committed"),
+            self.gameplay.fps_epoch,
         )
     }
 
@@ -1150,7 +1125,7 @@ impl RuntimeBridge for EngineBridge {
         self.require_initialized("read_fps_runtime_session")?;
         Self::fps_snapshot(
             self.fps_session("read_fps_runtime_session")?,
-            self.fps_epoch,
+            self.gameplay.fps_epoch,
         )
     }
 
@@ -1169,7 +1144,7 @@ impl RuntimeBridge for EngineBridge {
             .map(Self::fps_runtime_role)
             .unwrap_or(FpsRuntimeRole::Enemy);
         let ray = Self::ray_from_primary_fire(request)?;
-        let world = self.voxel.as_ref().ok_or_else(|| {
+        let world = self.voxel.voxel.as_ref().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
                 "apply_fps_primary_fire called before initialize_engine",
@@ -1187,7 +1162,7 @@ impl RuntimeBridge for EngineBridge {
 
     fn read_projection_frame(&self, cursor: u64) -> BridgeResult<RuntimeProjectionFrame> {
         self.require_initialized("read_projection_frame")?;
-        let frame = self.projection_frame.as_ref().ok_or_else(|| {
+        let frame = self.projection.projection_frame.as_ref().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::Internal,
                 "projection frame is unavailable after initialization",
@@ -1207,8 +1182,10 @@ impl RuntimeBridge for EngineBridge {
         request: GameExtensionWeaponEffectInvocationRequest,
     ) -> BridgeResult<GameExtensionWeaponEffectInvocationResult> {
         self.require_initialized("invoke_game_extension_weapon_effect")?;
-        let module =
-            Self::resolve_weapon_effect_game_rule_module(&self.game_rule_modules, &request.hook)?;
+        let module = Self::resolve_weapon_effect_game_rule_module(
+            &self.gameplay.game_rule_modules,
+            &request.hook,
+        )?;
         let transformed = match rule_gameplay_fabric::run_legacy_weapon_effect_transform(
             &module,
             &request.hook,
@@ -1293,7 +1270,7 @@ impl RuntimeBridge for EngineBridge {
             .map(Self::fps_runtime_role)
             .unwrap_or(FpsRuntimeRole::Enemy);
         let ray = Self::ray_from_primary_fire(primary_fire)?;
-        let world = self.voxel.as_ref().ok_or_else(|| {
+        let world = self.voxel.voxel.as_ref().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
                 "invoke_game_extension_weapon_effect called before initialize_engine",
@@ -1338,8 +1315,9 @@ impl RuntimeBridge for EngineBridge {
                 catalog.catalog.catalog_id, report.catalog_hash
             ))
         );
-        self.game_rule_recent_trace = report.trace.clone();
-        self.game_rule_recent_replay_hashes
+        self.gameplay.game_rule_recent_trace = report.trace.clone();
+        self.evidence
+            .game_rule_recent_replay_hashes
             .push(replay_hash.clone());
         Ok(GameRuleCatalogValidationReceipt {
             accepted: report.accepted(),
@@ -1363,19 +1341,27 @@ impl RuntimeBridge for EngineBridge {
     ) -> BridgeResult<GameRuleResolutionReceipt> {
         self.require_initialized("submit_game_rule_effect_intent")?;
         let receipt = resolve_protocol_request(&input.request, &input.catalog);
-        self.game_rule_recent_trace = receipt.trace.clone();
-        self.game_rule_recent_replay_hashes
+        self.gameplay.game_rule_recent_trace = receipt.trace.clone();
+        self.evidence
+            .game_rule_recent_replay_hashes
             .push(receipt.replay_hash.clone());
         if receipt.accepted {
             for modifier in &receipt.applied_modifiers {
-                if let Some(existing) = self.game_rule_active_modifiers.iter_mut().find(|active| {
-                    active.modifier_id == modifier.modifier_id
-                        && active.source == modifier.source
-                        && active.target == modifier.target
-                }) {
+                if let Some(existing) =
+                    self.gameplay
+                        .game_rule_active_modifiers
+                        .iter_mut()
+                        .find(|active| {
+                            active.modifier_id == modifier.modifier_id
+                                && active.source == modifier.source
+                                && active.target == modifier.target
+                        })
+                {
                     *existing = modifier.clone();
                 } else {
-                    self.game_rule_active_modifiers.push(modifier.clone());
+                    self.gameplay
+                        .game_rule_active_modifiers
+                        .push(modifier.clone());
                 }
             }
         }
@@ -1387,10 +1373,10 @@ impl RuntimeBridge for EngineBridge {
         Ok(GameRuleRuntimeReadout {
             backend: "engine_bridge_rust".to_string(),
             authority_surface: "runtime_session.game_rules.v0".to_string(),
-            active_modifiers: self.game_rule_active_modifiers.clone(),
-            recent_trace: self.game_rule_recent_trace.clone(),
-            recent_replay_hashes: self.game_rule_recent_replay_hashes.clone(),
-            latest_replay_hash: self.game_rule_recent_replay_hashes.last().cloned(),
+            active_modifiers: self.gameplay.game_rule_active_modifiers.clone(),
+            recent_trace: self.gameplay.game_rule_recent_trace.clone(),
+            recent_replay_hashes: self.evidence.game_rule_recent_replay_hashes.clone(),
+            latest_replay_hash: self.evidence.game_rule_recent_replay_hashes.last().cloned(),
         })
     }
 
@@ -1399,16 +1385,16 @@ impl RuntimeBridge for EngineBridge {
         request: FpsRuntimeSessionRestartRequest,
     ) -> BridgeResult<FpsRuntimeSessionSnapshot> {
         self.require_initialized("restart_fps_runtime_session")?;
-        if request.expected_epoch != self.fps_epoch {
+        if request.expected_epoch != self.gameplay.fps_epoch {
             return Err(RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::InvalidInput,
                 format!(
                     "restart expected epoch {} but current epoch is {}",
-                    request.expected_epoch, self.fps_epoch
+                    request.expected_epoch, self.gameplay.fps_epoch
                 ),
             ));
         }
-        let seed = self.fps_seed.clone().ok_or_else(|| {
+        let seed = self.gameplay.fps_seed.clone().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
                 "restart_fps_runtime_session called before load_fps_runtime_session",
@@ -1416,12 +1402,12 @@ impl RuntimeBridge for EngineBridge {
         })?;
         let input = Self::convert_fps_load_request(&seed)?;
         let loaded = load_fps_project_bundle(input).map_err(Self::fps_runtime_error)?;
-        self.fps_session = Some(loaded);
-        self.fps_epoch = self.fps_epoch.saturating_add(1);
+        self.gameplay.fps_session = Some(loaded);
+        self.gameplay.fps_epoch = self.gameplay.fps_epoch.saturating_add(1);
         self.reset_presentation_projection();
         Self::fps_snapshot(
-            self.fps_session.as_ref().expect("just restarted"),
-            self.fps_epoch,
+            self.gameplay.fps_session.as_ref().expect("just restarted"),
+            self.gameplay.fps_epoch,
         )
     }
 
@@ -1493,7 +1479,7 @@ impl RuntimeBridge for EngineBridge {
     ) -> BridgeResult<EnemyDirectNavMovementResult> {
         self.require_initialized("apply_enemy_direct_nav_movement")?;
         let entity = Self::enemy_entity_id(request.entity)?;
-        if self.fps_session.is_some() {
+        if self.gameplay.fps_session.is_some() {
             let receipt = self
                 .fps_session_mut("apply_enemy_direct_nav_movement")?
                 .apply_autonomous_enemy_direct_nav_movement(
@@ -1516,7 +1502,7 @@ impl RuntimeBridge for EngineBridge {
             });
         }
 
-        let entities = &mut self.entities;
+        let entities = &mut self.scene.entities;
         let (authority_source, current_transform) =
             Self::seed_or_read_enemy_transform(entities, entity, request.seed_position)?;
         let from = current_transform.translation;
@@ -1571,23 +1557,27 @@ impl RuntimeBridge for EngineBridge {
         request: CameraProjectionRequest,
     ) -> BridgeResult<CameraProjectionSnapshot> {
         self.require_initialized("read_camera_projection")?;
-        let snapshot = *self.cameras.get(&request.camera.raw()).ok_or_else(|| {
-            RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::UnknownHandle,
-                "unknown camera handle",
-            )
-        })?;
+        let snapshot = *self
+            .camera
+            .cameras
+            .get(&request.camera.raw())
+            .ok_or_else(|| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::UnknownHandle,
+                    "unknown camera handle",
+                )
+            })?;
         let viewport = request.viewport.unwrap_or(snapshot.viewport);
         Self::validate_viewport(viewport)?;
         Ok(Self::projection_snapshot(snapshot, viewport))
     }
 
     fn get_buffer(&self, handle: RuntimeBufferHandle) -> BridgeResult<RuntimeBufferView<'_>> {
-        self.buffers.view(handle)
+        self.voxel.buffers.view(handle)
     }
 
     fn release_buffer(&mut self, handle: RuntimeBufferHandle) -> BridgeResult<()> {
-        self.buffers.dispose(handle)
+        self.voxel.buffers.dispose(handle)
     }
 
     fn load_project_bundle(

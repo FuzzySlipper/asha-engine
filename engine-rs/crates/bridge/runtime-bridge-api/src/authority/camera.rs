@@ -9,9 +9,9 @@ impl EngineBridge {
         CollisionProjection::build_with_offset(
             world,
             WorldVec::new(
-                self.collision_world_offset[0],
-                self.collision_world_offset[1],
-                self.collision_world_offset[2],
+                self.voxel.collision_world_offset[0],
+                self.voxel.collision_world_offset[1],
+                self.voxel.collision_world_offset[2],
             ),
         )
     }
@@ -379,7 +379,7 @@ impl EngineBridge {
         minimum_metric: f32,
         mode: CameraMode,
     ) -> Result<(CameraPose, Option<f32>, bool), CameraControllerRejection> {
-        let Some(world) = self.voxel.as_ref() else {
+        let Some(world) = self.voxel.voxel.as_ref() else {
             return Ok((desired_pose, Some(desired_metric), false));
         };
         let delta = [
@@ -527,6 +527,7 @@ impl EngineBridge {
     ) -> BridgeResult<CameraModeChangeReceipt> {
         self.require_initialized("apply_camera_mode_command")?;
         let before = self
+            .camera
             .camera_controllers
             .get(&command.camera.raw())
             .cloned()
@@ -570,8 +571,11 @@ impl EngineBridge {
         let transition = command
             .transition
             .map(|spec| Self::camera_transition_readout(before.snapshot, after.snapshot, spec));
-        self.cameras.insert(command.camera.raw(), after.snapshot);
-        self.camera_controllers
+        self.camera
+            .cameras
+            .insert(command.camera.raw(), after.snapshot);
+        self.camera
+            .camera_controllers
             .insert(command.camera.raw(), after.clone());
         Ok(Self::camera_mode_receipt(
             before,
@@ -588,8 +592,8 @@ impl EngineBridge {
     ) -> BridgeResult<CameraSnapshot> {
         self.require_initialized("create_camera")?;
         Self::validate_create_request(&request)?;
-        let camera = protocol_view::CameraHandle::new(self.next_camera);
-        self.next_camera += 1;
+        let camera = protocol_view::CameraHandle::new(self.camera.next_camera);
+        self.camera.next_camera += 1;
         let snapshot = CameraSnapshot {
             camera,
             tick: 0,
@@ -598,8 +602,9 @@ impl EngineBridge {
             projection: request.projection,
             viewport: request.viewport,
         };
-        self.cameras.insert(camera.raw(), snapshot);
-        self.camera_controllers
+        self.camera.cameras.insert(camera.raw(), snapshot);
+        self.camera
+            .camera_controllers
             .insert(camera.raw(), Self::initial_camera_controller(snapshot));
         Ok(snapshot)
     }
@@ -609,14 +614,19 @@ impl EngineBridge {
         envelope: FirstPersonCameraInputEnvelope,
     ) -> BridgeResult<CameraSnapshot> {
         self.require_initialized("apply_first_person_camera_input")?;
-        let prior = *self.cameras.get(&envelope.camera.raw()).ok_or_else(|| {
-            RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::UnknownHandle,
-                "unknown camera handle",
-            )
-        })?;
+        let prior = *self
+            .camera
+            .cameras
+            .get(&envelope.camera.raw())
+            .ok_or_else(|| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::UnknownHandle,
+                    "unknown camera handle",
+                )
+            })?;
         let input = envelope.input;
         let controller = self
+            .camera
             .camera_controllers
             .get(&envelope.camera.raw())
             .cloned()
@@ -634,7 +644,7 @@ impl EngineBridge {
         }
         Self::validate_camera_input(input)?;
         let snapshot = Self::integrate_camera_snapshot(prior, input, envelope.tick);
-        self.cameras.insert(envelope.camera.raw(), snapshot);
+        self.camera.cameras.insert(envelope.camera.raw(), snapshot);
         let controller =
             Self::sync_first_person_controller(&controller, snapshot).map_err(|_| {
                 RuntimeBridgeError::new(
@@ -642,7 +652,8 @@ impl EngineBridge {
                     "first-person camera input requires firstPerson camera mode",
                 )
             })?;
-        self.camera_controllers
+        self.camera
+            .camera_controllers
             .insert(envelope.camera.raw(), controller);
         Ok(snapshot)
     }
@@ -653,6 +664,7 @@ impl EngineBridge {
     ) -> BridgeResult<CameraNavigationReceipt> {
         self.require_initialized("apply_camera_navigation_input")?;
         let before = self
+            .camera
             .camera_controllers
             .get(&envelope.camera.raw())
             .cloned()
@@ -682,8 +694,11 @@ impl EngineBridge {
                     ));
                 }
             };
-        self.cameras.insert(envelope.camera.raw(), after.snapshot);
-        self.camera_controllers
+        self.camera
+            .cameras
+            .insert(envelope.camera.raw(), after.snapshot);
+        self.camera
+            .camera_controllers
             .insert(envelope.camera.raw(), after.clone());
         Ok(Self::camera_navigation_receipt(
             before,
@@ -698,7 +713,8 @@ impl EngineBridge {
         request: CameraControllerReadRequest,
     ) -> BridgeResult<CameraControllerState> {
         self.require_initialized("read_camera_controller_state")?;
-        self.camera_controllers
+        self.camera
+            .camera_controllers
             .get(&request.camera.raw())
             .cloned()
             .ok_or_else(|| {

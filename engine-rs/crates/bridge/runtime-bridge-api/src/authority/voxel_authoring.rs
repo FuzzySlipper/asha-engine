@@ -14,7 +14,7 @@ impl EngineBridge {
             ));
         }
         let key = Self::voxel_model_key(request.grid, &request.volume_asset_id);
-        if self.voxel_model_infos.contains_key(&key) {
+        if self.voxel.voxel_model_infos.contains_key(&key) {
             return Ok(Self::rejected_voxel_volume_authoring_initialize(
                 request,
                 vec![Self::voxel_asset_diagnostic(
@@ -25,6 +25,7 @@ impl EngineBridge {
             ));
         }
         let Some(mut target) = self
+            .voxel
             .voxel_conversion_targets
             .values()
             .find(|target| target.spec.id().raw() as u64 == request.grid)
@@ -41,6 +42,7 @@ impl EngineBridge {
         };
         target.volume_asset_id = request.volume_asset_id.clone();
         let mut candidate = self
+            .voxel
             .voxel
             .as_ref()
             .filter(|world| world.grid().id() == target.spec.id())
@@ -105,9 +107,11 @@ impl EngineBridge {
             prior_voxels: BTreeMap::new(),
         };
         self.reset_voxel_edit_history(candidate);
-        self.voxel_conversion_targets.insert(key.clone(), target);
-        self.voxel_model_infos.insert(key.clone(), info);
-        self.active_voxel_model = Some(key);
+        self.voxel
+            .voxel_conversion_targets
+            .insert(key.clone(), target);
+        self.voxel.voxel_model_infos.insert(key.clone(), info);
+        self.voxel.active_voxel_model = Some(key);
         Ok(VoxelVolumeAuthoringInitializeReceipt {
             volume_asset_id: request.volume_asset_id.clone(),
             grid: request.grid,
@@ -187,6 +191,7 @@ impl EngineBridge {
                 ));
             }
             if self
+                .voxel
                 .materials
                 .validate(VoxelValue::solid_raw(binding.voxel_material))
                 .is_err()

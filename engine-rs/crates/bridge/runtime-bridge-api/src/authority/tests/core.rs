@@ -1,6 +1,75 @@
 use super::*;
 
 #[test]
+fn engine_bridge_has_one_fixed_capability_cell_contract() {
+    let ids = ENGINE_BRIDGE_CAPABILITY_PORTS
+        .iter()
+        .map(|contract| contract.id)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        ids,
+        [
+            "input",
+            "timeSimulation",
+            "sceneEntities",
+            "voxelAssetsBuffers",
+            "camera",
+            "gameplay",
+            "projection",
+            "bundleLifecycle",
+            "replayEvidence",
+        ]
+    );
+    let unique_ids = ids.iter().copied().collect::<BTreeSet<_>>();
+    assert_eq!(unique_ids.len(), ids.len());
+
+    let lifecycle = ENGINE_BRIDGE_CAPABILITY_PORTS
+        .iter()
+        .find(|contract| contract.id == "bundleLifecycle")
+        .unwrap();
+    assert_eq!(lifecycle.initialization, "createsEngine");
+    assert_eq!(lifecycle.project_bundle, "ownsLoadUnload");
+    assert_eq!(lifecycle.snapshot_hash, "compositionStatus");
+    assert_eq!(lifecycle.resource_lifetime, "session");
+
+    let buffers = ENGINE_BRIDGE_CAPABILITY_PORTS
+        .iter()
+        .find(|contract| contract.id == "voxelAssetsBuffers")
+        .unwrap();
+    assert_eq!(buffers.resource_lifetime, "mixedExplicitAndSession");
+
+    let bridge = EngineBridge::new();
+    assert!(bridge.bundle.engine.is_none());
+    assert!(bridge.scene.scene_document.is_none());
+    assert!(bridge.voxel.voxel.is_none());
+    assert!(bridge.gameplay.fps_session.is_none());
+    assert!(bridge.projection.projection_frame.is_none());
+}
+
+#[test]
+fn bundle_unload_obeys_the_declared_session_retention_rule() {
+    let mut bridge = EngineBridge::new();
+    let engine = bridge.initialize_engine(EngineConfig { seed: 17 }).unwrap();
+    bridge
+        .load_project_bundle(ProjectBundleLoadRequest {
+            bundle_schema_version: 1,
+            protocol_version: 1,
+            scene_id: 44,
+        })
+        .unwrap();
+
+    bridge.unload_project_bundle().unwrap();
+
+    assert_eq!(bridge.bundle.engine, Some(engine));
+    assert_eq!(bridge.bundle.loaded_project_bundle, None);
+    assert!(bridge.scene.scene_document.is_some());
+    assert!(bridge.voxel.voxel.is_some());
+    assert!(bridge.projection.projection_frame.is_some());
+    assert_eq!(bridge.camera.next_camera, 1);
+    assert_eq!(bridge.time.authority_tick, 0);
+}
+
+#[test]
 fn step_before_init_is_typed_error() {
     let mut bridge = EngineBridge::new();
     let err = bridge

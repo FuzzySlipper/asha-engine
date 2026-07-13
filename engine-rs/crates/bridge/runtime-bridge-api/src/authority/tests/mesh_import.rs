@@ -105,8 +105,8 @@ fn mesh_import_preflight_rejects_before_hash_or_authority_mutation() {
     let existing_plan = bridge
         .plan_voxel_conversion(project_voxel_conversion_request(7))
         .unwrap();
-    let source_count = bridge.voxel_conversion_sources.len();
-    let metadata_count = bridge.voxel_conversion_source_metadata.len();
+    let source_count = bridge.voxel.voxel_conversion_sources.len();
+    let metadata_count = bridge.voxel.voxel_conversion_source_metadata.len();
 
     let rejected = bridge
         .import_voxel_conversion_mesh_source(VoxelConversionMeshSourceImportRequest {
@@ -126,13 +126,14 @@ fn mesh_import_preflight_rejects_before_hash_or_authority_mutation() {
         rejected.diagnostics[0].code,
         VoxelConversionDiagnosticCode::OutputLimitExceeded
     );
-    assert_eq!(bridge.voxel_conversion_sources.len(), source_count);
+    assert_eq!(bridge.voxel.voxel_conversion_sources.len(), source_count);
     assert_eq!(
-        bridge.voxel_conversion_source_metadata.len(),
+        bridge.voxel.voxel_conversion_source_metadata.len(),
         metadata_count
     );
     assert_eq!(
         bridge
+            .voxel
             .voxel_conversion_plan
             .as_ref()
             .map(|plan| &plan.plan.plan_id),

@@ -145,7 +145,7 @@ impl EngineBridge {
         &self,
     ) -> BridgeResult<SceneObjectSnapshotDto> {
         self.require_initialized("read_scene_object_snapshot")?;
-        let document = self.scene_document.as_ref().ok_or_else(|| {
+        let document = self.scene.scene_document.as_ref().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::Internal,
                 "initialized bridge has no scene document",
@@ -195,7 +195,7 @@ impl EngineBridge {
                 })
             }
         };
-        let document = self.scene_document.as_ref().ok_or_else(|| {
+        let document = self.scene.scene_document.as_ref().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::Internal,
                 "initialized bridge has no scene document",
@@ -228,7 +228,7 @@ impl EngineBridge {
                     }),
                     rejection: None,
                 };
-                self.scene_document = Some(outcome.document);
+                self.scene.scene_document = Some(outcome.document);
                 Ok(result)
             }
             Err(rejection) => Ok(SceneObjectCommandResultDto {

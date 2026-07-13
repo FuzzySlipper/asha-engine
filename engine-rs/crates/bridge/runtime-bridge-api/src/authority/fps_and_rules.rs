@@ -14,7 +14,7 @@ impl EngineBridge {
     }
 
     pub(super) fn require_initialized(&self, op: &str) -> BridgeResult<()> {
-        if self.engine.is_none() {
+        if self.bundle.engine.is_none() {
             return Err(RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
                 format!("{op} called before initialize_engine"),
@@ -31,7 +31,7 @@ impl EngineBridge {
     }
 
     pub(super) fn fps_session(&self, op: &str) -> BridgeResult<&FpsRuntimeSessionState> {
-        self.fps_session.as_ref().ok_or_else(|| {
+        self.gameplay.fps_session.as_ref().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
                 format!("{op} called before load_fps_runtime_session"),
@@ -39,11 +39,57 @@ impl EngineBridge {
         })
     }
 
+    pub(super) fn apply_generated_tunnel_runtime_authority(
+        &mut self,
+        request: GeneratedTunnelRuntimeApplyRequest,
+    ) -> BridgeResult<GeneratedTunnelRuntimeApplyReceipt> {
+        self.require_initialized("apply_generated_tunnel_to_runtime_world")?;
+        self.fps_session("apply_generated_tunnel_to_runtime_world")?;
+        let config = match request.preset {
+            GeneratedTunnelPreset::TinyEnclosed => {
+                svc_levelgen::TunnelGeneratorConfig::tiny_enclosed(request.seed)
+            }
+        };
+        let tunnel = svc_levelgen::generate_tunnel(config).map_err(|error| {
+            RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                format!("generated tunnel request was rejected: {error}"),
+            )
+        })?;
+        let runtime_frame = tunnel.runtime_frame();
+        let collision_world_offset = runtime_frame.world_offset.to_array();
+        let projection = CollisionProjection::build_with_offset(
+            &tunnel.world,
+            WorldVec::new(
+                collision_world_offset[0],
+                collision_world_offset[1],
+                collision_world_offset[2],
+            ),
+        );
+        let collision_identity = projection.identity(&tunnel.world);
+        let receipt = GeneratedTunnelRuntimeApplyReceipt {
+            preset: request.preset,
+            seed: request.seed,
+            grid: tunnel.grid.id().raw() as u64,
+            config_hash: format!("{:016x}", tunnel.record.config_hash),
+            output_hash: format!("{:016x}", tunnel.record.output_hash),
+            collision_source_hash: collision_identity.source_hash_hex(),
+            collision_projection_hash: collision_identity.projection_hash_label(),
+            runtime_frame: GeneratedTunnelRuntimeFrame {
+                world_offset: collision_world_offset,
+                playable_min: runtime_frame.playable_min.to_array(),
+                playable_max: runtime_frame.playable_max.to_array(),
+            },
+        };
+        self.reset_voxel_edit_history_with_collision_offset(tunnel.world, collision_world_offset);
+        Ok(receipt)
+    }
+
     pub(super) fn fps_session_mut(
         &mut self,
         op: &str,
     ) -> BridgeResult<&mut FpsRuntimeSessionState> {
-        self.fps_session.as_mut().ok_or_else(|| {
+        self.gameplay.fps_session.as_mut().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
                 format!("{op} called before load_fps_runtime_session"),
@@ -759,7 +805,7 @@ impl EngineBridge {
             id: format!("combat.primary-fire.accepted:{}", result.replay_hash),
             authority_tick,
             causation_id: Some(format!("combat.primary-fire:{}", result.replay_hash)),
-            correlation_id: Some(format!("fps.session:{}", self.fps_epoch)),
+            correlation_id: Some(format!("fps.session:{}", self.gameplay.fps_epoch)),
         }
     }
 
@@ -769,6 +815,7 @@ impl EngineBridge {
         result: &FpsPrimaryFireResult,
     ) -> BridgeResult<()> {
         let sequence = self
+            .projection
             .projection_frame
             .as_ref()
             .filter(|frame| frame.authority_tick == request.tick)
@@ -778,7 +825,10 @@ impl EngineBridge {
             origin: Some(self.primary_fire_presentation_origin(request.tick, result)),
         };
         let op = AudioProjectionOp::Emit {
-            signal_id: format!("primary-fire:{}:{}", self.fps_epoch, result.replay_hash),
+            signal_id: format!(
+                "primary-fire:{}:{}",
+                self.gameplay.fps_epoch, result.replay_hash
+            ),
             descriptor: AudioSourceDescriptor {
                 clip: AudioClipRef {
                     asset: "audio/asha-primary-fire-pulse".to_string(),
@@ -803,6 +853,7 @@ impl EngineBridge {
             },
         };
         let projected = self
+            .projection
             .audio_projector
             .as_mut()
             .ok_or_else(|| {
@@ -823,13 +874,15 @@ impl EngineBridge {
             })?;
 
         if self
+            .projection
             .projection_frame
             .as_ref()
             .is_none_or(|frame| frame.authority_tick != request.tick)
         {
-            self.projection_frame = Some(RuntimeProjectionFrame::empty(request.tick));
+            self.projection.projection_frame = Some(RuntimeProjectionFrame::empty(request.tick));
         }
-        self.projection_frame
+        self.projection
+            .projection_frame
             .as_mut()
             .expect("projection frame was initialized")
             .presentation
@@ -851,6 +904,7 @@ impl EngineBridge {
                 )
             })?);
         if self
+            .projection
             .billboard_projector
             .as_ref()
             .is_some_and(|projector| projector.descriptor(player_handle).is_none())
@@ -910,6 +964,7 @@ impl EngineBridge {
             fallback_unit: None,
         };
         let operation = if self
+            .projection
             .billboard_projector
             .as_ref()
             .is_some_and(|projector| projector.descriptor(target_handle).is_some())
@@ -956,13 +1011,15 @@ impl EngineBridge {
     ) -> BridgeResult<()> {
         let authority_tick = request.tick;
         if self
+            .projection
             .projection_frame
             .as_ref()
             .is_none_or(|frame| frame.authority_tick != authority_tick)
         {
-            self.projection_frame = Some(RuntimeProjectionFrame::empty(authority_tick));
+            self.projection.projection_frame = Some(RuntimeProjectionFrame::empty(authority_tick));
         }
         let sequence = self
+            .projection
             .projection_frame
             .as_ref()
             .expect("projection frame was initialized")
@@ -980,6 +1037,7 @@ impl EngineBridge {
         );
         let origin = self.primary_fire_presentation_origin(authority_tick, result);
         let projected = self
+            .projection
             .particle_projector
             .as_mut()
             .ok_or_else(|| {
@@ -996,7 +1054,7 @@ impl EngineBridge {
                 ParticleProjectionOp::Emit {
                     signal_id: format!(
                         "primary-fire-particles:{}:{}",
-                        self.fps_epoch, result.replay_hash
+                        self.gameplay.fps_epoch, result.replay_hash
                     ),
                     descriptor: ParticleEmitterDescriptor {
                         anchor,
@@ -1049,7 +1107,8 @@ impl EngineBridge {
                     ),
                 )
             })?;
-        self.projection_frame
+        self.projection
+            .projection_frame
             .as_mut()
             .expect("projection frame was initialized")
             .presentation
@@ -1086,7 +1145,7 @@ impl EngineBridge {
             correlation_id: correlation_id.clone(),
         };
 
-        let create_change = if self.animation_controller.is_none() {
+        let create_change = if self.projection.animation_controller.is_none() {
             let catalog = rule_animation_controller::validate_animation_catalog(
                 primary_fire_animation_catalog(),
             )
@@ -1102,7 +1161,7 @@ impl EngineBridge {
                 .attach(entity, "fps.primary-fire")
                 .map_err(animation_authority_error)?
                 .change;
-            self.animation_controller = Some(controller);
+            self.projection.animation_controller = Some(controller);
             change
         } else {
             None
@@ -1117,6 +1176,7 @@ impl EngineBridge {
                 correlation_id.clone(),
             );
             let projected = self
+                .projection
                 .animation_projector
                 .as_mut()
                 .ok_or_else(|| {
@@ -1138,12 +1198,16 @@ impl EngineBridge {
         }
 
         {
-            let controller = self.animation_controller.as_mut().ok_or_else(|| {
-                RuntimeBridgeError::new(
-                    RuntimeBridgeErrorKind::Internal,
-                    "animation controller is unavailable after initialization",
-                )
-            })?;
+            let controller = self
+                .projection
+                .animation_controller
+                .as_mut()
+                .ok_or_else(|| {
+                    RuntimeBridgeError::new(
+                        RuntimeBridgeErrorKind::Internal,
+                        "animation controller is unavailable after initialization",
+                    )
+                })?;
             controller
                 .set_float(entity, "intensity", 650)
                 .map_err(animation_authority_error)?;
@@ -1155,12 +1219,13 @@ impl EngineBridge {
         // accepts the semantic transition and the second publishes inspectable
         // blend progress. Both are replayed from the same accepted owner fact.
         for _ in 0..2 {
-            self.animation_tick = self.animation_tick.saturating_add(1);
+            self.projection.animation_tick = self.projection.animation_tick.saturating_add(1);
             let change = self
+                .projection
                 .animation_controller
                 .as_mut()
                 .expect("animation controller exists")
-                .tick_from_fact(entity, self.animation_tick, origin.clone())
+                .tick_from_fact(entity, self.projection.animation_tick, origin.clone())
                 .map_err(animation_authority_error)?
                 .change;
             if let Some(change) = change {
@@ -1182,6 +1247,7 @@ impl EngineBridge {
                     ),
                 );
                 let projected = self
+                    .projection
                     .animation_projector
                     .as_ref()
                     .ok_or_else(|| {
@@ -1207,6 +1273,7 @@ impl EngineBridge {
         correlation_id: String,
     ) -> PresentationOpMeta {
         let sequence = self
+            .projection
             .projection_frame
             .as_ref()
             .filter(|frame| frame.authority_tick == frame_tick)
@@ -1225,13 +1292,15 @@ impl EngineBridge {
 
     fn push_animation_projection(&mut self, authority_tick: u64, projected: PresentationOp) {
         if self
+            .projection
             .projection_frame
             .as_ref()
             .is_none_or(|frame| frame.authority_tick != authority_tick)
         {
-            self.projection_frame = Some(RuntimeProjectionFrame::empty(authority_tick));
+            self.projection.projection_frame = Some(RuntimeProjectionFrame::empty(authority_tick));
         }
-        self.projection_frame
+        self.projection
+            .projection_frame
             .as_mut()
             .expect("projection frame was initialized")
             .presentation
@@ -1246,13 +1315,15 @@ impl EngineBridge {
         op: BillboardProjectionOp,
     ) -> BridgeResult<()> {
         if self
+            .projection
             .projection_frame
             .as_ref()
             .is_none_or(|frame| frame.authority_tick != authority_tick)
         {
-            self.projection_frame = Some(RuntimeProjectionFrame::empty(authority_tick));
+            self.projection.projection_frame = Some(RuntimeProjectionFrame::empty(authority_tick));
         }
         let sequence = self
+            .projection
             .projection_frame
             .as_ref()
             .expect("projection frame was initialized")
@@ -1260,6 +1331,7 @@ impl EngineBridge {
             .ops
             .len() as u32;
         let projected = self
+            .projection
             .billboard_projector
             .as_mut()
             .ok_or_else(|| {
@@ -1284,7 +1356,8 @@ impl EngineBridge {
                     ),
                 )
             })?;
-        self.projection_frame
+        self.projection
+            .projection_frame
             .as_mut()
             .expect("projection frame was initialized")
             .presentation
@@ -1299,13 +1372,15 @@ impl EngineBridge {
         result: &FpsPrimaryFireResult,
     ) -> BridgeResult<()> {
         if self
+            .projection
             .projection_frame
             .as_ref()
             .is_none_or(|frame| frame.authority_tick != authority_tick)
         {
-            self.projection_frame = Some(RuntimeProjectionFrame::empty(authority_tick));
+            self.projection.projection_frame = Some(RuntimeProjectionFrame::empty(authority_tick));
         }
         let sequence = self
+            .projection
             .projection_frame
             .as_ref()
             .expect("projection frame was initialized")
@@ -1314,12 +1389,16 @@ impl EngineBridge {
             .len() as u32;
         let handle = TelemetryOverlayHandle::new(1);
         let origin = self.primary_fire_presentation_origin(authority_tick, result);
-        let projector = self.telemetry_overlay_projector.as_mut().ok_or_else(|| {
-            RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::Internal,
-                "telemetry overlay projector is unavailable after initialization",
-            )
-        })?;
+        let projector = self
+            .projection
+            .telemetry_overlay_projector
+            .as_mut()
+            .ok_or_else(|| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::Internal,
+                    "telemetry overlay projector is unavailable after initialization",
+                )
+            })?;
         let op = if projector.descriptor(handle).is_some() {
             TelemetryOverlayProjectionOp::Update {
                 handle,
@@ -1357,7 +1436,8 @@ impl EngineBridge {
                     ),
                 )
             })?;
-        self.projection_frame
+        self.projection
+            .projection_frame
             .as_mut()
             .expect("projection frame was initialized")
             .presentation
@@ -1367,23 +1447,28 @@ impl EngineBridge {
     }
 
     pub(super) fn reset_presentation_projection(&mut self) {
-        self.projection_frame = Some(RuntimeProjectionFrame::empty(0));
-        self.audio_projector
+        self.projection.projection_frame = Some(RuntimeProjectionFrame::empty(0));
+        self.projection
+            .audio_projector
             .as_mut()
             .expect("audio projector exists after initialization")
             .reset();
-        self.billboard_projector
+        self.projection
+            .billboard_projector
             .as_mut()
             .expect("billboard projector exists after initialization")
             .reset();
-        self.particle_projector
+        self.projection
+            .particle_projector
             .as_mut()
             .expect("particle projector exists after initialization")
             .reset();
-        self.animation_controller = None;
-        self.animation_projector = Some(render_animation::AnimationControllerProjector::new());
-        self.animation_tick = 0;
-        self.telemetry_overlay_projector
+        self.projection.animation_controller = None;
+        self.projection.animation_projector =
+            Some(render_animation::AnimationControllerProjector::new());
+        self.projection.animation_tick = 0;
+        self.projection
+            .telemetry_overlay_projector
             .as_mut()
             .expect("telemetry overlay projector exists after initialization")
             .reset();

@@ -5,6 +5,7 @@ fn native_runtime_seeds_default_studio_and_authored_voxel_targets() {
     let bridge = init_bridge();
     for grid in [1, 2, 7] {
         assert!(bridge
+            .voxel
             .voxel_conversion_targets
             .contains_key(&(grid, Some("voxel/generated".to_string()))));
     }
@@ -81,7 +82,7 @@ fn voxel_conversion_plan_preview_apply_uses_rust_authority_and_commands() {
     assert!(receipt.applied);
     assert_eq!(receipt.output_voxel_count, 3);
 
-    let world = bridge.voxel.as_ref().unwrap();
+    let world = bridge.voxel.voxel.as_ref().unwrap();
     assert_eq!(world.grid().id(), GridId::new(7));
     let chunk = world.get(ChunkCoord::new(0, 0, 0)).unwrap();
     assert_eq!(
@@ -778,12 +779,12 @@ fn stored_voxel_palette_update_is_hash_guarded_validated_and_round_trips() {
     request.material_palette[0].material_catalog_binding_id =
         Some("catalog-binding/polished-concrete".to_string());
     let bridge = init_bridge();
-    assert!(bridge.voxel_model_infos.is_empty());
+    assert!(bridge.voxel.voxel_model_infos.is_empty());
     let receipt = bridge
         .update_voxel_volume_asset_palette(request.clone())
         .unwrap();
     assert!(receipt.updated, "{:?}", receipt.diagnostics);
-    assert!(bridge.voxel_model_infos.is_empty());
+    assert!(bridge.voxel.voxel_model_infos.is_empty());
     assert_eq!(
         receipt.voxel_data_hash.as_deref(),
         Some(asset.content_hashes.voxel_data.as_str())

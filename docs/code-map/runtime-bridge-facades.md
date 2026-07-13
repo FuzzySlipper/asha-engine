@@ -33,8 +33,43 @@ WASM replay bridge, and fail-closed runtime operation exposure.
 ## Public Downstream Surfaces
 
 - `@asha/runtime-bridge` package root.
+- `RuntimeBridge` remains the one compatibility root. `runtimeBridgePorts(root)`
+  exposes fixed, compile-time capability views over that same object for
+  consumers and test doubles that need a narrower contract.
 - `@asha/runtime-bridge/reference` only where explicitly approved.
 - `@asha/runtime-session` for transport-neutral RuntimeSession contracts and semantics.
+
+## Fixed Capability Cells
+
+The TypeScript root composes nine interfaces and the Rust `EngineBridge` stores
+state under the same nine owners. These are review boundaries, not services or
+plugins: there is no capability locator, independent transport, or second
+runtime root.
+
+| Cell | Authority responsibility | Lifetime / hash rule |
+| --- | --- | --- |
+| input | input session and resolved actions | session / input evidence |
+| timeSimulation | cadence, fixed ticks, simulation queue | session / time state |
+| sceneEntities | scene document and entity state | session / document hash |
+| voxelAssetsBuffers | voxel worlds, assets, annotations, buffers | mixed explicit and session / state and resource hashes |
+| camera | camera and controller state | session / projection hash |
+| gameplay | FPS session and rule modules | session / session and replay hashes |
+| projection | render and presentation projection | frame / frame hash |
+| bundleLifecycle | engine initialization and bundle load/unload | session / composition status |
+| replayEvidence | replay hashes and conversion evidence | session / evidence hashes |
+
+All cells except `bundleLifecycle` are retained across the compatibility
+`loadProjectBundle`/`unloadProjectBundle` identity transition. That is an
+explicit current rule, not a claim that unloading destroys the whole runtime
+session. Manual buffer handles still require `releaseBuffer`; other voxel state
+is session-owned.
+
+`RUNTIME_BRIDGE_PORT_CONTRACTS` is the public, inspectable lifecycle contract.
+`ENGINE_BRIDGE_CAPABILITY_PORTS` mirrors it in Rust tests. Rust authority modules
+delegate through boring owned fields; adding a port never grants another port
+broad root access. The gameplay cell is the only bridge capability intended to
+feed the one native gameplay composition cell described by the post-wave-one
+campaign.
 
 ## Private Or Forbidden Paths
 
@@ -55,6 +90,9 @@ WASM replay bridge, and fail-closed runtime operation exposure.
 
 - Letting mock/reference behavior silently stand in for native authority.
 - Adding a bridge verb before the Rust authority and generated DTOs exist.
+- Turning a capability cell into a service locator, registry, or second bridge.
+- Taking a full `RuntimeBridge` in a focused consumer or test when one of the
+  exported capability interfaces is sufficient.
 - Returning unclassified strings instead of typed bridge errors.
 
 ## Follow-up Routing

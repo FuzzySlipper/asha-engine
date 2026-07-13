@@ -18,7 +18,7 @@ impl EngineBridge {
             request.target_grid,
             Some(request.layer.target_voxel_volume_asset_id.clone()),
         );
-        let Some(model) = self.voxel_model_infos.get(&key) else {
+        let Some(model) = self.voxel.voxel_model_infos.get(&key) else {
             return Ok(Self::voxel_annotation_load_receipt(
                 &request,
                 None,
@@ -69,7 +69,11 @@ impl EngineBridge {
             ));
         }
         let runtime_layer_id = Self::voxel_annotation_runtime_layer_id(&request.layer);
-        if !request.replace_existing && self.voxel_annotation_layers.contains_key(&runtime_layer_id)
+        if !request.replace_existing
+            && self
+                .voxel
+                .voxel_annotation_layers
+                .contains_key(&runtime_layer_id)
         {
             return Ok(Self::voxel_annotation_load_receipt(
                 &request,
@@ -83,7 +87,8 @@ impl EngineBridge {
             ));
         }
         let layer = svc_voxel_annotation::with_computed_hashes(&request.layer);
-        self.voxel_annotation_layers
+        self.voxel
+            .voxel_annotation_layers
             .insert(runtime_layer_id, layer.clone());
         Ok(Self::voxel_annotation_load_receipt(
             &VoxelAnnotationLayerLoadRequest { layer, ..request },
@@ -138,6 +143,7 @@ impl EngineBridge {
             ));
         };
         let layer = self
+            .voxel
             .voxel_annotation_layers
             .get(&runtime_layer_id)
             .expect("key came from map")
@@ -198,7 +204,8 @@ impl EngineBridge {
         let layer_hash_after = candidate.content_hashes.canonical_json.clone();
         let region_count = candidate.regions.len() as u64;
         let assigned_cell_count = Self::voxel_annotation_assigned_cells(&candidate);
-        self.voxel_annotation_layers
+        self.voxel
+            .voxel_annotation_layers
             .insert(runtime_layer_id, candidate);
         Ok(Self::voxel_annotation_edit_receipt(
             request,
@@ -302,11 +309,13 @@ impl EngineBridge {
     ) -> Option<String> {
         if let Some(runtime_layer_id) = runtime_layer_id {
             return self
+                .voxel
                 .voxel_annotation_layers
                 .contains_key(runtime_layer_id)
                 .then(|| runtime_layer_id.clone());
         }
-        self.voxel_annotation_layers
+        self.voxel
+            .voxel_annotation_layers
             .iter()
             .find_map(|(key, layer)| (layer.layer_id == layer_id).then(|| key.clone()))
     }
@@ -317,7 +326,7 @@ impl EngineBridge {
         layer_id: &str,
     ) -> Option<&VoxelAnnotationLayer> {
         let key = self.voxel_annotation_layer_key(runtime_layer_id, layer_id)?;
-        self.voxel_annotation_layers.get(&key)
+        self.voxel.voxel_annotation_layers.get(&key)
     }
 
     pub(super) fn voxel_annotation_runtime_layer_id(layer: &VoxelAnnotationLayer) -> String {

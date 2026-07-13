@@ -37,7 +37,7 @@ fn rejection(rejection: sim_runner::TimeControlRejection) -> TimeControlRejectio
 }
 
 fn state(bridge: &EngineBridge, authority_tick: u64) -> TimeControlState {
-    let controller = bridge.time_controller.state();
+    let controller = bridge.time.time_controller.state();
     let mode = mode(controller.mode);
     let mode_label = match mode {
         TimeControlMode::Paused => "paused",
@@ -88,6 +88,7 @@ pub(super) fn apply(
     if let TimeControlCommand::StepTicks { ticks } = requested {
         if ticks > 0 && ticks <= sim_runner::MAX_EXACT_STEP_TICKS {
             bridge
+                .time
                 .authority_tick
                 .checked_add(u64::from(ticks))
                 .ok_or_else(|| {
@@ -98,16 +99,17 @@ pub(super) fn apply(
                 })?;
         }
     }
-    let before = state(bridge, bridge.authority_tick);
-    let authority_receipt = bridge.time_controller.apply(command(requested));
+    let before = state(bridge, bridge.time.authority_tick);
+    let authority_receipt = bridge.time.time_controller.apply(command(requested));
     if authority_receipt.accepted && authority_receipt.exact_ticks_to_advance > 0 {
         let first_tick = bridge
+            .time
             .authority_tick
             .checked_add(1)
             .expect("valid exact step was overflow-checked before authority mutation");
         execute_fixed_ticks(bridge, first_tick, authority_receipt.exact_ticks_to_advance)?;
     }
-    let after = state(bridge, bridge.authority_tick);
+    let after = state(bridge, bridge.time.authority_tick);
     let rejection = authority_receipt.rejection.map(rejection);
     let exact_ticks_advanced = authority_receipt.exact_ticks_to_advance;
     Ok(TimeControlReceipt {
@@ -128,7 +130,7 @@ pub(super) fn apply(
 
 pub(super) fn read(bridge: &EngineBridge) -> BridgeResult<TimeControlState> {
     bridge.require_initialized("read_time_control_state")?;
-    Ok(state(bridge, bridge.authority_tick))
+    Ok(state(bridge, bridge.time.authority_tick))
 }
 
 pub(super) fn step(
@@ -136,10 +138,10 @@ pub(super) fn step(
     input: StepInputEnvelope,
 ) -> BridgeResult<StepResult> {
     bridge.require_initialized("step_simulation")?;
-    let cadence_tick_budget = u32::from(bridge.time_controller.cadence_tick_budget());
+    let cadence_tick_budget = u32::from(bridge.time.time_controller.cadence_tick_budget());
     if cadence_tick_budget == 0 {
         return Ok(StepResult {
-            tick: bridge.authority_tick,
+            tick: bridge.time.authority_tick,
             diff_count: 0,
         });
     }
@@ -168,7 +170,7 @@ fn execute_fixed_ticks(
     })?;
 
     let mut result = StepResult {
-        tick: bridge.authority_tick,
+        tick: bridge.time.authority_tick,
         diff_count: 0,
     };
     for offset in 0..count {
@@ -183,8 +185,8 @@ fn execute_fixed_ticks(
 /// Run one fixed simulation tick. Every cadence and exact-step path must call
 /// this function rather than editing `authority_tick` directly.
 fn execute_fixed_tick(bridge: &mut EngineBridge, tick: u64) -> StepResult {
-    let outcome = bridge.simulation.execute_tick(tick);
-    bridge.authority_tick = outcome.tick;
+    let outcome = bridge.time.simulation.execute_tick(tick);
+    bridge.time.authority_tick = outcome.tick;
     StepResult {
         tick: outcome.tick,
         diff_count: u32::try_from(outcome.events_applied)
@@ -198,5 +200,5 @@ pub(super) fn queue_simulation_command(
     tick: u64,
     command: CommandEnvelope,
 ) {
-    bridge.simulation.queue_command(tick, command);
+    bridge.time.simulation.queue_command(tick, command);
 }
