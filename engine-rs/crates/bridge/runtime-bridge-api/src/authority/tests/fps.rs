@@ -316,6 +316,36 @@ fn generated_tunnel_preserves_explicit_role_targeted_enemy_damage() {
         .ops
         .iter()
         .all(|operation| !matches!(operation, PresentationOp::Animation { .. })));
+    assert!(enemy_projection.presentation.ops.iter().any(|operation| {
+        matches!(
+            operation,
+            PresentationOp::Billboard {
+                op: BillboardProjectionOp::Create {
+                    descriptor: BillboardDescriptor {
+                        content: BillboardContent::Text { fallback_text, .. },
+                        ..
+                    },
+                    ..
+                },
+                ..
+            } if fallback_text == "Enemy"
+        )
+    }));
+    assert!(enemy_projection.presentation.ops.iter().any(|operation| {
+        matches!(
+            operation,
+            PresentationOp::Billboard {
+                op: BillboardProjectionOp::Create {
+                    descriptor: BillboardDescriptor {
+                        content: BillboardContent::Value { fallback_label, .. },
+                        ..
+                    },
+                    ..
+                },
+                ..
+            } if fallback_label == "Player health"
+        )
+    }));
 
     let player_receipt = bridge
         .apply_fps_primary_fire(FpsPrimaryFireRequest {

@@ -902,27 +902,39 @@ impl EngineBridge {
         request: FpsPrimaryFireRequest,
         result: &FpsPrimaryFireResult,
     ) -> BridgeResult<()> {
-        let player_handle =
+        let shooter_role = request.shooter_role.unwrap_or(FpsBridgeRole::Player);
+        let target_role = request.target_role.unwrap_or(FpsBridgeRole::Enemy);
+        let (shooter_localization_key, shooter_fallback_text) = match shooter_role {
+            FpsBridgeRole::Player => ("asha.fps.player.name", "Player"),
+            FpsBridgeRole::Enemy => ("asha.fps.enemy.name", "Enemy"),
+            FpsBridgeRole::Neutral => ("asha.fps.neutral.name", "Neutral"),
+        };
+        let (target_health_label_key, target_health_fallback_label) = match target_role {
+            FpsBridgeRole::Player => ("asha.fps.player.health", "Player health"),
+            FpsBridgeRole::Enemy => ("asha.fps.enemy.health", "Enemy health"),
+            FpsBridgeRole::Neutral => ("asha.fps.neutral.health", "Neutral health"),
+        };
+        let shooter_handle =
             BillboardHandle::new(result.shooter.checked_mul(2).ok_or_else(|| {
                 RuntimeBridgeError::new(
                     RuntimeBridgeErrorKind::Internal,
-                    "player entity id cannot be represented as a billboard handle",
+                    "shooter entity id cannot be represented as a billboard handle",
                 )
             })?);
         if self
             .projection
             .billboard_projector
             .as_ref()
-            .is_some_and(|projector| projector.descriptor(player_handle).is_none())
+            .is_some_and(|projector| projector.descriptor(shooter_handle).is_none())
         {
-            let player_descriptor = BillboardDescriptor {
+            let shooter_descriptor = BillboardDescriptor {
                 anchor: BillboardAnchor::EntityAttached {
                     entity: result.shooter,
                     offset: [0.0, 1.9, 0.0],
                 },
                 content: BillboardContent::Text {
-                    localization_key: "asha.fps.player.name".to_string(),
-                    fallback_text: "Player".to_string(),
+                    localization_key: shooter_localization_key.to_string(),
+                    fallback_text: shooter_fallback_text.to_string(),
                     arguments: Vec::new(),
                 },
                 font: BillboardFontRef::System {
@@ -939,8 +951,8 @@ impl EngineBridge {
                 request.tick,
                 self.primary_fire_presentation_origin(request.tick, result),
                 BillboardProjectionOp::Create {
-                    handle: player_handle,
-                    descriptor: player_descriptor,
+                    handle: shooter_handle,
+                    descriptor: shooter_descriptor,
                 },
             )?;
         }
@@ -961,8 +973,8 @@ impl EngineBridge {
         );
         let health = result.target_health_after;
         let content = BillboardContent::Value {
-            label_key: "asha.fps.enemy.health".to_string(),
-            fallback_label: "Enemy health".to_string(),
+            label_key: target_health_label_key.to_string(),
+            fallback_label: target_health_fallback_label.to_string(),
             value: health
                 .map(|state| format!("{}/{}", state.current, state.max))
                 .unwrap_or_else(|| "unknown".to_string()),

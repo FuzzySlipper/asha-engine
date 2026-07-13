@@ -18,9 +18,16 @@ import type {
   ModelMaterialPreviewSnapshot,
   PickResult,
   PickRay,
+  AudioSourcePatch,
+  BillboardContent,
+  BillboardPatch,
+  ParticleEmitterPatch,
   PresentationOp,
+  PresentationOpMeta,
+  PresentationOriginRef,
   RenderFrameDiff,
   RuntimeProjectionFrame,
+  TelemetryOverlayPatch,
   TimeControlCommand,
   TimeControlReceipt,
   TimeControlState,
@@ -575,13 +582,22 @@ type AnimationPresentationOp = Extract<PresentationOp, { readonly domain: 'anima
 
 interface NativePresentationOpDto {
   readonly domain: string;
-  readonly meta: PresentationOp['meta'];
+  readonly meta: NativePresentationOpMetaDto;
   readonly audioOp?: AudioPresentationOp['op'];
   readonly billboardOp?: BillboardPresentationOp['op'];
   readonly particleOp?: ParticlePresentationOp['op'];
   readonly telemetryOverlayOp?: TelemetryOverlayPresentationOp['op'];
   readonly animationOp?: AnimationPresentationOp['op'];
 }
+
+type NativePresentationOriginDto = Omit<PresentationOriginRef, 'causationId' | 'correlationId'> & {
+  readonly causationId?: string;
+  readonly correlationId?: string;
+};
+
+type NativePresentationOpMetaDto = Omit<PresentationOpMeta, 'origin'> & {
+  readonly origin?: NativePresentationOriginDto;
+};
 
 interface NativeRuntimeProjectionFrameDto {
   readonly schemaVersion: number;
@@ -608,6 +624,7 @@ function projectionFrameFromNative(native: NativeRuntimeProjectionFrameDto): Run
     if (operation.meta?.sequence !== index) {
       throw new RuntimeBridgeError('internal', 'native presentation sequence is not contiguous');
     }
+    const meta = presentationOpMetaFromNative(operation.meta);
     if (
       operation.domain === 'audio'
       && operation.audioOp !== undefined
@@ -616,7 +633,7 @@ function projectionFrameFromNative(native: NativeRuntimeProjectionFrameDto): Run
       && operation.telemetryOverlayOp === undefined
       && operation.animationOp === undefined
     ) {
-      return { domain: 'audio', meta: operation.meta, op: operation.audioOp };
+      return { domain: 'audio', meta, op: audioProjectionOperationFromNative(operation.audioOp) };
     }
     if (
       operation.domain === 'billboard'
@@ -626,7 +643,7 @@ function projectionFrameFromNative(native: NativeRuntimeProjectionFrameDto): Run
       && operation.telemetryOverlayOp === undefined
       && operation.animationOp === undefined
     ) {
-      return { domain: 'billboard', meta: operation.meta, op: operation.billboardOp };
+      return { domain: 'billboard', meta, op: billboardProjectionOperationFromNative(operation.billboardOp) };
     }
     if (
       operation.domain === 'particle'
@@ -636,7 +653,7 @@ function projectionFrameFromNative(native: NativeRuntimeProjectionFrameDto): Run
       && operation.telemetryOverlayOp === undefined
       && operation.animationOp === undefined
     ) {
-      return { domain: 'particle', meta: operation.meta, op: operation.particleOp };
+      return { domain: 'particle', meta, op: particleProjectionOperationFromNative(operation.particleOp) };
     }
     if (
       operation.domain === 'telemetryOverlay'
@@ -648,8 +665,8 @@ function projectionFrameFromNative(native: NativeRuntimeProjectionFrameDto): Run
     ) {
       return {
         domain: 'telemetryOverlay',
-        meta: operation.meta,
-        op: operation.telemetryOverlayOp,
+        meta,
+        op: telemetryOverlayProjectionOperationFromNative(operation.telemetryOverlayOp),
       };
     }
     if (
@@ -662,7 +679,7 @@ function projectionFrameFromNative(native: NativeRuntimeProjectionFrameDto): Run
     ) {
       return {
         domain: 'animation',
-        meta: operation.meta,
+        meta,
         op: animationProjectionOperationFromNative(operation.animationOp),
       };
     }
@@ -678,6 +695,122 @@ function projectionFrameFromNative(native: NativeRuntimeProjectionFrameDto): Run
     presentation: {
       replayScope: native.presentation.replayScope,
       ops,
+    },
+  };
+}
+
+function presentationOpMetaFromNative(meta: NativePresentationOpMetaDto): PresentationOpMeta {
+  const origin = meta.origin;
+  return {
+    sequence: meta.sequence,
+    origin: origin === undefined
+      ? null
+      : {
+          ...origin,
+          causationId: origin.causationId ?? null,
+          correlationId: origin.correlationId ?? null,
+        },
+  };
+}
+
+function audioProjectionOperationFromNative(
+  operation: AudioPresentationOp['op'],
+): AudioPresentationOp['op'] {
+  if (operation.op !== 'update') return operation;
+  const patch = operation.patch as Partial<AudioSourcePatch>;
+  return {
+    ...operation,
+    patch: {
+      volume: patch.volume ?? null,
+      pitch: patch.pitch ?? null,
+      looping: patch.looping ?? null,
+      spatialBlend: patch.spatialBlend ?? null,
+      attenuation: patch.attenuation ?? null,
+      pan: patch.pan ?? null,
+      emitter: patch.emitter ?? null,
+    },
+  };
+}
+
+function billboardProjectionOperationFromNative(
+  operation: BillboardPresentationOp['op'],
+): BillboardPresentationOp['op'] {
+  if (operation.op === 'create') {
+    return {
+      ...operation,
+      descriptor: {
+        ...operation.descriptor,
+        content: billboardContentFromNative(operation.descriptor.content),
+      },
+    };
+  }
+  if (operation.op !== 'update') return operation;
+  const patch = operation.patch as Partial<BillboardPatch>;
+  return {
+    ...operation,
+    patch: {
+      anchor: patch.anchor ?? null,
+      content: patch.content == null ? null : billboardContentFromNative(patch.content),
+      font: patch.font ?? null,
+      heightPixels: patch.heightPixels ?? null,
+      color: patch.color ?? null,
+      background: patch.background ?? null,
+      maxDistance: patch.maxDistance ?? null,
+      layer: patch.layer ?? null,
+      visible: patch.visible ?? null,
+    },
+  };
+}
+
+function billboardContentFromNative(
+  content: BillboardContent,
+): BillboardContent {
+  if (content.kind !== 'value') return content;
+  return {
+    ...content,
+    unitKey: content.unitKey ?? null,
+    fallbackUnit: content.fallbackUnit ?? null,
+  };
+}
+
+function particleProjectionOperationFromNative(
+  operation: ParticlePresentationOp['op'],
+): ParticlePresentationOp['op'] {
+  if (operation.op !== 'update') return operation;
+  const patch = operation.patch as Partial<ParticleEmitterPatch>;
+  return {
+    ...operation,
+    patch: {
+      anchor: patch.anchor ?? null,
+      sprite: patch.sprite ?? null,
+      ratePerSecond: patch.ratePerSecond ?? null,
+      burstCount: patch.burstCount ?? null,
+      lifetimeSeconds: patch.lifetimeSeconds ?? null,
+      velocityMin: patch.velocityMin ?? null,
+      velocityMax: patch.velocityMax ?? null,
+      acceleration: patch.acceleration ?? null,
+      sizeCurve: patch.sizeCurve ?? null,
+      colorCurve: patch.colorCurve ?? null,
+      flipbookFramesPerSecond: patch.flipbookFramesPerSecond ?? null,
+      maxParticles: patch.maxParticles ?? null,
+      visible: patch.visible ?? null,
+    },
+  };
+}
+
+function telemetryOverlayProjectionOperationFromNative(
+  operation: TelemetryOverlayPresentationOp['op'],
+): TelemetryOverlayPresentationOp['op'] {
+  if (operation.op !== 'update') return operation;
+  const patch = operation.patch as Partial<TelemetryOverlayPatch>;
+  return {
+    ...operation,
+    patch: {
+      title: patch.title ?? null,
+      corner: patch.corner ?? null,
+      refreshIntervalMs: patch.refreshIntervalMs ?? null,
+      maxFrameTimeSamples: patch.maxFrameTimeSamples ?? null,
+      visible: patch.visible ?? null,
     },
   };
 }
