@@ -96,11 +96,13 @@ pub(crate) use protocol_render::{
 };
 pub use protocol_render::{ModelMaterialPreviewRequest, ModelMaterialPreviewSnapshot};
 pub use protocol_scene::{
-    AssetReferenceDto, AssetVersionReqDto, FlatSceneDocumentDto, SceneMetadataDto,
-    SceneNodeKindDto, SceneNodeRecordDto, SceneObjectCommandDto, SceneObjectCommandOutcomeDto,
-    SceneObjectCommandRejectionCode, SceneObjectCommandRejectionDto, SceneObjectCommandRequestDto,
-    SceneObjectCommandResultDto, SceneObjectRecordDto, SceneObjectSnapshotDto, SceneTransformDto,
-    SceneValidationCode, SceneValidationErrorDto,
+    AssetReferenceDto, AssetVersionReqDto, FlatSceneDocumentDto, SceneDocumentCodecDiagnosticCode,
+    SceneDocumentCodecDiagnosticDto, SceneDocumentCodecResultDto, SceneDocumentDecodeRequestDto,
+    SceneDocumentEncodeRequestDto, SceneMetadataDto, SceneNodeKindDto, SceneNodeRecordDto,
+    SceneObjectCommandDto, SceneObjectCommandOutcomeDto, SceneObjectCommandRejectionCode,
+    SceneObjectCommandRejectionDto, SceneObjectCommandRequestDto, SceneObjectCommandResultDto,
+    SceneObjectRecordDto, SceneObjectSnapshotDto, SceneTransformDto, SceneValidationCode,
+    SceneValidationErrorDto, SceneValidationReportDto,
 };
 pub use protocol_time_control::{
     TimeControlCommand, TimeControlMode, TimeControlReceipt, TimeControlRejection,

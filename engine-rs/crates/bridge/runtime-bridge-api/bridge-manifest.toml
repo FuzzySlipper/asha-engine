@@ -60,7 +60,7 @@ initialization = "requiresEngine"
 project_bundle = "retainedAcrossLoadUnload"
 snapshot_hash = "sceneDocument"
 resource_lifetime = "session"
-operations = ["read_model_material_preview", "read_scene_object_snapshot", "apply_scene_object_command", "apply_enemy_direct_nav_movement"]
+operations = ["decode_scene_document", "encode_scene_document", "read_model_material_preview", "read_scene_object_snapshot", "apply_scene_object_command", "apply_enemy_direct_nav_movement"]
 
 [[capability]]
 id = "voxel_assets_buffers"
@@ -561,6 +561,22 @@ errors = "RuntimeBridgeError"
 buffers = "read-only descriptor; large geometry referenced by RuntimeBufferHandle"
 summary = "Pull retained-mode render diffs since the cursor. Small metadata inline; large payloads by handle."
 facade_output = "contracts::RenderFrameDiff"
+
+[[operation]]
+name = "decode_scene_document"
+surface = "stable"
+input = "protocol_scene::SceneDocumentDecodeRequest"
+output = "protocol_scene::SceneDocumentCodecResult"
+errors = "RuntimeBridgeError"
+summary = "Decode, canonicalize, and validate stored authored scene source through Rust authority without loading or mutating RuntimeSession state."
+
+[[operation]]
+name = "encode_scene_document"
+surface = "stable"
+input = "protocol_scene::SceneDocumentEncodeRequest"
+output = "protocol_scene::SceneDocumentCodecResult"
+errors = "RuntimeBridgeError"
+summary = "Validate and canonically encode one typed stored authored scene document through Rust authority without loading or mutating RuntimeSession state."
 
 [[operation]]
 name = "read_model_material_preview"

@@ -22,6 +22,8 @@ export interface RuntimeTimeSimulationPort {
 }
 
 export interface RuntimeSceneEntityPort {
+  decodeSceneDocument(input: Contracts.SceneDocumentDecodeRequest): Contracts.SceneDocumentCodecResult;
+  encodeSceneDocument(input: Contracts.SceneDocumentEncodeRequest): Contracts.SceneDocumentCodecResult;
   readModelMaterialPreview(input: Contracts.ModelMaterialPreviewRequest): Contracts.ModelMaterialPreviewSnapshot;
   readSceneObjectSnapshot(): Contracts.SceneObjectSnapshot;
   applySceneObjectCommand(input: Contracts.SceneObjectCommandRequest): Contracts.SceneObjectCommandResult;

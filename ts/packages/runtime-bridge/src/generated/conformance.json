@@ -57,6 +57,8 @@
       "snapshot_hash": "sceneDocument",
       "resource_lifetime": "session",
       "operations": [
+        "decode_scene_document",
+        "encode_scene_document",
         "read_model_material_preview",
         "read_scene_object_snapshot",
         "apply_scene_object_command",
@@ -1438,6 +1440,54 @@
       "outputWire": {
         "owner": "generated",
         "name": "render.RenderFrameDiff",
+        "repeated": false
+      },
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "decode_scene_document",
+      "facadeMethod": "decodeSceneDocument",
+      "capability": "scene_entities",
+      "surface": "stable",
+      "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
+      "input": "protocol_scene::SceneDocumentDecodeRequest",
+      "output": "protocol_scene::SceneDocumentCodecResult",
+      "facadeInput": null,
+      "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "scene.SceneDocumentDecodeRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "scene.SceneDocumentCodecResult",
+        "repeated": false
+      },
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "encode_scene_document",
+      "facadeMethod": "encodeSceneDocument",
+      "capability": "scene_entities",
+      "surface": "stable",
+      "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
+      "input": "protocol_scene::SceneDocumentEncodeRequest",
+      "output": "protocol_scene::SceneDocumentCodecResult",
+      "facadeInput": null,
+      "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "scene.SceneDocumentEncodeRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "scene.SceneDocumentCodecResult",
         "repeated": false
       },
       "errors": "RuntimeBridgeError"

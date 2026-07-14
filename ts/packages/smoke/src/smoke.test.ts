@@ -199,6 +199,8 @@ function bridgeWith(overrides: Partial<RuntimeBridge>): RuntimeBridge {
     undoVoxelEdit: base.undoVoxelEdit.bind(base),
     redoVoxelEdit: base.redoVoxelEdit.bind(base),
     readModelMaterialPreview: base.readModelMaterialPreview.bind(base),
+    decodeSceneDocument: base.decodeSceneDocument.bind(base),
+    encodeSceneDocument: base.encodeSceneDocument.bind(base),
     readSceneObjectSnapshot: base.readSceneObjectSnapshot.bind(base),
     applySceneObjectCommand: base.applySceneObjectCommand.bind(base),
     readRenderDiffs: base.readRenderDiffs.bind(base),

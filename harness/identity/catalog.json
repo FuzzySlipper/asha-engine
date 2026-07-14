@@ -288,6 +288,16 @@
         "evidenceArtifactId": "evidence.public.runtime-session.projection.asha-demo-public-roots-cover-runtimesession-readouts-and-hud-menu-projection"
       },
       {
+        "id": "assertion.public.scene-document-codec.canonical-round-trip-does-not-mutate-runtime-authority",
+        "probeId": "public.scene-document-codec",
+        "evidenceArtifactId": "evidence.public.scene-document-codec.canonical-round-trip-does-not-mutate-runtime-authority"
+      },
+      {
+        "id": "assertion.public.scene-document-codec.structural-semantic-and-version-rejections-are-classified",
+        "probeId": "public.scene-document-codec",
+        "evidenceArtifactId": "evidence.public.scene-document-codec.structural-semantic-and-version-rejections-are-classified"
+      },
+      {
         "id": "assertion.public.session-input-replay.resolved-pause-context-records-and-replays-without-browser-events-or-double-delivery",
         "probeId": "public.session-input-replay",
         "evidenceArtifactId": "evidence.public.session-input-replay.resolved-pause-context-records-and-replays-without-browser-events-or-double-delivery"
@@ -810,6 +820,26 @@
         "requiredLevel": "delivery",
         "source": "harness/consumer-needs/manifests/asha-studio.json",
         "sourceHash": "sha256:e04bb66f1160bd72125647152abda1264e8ffc6dace7f099dd81f6dbf60e0ce0"
+      },
+      {
+        "id": "asha-studio.scene-document-decode",
+        "consumerId": "asha-studio.native-authority-workflow",
+        "identity": "decodeSceneDocument",
+        "kind": "runtimeOperation",
+        "providerId": "@asha/runtime-session",
+        "requiredLevel": "delivery",
+        "source": "harness/consumer-needs/manifests/asha-studio.json",
+        "sourceHash": "sha256:faf663aad989d02a56744cc3d8b8d8ff59e3337bc66442fb83ae23ab736f0c6e"
+      },
+      {
+        "id": "asha-studio.scene-document-encode",
+        "consumerId": "asha-studio.native-authority-workflow",
+        "identity": "encodeSceneDocument",
+        "kind": "runtimeOperation",
+        "providerId": "@asha/runtime-session",
+        "requiredLevel": "delivery",
+        "source": "harness/consumer-needs/manifests/asha-studio.json",
+        "sourceHash": "sha256:72de40107ae1c9497553308bcdcce7d5ea301dbb7cc1dad46593dc8c30db3ffe"
       },
       {
         "id": "pulse.configuration",
@@ -1423,6 +1453,20 @@
         "sourceHash": "sha256:14b3ab771799ab0ac5787c530649bbbf9e92dcb4d14d782816e26b173597f39d"
       },
       {
+        "id": "evidence.public.scene-document-codec.canonical-round-trip-does-not-mutate-runtime-authority",
+        "kind": "sourceAssertion",
+        "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/scene_preview.rs",
+        "token": "stored_scene_codec_round_trips_the_canonical_golden_without_runtime_mutation",
+        "sourceHash": "sha256:60c627b6b07f2857a0cea24a60104e8e58d718deefe2777ad3285a3895767239"
+      },
+      {
+        "id": "evidence.public.scene-document-codec.structural-semantic-and-version-rejections-are-classified",
+        "kind": "sourceAssertion",
+        "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/scene_preview.rs",
+        "token": "stored_scene_codec_classifies_structural_semantic_and_version_rejections",
+        "sourceHash": "sha256:27eeadf9e63e6be4b6bc12c4fc91a54eea4bc624f9892225c2aa5bc938c3a121"
+      },
+      {
         "id": "evidence.public.session-input-replay.resolved-pause-context-records-and-replays-without-browser-events-or-double-delivery",
         "kind": "sourceAssertion",
         "path": "ts/packages/runtime-bridge/src/browser-input-host.test.ts",
@@ -1658,6 +1702,18 @@
         "sourceHash": "sha256:95acac7bcb36fea8e9e6c738b642ac5bb5072a05288025d725733a95ab8dd2a4"
       },
       {
+        "id": "decode_scene_document",
+        "surface": "stable",
+        "quarantineReason": null,
+        "sourceHash": "sha256:d8593c1286498cd4bc158a6af1ff09b69c2d44e8c42fd86d138ed2da116dce91"
+      },
+      {
+        "id": "encode_scene_document",
+        "surface": "stable",
+        "quarantineReason": null,
+        "sourceHash": "sha256:0ddfb624b76f19ac70b735de0e8e5e9de09e3804fdee880ee781cfac660dfb33"
+      },
+      {
         "id": "export_voxel_annotation_layer",
         "surface": "stable",
         "quarantineReason": null,
@@ -1782,6 +1838,12 @@
         "surface": "stable",
         "quarantineReason": null,
         "sourceHash": "sha256:eea68936a9965897a8e762fcd759efab5c8e7f47c6966502fc825a48cff0e16d"
+      },
+      {
+        "id": "read_developer_console",
+        "surface": "stable",
+        "quarantineReason": null,
+        "sourceHash": "sha256:7b93ea99f5d26a94e8c9e0fddb4733cc94d68f81742e5fac391a1821284bcc7c"
       },
       {
         "id": "read_fps_encounter_director",
@@ -2117,6 +2179,11 @@
         "sourceHash": "sha256:eb202a26891e676e9c5aebf997d055f30521cd1175873c96431f17369bd2e2b1"
       },
       {
+        "id": "public.scene-document-codec",
+        "suiteId": "bridge.rust-authority",
+        "sourceHash": "sha256:f763372fc6f347b98de6042ec5e1b7e852f2c74a220a0d669e9756f648f1d43b"
+      },
+      {
         "id": "public.session-input-replay",
         "suiteId": "bridge.rust-authority",
         "sourceHash": "sha256:11525f941652162d865927fc91646511b597f6cf1d634fbb4d2a8d6b2775469e"
@@ -2418,6 +2485,9 @@
             "consumerRequirementId": "asha-demo.prefab-runtime-placement"
           },
           {
+            "consumerRequirementId": "asha-studio.scene-document-encode"
+          },
+          {
             "consumerRequirementId": "asha-demo.gameplay-runtime-host"
           },
           {
@@ -2471,9 +2541,12 @@
           },
           {
             "publicSurfaceId": "@asha/runtime-session"
+          },
+          {
+            "consumerRequirementId": "asha-studio.scene-document-decode"
           }
         ],
-        "sourceHash": "sha256:b580864049a93339d9ee7db80663f69b0e70fa15a3b01907c182339956260869"
+        "sourceHash": "sha256:801674aff6e1978fa79219d38ec5bb290b8de13fd21774d2e5ceb98d922b7b77"
       },
       {
         "id": "@asha/script-host",
@@ -2830,37 +2903,37 @@
         "id": "asha-game-rule-extension",
         "kind": "rust",
         "disposition": "quarantined",
-        "sourceHash": "sha256:2f99a939363779c0fa0e901bec311a6c9299f78043756979b369c96efb4c23b7"
+        "sourceHash": "sha256:60d7b74fd31d8d4fc8150e88dc1eb5ec84816023e0919fafc73023157bb310f7"
       },
       {
         "id": "asha-gameplay-module-conformance",
         "kind": "rust",
         "disposition": "preferred",
-        "sourceHash": "sha256:6e4e9dfa31784db6450b5842fc01878cd6cb4acda068916aa6e1f9ad226d2f55"
+        "sourceHash": "sha256:83a721f809ba1509a93338f0c0ac26c38588dd515554c838625ea154b1539bb4"
       },
       {
         "id": "asha-gameplay-module-sdk",
         "kind": "rust",
         "disposition": "preferred",
-        "sourceHash": "sha256:56b3e77f5370ece6c5769f98ed72a3d73306ac4b21d34f82ee350cf1ec98dd6f"
+        "sourceHash": "sha256:2c5254fbe05a95f7ac71a96d23e9f97016ef1fc6b75a406713af9cdbcd3cabaf"
       },
       {
         "id": "asha-gameplay-runtime-host",
         "kind": "rust",
         "disposition": "quarantined",
-        "sourceHash": "sha256:2e438e49476fa27b557bba508544ca70d09800d64c2712c508f0d93a7c4b815b"
+        "sourceHash": "sha256:9e96234e0fa88e024fd32cb8fe4cb1976b5280387f5b9c0a94ced78b83d9ec10"
       },
       {
         "id": "asha-native-runtime-provider",
         "kind": "rust",
         "disposition": "preferred",
-        "sourceHash": "sha256:8c76ccf792a60ed56d772400310845f3ac0b72fc83609ecaf743b629d4fc6b23"
+        "sourceHash": "sha256:1b43d3f715ee313ee86f18cb6a7a70adff3a224407eea8c14bcf361a34af4129"
       },
       {
         "id": "asha-runtime-session-composition",
         "kind": "rust",
         "disposition": "preferred",
-        "sourceHash": "sha256:07c599674acf3741075a11f768955a0d7ca1fe3f6bd89fa8becd4176cef85a09"
+        "sourceHash": "sha256:8af7c5f4ef0af82626a3bee0af42fee9dd3502b56fde443e9d6fa4c281bebe3c"
       }
     ],
     "suites": [
@@ -2998,5 +3071,5 @@
       }
     ]
   },
-  "catalogHash": "sha256:37f09b9ba2ee8e41ac3943999ae0e203b1746698f069569529ad91c19b8e71b2"
+  "catalogHash": "sha256:790e0aa21c5500c81d90090a02ff31f25ddd7d2ac9b81f26cb097564e3f377a3"
 }

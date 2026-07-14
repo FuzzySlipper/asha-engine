@@ -19,10 +19,12 @@
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/camera_modes.rs",
+        "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/developer_console.rs",
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/fps.rs",
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/input.rs",
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/mesh_import.rs",
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
+        "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/scene_preview.rs",
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs"
@@ -953,6 +955,35 @@
       "claims": [
         "publicProjectionReadout"
       ]
+    },
+    {
+      "id": "public.scene-document-codec",
+      "suite": "bridge.rust-authority",
+      "evidence": [
+        {
+          "assertionId": "assertion.public.scene-document-codec.canonical-round-trip-does-not-mutate-runtime-authority",
+          "artifactId": "evidence.public.scene-document-codec.canonical-round-trip-does-not-mutate-runtime-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/scene_preview.rs",
+          "token": "stored_scene_codec_round_trips_the_canonical_golden_without_runtime_mutation"
+        },
+        {
+          "assertionId": "assertion.public.scene-document-codec.structural-semantic-and-version-rejections-are-classified",
+          "artifactId": "evidence.public.scene-document-codec.structural-semantic-and-version-rejections-are-classified",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/scene_preview.rs",
+          "token": "stored_scene_codec_classifies_structural_semantic_and_version_rejections"
+        }
+      ],
+      "capabilities": [],
+      "consumerNeeds": [
+        "asha-studio.scene-document-decode",
+        "asha-studio.scene-document-encode"
+      ],
+      "publicSurfaces": [
+        "@asha/contracts",
+        "@asha/runtime-bridge",
+        "@asha/runtime-session"
+      ],
+      "claims": []
     },
     {
       "id": "public.session-input-replay",

@@ -60,6 +60,9 @@ import {
   type TimeControlCommand,
   type TimeControlReceipt,
   type TimeControlState,
+  type SceneDocumentCodecResult,
+  type SceneDocumentDecodeRequest,
+  type SceneDocumentEncodeRequest,
   type WeaponEffectHookRequest,
 } from '@asha/contracts';
 import {
@@ -303,6 +306,16 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
   readTimeControlState(): TimeControlState {
     this.#requireInitialized('readTimeControlState');
     return this.#bridge.readTimeControlState();
+  }
+
+  decodeSceneDocument(request: SceneDocumentDecodeRequest): SceneDocumentCodecResult {
+    this.#requireInitialized('decodeSceneDocument');
+    return this.#bridge.decodeSceneDocument(request);
+  }
+
+  encodeSceneDocument(request: SceneDocumentEncodeRequest): SceneDocumentCodecResult {
+    this.#requireInitialized('encodeSceneDocument');
+    return this.#bridge.encodeSceneDocument(request);
   }
 
   loadEcrpProject(input: RuntimeSessionEcrpProjectLoadInput): RuntimeSessionEcrpProjectLoadReceipt {

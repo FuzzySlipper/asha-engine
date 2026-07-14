@@ -1,8 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import type { NativeAddon } from '@asha/native-bridge';
 
 import { RuntimeBridgeError } from './bridge.js';
-import { classifyNativeAddonError } from './native.js';
+import { MANIFEST_OPERATIONS } from './generated/operations.js';
+import {
+  NATIVE_WIRED_OPERATIONS,
+  NativeRuntimeBridge,
+  classifyNativeAddonError,
+} from './native.js';
 import {
   parseOperationOutput,
   validateOperationInput,
@@ -158,4 +164,41 @@ void test('native errors decode only from the structured envelope', () => {
   const legacy = classifyNativeAddonError(new Error('InvalidInput: legacy prose'));
   assert.equal(legacy.kind, 'internal');
   assert.deepEqual(legacy.details, ['invalid_native_error_envelope']);
+});
+
+void test('native addon semantic errors retain the active public operation', () => {
+  const addon = {
+    initializeEngine: () => 1,
+    loadProjectBundle: () => {
+      throw new Error(JSON.stringify({
+        schemaVersion: 1,
+        code: 'invalid_input',
+        operation: 'load_project_bundle',
+        path: '$.bundleSchemaVersion',
+        retryable: false,
+        message: 'unsupported bundle schema 99 / protocol 1',
+        details: ['unsupported_schema'],
+        provenance: 'native_rust',
+      }));
+    },
+  } as unknown as NativeAddon;
+  const bridge = new NativeRuntimeBridge(addon);
+  bridge.initializeEngine({ seed: 1 });
+
+  assert.throws(
+    () => bridge.loadProjectBundle({ bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 1 }),
+    (error: unknown) =>
+      error instanceof RuntimeBridgeError &&
+      error.kind === 'invalid_input' &&
+      error.operation === 'load_project_bundle' &&
+      error.path === '$.bundleSchemaVersion' &&
+      error.message.includes('unsupported bundle schema 99 / protocol 1'),
+  );
+});
+
+void test('wired native names are real manifest operations', () => {
+  const manifestNames = new Set(MANIFEST_OPERATIONS.map((operation) => operation.manifestName));
+  for (const name of NATIVE_WIRED_OPERATIONS) {
+    assert.ok(manifestNames.has(name), `${name} in NATIVE_WIRED_OPERATIONS is not a manifest op`);
+  }
 });

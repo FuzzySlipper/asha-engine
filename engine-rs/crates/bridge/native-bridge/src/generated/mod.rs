@@ -277,6 +277,18 @@ pub(crate) const REQUIRED_NATIVE_EXPORTS: &[(&str, &str, usize, usize)] = &[
     ),
     ("read_render_diffs", "readRenderDiffs", 8388608, 8388608),
     (
+        "decode_scene_document",
+        "decodeSceneDocument",
+        8388608,
+        8388608,
+    ),
+    (
+        "encode_scene_document",
+        "encodeSceneDocument",
+        8388608,
+        8388608,
+    ),
+    (
         "read_model_material_preview",
         "readModelMaterialPreview",
         8388608,

@@ -126,3 +126,92 @@ fn scene_object_commands_are_hash_guarded_and_commit_canonical_state() {
         SceneObjectCommandRejectionCode::StaleSnapshot
     );
 }
+
+#[test]
+fn stored_scene_codec_round_trips_the_canonical_golden_without_runtime_mutation() {
+    let bridge = init_bridge();
+    let before = bridge.read_scene_object_snapshot().unwrap();
+    let source = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../../harness/fixtures/scenes/sample-flat.json"
+    ));
+
+    let decoded = bridge
+        .decode_scene_document(SceneDocumentDecodeRequestDto {
+            source_text: source.to_string(),
+        })
+        .unwrap();
+    assert!(decoded.accepted);
+    assert_eq!(decoded.canonical_json.as_deref(), Some(source));
+    assert!(decoded
+        .content_hash
+        .as_deref()
+        .is_some_and(|hash| hash.starts_with("fnv1a64:")));
+
+    let mut document = decoded.document.unwrap();
+    document.nodes.reverse();
+    let encoded = bridge
+        .encode_scene_document(SceneDocumentEncodeRequestDto { document })
+        .unwrap();
+    assert!(encoded.accepted);
+    assert_eq!(encoded.canonical_json.as_deref(), Some(source));
+    assert_eq!(encoded.content_hash, decoded.content_hash);
+    assert_eq!(bridge.read_scene_object_snapshot().unwrap(), before);
+}
+
+#[test]
+fn stored_scene_codec_classifies_structural_semantic_and_version_rejections() {
+    let bridge = init_bridge();
+    let before = bridge.read_scene_object_snapshot().unwrap();
+
+    let malformed = bridge
+        .decode_scene_document(SceneDocumentDecodeRequestDto {
+            source_text: "{not-json".to_string(),
+        })
+        .unwrap();
+    assert!(!malformed.accepted);
+    assert_eq!(
+        malformed.diagnostics[0].code,
+        SceneDocumentCodecDiagnosticCode::InvalidJson
+    );
+
+    let cycle = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../../harness/fixtures/scenes/invalid-cycle.json"
+    ));
+    let invalid = bridge
+        .decode_scene_document(SceneDocumentDecodeRequestDto {
+            source_text: cycle.to_string(),
+        })
+        .unwrap();
+    assert!(!invalid.accepted);
+    assert!(invalid.diagnostics.is_empty());
+    assert_eq!(
+        invalid.validation.errors[0].code,
+        SceneValidationCode::Cycle
+    );
+
+    let mut unsupported = bridge
+        .decode_scene_document(SceneDocumentDecodeRequestDto {
+            source_text: include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../../../harness/fixtures/scenes/sample-flat.json"
+            ))
+            .to_string(),
+        })
+        .unwrap()
+        .document
+        .unwrap();
+    unsupported.schema_version = 99;
+    let unsupported = bridge
+        .encode_scene_document(SceneDocumentEncodeRequestDto {
+            document: unsupported,
+        })
+        .unwrap();
+    assert!(!unsupported.accepted);
+    assert_eq!(
+        unsupported.diagnostics[0].code,
+        SceneDocumentCodecDiagnosticCode::UnsupportedSchema
+    );
+    assert_eq!(bridge.read_scene_object_snapshot().unwrap(), before);
+}

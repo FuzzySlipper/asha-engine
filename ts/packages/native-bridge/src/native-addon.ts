@@ -295,6 +295,8 @@ interface NativeAddonBindings {
   releaseBuffer(handle: number, bufferHandle: number): void;
   unloadProjectBundle(handle: number): void;
   readModelMaterialPreview(handle: number, requestJson: string): string;
+  decodeSceneDocument(handle: number, requestJson: string): string;
+  encodeSceneDocument(handle: number, requestJson: string): string;
   readSceneObjectSnapshot(handle: number): string;
   applySceneObjectCommand(handle: number, requestJson: string): string;
   applyGeneratedTunnelToRuntimeWorld(

@@ -892,7 +892,7 @@ const MODULE_PLANS: &[ModulePlan] = &[
             "foundation/core-assets",
         ],
         imports: &[("./ids.js", "EntityId")],
-        declarations: "brand:ProjectId brand:SceneId brand:RuntimeSessionId brand:SceneNodeId type:SceneNodeKindTag enumconst:SceneValidationCode:SCENE_VALIDATION_CODES enumconst:SceneObjectCommandRejectionCode:SCENE_OBJECT_COMMAND_REJECTION_CODES type:AssetVersionReq:AssetVersionReqDto:req type:AssetReference:AssetReferenceDto type:SceneTransform:SceneTransformDto type:SceneNodeKind:SceneNodeKindDto:kind type:SceneNodeRecord:SceneNodeRecordDto type:SceneMetadata:SceneMetadataDto type:FlatSceneDocument:FlatSceneDocumentDto type:SceneValidationError:SceneValidationErrorDto type:SceneValidationReport:SceneValidationReportDto type:SceneObjectRecord:SceneObjectRecordDto type:SceneObjectSnapshot:SceneObjectSnapshotDto type:SceneObjectCommand:SceneObjectCommandDto:kind type:SceneObjectCommandRejection:SceneObjectCommandRejectionDto type:SceneObjectCommandOutcome:SceneObjectCommandOutcomeDto type:SceneObjectCommandRequest:SceneObjectCommandRequestDto type:SceneObjectCommandResult:SceneObjectCommandResultDto type:SceneSourceTrace:SceneSourceTraceDto type:BootstrapRecord:BootstrapRecordDto",
+        declarations: "brand:ProjectId brand:SceneId brand:RuntimeSessionId brand:SceneNodeId type:SceneNodeKindTag enumconst:SceneValidationCode:SCENE_VALIDATION_CODES enumconst:SceneObjectCommandRejectionCode:SCENE_OBJECT_COMMAND_REJECTION_CODES enumconst:SceneDocumentCodecDiagnosticCode:SCENE_DOCUMENT_CODEC_DIAGNOSTIC_CODES type:AssetVersionReq:AssetVersionReqDto:req type:AssetReference:AssetReferenceDto type:SceneTransform:SceneTransformDto type:SceneNodeKind:SceneNodeKindDto:kind type:SceneNodeRecord:SceneNodeRecordDto type:SceneMetadata:SceneMetadataDto type:FlatSceneDocument:FlatSceneDocumentDto type:SceneDocumentDecodeRequest:SceneDocumentDecodeRequestDto type:SceneDocumentEncodeRequest:SceneDocumentEncodeRequestDto type:SceneDocumentCodecDiagnostic:SceneDocumentCodecDiagnosticDto type:SceneDocumentCodecResult:SceneDocumentCodecResultDto type:SceneValidationError:SceneValidationErrorDto type:SceneValidationReport:SceneValidationReportDto type:SceneObjectRecord:SceneObjectRecordDto type:SceneObjectSnapshot:SceneObjectSnapshotDto type:SceneObjectCommand:SceneObjectCommandDto:kind type:SceneObjectCommandRejection:SceneObjectCommandRejectionDto type:SceneObjectCommandOutcome:SceneObjectCommandOutcomeDto type:SceneObjectCommandRequest:SceneObjectCommandRequestDto type:SceneObjectCommandResult:SceneObjectCommandResultDto type:SceneSourceTrace:SceneSourceTraceDto type:BootstrapRecord:BootstrapRecordDto",
     },
     ModulePlan {
         name: "voxel",
@@ -1404,6 +1404,10 @@ mod tests {
             ),
             (
                 "SceneObjectCommandRejectionCode",
+                "wire values derive from its canonical const table",
+            ),
+            (
+                "SceneDocumentCodecDiagnosticCode",
                 "wire values derive from its canonical const table",
             ),
             (

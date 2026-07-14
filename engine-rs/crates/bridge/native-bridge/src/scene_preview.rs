@@ -1,4 +1,4 @@
-use core_ids::SceneNodeId;
+use core_ids::{SceneId, SceneNodeId};
 use napi_derive::napi;
 use protocol_assets::{
     AssetReference, CatalogEntry, CollisionMaterial, MaterialProjection, RenderMaterial, Rgba,
@@ -10,9 +10,10 @@ use protocol_render::{
     RenderDiff, StaticMeshAsset,
 };
 use protocol_scene::{
-    AssetReferenceDto, AssetVersionReqDto, SceneNodeKindDto, SceneNodeRecordDto,
-    SceneObjectCommandDto, SceneObjectCommandRequestDto, SceneObjectCommandResultDto,
-    SceneTransformDto,
+    AssetReferenceDto, AssetVersionReqDto, FlatSceneDocumentDto, SceneDocumentCodecResultDto,
+    SceneDocumentDecodeRequestDto, SceneDocumentEncodeRequestDto, SceneMetadataDto,
+    SceneNodeKindDto, SceneNodeRecordDto, SceneObjectCommandDto, SceneObjectCommandRequestDto,
+    SceneObjectCommandResultDto, SceneTransformDto, SceneValidationErrorDto,
 };
 use runtime_bridge_api::{RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind};
 use serde::{Deserialize, Serialize};
@@ -469,6 +470,35 @@ struct SceneCommandRequestJson {
 }
 
 #[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SceneDocumentDecodeRequestJson {
+    source_text: String,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SceneDocumentEncodeRequestJson {
+    document: SceneDocumentJson,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SceneDocumentJson {
+    schema_version: u32,
+    id: u64,
+    metadata: SceneMetadataJson,
+    dependencies: Vec<SceneAssetDtoJson>,
+    nodes: Vec<SceneRecordJson>,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SceneMetadataJson {
+    name: Option<String>,
+    authoring_format_version: u32,
+}
+
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 enum SceneCommandJson {
     Create {
@@ -585,6 +615,29 @@ impl SceneRecordJson {
     }
 }
 
+impl SceneDocumentJson {
+    fn protocol(self) -> FlatSceneDocumentDto {
+        FlatSceneDocumentDto {
+            schema_version: self.schema_version,
+            id: SceneId::new(self.id),
+            metadata: SceneMetadataDto {
+                name: self.metadata.name,
+                authoring_format_version: self.metadata.authoring_format_version,
+            },
+            dependencies: self
+                .dependencies
+                .into_iter()
+                .map(SceneAssetDtoJson::protocol)
+                .collect(),
+            nodes: self
+                .nodes
+                .into_iter()
+                .map(SceneRecordJson::protocol)
+                .collect(),
+        }
+    }
+}
+
 impl SceneCommandJson {
     fn protocol(self) -> SceneObjectCommandDto {
         match self {
@@ -678,6 +731,34 @@ fn scene_document_json(document: &protocol_scene::FlatSceneDocumentDto) -> Value
     })
 }
 
+fn scene_validation_error_json(error: &SceneValidationErrorDto) -> Value {
+    json!({
+        "code": error.code.as_str(),
+        "node": error.node.map(|value| value.raw()),
+        "parent": error.parent.map(|value| value.raw()),
+        "expectedKind": error.expected_kind,
+        "actualKind": error.actual_kind,
+        "transformReason": error.transform_reason,
+        "cyclePath": error.cycle_path.iter().map(|value| value.raw()).collect::<Vec<_>>(),
+    })
+}
+
+fn scene_codec_result_json(result: &SceneDocumentCodecResultDto) -> Value {
+    json!({
+        "accepted": result.accepted,
+        "document": result.document.as_ref().map(scene_document_json),
+        "canonicalJson": result.canonical_json,
+        "contentHash": result.content_hash,
+        "diagnostics": result.diagnostics.iter().map(|diagnostic| json!({
+            "code": diagnostic.code.as_str(),
+            "message": diagnostic.message,
+        })).collect::<Vec<_>>(),
+        "validation": {
+            "errors": result.validation.errors.iter().map(scene_validation_error_json).collect::<Vec<_>>(),
+        },
+    })
+}
+
 fn scene_result_json(result: &SceneObjectCommandResultDto) -> Value {
     json!({
         "accepted": result.accepted,
@@ -692,16 +773,36 @@ fn scene_result_json(result: &SceneObjectCommandResultDto) -> Value {
             "parent": rejection.parent.map(|value| value.raw()),
             "expectedHash": rejection.expected_hash,
             "actualHash": rejection.actual_hash,
-            "validationErrors": rejection.validation_errors.iter().map(|error| json!({
-                "code": error.code.as_str(),
-                "node": error.node.map(|value| value.raw()),
-                "parent": error.parent.map(|value| value.raw()),
-                "expectedKind": error.expected_kind,
-                "actualKind": error.actual_kind,
-                "transformReason": error.transform_reason,
-                "cyclePath": error.cycle_path.iter().map(|value| value.raw()).collect::<Vec<_>>(),
-            })).collect::<Vec<_>>(),
+            "validationErrors": rejection.validation_errors.iter().map(scene_validation_error_json).collect::<Vec<_>>(),
         })),
+    })
+}
+
+#[napi]
+pub fn decode_scene_document(handle: i64, request_json: String) -> napi::Result<String> {
+    let request =
+        parse_wire_json::<SceneDocumentDecodeRequestJson>("decode_scene_document", &request_json)?;
+    with_bridge(handle, |bridge| {
+        let result = bridge
+            .decode_scene_document(SceneDocumentDecodeRequestDto {
+                source_text: request.source_text,
+            })
+            .map_err(to_napi)?;
+        encode(scene_codec_result_json(&result), "scene document decode")
+    })
+}
+
+#[napi]
+pub fn encode_scene_document(handle: i64, request_json: String) -> napi::Result<String> {
+    let request =
+        parse_wire_json::<SceneDocumentEncodeRequestJson>("encode_scene_document", &request_json)?;
+    with_bridge(handle, |bridge| {
+        let result = bridge
+            .encode_scene_document(SceneDocumentEncodeRequestDto {
+                document: request.document.protocol(),
+            })
+            .map_err(to_napi)?;
+        encode(scene_codec_result_json(&result), "scene document encode")
     })
 }
 

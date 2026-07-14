@@ -56,6 +56,8 @@ const GENERATED_NATIVE_ADDON_EXPORT_NAMES = [
   'readProjectionFrame',
   'readDeveloperConsole',
   'readRenderDiffs',
+  'decodeSceneDocument',
+  'encodeSceneDocument',
   'readModelMaterialPreview',
   'readSceneObjectSnapshot',
   'applySceneObjectCommand',

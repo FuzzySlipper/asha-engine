@@ -74,6 +74,9 @@ import type {
   TimeControlCommand,
   TimeControlReceipt,
   TimeControlState,
+  SceneDocumentCodecResult,
+  SceneDocumentDecodeRequest,
+  SceneDocumentEncodeRequest,
 } from '@asha/contracts';
 import type { CombatFeedbackProjection } from './combat-feedback.js';
 import type { CombatRuntimeReadout } from './combat-readout.js';
@@ -141,6 +144,8 @@ export interface RuntimeSessionFacade {
   readInputContextState(): InputContextStackState;
   applyTimeControlCommand(command: TimeControlCommand): TimeControlReceipt;
   readTimeControlState(): TimeControlState;
+  decodeSceneDocument(request: SceneDocumentDecodeRequest): SceneDocumentCodecResult;
+  encodeSceneDocument(request: SceneDocumentEncodeRequest): SceneDocumentCodecResult;
   loadEcrpProject(input: RuntimeSessionEcrpProjectLoadInput): RuntimeSessionEcrpProjectLoadReceipt;
   submitCommands(batch: CommandBatch): RuntimeSessionCommandReceipt;
   tick(input?: RuntimeSessionTickInput): RuntimeSessionTickResult;

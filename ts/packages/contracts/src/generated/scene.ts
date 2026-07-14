@@ -33,6 +33,9 @@ export type SceneValidationCode = 'duplicate-node-id' | 'unknown-parent' | 'cycl
 // Stable scene-object command rejection codes. Mirrors `core_scene::SceneObjectCommandRejection::label`; the string form is a contract.
 export type SceneObjectCommandRejectionCode = 'stale-scene-object-snapshot' | 'invalid-scene-before-command' | 'invalid-scene-after-command' | 'missing-scene-object' | 'duplicate-scene-object' | 'missing-scene-object-parent' | 'scene-object-self-parent' | 'blank-scene-object-label' | 'invalid-scene-object-transform' | 'readonly-scene-object-transform';
 
+// Stable classifications for stored scene-document codec failures. Structural decode failures are kept separate from semantic [`SceneValidationCode`] entries so authoring tools never need to parse Rust error prose.
+export type SceneDocumentCodecDiagnosticCode = 'invalid-json' | 'invalid-field' | 'invalid-asset' | 'unknown-kind' | 'unknown-version-requirement' | 'unsupported-schema' | 'unsupported-authoring-format' | 'invalid-document';
+
 // Border form of an asset version requirement. Mirrors the `{ "req": … }` wire object `core_scene::json` reads/writes.
 export type AssetVersionReq =
   | { readonly req: 'any' }
@@ -84,6 +87,32 @@ export interface FlatSceneDocument {
   readonly metadata: SceneMetadata;
   readonly dependencies: readonly AssetReference[];
   readonly nodes: readonly SceneNodeRecord[];
+}
+
+// Authored scene source text to decode, canonicalize, and validate in Rust.
+export interface SceneDocumentDecodeRequest {
+  readonly sourceText: string;
+}
+
+// Typed authored scene document to validate and encode canonically in Rust.
+export interface SceneDocumentEncodeRequest {
+  readonly document: FlatSceneDocument;
+}
+
+// One structural or compatibility diagnostic from the stored scene codec.
+export interface SceneDocumentCodecDiagnostic {
+  readonly code: SceneDocumentCodecDiagnosticCode;
+  readonly message: string;
+}
+
+// Shared result for decode and encode. Accepted results always carry the canonical typed document, canonical JSON, and a stable content identity. Rejected results carry structural diagnostics and/or semantic validation errors and never mutate RuntimeSession state.
+export interface SceneDocumentCodecResult {
+  readonly accepted: boolean;
+  readonly document: FlatSceneDocument | null;
+  readonly canonicalJson: string | null;
+  readonly contentHash: string | null;
+  readonly diagnostics: readonly SceneDocumentCodecDiagnostic[];
+  readonly validation: SceneValidationReport;
 }
 
 // Border form of one classified validation failure. Optional fields are populated per code (e.g. `parent` for `unknown-parent`, `cycle_path` for `cycle`), so TS can render the failure precisely without parsing prose.

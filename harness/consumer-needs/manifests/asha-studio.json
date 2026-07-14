@@ -86,6 +86,34 @@
         "selector": ["ts/packages/renderer-host/src/editor-viewport.ts"],
         "delivery": ["ts/packages/renderer-host/src/editor-viewport.test.ts"]
       }
+    },
+    {
+      "id": "asha-studio.scene-document-decode",
+      "kind": "runtimeOperation",
+      "identity": "decodeSceneDocument",
+      "provider": "@asha/runtime-session",
+      "fields": ["accepted", "canonicalJson", "contentHash", "diagnostics", "document", "validation"],
+      "requiredLevel": "delivery",
+      "evidence": {
+        "type": ["ts/packages/contracts/src/generated/scene.ts"],
+        "provider": ["engine-rs/crates/bridge/runtime-bridge-api/src/authority/scene_and_preview.rs"],
+        "selector": ["ts/packages/runtime-session/src/facade.ts"],
+        "delivery": ["engine-rs/crates/bridge/native-bridge/src/lib.rs", "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/scene_preview.rs"]
+      }
+    },
+    {
+      "id": "asha-studio.scene-document-encode",
+      "kind": "runtimeOperation",
+      "identity": "encodeSceneDocument",
+      "provider": "@asha/runtime-session",
+      "fields": ["accepted", "canonicalJson", "contentHash", "diagnostics", "document", "validation"],
+      "requiredLevel": "delivery",
+      "evidence": {
+        "type": ["ts/packages/contracts/src/generated/scene.ts"],
+        "provider": ["engine-rs/crates/bridge/runtime-bridge-api/src/authority/scene_and_preview.rs"],
+        "selector": ["ts/packages/runtime-session/src/facade.ts"],
+        "delivery": ["engine-rs/crates/bridge/native-bridge/src/lib.rs", "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/scene_preview.rs"]
+      }
     }
   ]
 }

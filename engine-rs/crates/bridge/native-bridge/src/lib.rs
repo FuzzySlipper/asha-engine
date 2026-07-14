@@ -92,7 +92,8 @@ pub use input_session::{
 };
 use presentation_operation::NativePresentationOp;
 pub use scene_preview::{
-    apply_scene_object_command, read_model_material_preview, read_scene_object_snapshot,
+    apply_scene_object_command, decode_scene_document, encode_scene_document,
+    read_model_material_preview, read_scene_object_snapshot,
 };
 pub use time_control::{apply_time_control_command, read_time_control_state};
 pub use voxel_assets::{
@@ -1065,6 +1066,8 @@ mod tests {
         "applyVoxelConversion",
         "applyVoxelAnnotationEdit",
         "applyVoxelEditRevert",
+        "decodeSceneDocument",
+        "encodeSceneDocument",
         "exportVoxelConversionEvidence",
         "exportVoxelAnnotationLayer",
         "exportVoxelVolumeAsset",
@@ -1132,6 +1135,19 @@ mod tests {
             .reason
             .contains("operation=apply_scene_object_command"));
 
+        let decode = decode_scene_document(0, r#"{"sourceText":"{}","unknown":true}"#.to_owned())
+            .expect_err("scene decode request must reject unknown fields before handle lookup");
+        assert!(decode.reason.contains("unknown field"));
+        assert!(decode.reason.contains("operation=decode_scene_document"));
+
+        let encode = encode_scene_document(
+            0,
+            r#"{"document":{"schemaVersion":1,"id":1,"metadata":{"name":null,"authoringFormatVersion":1},"dependencies":[],"nodes":[{"id":1,"parent":null,"childOrder":0,"label":null,"tags":[],"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"kind":{"kind":"emptyGroup","unknown":true}}]}}"#.to_owned(),
+        )
+        .expect_err("nested scene encode request must reject unknown fields before handle lookup");
+        assert!(encode.reason.contains("unknown field"));
+        assert!(encode.reason.contains("operation=encode_scene_document"));
+
         let voxel = read_voxel_mesh_evidence(
             0,
             r#"{"grid":1,"chunks":[{"x":0,"y":0,"z":0}],"unknown":true}"#.to_owned(),
@@ -1148,7 +1164,7 @@ mod tests {
             .copied()
             .collect::<std::collections::BTreeSet<_>>();
 
-        assert_eq!(WIRED_NAPI_EXPORTS.len(), 53);
+        assert_eq!(WIRED_NAPI_EXPORTS.len(), 55);
         assert_eq!(unique_exports.len(), WIRED_NAPI_EXPORTS.len());
     }
 
@@ -1404,6 +1420,31 @@ mod tests {
         .expect("scene command JSON decodes");
         assert_eq!(scene_command["accepted"], true);
         assert_eq!(scene_command["outcome"]["selected"], 1);
+
+        let canonical_scene = include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../../harness/fixtures/scenes/sample-flat.json"
+        ));
+        let decoded_scene: serde_json::Value = serde_json::from_str(
+            &decode_scene_document(
+                handle,
+                serde_json::json!({ "sourceText": canonical_scene }).to_string(),
+            )
+            .expect("stored scene decode reaches Rust authority"),
+        )
+        .expect("stored scene decode JSON decodes");
+        assert_eq!(decoded_scene["accepted"], true);
+        assert_eq!(decoded_scene["canonicalJson"], canonical_scene);
+        let encoded_scene: serde_json::Value = serde_json::from_str(
+            &encode_scene_document(
+                handle,
+                serde_json::json!({ "document": decoded_scene["document"] }).to_string(),
+            )
+            .expect("stored scene encode reaches Rust authority"),
+        )
+        .expect("stored scene encode JSON decodes");
+        assert_eq!(encoded_scene["accepted"], true);
+        assert_eq!(encoded_scene["canonicalJson"], canonical_scene);
 
         let model_preview: serde_json::Value = serde_json::from_str(
             &read_model_material_preview(handle, scene_preview::model_preview_test_request_json())

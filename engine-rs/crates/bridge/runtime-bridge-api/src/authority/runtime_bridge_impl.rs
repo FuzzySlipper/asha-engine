@@ -1134,6 +1134,20 @@ impl RuntimeBridge for EngineBridge {
         self.read_model_material_preview_authority(request)
     }
 
+    fn decode_scene_document(
+        &self,
+        request: SceneDocumentDecodeRequestDto,
+    ) -> BridgeResult<SceneDocumentCodecResultDto> {
+        self.decode_scene_document_authority(request)
+    }
+
+    fn encode_scene_document(
+        &self,
+        request: SceneDocumentEncodeRequestDto,
+    ) -> BridgeResult<SceneDocumentCodecResultDto> {
+        self.encode_scene_document_authority(request)
+    }
+
     fn read_scene_object_snapshot(&self) -> BridgeResult<SceneObjectSnapshotDto> {
         self.read_scene_object_snapshot_authority()
     }

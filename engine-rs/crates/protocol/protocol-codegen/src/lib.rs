@@ -729,6 +729,10 @@ mod tests {
                 "scene.SceneNodeRecord",
                 "scene.SceneMetadata",
                 "scene.FlatSceneDocument",
+                "scene.SceneDocumentDecodeRequest",
+                "scene.SceneDocumentEncodeRequest",
+                "scene.SceneDocumentCodecDiagnostic",
+                "scene.SceneDocumentCodecResult",
                 "scene.SceneValidationError",
                 "scene.SceneValidationReport",
                 "scene.SceneObjectRecord",
@@ -1460,11 +1464,20 @@ mod tests {
                 "missing validation code {code}"
             );
         }
+        for code in protocol_scene::SCENE_DOCUMENT_CODEC_DIAGNOSTIC_CODES {
+            assert!(
+                s.contains(&format!("'{code}'")),
+                "missing scene-document codec diagnostic code {code}"
+            );
+        }
         assert!(s.contains("export type ProjectId ="));
         assert!(s.contains("export type SceneId ="));
         assert!(s.contains("export type RuntimeSessionId ="));
         assert!(s.contains("export type SceneNodeId ="));
         assert!(s.contains("export interface FlatSceneDocument {"));
+        assert!(s.contains("export interface SceneDocumentDecodeRequest {"));
+        assert!(s.contains("export interface SceneDocumentEncodeRequest {"));
+        assert!(s.contains("export interface SceneDocumentCodecResult {"));
         assert!(s.contains("export interface SceneNodeRecord {"));
         assert!(s.contains("export interface SceneValidationReport {"));
         assert!(s.contains("export interface SceneSourceTrace {"));

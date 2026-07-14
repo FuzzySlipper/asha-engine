@@ -226,6 +226,16 @@ pub trait RuntimeBridge {
         &self,
         request: ModelMaterialPreviewRequest,
     ) -> BridgeResult<ModelMaterialPreviewSnapshot>;
+    /// Decode, canonicalize, and validate stored authored scene source text.
+    fn decode_scene_document(
+        &self,
+        request: SceneDocumentDecodeRequestDto,
+    ) -> BridgeResult<SceneDocumentCodecResultDto>;
+    /// Validate and canonically encode a typed stored authored scene document.
+    fn encode_scene_document(
+        &self,
+        request: SceneDocumentEncodeRequestDto,
+    ) -> BridgeResult<SceneDocumentCodecResultDto>;
     /// Read the canonical authored scene hierarchy without exposing mutable state.
     fn read_scene_object_snapshot(&self) -> BridgeResult<SceneObjectSnapshotDto>;
     /// Apply one hash-guarded authored scene hierarchy command through Rust authority.

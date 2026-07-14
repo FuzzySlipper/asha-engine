@@ -2,48 +2,48 @@
   "schemaVersion": 1,
   "valid": true,
   "inventory": "harness/conformance/probe-inventory.json",
-  "inventoryHash": "sha256:b2468a01ab65d22108adac2603a25236aa241de972dfee6e60088f7bd1d2686b",
+  "inventoryHash": "sha256:775398748827e8bc22419a2d5828d26041a40339df765a0cd2b7c5c5855c9fb3",
   "identityCatalog": {
     "path": "harness/identity/catalog.json",
-    "hash": "sha256:131f9c72a5f3bc08de9dbe8b91b1da6da66eaabe8878a26f585cac5e045c4acc"
+    "hash": "sha256:790e0aa21c5500c81d90090a02ff31f25ddd7d2ac9b81f26cb097564e3f377a3"
   },
   "catalogs": [
     {
       "path": "harness/identity/catalog.json",
-      "hash": "sha256:466db46feb4c937d487f1aeab6a311d286a7d374139be0249ce9a029e100b7bf"
+      "hash": "sha256:79d4515c64cbea965b5b1d4aa84d76a86fd2f4e060e3f850d5c8b6ef725e42f1"
     },
     {
       "path": "engine-rs/crates/bridge/runtime-bridge-api/bridge-manifest.toml",
-      "hash": "sha256:e2ed2f0625ff972aa8560aff7862266e7e89a720bf98c4c572266e8103afaf66"
+      "hash": "sha256:5ccf3523961eedbf0a2d51913a3c0c0e8b5bb23f1132ff0bc59078d15379109d"
     },
     {
       "path": "harness/consumer-needs/validation-report.json",
-      "hash": "sha256:bdb22ae4623dc82bdecfa80fce571b1fc4c883d8ef26e08618d6e4105f774e3d"
+      "hash": "sha256:2f49d834057c375fe69111a287105ac73d93300de5c3750aca09e0bb807ac914"
     },
     {
       "path": "harness/public-surface/rust-crates.json",
-      "hash": "sha256:3a28327a22b3ffab58c9ea222e9dcb3da3730d60106d1e0a5409200e34f6ed6d"
+      "hash": "sha256:ff24f2010e5f389bb59e4ee6b0667f3dd33be56a5a9e74588c6274c4c60020e1"
     },
     {
       "path": "harness/public-surface/ts-packages.json",
-      "hash": "sha256:8f68d2ef477d99e3fc09c6d234ce0e4ec5d5bd43576e5a88758ebba693bd47ce"
+      "hash": "sha256:6854d4635b7808b1459caf9e3db64a3de35da70c8d043c3031b513288eeb7b41"
     },
     {
       "path": "harness/reachability/validation-report.json",
-      "hash": "sha256:e0f5e89a6b2a1614b473181c903b3224e896c388c655eda7f1399977ee8f8242"
+      "hash": "sha256:93860d99b68a256d8963162f5216fdfe1bb2133679c08764b4d0e9a46b753401"
     },
     {
       "path": "ts/packages/runtime-bridge/src/native.ts",
-      "hash": "sha256:6ed664628cd8694febf7e42c3bd82feb9b211998cd036df2ff693c015700a296"
+      "hash": "sha256:ef88444cbe92cb1060ef63d541ad577f26ba1d8485218b9abf515e8f7a210876"
     }
   ],
   "summary": {
-    "stableOperationCount": 71,
-    "realOperationProbeCount": 71,
+    "stableOperationCount": 74,
+    "realOperationProbeCount": 74,
     "temporaryOperationExemptionCount": 0,
     "quarantinedOperationCount": 3,
-    "semanticProbeCount": 26,
-    "deliveryRequirementCount": 38,
+    "semanticProbeCount": 27,
+    "deliveryRequirementCount": 40,
     "publicSurfaceCount": 13
   },
   "operations": [
@@ -57,6 +57,12 @@
           "corpus": "bridge.native-transport",
           "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
           "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "raw_json_entrypoints_reject_unknown_fields_before_domain_invocation"
         },
         {
           "suite": "bridge.rust-authority",
@@ -343,6 +349,18 @@
           "corpus": "bridge.native-transport",
           "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
           "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "raw_json_entrypoints_reject_unknown_fields_before_domain_invocation"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/scene_preview.rs",
+          "assertion": "scene_object_commands_are_hash_guarded_and_commit_canonical_state"
         }
       ]
     },
@@ -565,6 +583,56 @@
           "corpus": "bridge.rust-authority",
           "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/runtime.rs",
           "assertion": "select_voxel_reports_miss_for_out_of_range_crosshair"
+        }
+      ]
+    },
+    {
+      "operation": "decode_scene_document",
+      "status": "probed",
+      "nativeWired": true,
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "raw_json_entrypoints_reject_unknown_fields_before_domain_invocation"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/scene_preview.rs",
+          "assertion": "stored_scene_codec_round_trips_the_canonical_golden_without_runtime_mutation"
+        }
+      ]
+    },
+    {
+      "operation": "encode_scene_document",
+      "status": "probed",
+      "nativeWired": true,
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "raw_json_entrypoints_reject_unknown_fields_before_domain_invocation"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/scene_preview.rs",
+          "assertion": "stored_scene_codec_round_trips_the_canonical_golden_without_runtime_mutation"
         }
       ]
     },
@@ -1206,6 +1274,25 @@
       ]
     },
     {
+      "operation": "read_developer_console",
+      "status": "probed",
+      "nativeWired": true,
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/developer_console.rs",
+          "assertion": "initialization_exposes_a_typed_capability_record"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/developer_console.rs",
+          "assertion": "rejection_and_projection_degradation_reach_the_console"
+        }
+      ]
+    },
+    {
       "operation": "read_fps_encounter_director",
       "status": "probed",
       "nativeWired": true,
@@ -1322,6 +1409,12 @@
           "corpus": "bridge.native-transport",
           "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
           "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/scene_preview.rs",
+          "assertion": "model_material_preview_is_validated_and_projected_by_rust"
         }
       ]
     },
@@ -1341,6 +1434,12 @@
           "corpus": "bridge.rust-authority",
           "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/game_extension_tests.rs",
           "assertion": "game_extension_weapon_effect_applies_validated_proposal_through_combat_authority"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/developer_console.rs",
+          "assertion": "rejection_and_projection_degradation_reach_the_console"
         },
         {
           "suite": "bridge.rust-authority",
@@ -1391,6 +1490,18 @@
           "corpus": "bridge.native-transport",
           "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
           "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/scene_preview.rs",
+          "assertion": "scene_object_commands_are_hash_guarded_and_commit_canonical_state"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/scene_preview.rs",
+          "assertion": "stored_scene_codec_round_trips_the_canonical_golden_without_runtime_mutation"
         }
       ]
     },
@@ -1534,6 +1645,12 @@
           "corpus": "bridge.native-transport",
           "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
           "assertion": "native_bridge_stateful_smoke_uses_bounded_operations"
+        },
+        {
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
+          "assertion": "raw_json_entrypoints_reject_unknown_fields_before_domain_invocation"
         },
         {
           "suite": "bridge.rust-authority",
@@ -1907,6 +2024,12 @@
           "corpus": "bridge.native-transport",
           "path": "engine-rs/crates/bridge/native-bridge/src/lib.rs",
           "assertion": "native_voxel_command_union_reaches_rust_authority"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/developer_console.rs",
+          "assertion": "rejection_and_projection_degradation_reach_the_console"
         },
         {
           "suite": "bridge.rust-authority",
@@ -2431,6 +2554,16 @@
       "passed": true
     },
     {
+      "id": "public.scene-document-codec",
+      "suite": "bridge.rust-authority",
+      "executionId": "rust.runtime-bridge-api.lib",
+      "assertionIds": [
+        "assertion.public.scene-document-codec.canonical-round-trip-does-not-mutate-runtime-authority",
+        "assertion.public.scene-document-codec.structural-semantic-and-version-rejections-are-classified"
+      ],
+      "passed": true
+    },
+    {
       "id": "public.session-input-replay",
       "suite": "bridge.rust-authority",
       "executionId": "rust.runtime-bridge-api.lib",
@@ -2477,7 +2610,8 @@
         "public.animation-projection",
         "public.editor-viewport",
         "public.input-pause-demo",
-        "public.integrated-feedback-projection"
+        "public.integrated-feedback-projection",
+        "public.scene-document-codec"
       ]
     },
     {
@@ -2512,7 +2646,8 @@
         "public.browser-host",
         "public.input-pause-demo",
         "public.integrated-feedback-projection",
-        "public.runtime-session.projection"
+        "public.runtime-session.projection",
+        "public.scene-document-codec"
       ]
     },
     {
@@ -2523,6 +2658,7 @@
         "public.input-pause-demo",
         "public.prefab-authoring-and-placement",
         "public.runtime-session.projection",
+        "public.scene-document-codec",
         "public.session-input-replay",
         "public.session-time-control"
       ]

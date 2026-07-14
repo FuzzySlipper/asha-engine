@@ -9,6 +9,7 @@ import type {
   CameraProjectionRequest,
   CollisionConstrainedCameraInputEnvelope,
   CommandBatch,
+  DeveloperConsoleSnapshot,
   FirstPersonCameraInputEnvelope,
   VoxelConversionApplyRequest,
   VoxelConversionEvidenceRef,
@@ -73,6 +74,9 @@ import type {
   TimeControlCommand,
   TimeControlReceipt,
   TimeControlState,
+  SceneDocumentCodecResult,
+  SceneDocumentDecodeRequest,
+  SceneDocumentEncodeRequest,
 } from '@asha/contracts';
 import {
   RuntimeBridgeError,
@@ -283,6 +287,16 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   readTimeControlState(): TimeControlState {
     this.#requireInitialized('readTimeControlState');
     return this.#bridge.readTimeControlState();
+  }
+
+  decodeSceneDocument(request: SceneDocumentDecodeRequest): SceneDocumentCodecResult {
+    this.#requireInitialized('decodeSceneDocument');
+    return this.#bridge.decodeSceneDocument(request);
+  }
+
+  encodeSceneDocument(request: SceneDocumentEncodeRequest): SceneDocumentCodecResult {
+    this.#requireInitialized('encodeSceneDocument');
+    return this.#bridge.encodeSceneDocument(request);
   }
 
   loadEcrpProject(input: RuntimeSessionEcrpProjectLoadInput): RuntimeSessionEcrpProjectLoadReceipt {
@@ -1126,7 +1140,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     };
   }
 
-  readDeveloperConsole() {
+  readDeveloperConsole(): DeveloperConsoleSnapshot {
     this.#requireInitialized('readDeveloperConsole');
     return this.#bridge.readDeveloperConsole();
   }

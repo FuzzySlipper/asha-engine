@@ -156,6 +156,56 @@ impl EngineBridge {
         )))
     }
 
+    pub(super) fn decode_scene_document_authority(
+        &self,
+        request: SceneDocumentDecodeRequestDto,
+    ) -> BridgeResult<SceneDocumentCodecResultDto> {
+        self.require_initialized("decode_scene_document")?;
+        let document = match core_scene::decode(&request.source_text) {
+            Ok(document) => document,
+            Err(error) => {
+                let (code, message) = match error {
+                    core_scene::SceneDecodeError::Json(message) => {
+                        (SceneDocumentCodecDiagnosticCode::InvalidJson, message)
+                    }
+                    core_scene::SceneDecodeError::Field(message) => {
+                        (SceneDocumentCodecDiagnosticCode::InvalidField, message)
+                    }
+                    core_scene::SceneDecodeError::Asset(message) => {
+                        (SceneDocumentCodecDiagnosticCode::InvalidAsset, message)
+                    }
+                    core_scene::SceneDecodeError::UnknownKind(kind) => (
+                        SceneDocumentCodecDiagnosticCode::UnknownKind,
+                        format!("unknown scene node kind {kind:?}"),
+                    ),
+                    core_scene::SceneDecodeError::UnknownVersionReq(requirement) => (
+                        SceneDocumentCodecDiagnosticCode::UnknownVersionRequirement,
+                        format!("unknown scene asset version requirement {requirement:?}"),
+                    ),
+                };
+                return Ok(Self::scene_codec_rejection(code, message));
+            }
+        };
+        Ok(Self::scene_codec_result(document))
+    }
+
+    pub(super) fn encode_scene_document_authority(
+        &self,
+        request: SceneDocumentEncodeRequestDto,
+    ) -> BridgeResult<SceneDocumentCodecResultDto> {
+        self.require_initialized("encode_scene_document")?;
+        let document = match Self::scene_document_from_dto(request.document) {
+            Ok(document) => document,
+            Err(error) => {
+                return Ok(Self::scene_codec_rejection(
+                    SceneDocumentCodecDiagnosticCode::InvalidDocument,
+                    error.message,
+                ))
+            }
+        };
+        Ok(Self::scene_codec_result(document))
+    }
+
     pub(super) fn apply_scene_object_command_authority(
         &mut self,
         request: SceneObjectCommandRequestDto,
@@ -316,6 +366,95 @@ impl EngineBridge {
                     },
                 })
                 .collect(),
+        }
+    }
+
+    fn scene_document_from_dto(
+        document: FlatSceneDocumentDto,
+    ) -> BridgeResult<core_scene::FlatSceneDocument> {
+        let dependencies = document
+            .dependencies
+            .into_iter()
+            .map(Self::scene_asset_from_dto)
+            .collect::<BridgeResult<Vec<_>>>()?;
+        let nodes = document
+            .nodes
+            .into_iter()
+            .map(Self::scene_record_from_dto)
+            .collect::<BridgeResult<Vec<_>>>()?;
+        Ok(core_scene::FlatSceneDocument {
+            id: document.id,
+            schema_version: document.schema_version,
+            metadata: core_scene::SceneMetadata {
+                name: document.metadata.name,
+                authoring_format_version: document.metadata.authoring_format_version,
+            },
+            dependencies,
+            nodes,
+        })
+    }
+
+    fn scene_codec_result(document: core_scene::FlatSceneDocument) -> SceneDocumentCodecResultDto {
+        let document = document.canonical();
+        let mut diagnostics = Vec::new();
+        if document.schema_version != 1 {
+            diagnostics.push(SceneDocumentCodecDiagnosticDto {
+                code: SceneDocumentCodecDiagnosticCode::UnsupportedSchema,
+                message: format!(
+                    "scene schema version {} is unsupported; expected 1",
+                    document.schema_version
+                ),
+            });
+        }
+        if document.metadata.authoring_format_version != 1 {
+            diagnostics.push(SceneDocumentCodecDiagnosticDto {
+                code: SceneDocumentCodecDiagnosticCode::UnsupportedAuthoringFormat,
+                message: format!(
+                    "scene authoring format version {} is unsupported; expected 1",
+                    document.metadata.authoring_format_version
+                ),
+            });
+        }
+        let validation = SceneValidationReportDto {
+            errors: core_scene::validate(&document)
+                .errors
+                .into_iter()
+                .map(Self::scene_validation_dto)
+                .collect(),
+        };
+        if !diagnostics.is_empty() || !validation.is_ok() {
+            return SceneDocumentCodecResultDto {
+                accepted: false,
+                document: None,
+                canonical_json: None,
+                content_hash: None,
+                diagnostics,
+                validation,
+            };
+        }
+        let canonical_json = core_scene::encode(&document);
+        let content_hash = format!("fnv1a64:{}", Self::fnv1a64(&canonical_json));
+        SceneDocumentCodecResultDto {
+            accepted: true,
+            document: Some(Self::scene_document_dto(&document)),
+            canonical_json: Some(canonical_json),
+            content_hash: Some(content_hash),
+            diagnostics,
+            validation,
+        }
+    }
+
+    fn scene_codec_rejection(
+        code: SceneDocumentCodecDiagnosticCode,
+        message: String,
+    ) -> SceneDocumentCodecResultDto {
+        SceneDocumentCodecResultDto {
+            accepted: false,
+            document: None,
+            canonical_json: None,
+            content_hash: None,
+            diagnostics: vec![SceneDocumentCodecDiagnosticDto { code, message }],
+            validation: SceneValidationReportDto::default(),
         }
     }
 

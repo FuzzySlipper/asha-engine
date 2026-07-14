@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "valid": true,
   "manifestCount": 3,
-  "requirementCount": 44,
+  "requirementCount": 46,
   "manifests": [
     {
       "manifest": "harness/consumer-needs/manifests/asha-demo.json",
@@ -13,10 +13,10 @@
     },
     {
       "manifest": "harness/consumer-needs/manifests/asha-studio.json",
-      "manifestHash": "sha256:b55f0f224e4cde55dd98b4a3aa5a9ab1a60a1ae5f17646e83a428095a0aab744",
+      "manifestHash": "sha256:27361af48edae58a1dec008b36e905b85c937e7b47f560b7251b56963ff3c49e",
       "consumerId": "asha-studio.native-authority-workflow",
       "consumerRole": "asha-studio",
-      "requirementCount": 4
+      "requirementCount": 6
     },
     {
       "manifest": "harness/consumer-needs/manifests/gameplay-module-fixture.json",
@@ -214,6 +214,18 @@
       "disposition": "preferred"
     },
     {
+      "consumerId": "asha-studio.native-authority-workflow",
+      "requirement": "asha-studio.scene-document-decode",
+      "surface": "@asha/runtime-session",
+      "disposition": "preferred"
+    },
+    {
+      "consumerId": "asha-studio.native-authority-workflow",
+      "requirement": "asha-studio.scene-document-encode",
+      "surface": "@asha/runtime-session",
+      "disposition": "preferred"
+    },
+    {
       "consumerId": "gameplay-module-sdk.pulse-fixture",
       "requirement": "pulse.conformance",
       "surface": "asha-gameplay-module-conformance",
@@ -245,13 +257,13 @@
     }
   ],
   "gaps": [],
-  "identityCatalogHash": "sha256:37f09b9ba2ee8e41ac3943999ae0e203b1746698f069569529ad91c19b8e71b2",
+  "identityCatalogHash": "sha256:790e0aa21c5500c81d90090a02ff31f25ddd7d2ac9b81f26cb097564e3f377a3",
   "semanticValidation": {
     "runner": "harness/fixtures/gameplay-module-sdk/downstream-module/src/bin/conformance.rs",
     "valid": true,
     "consumerNeedsManifestHash": "fnv1a64:0695f007e3d82758",
-    "registryDigest": "fnv1a64:5a93bb875268216b",
-    "bindingRegistryHash": "fnv1a64:f7ba930e25044ef5",
+    "registryDigest": "fnv1a64:34d004c9e5770909",
+    "bindingRegistryHash": "fnv1a64:1676497828303085",
     "checks": [
       {
         "id": "consumerNeed.pulse.configuration",

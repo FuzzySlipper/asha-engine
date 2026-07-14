@@ -1,4 +1,4 @@
-import { entityId } from '@asha/contracts';
+import { entityId, type FlatSceneDocument, type SceneId, type SceneNodeId } from '@asha/contracts';
 import {
   frameCursor,
   type ReplaySessionHandle,
@@ -9,6 +9,22 @@ import { MANIFEST_OPERATIONS } from './generated/operations.js';
 import { fpsLoadRequest } from './native-fps-fixtures.test-fixture.js';
 
 export type NativeOperationInvocation = (bridge: RuntimeBridge) => unknown;
+
+const SCENE_DOCUMENT: FlatSceneDocument = {
+  schemaVersion: 1,
+  id: 1 as SceneId,
+  metadata: { name: 'Invocation fixture', authoringFormatVersion: 1 },
+  dependencies: [],
+  nodes: [{
+    id: 1 as SceneNodeId,
+    parent: null,
+    childOrder: 0,
+    label: 'Root',
+    tags: [],
+    transform: { translation: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+    kind: { kind: 'emptyGroup' },
+  }],
+};
 
 export interface NativeOperationInvocationInputs {
   readonly collisionCamera: Parameters<RuntimeBridge['applyCollisionConstrainedCameraInput']>[0];
@@ -166,6 +182,8 @@ export function createNativeOperationInvocations(
     ['applyVoxelEditRevert', (bridge) => bridge.applyVoxelEditRevert({ ...input.historyRevert, mode: 'apply_revert' })],
     ['undoVoxelEdit', (bridge) => bridge.undoVoxelEdit(input.historyUndo)],
     ['redoVoxelEdit', (bridge) => bridge.redoVoxelEdit(input.historyRedo)],
+    ['decodeSceneDocument', (bridge) => bridge.decodeSceneDocument({ sourceText: JSON.stringify(SCENE_DOCUMENT) })],
+    ['encodeSceneDocument', (bridge) => bridge.encodeSceneDocument({ document: SCENE_DOCUMENT })],
     ['readModelMaterialPreview', (bridge) => bridge.readModelMaterialPreview(input.materialPreview)],
     ['readSceneObjectSnapshot', (bridge) => bridge.readSceneObjectSnapshot()],
     ['applySceneObjectCommand', (bridge) => bridge.applySceneObjectCommand({ expectedDocumentHash: 1, command: { kind: 'select', id: null } })],

@@ -788,7 +788,7 @@ function fakeAddon(calls: string[] = []): NativeAddon {
       calls.push(`projection:${cursor}`);
       return { schemaVersion: 1, authorityTick: cursor, scene: { ops: [] }, presentation: { replayScope: 'excludedFromReplayTruth', ops: [] } };
     },
-    readDeveloperConsole: (_handle: number) => ({
+    readDeveloperConsole: () => ({
       schemaVersion: 1,
       records: [],
       droppedRecordCount: 0,
@@ -1690,34 +1690,6 @@ void test('native developer console restores nullable fields omitted by napi', (
   assert.equal(snapshot.records[0]?.detail.resourceId, null);
 });
 
-void test('native addon semantic errors are reclassified into RuntimeBridgeError', () => {
-  const addon = fakeAddon();
-  addon.loadProjectBundle = () => {
-    throw new Error(JSON.stringify({
-      schemaVersion: 1,
-      code: 'invalid_input',
-      operation: 'load_project_bundle',
-      path: '$.bundleSchemaVersion',
-      retryable: false,
-      message: 'unsupported bundle schema 99 / protocol 1',
-      details: ['unsupported_schema'],
-      provenance: 'native_rust',
-    }));
-  };
-  const bridge: RuntimeBridge = new NativeRuntimeBridge(addon);
-  bridge.initializeEngine({ seed: 1 });
-
-  assert.throws(
-    () => bridge.loadProjectBundle({ bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 1 }),
-    (e: unknown) =>
-      e instanceof RuntimeBridgeError &&
-      e.kind === 'invalid_input' &&
-      e.operation === 'load_project_bundle' &&
-      e.path === '$.bundleSchemaVersion' &&
-      e.message.includes('unsupported bundle schema 99 / protocol 1'),
-  );
-});
-
 void test('wired native ops route through the addon, not the mock', () => {
   const calls: string[] = [];
   const bridge = new NativeRuntimeBridge(fakeAddon(calls));
@@ -1750,11 +1722,4 @@ void test('native bridge step before init fails closed (not_initialized)', () =>
     () => bridge.stepSimulation({ tick: 1 }),
     (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'not_initialized',
   );
-});
-
-void test('wired set names are real manifest operations', () => {
-  const manifestNames = new Set(MANIFEST_OPERATIONS.map((o) => o.manifestName));
-  for (const name of NATIVE_WIRED_OPERATIONS) {
-    assert.ok(manifestNames.has(name), `${name} in NATIVE_WIRED_OPERATIONS is not a manifest op`);
-  }
 });

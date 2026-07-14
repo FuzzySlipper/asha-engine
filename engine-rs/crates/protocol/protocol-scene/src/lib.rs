@@ -67,6 +67,20 @@ pub const SCENE_OBJECT_COMMAND_REJECTION_CODES: &[&str] = &[
     "readonly-scene-object-transform",
 ];
 
+/// Stable classifications for stored scene-document codec failures. Structural
+/// decode failures are kept separate from semantic [`SceneValidationCode`]
+/// entries so authoring tools never need to parse Rust error prose.
+pub const SCENE_DOCUMENT_CODEC_DIAGNOSTIC_CODES: &[&str] = &[
+    "invalid-json",
+    "invalid-field",
+    "invalid-asset",
+    "unknown-kind",
+    "unknown-version-requirement",
+    "unsupported-schema",
+    "unsupported-authoring-format",
+    "invalid-document",
+];
+
 /// The scene-node kind tag as a closed enum with a stable string form.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SceneNodeKindTag {
@@ -182,6 +196,45 @@ pub const ALL_SCENE_OBJECT_COMMAND_REJECTION_CODES: &[SceneObjectCommandRejectio
     SceneObjectCommandRejectionCode::ReadonlyTransform,
 ];
 
+/// Classified structural or compatibility failure from the stored scene codec.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SceneDocumentCodecDiagnosticCode {
+    InvalidJson,
+    InvalidField,
+    InvalidAsset,
+    UnknownKind,
+    UnknownVersionRequirement,
+    UnsupportedSchema,
+    UnsupportedAuthoringFormat,
+    InvalidDocument,
+}
+
+impl SceneDocumentCodecDiagnosticCode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::InvalidJson => "invalid-json",
+            Self::InvalidField => "invalid-field",
+            Self::InvalidAsset => "invalid-asset",
+            Self::UnknownKind => "unknown-kind",
+            Self::UnknownVersionRequirement => "unknown-version-requirement",
+            Self::UnsupportedSchema => "unsupported-schema",
+            Self::UnsupportedAuthoringFormat => "unsupported-authoring-format",
+            Self::InvalidDocument => "invalid-document",
+        }
+    }
+}
+
+pub const ALL_SCENE_DOCUMENT_CODEC_DIAGNOSTIC_CODES: &[SceneDocumentCodecDiagnosticCode] = &[
+    SceneDocumentCodecDiagnosticCode::InvalidJson,
+    SceneDocumentCodecDiagnosticCode::InvalidField,
+    SceneDocumentCodecDiagnosticCode::InvalidAsset,
+    SceneDocumentCodecDiagnosticCode::UnknownKind,
+    SceneDocumentCodecDiagnosticCode::UnknownVersionRequirement,
+    SceneDocumentCodecDiagnosticCode::UnsupportedSchema,
+    SceneDocumentCodecDiagnosticCode::UnsupportedAuthoringFormat,
+    SceneDocumentCodecDiagnosticCode::InvalidDocument,
+];
+
 // ── Asset reference border DTO ────────────────────────────────────────────────
 
 /// Border form of an asset version requirement. Mirrors the `{ "req": … }` wire
@@ -290,6 +343,41 @@ pub struct FlatSceneDocumentDto {
     pub metadata: SceneMetadataDto,
     pub dependencies: Vec<AssetReferenceDto>,
     pub nodes: Vec<SceneNodeRecordDto>,
+}
+
+// ── Stored scene-document codec border DTOs ──────────────────────────────────
+
+/// Authored scene source text to decode, canonicalize, and validate in Rust.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SceneDocumentDecodeRequestDto {
+    pub source_text: String,
+}
+
+/// Typed authored scene document to validate and encode canonically in Rust.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SceneDocumentEncodeRequestDto {
+    pub document: FlatSceneDocumentDto,
+}
+
+/// One structural or compatibility diagnostic from the stored scene codec.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SceneDocumentCodecDiagnosticDto {
+    pub code: SceneDocumentCodecDiagnosticCode,
+    pub message: String,
+}
+
+/// Shared result for decode and encode. Accepted results always carry the
+/// canonical typed document, canonical JSON, and a stable content identity.
+/// Rejected results carry structural diagnostics and/or semantic validation
+/// errors and never mutate RuntimeSession state.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SceneDocumentCodecResultDto {
+    pub accepted: bool,
+    pub document: Option<FlatSceneDocumentDto>,
+    pub canonical_json: Option<String>,
+    pub content_hash: Option<String>,
+    pub diagnostics: Vec<SceneDocumentCodecDiagnosticDto>,
+    pub validation: SceneValidationReportDto,
 }
 
 // ── Validation border DTOs ────────────────────────────────────────────────────

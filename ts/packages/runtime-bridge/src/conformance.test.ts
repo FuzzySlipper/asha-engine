@@ -764,6 +764,27 @@ void test('mock: scene-object snapshot and apply command use typed public contra
   assert.equal(stale.rejection?.code, 'stale-scene-object-snapshot');
 });
 
+void test('mock: stored scene codec is explicitly Rust-authority-only', () => {
+  const bridge = createMockRuntimeBridge();
+  bridge.initializeEngine({ seed: 1 });
+  assert.throws(
+    () => bridge.decodeSceneDocument({ sourceText: '{}' }),
+    (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'operation_unimplemented',
+  );
+  assert.throws(
+    () => bridge.encodeSceneDocument({
+      document: {
+        schemaVersion: 1,
+        id: 1 as import('@asha/contracts').SceneId,
+        metadata: { name: null, authoringFormatVersion: 1 },
+        dependencies: [],
+        nodes: [],
+      },
+    }),
+    (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'operation_unimplemented',
+  );
+});
+
 void test('mock: readRenderDiffs returns a contract-shaped frame', () => {
   const bridge = createMockRuntimeBridge();
   bridge.initializeEngine({ seed: 1 });
