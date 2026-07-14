@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = [
+    "game-rule-extension",
+    "gameplay-module-conformance",
+    "gameplay-module-sdk",
+    "gameplay-runtime-host",
+    "native-runtime-provider",
+    "runtime-session-composition",
+]
+
+# This workspace is deliberately only the governed downstream facades. Engine
+# implementation crates retain their own internal workspace and must never
+# become direct consumer dependency roots.
+

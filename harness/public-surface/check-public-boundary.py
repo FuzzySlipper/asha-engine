@@ -360,8 +360,8 @@ def check_rust_consumer_policies(
 
         preferred_crates = policy.get("preferredCrates")
         quarantined_crates = policy.get("quarantinedCrates")
-        preferred_paths = policy.get("preferredDependencyPaths")
-        quarantined_paths = policy.get("quarantinedDependencyPaths")
+        preferred_paths = policy.get("developmentPreferredDependencyPaths")
+        quarantined_paths = policy.get("developmentQuarantinedDependencyPaths")
         forbidden_patterns = policy.get("forbiddenPathPatterns")
         if not isinstance(preferred_crates, list) or not all(
             isinstance(crate, str) for crate in preferred_crates
@@ -374,11 +374,11 @@ def check_rust_consumer_policies(
         if not isinstance(preferred_paths, list) or not all(
             isinstance(path, str) for path in preferred_paths
         ):
-            fail(f"{role} Rust policy preferredDependencyPaths must be a string array")
+            fail(f"{role} Rust policy developmentPreferredDependencyPaths must be a string array")
         if not isinstance(quarantined_paths, list) or not all(
             isinstance(path, str) for path in quarantined_paths
         ):
-            fail(f"{role} Rust policy quarantinedDependencyPaths must be a string array")
+            fail(f"{role} Rust policy developmentQuarantinedDependencyPaths must be a string array")
         if not isinstance(forbidden_patterns, list) or not all(
             isinstance(pattern, str) for pattern in forbidden_patterns
         ):
@@ -537,8 +537,28 @@ def check_wave1_compatibility(
 
 def check_rust_manifest() -> None:
     manifest = read_json(RUST_MANIFEST_PATH)
-    if manifest.get("schemaVersion") != 2:
-        fail("Rust public surface manifest schemaVersion must be 2")
+    if manifest.get("schemaVersion") != 3:
+        fail("Rust public surface manifest schemaVersion must be 3")
+
+    distribution = manifest.get("distribution")
+    if not isinstance(distribution, dict):
+        fail("Rust public surface manifest must declare distribution metadata")
+    expected_distribution = {
+        "kind": "git-workspace",
+        "repository": "https://github.com/FuzzySlipper/asha-engine.git",
+        "workspaceManifest": "public-rust/Cargo.toml",
+        "compatibilityMarker": "public-rust.v1",
+        "versionRequirement": "^0.1",
+        "pinKind": "exact-revision",
+        "developmentPathRoot": "../asha-engine/public-rust",
+    }
+    if distribution != expected_distribution:
+        fail("Rust public surface distribution metadata drifted from the governed Git workspace contract")
+    workspace_path = REPO_ROOT / cast(str, distribution["workspaceManifest"])
+    workspace = tomllib.loads(workspace_path.read_text()).get("workspace", {})
+    workspace_members = workspace.get("members")
+    if not isinstance(workspace_members, list) or not all(isinstance(member, str) for member in workspace_members):
+        fail("public Rust distribution workspace must declare string members")
 
     records = manifest.get("crates")
     if not isinstance(records, list) or not records:
@@ -573,6 +593,11 @@ def check_rust_manifest() -> None:
         package = cargo.get("package", {})
         if package.get("name") != crate_name:
             fail(f"{crate_name} facade Cargo.toml package.name drifted: {package.get('name')!r}")
+        if package.get("publish") is not False:
+            fail(f"{crate_name} Git-distributed facade must remain publish = false")
+        expected_member = facade_path.removeprefix("public-rust/")
+        if expected_member not in workspace_members:
+            fail(f"{crate_name} facade is missing from the public Rust distribution workspace")
         public_surface = package.get("metadata", {}).get("asha", {}).get("public-surface")
         if not isinstance(public_surface, dict):
             fail(f"{crate_name} facade Cargo.toml must declare package.metadata.asha.public-surface")
@@ -611,13 +636,28 @@ def check_rust_manifest() -> None:
         dependency_form = record.get("dependencyForm")
         if not isinstance(dependency_form, dict):
             fail(f"{crate_name} must declare dependencyForm")
-        if dependency_form.get("kind") != "path":
-            fail(f"{crate_name} dependencyForm.kind must be path for the current local public route")
+        if dependency_form.get("kind") != "git":
+            fail(f"{crate_name} dependencyForm.kind must be git")
+        if dependency_form.get("versionRequirement") != distribution["versionRequirement"]:
+            fail(f"{crate_name} dependencyForm versionRequirement must match distribution metadata")
         example = dependency_form.get("example")
-        if not isinstance(example, str) or facade_path not in example:
-            fail(f"{crate_name} dependencyForm.example must include facadePath {facade_path}")
-        if "engine-rs/crates" in example:
-            fail(f"{crate_name} dependencyForm.example must not point into engine internals")
+        if not isinstance(example, str):
+            fail(f"{crate_name} dependencyForm.example must be a string")
+        for required_fragment in (
+            crate_name,
+            cast(str, distribution["repository"]),
+            'rev = "<40-char-commit>"',
+            f'version = "{distribution["versionRequirement"]}"',
+        ):
+            if required_fragment not in example:
+                fail(f"{crate_name} dependencyForm.example is missing {required_fragment!r}")
+        if "path =" in example or "engine-rs/crates" in example:
+            fail(f"{crate_name} production dependency example must not use a path dependency")
+        development_example = dependency_form.get("developmentExample")
+        if not isinstance(development_example, str) or facade_path not in development_example:
+            fail(f"{crate_name} developmentExample must include facadePath {facade_path}")
+        if "engine-rs/crates" in development_example:
+            fail(f"{crate_name} developmentExample must not point into engine internals")
 
         exposes = record.get("exposes")
         if not isinstance(exposes, list) or not all(isinstance(item, str) for item in exposes):
@@ -635,6 +675,13 @@ def check_rust_manifest() -> None:
         if not isinstance(changelog, str) or not changelog:
             fail(f"{crate_name} must declare a changelog anchor")
         require_doc_anchor(changelog, f"{crate_name} Rust public surface changelog")
+
+    expected_members = {
+        cast(str, record["facadePath"]).removeprefix("public-rust/")
+        for record in records_by_crate.values()
+    }
+    if set(cast(list[str], workspace_members)) != expected_members:
+        fail("public Rust workspace members must exactly match governed facade records")
 
     check_rust_consumer_policies(manifest, records_by_crate)
     check_wave1_compatibility(records_by_crate, cast(list[dict[str, Any]], manifest["consumerPolicies"]))

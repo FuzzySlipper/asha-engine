@@ -16,3 +16,5 @@ bash "$REPO_ROOT/harness/bridge/check-bridge-guardrails.sh"
 
 echo "==> Checking public engine boundary metadata"
 python3 "$REPO_ROOT/harness/public-surface/check-public-boundary.py"
+
+bash "$REPO_ROOT/harness/ci/check-public-rust-distribution.sh"

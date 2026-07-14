@@ -13,5 +13,3 @@ allowed-consumer-roles = ["asha-demo", "asha-testing", "asha-rulebench"]
 
 [dependencies]
 native-bridge = { path = "../../engine-rs/crates/bridge/native-bridge" }
-
-[workspace]

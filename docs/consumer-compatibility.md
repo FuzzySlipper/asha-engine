@@ -4,7 +4,7 @@ Status: task #2536 compatibility surface for downstream consumers. This is not a
 
 ## Purpose
 
-ASHA is still local-path / in-house engine substrate work, but downstream consumers need a durable place to answer:
+ASHA remains in-house engine substrate work, but downstream consumers need a durable place to answer:
 
 - which generated contract surface am I using?
 - which runtime bridge facade surface am I using?
@@ -30,16 +30,25 @@ It also records consumer-role import policies, starting with the `asha-demo`
 package-root allowlist and private/internal forbidden alternatives.
 
 The Rust manifest records approved public facade crates for downstream compiled
-game modules. For `asha-demo`, the current approved Rust dependency is:
+game modules. Shipping and clean-checkout consumers use the repository's
+`public-rust/Cargo.toml` Git workspace with both an exact commit and a compatible
+crate version, for example:
 
 ```toml
-asha-game-rule-extension = { path = "../asha-engine/public-rust/game-rule-extension" }
+asha-gameplay-module-sdk = { git = "https://github.com/FuzzySlipper/asha-engine.git", rev = "<40-char-commit>", version = "^0.1" }
+asha-runtime-session-composition = { git = "https://github.com/FuzzySlipper/asha-engine.git", rev = "<same-40-char-commit>", version = "^0.1" }
 ```
 
-Downstream game repos must depend on that facade path, not on
-`../asha-engine/engine-rs/crates/*`. The facade re-exports the public
-game-rule extension trait and generated extension DTOs while the implementation
-source of truth remains inside the engine workspace.
+All ASHA facade dependencies in one consumer must use the same reviewed
+revision. Cargo's version requirement rejects an incompatible facade series,
+while the exact revision makes the resolved engine source reproducible. Local
+`../asha-engine/public-rust/*` paths are permitted only as an explicit
+same-machine development override. Downstream repos must never depend on
+`../asha-engine/engine-rs/crates/*`; those crates remain implementation details
+behind the governed facades. The gate is
+`./harness/ci/check-public-rust-distribution.sh`, which builds a clean consumer
+from a Git checkout and rejects private/path escapes, missing or stale revisions,
+and incompatible version pins.
 
 Role-scoped observed consumption is recorded separately in
 `harness/consumer-needs/manifests/` under the schema documented in
@@ -265,7 +274,7 @@ Evidence: `harness/ci/check-contracts.sh`,
 
 ## Rust game-rule extension compatibility log
 
-### `asha-game-rule-extension` — public local-path facade
+### `asha-game-rule-extension` — quarantined public Git facade
 
 Status: task #4743 public Rust dependency lane for downstream game-owned rule
 modules.
@@ -280,11 +289,12 @@ Source of truth:
 
 Consumer behavior:
 
-- Downstream game crates depend on `asha-game-rule-extension` through the public
-  facade path, for example:
+- Existing named downstream game crates may depend on
+  `asha-game-rule-extension` through the governed Git workspace while they
+  migrate, for example:
 
   ```toml
-  asha-game-rule-extension = { path = "../asha-engine/public-rust/game-rule-extension" }
+  asha-game-rule-extension = { git = "https://github.com/FuzzySlipper/asha-engine.git", rev = "<40-char-commit>", version = "^0.1" }
   ```
 
 - Consumers import the Rust crate as `asha_game_rule_extension`.
@@ -332,7 +342,7 @@ Status: task #5634 public Rust authoring and static-composition lane.
 - Downstream dependency:
 
   ```toml
-  asha-gameplay-module-sdk = { path = "../asha-engine/public-rust/gameplay-module-sdk" }
+  asha-gameplay-module-sdk = { git = "https://github.com/FuzzySlipper/asha-engine.git", rev = "<40-char-commit>", version = "^0.1" }
   ```
 
 The facade exposes namespaced gameplay contracts, typed declared reads,
@@ -455,7 +465,7 @@ Status: task #5635 public build, bootstrap, invocation, state, and replay proof.
 - Downstream dependency:
 
   ```toml
-  asha-gameplay-module-conformance = { path = "../asha-engine/public-rust/gameplay-module-conformance" }
+  asha-gameplay-module-conformance = { git = "https://github.com/FuzzySlipper/asha-engine.git", rev = "<40-char-commit>", version = "^0.1" }
   ```
 
 This crate is intended as a development or conformance dependency. It accepts a

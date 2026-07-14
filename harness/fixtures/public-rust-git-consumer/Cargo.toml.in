@@ -1,0 +1,12 @@
+[package]
+name = "asha-public-rust-git-consumer"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+asha-gameplay-module-sdk = { git = "__ASHA_GIT_URL__", rev = "__ASHA_GIT_REV__", version = "^0.1" }
+asha-runtime-session-composition = { git = "__ASHA_GIT_URL__", rev = "__ASHA_GIT_REV__", version = "^0.1" }
+
+[workspace]
+

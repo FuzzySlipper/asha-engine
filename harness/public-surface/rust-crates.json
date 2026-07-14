@@ -1,5 +1,14 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
+  "distribution": {
+    "kind": "git-workspace",
+    "repository": "https://github.com/FuzzySlipper/asha-engine.git",
+    "workspaceManifest": "public-rust/Cargo.toml",
+    "compatibilityMarker": "public-rust.v1",
+    "versionRequirement": "^0.1",
+    "pinKind": "exact-revision",
+    "developmentPathRoot": "../asha-engine/public-rust"
+  },
   "consumerPolicies": [
     {
       "consumerRole": "asha-demo",
@@ -13,13 +22,13 @@
         "asha-game-rule-extension",
         "asha-gameplay-runtime-host"
       ],
-      "preferredDependencyPaths": [
+      "developmentPreferredDependencyPaths": [
         "../asha-engine/public-rust/gameplay-module-conformance",
         "../asha-engine/public-rust/gameplay-module-sdk",
         "../asha-engine/public-rust/native-runtime-provider",
         "../asha-engine/public-rust/runtime-session-composition"
       ],
-      "quarantinedDependencyPaths": [
+      "developmentQuarantinedDependencyPaths": [
         "../asha-engine/public-rust/game-rule-extension",
         "../asha-engine/public-rust/gameplay-runtime-host"
       ],
@@ -38,13 +47,13 @@
       "quarantinedCrates": [
         "asha-gameplay-runtime-host"
       ],
-      "preferredDependencyPaths": [
+      "developmentPreferredDependencyPaths": [
         "../asha-engine/public-rust/gameplay-module-conformance",
         "../asha-engine/public-rust/gameplay-module-sdk",
         "../asha-engine/public-rust/native-runtime-provider",
         "../asha-engine/public-rust/runtime-session-composition"
       ],
-      "quarantinedDependencyPaths": [
+      "developmentQuarantinedDependencyPaths": [
         "../asha-engine/public-rust/gameplay-runtime-host"
       ],
       "forbiddenPathPatterns": [
@@ -62,13 +71,13 @@
       "quarantinedCrates": [
         "asha-gameplay-runtime-host"
       ],
-      "preferredDependencyPaths": [
+      "developmentPreferredDependencyPaths": [
         "../asha-engine/public-rust/gameplay-module-conformance",
         "../asha-engine/public-rust/gameplay-module-sdk",
         "../asha-engine/public-rust/native-runtime-provider",
         "../asha-engine/public-rust/runtime-session-composition"
       ],
-      "quarantinedDependencyPaths": [
+      "developmentQuarantinedDependencyPaths": [
         "../asha-engine/public-rust/gameplay-runtime-host"
       ],
       "forbiddenPathPatterns": [
@@ -89,8 +98,10 @@
         "asha-demo"
       ],
       "dependencyForm": {
-        "kind": "path",
-        "example": "asha-game-rule-extension = { path = \"../asha-engine/public-rust/game-rule-extension\" }"
+        "kind": "git",
+        "versionRequirement": "^0.1",
+        "example": "asha-game-rule-extension = { git = \"https://github.com/FuzzySlipper/asha-engine.git\", rev = \"<40-char-commit>\", version = \"^0.1\" }",
+        "developmentExample": "asha-game-rule-extension = { path = \"../asha-engine/public-rust/game-rule-extension\" }"
       },
       "exposes": [
         "GameRuleModule",
@@ -125,8 +136,10 @@
         "asha-rulebench"
       ],
       "dependencyForm": {
-        "kind": "path",
-        "example": "asha-gameplay-module-conformance = { path = \"../asha-engine/public-rust/gameplay-module-conformance\" }"
+        "kind": "git",
+        "versionRequirement": "^0.1",
+        "example": "asha-gameplay-module-conformance = { git = \"https://github.com/FuzzySlipper/asha-engine.git\", rev = \"<40-char-commit>\", version = \"^0.1\" }",
+        "developmentExample": "asha-gameplay-module-conformance = { path = \"../asha-engine/public-rust/gameplay-module-conformance\" }"
       },
       "exposes": [
         "GameplayModuleConformanceCase",
@@ -157,8 +170,10 @@
         "asha-rulebench"
       ],
       "dependencyForm": {
-        "kind": "path",
-        "example": "asha-gameplay-module-sdk = { path = \"../asha-engine/public-rust/gameplay-module-sdk\" }"
+        "kind": "git",
+        "versionRequirement": "^0.1",
+        "example": "asha-gameplay-module-sdk = { git = \"https://github.com/FuzzySlipper/asha-engine.git\", rev = \"<40-char-commit>\", version = \"^0.1\" }",
+        "developmentExample": "asha-gameplay-module-sdk = { path = \"../asha-engine/public-rust/gameplay-module-sdk\" }"
       },
       "exposes": [
         "GameplayModuleBehavior",
@@ -203,8 +218,10 @@
         "asha-rulebench"
       ],
       "dependencyForm": {
-        "kind": "path",
-        "example": "asha-gameplay-runtime-host = { path = \"../asha-engine/public-rust/gameplay-runtime-host\" }"
+        "kind": "git",
+        "versionRequirement": "^0.1",
+        "example": "asha-gameplay-runtime-host = { git = \"https://github.com/FuzzySlipper/asha-engine.git\", rev = \"<40-char-commit>\", version = \"^0.1\" }",
+        "developmentExample": "asha-gameplay-runtime-host = { path = \"../asha-engine/public-rust/gameplay-runtime-host\" }"
       },
       "exposes": [
         "GameplayRuntimeHost",
@@ -260,8 +277,10 @@
         "asha-rulebench"
       ],
       "dependencyForm": {
-        "kind": "path",
-        "example": "asha-runtime-session-composition = { path = \"../asha-engine/public-rust/runtime-session-composition\" }"
+        "kind": "git",
+        "versionRequirement": "^0.1",
+        "example": "asha-runtime-session-composition = { git = \"https://github.com/FuzzySlipper/asha-engine.git\", rev = \"<40-char-commit>\", version = \"^0.1\" }",
+        "developmentExample": "asha-runtime-session-composition = { path = \"../asha-engine/public-rust/runtime-session-composition\" }"
       },
       "exposes": [
         "StaticRuntimeSessionBuilder",
@@ -294,8 +313,10 @@
         "asha-rulebench"
       ],
       "dependencyForm": {
-        "kind": "path",
-        "example": "asha-native-runtime-provider = { path = \"../asha-engine/public-rust/native-runtime-provider\" }"
+        "kind": "git",
+        "versionRequirement": "^0.1",
+        "example": "asha-native-runtime-provider = { git = \"https://github.com/FuzzySlipper/asha-engine.git\", rev = \"<40-char-commit>\", version = \"^0.1\" }",
+        "developmentExample": "asha-native-runtime-provider = { path = \"../asha-engine/public-rust/native-runtime-provider\" }"
       },
       "exposes": [
         "install_native_engine_bridge_factory",
