@@ -55,6 +55,13 @@ jq -s -e '
     (.registryDigest | type == "string") and
     (.runtimeHostHash == null or (.runtimeHostHash | type == "string")) and
     (.evidenceHashes | type == "array" and length <= 8)
+  ) and any(
+    .[];
+    .phase == "provider-lifecycle" and
+    .projectBundleSequence == [1, 2, null] and
+    .explicitCloseObserved == true and
+    .resourceReleaseCounts.providerSession == 1 and
+    .resourceReleaseCounts.isolatedSession == 1
   )
 ' "$EVIDENCE" >/dev/null
 

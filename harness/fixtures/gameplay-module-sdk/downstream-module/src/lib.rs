@@ -1603,7 +1603,6 @@ mod tests {
     fn public_static_runtime_provider_lifecycle_releases_each_isolated_cell() {
         let first_drops = Arc::new(AtomicUsize::new(0));
         let second_drops = Arc::new(AtomicUsize::new(0));
-        let replacement_drops = Arc::new(AtomicUsize::new(0));
         let mut first = StaticRuntimeSessionBuilder::activate_project(
             instrumented_runtime_host_project_input(4, first_drops.clone()),
         )
@@ -1651,6 +1650,32 @@ mod tests {
             second_before
         );
 
+        let switched_status = first
+            .load_project_bundle(ProjectBundleLoadRequest {
+                bundle_schema_version: 1,
+                protocol_version: 1,
+                scene_id: 2,
+            })
+            .unwrap();
+        assert_eq!(switched_status.loaded_project_bundle, Some(2));
+        assert_eq!(
+            first
+                .get_project_bundle_composition_status()
+                .unwrap()
+                .loaded_project_bundle,
+            Some(2),
+        );
+        let switched = first.read_composed_runtime_session().unwrap();
+        assert_eq!(
+            switched.gameplay.gameplay_registry_digest,
+            after_restart.gameplay.gameplay_registry_digest,
+        );
+        assert_eq!(first_drops.load(Ordering::SeqCst), 0);
+        assert_eq!(
+            second.read_composed_runtime_session().unwrap(),
+            second_before
+        );
+
         first.unload_project_bundle().unwrap();
         assert_eq!(first_drops.load(Ordering::SeqCst), 1);
         assert!(first.read_composed_runtime_session().is_err());
@@ -1661,34 +1686,20 @@ mod tests {
                 .loaded_project_bundle,
             None,
         );
+        drop(first);
+        assert_eq!(first_drops.load(Ordering::SeqCst), 1);
 
-        let mut replacement = StaticRuntimeSessionBuilder::activate_project(
-            instrumented_runtime_host_project_input(6, replacement_drops.clone()),
-        )
-        .unwrap()
-        .build()
-        .unwrap();
-        replacement
-            .initialize_engine(EngineConfig { seed: 52 })
-            .unwrap();
-        replacement
-            .load_project_bundle(ProjectBundleLoadRequest {
-                bundle_schema_version: 1,
-                protocol_version: 1,
-                scene_id: 2,
-            })
-            .unwrap();
-        let switched = replacement.read_composed_runtime_session().unwrap();
-        assert_ne!(
-            switched.runtime_session_hash,
-            after_restart.runtime_session_hash
-        );
+        second.unload_project_bundle().unwrap();
+        assert_eq!(second_drops.load(Ordering::SeqCst), 1);
+        assert!(second.read_composed_runtime_session().is_err());
+        drop(second);
+        assert_eq!(second_drops.load(Ordering::SeqCst), 1);
 
         let evidence = serde_json::json!({
             "schemaVersion": 1,
             "phase": "provider-lifecycle",
-            "session": ["first", "second", "replacement"],
-            "waveOrAction": "load/restart/unload/project-switch/close",
+            "session": ["provider-session:A-to-B", "isolated-session"],
+            "waveOrAction": "load-A/restart/same-cell-switch-B/unload/explicit-close",
             "registryDigest": switched.gameplay.gameplay_registry_digest,
             "evidenceHashes": [
                 loaded.runtime_session_hash,
@@ -1696,19 +1707,14 @@ mod tests {
                 second_before.runtime_session_hash,
                 switched.runtime_session_hash,
             ],
+            "projectBundleSequence": [1, 2, null],
+            "explicitCloseObserved": true,
             "resourceReleaseCounts": {
-                "unloaded": first_drops.load(Ordering::SeqCst),
-                "closedBeforeDrop": replacement_drops.load(Ordering::SeqCst),
+                "providerSession": first_drops.load(Ordering::SeqCst),
+                "isolatedSession": second_drops.load(Ordering::SeqCst),
             },
         });
         eprintln!("ASHA_GAMEPLAY_RUNTIME_HOST_EVIDENCE={evidence}");
-
-        drop(replacement);
-        assert_eq!(replacement_drops.load(Ordering::SeqCst), 1);
-        drop(second);
-        assert_eq!(second_drops.load(Ordering::SeqCst), 1);
-        drop(first);
-        assert_eq!(first_drops.load(Ordering::SeqCst), 1);
     }
 
     #[test]
