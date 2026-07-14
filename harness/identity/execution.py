@@ -206,7 +206,7 @@ def cargo_configuration_paths(environment: dict[str, str]) -> list[pathlib.Path]
     return [unique[key] for key in sorted(unique)]
 
 
-def cargo_configuration_identity(paths: list[pathlib.Path]) -> str:
+def configuration_file_identity(paths: list[pathlib.Path]) -> str:
     return json.dumps(
         [
             {
@@ -218,6 +218,41 @@ def cargo_configuration_identity(paths: list[pathlib.Path]) -> str:
         sort_keys=True,
         separators=(",", ":"),
     )
+
+
+def npm_configuration_paths(
+    command: list[str], environment: dict[str, str]
+) -> list[pathlib.Path]:
+    candidates = [ROOT / ".npmrc"]
+    for index, argument in enumerate(command[:-1]):
+        if argument not in ("--dir", "--cwd", "-C"):
+            continue
+        command_directory = pathlib.Path(command[index + 1]).expanduser()
+        if not command_directory.is_absolute():
+            command_directory = ROOT / command_directory
+        candidates.append(command_directory / ".npmrc")
+
+    explicit_user_config = environment.get("NPM_CONFIG_USERCONFIG")
+    if explicit_user_config:
+        candidates.append(pathlib.Path(explicit_user_config).expanduser())
+    else:
+        home = environment.get("HOME")
+        if home:
+            candidates.append(pathlib.Path(home).expanduser() / ".npmrc")
+
+    explicit_global_config = environment.get("NPM_CONFIG_GLOBALCONFIG")
+    if explicit_global_config:
+        candidates.append(pathlib.Path(explicit_global_config).expanduser())
+    prefix = environment.get("NPM_CONFIG_PREFIX")
+    if prefix:
+        candidates.append(pathlib.Path(prefix).expanduser() / "etc/npmrc")
+
+    unique: dict[str, pathlib.Path] = {}
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved.is_file():
+            unique[resolved.as_posix()] = resolved
+    return [unique[key] for key in sorted(unique)]
 
 
 def cargo_configuration_tool_commands(paths: list[pathlib.Path]) -> dict[str, str]:
@@ -259,6 +294,10 @@ def cargo_external_tool_commands(environment: dict[str, str]) -> dict[str, tuple
         "external:cxx": (environment.get("CXX", "c++"), "CXX" in environment),
         "external:ar": (environment.get("AR", "ar"), "AR" in environment),
         "external:ranlib": (environment.get("RANLIB", "ranlib"), "RANLIB" in environment),
+        "external:pkg-config": (
+            environment.get("PKG_CONFIG", "pkg-config"),
+            "PKG_CONFIG" in environment,
+        ),
         "external:linker": (
             environment.get("RUSTC_LINKER", environment.get("LD", environment.get("CC", "cc"))),
             any(key in environment for key in ("RUSTC_LINKER", "LD", "CC")),
@@ -302,7 +341,7 @@ def toolchain_digest(
         result[label] = executable_identity(probe, effective_environment, required=True)
     if executable == "cargo":
         configuration_paths = cargo_configuration_paths(effective_environment)
-        result["cargo-configuration"] = cargo_configuration_identity(configuration_paths)
+        result["cargo-configuration"] = configuration_file_identity(configuration_paths)
         configured_tools = cargo_external_tool_commands(effective_environment)
         for label, value in cargo_configuration_tool_commands(configuration_paths).items():
             configured_tools[label] = (value, True)
@@ -315,6 +354,16 @@ def toolchain_digest(
         libclang_path = effective_environment.get("LIBCLANG_PATH")
         if libclang_path:
             result["external:LIBCLANG_PATH"] = configured_path_identity(libclang_path)
+    elif executable == "pnpm":
+        result["npm-configuration"] = configuration_file_identity(
+            npm_configuration_paths(command, effective_environment)
+        )
+    else:
+        result["external:pkg-config"] = executable_identity(
+            effective_environment.get("PKG_CONFIG", "pkg-config"),
+            effective_environment,
+            required="PKG_CONFIG" in effective_environment,
+        )
     return result
 
 

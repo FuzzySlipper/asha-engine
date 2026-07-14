@@ -114,6 +114,7 @@ class ProofExecutionTests(unittest.TestCase):
                 "RUSTC_LINKER": str(tool),
                 "CLANG_PATH": str(tool),
                 "LLVM_CONFIG_PATH": str(tool),
+                "PKG_CONFIG": str(tool),
                 "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER": str(tool),
                 "LIBCLANG_PATH": str(libclang),
                 "HOME": str(root / "home"),
@@ -136,6 +137,7 @@ class ProofExecutionTests(unittest.TestCase):
                 "external:ranlib",
                 "external:CLANG_PATH",
                 "external:LLVM_CONFIG_PATH",
+                "external:pkg-config",
                 "external:CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER",
                 "external:LIBCLANG_PATH",
                 f"cargo-config:{cargo_config}:target.x86_64-unknown-linux-gnu.linker",
@@ -162,6 +164,46 @@ class ProofExecutionTests(unittest.TestCase):
                 first["cargo-configuration"],
                 second["cargo-configuration"],
             )
+
+    def test_pkg_config_executable_changes_cargo_and_shell_toolchains(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            first_tool = root / "pkg-config-one"
+            second_tool = root / "pkg-config-two"
+            for path, label in ((first_tool, "one"), (second_tool, "two")):
+                path.write_text(f"#!/bin/sh\necho pkg-config-{label}\n", encoding="utf-8")
+                path.chmod(0o755)
+            baseline_environment = {**os.environ, "PKG_CONFIG": str(first_tool)}
+            changed_environment = {**os.environ, "PKG_CONFIG": str(second_tool)}
+
+            for command in (["cargo", "test"], ["harness/ci/check-rust.sh"]):
+                first = execution.toolchain_digest(command, baseline_environment)
+                second = execution.toolchain_digest(command, changed_environment)
+                with self.subTest(command=command[0]):
+                    self.assertIn("external:pkg-config", first)
+                    self.assertNotEqual(
+                        first["external:pkg-config"],
+                        second["external:pkg-config"],
+                    )
+
+    def test_pnpm_toolchain_tracks_same_path_user_configuration_content(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            user_config = root / "user.npmrc"
+            user_config.write_text("registry=https://registry-one.invalid\n", encoding="utf-8")
+            environment = {
+                **os.environ,
+                "HOME": str(root),
+                "NPM_CONFIG_USERCONFIG": str(user_config),
+            }
+            command = ["pnpm", "--dir", "ts", "--filter", "@asha/app", "test"]
+            first = execution.toolchain_digest(command, environment)
+            self.assertIn("npm-configuration", first)
+            self.assertIn(user_config.as_posix(), first["npm-configuration"])
+
+            user_config.write_text("registry=https://registry-two.invalid\n", encoding="utf-8")
+            second = execution.toolchain_digest(command, environment)
+            self.assertNotEqual(first["npm-configuration"], second["npm-configuration"])
 
     def test_command_input_toolchain_and_provider_changes_invalidate_fingerprint(self) -> None:
         definition = {"id": "proof", "command": ["cargo", "test"], "providerIds": ["provider"]}

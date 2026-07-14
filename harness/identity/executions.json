@@ -39,6 +39,7 @@
     "NODE_OPTIONS",
     "OBJC_INCLUDE_PATH",
     "PATH",
+    "PKG_CONFIG",
     "PKG_CONFIG_PATH",
     "RANLIB",
     "RUSTC_LINKER",
