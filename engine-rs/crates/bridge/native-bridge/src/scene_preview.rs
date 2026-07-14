@@ -15,10 +15,10 @@ use protocol_scene::{
     SceneTransformDto,
 };
 use runtime_bridge_api::{RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::{to_napi, with_bridge};
+use crate::{to_napi, wire::parse_wire_json, with_bridge};
 
 fn invalid(message: impl Into<String>) -> napi::Error {
     to_napi(RuntimeBridgeError::new(
@@ -34,14 +34,6 @@ fn internal(message: impl Into<String>) -> napi::Error {
     ))
 }
 
-fn parse<T: serde::de::DeserializeOwned>(text: &str, operation: &str) -> napi::Result<T> {
-    serde_json::from_str(text).map_err(|error| {
-        invalid(format!(
-            "{operation} request is not valid JSON: {error}"
-        ))
-    })
-}
-
 fn encode(value: Value, operation: &str) -> napi::Result<String> {
     serde_json::to_string(&value).map_err(|error| {
         internal(format!(
@@ -50,7 +42,7 @@ fn encode(value: Value, operation: &str) -> napi::Result<String> {
     })
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ModelPreviewJson {
     catalog_entry: CatalogEntryJson,
@@ -58,7 +50,7 @@ struct ModelPreviewJson {
     instance_handle: u64,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct CatalogEntryJson {
     id: String,
@@ -71,13 +63,13 @@ struct CatalogEntryJson {
     material: Option<MaterialProjectionJson>,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct SceneAssetReferenceJson {
     id: String,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct RgbaJson {
     r: f32,
@@ -86,7 +78,7 @@ struct RgbaJson {
     a: f32,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct RenderMaterialJson {
     color: RgbaJson,
@@ -98,7 +90,7 @@ struct RenderMaterialJson {
     uv_strategy: String,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct CollisionMaterialJson {
     solid: bool,
@@ -107,14 +99,14 @@ struct CollisionMaterialJson {
     structural_class: String,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct MaterialProjectionJson {
     render: RenderMaterialJson,
     collision: CollisionMaterialJson,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct StaticMeshAssetJson {
     asset: String,
@@ -123,7 +115,7 @@ struct StaticMeshAssetJson {
     collision: MeshCollisionJson,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct MeshPayloadJson {
     layout: MeshLayoutJson,
@@ -133,7 +125,7 @@ struct MeshPayloadJson {
     provenance: String,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct MeshLayoutJson {
     vertex_count: u32,
@@ -142,7 +134,7 @@ struct MeshLayoutJson {
     attributes: Vec<MeshAttributeJson>,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct MeshAttributeJson {
     name: String,
@@ -150,7 +142,7 @@ struct MeshAttributeJson {
     kind: String,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct MeshGroupJson {
     material_slot: u16,
@@ -158,14 +150,14 @@ struct MeshGroupJson {
     count: u32,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct MeshBoundsJson {
     min: [f32; 3],
     max: [f32; 3],
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 enum MeshSourceJson {
     Inline {
@@ -184,14 +176,14 @@ enum MeshSourceJson {
     },
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct MeshMaterialSlotJson {
     slot: u16,
     material: String,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 enum MeshCollisionJson {
     VisualOnly,
@@ -218,14 +210,10 @@ impl MaterialProjectionJson {
         MaterialProjection {
             render: RenderMaterial {
                 color: self.render.color.protocol(),
-                texture: self
-                    .render
-                    .texture
-                    .as_ref()
-                    .map(|asset| AssetReference {
-                        id: asset.id.clone(),
-                        kind: asset_kind(&asset.id),
-                    }),
+                texture: self.render.texture.as_ref().map(|asset| AssetReference {
+                    id: asset.id.clone(),
+                    kind: asset_kind(&asset.id),
+                }),
                 roughness: self.render.roughness,
                 texture_tint: self.render.texture_tint.protocol(),
                 emission_color: self.render.emission_color.protocol(),
@@ -263,10 +251,7 @@ impl CatalogEntryJson {
                     kind: asset_kind(&asset.id),
                 })
                 .collect(),
-            material: self
-                .material
-                .as_ref()
-                .map(MaterialProjectionJson::protocol),
+            material: self.material.as_ref().map(MaterialProjectionJson::protocol),
         }
     }
 }
@@ -284,11 +269,7 @@ impl StaticMeshAssetJson {
                     "normal" => MeshAttributeName::Normal,
                     "uv" => MeshAttributeName::Uv,
                     "color" => MeshAttributeName::Color,
-                    other => {
-                        return Err(invalid(format!(
-                            "unsupported mesh attribute {other:?}"
-                        )))
-                    }
+                    other => return Err(invalid(format!("unsupported mesh attribute {other:?}"))),
                 };
                 if attribute.kind != "f32" {
                     return Err(invalid(format!(
@@ -336,11 +317,7 @@ impl StaticMeshAssetJson {
             "staticAsset" => MeshProvenance::StaticAsset,
             "generated" => MeshProvenance::Generated,
             "debug" => MeshProvenance::Debug,
-            other => {
-                return Err(invalid(format!(
-                    "unsupported mesh provenance {other:?}"
-                )))
-            }
+            other => return Err(invalid(format!("unsupported mesh provenance {other:?}"))),
         };
         let collision = match &self.collision {
             MeshCollisionJson::VisualOnly => MeshCollisionPolicy::VisualOnly,
@@ -390,8 +367,13 @@ impl StaticMeshAssetJson {
 
 #[napi]
 pub fn read_model_material_preview(handle: i64, request_json: String) -> napi::Result<String> {
-    let source: Value = parse(&request_json, "model material preview")?;
-    let request: ModelPreviewJson = parse(&request_json, "model material preview")?;
+    let request =
+        parse_wire_json::<ModelPreviewJson>("read_model_material_preview", &request_json)?;
+    let source = serde_json::to_value(&request).map_err(|error| {
+        internal(format!(
+            "model material preview request could not be canonicalized: {error}"
+        ))
+    })?;
     let protocol_request = ModelMaterialPreviewRequest {
         catalog_entry: request.catalog_entry.protocol(),
         mesh_asset: request.mesh_asset.protocol()?,
@@ -479,14 +461,14 @@ pub fn read_model_material_preview(handle: i64, request_json: String) -> napi::R
     })
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SceneCommandRequestJson {
     expected_document_hash: u64,
     command: SceneCommandJson,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 enum SceneCommandJson {
     Create {
@@ -517,7 +499,7 @@ enum SceneCommandJson {
     },
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SceneRecordJson {
     id: u64,
@@ -529,7 +511,7 @@ struct SceneRecordJson {
     kind: SceneKindJson,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct SceneTransformJson {
     translation: [f32; 3],
@@ -537,7 +519,7 @@ struct SceneTransformJson {
     scale: [f32; 3],
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 enum SceneKindJson {
     EmptyGroup,
@@ -546,7 +528,7 @@ enum SceneKindJson {
     VoxelVolume { asset: SceneAssetDtoJson },
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct SceneAssetDtoJson {
     id: String,
@@ -554,7 +536,7 @@ struct SceneAssetDtoJson {
     hash: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "req", rename_all = "camelCase", deny_unknown_fields)]
 enum SceneVersionJson {
     Any,
@@ -733,7 +715,8 @@ pub fn read_scene_object_snapshot(handle: i64) -> napi::Result<String> {
 
 #[napi]
 pub fn apply_scene_object_command(handle: i64, request_json: String) -> napi::Result<String> {
-    let request: SceneCommandRequestJson = parse(&request_json, "scene object command")?;
+    let request =
+        parse_wire_json::<SceneCommandRequestJson>("apply_scene_object_command", &request_json)?;
     with_bridge(handle, |bridge| {
         let result = bridge
             .apply_scene_object_command(SceneObjectCommandRequestDto {

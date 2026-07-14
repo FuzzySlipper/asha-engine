@@ -9,237 +9,14 @@ import {
   type BridgeOperation,
   type BridgeWireTypeRef,
 } from './generated/operations.js';
+import {
+  CUSTOM_WIRE_SCHEMAS,
+  type CustomWireObjectSchema,
+  type CustomWireSchema,
+} from './custom-wire-schemas.js';
 
 type WireDirection = 'input' | 'output';
 type WireCandidate = object | boolean | number | string | null;
-type CustomFieldKind =
-  | 'array'
-  | 'boolean'
-  | 'nullable_boolean'
-  | 'nullable_number'
-  | 'nullable_object'
-  | 'nullable_string'
-  | 'number'
-  | 'object'
-  | 'string';
-
-interface CustomWireShape {
-  readonly fields: Readonly<Record<string, CustomFieldKind>>;
-  readonly optional?: readonly string[];
-}
-
-const CUSTOM_WIRE_SHAPES: Readonly<Record<string, CustomWireShape>> = {
-  EngineConfig: { fields: { seed: 'number' } },
-  StepInputEnvelope: { fields: { tick: 'number' } },
-  StepResult: { fields: { tick: 'number', diffCount: 'number' } },
-  ProjectBundleLoadRequest: {
-    fields: { bundleSchemaVersion: 'number', protocolVersion: 'number', sceneId: 'number' },
-  },
-  CompositionStatus: {
-    fields: {
-      loadedProjectBundle: 'nullable_number',
-      fatalCount: 'number',
-      totalCount: 'number',
-      blocksLoad: 'boolean',
-    },
-  },
-  ProjectBundleSaveSummary: {
-    fields: { artifactsWritten: 'number', compactedEdits: 'number', retainedEdits: 'number' },
-  },
-  RuntimeBufferView: { fields: { handle: 'number', bytes: 'array' } },
-  ReplayFixture: { fields: { name: 'string', steps: 'number' } },
-  ReplayStepReport: { fields: { step: 'number', hash: 'string', diverged: 'boolean' } },
-  VoxelMeshEvidenceRequest: { fields: { grid: 'number', chunks: 'array' } },
-  VoxelMeshEvidenceSnapshot: {
-    fields: {
-      grid: 'number',
-      fixtureId: 'string',
-      voxelStateHash: 'string',
-      meshingStrategy: 'string',
-      chunks: 'array',
-      diagnostics: 'array',
-    },
-  },
-  EnemyDirectNavMovementRequest: {
-    fields: { entity: 'number', seedPosition: 'array', target: 'array', maxStepUnits: 'number' },
-  },
-  EnemyDirectNavMovementResult: {
-    fields: {
-      entity: 'number',
-      authoritySource: 'string',
-      authorityTransport: 'string',
-      from: 'array',
-      target: 'array',
-      nextWaypoint: 'array',
-      distanceUnits: 'number',
-      reached: 'boolean',
-      pathHash: 'string',
-      transformHash: 'string',
-      projectionChanged: 'boolean',
-    },
-  },
-  FpsRuntimeSessionLoadRequest: {
-    fields: { projectBundle: 'string', definitions: 'array', gameRuleModules: 'array' },
-    optional: ['gameRuleModules'],
-  },
-  FpsRuntimeSessionRestartRequest: { fields: { expectedEpoch: 'number' } },
-  FpsPrimaryFireRequest: {
-    fields: {
-      tick: 'number',
-      origin: 'array',
-      direction: 'array',
-      shooterRole: 'string',
-      targetRole: 'string',
-    },
-    optional: ['shooterRole', 'targetRole'],
-  },
-  FpsRuntimeSessionSnapshot: {
-    fields: {
-      backend: 'string',
-      authoritySurface: 'string',
-      projectBundle: 'string',
-      sessionEpoch: 'number',
-      lifecycleStatus: 'object',
-      playerEntity: 'number',
-      enemyEntity: 'number',
-      health: 'array',
-      policyBindings: 'array',
-      replayRecords: 'array',
-      readSets: 'array',
-      entityHash: 'string',
-      healthHash: 'string',
-      replayHash: 'string',
-    },
-  },
-  FpsPrimaryFireResult: {
-    fields: {
-      backend: 'string',
-      authoritySurface: 'string',
-      mutationOwner: 'string',
-      workspaceTrace: 'array',
-      shooter: 'number',
-      target: 'nullable_number',
-      targetHealthBefore: 'nullable_object',
-      targetHealthAfter: 'nullable_object',
-      lifecycleStatus: 'object',
-      targetRenderVisible: 'nullable_boolean',
-      entityHash: 'string',
-      healthHash: 'string',
-      replayHash: 'string',
-    },
-  },
-  ComposedRuntimeSessionReadout: {
-    fields: {
-      schemaVersion: 'number',
-      entityAuthorityHash: 'string',
-      gameplay: 'object',
-      fpsSessionEpoch: 'number',
-      fpsReplayHash: 'nullable_string',
-      runtimeSessionHash: 'string',
-    },
-  },
-  GameplayModuleViewRequest: {
-    fields: { view: 'object', scope: 'object', expectedRuntimeSessionHash: 'string' },
-  },
-  GameplayModuleViewSnapshot: {
-    fields: {
-      view: 'object',
-      providerId: 'string',
-      scope: 'object',
-      revision: 'number',
-      canonicalPayload: 'array',
-      viewHash: 'string',
-      runtimeSessionHash: 'string',
-    },
-  },
-  GameplayPrefabPartInteractionRequest: {
-    fields: {
-      actor: 'number',
-      instance: 'number',
-      role: 'string',
-      expectedTarget: 'number',
-      tick: 'number',
-      expectedRuntimeSessionHash: 'string',
-    },
-  },
-  GameplayPrefabPartInteractionReceipt: {
-    fields: {
-      actor: 'number',
-      instance: 'number',
-      role: 'string',
-      target: 'number',
-      eventHash: 'string',
-      reactionFrameHash: 'string',
-      runtimeSessionHash: 'string',
-    },
-  },
-  GameExtensionWeaponEffectInvocationRequest: {
-    fields: { hook: 'object', primaryFire: 'object' },
-  },
-  GameExtensionWeaponEffectInvocationResult: {
-    fields: { hookReceipt: 'object', replayEvidence: 'object', primaryFire: 'object' },
-  },
-  GameRuleCatalogValidationReceipt: {
-    fields: {
-      accepted: 'boolean',
-      catalogHash: 'string',
-      diagnostics: 'array',
-      trace: 'array',
-      evidence: 'array',
-    },
-  },
-  GameRuleEffectIntentRequest: { fields: { catalog: 'object', request: 'object' } },
-  GameRuleRuntimeReadout: {
-    fields: {
-      backend: 'string',
-      authoritySurface: 'string',
-      activeModifiers: 'array',
-      recentTrace: 'array',
-      recentReplayHashes: 'array',
-      latestReplayHash: 'nullable_string',
-    },
-  },
-  FpsEncounterLifecycleInput: {
-    fields: {
-      outcomeKind: 'string',
-      terminal: 'boolean',
-      enemyDead: 'boolean',
-      playerDead: 'boolean',
-      lifecycleHash: 'string',
-    },
-  },
-  FpsEncounterTransitionRequest: {
-    fields: { presetId: 'string', action: 'string', lifecycle: 'object' },
-  },
-  FpsEncounterDirectorSnapshot: {
-    fields: {
-      backend: 'string',
-      authoritySurface: 'string',
-      mutationOwner: 'string',
-      workspaceTrace: 'array',
-      state: 'object',
-      lifecycle: 'object',
-      readSets: 'array',
-      encounterHash: 'string',
-      replayHash: 'string',
-    },
-  },
-  FpsEncounterTransitionResult: {
-    fields: {
-      backend: 'string',
-      authoritySurface: 'string',
-      mutationOwner: 'string',
-      workspaceTrace: 'array',
-      accepted: 'boolean',
-      rejectionReason: 'nullable_string',
-      eventKind: 'string',
-      state: 'object',
-      lifecycle: 'object',
-      encounterHash: 'string',
-      replayHash: 'string',
-    },
-  },
-};
 
 const OPERATIONS: ReadonlyMap<string, BridgeOperation> = new Map(
   MANIFEST_OPERATIONS.map((operation) => [operation.manifestName, operation]),
@@ -311,16 +88,231 @@ function parseJson(
   }
 }
 
-function fieldMatches(kind: CustomFieldKind, value: GeneratedWireValue): boolean {
-  if (kind === 'nullable_boolean') return value === null || typeof value === 'boolean';
-  if (kind === 'nullable_number') return value === null || (typeof value === 'number' && Number.isFinite(value));
-  if (kind === 'nullable_object') return value === null || (typeof value === 'object' && !Array.isArray(value));
-  if (kind === 'nullable_string') return value === null || typeof value === 'string';
-  if (value === null) return false;
-  if (kind === 'array') return Array.isArray(value);
-  if (kind === 'object') return typeof value === 'object' && !Array.isArray(value);
-  if (kind === 'number') return typeof value === 'number' && Number.isFinite(value);
-  return typeof value === kind;
+function validationErrorKind(direction: WireDirection): RuntimeBridgeErrorKind {
+  return direction === 'input' ? 'invalid_input' : 'internal';
+}
+
+function nestedGeneratedPath(path: string, generatedPath: string): string {
+  if (path === '$') return generatedPath;
+  if (generatedPath === '$') return path;
+  return `${path}${generatedPath.slice(1)}`;
+}
+
+function validateCustomObject(
+  operation: string,
+  direction: WireDirection,
+  schema: CustomWireObjectSchema,
+  value: GeneratedWireValue,
+  path: string,
+  allowedFields: ReadonlySet<string> = new Set(),
+): void {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw wireError(
+      operation,
+      direction,
+      validationErrorKind(direction),
+      path,
+      'expected object',
+      'wrong_type',
+    );
+  }
+  const objectValue = value as Readonly<Record<string, GeneratedWireValue>>;
+  const optional = new Set(schema.optional ?? []);
+  for (const field of Object.keys(objectValue)) {
+    if (schema.fields[field] === undefined && !allowedFields.has(field)) {
+      throw wireError(
+        operation,
+        direction,
+        validationErrorKind(direction),
+        `${path}.${field}`,
+        'unknown field',
+        'unknown_field',
+      );
+    }
+  }
+  for (const [field, fieldSchema] of Object.entries(schema.fields)) {
+    if (!(field in objectValue)) {
+      if (optional.has(field)) continue;
+      throw wireError(
+        operation,
+        direction,
+        validationErrorKind(direction),
+        `${path}.${field}`,
+        'missing required field',
+        'missing_field',
+      );
+    }
+    validateCustomSchema(
+      operation,
+      direction,
+      fieldSchema,
+      objectValue[field] ?? null,
+      `${path}.${field}`,
+    );
+  }
+}
+
+function validateCustomSchema(
+  operation: string,
+  direction: WireDirection,
+  schema: CustomWireSchema,
+  value: GeneratedWireValue,
+  path: string,
+): void {
+  if (schema.kind === 'nullable') {
+    if (value !== null) validateCustomSchema(operation, direction, schema.value, value, path);
+    return;
+  }
+  if (schema.kind === 'array') {
+    if (!Array.isArray(value)) {
+      throw wireError(operation, direction, validationErrorKind(direction), path, 'expected array', 'wrong_type');
+    }
+    const arrayValue = value as readonly GeneratedWireValue[];
+    for (let index = 0; index < arrayValue.length; index += 1) {
+      validateCustomSchema(
+        operation,
+        direction,
+        schema.item,
+        arrayValue[index] ?? null,
+        `${path}[${index}]`,
+      );
+    }
+    return;
+  }
+  if (schema.kind === 'tuple') {
+    if (!Array.isArray(value) || value.length !== schema.items.length) {
+      throw wireError(
+        operation,
+        direction,
+        validationErrorKind(direction),
+        path,
+        `expected ${schema.items.length}-item tuple`,
+        'wrong_type',
+      );
+    }
+    const tupleValue = value as readonly GeneratedWireValue[];
+    for (let index = 0; index < schema.items.length; index += 1) {
+      const itemSchema = schema.items[index];
+      if (itemSchema === undefined) {
+        throw wireError(
+          operation,
+          direction,
+          'internal',
+          path,
+          'tuple schema is incomplete',
+          'missing_custom_validator',
+        );
+      }
+      validateCustomSchema(
+        operation,
+        direction,
+        itemSchema,
+        tupleValue[index] ?? null,
+        `${path}[${index}]`,
+      );
+    }
+    return;
+  }
+  if (schema.kind === 'object') {
+    validateCustomObject(operation, direction, schema, value, path);
+    return;
+  }
+  if (schema.kind === 'taggedUnion') {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      throw wireError(operation, direction, validationErrorKind(direction), path, 'expected object', 'wrong_type');
+    }
+    const objectValue = value as Readonly<Record<string, GeneratedWireValue>>;
+    const tagValue = objectValue[schema.tag];
+    if (typeof tagValue !== 'string') {
+      throw wireError(
+        operation,
+        direction,
+        validationErrorKind(direction),
+        `${path}.${schema.tag}`,
+        'expected string discriminator',
+        'wrong_type',
+      );
+    }
+    const variant = schema.variants[tagValue];
+    if (variant === undefined) {
+      throw wireError(
+        operation,
+        direction,
+        validationErrorKind(direction),
+        `${path}.${schema.tag}`,
+        `unknown variant '${tagValue}'`,
+        'unknown_variant',
+      );
+    }
+    validateCustomObject(operation, direction, variant, value, path, new Set([schema.tag]));
+    return;
+  }
+  if (schema.kind === 'custom') {
+    const referencedSchema = CUSTOM_WIRE_SCHEMAS[schema.name];
+    if (referencedSchema === undefined) {
+      throw wireError(
+        operation,
+        direction,
+        'operation_unimplemented',
+        path,
+        `custom wire validator '${schema.name}' is not registered`,
+        'missing_custom_validator',
+      );
+    }
+    validateCustomSchema(operation, direction, referencedSchema, value, path);
+    return;
+  }
+  if (schema.kind === 'generated') {
+    const result = validateGeneratedWireValue(schema.name, value);
+    if (!result.valid) {
+      throw wireError(
+        operation,
+        direction,
+        validationErrorKind(direction),
+        nestedGeneratedPath(path, result.issue.path),
+        result.issue.message,
+        result.issue.code,
+      );
+    }
+    return;
+  }
+  if (schema.kind === 'boolean') {
+    if (typeof value !== 'boolean') {
+      throw wireError(operation, direction, validationErrorKind(direction), path, 'expected boolean', 'wrong_type');
+    }
+    return;
+  }
+  if (schema.kind === 'string') {
+    if (typeof value !== 'string') {
+      throw wireError(operation, direction, validationErrorKind(direction), path, 'expected string', 'wrong_type');
+    }
+    return;
+  }
+  if (schema.kind === 'enum') {
+    if (typeof value !== 'string' || !schema.values.includes(value)) {
+      throw wireError(operation, direction, validationErrorKind(direction), path, 'unknown enum variant', 'unknown_variant');
+    }
+    return;
+  }
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw wireError(operation, direction, validationErrorKind(direction), path, 'expected finite number', 'wrong_type');
+  }
+  if (schema.integer === true && !Number.isSafeInteger(value)) {
+    throw wireError(
+      operation,
+      direction,
+      validationErrorKind(direction),
+      path,
+      'expected safe integer',
+      'noncanonical_identifier',
+    );
+  }
+  if (
+    (schema.minimum !== undefined && value < schema.minimum) ||
+    (schema.maximum !== undefined && value > schema.maximum)
+  ) {
+    throw wireError(operation, direction, validationErrorKind(direction), path, 'number is out of range', 'out_of_range');
+  }
 }
 
 function validateCustom(
@@ -329,8 +321,8 @@ function validateCustom(
   reference: BridgeWireTypeRef,
   value: GeneratedWireValue,
 ): void {
-  const shape = CUSTOM_WIRE_SHAPES[reference.name];
-  if (shape === undefined) {
+  const schema = CUSTOM_WIRE_SCHEMAS[reference.name];
+  if (schema === undefined) {
     throw wireError(
       operation,
       direction,
@@ -340,26 +332,7 @@ function validateCustom(
       'missing_custom_validator',
     );
   }
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw wireError(operation, direction, direction === 'input' ? 'invalid_input' : 'internal', '$', 'expected object', 'wrong_type');
-  }
-  const objectValue = value as Readonly<Record<string, GeneratedWireValue>>;
-  const optional = new Set(shape.optional ?? []);
-  for (const field of Object.keys(objectValue)) {
-    if (shape.fields[field] === undefined) {
-      throw wireError(operation, direction, direction === 'input' ? 'invalid_input' : 'internal', `$.${field}`, 'unknown field', 'unknown_field');
-    }
-  }
-  for (const [field, kind] of Object.entries(shape.fields)) {
-    if (!(field in objectValue)) {
-      if (optional.has(field)) continue;
-      throw wireError(operation, direction, direction === 'input' ? 'invalid_input' : 'internal', `$.${field}`, 'missing required field', 'missing_field');
-    }
-    const fieldValue = objectValue[field] ?? null;
-    if (!fieldMatches(kind, fieldValue)) {
-      throw wireError(operation, direction, direction === 'input' ? 'invalid_input' : 'internal', `$.${field}`, `expected ${kind}`, 'wrong_type');
-    }
-  }
+  validateCustomSchema(operation, direction, schema, value, '$');
 }
 
 function validateReference(

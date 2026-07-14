@@ -87,6 +87,57 @@ void test('operation limits and tampered native responses reject with typed evid
   );
 });
 
+void test('custom native response contracts validate nested values recursively', () => {
+  assertWireRejection(
+    () => parseOperationOutput('read_voxel_mesh_evidence', JSON.stringify({
+      grid: 1,
+      fixtureId: 'fixture',
+      voxelStateHash: 'fnv1a64:0000000000000001',
+      meshingStrategy: 'greedy',
+      chunks: [{ garbage: true }],
+      diagnostics: [],
+    })),
+    'internal',
+    'unknown_field',
+  );
+  assertWireRejection(
+    () => parseOperationOutput('get_buffer', JSON.stringify({ handle: 1, bytes: [0, 256] })),
+    'internal',
+    'out_of_range',
+  );
+  assertWireRejection(
+    () => parseOperationOutput('read_fps_runtime_session', JSON.stringify({
+      backend: 'native_rust',
+      authoritySurface: 'runtime_session.fps.v0',
+      projectBundle: 'fixture',
+      sessionEpoch: 1,
+      lifecycleStatus: { state: 'active' },
+      playerEntity: 1,
+      enemyEntity: 2,
+      health: [{ garbage: true }],
+      policyBindings: [],
+      replayRecords: [],
+      readSets: [],
+      entityHash: 'fnv1a64:0000000000000001',
+      healthHash: 'fnv1a64:0000000000000002',
+      replayHash: 'fnv1a64:0000000000000003',
+    })),
+    'internal',
+    'unknown_field',
+  );
+  assertWireRejection(
+    () => parseOperationOutput('validate_game_rule_catalog', JSON.stringify({
+      accepted: false,
+      catalogHash: 'fnv1a64:0000000000000001',
+      diagnostics: [{ garbage: true }],
+      trace: [],
+      evidence: [],
+    })),
+    'internal',
+    'unknown_field',
+  );
+});
+
 void test('native errors decode only from the structured envelope', () => {
   const structured = classifyNativeAddonError(new Error(JSON.stringify({
     schemaVersion: 1,

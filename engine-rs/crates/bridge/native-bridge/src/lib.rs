@@ -1028,6 +1028,37 @@ mod tests {
     ];
 
     #[test]
+    fn raw_json_entrypoints_reject_unknown_fields_before_domain_invocation() {
+        let camera = apply_camera_mode_command(
+            0,
+            r#"{"camera":1,"expectedRevision":1,"target":{"mode":"orbit","pivot":[0.0,0.0,0.0],"distance":4.0,"minDistance":1.0,"maxDistance":8.0,"yawDegrees":0.0,"pitchDegrees":-20.0},"transition":null,"tick":1,"unknown":true}"#
+                .to_owned(),
+        )
+        .expect_err("camera request must reject unknown fields before handle lookup");
+        assert!(camera.reason.contains("unknown field"));
+        assert!(camera.reason.contains("$.unknown"));
+
+        let scene = apply_scene_object_command(
+            0,
+            r#"{"expectedDocumentHash":0,"command":{"kind":"select","id":null},"unknown":true}"#
+                .to_owned(),
+        )
+        .expect_err("scene request must reject unknown fields before handle lookup");
+        assert!(scene.reason.contains("unknown field"));
+        assert!(scene
+            .reason
+            .contains("operation=apply_scene_object_command"));
+
+        let voxel = read_voxel_mesh_evidence(
+            0,
+            r#"{"grid":1,"chunks":[{"x":0,"y":0,"z":0}],"unknown":true}"#.to_owned(),
+        )
+        .expect_err("voxel request must reject unknown fields before handle lookup");
+        assert!(voxel.reason.contains("unknown field"));
+        assert!(voxel.reason.contains("operation=read_voxel_mesh_evidence"));
+    }
+
+    #[test]
     fn wired_export_set_is_explicit_and_bounded() {
         let unique_exports = WIRED_NAPI_EXPORTS
             .iter()

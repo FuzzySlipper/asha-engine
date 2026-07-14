@@ -1,19 +1,19 @@
 use core_space::{ChunkCoord, Direction6, VoxelCoord};
 use napi_derive::napi;
 use protocol_view::{
-    CameraHandle, ScreenPoint, ScreenPointSpace, ScreenPointToPickRayRequest,
-    VoxelSelectionOutcome, ViewportSize,
+    CameraHandle, ScreenPoint, ScreenPointSpace, ScreenPointToPickRayRequest, ViewportSize,
+    VoxelSelectionOutcome,
 };
 use runtime_bridge_api::{
     PickRay, PickResult, RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind,
     VoxelMeshEvidenceRequest,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::{to_napi, with_bridge};
+use crate::{to_napi, wire::parse_wire_json, with_bridge};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct PickRayJson {
     grid: u64,
@@ -22,7 +22,7 @@ struct PickRayJson {
     max_distance: f64,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SelectVoxelJson {
     camera: u64,
@@ -32,14 +32,14 @@ struct SelectVoxelJson {
     max_distance: f64,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct ViewportJson {
     width: u32,
     height: u32,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct ScreenPointJson {
     x: f32,
@@ -47,28 +47,19 @@ struct ScreenPointJson {
     space: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct VoxelMeshEvidenceJson {
     grid: u64,
     chunks: Vec<CoordJson>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct CoordJson {
     x: i64,
     y: i64,
     z: i64,
-}
-
-fn parse<T: serde::de::DeserializeOwned>(text: &str, operation: &str) -> napi::Result<T> {
-    serde_json::from_str(text).map_err(|error| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("{operation} request is not valid JSON: {error}"),
-        ))
-    })
 }
 
 fn encode(value: Value, operation: &str) -> napi::Result<String> {
@@ -101,7 +92,7 @@ fn face(value: Direction6) -> &'static str {
 
 #[napi]
 pub fn pick_voxel(handle: i64, request_json: String) -> napi::Result<String> {
-    let request = parse::<PickRayJson>(&request_json, "voxel pick")?;
+    let request = parse_wire_json::<PickRayJson>("pick_voxel", &request_json)?;
     with_bridge(handle, |bridge| {
         let result = bridge
             .pick_voxel(PickRay {
@@ -134,7 +125,7 @@ pub fn pick_voxel(handle: i64, request_json: String) -> napi::Result<String> {
 
 #[napi]
 pub fn select_voxel(handle: i64, request_json: String) -> napi::Result<String> {
-    let request = parse::<SelectVoxelJson>(&request_json, "voxel selection")?;
+    let request = parse_wire_json::<SelectVoxelJson>("select_voxel", &request_json)?;
     let space = match request.screen_point.space.as_str() {
         "normalized_0_1" => ScreenPointSpace::Normalized01,
         "pixel" => ScreenPointSpace::Pixel,
@@ -199,7 +190,8 @@ pub fn select_voxel(handle: i64, request_json: String) -> napi::Result<String> {
 
 #[napi]
 pub fn read_voxel_mesh_evidence(handle: i64, request_json: String) -> napi::Result<String> {
-    let request = parse::<VoxelMeshEvidenceJson>(&request_json, "voxel mesh evidence")?;
+    let request =
+        parse_wire_json::<VoxelMeshEvidenceJson>("read_voxel_mesh_evidence", &request_json)?;
     with_bridge(handle, |bridge| {
         let snapshot = bridge
             .read_voxel_mesh_evidence(VoxelMeshEvidenceRequest {

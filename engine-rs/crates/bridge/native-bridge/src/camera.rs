@@ -10,10 +10,9 @@ use runtime_bridge_api::{
     CameraNavigationInputEnvelope, CameraPose, RuntimeBridge, RuntimeBridgeError,
     RuntimeBridgeErrorKind,
 };
-use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-use crate::{to_napi, u64_input, with_bridge};
+use crate::{to_napi, u64_input, wire::parse_wire_json, with_bridge};
 
 #[napi(object)]
 pub struct NativeCameraPose {
@@ -415,15 +414,6 @@ fn native_f32x3(values: Vec<f64>, field: &str) -> napi::Result<[f32; 3]> {
     Ok([values[0] as f32, values[1] as f32, values[2] as f32])
 }
 
-fn parse_json_request<T: DeserializeOwned>(request_json: &str, operation: &str) -> napi::Result<T> {
-    serde_json::from_str(request_json).map_err(|error| {
-        to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("{operation} request is not valid JSON: {error}"),
-        ))
-    })
-}
-
 fn serialize_json_result<T: Serialize>(value: &T, operation: &str) -> napi::Result<String> {
     serde_json::to_string(value).map_err(|error| {
         to_napi(RuntimeBridgeError::new(
@@ -449,7 +439,7 @@ pub fn create_camera(
 
 #[napi]
 pub fn apply_camera_mode_command(handle: i64, command_json: String) -> napi::Result<String> {
-    let command = parse_json_request::<CameraModeCommand>(&command_json, "camera mode command")?;
+    let command = parse_wire_json::<CameraModeCommand>("apply_camera_mode_command", &command_json)?;
     with_bridge(handle, |bridge| {
         let receipt = bridge.apply_camera_mode_command(command).map_err(to_napi)?;
         serialize_json_result(&receipt, "camera mode command")
@@ -458,9 +448,9 @@ pub fn apply_camera_mode_command(handle: i64, command_json: String) -> napi::Res
 
 #[napi]
 pub fn apply_camera_navigation_input(handle: i64, envelope_json: String) -> napi::Result<String> {
-    let envelope = parse_json_request::<CameraNavigationInputEnvelope>(
+    let envelope = parse_wire_json::<CameraNavigationInputEnvelope>(
+        "apply_camera_navigation_input",
         &envelope_json,
-        "camera navigation input",
     )?;
     with_bridge(handle, |bridge| {
         let receipt = bridge
@@ -472,8 +462,10 @@ pub fn apply_camera_navigation_input(handle: i64, envelope_json: String) -> napi
 
 #[napi]
 pub fn read_camera_controller_state(handle: i64, request_json: String) -> napi::Result<String> {
-    let request =
-        parse_json_request::<CameraControllerReadRequest>(&request_json, "camera controller read")?;
+    let request = parse_wire_json::<CameraControllerReadRequest>(
+        "read_camera_controller_state",
+        &request_json,
+    )?;
     with_bridge(handle, |bridge| {
         let state = bridge
             .read_camera_controller_state(request)
@@ -496,14 +488,14 @@ pub fn apply_first_person_camera_input(
     })
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct CameraProjectionRequestJson {
     camera: u64,
     viewport: Option<ViewportJson>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct ViewportJson {
     width: u32,
@@ -512,18 +504,18 @@ struct ViewportJson {
 
 #[napi]
 pub fn read_camera_projection(handle: i64, request_json: String) -> napi::Result<String> {
-    let request = parse_json_request::<CameraProjectionRequestJson>(
-        &request_json,
-        "camera projection read",
-    )?;
+    let request =
+        parse_wire_json::<CameraProjectionRequestJson>("read_camera_projection", &request_json)?;
     with_bridge(handle, |bridge| {
         let snapshot = bridge
             .read_camera_projection(CameraProjectionRequest {
                 camera: CameraHandle::new(request.camera),
-                viewport: request.viewport.map(|viewport| runtime_bridge_api::ViewportSize {
-                    width: viewport.width,
-                    height: viewport.height,
-                }),
+                viewport: request
+                    .viewport
+                    .map(|viewport| runtime_bridge_api::ViewportSize {
+                        width: viewport.width,
+                        height: viewport.height,
+                    }),
             })
             .map_err(to_napi)?;
         serde_json::to_string(&serde_json::json!({
