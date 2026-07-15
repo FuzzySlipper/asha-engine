@@ -22,6 +22,11 @@ export {
   timeControlCommandFromResolvedAction,
 } from './resolved-time-control.js';
 export { buildRuntimeSessionAnimationControllerTargetFrame } from './runtime-session-animation.js';
+export {
+  createWorkspaceAuthoringFacade,
+  RustBackedWorkspaceAuthoringFacade,
+} from './workspace-authoring-rust-facade.js';
+export type { WorkspaceAuthoringFacadeOptions } from './workspace-authoring-rust-facade.js';
 
 // `submit_commands` / `pick_voxel` carry the generated voxel border (manifest
 // `protocol_voxel::{CommandBatch, CommandResult, PickRay, PickResult}`). Re-exported

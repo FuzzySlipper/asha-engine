@@ -2,6 +2,11 @@
 
 Status: current public semantic facade. Rust-backed RuntimeSession authority is the product/live path; the explicit reference helper remains a fixture and compatibility surface only.
 
+For editor and asset-tool operations that require Rust authority but not a
+running game, use [Workspace authoring authority](workspace-authoring-facade.md)
+instead. `RuntimeSessionFacade` remains the live gameplay lifecycle; ordinary
+asset creation should not construct it.
+
 The facade also exposes `readDeveloperConsole()`, a bounded generated-contract snapshot for game pull-down consoles and authoring activity/status presentation. See [developer-console-projection.md](developer-console-projection.md). It is observational current-session state, not replay evidence or an authority mutation surface.
 
 Named input action contracts and the Rust Session-level resolver are described

@@ -15,3 +15,4 @@ export * from './generated-tunnel.js';
 export * from './nav-readout.js';
 export * from './runtime-action.js';
 export * from './transport-contracts.js';
+export * from './workspace-authoring.js';

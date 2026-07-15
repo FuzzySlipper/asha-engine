@@ -79,3 +79,8 @@ export {
   createRuntimeSessionFacade,
   type RuntimeSessionFacadeOptions,
 } from './runtime-session-adapter.js';
+export {
+  createWorkspaceAuthoringFacade,
+  RustBackedWorkspaceAuthoringFacade,
+} from './workspace-authoring-rust-facade.js';
+export type { WorkspaceAuthoringFacadeOptions } from './workspace-authoring-rust-facade.js';
