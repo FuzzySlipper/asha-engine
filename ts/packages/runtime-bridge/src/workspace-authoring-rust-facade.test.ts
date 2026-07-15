@@ -2,6 +2,12 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import type { FpsRuntimeSessionLoadRequest } from '@asha/runtime-session';
+import type {
+  VoxelInstancePickRequest,
+  VoxelInstancePickResult,
+  VoxelProjectionBindingReceipt,
+  VoxelProjectionBindingRequest,
+} from '@asha/contracts';
 import {
   RuntimeBridgeError,
   createNativeRuntimeBridge,
@@ -30,6 +36,38 @@ class GameplayRejectingBridge extends MockRuntimeBridge {
     void request;
     this.gameplayLoadCount += 1;
     throw new Error('workspace authoring must not load gameplay runtime authority');
+  }
+}
+
+class ProjectionCapturingBridge extends GameplayRejectingBridge {
+  bindingRequest: VoxelProjectionBindingRequest | null = null;
+  pickRequest: VoxelInstancePickRequest | null = null;
+
+  override configureVoxelProjectionInstances(
+    request: VoxelProjectionBindingRequest,
+  ): VoxelProjectionBindingReceipt {
+    this.bindingRequest = request;
+    return {
+      workspaceId: request.workspaceId,
+      workspaceGeneration: request.workspaceGeneration,
+      workingRevision: request.workingRevision,
+      registryDigest: request.registryDigest,
+      bindingHash: 'fnv1a64:1111111111111111',
+      instanceCount: request.instances.length,
+      projectionOpCount: request.instances.length,
+    };
+  }
+
+  override pickVoxelInstance(request: VoxelInstancePickRequest): VoxelInstancePickResult {
+    this.pickRequest = request;
+    return {
+      workspaceId: request.workspaceId,
+      workspaceGeneration: request.workspaceGeneration,
+      workingRevision: request.workingRevision,
+      bindingHash: request.bindingHash,
+      instanceId: request.instanceId,
+      outcome: { outcome: 'rejected', rejection: 'noHit' },
+    };
   }
 }
 
@@ -82,6 +120,56 @@ void test('workspace authoring has a distinct generation-bound lifecycle and nev
   });
   assert.equal(reopened.identity.generation, 2);
   assert.equal(bridge.gameplayLoadCount, 0);
+});
+
+void test('workspace facade supplies generation and revision binding for voxel instances and picks', () => {
+  const bridge = new ProjectionCapturingBridge();
+  const authoring = createWorkspaceAuthoringFacade({ bridge });
+  authoring.open(OPEN_INPUT);
+  const receipt = authoring.configureVoxelProjectionInstances({
+    registryDigest: 'sha256:scene-registry',
+    instances: [{
+      instanceId: 'scene-node/10',
+      sceneNodeId: 10,
+      assetId: 'voxel/house',
+      transform: { translation: [4, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+    }],
+  });
+  assert.equal(receipt.workspaceGeneration, 1);
+  assert.equal(receipt.workingRevision, 0);
+  assert.equal(bridge.bindingRequest?.workspaceId, 'workspace.local');
+
+  const result = authoring.pickVoxelInstance({
+    instanceId: 'scene-node/10',
+    origin: [0, 0.5, 0.5],
+    direction: [1, 0, 0],
+    maxDistance: 20,
+    rendererHint: { localVoxel: { x: 0, y: 0, z: 0 }, localFace: 'negX' },
+  });
+  assert.equal(result.outcome.outcome, 'rejected');
+  assert.equal(bridge.pickRequest?.bindingHash, receipt.bindingHash);
+  assert.equal(bridge.pickRequest?.registryDigest, 'sha256:scene-registry');
+
+  authoring.submitCommands({ commands: [] });
+  authoring.submitCommands({
+    commands: [{
+      op: 'setVoxel',
+      grid: 1,
+      coord: { x: 0, y: 0, z: 0 },
+      value: { kind: 'solid', material: 1 },
+    }],
+  });
+  assert.throws(
+    () => authoring.pickVoxelInstance({
+      instanceId: 'scene-node/10',
+      origin: [0, 0.5, 0.5],
+      direction: [1, 0, 0],
+      maxDistance: 20,
+      rendererHint: { localVoxel: { x: 0, y: 0, z: 0 }, localFace: 'negX' },
+    }),
+    (error: unknown) => error instanceof RuntimeBridgeError
+      && error.kind === 'stale_authority_snapshot',
+  );
 });
 
 void test('native workspace authoring creates, stores, closes, and reopens voxel state without gameplay RuntimeSession', (t) => {
@@ -147,6 +235,23 @@ void test('native workspace authoring creates, stores, closes, and reopens voxel
   assert.equal(model.resident, true);
   assert.equal(model.voxelCount, 1);
 
+  const houseInstances = [{
+    instanceId: 'scene-node/10',
+    sceneNodeId: 10,
+    assetId: 'voxel/workspace-authoring-test',
+    transform: { translation: [4, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+  }, {
+    instanceId: 'scene-node/20',
+    sceneNodeId: 20,
+    assetId: 'voxel/workspace-authoring-test',
+    transform: { translation: [-4, 2, 1], rotation: [0, 0, 0, 1], scale: [2, 1, 0.5] },
+  }] as const;
+  const bound = authoring.configureVoxelProjectionInstances({
+    registryDigest: 'sha256:workspace-scene-registry',
+    instances: houseInstances,
+  });
+  assert.equal(bound.instanceCount, 2);
+
   const projection = authoring.readProjection();
   assert.equal(projection.delivery, 'apply');
   assert.equal(projection.workspaceId, 'workspace.local');
@@ -165,11 +270,35 @@ void test('native workspace authoring creates, stores, closes, and reopens voxel
   if (meshed.payload.source.kind !== 'inline') throw new Error('native proof expects inline mesh');
   assert.ok(meshed.payload.source.positions.length > 0);
   assert.ok(meshed.payload.source.indices.length > 0);
+  const initialRoots = projection.frame.ops.filter(
+    (operation) => operation.op === 'create'
+      && operation.parent === null
+      && operation.node.metadata.label?.startsWith('voxel instance') === true,
+  );
+  assert.equal(initialRoots.length, 2);
+  assert.deepEqual(
+    initialRoots.map((operation) => operation.op === 'create' ? operation.node.transform.translation : null),
+    [[4, 0, 0], [-4, 2, 1]],
+  );
   assert.match(projection.projectionHash, /^fnv1a64:[0-9a-f]{16}$/);
   assert.deepEqual(
     authoring.readProjection().frame,
     { ops: [] },
     'unchanged workspace projection preserves retained handles without replaying geometry',
+  );
+
+  const moved = authoring.configureVoxelProjectionInstances({
+    registryDigest: 'sha256:workspace-scene-registry',
+    instances: [{
+      ...houseInstances[0],
+      transform: { ...houseInstances[0].transform, translation: [9, 0, 0] },
+    }, houseInstances[1]],
+  });
+  assert.equal(moved.projectionOpCount, 1, 'moving A updates only its retained root');
+  const movedProjection = authoring.readProjection();
+  assert.equal(
+    movedProjection.frame.ops.filter((operation) => operation.op === 'update').length,
+    1,
   );
 
   const exportReceipt = authoring.exportVoxelVolumeAsset({
@@ -235,6 +364,11 @@ void test('native workspace authoring creates, stores, closes, and reopens voxel
   assert.equal(loaded.voxelCount, 1);
   assert.equal(loaded.canonicalJsonHash, asset.contentHashes.canonicalJson);
   assert.equal(authoring.readState().dirty, false);
+  const rebound = authoring.configureVoxelProjectionInstances({
+    registryDigest: 'sha256:workspace-scene-registry',
+    instances: houseInstances,
+  });
+  assert.notEqual(rebound.bindingHash, bound.bindingHash, 'reopen generation receives a fresh binding');
   const reopenedProjection = authoring.readProjection();
   assert.equal(reopenedProjection.delivery, 'replace');
   assert.equal(reopenedProjection.generation, 2);
@@ -247,6 +381,22 @@ void test('native workspace authoring creates, stores, closes, and reopens voxel
   }
   assert.ok(
     reopenedProjection.frame.ops.some((operation) => operation.op === 'replaceMeshPayload'),
+  );
+  const reopenedRootHandles = reopenedProjection.frame.ops.flatMap((operation) =>
+    operation.op === 'create'
+      && operation.parent === null
+      && operation.node.metadata.label?.startsWith('voxel instance') === true
+      ? [operation.handle]
+      : []
+  );
+  const initialRootHandles = initialRoots.flatMap((operation) =>
+    operation.op === 'create' ? [operation.handle] : []
+  );
+  assert.equal(reopenedRootHandles.length, 2);
+  assert.equal(
+    reopenedRootHandles.some((handle) => initialRootHandles.includes(handle)),
+    false,
+    'close/reopen does not reuse retained instance handles',
   );
   assert.throws(
     () => bridge.readFpsRuntimeSession(),

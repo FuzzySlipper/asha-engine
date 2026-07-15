@@ -10,6 +10,8 @@ const GENERATED_NATIVE_ADDON_EXPORT_NAMES = [
   'readTimeControlState',
   'submitCommands',
   'pickVoxel',
+  'configureVoxelProjectionInstances',
+  'pickVoxelInstance',
   'applyCollisionConstrainedCameraInput',
   'applyGeneratedTunnelToRuntimeWorld',
   'selectVoxel',

@@ -31,6 +31,7 @@ impl EngineBridge {
     ) {
         let teardown = self.projection.voxel_projector.clear();
         self.projection.pending_voxel_frame.ops.extend(teardown.ops);
+        self.projection.voxel_instance_binding = None;
         self.voxel.voxel_edit_history = Some(AuthorityVoxelEditHistory::new(world.clone()));
         self.voxel.voxel = Some(world);
         self.voxel.collision_world_offset = collision_world_offset;

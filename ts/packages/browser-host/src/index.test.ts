@@ -706,6 +706,8 @@ function createFakeRuntimeBridge(): RuntimeBridge {
     applyFirstPersonCameraInput: operation,
     readCameraProjection: operation,
     pickVoxel: operation,
+    configureVoxelProjectionInstances: operation,
+    pickVoxelInstance: operation,
     selectVoxel: operation,
     readVoxelMeshEvidence: operation,
     readRenderDiffs: operation,

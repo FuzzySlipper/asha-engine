@@ -71,7 +71,7 @@ project_bundle = "retainedAcrossLoadUnload"
 snapshot_hash = "voxelStateAndResources"
 resource_lifetime = "mixedExplicitAndSession"
 operations = [
-  "submit_commands", "pick_voxel", "select_voxel", "read_voxel_mesh_evidence",
+  "submit_commands", "pick_voxel", "configure_voxel_projection_instances", "pick_voxel_instance", "select_voxel", "read_voxel_mesh_evidence",
   "plan_voxel_conversion", "register_voxel_conversion_source", "register_voxel_conversion_mesh_asset",
   "import_voxel_conversion_mesh_source", "read_voxel_conversion_source_metadata",
   "preview_voxel_conversion", "apply_voxel_conversion", "read_voxel_model_info",
@@ -186,6 +186,22 @@ input = "protocol_voxel::PickRay"
 output = "protocol_voxel::PickResult"
 errors = "RuntimeBridgeError"
 summary = "Raycast a world-space PickRay against authority voxel state and return the nearest classified VoxelHit (or a classified miss). Rust owns the voxel-grid raycast; the renderer only builds the ray."
+
+[[operation]]
+name = "configure_voxel_projection_instances"
+surface = "stable"
+input = "protocol_voxel::VoxelProjectionBindingRequest"
+output = "protocol_voxel::VoxelProjectionBindingReceipt"
+errors = "RuntimeBridgeError"
+summary = "Atomically bind asset-local voxel projection beneath retained scene-instance roots using workspace generation, revision, registry digest, asset identity, and validated renderer-neutral transforms."
+
+[[operation]]
+name = "pick_voxel_instance"
+surface = "stable"
+input = "protocol_voxel::VoxelInstancePickRequest"
+output = "protocol_voxel::VoxelInstancePickResult"
+errors = "RuntimeBridgeError"
+summary = "Inverse-transform a world ray through an accepted voxel instance binding, independently revalidate the renderer hint against Rust collision authority, and return an asset-local revision-bound edit anchor."
 
 [[operation]]
 name = "apply_collision_constrained_camera_input"

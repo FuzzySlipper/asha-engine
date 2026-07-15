@@ -6,6 +6,8 @@
 // Manual edits will be overwritten and are rejected by CI
 // (harness/ci/check-contracts.sh).
 
+import type { SceneTransform } from './scene.js';
+
 // An integer voxel cell coordinate within *some* voxel grid.  Which grid it belongs to is contextual (held by the caller / the owning [`crate::VoxelGridSpec`]); this type does not bake in a voxel size.
 export interface VoxelCoord {
   readonly x: number;
@@ -86,3 +88,79 @@ export interface VoxelHit {
 export type PickResult =
   | { readonly outcome: 'hit'; readonly hit: VoxelHit }
   | { readonly outcome: 'miss'; readonly rejection: PickRejection };
+
+// One scene-node use of the currently loaded voxel asset. The transform is a renderer-neutral validated scene TRS; voxel coordinates remain asset-local.
+export interface VoxelProjectionInstanceBinding {
+  readonly instanceId: string;
+  readonly sceneNodeId: number;
+  readonly assetId: string;
+  readonly transform: SceneTransform;
+}
+
+// Complete replacement request for workspace voxel projection bindings.
+export interface VoxelProjectionBindingRequest {
+  readonly workspaceId: string;
+  readonly workspaceGeneration: number;
+  readonly workingRevision: number;
+  readonly registryDigest: string;
+  readonly instances: readonly VoxelProjectionInstanceBinding[];
+}
+
+// Hash-bound receipt for the accepted retained instance graph.
+export interface VoxelProjectionBindingReceipt {
+  readonly workspaceId: string;
+  readonly workspaceGeneration: number;
+  readonly workingRevision: number;
+  readonly registryDigest: string;
+  readonly bindingHash: string;
+  readonly instanceCount: number;
+  readonly projectionOpCount: number;
+}
+
+// Optional renderer observation. Rust independently re-casts the world ray and compares this local cell/face before returning an edit anchor.
+export interface VoxelInstancePickHint {
+  readonly localVoxel: VoxelCoord;
+  readonly localFace: Face;
+}
+
+// World-ray pick request bound to an accepted workspace instance registry.
+export interface VoxelInstancePickRequest {
+  readonly workspaceId: string;
+  readonly workspaceGeneration: number;
+  readonly workingRevision: number;
+  readonly registryDigest: string;
+  readonly bindingHash: string;
+  readonly instanceId: string;
+  readonly origin: readonly [number, number, number];
+  readonly direction: readonly [number, number, number];
+  readonly maxDistance: number;
+  readonly rendererHint: VoxelInstancePickHint;
+}
+
+// Authority-confirmed asset-local selection plus world-space observation.
+export interface VoxelInstancePickHit {
+  readonly localVoxel: VoxelCoord;
+  readonly localChunk: ChunkCoord;
+  readonly localFace: Face;
+  readonly localPlaceAnchor: VoxelCoord;
+  readonly worldPoint: readonly [number, number, number];
+  readonly worldDistance: number;
+}
+
+// Why an instance-bound workspace pick was rejected before any edit proposal.
+export type VoxelInstancePickRejection = 'staleWorkspaceGeneration' | 'staleWorkingRevision' | 'registryDigestChanged' | 'bindingHashMismatch' | 'unknownInstance' | 'invalidRay' | 'noHit' | 'rendererHintMismatch';
+
+// Classified instance pick outcome.
+export type VoxelInstancePickOutcome =
+  | { readonly outcome: 'hit'; readonly voxelInstancePickHit: VoxelInstancePickHit }
+  | { readonly outcome: 'rejected'; readonly rejection: VoxelInstancePickRejection };
+
+// Pick result repeats its workspace binding so a later edit cannot detach the asset-local anchor from the projection revision that authorized it.
+export interface VoxelInstancePickResult {
+  readonly workspaceId: string;
+  readonly workspaceGeneration: number;
+  readonly workingRevision: number;
+  readonly bindingHash: string;
+  readonly instanceId: string;
+  readonly outcome: VoxelInstancePickOutcome;
+}

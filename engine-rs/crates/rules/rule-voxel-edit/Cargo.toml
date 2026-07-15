@@ -8,9 +8,13 @@ workspace = true
 
 [dependencies]
 core-space    = { path = "../../foundation/core-space" }
+core-scene    = { path = "../../state/core-scene" }
 core-voxel    = { path = "../../state/core-voxel" }
 core-commands = { path = "../../state/core-commands" }
 core-events   = { path = "../../state/core-events" }
 svc-volume    = { path = "../../services/svc-volume" }
 svc-spatial   = { path = "../../services/svc-spatial" }
 svc-collision = { path = "../../services/svc-collision" }
+
+[dev-dependencies]
+core-math = { path = "../../foundation/core-math" }

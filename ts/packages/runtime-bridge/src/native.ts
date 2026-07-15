@@ -19,6 +19,10 @@ import type {
   ModelMaterialPreviewSnapshot,
   PickResult,
   PickRay,
+  VoxelInstancePickRequest,
+  VoxelInstancePickResult,
+  VoxelProjectionBindingRequest,
+  VoxelProjectionBindingReceipt,
   AudioSourcePatch,
   BillboardContent,
   BillboardPatch,
@@ -1471,6 +1475,22 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     const handle = this.#requireHandle('pickVoxel');
     const payload = callNative(() => this.#addon.pickVoxel(handle, JSON.stringify(ray)));
     return parseNativeJson<PickResult>(payload, 'voxel pick result');
+  }
+
+  configureVoxelProjectionInstances(
+    request: VoxelProjectionBindingRequest,
+  ): VoxelProjectionBindingReceipt {
+    const handle = this.#requireHandle('configureVoxelProjectionInstances');
+    const payload = callNative(() =>
+      this.#addon.configureVoxelProjectionInstances(handle, JSON.stringify(request)),
+    );
+    return parseNativeJson<VoxelProjectionBindingReceipt>(payload, 'voxel projection binding receipt');
+  }
+
+  pickVoxelInstance(request: VoxelInstancePickRequest): VoxelInstancePickResult {
+    const handle = this.#requireHandle('pickVoxelInstance');
+    const payload = callNative(() => this.#addon.pickVoxelInstance(handle, JSON.stringify(request)));
+    return parseNativeJson<VoxelInstancePickResult>(payload, 'voxel instance pick result');
   }
 
   applyCollisionConstrainedCameraInput(envelope: CollisionConstrainedCameraInputEnvelope): CameraCollisionSnapshot {

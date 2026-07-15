@@ -65,26 +65,33 @@ fn workspace_authored_voxels_project_as_retained_mesh_payloads() {
     assert_eq!(edit.accepted, 1);
 
     let frame = bridge.read_render_diffs(2).unwrap();
-    let created_handle = frame
-        .ops
-        .iter()
-        .find_map(|operation| match operation {
-            protocol_render::RenderDiff::Create { handle, .. } => Some(*handle),
-            _ => None,
-        })
-        .expect("authored voxel chunk creates a retained render node");
     let payload = frame
         .ops
         .iter()
         .find_map(|operation| match operation {
-            protocol_render::RenderDiff::ReplaceMeshPayload { handle, payload }
-                if *handle == created_handle =>
-            {
-                Some(payload)
+            protocol_render::RenderDiff::ReplaceMeshPayload { handle, payload } => {
+                Some((*handle, payload))
             }
             _ => None,
         })
         .expect("authored voxel chunk uploads mesh geometry");
+    let created_handle = payload.0;
+    let child = frame
+        .ops
+        .iter()
+        .find(|operation| {
+            matches!(
+                operation,
+                protocol_render::RenderDiff::Create {
+                    handle,
+                    parent: Some(_),
+                    ..
+                } if *handle == created_handle
+            )
+        })
+        .expect("authored voxel chunk creates a retained child under its instance root");
+    assert!(matches!(child, protocol_render::RenderDiff::Create { .. }));
+    let payload = payload.1;
     assert_eq!(payload.provenance, MeshProvenance::VoxelChunk);
     assert!(payload.layout.vertex_count > 0);
     assert!(payload.layout.index_count > 0);

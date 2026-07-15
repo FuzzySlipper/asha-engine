@@ -33,6 +33,8 @@ export interface RuntimeSceneEntityPort {
 export interface RuntimeVoxelAssetBufferPort {
   submitCommands(input: Contracts.CommandBatch): Contracts.CommandResult;
   pickVoxel(input: Contracts.PickRay): Contracts.PickResult;
+  configureVoxelProjectionInstances(input: Contracts.VoxelProjectionBindingRequest): Contracts.VoxelProjectionBindingReceipt;
+  pickVoxelInstance(input: Contracts.VoxelInstancePickRequest): Contracts.VoxelInstancePickResult;
   selectVoxel(input: Contracts.ScreenPointToPickRayRequest): Contracts.VoxelSelectionSnapshot;
   readVoxelMeshEvidence(input: Bridge.VoxelMeshEvidenceRequest): Bridge.VoxelMeshEvidenceSnapshot;
   planVoxelConversion(input: Contracts.VoxelConversionPlanRequest): Contracts.VoxelConversionPlan;

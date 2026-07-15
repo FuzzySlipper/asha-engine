@@ -451,7 +451,7 @@ may_not_depend_on = ["protocol-render", "protocol-presentation", "render-bridge"
 
 [crate."engine-rs/crates/rules/rule-voxel-edit"]
 lane = "rust-rule"
-may_depend_on = ["core-space", "core-voxel", "core-commands", "core-events", "svc-volume", "svc-spatial", "svc-collision"]
+may_depend_on = ["core-math", "core-space", "core-voxel", "core-commands", "core-events", "core-scene", "svc-volume", "svc-spatial", "svc-collision"]
 may_not_depend_on = ["render-bridge", "wasm-api"]
 
 [crate."engine-rs/crates/rules/rule-project-bundle"]

@@ -12,6 +12,8 @@ handwritten semantic exports. Quarantined compatibility wiring is explicit.
 | `read_time_control_state` | `time_simulation` | stable | `Unit` | `protocol_time_control::TimeControlState` | `RuntimeBridgeError` |
 | `submit_commands` | `voxel_assets_buffers` | stable | `protocol_voxel::CommandBatch` | `protocol_voxel::CommandResult` | `RuntimeBridgeError` |
 | `pick_voxel` | `voxel_assets_buffers` | stable | `protocol_voxel::PickRay` | `protocol_voxel::PickResult` | `RuntimeBridgeError` |
+| `configure_voxel_projection_instances` | `voxel_assets_buffers` | stable | `protocol_voxel::VoxelProjectionBindingRequest` | `protocol_voxel::VoxelProjectionBindingReceipt` | `RuntimeBridgeError` |
+| `pick_voxel_instance` | `voxel_assets_buffers` | stable | `protocol_voxel::VoxelInstancePickRequest` | `protocol_voxel::VoxelInstancePickResult` | `RuntimeBridgeError` |
 | `apply_collision_constrained_camera_input` | `camera` | stable | `protocol_view::CollisionConstrainedCameraInputEnvelope` | `protocol_view::CameraCollisionSnapshot` | `RuntimeBridgeError` |
 | `apply_generated_tunnel_to_runtime_world` | `gameplay` | stable | `protocol_view::GeneratedTunnelRuntimeApplyRequest` | `protocol_view::GeneratedTunnelRuntimeApplyReceipt` | `RuntimeBridgeError` |
 | `select_voxel` | `voxel_assets_buffers` | stable | `protocol_view::ScreenPointToPickRayRequest` | `protocol_view::VoxelSelectionSnapshot` | `RuntimeBridgeError` |

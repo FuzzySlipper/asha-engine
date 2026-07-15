@@ -184,7 +184,7 @@ pub use protocol_voxel_edit_history::{
 };
 pub(crate) use render_audio::AudioProjector;
 pub(crate) use render_billboard::BillboardProjector;
-pub(crate) use render_bridge::VoxelChunkProjector;
+pub(crate) use render_bridge::{VoxelChunkProjector, VoxelProjectionInstance};
 pub(crate) use render_particle::{ParticleProjectionLimits, ParticleProjector};
 pub(crate) use render_telemetry_overlay::TelemetryOverlayProjector;
 pub(crate) use rule_input::InputSessionResolver;

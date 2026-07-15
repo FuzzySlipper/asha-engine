@@ -76,6 +76,8 @@
       "operations": [
         "submit_commands",
         "pick_voxel",
+        "configure_voxel_projection_instances",
+        "pick_voxel_instance",
         "select_voxel",
         "read_voxel_mesh_evidence",
         "plan_voxel_conversion",
@@ -336,6 +338,54 @@
       "outputWire": {
         "owner": "generated",
         "name": "voxel.PickResult",
+        "repeated": false
+      },
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "configure_voxel_projection_instances",
+      "facadeMethod": "configureVoxelProjectionInstances",
+      "capability": "voxel_assets_buffers",
+      "surface": "stable",
+      "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
+      "input": "protocol_voxel::VoxelProjectionBindingRequest",
+      "output": "protocol_voxel::VoxelProjectionBindingReceipt",
+      "facadeInput": null,
+      "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxel.VoxelProjectionBindingRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxel.VoxelProjectionBindingReceipt",
+        "repeated": false
+      },
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "pick_voxel_instance",
+      "facadeMethod": "pickVoxelInstance",
+      "capability": "voxel_assets_buffers",
+      "surface": "stable",
+      "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
+      "input": "protocol_voxel::VoxelInstancePickRequest",
+      "output": "protocol_voxel::VoxelInstancePickResult",
+      "facadeInput": null,
+      "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "voxel.VoxelInstancePickRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "voxel.VoxelInstancePickResult",
         "repeated": false
       },
       "errors": "RuntimeBridgeError"

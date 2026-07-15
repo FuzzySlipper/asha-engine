@@ -5,8 +5,10 @@ use protocol_view::{
     VoxelSelectionOutcome,
 };
 use runtime_bridge_api::{
-    PickRay, PickResult, RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind,
-    VoxelMeshEvidenceRequest,
+    PickRay, PickResult, RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind, SceneTransformDto,
+    VoxelInstancePickHint, VoxelInstancePickOutcome, VoxelInstancePickRejection,
+    VoxelInstancePickRequest, VoxelMeshEvidenceRequest, VoxelProjectionBindingRequest,
+    VoxelProjectionInstanceBinding,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -62,6 +64,55 @@ struct CoordJson {
     z: i64,
 }
 
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ProjectionBindingJson {
+    workspace_id: String,
+    workspace_generation: u64,
+    working_revision: u64,
+    registry_digest: String,
+    instances: Vec<ProjectionInstanceJson>,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ProjectionInstanceJson {
+    instance_id: String,
+    scene_node_id: u64,
+    asset_id: String,
+    transform: TransformJson,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct TransformJson {
+    translation: [f32; 3],
+    rotation: [f32; 4],
+    scale: [f32; 3],
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct InstancePickJson {
+    workspace_id: String,
+    workspace_generation: u64,
+    working_revision: u64,
+    registry_digest: String,
+    binding_hash: String,
+    instance_id: String,
+    origin: [f64; 3],
+    direction: [f64; 3],
+    max_distance: f64,
+    renderer_hint: InstancePickHintJson,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct InstancePickHintJson {
+    local_voxel: CoordJson,
+    local_face: String,
+}
+
 fn encode(value: Value, operation: &str) -> napi::Result<String> {
     serde_json::to_string(&value).map_err(|error| {
         to_napi(RuntimeBridgeError::new(
@@ -87,6 +138,34 @@ fn face(value: Direction6) -> &'static str {
         Direction6::NegY => "negY",
         Direction6::PosZ => "posZ",
         Direction6::NegZ => "negZ",
+    }
+}
+
+fn parse_face(value: &str) -> napi::Result<Direction6> {
+    match value {
+        "posX" => Ok(Direction6::PosX),
+        "negX" => Ok(Direction6::NegX),
+        "posY" => Ok(Direction6::PosY),
+        "negY" => Ok(Direction6::NegY),
+        "posZ" => Ok(Direction6::PosZ),
+        "negZ" => Ok(Direction6::NegZ),
+        _ => Err(to_napi(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::InvalidInput,
+            format!("unknown voxel instance pick face {value:?}"),
+        ))),
+    }
+}
+
+fn rejection(value: VoxelInstancePickRejection) -> &'static str {
+    match value {
+        VoxelInstancePickRejection::StaleWorkspaceGeneration => "staleWorkspaceGeneration",
+        VoxelInstancePickRejection::StaleWorkingRevision => "staleWorkingRevision",
+        VoxelInstancePickRejection::RegistryDigestChanged => "registryDigestChanged",
+        VoxelInstancePickRejection::BindingHashMismatch => "bindingHashMismatch",
+        VoxelInstancePickRejection::UnknownInstance => "unknownInstance",
+        VoxelInstancePickRejection::InvalidRay => "invalidRay",
+        VoxelInstancePickRejection::NoHit => "noHit",
+        VoxelInstancePickRejection::RendererHintMismatch => "rendererHintMismatch",
     }
 }
 
@@ -120,6 +199,111 @@ pub fn pick_voxel(handle: i64, request_json: String) -> napi::Result<String> {
             }),
         };
         encode(value, "voxel pick")
+    })
+}
+
+#[napi]
+pub fn configure_voxel_projection_instances(
+    handle: i64,
+    request_json: String,
+) -> napi::Result<String> {
+    let request = parse_wire_json::<ProjectionBindingJson>(
+        "configure_voxel_projection_instances",
+        &request_json,
+    )?;
+    with_bridge(handle, |bridge| {
+        let receipt = bridge
+            .configure_voxel_projection_instances(VoxelProjectionBindingRequest {
+                workspace_id: request.workspace_id,
+                workspace_generation: request.workspace_generation,
+                working_revision: request.working_revision,
+                registry_digest: request.registry_digest,
+                instances: request
+                    .instances
+                    .into_iter()
+                    .map(|instance| VoxelProjectionInstanceBinding {
+                        instance_id: instance.instance_id,
+                        scene_node_id: instance.scene_node_id,
+                        asset_id: instance.asset_id,
+                        transform: SceneTransformDto {
+                            translation: instance.transform.translation,
+                            rotation: instance.transform.rotation,
+                            scale: instance.transform.scale,
+                        },
+                    })
+                    .collect(),
+            })
+            .map_err(to_napi)?;
+        encode(
+            json!({
+                "workspaceId": receipt.workspace_id,
+                "workspaceGeneration": receipt.workspace_generation,
+                "workingRevision": receipt.working_revision,
+                "registryDigest": receipt.registry_digest,
+                "bindingHash": receipt.binding_hash,
+                "instanceCount": receipt.instance_count,
+                "projectionOpCount": receipt.projection_op_count,
+            }),
+            "voxel projection binding",
+        )
+    })
+}
+
+#[napi]
+pub fn pick_voxel_instance(handle: i64, request_json: String) -> napi::Result<String> {
+    let request =
+        parse_wire_json::<InstancePickJson>("pick_voxel_instance", &request_json)?;
+    let local_face = parse_face(&request.renderer_hint.local_face)?;
+    with_bridge(handle, |bridge| {
+        let result = bridge
+            .pick_voxel_instance(VoxelInstancePickRequest {
+                workspace_id: request.workspace_id,
+                workspace_generation: request.workspace_generation,
+                working_revision: request.working_revision,
+                registry_digest: request.registry_digest,
+                binding_hash: request.binding_hash,
+                instance_id: request.instance_id,
+                origin: request.origin,
+                direction: request.direction,
+                max_distance: request.max_distance,
+                renderer_hint: VoxelInstancePickHint {
+                    local_voxel: VoxelCoord::new(
+                        request.renderer_hint.local_voxel.x,
+                        request.renderer_hint.local_voxel.y,
+                        request.renderer_hint.local_voxel.z,
+                    ),
+                    local_face,
+                },
+            })
+            .map_err(to_napi)?;
+        let outcome = match result.outcome {
+            VoxelInstancePickOutcome::Hit(hit) => json!({
+                "outcome": "hit",
+                "voxelInstancePickHit": {
+                    "localVoxel": coord(hit.local_voxel),
+                    "localChunk": chunk(hit.local_chunk),
+                    "localFace": face(hit.local_face),
+                    "localPlaceAnchor": coord(hit.local_place_anchor),
+                    "worldPoint": hit.world_point,
+                    "worldDistance": hit.world_distance,
+                }
+            }),
+            VoxelInstancePickOutcome::Rejected(reason) => json!({
+                "outcome": "rejected",
+                "rejection": rejection(reason),
+            }),
+        };
+        encode(
+            json!({
+                "workspaceId": result.workspace_id,
+                "workspaceGeneration": result.workspace_generation,
+                "workingRevision": result.working_revision,
+                "bindingHash": result.binding_hash,
+                "instanceId": result.instance_id,
+                "outcome": outcome,
+            }),
+            "voxel instance pick",
+        )
     })
 }
 

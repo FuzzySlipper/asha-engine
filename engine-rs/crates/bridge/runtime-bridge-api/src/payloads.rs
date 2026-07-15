@@ -507,6 +507,106 @@ pub enum PickResult {
     Miss(PickRejection),
 }
 
+// ── Workspace voxel instances (asset-local projection and picking, #5832) ────
+
+/// One scene-node use of the currently loaded voxel asset. The transform is a
+/// renderer-neutral validated scene TRS; voxel coordinates remain asset-local.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VoxelProjectionInstanceBinding {
+    pub instance_id: String,
+    pub scene_node_id: u64,
+    pub asset_id: String,
+    pub transform: SceneTransformDto,
+}
+
+/// Complete replacement request for workspace voxel projection bindings.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VoxelProjectionBindingRequest {
+    pub workspace_id: String,
+    pub workspace_generation: u64,
+    pub working_revision: u64,
+    pub registry_digest: String,
+    pub instances: Vec<VoxelProjectionInstanceBinding>,
+}
+
+/// Hash-bound receipt for the accepted retained instance graph.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VoxelProjectionBindingReceipt {
+    pub workspace_id: String,
+    pub workspace_generation: u64,
+    pub working_revision: u64,
+    pub registry_digest: String,
+    pub binding_hash: String,
+    pub instance_count: u32,
+    pub projection_op_count: u32,
+}
+
+/// Optional renderer observation. Rust independently re-casts the world ray and
+/// compares this local cell/face before returning an edit anchor.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct VoxelInstancePickHint {
+    pub local_voxel: VoxelCoord,
+    pub local_face: Face,
+}
+
+/// World-ray pick request bound to an accepted workspace instance registry.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VoxelInstancePickRequest {
+    pub workspace_id: String,
+    pub workspace_generation: u64,
+    pub working_revision: u64,
+    pub registry_digest: String,
+    pub binding_hash: String,
+    pub instance_id: String,
+    pub origin: [f64; 3],
+    pub direction: [f64; 3],
+    pub max_distance: f64,
+    pub renderer_hint: VoxelInstancePickHint,
+}
+
+/// Authority-confirmed asset-local selection plus world-space observation.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct VoxelInstancePickHit {
+    pub local_voxel: VoxelCoord,
+    pub local_chunk: ChunkCoord,
+    pub local_face: Face,
+    pub local_place_anchor: VoxelCoord,
+    pub world_point: [f64; 3],
+    pub world_distance: f64,
+}
+
+/// Why an instance-bound workspace pick was rejected before any edit proposal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VoxelInstancePickRejection {
+    StaleWorkspaceGeneration,
+    StaleWorkingRevision,
+    RegistryDigestChanged,
+    BindingHashMismatch,
+    UnknownInstance,
+    InvalidRay,
+    NoHit,
+    RendererHintMismatch,
+}
+
+/// Classified instance pick outcome.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum VoxelInstancePickOutcome {
+    Hit(VoxelInstancePickHit),
+    Rejected(VoxelInstancePickRejection),
+}
+
+/// Pick result repeats its workspace binding so a later edit cannot detach the
+/// asset-local anchor from the projection revision that authorized it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VoxelInstancePickResult {
+    pub workspace_id: String,
+    pub workspace_generation: u64,
+    pub working_revision: u64,
+    pub binding_hash: String,
+    pub instance_id: String,
+    pub outcome: VoxelInstancePickOutcome,
+}
+
 // ── Voxel mesh/remesh evidence (basic graphical voxel proof, #2646) ───────────
 
 /// Compact request for deterministic voxel mesh evidence. If `chunks` is empty,

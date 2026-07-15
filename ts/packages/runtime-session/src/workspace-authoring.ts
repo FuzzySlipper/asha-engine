@@ -2,6 +2,10 @@ import type {
   CommandBatch,
   CommandResult,
   RenderFrameDiff,
+  VoxelInstancePickRequest,
+  VoxelInstancePickResult,
+  VoxelProjectionBindingReceipt,
+  VoxelProjectionInstanceBinding,
 } from '@asha/contracts';
 import type { RuntimeSessionFacade } from './facade.js';
 import type { RuntimeSessionProjectIdentity } from './facade-core.js';
@@ -92,6 +96,20 @@ export interface WorkspaceAuthoringCloseReceipt {
   readonly lifecycleHash: string;
 }
 
+export interface WorkspaceVoxelProjectionBindingInput {
+  readonly registryDigest: string;
+  readonly instances: readonly VoxelProjectionInstanceBinding[];
+}
+
+export type WorkspaceVoxelInstancePickInput = Omit<
+  VoxelInstancePickRequest,
+  | 'workspaceId'
+  | 'workspaceGeneration'
+  | 'workingRevision'
+  | 'registryDigest'
+  | 'bindingHash'
+>;
+
 type WorkspaceAuthoringVoxelOperations = Pick<
   RuntimeSessionFacade,
   | 'registerVoxelConversionSource'
@@ -133,6 +151,10 @@ export interface WorkspaceAuthoringFacade extends WorkspaceAuthoringVoxelOperati
   open(input: WorkspaceAuthoringOpenInput): WorkspaceAuthoringStateSummary;
   readState(): WorkspaceAuthoringStateSummary;
   readProjection(): WorkspaceAuthoringProjectionSummary;
+  configureVoxelProjectionInstances(
+    input: WorkspaceVoxelProjectionBindingInput,
+  ): VoxelProjectionBindingReceipt;
+  pickVoxelInstance(input: WorkspaceVoxelInstancePickInput): VoxelInstancePickResult;
   submitCommands(batch: CommandBatch): CommandResult;
   confirmStored(
     input: WorkspaceAuthoringStoredConfirmationInput,

@@ -22,6 +22,10 @@ import type {
   ModelMaterialPreviewSnapshot,
   PickRay,
   PickResult,
+  VoxelInstancePickRequest,
+  VoxelInstancePickResult,
+  VoxelProjectionBindingRequest,
+  VoxelProjectionBindingReceipt,
   RenderFrameDiff,
   RuntimeProjectionFrame,
   TimeControlCommand,
@@ -798,6 +802,24 @@ export class MockRuntimeBridge implements RuntimeBridge {
       throw new RuntimeBridgeError('invalid_input', 'pick ray direction must be non-zero');
     }
     return { outcome: 'miss', rejection: { reason: 'noHit' } };
+  }
+
+  configureVoxelProjectionInstances(
+    _request: VoxelProjectionBindingRequest,
+  ): VoxelProjectionBindingReceipt {
+    void _request;
+    return this.#unsupportedAfterInit(
+      'configureVoxelProjectionInstances',
+      'mock bridge does not own retained voxel instance authority',
+    );
+  }
+
+  pickVoxelInstance(_request: VoxelInstancePickRequest): VoxelInstancePickResult {
+    void _request;
+    return this.#unsupportedAfterInit(
+      'pickVoxelInstance',
+      'mock bridge does not own transformed voxel picking authority',
+    );
   }
 
   applyCollisionConstrainedCameraInput(input: CollisionConstrainedCameraInputEnvelope): CameraCollisionSnapshot {

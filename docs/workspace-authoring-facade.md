@@ -34,6 +34,11 @@ live-session lifecycle methods.
    in each generation is marked `delivery: 'replace'` so a retained renderer
    clears handles from the prior workspace. Later reads are incremental `apply`
    deliveries.
+   A scene-aware editor first calls `configureVoxelProjectionInstances(...)`
+   with its registry digest and voxel scene-node bindings. Rust creates one
+   retained root per instance and parents asset-local chunk meshes below it;
+   moving one scene node therefore emits one root transform update rather than
+   rebasing voxel cells or rebuilding another instance.
 6. `saveVoxelVolumeAsset(...)` returns a validated canonical payload and stored
    diff proposal. It does not claim that the host wrote a file.
 7. After the host successfully writes the canonical payload,
@@ -58,6 +63,14 @@ clean stored baseline. Loading that asset into gameplay is a separate
 - Existing resource limits and malformed-input rejection are inherited from the
   same bridge operations used by runtime consumers; the facade does not bypass
   them.
+- `pickVoxelInstance(...)` accepts a world ray and an optional renderer-derived
+  local cell/face observation, but Rust inverse-transforms and re-casts the ray
+  against asset-local collision authority. The returned cell, face, and place
+  anchor are local coordinates bound to workspace generation, working revision,
+  registry digest, instance identity, transform set, and voxel-world hash.
+- Any working voxel edit invalidates the prior pick binding. The retained roots
+  continue to receive remeshed chunk payloads, while a consumer must configure
+  the current revision before it can obtain another edit anchor.
 
 ## Non-claims
 
@@ -65,3 +78,4 @@ clean stored baseline. Loading that asset into gameplay is a separate
 - A Rust save receipt is not proof of host persistence.
 - Authoring working state is not silently promoted into ProjectBundle truth.
 - Renderer projections are not authority.
+- Renderer intersections are hints, not voxel-coordinate authority.

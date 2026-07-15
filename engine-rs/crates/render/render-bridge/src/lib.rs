@@ -44,7 +44,7 @@ pub use presentation::{
 };
 pub use voxel::{
     to_payload_descriptor, ChunkMeshStrategy, VisibleFaceStrategy, VoxelChunkProjector,
-    VoxelProjectionDiagnostic,
+    VoxelProjectionDiagnostic, VoxelProjectionInstance, VoxelProjectionInstanceError,
 };
 
 use std::collections::BTreeMap;

@@ -1012,6 +1012,8 @@ version = "0.1.0"
 dependencies = [
  "core-commands",
  "core-events",
+ "core-math",
+ "core-scene",
  "core-space",
  "core-voxel",
  "svc-collision",

@@ -2,6 +2,8 @@ export const REQUIRED_NATIVE_CONFORMANCE_OPS = [
   'initialize_engine',
   'load_project_bundle',
   'submit_commands',
+  'configure_voxel_projection_instances',
+  'pick_voxel_instance',
   'step_simulation',
   'create_camera',
   'apply_camera_mode_command',

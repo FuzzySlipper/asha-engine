@@ -11,11 +11,13 @@
 
 use std::path::PathBuf;
 
+use core_math::Vec3;
+use core_scene::transform::{Quat, SceneTransform};
 use core_space::{ChunkCoord, ChunkDims, GridId, LocalVoxelCoord, VoxelGridSpec};
 use core_voxel::VoxelValue;
 use protocol_render::RenderDiff;
 use render_bridge::json;
-use render_bridge::voxel::VoxelChunkProjector;
+use render_bridge::voxel::{VoxelChunkProjector, VoxelProjectionInstance};
 use svc_spatial::VoxelWorld;
 use svc_volume::VoxelChunk;
 
@@ -96,12 +98,137 @@ fn full_projection_creates_a_mesh_per_chunk() {
         .iter()
         .filter(|o| matches!(o, RenderDiff::ReplaceMeshPayload { .. }))
         .count();
-    assert_eq!(creates, 4, "one create per chunk");
+    assert_eq!(creates, 5, "one retained root plus one create per chunk");
     assert_eq!(payloads, 4, "one mesh payload per chunk");
     // Each chunk has a stable handle.
     for (x, y, z) in ARRANGEMENT {
         assert!(projector.handle_of(ChunkCoord::new(x, y, z)).is_some());
     }
+}
+
+fn instance(id: &str, translation: [f32; 3]) -> VoxelProjectionInstance {
+    VoxelProjectionInstance {
+        instance_id: id.to_owned(),
+        asset_id: "voxel/house".to_owned(),
+        transform: SceneTransform::new(
+            Vec3::new(translation[0], translation[1], translation[2]),
+            Quat::IDENTITY,
+            Vec3::ONE,
+        ),
+    }
+}
+
+#[test]
+fn two_instances_share_asset_meshes_but_keep_independent_roots() {
+    let mut world = canonical_world();
+    world.drain_dirty();
+    let mut projector = VoxelChunkProjector::new();
+
+    let initial = projector
+        .set_instances(
+            &world,
+            vec![
+                instance("scene-node/10", [3.0, 0.0, 0.0]),
+                instance("scene-node/20", [-4.0, 2.0, 1.0]),
+            ],
+        )
+        .unwrap();
+    let root_a = projector.instance_root_handle("scene-node/10").unwrap();
+    let root_b = projector.instance_root_handle("scene-node/20").unwrap();
+    assert_ne!(root_a, root_b);
+    assert_eq!(
+        initial
+            .ops
+            .iter()
+            .filter(|op| matches!(op, RenderDiff::Create { parent: None, .. }))
+            .count(),
+        2,
+    );
+    assert_eq!(
+        initial
+            .ops
+            .iter()
+            .filter(|op| matches!(op, RenderDiff::ReplaceMeshPayload { .. }))
+            .count(),
+        ARRANGEMENT.len() * 2,
+    );
+    for (x, y, z) in ARRANGEMENT {
+        let coord = ChunkCoord::new(x, y, z);
+        assert_ne!(
+            projector.instance_chunk_handle("scene-node/10", coord),
+            projector.instance_chunk_handle("scene-node/20", coord),
+        );
+    }
+
+    let moved = projector
+        .set_instances(
+            &world,
+            vec![
+                instance("scene-node/10", [9.0, 0.0, 0.0]),
+                instance("scene-node/20", [-4.0, 2.0, 1.0]),
+            ],
+        )
+        .unwrap();
+    assert_eq!(moved.len(), 1, "moving A does not recreate or touch B");
+    assert!(matches!(
+        moved.ops[0],
+        RenderDiff::Update { handle, transform: Some(_), .. } if handle == root_a
+    ));
+    assert_eq!(
+        projector.instance_root_handle("scene-node/20"),
+        Some(root_b)
+    );
+
+    world
+        .get_mut(ChunkCoord::new(0, 0, 0))
+        .unwrap()
+        .set(LocalVoxelCoord::new(0, 0, 1), VoxelValue::solid_raw(2))
+        .unwrap();
+    let remesh = projector.project_dirty(&mut world);
+    let remeshed_handles: std::collections::BTreeSet<_> = remesh
+        .ops
+        .iter()
+        .filter_map(|op| match op {
+            RenderDiff::ReplaceMeshPayload { handle, .. } => Some(*handle),
+            _ => None,
+        })
+        .collect();
+    assert!(remeshed_handles.contains(
+        &projector
+            .instance_chunk_handle("scene-node/10", ChunkCoord::new(0, 0, 0))
+            .unwrap()
+    ));
+    assert!(remeshed_handles.contains(
+        &projector
+            .instance_chunk_handle("scene-node/20", ChunkCoord::new(0, 0, 0))
+            .unwrap()
+    ));
+}
+
+#[test]
+fn chunk_children_ignore_grid_world_origin_and_remain_asset_local() {
+    let spec = grid().with_origin(core_space::WorldPos::new(100.0, 200.0, 300.0));
+    let mut world = VoxelWorld::new(spec);
+    let mut chunk = VoxelChunk::from_spec(&spec);
+    chunk
+        .set(LocalVoxelCoord::new(0, 0, 0), VoxelValue::solid_raw(1))
+        .unwrap();
+    world.insert(ChunkCoord::new(1, 0, -1), chunk);
+    let mut projector = VoxelChunkProjector::new();
+    let frame = projector.project_dirty(&mut world);
+    let child = frame
+        .ops
+        .iter()
+        .find_map(|op| match op {
+            RenderDiff::Create {
+                parent: Some(_),
+                node,
+                ..
+            } => Some(node),
+            _ => None,
+        })
+        .expect("chunk child");
+    assert_eq!(child.transform.translation, [2.0, 0.0, -2.0]);
 }
 
 #[test]

@@ -159,6 +159,8 @@ mod tests {
     mod time_control_tests;
     #[path = "voxel_edit_history_tests.rs"]
     mod voxel_edit_history_tests;
+    #[path = "voxel_projection_tests.rs"]
+    mod voxel_projection_tests;
 
     #[test]
     fn generation_is_deterministic() {
@@ -489,6 +491,7 @@ mod tests {
         camera_controller_tests::extend_round_trip_coverage(&mut coverage);
         time_control_tests::extend_round_trip_coverage(&mut coverage);
         render_tests::extend_round_trip_coverage(&mut coverage);
+        voxel_projection_tests::extend_round_trip_coverage(&mut coverage);
         coverage
     }
 

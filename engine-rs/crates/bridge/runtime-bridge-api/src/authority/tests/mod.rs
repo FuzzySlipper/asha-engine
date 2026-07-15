@@ -370,4 +370,5 @@ mod runtime;
 mod scene_preview;
 mod time_control;
 mod voxel;
+mod voxel_instances;
 mod voxel_unload;

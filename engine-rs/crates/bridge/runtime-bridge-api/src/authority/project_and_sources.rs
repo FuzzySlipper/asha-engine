@@ -17,6 +17,11 @@ impl EngineBridge {
                 ),
             ));
         }
+        if self.bundle.loaded_project_bundle != Some(request.scene_id) {
+            let teardown = self.projection.voxel_projector.clear();
+            self.projection.pending_voxel_frame.ops.extend(teardown.ops);
+            self.projection.voxel_instance_binding = None;
+        }
         self.bundle.loaded_project_bundle = Some(request.scene_id);
         Ok(CompositionStatus {
             loaded_project_bundle: Some(request.scene_id),
@@ -50,6 +55,9 @@ impl EngineBridge {
     }
 
     pub(super) fn unload_project_bundle_authority(&mut self) -> BridgeResult<()> {
+        let teardown = self.projection.voxel_projector.clear();
+        self.projection.pending_voxel_frame.ops.extend(teardown.ops);
+        self.projection.voxel_instance_binding = None;
         self.bundle.loaded_project_bundle = None;
         self.input.input_session = None;
         self.scene.entities = EntityStore::new();

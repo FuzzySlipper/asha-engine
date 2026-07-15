@@ -26,7 +26,7 @@ slots onto an indexed material registry — typed-array/view creation only, no t
 |---|---|---|
 | Attribute streams | **separate** (`positions`, `normals`; later `uv`, `color`) | maps directly to `BufferGeometry.setAttribute(name, Float32BufferAttribute(data, 3))`; no interleave unpack |
 | Position scalar | **`f32`** | render border is f32; `THREE` wants `Float32Array` |
-| Vertex space | **chunk-local** (origin = chunk min corner) | keeps f32 precise for large worlds; world placement is the node `Transform` (set from `chunk_origin_voxel` → world) |
+| Vertex space | **chunk-local** (origin = chunk min corner) | keeps f32 precise for large worlds; the chunk child carries an asset-local origin and its retained instance root carries scene TRS |
 | Index width | **`u32`** | one width everywhere; supports large chunks. u16 optimisation deferred |
 | Material grouping | **groups** `(material_slot, start, count)` over the index range | maps 1:1 to `BufferGeometry.addGroup(start, count, materialIndex)` |
 | Winding / normals | CCW front faces, per-face outward normals (axis-aligned) | deterministic, matches `Direction6` |
@@ -95,10 +95,14 @@ Geometry::MeshSlot                       // NEW Copy marker: "geometry is an upl
 RenderDiff::ReplaceMeshPayload { handle, payload: MeshPayloadDescriptor }
 ```
 
-A chunk renders as: `Create { geometry: MeshSlot, transform: chunk-origin → world, material … }`
-then `ReplaceMeshPayload { handle, payload }`; a remesh is another `ReplaceMeshPayload`; unload is
-`Destroy` (renderer disposes geometry + materials). `MeshSlot` keeps `Geometry` `Copy` (the payload
-never rides inside `Geometry`).
+A voxel scene node renders as a retained root with validated translation,
+quaternion rotation, and non-uniform scale. Chunk nodes are created beneath that
+root with `parent: rootHandle` and an asset-local chunk-origin transform, followed
+by `ReplaceMeshPayload { handle, payload }`. Multiple roots may share one voxel
+asset; each owns distinct retained child handles while a local edit emits the
+same remeshed payload for every live instance. Moving one instance is a root-only
+`Update`. Removing, replacing, or closing an instance destroys its root and,
+by render-protocol convention, all descendants. Handles are not reused.
 
 ### Runtime-bridge tie-in (ADR 0006)
 The `handle` source references a bridge-owned buffer (`runtime-bridge` `getBuffer`/`releaseBuffer`):
@@ -130,7 +134,7 @@ with no copy. Generated contracts stay the semantic border; the buffer bytes are
 
 Greedy meshing / face merging (naive visible-face first); texture-atlas packing + UV generation;
 complex/non-cubic-shape material/UV assignment; interleaved attribute buffers; `u16` index
-optimisation; LOD/simplification; instancing/merged-region batching; `three-mesh-bvh`. The layout
+optimisation; LOD/simplification; GPU instancing/merged-region batching; `three-mesh-bvh`. The layout
 leaves room for each (extra attribute streams, group remapping) without a protocol break.
 
 ## 8. Implementation sequencing

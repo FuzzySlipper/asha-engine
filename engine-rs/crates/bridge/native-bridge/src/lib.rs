@@ -103,7 +103,10 @@ pub use voxel_assets::{
     initialize_voxel_volume_authoring, load_voxel_volume_asset, save_voxel_volume_asset,
     unload_voxel_volume_asset, update_voxel_volume_asset_palette,
 };
-pub use voxel_readout::{pick_voxel, read_voxel_mesh_evidence, select_voxel};
+pub use voxel_readout::{
+    configure_voxel_projection_instances, pick_voxel, pick_voxel_instance,
+    read_voxel_mesh_evidence, select_voxel,
+};
 pub use voxel_rejections::NativeCommandResult;
 
 #[derive(Default)]

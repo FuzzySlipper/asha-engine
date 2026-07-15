@@ -285,6 +285,8 @@ interface NativeAddonBindings {
   ): CameraSnapshot;
   readCameraProjection(handle: number, requestJson: string): string;
   pickVoxel(handle: number, requestJson: string): string;
+  configureVoxelProjectionInstances(handle: number, requestJson: string): string;
+  pickVoxelInstance(handle: number, requestJson: string): string;
   selectVoxel(handle: number, requestJson: string): string;
   readVoxelMeshEvidence(handle: number, requestJson: string): string;
   getBuffer(handle: number, bufferHandle: number): {

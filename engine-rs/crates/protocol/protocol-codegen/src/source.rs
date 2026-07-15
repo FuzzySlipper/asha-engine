@@ -905,8 +905,8 @@ const MODULE_PLANS: &[ModulePlan] = &[
             "bridge/runtime-bridge-api/src/payloads.rs",
             "foundation/core-space/src/direction.rs",
         ],
-        imports: &[],
-        declarations: "type:VoxelCoord type:ChunkCoord type:VoxelValue:VoxelValue:kind type:VoxelCommand:VoxelCommand:op type:VoxelEditEvent:VoxelEditEvent:event type:VoxelEditRejection:VoxelEditRejection:reason type:CommandBatch type:CommandResult type:Face:Direction6 type:PickRejection:PickRejection:reason type:PickRay type:VoxelHit type:PickResult:PickResult:outcome",
+        imports: &[("./scene.js", "SceneTransform")],
+        declarations: "type:VoxelCoord type:ChunkCoord type:VoxelValue:VoxelValue:kind type:VoxelCommand:VoxelCommand:op type:VoxelEditEvent:VoxelEditEvent:event type:VoxelEditRejection:VoxelEditRejection:reason type:CommandBatch type:CommandResult type:Face:Direction6 type:PickRejection:PickRejection:reason type:PickRay type:VoxelHit type:PickResult:PickResult:outcome type:VoxelProjectionInstanceBinding type:VoxelProjectionBindingRequest type:VoxelProjectionBindingReceipt type:VoxelInstancePickHint type:VoxelInstancePickRequest type:VoxelInstancePickHit type:VoxelInstancePickRejection:VoxelInstancePickRejection:reason type:VoxelInstancePickOutcome:VoxelInstancePickOutcome:outcome type:VoxelInstancePickResult",
     },
     ModulePlan {
         name: "projectBundle",

@@ -8,7 +8,10 @@ import type {
   WorkspaceAuthoringStateSummary,
   WorkspaceAuthoringStoredConfirmationInput,
   WorkspaceAuthoringStoredConfirmationReceipt,
+  WorkspaceVoxelInstancePickInput,
+  WorkspaceVoxelProjectionBindingInput,
 } from '@asha/runtime-session';
+import type { VoxelProjectionBindingReceipt } from '@asha/contracts';
 import {
   RuntimeBridgeError,
   frameCursor,
@@ -53,6 +56,7 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
   } | null = null;
   #projectionGenerationInitialized = false;
   #authoritySnapshotHash = 'fnv1a64:not-open';
+  #voxelProjectionBinding: VoxelProjectionBindingReceipt | null = null;
 
   constructor(bridge: RuntimeBridge) {
     this.#bridge = bridge;
@@ -111,6 +115,7 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
     this.#pendingStoredCandidate = null;
     this.#projectionGenerationInitialized = false;
     this.#authoritySnapshotHash = this.#bridge.readDeveloperConsole().snapshotHash;
+    this.#voxelProjectionBinding = null;
     return this.readState();
   }
 
@@ -157,6 +162,41 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
       ...summaryWithoutHash,
       projectionHash: fnv1a64(JSON.stringify(summaryWithoutHash)),
     };
+  }
+
+  configureVoxelProjectionInstances(
+    input: WorkspaceVoxelProjectionBindingInput,
+  ): VoxelProjectionBindingReceipt {
+    const identity = this.#requireOpen('configureVoxelProjectionInstances');
+    const registryDigest = validateRequiredIdentity(input.registryDigest, 'registryDigest');
+    const receipt = this.#bridge.configureVoxelProjectionInstances({
+      workspaceId: identity.project.workspaceId,
+      workspaceGeneration: identity.generation,
+      workingRevision: this.#workingRevision,
+      registryDigest,
+      instances: [...input.instances],
+    });
+    this.#voxelProjectionBinding = receipt;
+    return receipt;
+  }
+
+  pickVoxelInstance(input: WorkspaceVoxelInstancePickInput): ReturnType<WorkspaceAuthoringFacade['pickVoxelInstance']> {
+    const identity = this.#requireOpen('pickVoxelInstance');
+    const binding = this.#voxelProjectionBinding;
+    if (binding === null || binding.workingRevision !== this.#workingRevision) {
+      throw new RuntimeBridgeError(
+        'stale_authority_snapshot',
+        'voxel instance picking requires projection bindings for the current working revision',
+      );
+    }
+    return this.#bridge.pickVoxelInstance({
+      ...input,
+      workspaceId: identity.project.workspaceId,
+      workspaceGeneration: identity.generation,
+      workingRevision: this.#workingRevision,
+      registryDigest: binding.registryDigest,
+      bindingHash: binding.bindingHash,
+    });
   }
 
   submitCommands(...args: Parameters<WorkspaceAuthoringFacade['submitCommands']>): ReturnType<WorkspaceAuthoringFacade['submitCommands']> {
@@ -379,6 +419,7 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
     this.#status = 'closed';
     this.#pendingStoredCandidate = null;
     this.#projectionGenerationInitialized = false;
+    this.#voxelProjectionBinding = null;
     const receiptWithoutHash = {
       kind: 'workspace_authoring.close_receipt.v0' as const,
       closed: true as const,
@@ -395,6 +436,7 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
   #recordWorkingMutation(): void {
     this.#workingRevision += 1;
     this.#pendingStoredCandidate = null;
+    this.#voxelProjectionBinding = null;
   }
 
   #requireOpen(operation: string): WorkspaceAuthoringIdentity {

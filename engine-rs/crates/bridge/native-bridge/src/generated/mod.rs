@@ -21,6 +21,13 @@ pub(crate) const REQUIRED_NATIVE_EXPORTS: &[(&str, &str, usize, usize)] = &[
     ("submit_commands", "submitCommands", 2097152, 8388608),
     ("pick_voxel", "pickVoxel", 8388608, 8388608),
     (
+        "configure_voxel_projection_instances",
+        "configureVoxelProjectionInstances",
+        8388608,
+        8388608,
+    ),
+    ("pick_voxel_instance", "pickVoxelInstance", 8388608, 8388608),
+    (
         "apply_collision_constrained_camera_input",
         "applyCollisionConstrainedCameraInput",
         8388608,

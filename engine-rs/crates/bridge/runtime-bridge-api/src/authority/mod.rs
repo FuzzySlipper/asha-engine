@@ -4,6 +4,7 @@ mod initialization;
 mod input;
 mod scene_and_preview;
 mod time_control;
+mod voxel_instances;
 mod voxel_projection;
 
 // Product authority coordinator behind native transport marshaling.
@@ -153,6 +154,7 @@ struct BridgeProjectionState {
     projection_frame: Option<RuntimeProjectionFrame>,
     voxel_projector: VoxelChunkProjector,
     pending_voxel_frame: RenderFrameDiff,
+    voxel_instance_binding: Option<VoxelInstanceBindingAuthority>,
     audio_projector: Option<AudioProjector>,
     billboard_projector: Option<BillboardProjector>,
     particle_projector: Option<ParticleProjector>,
@@ -160,6 +162,17 @@ struct BridgeProjectionState {
     animation_projector: Option<render_animation::AnimationControllerProjector>,
     animation_tick: u64,
     telemetry_overlay_projector: Option<TelemetryOverlayProjector>,
+}
+
+#[derive(Debug, Clone)]
+struct VoxelInstanceBindingAuthority {
+    workspace_id: String,
+    workspace_generation: u64,
+    working_revision: u64,
+    registry_digest: String,
+    binding_hash: String,
+    world_hash: u64,
+    instances: BTreeMap<String, VoxelProjectionInstanceBinding>,
 }
 
 #[derive(Debug, Default)]

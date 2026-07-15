@@ -1,9 +1,9 @@
 generated-tunnel-render 1
 output_hash=1471496d88d70647
-ops=2
-creates=1
+ops=3
+creates=2
 replace_mesh_payloads=1
 vertices=2288
 indices=3432
 material_slots=[1, 2, 3]
-labels=["chunk 0,0,0"]
+labels=["voxel instance voxel-instance/default asset voxel-asset/default", "chunk 0,0,0"]

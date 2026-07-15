@@ -168,6 +168,8 @@ function bridgeWith(overrides: Partial<RuntimeBridge>): RuntimeBridge {
     stepSimulation: base.stepSimulation.bind(base),
     submitCommands: base.submitCommands.bind(base),
     pickVoxel: base.pickVoxel.bind(base),
+    configureVoxelProjectionInstances: base.configureVoxelProjectionInstances.bind(base),
+    pickVoxelInstance: base.pickVoxelInstance.bind(base),
     applyCollisionConstrainedCameraInput: base.applyCollisionConstrainedCameraInput.bind(base),
     applyGeneratedTunnelToRuntimeWorld: base.applyGeneratedTunnelToRuntimeWorld.bind(base),
     selectVoxel: base.selectVoxel.bind(base),

@@ -102,6 +102,20 @@ impl RuntimeBridge for EngineBridge {
         }
     }
 
+    fn configure_voxel_projection_instances(
+        &mut self,
+        request: VoxelProjectionBindingRequest,
+    ) -> BridgeResult<VoxelProjectionBindingReceipt> {
+        self.configure_voxel_projection_instances_authority(request)
+    }
+
+    fn pick_voxel_instance(
+        &self,
+        request: VoxelInstancePickRequest,
+    ) -> BridgeResult<VoxelInstancePickResult> {
+        self.pick_voxel_instance_authority(request)
+    }
+
     fn apply_collision_constrained_camera_input(
         &mut self,
         envelope: CollisionConstrainedCameraInputEnvelope,

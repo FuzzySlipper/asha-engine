@@ -42,6 +42,18 @@ pub trait RuntimeBridge {
     /// the voxel-grid raycast; the renderer only builds the ray. Reads authority —
     /// never mutates it.
     fn pick_voxel(&self, ray: PickRay) -> BridgeResult<PickResult>;
+    /// Replace the complete retained voxel instance graph for one workspace
+    /// generation/revision and return its canonical binding hash.
+    fn configure_voxel_projection_instances(
+        &mut self,
+        request: VoxelProjectionBindingRequest,
+    ) -> BridgeResult<VoxelProjectionBindingReceipt>;
+    /// Revalidate a world ray against one hash-bound voxel instance and return an
+    /// asset-local edit anchor. Renderer hits remain untrusted hints.
+    fn pick_voxel_instance(
+        &self,
+        request: VoxelInstancePickRequest,
+    ) -> BridgeResult<VoxelInstancePickResult>;
     /// Apply first-person view input while constraining translation against the
     /// authority-derived voxel collision projection.
     fn apply_collision_constrained_camera_input(
