@@ -341,6 +341,9 @@ pub trait RuntimeBridge {
         &mut self,
         request: EnemyDirectNavMovementRequest,
     ) -> BridgeResult<EnemyDirectNavMovementResult>;
+    /// Project dirty authoritative voxel chunks into the public retained render
+    /// protocol. This is derived display state and never mutates voxel authority.
+    fn read_render_diffs(&mut self, cursor: u64) -> BridgeResult<RenderFrameDiff>;
     fn read_camera_projection(
         &self,
         request: CameraProjectionRequest,

@@ -4,6 +4,7 @@ mod initialization;
 mod input;
 mod scene_and_preview;
 mod time_control;
+mod voxel_projection;
 
 // Product authority coordinator behind native transport marshaling.
 //
@@ -150,6 +151,8 @@ struct BridgeGameplayState {
 #[derive(Debug, Default)]
 struct BridgeProjectionState {
     projection_frame: Option<RuntimeProjectionFrame>,
+    voxel_projector: VoxelChunkProjector,
+    pending_voxel_frame: RenderFrameDiff,
     audio_projector: Option<AudioProjector>,
     billboard_projector: Option<BillboardProjector>,
     particle_projector: Option<ParticleProjector>,

@@ -997,6 +997,8 @@ void test('native bridge matches the mock when the addon is built (else skip)', 
     { accepted: 1, rejected: 0, rejections: [] },
   );
   assert.deepEqual(bridge.stepSimulation({ tick: 6 }), { tick: 6, diffCount: 0 });
+  const voxelProjection = bridge.readRenderDiffs(frameCursor(0));
+  assert.ok(voxelProjection.ops.some((operation) => operation.op === 'replaceMeshPayload'));
   assert.deepEqual(bridge.readRenderDiffs(frameCursor(0)), { ops: [] });
   assert.deepEqual(bridge.saveProjectBundle(), { artifactsWritten: 3, compactedEdits: 0, retainedEdits: 0 });
   assert.deepEqual(bridge.getProjectBundleCompositionStatus(), {

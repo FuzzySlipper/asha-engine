@@ -69,6 +69,11 @@ void test('workspace authoring has a distinct generation-bound lifecycle and nev
   });
   assert.equal(closed.closed, true);
   assert.equal(authoring.readState().status, 'closed');
+  assert.throws(
+    () => authoring.readProjection(),
+    (error: unknown) => error instanceof RuntimeBridgeError
+      && error.kind === 'not_initialized',
+  );
   assert.equal(bridge.gameplayLoadCount, 0);
 
   const reopened = authoring.open({
@@ -117,6 +122,13 @@ void test('native workspace authoring creates, stores, closes, and reopens voxel
     maxMaterialBindings: 16,
   });
   assert.equal(initialized.initialized, true, JSON.stringify(initialized.diagnostics));
+  const emptyProjection = authoring.readProjection();
+  assert.equal(emptyProjection.delivery, 'replace');
+  assert.equal(
+    emptyProjection.frame.ops.some((operation) => operation.op === 'replaceMeshPayload'),
+    false,
+    'an initialized empty authoring volume does not invent visible geometry',
+  );
 
   const edit = authoring.submitCommands({
     commands: [{
@@ -134,6 +146,31 @@ void test('native workspace authoring creates, stores, closes, and reopens voxel
   });
   assert.equal(model.resident, true);
   assert.equal(model.voxelCount, 1);
+
+  const projection = authoring.readProjection();
+  assert.equal(projection.delivery, 'apply');
+  assert.equal(projection.workspaceId, 'workspace.local');
+  assert.equal(projection.generation, 1);
+  assert.equal(projection.workingRevision, 2);
+  assert.equal(projection.renderDiffCount, projection.frame.ops.length);
+  const created = projection.frame.ops.find((operation) => operation.op === 'create');
+  const meshed = projection.frame.ops.find(
+    (operation) => operation.op === 'replaceMeshPayload',
+  );
+  assert.notEqual(created, undefined, 'workspace projection creates a retained voxel chunk');
+  assert.notEqual(meshed, undefined, 'workspace projection uploads real voxel mesh geometry');
+  if (meshed?.op !== 'replaceMeshPayload') throw new Error('voxel mesh projection missing');
+  assert.equal(meshed.payload.provenance, 'voxelChunk');
+  assert.equal(meshed.payload.source.kind, 'inline');
+  if (meshed.payload.source.kind !== 'inline') throw new Error('native proof expects inline mesh');
+  assert.ok(meshed.payload.source.positions.length > 0);
+  assert.ok(meshed.payload.source.indices.length > 0);
+  assert.match(projection.projectionHash, /^fnv1a64:[0-9a-f]{16}$/);
+  assert.deepEqual(
+    authoring.readProjection().frame,
+    { ops: [] },
+    'unchanged workspace projection preserves retained handles without replaying geometry',
+  );
 
   const exportReceipt = authoring.exportVoxelVolumeAsset({
     grid: 2,
@@ -198,6 +235,19 @@ void test('native workspace authoring creates, stores, closes, and reopens voxel
   assert.equal(loaded.voxelCount, 1);
   assert.equal(loaded.canonicalJsonHash, asset.contentHashes.canonicalJson);
   assert.equal(authoring.readState().dirty, false);
+  const reopenedProjection = authoring.readProjection();
+  assert.equal(reopenedProjection.delivery, 'replace');
+  assert.equal(reopenedProjection.generation, 2);
+  const reopenedCreate = reopenedProjection.frame.ops.find(
+    (operation) => operation.op === 'create',
+  );
+  assert.notEqual(reopenedCreate, undefined, 'reopened stored voxel projects geometry');
+  if (created?.op !== 'create' || reopenedCreate?.op !== 'create') {
+    throw new Error('retained projection create identity missing');
+  }
+  assert.ok(
+    reopenedProjection.frame.ops.some((operation) => operation.op === 'replaceMeshPayload'),
+  );
   assert.throws(
     () => bridge.readFpsRuntimeSession(),
     (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'not_initialized',

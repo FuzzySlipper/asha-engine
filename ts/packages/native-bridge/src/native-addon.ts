@@ -6,7 +6,6 @@ import type {
   CommandResult,
   DeveloperConsoleSnapshot,
   FirstPersonCameraInputEnvelope,
-  RenderFrameDiff,
   RuntimeProjectionFrame,
 } from '@asha/contracts';
 import {
@@ -367,7 +366,7 @@ interface NativeAddonBindings {
     handle: number,
     request: NativeFpsEncounterTransitionRequest,
   ): NativeFpsEncounterTransitionResult;
-  readRenderDiffs(handle: number, cursor: number): RenderFrameDiff;
+  readRenderDiffs(handle: number, cursor: number): string;
   readProjectionFrame(handle: number, cursor: number): RuntimeProjectionFrame;
   readDeveloperConsole(handle: number): DeveloperConsoleSnapshot;
   saveProjectBundle(handle: number): {

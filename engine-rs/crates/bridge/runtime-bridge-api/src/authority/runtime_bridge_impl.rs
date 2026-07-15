@@ -1637,7 +1637,9 @@ impl RuntimeBridge for EngineBridge {
             projection_changed: transform_event.projection_changed,
         })
     }
-
+    fn read_render_diffs(&mut self, cursor: u64) -> BridgeResult<RenderFrameDiff> {
+        self.read_render_diffs_authority(cursor)
+    }
     fn read_camera_projection(
         &self,
         request: CameraProjectionRequest,

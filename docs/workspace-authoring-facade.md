@@ -27,12 +27,19 @@ live-session lifecycle methods.
    construct a `RuntimeSessionFacade`.
 4. The consumer creates, imports, converts, edits, inspects, and exports assets
    through the typed authoring operations.
-5. `saveVoxelVolumeAsset(...)` returns a validated canonical payload and stored
+5. `readProjection()` projects dirty Rust-owned voxel chunks through the same
+   generated `RenderFrameDiff` / `MeshPayloadDescriptor` surface consumed by
+   engine render hosts. The summary binds the frame to workspace identity,
+   generation, and working revision; it does not start gameplay. The first read
+   in each generation is marked `delivery: 'replace'` so a retained renderer
+   clears handles from the prior workspace. Later reads are incremental `apply`
+   deliveries.
+6. `saveVoxelVolumeAsset(...)` returns a validated canonical payload and stored
    diff proposal. It does not claim that the host wrote a file.
-6. After the host successfully writes the canonical payload,
+7. After the host successfully writes the canonical payload,
    `confirmStored(...)` binds the host path and canonical hash to the current
    workspace generation. Until confirmation, the authoring state remains dirty.
-7. `close(...)` rejects unsaved working state unless the caller explicitly opts
+8. `close(...)` rejects unsaved working state unless the caller explicitly opts
    into discarding it. Workspace identity and generation mismatches fail closed.
 
 Opening a validated stored `VoxelVolumeAsset` through

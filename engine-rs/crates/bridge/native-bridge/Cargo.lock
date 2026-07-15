@@ -527,6 +527,7 @@ dependencies = [
  "protocol-render",
  "protocol-scene",
  "protocol-view",
+ "render-bridge",
  "runtime-bridge-api",
  "serde",
  "serde_json",
@@ -818,6 +819,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "render-bridge"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "core-catalog",
+ "core-ids",
+ "core-math",
+ "core-scene",
+ "core-space",
+ "core-state",
+ "core-voxel",
+ "protocol-render",
+ "svc-mesh",
+ "svc-spatial",
+]
+
+[[package]]
 name = "render-particle"
 version = "0.1.0"
 dependencies = [
@@ -1011,6 +1029,7 @@ dependencies = [
  "render-animation",
  "render-audio",
  "render-billboard",
+ "render-bridge",
  "render-particle",
  "render-telemetry-overlay",
  "rule-animation-controller",

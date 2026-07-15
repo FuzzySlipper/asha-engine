@@ -158,6 +158,7 @@ import {
   runNativeOperation,
   type NativeFacadeValue,
 } from './native-operation-boundary.js';
+import { decodeRenderFrameDiff } from './render-decode.js';
 
 export { classifyNativeAddonError } from './native-operation-boundary.js';
 
@@ -1255,7 +1256,8 @@ export class NativeRuntimeBridge implements RuntimeBridge {
   readRenderDiffs(cursor: FrameCursor): RenderFrameDiff {
     const handle = this.#requireHandle('readRenderDiffs');
     const frame = nonNegativeSafeInteger(cursor as number, 'frame cursor') as FrameCursor;
-    return callNative(() => this.#addon.readRenderDiffs(handle, frame) as RenderFrameDiff);
+    const payload = callNative(() => this.#addon.readRenderDiffs(handle, frame));
+    return decodeRenderFrameDiff(parseNativeJson<RenderFrameDiff>(payload, 'render frame diff'));
   }
 
   readProjectionFrame(cursor: FrameCursor): RuntimeProjectionFrame {

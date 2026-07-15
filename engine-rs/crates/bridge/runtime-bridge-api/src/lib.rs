@@ -94,7 +94,9 @@ pub(crate) use protocol_render::{
     MeshCollisionPolicy, MeshGroupDescriptor, MeshIndexWidth, MeshMaterialSlot,
     MeshPayloadDescriptor, MeshPayloadSource, MeshProvenance, StaticMeshAsset,
 };
-pub use protocol_render::{ModelMaterialPreviewRequest, ModelMaterialPreviewSnapshot};
+pub use protocol_render::{
+    ModelMaterialPreviewRequest, ModelMaterialPreviewSnapshot, RenderFrameDiff,
+};
 pub use protocol_scene::{
     AssetReferenceDto, AssetVersionReqDto, FlatSceneDocumentDto, SceneDocumentCodecDiagnosticCode,
     SceneDocumentCodecDiagnosticDto, SceneDocumentCodecResultDto, SceneDocumentDecodeRequestDto,
@@ -182,6 +184,7 @@ pub use protocol_voxel_edit_history::{
 };
 pub(crate) use render_audio::AudioProjector;
 pub(crate) use render_billboard::BillboardProjector;
+pub(crate) use render_bridge::VoxelChunkProjector;
 pub(crate) use render_particle::{ParticleProjectionLimits, ParticleProjector};
 pub(crate) use render_telemetry_overlay::TelemetryOverlayProjector;
 pub(crate) use rule_input::InputSessionResolver;

@@ -39,6 +39,116 @@ fn initialize_voxel_volume_authoring_commits_a_real_runtime_model_atomically() {
 }
 
 #[test]
+fn workspace_authored_voxels_project_as_retained_mesh_payloads() {
+    let mut bridge = init_bridge();
+    let stored_fixture = hand_authored_voxel_volume_asset();
+    let receipt = bridge
+        .initialize_voxel_volume_authoring(VoxelVolumeAuthoringInitializeRequest {
+            grid: 2,
+            volume_asset_id: Some("voxel-volume/projection-test".to_string()),
+            seed_chunk: VoxelAssetCoord { x: 0, y: 0, z: 0 },
+            material_palette: stored_fixture.material_palette,
+            authoring: stored_fixture.authoring,
+            max_material_bindings: 8,
+        })
+        .unwrap();
+    assert!(receipt.initialized, "{:?}", receipt.diagnostics);
+    let edit = bridge
+        .submit_commands(CommandBatch {
+            commands: vec![VoxelCommand::SetVoxel {
+                grid: GridId::new(2),
+                coord: VoxelCoord::new(0, 0, 0),
+                value: VoxelValue::solid_raw(1),
+            }],
+        })
+        .unwrap();
+    assert_eq!(edit.accepted, 1);
+
+    let frame = bridge.read_render_diffs(2).unwrap();
+    let created_handle = frame
+        .ops
+        .iter()
+        .find_map(|operation| match operation {
+            protocol_render::RenderDiff::Create { handle, .. } => Some(*handle),
+            _ => None,
+        })
+        .expect("authored voxel chunk creates a retained render node");
+    let payload = frame
+        .ops
+        .iter()
+        .find_map(|operation| match operation {
+            protocol_render::RenderDiff::ReplaceMeshPayload { handle, payload }
+                if *handle == created_handle =>
+            {
+                Some(payload)
+            }
+            _ => None,
+        })
+        .expect("authored voxel chunk uploads mesh geometry");
+    assert_eq!(payload.provenance, MeshProvenance::VoxelChunk);
+    assert!(payload.layout.vertex_count > 0);
+    assert!(payload.layout.index_count > 0);
+    assert_eq!(payload.bounds.min, [0.0, 0.0, 0.0]);
+    assert_eq!(payload.bounds.max, [1.0, 1.0, 1.0]);
+    let model = bridge
+        .read_voxel_model_info(VoxelModelInfoRequest {
+            grid: 2,
+            volume_asset_id: Some("voxel-volume/projection-test".to_string()),
+            include_material_counts: true,
+        })
+        .unwrap();
+    let bounds = model.bounds.expect("projected voxel has authority bounds");
+    let expected_bound = protocol_voxel_conversion::VoxelConversionCoord { x: 0, y: 0, z: 0 };
+    assert_eq!(bounds.min, expected_bound);
+    assert_eq!(bounds.max, expected_bound);
+
+    assert!(bridge.read_render_diffs(2).unwrap().is_empty());
+    let second_edit = bridge
+        .submit_commands(CommandBatch {
+            commands: vec![VoxelCommand::SetVoxel {
+                grid: GridId::new(2),
+                coord: VoxelCoord::new(1, 0, 0),
+                value: VoxelValue::solid_raw(1),
+            }],
+        })
+        .unwrap();
+    assert_eq!(second_edit.accepted, 1);
+    let replacement = bridge.read_render_diffs(3).unwrap();
+    assert!(replacement.ops.iter().any(|operation| matches!(
+        operation,
+        protocol_render::RenderDiff::ReplaceMeshPayload { handle, .. }
+            if *handle == created_handle
+    )));
+    assert!(!replacement.ops.iter().any(|operation| matches!(
+        operation,
+        protocol_render::RenderDiff::Create { handle, .. } if *handle == created_handle
+    )));
+
+    let emptied = bridge
+        .submit_commands(CommandBatch {
+            commands: vec![
+                VoxelCommand::SetVoxel {
+                    grid: GridId::new(2),
+                    coord: VoxelCoord::new(0, 0, 0),
+                    value: VoxelValue::EMPTY,
+                },
+                VoxelCommand::SetVoxel {
+                    grid: GridId::new(2),
+                    coord: VoxelCoord::new(1, 0, 0),
+                    value: VoxelValue::EMPTY,
+                },
+            ],
+        })
+        .unwrap();
+    assert_eq!(emptied.accepted, 2);
+    let empty_projection = bridge.read_render_diffs(4).unwrap();
+    assert!(empty_projection.ops.iter().any(|operation| matches!(
+        operation,
+        protocol_render::RenderDiff::Destroy { handle } if *handle == created_handle
+    )));
+}
+
+#[test]
 fn voxel_conversion_plan_preview_apply_uses_rust_authority_and_commands() {
     let mut bridge = init_bridge();
     let request = project_voxel_conversion_request(7);

@@ -95,6 +95,13 @@ void test('operation limits and tampered native responses reject with typed evid
 
 void test('custom native response contracts validate nested values recursively', () => {
   assertWireRejection(
+    () => parseOperationOutput('read_render_diffs', JSON.stringify({
+      ops: [{ op: 'replaceMeshPayload', handle: 1, payload: { garbage: true } }],
+    })),
+    'internal',
+    'unknown_field',
+  );
+  assertWireRejection(
     () => parseOperationOutput('read_voxel_mesh_evidence', JSON.stringify({
       grid: 1,
       fixtureId: 'fixture',

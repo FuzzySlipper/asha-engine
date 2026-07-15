@@ -48,6 +48,7 @@ mod generated_tunnel;
 mod input_session;
 mod particle_projection;
 mod presentation_operation;
+mod render_projection;
 #[cfg(test)]
 mod resource_limit_tests;
 mod scene_preview;
@@ -91,6 +92,7 @@ pub use input_session::{
     replay_resolved_input_action, submit_raw_input,
 };
 use presentation_operation::NativePresentationOp;
+pub use render_projection::read_render_diffs;
 pub use scene_preview::{
     apply_scene_object_command, decode_scene_document, encode_scene_document,
     read_model_material_preview, read_scene_object_snapshot,
@@ -767,13 +769,6 @@ pub fn apply_enemy_direct_nav_movement(
             })
             .map(NativeEnemyDirectNavMovementResult::from)
             .map_err(to_napi)
-    })
-}
-
-#[napi]
-pub fn read_render_diffs(handle: i64, _cursor: i64) -> napi::Result<NativeRenderFrameDiff> {
-    with_bridge(handle, |_bridge| {
-        Ok(NativeRenderFrameDiff { ops: Vec::new() })
     })
 }
 
@@ -1641,7 +1636,7 @@ mod tests {
         assert_eq!(fps_restarted.lifecycle_status.state, "active");
 
         let frame = read_render_diffs(handle, 0).expect("render diff read is bounded");
-        assert!(frame.ops.is_empty());
+        assert!(frame.contains("replaceMeshPayload"));
 
         let saved = save_project_bundle(handle).expect("ProjectBundle saves");
         assert_eq!(saved.artifacts_written, 3);

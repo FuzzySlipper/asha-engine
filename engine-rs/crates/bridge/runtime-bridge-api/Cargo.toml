@@ -72,6 +72,7 @@ render-billboard = { path = "../../render/render-billboard" }
 render-particle = { path = "../../render/render-particle" }
 render-animation = { path = "../../render/render-animation" }
 render-telemetry-overlay = { path = "../../render/render-telemetry-overlay" }
+render-bridge = { path = "../../render/render-bridge" }
 rule-animation-controller = { path = "../../rules/rule-animation-controller" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

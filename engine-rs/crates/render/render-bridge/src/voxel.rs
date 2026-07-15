@@ -161,6 +161,18 @@ impl<S: ChunkMeshStrategy> VoxelChunkProjector<S> {
         &self.diagnostics
     }
 
+    /// Forget every retained chunk and emit the destroys a renderer needs before
+    /// authority replaces the complete voxel world. Handles are not reused: a
+    /// later projection allocates fresh identities after the teardown frame.
+    pub fn clear(&mut self) -> RenderFrameDiff {
+        self.diagnostics.clear();
+        let mut frame = RenderFrameDiff::new();
+        for (_, handle) in std::mem::take(&mut self.handles) {
+            frame.push(RenderDiff::Destroy { handle });
+        }
+        frame
+    }
+
     /// Drain the world's authoritative dirty chunk set and project each dirty chunk
     /// into render diffs. Deterministic: the dirty set drains in ascending coord
     /// order, so diffs are ordered and reproducible.

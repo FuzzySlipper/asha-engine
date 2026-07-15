@@ -1053,6 +1053,7 @@ dependencies = [
  "render-animation",
  "render-audio",
  "render-billboard",
+ "render-bridge",
  "render-particle",
  "render-telemetry-overlay",
  "rule-animation-controller",

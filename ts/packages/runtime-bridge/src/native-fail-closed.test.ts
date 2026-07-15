@@ -782,7 +782,7 @@ function fakeAddon(calls: string[] = []): NativeAddon {
     },
     readRenderDiffs: (_handle: number, cursor: number) => {
       calls.push(`render:${cursor}`);
-      return { ops: [] };
+      return JSON.stringify({ ops: [] });
     },
     readProjectionFrame: (_handle: number, cursor: number) => {
       calls.push(`projection:${cursor}`);

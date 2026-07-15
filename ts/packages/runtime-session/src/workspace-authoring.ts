@@ -1,11 +1,13 @@
 import type {
   CommandBatch,
   CommandResult,
+  RenderFrameDiff,
 } from '@asha/contracts';
 import type { RuntimeSessionFacade } from './facade.js';
 import type { RuntimeSessionProjectIdentity } from './facade-core.js';
 import type {
   CompositionStatus,
+  FrameCursor,
   ProjectBundleLoadRequest,
 } from './transport-contracts.js';
 
@@ -50,6 +52,18 @@ export interface WorkspaceAuthoringStoredConfirmationInput {
   readonly expectedGeneration: number;
   readonly hostPath: string;
   readonly canonicalJsonHash: string;
+}
+
+export interface WorkspaceAuthoringProjectionSummary {
+  readonly kind: 'workspace_authoring.projection.v0';
+  readonly workspaceId: string;
+  readonly generation: number;
+  readonly workingRevision: number;
+  readonly cursor: FrameCursor;
+  readonly delivery: 'replace' | 'apply';
+  readonly frame: RenderFrameDiff;
+  readonly renderDiffCount: number;
+  readonly projectionHash: string;
 }
 
 export interface WorkspaceAuthoringStoredConfirmationReceipt {
@@ -118,6 +132,7 @@ type WorkspaceAuthoringVoxelOperations = Pick<
 export interface WorkspaceAuthoringFacade extends WorkspaceAuthoringVoxelOperations {
   open(input: WorkspaceAuthoringOpenInput): WorkspaceAuthoringStateSummary;
   readState(): WorkspaceAuthoringStateSummary;
+  readProjection(): WorkspaceAuthoringProjectionSummary;
   submitCommands(batch: CommandBatch): CommandResult;
   confirmStored(
     input: WorkspaceAuthoringStoredConfirmationInput,

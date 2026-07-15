@@ -26,6 +26,7 @@ protocol-assets = { path = "../../protocol/protocol-assets" }
 protocol-render = { path = "../../protocol/protocol-render" }
 protocol-scene = { path = "../../protocol/protocol-scene" }
 protocol-view = { path = "../../protocol/protocol-view" }
+render-bridge = { path = "../../render/render-bridge" }
 # napi pulled only here — the only crate in the repo allowed to depend on it
 # (enforced by governance/ownership.toml `may_not_depend_on`).
 napi        = { version = "2", default-features = false, features = ["napi8"] }

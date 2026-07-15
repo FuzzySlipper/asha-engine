@@ -4,12 +4,14 @@ import type {
   WorkspaceAuthoringFacade,
   WorkspaceAuthoringIdentity,
   WorkspaceAuthoringOpenInput,
+  WorkspaceAuthoringProjectionSummary,
   WorkspaceAuthoringStateSummary,
   WorkspaceAuthoringStoredConfirmationInput,
   WorkspaceAuthoringStoredConfirmationReceipt,
 } from '@asha/runtime-session';
 import {
   RuntimeBridgeError,
+  frameCursor,
   nonNegativeSafeInteger,
   type RuntimeBridge,
 } from './bridge.js';
@@ -49,6 +51,7 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
     readonly canonicalJsonHash: string;
     readonly workingRevision: number;
   } | null = null;
+  #projectionGenerationInitialized = false;
   #authoritySnapshotHash = 'fnv1a64:not-open';
 
   constructor(bridge: RuntimeBridge) {
@@ -106,6 +109,7 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
     this.#storedRevision = 0;
     this.#lastStoredCanonicalJsonHash = null;
     this.#pendingStoredCandidate = null;
+    this.#projectionGenerationInitialized = false;
     this.#authoritySnapshotHash = this.#bridge.readDeveloperConsole().snapshotHash;
     return this.readState();
   }
@@ -129,6 +133,29 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
     return {
       ...stateWithoutHash,
       lifecycleHash: fnv1a64(JSON.stringify(stateWithoutHash)),
+    };
+  }
+
+  readProjection(): WorkspaceAuthoringProjectionSummary {
+    const identity = this.#requireOpen('readProjection');
+    const cursor = frameCursor(this.#workingRevision);
+    const frame = this.#bridge.readRenderDiffs(cursor);
+    const delivery: WorkspaceAuthoringProjectionSummary['delivery'] =
+      this.#projectionGenerationInitialized ? 'apply' : 'replace';
+    this.#projectionGenerationInitialized = true;
+    const summaryWithoutHash = {
+      kind: 'workspace_authoring.projection.v0' as const,
+      workspaceId: identity.project.workspaceId,
+      generation: identity.generation,
+      workingRevision: this.#workingRevision,
+      cursor,
+      delivery,
+      frame,
+      renderDiffCount: frame.ops.length,
+    };
+    return {
+      ...summaryWithoutHash,
+      projectionHash: fnv1a64(JSON.stringify(summaryWithoutHash)),
     };
   }
 
@@ -351,6 +378,7 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
     this.#composition = this.#bridge.getProjectBundleCompositionStatus();
     this.#status = 'closed';
     this.#pendingStoredCandidate = null;
+    this.#projectionGenerationInitialized = false;
     const receiptWithoutHash = {
       kind: 'workspace_authoring.close_receipt.v0' as const,
       closed: true as const,

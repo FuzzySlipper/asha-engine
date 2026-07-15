@@ -54,7 +54,8 @@ assert.deepEqual(a.stepSimulation(h, 7), { tick: 6, diffCount: 0 });
 assert.equal(JSON.parse(a.applyTimeControlCommand(h, JSON.stringify({ operation: 'stepTicks', ticks: 2 }))).after.authorityTick, 8);
 assert.equal(JSON.parse(a.readTimeControlState(h)).authorityTick, 8);
 assert.equal(JSON.parse(a.applyTimeControlCommand(h, JSON.stringify({ operation: 'resume' }))).accepted, true);
-assert.deepEqual(a.readRenderDiffs(h, 0), { ops: [] });
+const renderFrame = JSON.parse(a.readRenderDiffs(h, 0));
+assert.ok(renderFrame.ops.some((operation) => operation.op === 'replaceMeshPayload'));
 assert.deepEqual(a.saveProjectBundle(h), { artifactsWritten: 3, compactedEdits: 0, retainedEdits: 0 });
 assert.deepEqual(a.getProjectBundleCompositionStatus(h), { loadedProjectBundle: 1001, fatalCount: 0, totalCount: 0, blocksLoad: false });
 
