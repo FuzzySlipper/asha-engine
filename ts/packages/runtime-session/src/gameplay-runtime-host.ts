@@ -1,5 +1,8 @@
 import type {
   GameplayCausationRef,
+  GameplayCompositionDiagnostic,
+  GameplayCompositionLoadMode,
+  GameplayCompositionRequirement,
   GameplayContractRef,
   GameplayEmitterRef,
   GameplayEventEnvelope,
@@ -41,7 +44,7 @@ export interface GameplayRuntimePrefabPlacement {
 export interface GameplayRuntimeHostLoadInput {
   readonly kind: 'gameplay_runtime_host.load.v1';
   readonly projectId: string;
-  readonly compositionHash: string;
+  readonly compositionRequirement?: GameplayCompositionRequirement;
   readonly declaredReadPlanHash: string;
   readonly bindings: GameplayModuleBindingRegistry;
   readonly triggers: readonly GameplayTriggerDefinition[];
@@ -160,6 +163,10 @@ export interface GameplayRuntimeReactionFrameReadout {
 export interface GameplayRuntimeHostReadout {
   readonly kind: 'gameplay_runtime_host.readout.v1';
   readonly gameplayRegistryDigest: string;
+  readonly semanticCompatibilityDigest: string;
+  readonly artifactProvenanceDigest: string;
+  readonly compositionLoadMode: GameplayCompositionLoadMode;
+  readonly compatibilityDiagnostics: readonly GameplayCompositionDiagnostic[];
   readonly bindingRegistryHash: string;
   readonly activationHash: string;
   readonly moduleStateHash: string;

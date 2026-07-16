@@ -10,13 +10,16 @@ use std::sync::Arc;
 use core_entity::{EntityLifecycle, EntityStore};
 use core_ids::{EntityId, PrefabInstanceId};
 pub use gameplay_module_sdk::{
-    gameplay_module_binding_registry_hash, GameplayModuleBindingRegistryBuilder,
+    gameplay_module_binding_registry_hash, gameplay_runtime_composition_identity,
+    GameplayModuleBindingRegistryBuilder,
 };
 use gameplay_module_sdk::{
     GameplayConfigurationCodecRegistration, GameplayStaticComposition,
     GameplayStaticConfigurationBinding, GameplayStaticInvocationHost,
 };
+use protocol_diagnostics::DiagnosticSeverity;
 use protocol_game_extension::{
+    GameplayCompositionDiagnostic, GameplayCompositionDiagnosticCode, GameplayCompositionLoadMode,
     GameplayEventEnvelope, GameplayModuleBinding, GameplayModuleBindingActivationReceipt,
     GameplayModuleBindingDiagnostic, GameplayModuleBindingDiagnosticCode,
     GameplayModuleBindingOverride, GameplayModuleBindingReadout, GameplayModuleBindingRegistry,
@@ -138,6 +141,22 @@ impl GameplayBoundProjectBundleSession {
         bindings: GameplayModuleBindingRegistry,
         entity_targets: &GameplayBindingEntityTargets,
     ) -> Result<Self, GameplayBindingActivationError> {
+        Self::activate_with_mode(
+            bundle,
+            composition,
+            bindings,
+            entity_targets,
+            GameplayCompositionLoadMode::Compatible,
+        )
+    }
+
+    pub fn activate_with_mode(
+        bundle: ProjectBundleLoadResult,
+        composition: GameplayStaticComposition,
+        bindings: GameplayModuleBindingRegistry,
+        entity_targets: &GameplayBindingEntityTargets,
+        load_mode: GameplayCompositionLoadMode,
+    ) -> Result<Self, GameplayBindingActivationError> {
         let parts = composition.into_parts();
         let resolved = resolve_bindings(
             &bundle,
@@ -145,11 +164,13 @@ impl GameplayBoundProjectBundleSession {
             entity_targets,
             parts.registry.as_ref(),
             &parts.configuration_codecs,
+            load_mode,
         )?;
         let ResolvedBindings {
             initializations,
             readouts,
             configuration_bindings,
+            compatibility_diagnostics,
         } = resolved;
         let mut host = parts.host;
         host.install_configuration_bindings(configuration_bindings);
@@ -160,8 +181,9 @@ impl GameplayBoundProjectBundleSession {
             .initialize_atomic(initializations)
             .map_err(GameplayBindingActivationError::State)?;
         let activation = activation_receipt(
-            &bindings.registry_hash,
-            parts.registry.registry_digest(),
+            &bindings,
+            parts.registry.as_ref(),
+            compatibility_diagnostics,
             readouts,
             module_state.state_hash(),
         );
@@ -333,11 +355,29 @@ impl GameplayBoundProjectBundleSession {
     }
 
     pub fn restore(
+        bundle: ProjectBundleLoadResult,
+        composition: GameplayStaticComposition,
+        bindings: GameplayModuleBindingRegistry,
+        entity_targets: &GameplayBindingEntityTargets,
+        snapshot_text: &str,
+    ) -> Result<Self, GameplayBindingActivationError> {
+        Self::restore_with_mode(
+            bundle,
+            composition,
+            bindings,
+            entity_targets,
+            snapshot_text,
+            GameplayCompositionLoadMode::Compatible,
+        )
+    }
+
+    pub fn restore_with_mode(
         mut bundle: ProjectBundleLoadResult,
         composition: GameplayStaticComposition,
         bindings: GameplayModuleBindingRegistry,
         entity_targets: &GameplayBindingEntityTargets,
         snapshot_text: &str,
+        load_mode: GameplayCompositionLoadMode,
     ) -> Result<Self, GameplayBindingActivationError> {
         let stored: StoredGameplayProjectBundleSession = serde_json::from_str(snapshot_text)
             .map_err(|error| GameplayBindingActivationError::Snapshot(error.to_string()))?;
@@ -386,9 +426,16 @@ impl GameplayBoundProjectBundleSession {
             entity_targets,
             parts.registry.as_ref(),
             &parts.configuration_codecs,
+            load_mode,
         )?;
+        let composition_identity =
+            gameplay_runtime_composition_identity(parts.registry.as_ref(), &bindings);
         if stored.activation.binding_registry_hash != bindings.registry_hash
             || stored.activation.gameplay_registry_digest != parts.registry.registry_digest()
+            || stored.activation.semantic_compatibility_digest
+                != composition_identity.semantic_compatibility_digest
+            || stored.activation.artifact_provenance_digest
+                != composition_identity.artifact_provenance_digest
             || stored.activation.readouts != resolved.readouts
         {
             return Err(GameplayBindingActivationError::Snapshot(
@@ -434,6 +481,7 @@ struct ResolvedBindings {
     initializations: Vec<GameplayModuleInitialization>,
     readouts: Vec<GameplayModuleBindingReadout>,
     configuration_bindings: Vec<GameplayStaticConfigurationBinding>,
+    compatibility_diagnostics: Vec<GameplayCompositionDiagnostic>,
 }
 
 #[derive(Clone)]
@@ -450,8 +498,10 @@ fn resolve_bindings(
     entity_targets: &GameplayBindingEntityTargets,
     registry: &GameplayFabricRegistry,
     codecs: &[GameplayConfigurationCodecRegistration],
+    load_mode: GameplayCompositionLoadMode,
 ) -> Result<ResolvedBindings, GameplayBindingActivationError> {
     let mut diagnostics = Vec::new();
+    let mut compatibility_diagnostics = Vec::new();
     if bindings.schema_version != GAMEPLAY_MODULE_BINDING_SCHEMA_VERSION
         || bindings.registry_hash != gameplay_module_binding_registry_hash(bindings)
     {
@@ -475,7 +525,15 @@ fn resolve_bindings(
             ));
             continue;
         }
-        validate_configuration(configuration, registry, codecs, index, &mut diagnostics);
+        validate_configuration(
+            configuration,
+            registry,
+            codecs,
+            index,
+            load_mode,
+            &mut diagnostics,
+            &mut compatibility_diagnostics,
+        );
     }
     let mut indexed_bindings = BTreeMap::new();
     for (index, binding) in bindings.bindings.iter().enumerate() {
@@ -615,6 +673,7 @@ fn resolve_bindings(
         initializations,
         readouts,
         configuration_bindings,
+        compatibility_diagnostics,
     })
 }
 
@@ -623,7 +682,9 @@ fn validate_configuration(
     registry: &GameplayFabricRegistry,
     codecs: &[GameplayConfigurationCodecRegistration],
     index: usize,
+    load_mode: GameplayCompositionLoadMode,
     diagnostics: &mut Vec<GameplayModuleBindingDiagnostic>,
+    compatibility_diagnostics: &mut Vec<GameplayCompositionDiagnostic>,
 ) {
     let path = format!("configurations[{index}]");
     if gameplay_module_payload_hash(&configuration.canonical_config) != configuration.config_hash {
@@ -641,12 +702,34 @@ fn validate_configuration(
         ));
         return;
     };
-    if module.module_ref != configuration.module {
+    if !module_refs_are_semantically_compatible(&module.module_ref, &configuration.module) {
         diagnostics.push(diag(
             GameplayModuleBindingDiagnosticCode::ProviderMismatch,
             format!("{path}.module"),
-            "compiled provider/version/hash evidence differs from authored configuration",
+            "compiled provider semantic identity differs from authored configuration",
         ));
+    } else if module.module_ref.artifact_hash != configuration.module.artifact_hash {
+        let provenance_diagnostic = GameplayCompositionDiagnostic {
+            code: GameplayCompositionDiagnosticCode::ArtifactProvenanceMismatch,
+            severity: if load_mode == GameplayCompositionLoadMode::Exact {
+                DiagnosticSeverity::Error
+            } else {
+                DiagnosticSeverity::Warning
+            },
+            path: format!("{path}.module.artifactHash"),
+            expected: Some(configuration.module.artifact_hash.clone()),
+            actual: Some(module.module_ref.artifact_hash.clone()),
+            message: "compiled artifact provenance differs while semantic module identity remains compatible"
+                .to_owned(),
+        };
+        if load_mode == GameplayCompositionLoadMode::Exact {
+            diagnostics.push(diag(
+                GameplayModuleBindingDiagnosticCode::ProviderMismatch,
+                format!("{path}.module.artifactHash"),
+                "exact composition mode rejects compiled artifact provenance mismatch",
+            ));
+        }
+        compatibility_diagnostics.push(provenance_diagnostic);
     }
     match codecs.iter().find(|codec| {
         let schema = codec.metadata();
@@ -675,6 +758,18 @@ fn validate_configuration(
             }
         }
     }
+}
+
+fn module_refs_are_semantically_compatible(
+    compiled: &protocol_game_extension::GameplayModuleRef,
+    authored: &protocol_game_extension::GameplayModuleRef,
+) -> bool {
+    compiled.module_id == authored.module_id
+        && compiled.namespace == authored.namespace
+        && compiled.version == authored.version
+        && compiled.sdk_hash == authored.sdk_hash
+        && compiled.contract_hash == authored.contract_hash
+        && compiled.provider_id == authored.provider_id
 }
 
 fn validate_binding(
@@ -906,21 +1001,29 @@ fn readout(
 }
 
 fn activation_receipt(
-    binding_registry_hash: &str,
-    gameplay_registry_digest: &str,
+    bindings: &GameplayModuleBindingRegistry,
+    registry: &GameplayFabricRegistry,
+    compatibility_diagnostics: Vec<GameplayCompositionDiagnostic>,
     readouts: Vec<GameplayModuleBindingReadout>,
     module_state_hash: String,
 ) -> GameplayModuleBindingActivationReceipt {
+    let composition_identity = gameplay_runtime_composition_identity(registry, bindings);
     let bytes = serde_json::to_vec(&(
-        binding_registry_hash,
-        gameplay_registry_digest,
+        &bindings.registry_hash,
+        registry.registry_digest(),
+        &composition_identity.semantic_compatibility_digest,
+        &composition_identity.artifact_provenance_digest,
+        &compatibility_diagnostics,
         &readouts,
         &module_state_hash,
     ))
     .expect("activation receipt values serialize");
     GameplayModuleBindingActivationReceipt {
-        binding_registry_hash: binding_registry_hash.to_owned(),
-        gameplay_registry_digest: gameplay_registry_digest.to_owned(),
+        binding_registry_hash: bindings.registry_hash.clone(),
+        gameplay_registry_digest: registry.registry_digest().to_owned(),
+        semantic_compatibility_digest: composition_identity.semantic_compatibility_digest,
+        artifact_provenance_digest: composition_identity.artifact_provenance_digest,
+        compatibility_diagnostics,
         readouts,
         module_state_hash,
         receipt_hash: gameplay_module_payload_hash(&bytes),

@@ -1,7 +1,7 @@
 use crate::codec::{
     GameplayCodecError, GameplayEventCodecRegistration, RegisteredCodec, TypedGameplayEventCodec,
 };
-use crate::topology::{build_readout, stable_digest, topology_dump};
+use crate::topology::{build_readout, semantic_topology_dump, stable_digest, topology_dump};
 use crate::validation::{
     budget_values, canonicalize_diagnostics, is_hash, is_namespace, is_stable_id, is_version,
     namespace_owns, push_diagnostic, validate_contract,
@@ -206,8 +206,16 @@ impl GameplayFabricRegistryBuilder {
             &self.state_owners,
         );
         let registry_digest = stable_digest(&topology_dump);
+        let semantic_topology_dump = semantic_topology_dump(
+            &modules,
+            &events,
+            &self.proposal_owners,
+            &self.read_view_providers,
+            &self.state_owners,
+        );
+        let semantic_compatibility_digest = stable_digest(&semantic_topology_dump);
         let readout = build_readout(
-            &registry_digest,
+            (&registry_digest, &semantic_compatibility_digest),
             &topology_dump,
             &modules,
             &events,
@@ -249,6 +257,7 @@ impl GameplayFabricRegistryBuilder {
             read_view_providers,
             module_order,
             registry_digest,
+            semantic_compatibility_digest,
             topology_dump,
             readout,
         })
@@ -263,12 +272,21 @@ pub struct GameplayFabricRegistry {
     read_view_providers: BTreeMap<String, GameplayReadViewProviderRegistration>,
     module_order: Vec<String>,
     registry_digest: String,
+    semantic_compatibility_digest: String,
     topology_dump: String,
     readout: GameplayRegistryReadout,
 }
 
 impl GameplayFabricRegistry {
     pub fn registry_digest(&self) -> &str {
+        &self.registry_digest
+    }
+
+    pub fn semantic_compatibility_digest(&self) -> &str {
+        &self.semantic_compatibility_digest
+    }
+
+    pub fn artifact_provenance_digest(&self) -> &str {
         &self.registry_digest
     }
 

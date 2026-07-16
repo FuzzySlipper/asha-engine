@@ -9,6 +9,8 @@ pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
             "GameplayModuleBinding",
             "GameplayModuleBindingOverride",
             "GameplayModuleBindingRegistry",
+            "GameplayCompositionRequirement",
+            "GameplayCompositionDiagnostic",
             "GameplayModuleBindingDiagnostic",
             "GameplayModuleBindingReadout",
             "GameplayModuleBindingActivationReceipt",
@@ -113,6 +115,7 @@ fn game_extension_family_emits_vocab_and_shapes() {
 #[test]
 fn gameplay_module_binding_serialization_matches_ir_shape() {
     use core_ids::{PrefabId, PrefabInstanceId};
+    use protocol_diagnostics::DiagnosticSeverity;
     use protocol_game_extension::*;
     use protocol_project_bundle::PrefabPartReference;
 
@@ -195,6 +198,19 @@ fn gameplay_module_binding_serialization_matches_ir_shape() {
         path: "overrides[0]".to_owned(),
         message: "invalid fixture override".to_owned(),
     };
+    let composition_requirement = GameplayCompositionRequirement {
+        load_mode: GameplayCompositionLoadMode::Compatible,
+        semantic_compatibility_digest: "fnv1a64:semantic".to_owned(),
+        artifact_provenance_digest: Some("fnv1a64:artifact".to_owned()),
+    };
+    let composition_diagnostic = GameplayCompositionDiagnostic {
+        code: GameplayCompositionDiagnosticCode::ArtifactProvenanceMismatch,
+        severity: DiagnosticSeverity::Warning,
+        path: "gameplayRuntime.compositionRequirement.artifactProvenanceDigest".to_owned(),
+        expected: Some("fnv1a64:authored".to_owned()),
+        actual: Some("fnv1a64:linked".to_owned()),
+        message: "compatible semantic identity with different provenance".to_owned(),
+    };
     let readout = GameplayModuleBindingReadout {
         binding_id: binding.binding_id.clone(),
         module_id: binding.module_id.clone(),
@@ -207,6 +223,9 @@ fn gameplay_module_binding_serialization_matches_ir_shape() {
     let receipt = GameplayModuleBindingActivationReceipt {
         binding_registry_hash: registry.registry_hash.clone(),
         gameplay_registry_digest: "fnv1a64:gameplay".to_owned(),
+        semantic_compatibility_digest: "fnv1a64:semantic".to_owned(),
+        artifact_provenance_digest: "fnv1a64:gameplay".to_owned(),
+        compatibility_diagnostics: vec![composition_diagnostic.clone()],
         readouts: vec![readout.clone()],
         module_state_hash: "fnv1a64:state".to_owned(),
         receipt_hash: "fnv1a64:receipt".to_owned(),
@@ -227,6 +246,14 @@ fn gameplay_module_binding_serialization_matches_ir_shape() {
         (
             "GameplayModuleBindingRegistry",
             serde_json::to_value(registry).unwrap(),
+        ),
+        (
+            "GameplayCompositionRequirement",
+            serde_json::to_value(composition_requirement).unwrap(),
+        ),
+        (
+            "GameplayCompositionDiagnostic",
+            serde_json::to_value(composition_diagnostic).unwrap(),
         ),
         (
             "GameplayModuleBindingDiagnostic",
@@ -620,6 +647,8 @@ fn gameplay_fabric_rust_serialization_matches_ir_shape() {
     };
     let readout = GameplayRegistryReadout {
         registry_digest: "fnv1a64:registry".into(),
+        semantic_compatibility_digest: "fnv1a64:semantic".into(),
+        artifact_provenance_digest: "fnv1a64:registry".into(),
         module_ids: vec![module_ref.module_id.clone()],
         event_kinds: vec![event.key()],
         subscription_ids: vec![subscription.subscription_id.clone()],

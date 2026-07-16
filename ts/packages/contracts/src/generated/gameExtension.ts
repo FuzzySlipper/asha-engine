@@ -172,6 +172,28 @@ export interface GameplayModuleBindingRegistry {
   readonly registryHash: string;
 }
 
+// Selects how authored content is matched to the statically linked gameplay composition. Compatible is the normal product-load policy; Exact is an explicit replay/certification/deployment pin.
+export type GameplayCompositionLoadMode = 'compatible' | 'exact';
+
+// Authored compatibility expectation carried by a ProjectBundle load.
+export interface GameplayCompositionRequirement {
+  readonly loadMode: GameplayCompositionLoadMode;
+  readonly semanticCompatibilityDigest: string;
+  readonly artifactProvenanceDigest: string | null;
+}
+
+export type GameplayCompositionDiagnosticCode = 'legacyCompatibilityDefaulted' | 'semanticCompatibilityMismatch' | 'artifactProvenanceMismatch' | 'missingExactArtifactProvenance';
+
+// Public load/readout evidence. Error-severity diagnostics reject before activation; warning-severity diagnostics remain visible after activation.
+export interface GameplayCompositionDiagnostic {
+  readonly code: GameplayCompositionDiagnosticCode;
+  readonly severity: DiagnosticSeverity;
+  readonly path: string;
+  readonly expected: string | null;
+  readonly actual: string | null;
+  readonly message: string;
+}
+
 export interface GameplayModuleBindingDiagnostic {
   readonly code: GameplayModuleBindingDiagnosticCode;
   readonly path: string;
@@ -191,6 +213,9 @@ export interface GameplayModuleBindingReadout {
 export interface GameplayModuleBindingActivationReceipt {
   readonly bindingRegistryHash: string;
   readonly gameplayRegistryDigest: string;
+  readonly semanticCompatibilityDigest: string;
+  readonly artifactProvenanceDigest: string;
+  readonly compatibilityDiagnostics: readonly GameplayCompositionDiagnostic[];
   readonly readouts: readonly GameplayModuleBindingReadout[];
   readonly moduleStateHash: string;
   readonly receiptHash: string;
@@ -364,6 +389,8 @@ export interface GameplayReadViewProviderReadout {
 // Projection/readout only. It explains the immutable Session topology but exposes no registry mutation operation.
 export interface GameplayRegistryReadout {
   readonly registryDigest: string;
+  readonly semanticCompatibilityDigest: string;
+  readonly artifactProvenanceDigest: string;
   readonly moduleIds: readonly string[];
   readonly eventKinds: readonly string[];
   readonly subscriptionIds: readonly string[];

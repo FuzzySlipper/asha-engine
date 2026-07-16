@@ -185,14 +185,22 @@ types and builds one `GameplayFabricRegistry`.
 
 Providers also supply `GameplayModuleBuildProvenance`. Its computed source
 identity covers the package name/version, supplied source bytes, sorted Cargo
-feature set, and lockfile bytes. SDK identity derives from the linked public SDK
-package/version and gameplay contract version. Contract identity derives from
+feature set, lockfile bytes, and any explicitly supplied toolchain/build
+environment labels. SDK identity derives from the public SDK package and its
+declared gameplay contract version, so an unrelated engine package-version
+bump is not itself a semantic incompatibility. Contract identity derives from
 the canonical manifest with identity fields removed. The historical
 `artifact_hash` field now has the explicit meaning *linked provenance identity*:
 SDK + contract + source provenance + concrete behavior type. It does not claim
 reproducible machine-code hashing. `linked_from_manifest` computes provider
 evidence independently, so stale manifest identities fail composition instead
 of being copied into a tautological match.
+
+That strict provider/manifest check protects the linked binary itself. Authored
+ProjectBundle loading separately compares semantic compatibility by default:
+source, lockfile, feature, build-environment, or concrete-artifact drift becomes
+a typed advisory when public module contracts and topology still match. An
+explicit exact load retains the full provenance comparison and rejects drift.
 
 Composition fails before activation for duplicate behavior instances,
 linked-provider/version/contract/artifact disagreement, missing codecs or

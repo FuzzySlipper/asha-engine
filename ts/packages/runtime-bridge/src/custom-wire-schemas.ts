@@ -126,6 +126,10 @@ const GAMEPLAY_VIEW_SCOPE = taggedUnion('kind', {
 const GAMEPLAY_CONTRACT_REF = generated('gameExtension.GameplayContractRef');
 const COMPOSED_GAMEPLAY_READOUT = object({
   gameplayRegistryDigest: STRING,
+  semanticCompatibilityDigest: STRING,
+  artifactProvenanceDigest: STRING,
+  compositionLoadMode: enumeration('compatible', 'exact'),
+  compatibilityDiagnostics: array(generated('gameExtension.GameplayCompositionDiagnostic')),
   bindingRegistryHash: STRING,
   activationHash: STRING,
   moduleStateHash: STRING,

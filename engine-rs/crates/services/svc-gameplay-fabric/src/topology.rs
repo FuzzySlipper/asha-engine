@@ -18,20 +18,67 @@ pub(crate) fn topology_dump(
     view_providers: &[GameplayReadViewProviderRegistration],
     state_owners: &[GameplayStateOwnerRegistration],
 ) -> String {
+    topology_dump_with_provenance(
+        modules,
+        events,
+        proposal_owners,
+        view_providers,
+        state_owners,
+        true,
+    )
+}
+
+pub(crate) fn semantic_topology_dump(
+    modules: &ModuleIndex<'_>,
+    events: &EventIndex<'_>,
+    proposal_owners: &[GameplayProposalOwnerRegistration],
+    view_providers: &[GameplayReadViewProviderRegistration],
+    state_owners: &[GameplayStateOwnerRegistration],
+) -> String {
+    topology_dump_with_provenance(
+        modules,
+        events,
+        proposal_owners,
+        view_providers,
+        state_owners,
+        false,
+    )
+}
+
+fn topology_dump_with_provenance(
+    modules: &ModuleIndex<'_>,
+    events: &EventIndex<'_>,
+    proposal_owners: &[GameplayProposalOwnerRegistration],
+    view_providers: &[GameplayReadViewProviderRegistration],
+    state_owners: &[GameplayStateOwnerRegistration],
+    include_provenance: bool,
+) -> String {
     let mut lines = Vec::new();
     for manifest in modules.values() {
         let module = &manifest.module_ref;
-        lines.push(format!(
-            "module {} namespace={} version={} provider={} sdk={} contract={} artifact={} source={}",
-            module.module_id,
-            module.namespace,
-            module.version,
-            module.provider_id,
-            module.sdk_hash,
-            module.contract_hash,
-            module.artifact_hash,
-            manifest.source_hash,
-        ));
+        if include_provenance {
+            lines.push(format!(
+                "module {} namespace={} version={} provider={} sdk={} contract={} artifact={} source={}",
+                module.module_id,
+                module.namespace,
+                module.version,
+                module.provider_id,
+                module.sdk_hash,
+                module.contract_hash,
+                module.artifact_hash,
+                manifest.source_hash,
+            ));
+        } else {
+            lines.push(format!(
+                "module {} namespace={} version={} provider={} sdk={} contract={}",
+                module.module_id,
+                module.namespace,
+                module.version,
+                module.provider_id,
+                module.sdk_hash,
+                module.contract_hash,
+            ));
+        }
         lines.push(format!(
             "budget module={} waves={} events={} proposals={} invocations={} payloadBytes={}",
             module.module_id,
@@ -199,7 +246,7 @@ pub(crate) fn topology_dump(
 }
 
 pub(crate) fn build_readout(
-    digest: &str,
+    digests: (&str, &str),
     dump: &str,
     modules: &ModuleIndex<'_>,
     events: &EventIndex<'_>,
@@ -207,6 +254,7 @@ pub(crate) fn build_readout(
     view_providers: &[GameplayReadViewProviderRegistration],
     state_owners: &[GameplayStateOwnerRegistration],
 ) -> GameplayRegistryReadout {
+    let (digest, semantic_compatibility_digest) = digests;
     let mut subscription_ids = Vec::new();
     let mut ordering = BTreeSet::new();
     let mut topology = Vec::new();
@@ -278,6 +326,8 @@ pub(crate) fn build_readout(
     });
     GameplayRegistryReadout {
         registry_digest: digest.to_string(),
+        semantic_compatibility_digest: semantic_compatibility_digest.to_string(),
+        artifact_provenance_digest: digest.to_string(),
         module_ids: modules.keys().cloned().collect(),
         event_kinds: events.keys().cloned().collect(),
         subscription_ids,

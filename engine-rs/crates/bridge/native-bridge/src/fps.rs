@@ -1,4 +1,7 @@
 use napi_derive::napi;
+use protocol_game_extension::{
+    GameplayCompositionDiagnostic, GameplayCompositionDiagnosticCode, GameplayCompositionLoadMode,
+};
 use runtime_bridge_api::{
     ComposedRuntimeSessionReadout, FpsBridgeBoundsCapability, FpsBridgeHealth,
     FpsBridgePolicyBinding, FpsBridgeRole, FpsBridgeStoredEntityDefinition,
@@ -149,8 +152,22 @@ pub struct NativeFpsPrimaryFireResult {
 }
 
 #[napi(object)]
+pub struct NativeGameplayCompositionDiagnostic {
+    pub code: String,
+    pub severity: String,
+    pub path: String,
+    pub expected: Option<String>,
+    pub actual: Option<String>,
+    pub message: String,
+}
+
+#[napi(object)]
 pub struct NativeComposedGameplayReadout {
     pub gameplay_registry_digest: String,
+    pub semantic_compatibility_digest: String,
+    pub artifact_provenance_digest: String,
+    pub composition_load_mode: String,
+    pub compatibility_diagnostics: Vec<NativeGameplayCompositionDiagnostic>,
     pub binding_registry_hash: String,
     pub activation_hash: String,
     pub module_state_hash: String,
@@ -585,6 +602,17 @@ impl From<ComposedRuntimeSessionReadout> for NativeComposedRuntimeSessionReadout
             entity_authority_hash: value.entity_authority_hash,
             gameplay: NativeComposedGameplayReadout {
                 gameplay_registry_digest: value.gameplay.gameplay_registry_digest,
+                semantic_compatibility_digest: value.gameplay.semantic_compatibility_digest,
+                artifact_provenance_digest: value.gameplay.artifact_provenance_digest,
+                composition_load_mode: native_composition_load_mode(
+                    value.gameplay.composition_load_mode,
+                ),
+                compatibility_diagnostics: value
+                    .gameplay
+                    .compatibility_diagnostics
+                    .into_iter()
+                    .map(NativeGameplayCompositionDiagnostic::from)
+                    .collect(),
                 binding_registry_hash: value.gameplay.binding_registry_hash,
                 activation_hash: value.gameplay.activation_hash,
                 module_state_hash: value.gameplay.module_state_hash,
@@ -610,6 +638,56 @@ impl From<ComposedRuntimeSessionReadout> for NativeComposedRuntimeSessionReadout
             fps_replay_hash: value.fps_replay_hash.map(native_hash),
             runtime_session_hash: value.runtime_session_hash,
         }
+    }
+}
+
+fn native_composition_load_mode(mode: GameplayCompositionLoadMode) -> String {
+    mode.as_str().to_owned()
+}
+
+impl From<GameplayCompositionDiagnostic> for NativeGameplayCompositionDiagnostic {
+    fn from(value: GameplayCompositionDiagnostic) -> Self {
+        Self {
+            code: native_composition_diagnostic_code(value.code),
+            severity: value.severity.as_str().to_owned(),
+            path: value.path,
+            expected: value.expected,
+            actual: value.actual,
+            message: value.message,
+        }
+    }
+}
+
+fn native_composition_diagnostic_code(code: GameplayCompositionDiagnosticCode) -> String {
+    code.as_str().to_owned()
+}
+
+#[cfg(test)]
+mod composition_readout_tests {
+    use super::*;
+    use protocol_diagnostics::DiagnosticSeverity;
+
+    #[test]
+    fn native_composition_diagnostic_preserves_public_wire_shape() {
+        let diagnostic = NativeGameplayCompositionDiagnostic::from(GameplayCompositionDiagnostic {
+            code: GameplayCompositionDiagnosticCode::ArtifactProvenanceMismatch,
+            severity: DiagnosticSeverity::Warning,
+            path: "projectBundle.compositionRequirement.artifactProvenanceDigest".to_owned(),
+            expected: Some("fnv1a64:1111111111111111".to_owned()),
+            actual: Some("fnv1a64:2222222222222222".to_owned()),
+            message: "compatible load retained exact provenance evidence".to_owned(),
+        });
+
+        assert_eq!(diagnostic.code, "artifactProvenanceMismatch");
+        assert_eq!(diagnostic.severity, "warning");
+        assert_eq!(
+            native_composition_load_mode(GameplayCompositionLoadMode::Compatible),
+            "compatible"
+        );
+        assert_eq!(
+            native_composition_load_mode(GameplayCompositionLoadMode::Exact),
+            "exact"
+        );
     }
 }
 

@@ -355,6 +355,14 @@ function normalizeComposedRuntimeSessionReadout(
         value.gameplay.gameplayRegistryDigest,
         'gameplay.gameplayRegistryDigest',
       ),
+      semanticCompatibilityDigest: hashString(
+        value.gameplay.semanticCompatibilityDigest,
+        'gameplay.semanticCompatibilityDigest',
+      ),
+      artifactProvenanceDigest: hashString(
+        value.gameplay.artifactProvenanceDigest,
+        'gameplay.artifactProvenanceDigest',
+      ),
       bindingRegistryHash: hashString(
         value.gameplay.bindingRegistryHash,
         'gameplay.bindingRegistryHash',

@@ -6,6 +6,7 @@ import type {
   CommandResult,
   DeveloperConsoleSnapshot,
   FirstPersonCameraInputEnvelope,
+  GameplayCompositionDiagnostic,
   RuntimeProjectionFrame,
 } from '@asha/contracts';
 import {
@@ -141,6 +142,10 @@ interface NativeComposedRuntimeSessionReadout {
   readonly entityAuthorityHash: string;
   readonly gameplay: {
     readonly gameplayRegistryDigest: string;
+    readonly semanticCompatibilityDigest: string;
+    readonly artifactProvenanceDigest: string;
+    readonly compositionLoadMode: 'compatible' | 'exact';
+    readonly compatibilityDiagnostics: readonly GameplayCompositionDiagnostic[];
     readonly bindingRegistryHash: string;
     readonly activationHash: string;
     readonly moduleStateHash: string;

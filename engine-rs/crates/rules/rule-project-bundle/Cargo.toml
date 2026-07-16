@@ -22,6 +22,7 @@ svc-gameplay-fabric = { path = "../../services/svc-gameplay-fabric" }
 svc-voxel-annotation = { path = "../../services/svc-voxel-annotation" }
 protocol-voxel-annotation = { path = "../../protocol/protocol-voxel-annotation" }
 protocol-game-extension = { path = "../../protocol/protocol-game-extension" }
+protocol-diagnostics = { path = "../../protocol/protocol-diagnostics" }
 rule-voxel-edit   = { path = "../rule-voxel-edit" }
 rule-gameplay-fabric = { path = "../rule-gameplay-fabric" }
 rule-trigger-volume = { path = "../rule-trigger-volume" }

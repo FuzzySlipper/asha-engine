@@ -527,6 +527,7 @@ mod tests {
                 .with_artifact("assets/lock.json", "{\"entries\":[]}")
                 .with_artifact("scene/scene.json", encode(&scene.to_flat())),
             composition: composition.build().unwrap(),
+            composition_requirement: None,
             bindings: GameplayModuleBindingRegistryBuilder::new().build(),
             entity_targets: GameplayBindingEntityTargets::new(),
             spatial_entities: Vec::new(),

@@ -22,6 +22,10 @@ export function createNativeComposedGameplayHandlers(
         entityAuthorityHash: hashA,
         gameplay: {
           gameplayRegistryDigest: hashA,
+          semanticCompatibilityDigest: hashB,
+          artifactProvenanceDigest: hashA,
+          compositionLoadMode: 'compatible',
+          compatibilityDiagnostics: [],
           bindingRegistryHash: hashA,
           activationHash: hashA,
           moduleStateHash: hashA,

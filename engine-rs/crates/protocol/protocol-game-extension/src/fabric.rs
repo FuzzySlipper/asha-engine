@@ -270,6 +270,68 @@ pub struct GameplayModuleBindingRegistry {
     pub registry_hash: String,
 }
 
+/// Selects how authored content is matched to the statically linked gameplay
+/// composition. Compatible is the normal product-load policy; Exact is an
+/// explicit replay/certification/deployment pin.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum GameplayCompositionLoadMode {
+    #[default]
+    Compatible,
+    Exact,
+}
+
+impl GameplayCompositionLoadMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Compatible => "compatible",
+            Self::Exact => "exact",
+        }
+    }
+}
+
+/// Authored compatibility expectation carried by a ProjectBundle load.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameplayCompositionRequirement {
+    pub load_mode: GameplayCompositionLoadMode,
+    pub semantic_compatibility_digest: String,
+    pub artifact_provenance_digest: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum GameplayCompositionDiagnosticCode {
+    LegacyCompatibilityDefaulted,
+    SemanticCompatibilityMismatch,
+    ArtifactProvenanceMismatch,
+    MissingExactArtifactProvenance,
+}
+
+impl GameplayCompositionDiagnosticCode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::LegacyCompatibilityDefaulted => "legacyCompatibilityDefaulted",
+            Self::SemanticCompatibilityMismatch => "semanticCompatibilityMismatch",
+            Self::ArtifactProvenanceMismatch => "artifactProvenanceMismatch",
+            Self::MissingExactArtifactProvenance => "missingExactArtifactProvenance",
+        }
+    }
+}
+
+/// Public load/readout evidence. Error-severity diagnostics reject before
+/// activation; warning-severity diagnostics remain visible after activation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameplayCompositionDiagnostic {
+    pub code: GameplayCompositionDiagnosticCode,
+    pub severity: DiagnosticSeverity,
+    pub path: String,
+    pub expected: Option<String>,
+    pub actual: Option<String>,
+    pub message: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum GameplayModuleBindingDiagnosticCode {
@@ -341,6 +403,9 @@ pub struct GameplayModuleBindingReadout {
 pub struct GameplayModuleBindingActivationReceipt {
     pub binding_registry_hash: String,
     pub gameplay_registry_digest: String,
+    pub semantic_compatibility_digest: String,
+    pub artifact_provenance_digest: String,
+    pub compatibility_diagnostics: Vec<GameplayCompositionDiagnostic>,
     pub readouts: Vec<GameplayModuleBindingReadout>,
     pub module_state_hash: String,
     pub receipt_hash: String,
@@ -720,6 +785,8 @@ pub struct GameplayTopologyEdge {
 #[serde(rename_all = "camelCase")]
 pub struct GameplayRegistryReadout {
     pub registry_digest: String,
+    pub semantic_compatibility_digest: String,
+    pub artifact_provenance_digest: String,
     pub module_ids: Vec<String>,
     pub event_kinds: Vec<String>,
     pub subscription_ids: Vec<String>,

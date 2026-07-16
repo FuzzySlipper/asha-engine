@@ -599,6 +599,16 @@ fn computed_provenance_changes_with_source_features_lock_and_behavior_type() {
     let mut behavior_changed = base;
     provenance(b"source-a", b"lock-a", &["feature-a"])
         .apply_to_manifest::<CounterAdapter>(&mut behavior_changed);
+    let mut toolchain_changed = manifest("game.alpha", &root, false);
+    GameplayModuleBuildProvenance::from_build_inputs_with_environment(
+        "fixture-package",
+        "1.2.3",
+        &[b"source-a"],
+        b"lock-a",
+        &["feature-a"],
+        &[("rustc", "1.99.0"), ("target", "fixture-target")],
+    )
+    .apply_to_manifest::<CounterBehavior>(&mut toolchain_changed);
 
     assert_eq!(
         first.module_ref.contract_hash,
@@ -607,6 +617,15 @@ fn computed_provenance_changes_with_source_features_lock_and_behavior_type() {
     assert_ne!(first.source_hash, source_changed.source_hash);
     assert_ne!(first.source_hash, feature_changed.source_hash);
     assert_ne!(first.source_hash, lock_changed.source_hash);
+    assert_ne!(first.source_hash, toolchain_changed.source_hash);
+    assert_eq!(
+        first.module_ref.contract_hash,
+        toolchain_changed.module_ref.contract_hash
+    );
+    assert_eq!(
+        first.module_ref.sdk_hash,
+        toolchain_changed.module_ref.sdk_hash
+    );
     assert_ne!(
         first.module_ref.artifact_hash,
         behavior_changed.module_ref.artifact_hash

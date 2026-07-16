@@ -9,6 +9,8 @@ import type {
   GameRuleResolutionRequest,
   GameRuleTraceEntry,
   GameplayContractRef,
+  GameplayCompositionDiagnostic,
+  GameplayCompositionLoadMode,
   WeaponEffectHookRequest,
 } from '@asha/contracts';
 
@@ -198,6 +200,10 @@ export interface GameplayModuleViewSnapshot {
 
 export interface ComposedGameplayReadout {
   readonly gameplayRegistryDigest: string;
+  readonly semanticCompatibilityDigest: string;
+  readonly artifactProvenanceDigest: string;
+  readonly compositionLoadMode: GameplayCompositionLoadMode;
+  readonly compatibilityDiagnostics: readonly GameplayCompositionDiagnostic[];
   readonly bindingRegistryHash: string;
   readonly activationHash: string;
   readonly moduleStateHash: string;

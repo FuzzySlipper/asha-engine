@@ -23,7 +23,11 @@ void test('native facade routes composed evidence views and prefab interaction',
   const bridge = new NativeRuntimeBridge(composedAddon(calls));
   bridge.initializeEngine({ seed: 1 });
 
-  assert.equal(bridge.readComposedRuntimeSession().runtimeSessionHash, HASH_A);
+  const composed = bridge.readComposedRuntimeSession();
+  assert.equal(composed.runtimeSessionHash, HASH_A);
+  assert.equal(composed.gameplay.semanticCompatibilityDigest, HASH_B);
+  assert.equal(composed.gameplay.artifactProvenanceDigest, HASH_A);
+  assert.equal(composed.gameplay.compositionLoadMode, 'compatible');
   const moduleView = bridge.readGameplayModuleView({
     view: { namespace: 'fixture.pulse', name: 'pulse-state-view', version: 1, schemaHash: HASH_A },
     scope: { kind: 'session' },

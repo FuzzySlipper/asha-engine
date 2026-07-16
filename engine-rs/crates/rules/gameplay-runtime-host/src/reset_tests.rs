@@ -45,6 +45,7 @@ fn public_height_host_binds_actor_pose_to_trigger_authority_and_snapshot() {
     let mut host = GameplayRuntimeHost::activate(GameplayRuntimeHostInput {
         bundle,
         composition: composition.build().unwrap(),
+        composition_requirement: None,
         bindings,
         entity_targets: GameplayBindingEntityTargets::new(),
         spatial_entities: Vec::new(),

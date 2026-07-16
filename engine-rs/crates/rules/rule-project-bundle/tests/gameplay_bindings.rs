@@ -6,7 +6,8 @@ use core_math::Vec3;
 use core_scene::{encode, SceneMetadata, SceneNode, SceneNodeKind, SceneTree};
 use gameplay_module_sdk::*;
 use protocol_game_extension::{
-    GameplayModuleBinding, GameplayModuleBindingDiagnosticCode, GameplayModuleBindingOverride,
+    GameplayCompositionDiagnosticCode, GameplayCompositionLoadMode, GameplayModuleBinding,
+    GameplayModuleBindingDiagnosticCode, GameplayModuleBindingOverride,
     GameplayModuleBindingRegistry, GameplayModuleBindingTarget, GameplayModuleConfiguration,
     PrefabPartReference as ProtocolPrefabPartReference, GAMEPLAY_MODULE_BINDING_SCHEMA_VERSION,
 };
@@ -687,19 +688,33 @@ fn runtime_session_reconciles_persists_and_restores_trigger_overlap_authority() 
 }
 
 #[test]
-fn provider_drift_and_corrupt_snapshots_fail_closed() {
+fn provenance_drift_warns_in_compatible_mode_and_rejects_in_exact_mode() {
     let bundle = loaded_bundle();
     let mut drifted = bindings();
     drifted.configurations[0].module.artifact_hash = "sha256:other-code".to_owned();
     drifted.registry_hash = gameplay_module_binding_registry_hash(&drifted);
-    let error = GameplayBoundProjectBundleSession::activate(
+    let compatible = GameplayBoundProjectBundleSession::activate(
+        bundle.clone(),
+        composition(),
+        drifted.clone(),
+        &GameplayBindingEntityTargets::new(),
+    )
+    .unwrap();
+    assert!(compatible
+        .activation
+        .compatibility_diagnostics
+        .iter()
+        .any(|item| item.code == GameplayCompositionDiagnosticCode::ArtifactProvenanceMismatch));
+
+    let error = GameplayBoundProjectBundleSession::activate_with_mode(
         bundle.clone(),
         composition(),
         drifted,
         &GameplayBindingEntityTargets::new(),
+        GameplayCompositionLoadMode::Exact,
     )
     .err()
-    .unwrap();
+    .expect("exact mode must reject provider provenance drift");
     assert!(matches!(
         error,
         GameplayBindingActivationError::Invalid { diagnostics }

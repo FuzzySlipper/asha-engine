@@ -4,11 +4,12 @@
 pub use core_ids::{EntityId, PrefabId, PrefabInstanceId, PrefabPartId, TagId};
 pub use core_time::{Tick, TickDelta, TickInterval};
 pub use protocol_game_extension::{
-    GameplayCausationRef, GameplayContractRef, GameplayEmitterRef, GameplayEntityRef,
-    GameplayEventEnvelope, GameplayEventPhase, GameplayEventSchemaDeclaration,
-    GameplayExecutionBudget, GameplayHeaderSelector, GameplayInvocationDescriptor,
-    GameplayInvocationFamily, GameplayInvocationReadRequirement, GameplayModuleBinding,
-    GameplayModuleBindingActivationReceipt, GameplayModuleBindingDiagnostic,
+    GameplayCausationRef, GameplayCompositionDiagnostic, GameplayCompositionDiagnosticCode,
+    GameplayCompositionLoadMode, GameplayCompositionRequirement, GameplayContractRef,
+    GameplayEmitterRef, GameplayEntityRef, GameplayEventEnvelope, GameplayEventPhase,
+    GameplayEventSchemaDeclaration, GameplayExecutionBudget, GameplayHeaderSelector,
+    GameplayInvocationDescriptor, GameplayInvocationFamily, GameplayInvocationReadRequirement,
+    GameplayModuleBinding, GameplayModuleBindingActivationReceipt, GameplayModuleBindingDiagnostic,
     GameplayModuleBindingDiagnosticCode, GameplayModuleBindingOverride,
     GameplayModuleBindingReadout, GameplayModuleBindingRegistry, GameplayModuleBindingTarget,
     GameplayModuleConfiguration, GameplayModuleManifest, GameplayModuleRef,

@@ -37,6 +37,7 @@ pub struct GameplayModuleBuildProvenance {
     features: Vec<String>,
     source_inputs_hash: String,
     lockfile_hash: String,
+    build_environment: Vec<(String, String)>,
 }
 
 impl GameplayModuleBuildProvenance {
@@ -46,6 +47,24 @@ impl GameplayModuleBuildProvenance {
         source_inputs: &[&[u8]],
         lockfile: &[u8],
         features: &[&str],
+    ) -> Self {
+        Self::from_build_inputs_with_environment(
+            package_name,
+            package_version,
+            source_inputs,
+            lockfile,
+            features,
+            &[],
+        )
+    }
+
+    pub fn from_build_inputs_with_environment(
+        package_name: impl Into<String>,
+        package_version: impl Into<String>,
+        source_inputs: &[&[u8]],
+        lockfile: &[u8],
+        features: &[&str],
+        build_environment: &[(&str, &str)],
     ) -> Self {
         assert!(
             !source_inputs.is_empty(),
@@ -61,12 +80,19 @@ impl GameplayModuleBuildProvenance {
             .collect::<Vec<_>>();
         features.sort();
         features.dedup();
+        let mut build_environment = build_environment
+            .iter()
+            .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
+            .collect::<Vec<_>>();
+        build_environment.sort();
+        build_environment.dedup();
         Self {
             package_name: package_name.into(),
             package_version: package_version.into(),
             features,
             source_inputs_hash: stable_bytes_identity(source_inputs.iter().copied()),
             lockfile_hash: stable_bytes_identity([lockfile]),
+            build_environment,
         }
     }
 
@@ -74,7 +100,6 @@ impl GameplayModuleBuildProvenance {
         manifest.module_ref.sdk_hash = stable_identity([
             "asha.gameplay-sdk.v1",
             GAMEPLAY_PUBLIC_SDK_PACKAGE,
-            env!("CARGO_PKG_VERSION"),
             GAMEPLAY_PUBLIC_CONTRACT_VERSION,
         ]);
         manifest.source_hash = stable_identity([
@@ -84,6 +109,12 @@ impl GameplayModuleBuildProvenance {
             self.source_inputs_hash.as_str(),
             self.lockfile_hash.as_str(),
             self.features.join(",").as_str(),
+            self.build_environment
+                .iter()
+                .map(|(name, value)| format!("{name}={value}"))
+                .collect::<Vec<_>>()
+                .join(",")
+                .as_str(),
         ]);
 
         let mut contract_manifest = manifest.clone();

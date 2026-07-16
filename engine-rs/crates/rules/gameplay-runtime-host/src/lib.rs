@@ -29,10 +29,16 @@ use core_entity::{
     MovementEvent, TransformCommand,
 };
 use core_math::Vec3;
-pub use gameplay_module_sdk::{GameplayRuntimeDeclaredReadPlan, GameplayStaticComposition};
+pub use gameplay_module_sdk::{
+    gameplay_runtime_composition_identity, GameplayRuntimeCompositionIdentity,
+    GameplayRuntimeDeclaredReadPlan, GameplayStaticComposition,
+};
+use protocol_diagnostics::DiagnosticSeverity;
 use protocol_game_extension::{
-    GameplayEventEnvelope, GameplayEventPhase, GameplayModuleBindingActivationReceipt,
-    GameplayModuleBindingRegistry, GameplayOwnerRef, GameplayProposalEnvelope,
+    GameplayCompositionDiagnostic, GameplayCompositionDiagnosticCode, GameplayCompositionLoadMode,
+    GameplayCompositionRequirement, GameplayEventEnvelope, GameplayEventPhase,
+    GameplayModuleBindingActivationReceipt, GameplayModuleBindingRegistry, GameplayOwnerRef,
+    GameplayProposalEnvelope,
 };
 use rule_gameplay_fabric::{
     adapt_session_tick, gameplay_module_payload_hash, FrozenGameplayViews,
@@ -79,7 +85,7 @@ pub const GAMEPLAY_RUNTIME_HOST_SNAPSHOT_PATH: &str = "session/gameplay-runtime-
 /// New consumers compose modules inside `asha-runtime-session-composition`.
 pub const GAMEPLAY_RUNTIME_HOST_COMPATIBILITY_DIAGNOSTIC: &str =
     "asha.compat.wave1.standalone-gameplay-runtime-host";
-const GAMEPLAY_RUNTIME_HOST_SNAPSHOT_VERSION: u32 = 3;
+const GAMEPLAY_RUNTIME_HOST_SNAPSHOT_VERSION: u32 = 4;
 const MAX_REACTION_FRAMES: usize = 256;
 const MAX_DECISION_RECEIPTS: usize = 256;
 
@@ -89,6 +95,7 @@ pub enum GameplayRuntimeHostError {
     Prefab(String),
     Snapshot(String),
     Activation(GameplayBindingActivationError),
+    Compatibility(Vec<GameplayCompositionDiagnostic>),
     MissingEntityAuthority,
     Transform { entity: u64, code: &'static str },
     SpatialEntity { entity: u64, code: &'static str },
@@ -128,6 +135,7 @@ impl From<GameplaySchedulerError> for GameplayRuntimeHostError {
 pub struct GameplayRuntimeHostInput {
     pub bundle: ProjectBundleLoadResult,
     pub composition: GameplayStaticComposition,
+    pub composition_requirement: Option<GameplayCompositionRequirement>,
     pub bindings: GameplayModuleBindingRegistry,
     pub entity_targets: GameplayBindingEntityTargets,
     pub spatial_entities: Vec<GameplayRuntimeSpatialEntity>,
@@ -142,6 +150,7 @@ pub struct GameplayRuntimeProjectInput {
     pub load_plan: LoadPlan,
     pub artifacts: BundleArtifacts,
     pub composition: GameplayStaticComposition,
+    pub composition_requirement: Option<GameplayCompositionRequirement>,
     pub bindings: GameplayModuleBindingRegistry,
     pub entity_targets: GameplayBindingEntityTargets,
     pub spatial_entities: Vec<GameplayRuntimeSpatialEntity>,
@@ -185,6 +194,10 @@ pub struct GameplayRuntimeDecisionOwnerOutput {
 #[serde(rename_all = "camelCase")]
 pub struct GameplayRuntimeHostReadout {
     pub gameplay_registry_digest: String,
+    pub semantic_compatibility_digest: String,
+    pub artifact_provenance_digest: String,
+    pub composition_load_mode: GameplayCompositionLoadMode,
+    pub compatibility_diagnostics: Vec<GameplayCompositionDiagnostic>,
     pub binding_registry_hash: String,
     pub activation_hash: String,
     pub module_state_hash: String,
@@ -228,6 +241,8 @@ pub struct GameplayRuntimeHost {
     decision_continuations: GameplayDecisionContinuations,
     decision_receipts: Vec<GameplayDecisionReceipt>,
     scheduler: GameplayActionScheduler,
+    composition_load_mode: GameplayCompositionLoadMode,
+    compatibility_diagnostics: Vec<GameplayCompositionDiagnostic>,
 }
 
 impl GameplayRuntimeHost {
@@ -267,6 +282,7 @@ impl GameplayRuntimeHost {
         Self::activate(GameplayRuntimeHostInput {
             bundle,
             composition: input.composition,
+            composition_requirement: input.composition_requirement,
             bindings: input.bindings,
             entity_targets: input.entity_targets,
             spatial_entities: input.spatial_entities,
@@ -290,6 +306,7 @@ impl GameplayRuntimeHost {
             GameplayRuntimeHostInput {
                 bundle,
                 composition: input.composition,
+                composition_requirement: input.composition_requirement,
                 bindings: input.bindings,
                 entity_targets: input.entity_targets,
                 spatial_entities: input.spatial_entities,
@@ -311,6 +328,7 @@ impl GameplayRuntimeHost {
             GameplayRuntimeHostInput {
                 bundle,
                 composition: input.composition,
+                composition_requirement: input.composition_requirement,
                 bindings: input.bindings,
                 entity_targets: input.entity_targets,
                 spatial_entities: input.spatial_entities,
@@ -337,6 +355,7 @@ impl GameplayRuntimeHost {
             GameplayRuntimeHostInput {
                 bundle,
                 composition: input.composition,
+                composition_requirement: input.composition_requirement,
                 bindings: input.bindings,
                 entity_targets: input.entity_targets,
                 spatial_entities: input.spatial_entities,
@@ -358,12 +377,22 @@ impl GameplayRuntimeHost {
         prefab_registry: ValidatedPrefabRegistry,
     ) -> Result<Self, GameplayRuntimeHostError> {
         prepare_runtime_entities(&mut input)?;
-        let mut session = GameplayBoundProjectBundleSession::activate(
+        let composition_identity =
+            gameplay_runtime_composition_identity(input.composition.registry(), &input.bindings);
+        let (composition_load_mode, mut compatibility_diagnostics) =
+            validate_composition_requirement(
+                &composition_identity,
+                input.composition_requirement.as_ref(),
+            )?;
+        let mut session = GameplayBoundProjectBundleSession::activate_with_mode(
             input.bundle,
             input.composition,
             input.bindings,
             &input.entity_targets,
+            composition_load_mode,
         )?;
+        compatibility_diagnostics
+            .extend(session.activation.compatibility_diagnostics.iter().cloned());
         session.install_trigger_definitions(resolve_trigger_definitions(input.triggers)?)?;
         validate_scheduler_definition(session.registry(), &input.scheduler)?;
         let scheduler = input.scheduler.build();
@@ -375,6 +404,8 @@ impl GameplayRuntimeHost {
             decision_continuations: GameplayDecisionContinuations::default(),
             decision_receipts: Vec::new(),
             scheduler,
+            composition_load_mode,
+            compatibility_diagnostics,
         })
     }
 
@@ -400,13 +431,32 @@ impl GameplayRuntimeHost {
                 "runtime host snapshot version or hash mismatch".to_owned(),
             ));
         }
-        let session = GameplayBoundProjectBundleSession::restore(
+        let composition_identity =
+            gameplay_runtime_composition_identity(input.composition.registry(), &input.bindings);
+        let (composition_load_mode, mut compatibility_diagnostics) =
+            validate_composition_requirement(
+                &composition_identity,
+                input.composition_requirement.as_ref(),
+            )?;
+        if stored.semantic_compatibility_digest
+            != composition_identity.semantic_compatibility_digest
+            || stored.artifact_provenance_digest != composition_identity.artifact_provenance_digest
+        {
+            return Err(GameplayRuntimeHostError::Snapshot(
+                "saved gameplay producer identity does not match the restoring composition"
+                    .to_owned(),
+            ));
+        }
+        let session = GameplayBoundProjectBundleSession::restore_with_mode(
             input.bundle,
             input.composition,
             input.bindings,
             &input.entity_targets,
             &stored.session_snapshot,
+            composition_load_mode,
         )?;
+        compatibility_diagnostics
+            .extend(session.activation.compatibility_diagnostics.iter().cloned());
         validate_scheduler_definition(session.registry(), &input.scheduler)?;
         let expected_triggers = rule_trigger_volume::TriggerVolumeRule::new(
             resolve_trigger_definitions(input.triggers)?,
@@ -448,6 +498,8 @@ impl GameplayRuntimeHost {
             decision_continuations: stored.decision_continuations,
             decision_receipts: stored.decision_receipts,
             scheduler,
+            composition_load_mode,
+            compatibility_diagnostics,
         })
     }
 
@@ -620,8 +672,12 @@ impl GameplayRuntimeHost {
             .session
             .compose_gameplay_session_snapshot()
             .map_err(GameplayRuntimeHostError::from)?;
+        let composition_identity =
+            gameplay_runtime_composition_identity(self.session.registry(), self.session.bindings());
         let mut stored = StoredGameplayRuntimeHostSnapshot {
             schema_version: GAMEPLAY_RUNTIME_HOST_SNAPSHOT_VERSION,
+            semantic_compatibility_digest: composition_identity.semantic_compatibility_digest,
+            artifact_provenance_digest: composition_identity.artifact_provenance_digest,
             session_snapshot: session.text,
             reaction_frames: self.reaction_frames.clone(),
             decision_continuations: self.decision_continuations.clone(),
@@ -652,10 +708,13 @@ impl GameplayRuntimeHost {
             .map(|receipt| receipt.receipt_hash.clone());
         let authority_state_hash = self.current_authority_state_hash();
         let scheduler = self.scheduler_readout();
+        let composition_identity =
+            gameplay_runtime_composition_identity(self.session.registry(), self.session.bindings());
         let runtime_host_hash = gameplay_module_payload_hash(
             format!(
-                "{}|{}|{}|{}|{}|{}|{}|{}|{}",
+                "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{:?}",
                 self.session.registry().registry_digest(),
+                composition_identity.semantic_compatibility_digest,
                 self.session.bindings().registry_hash,
                 self.session.module_state.state_hash(),
                 authority_state_hash,
@@ -664,11 +723,16 @@ impl GameplayRuntimeHost {
                 last_decision_receipt_hash.as_deref().unwrap_or("none"),
                 self.decision_continuations.pending_count(),
                 scheduler.state_hash,
+                self.composition_load_mode,
             )
             .as_bytes(),
         );
         GameplayRuntimeHostReadout {
             gameplay_registry_digest: self.session.registry().registry_digest().to_owned(),
+            semantic_compatibility_digest: composition_identity.semantic_compatibility_digest,
+            artifact_provenance_digest: composition_identity.artifact_provenance_digest,
+            composition_load_mode: self.composition_load_mode,
+            compatibility_diagnostics: self.compatibility_diagnostics.clone(),
             binding_registry_hash: self.session.bindings().registry_hash.clone(),
             activation_hash: activation_hash(&self.session.activation),
             module_state_hash: self.session.module_state.state_hash(),
@@ -894,10 +958,97 @@ fn validate_replayed_decision_evidence(
     Ok(())
 }
 
+fn validate_composition_requirement(
+    identity: &GameplayRuntimeCompositionIdentity,
+    requirement: Option<&GameplayCompositionRequirement>,
+) -> Result<
+    (
+        GameplayCompositionLoadMode,
+        Vec<GameplayCompositionDiagnostic>,
+    ),
+    GameplayRuntimeHostError,
+> {
+    let Some(requirement) = requirement else {
+        return Ok((
+            GameplayCompositionLoadMode::Compatible,
+            vec![GameplayCompositionDiagnostic {
+                code: GameplayCompositionDiagnosticCode::LegacyCompatibilityDefaulted,
+                severity: DiagnosticSeverity::Warning,
+                path: "gameplayRuntime.compositionRequirement".to_owned(),
+                expected: None,
+                actual: Some(identity.semantic_compatibility_digest.clone()),
+                message: "legacy ProjectBundle has no explicit composition requirement; compatible mode was selected"
+                    .to_owned(),
+            }],
+        ));
+    };
+
+    let semantic_actual = &identity.semantic_compatibility_digest;
+    if requirement.semantic_compatibility_digest != semantic_actual.as_str() {
+        return Err(GameplayRuntimeHostError::Compatibility(vec![
+            GameplayCompositionDiagnostic {
+                code: GameplayCompositionDiagnosticCode::SemanticCompatibilityMismatch,
+                severity: DiagnosticSeverity::Error,
+                path: "gameplayRuntime.compositionRequirement.semanticCompatibilityDigest"
+                    .to_owned(),
+                expected: Some(requirement.semantic_compatibility_digest.clone()),
+                actual: Some(semantic_actual.clone()),
+                message: "authored gameplay semantic compatibility identity does not match the linked composition"
+                    .to_owned(),
+            },
+        ]));
+    }
+
+    let artifact_actual = identity.artifact_provenance_digest.as_str();
+    match (
+        requirement.load_mode,
+        requirement.artifact_provenance_digest.as_deref(),
+    ) {
+        (GameplayCompositionLoadMode::Exact, None) => {
+            Err(GameplayRuntimeHostError::Compatibility(vec![
+                GameplayCompositionDiagnostic {
+                    code: GameplayCompositionDiagnosticCode::MissingExactArtifactProvenance,
+                    severity: DiagnosticSeverity::Error,
+                    path: "gameplayRuntime.compositionRequirement.artifactProvenanceDigest"
+                        .to_owned(),
+                    expected: None,
+                    actual: Some(artifact_actual.to_owned()),
+                    message: "exact composition mode requires authored artifact provenance"
+                        .to_owned(),
+                },
+            ]))
+        }
+        (_, Some(expected)) if expected != artifact_actual => {
+            let diagnostic = GameplayCompositionDiagnostic {
+                code: GameplayCompositionDiagnosticCode::ArtifactProvenanceMismatch,
+                severity: if requirement.load_mode == GameplayCompositionLoadMode::Exact {
+                    DiagnosticSeverity::Error
+                } else {
+                    DiagnosticSeverity::Warning
+                },
+                path: "gameplayRuntime.compositionRequirement.artifactProvenanceDigest"
+                    .to_owned(),
+                expected: Some(expected.to_owned()),
+                actual: Some(artifact_actual.to_owned()),
+                message: "linked artifact provenance differs while semantic compatibility remains unchanged"
+                    .to_owned(),
+            };
+            if requirement.load_mode == GameplayCompositionLoadMode::Exact {
+                Err(GameplayRuntimeHostError::Compatibility(vec![diagnostic]))
+            } else {
+                Ok((requirement.load_mode, vec![diagnostic]))
+            }
+        }
+        _ => Ok((requirement.load_mode, Vec::new())),
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct StoredGameplayRuntimeHostSnapshot {
     schema_version: u32,
+    semantic_compatibility_digest: String,
+    artifact_provenance_digest: String,
     session_snapshot: String,
     reaction_frames: Vec<GameplayReactionFrame>,
     decision_continuations: GameplayDecisionContinuations,
@@ -923,8 +1074,10 @@ fn gameplay_runtime_snapshot_hash(snapshot: &StoredGameplayRuntimeHostSnapshot) 
         .expect("decision continuations serialize");
     gameplay_module_payload_hash(
         format!(
-            "{}|{}|{}|{}|{}|{}",
+            "{}|{}|{}|{}|{}|{}|{}|{}",
             snapshot.schema_version,
+            snapshot.semantic_compatibility_digest,
+            snapshot.artifact_provenance_digest,
             snapshot.session_snapshot,
             frames,
             decisions,
@@ -1770,6 +1923,7 @@ mod tests {
         GameplayRuntimeHostInput {
             bundle: bundle(),
             composition: composition.build().expect("wave fixture composition"),
+            composition_requirement: None,
             bindings: bindings.build(),
             entity_targets: GameplayBindingEntityTargets::new(),
             spatial_entities: Vec::new(),
@@ -2083,6 +2237,7 @@ mod tests {
         GameplayRuntimeHostInput {
             bundle,
             composition: composition.build().expect("decision composition"),
+            composition_requirement: None,
             bindings: GameplayModuleBindingRegistryBuilder::new().build(),
             entity_targets: GameplayBindingEntityTargets::new(),
             spatial_entities: Vec::new(),
@@ -2116,6 +2271,7 @@ mod tests {
         GameplayRuntimeHostInput {
             bundle,
             composition: composition.build().expect("scheduler composition"),
+            composition_requirement: None,
             bindings: GameplayModuleBindingRegistryBuilder::new().build(),
             entity_targets: GameplayBindingEntityTargets::new(),
             spatial_entities: Vec::new(),
@@ -2226,6 +2382,140 @@ mod tests {
             workspace,
             resume_token: None,
         }
+    }
+
+    fn composition_requirement(
+        input: &GameplayRuntimeHostInput,
+        load_mode: GameplayCompositionLoadMode,
+        artifact_provenance_digest: Option<String>,
+    ) -> GameplayCompositionRequirement {
+        let identity =
+            gameplay_runtime_composition_identity(input.composition.registry(), &input.bindings);
+        GameplayCompositionRequirement {
+            load_mode,
+            semantic_compatibility_digest: identity.semantic_compatibility_digest,
+            artifact_provenance_digest,
+        }
+    }
+
+    #[test]
+    fn composition_load_policy_warns_for_legacy_and_benign_drift_but_exact_rejects() {
+        let legacy = GameplayRuntimeHost::activate(wave_fixture_host_input()).unwrap();
+        assert!(legacy
+            .readout()
+            .compatibility_diagnostics
+            .iter()
+            .any(|item| {
+                item.code == GameplayCompositionDiagnosticCode::LegacyCompatibilityDefaulted
+                    && item.severity == DiagnosticSeverity::Warning
+            }));
+
+        let mut compatible = wave_fixture_host_input();
+        compatible.composition_requirement = Some(composition_requirement(
+            &compatible,
+            GameplayCompositionLoadMode::Compatible,
+            Some("fnv1a64:0000000000000000".to_owned()),
+        ));
+        let compatible = GameplayRuntimeHost::activate(compatible).unwrap();
+        let compatible_readout = compatible.readout();
+        assert_eq!(
+            compatible_readout.composition_load_mode,
+            GameplayCompositionLoadMode::Compatible
+        );
+        assert!(compatible_readout
+            .compatibility_diagnostics
+            .iter()
+            .any(|item| {
+                item.code == GameplayCompositionDiagnosticCode::ArtifactProvenanceMismatch
+                    && item.severity == DiagnosticSeverity::Warning
+            }));
+        assert_ne!(
+            compatible_readout.artifact_provenance_digest,
+            compatible_readout.gameplay_registry_digest
+        );
+
+        let mut exact = wave_fixture_host_input();
+        exact.composition_requirement = Some(composition_requirement(
+            &exact,
+            GameplayCompositionLoadMode::Exact,
+            Some("fnv1a64:0000000000000000".to_owned()),
+        ));
+        assert!(matches!(
+            GameplayRuntimeHost::activate(exact),
+            Err(GameplayRuntimeHostError::Compatibility(diagnostics))
+                if diagnostics.iter().any(|item| {
+                    item.code == GameplayCompositionDiagnosticCode::ArtifactProvenanceMismatch
+                        && item.severity == DiagnosticSeverity::Error
+                })
+        ));
+
+        let mut exact_match = wave_fixture_host_input();
+        let exact_artifact = gameplay_runtime_composition_identity(
+            exact_match.composition.registry(),
+            &exact_match.bindings,
+        )
+        .artifact_provenance_digest;
+        exact_match.composition_requirement = Some(composition_requirement(
+            &exact_match,
+            GameplayCompositionLoadMode::Exact,
+            Some(exact_artifact),
+        ));
+        assert_eq!(
+            GameplayRuntimeHost::activate(exact_match)
+                .unwrap()
+                .readout()
+                .composition_load_mode,
+            GameplayCompositionLoadMode::Exact
+        );
+
+        let mut missing_exact = wave_fixture_host_input();
+        missing_exact.composition_requirement = Some(composition_requirement(
+            &missing_exact,
+            GameplayCompositionLoadMode::Exact,
+            None,
+        ));
+        assert!(matches!(
+            GameplayRuntimeHost::activate(missing_exact),
+            Err(GameplayRuntimeHostError::Compatibility(diagnostics))
+                if diagnostics.iter().any(|item| {
+                    item.code == GameplayCompositionDiagnosticCode::MissingExactArtifactProvenance
+                })
+        ));
+
+        let mut semantic_mismatch = wave_fixture_host_input();
+        let artifact = gameplay_runtime_composition_identity(
+            semantic_mismatch.composition.registry(),
+            &semantic_mismatch.bindings,
+        )
+        .artifact_provenance_digest;
+        semantic_mismatch.composition_requirement = Some(GameplayCompositionRequirement {
+            load_mode: GameplayCompositionLoadMode::Compatible,
+            semantic_compatibility_digest: "fnv1a64:0000000000000000".to_owned(),
+            artifact_provenance_digest: Some(artifact),
+        });
+        assert!(matches!(
+            GameplayRuntimeHost::activate(semantic_mismatch),
+            Err(GameplayRuntimeHostError::Compatibility(diagnostics))
+                if diagnostics.iter().any(|item| {
+                    item.code == GameplayCompositionDiagnosticCode::SemanticCompatibilityMismatch
+                })
+        ));
+
+        let baseline = wave_fixture_host_input();
+        let expected =
+            composition_requirement(&baseline, GameplayCompositionLoadMode::Compatible, None);
+        let mut binding_mismatch = wave_fixture_host_input();
+        binding_mismatch.bindings.bindings[0].enabled = false;
+        binding_mismatch.bindings.registry_hash =
+            gameplay_module_sdk::gameplay_module_binding_registry_hash(&binding_mismatch.bindings);
+        binding_mismatch.composition_requirement = Some(expected);
+        assert!(matches!(
+            GameplayRuntimeHost::activate(binding_mismatch),
+            Err(GameplayRuntimeHostError::Compatibility(diagnostics))
+                if diagnostics.iter().any(|item| {
+                    item.code == GameplayCompositionDiagnosticCode::SemanticCompatibilityMismatch
+                })
+        ));
     }
 
     #[test]

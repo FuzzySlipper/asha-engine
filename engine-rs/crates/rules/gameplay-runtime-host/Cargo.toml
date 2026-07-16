@@ -12,6 +12,7 @@ core-ids = { path = "../../foundation/core-ids" }
 core-math = { path = "../../foundation/core-math" }
 gameplay-module-sdk = { path = "../gameplay-module-sdk" }
 protocol-game-extension = { path = "../../protocol/protocol-game-extension" }
+protocol-diagnostics = { path = "../../protocol/protocol-diagnostics" }
 protocol-entity-authoring = { path = "../../protocol/protocol-entity-authoring" }
 protocol-project-bundle = { path = "../../protocol/protocol-project-bundle" }
 rule-gameplay-fabric = { path = "../rule-gameplay-fabric" }

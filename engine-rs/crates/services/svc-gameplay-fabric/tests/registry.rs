@@ -210,6 +210,32 @@ fn typed_codecs_and_two_namespaces_produce_order_independent_topology() {
 }
 
 #[test]
+fn semantic_identity_ignores_provenance_but_binds_declared_compatibility() {
+    let baseline = build_pair(false);
+
+    let (mut source_changed, feedback) = valid_pair();
+    source_changed.source_hash = stable_identity(["source", "rebuilt"]);
+    source_changed.module_ref.artifact_hash = stable_identity(["artifact", "rebuilt"]);
+    let rebuilt = build_manifests(source_changed, feedback, false);
+    assert_eq!(
+        baseline.semantic_compatibility_digest(),
+        rebuilt.semantic_compatibility_digest()
+    );
+    assert_ne!(
+        baseline.artifact_provenance_digest(),
+        rebuilt.artifact_provenance_digest()
+    );
+
+    let (mut behavior_changed, feedback) = valid_pair();
+    behavior_changed.module_ref.version = "2.0.0".to_owned();
+    let incompatible = build_manifests(behavior_changed, feedback, false);
+    assert_ne!(
+        baseline.semantic_compatibility_digest(),
+        incompatible.semantic_compatibility_digest()
+    );
+}
+
+#[test]
 fn codec_admission_rejects_noncanonical_unknown_and_wrong_hash_payloads() {
     let registry = build_pair(false);
     let event = event_declaration().event;

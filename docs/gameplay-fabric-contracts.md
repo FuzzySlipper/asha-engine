@@ -92,11 +92,40 @@ Validation fails before a Session can receive the registry when it finds:
 - zero execution budgets; or
 - unknown ordering targets or an ordering cycle.
 
-Successful construction produces a deterministic registry digest, canonical
-topology dump, and `GameplayRegistryReadout`. The digest includes SDK,
-contract, source, linked-provenance, proposal-schema, invocation input/output,
-and exact invocation-local read topology. Reversing registration order does
-not change these artifacts.
+Successful registry construction produces two deliberately different
+registry identities plus a canonical topology dump and
+`GameplayRegistryReadout`:
+
+- the registry's **semantic compatibility digest** covers module identity and
+  declared behavior-compatibility version, public SDK/contract/codec
+  identities, authority owners, ordering, budgets, and invocation-local read
+  topology;
+- the registry's **artifact provenance digest** additionally covers the exact
+  linked artifact and source/build provenance that produced the running
+  registry.
+
+At RuntimeSession composition, those registry identities are combined with
+the authored binding registry. The resulting composition semantic identity
+includes configuration values, binding targets, overrides, and enabled state
+while excluding only exact module artifact hashes. The composition artifact
+identity includes the exact binding registry as well.
+
+Reversing registration order changes neither identity. Runtime continuations,
+snapshots, and replay records retain the exact producer identity. Authored
+ProjectBundle loading uses the semantic identity as its normal availability
+contract instead of treating source or lockfile churn as a gameplay contract
+change.
+
+ProjectBundle compatibility has two explicit modes. Normal `compatible` mode
+fails closed for a semantic digest, declared behavior version, contract,
+codec, owner topology, or binding mismatch. An artifact-only mismatch loads
+and produces a typed advisory in the public runtime readout. Explicit `exact`
+mode also requires the recorded artifact provenance digest and rejects a
+mismatch with expected/actual evidence. Exact mode is for replay reproduction,
+certification, and deliberately pinned deployments; it is not the migration
+default for older ProjectBundles. A legacy bundle without an explicit
+requirement enters compatible mode with a migration advisory rather than an
+implicit exact lock.
 
 Read-view registrations are also closed topology. They name a semantic view
 kind, available fields, supported selectors, an item quota, and an ordering
