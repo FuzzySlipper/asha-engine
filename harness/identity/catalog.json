@@ -1660,6 +1660,12 @@
         "sourceHash": "sha256:1aa893375d61f84a12f7af1a855a478124990570fb6c9cce0a91d9254766068a"
       },
       {
+        "id": "apply_scene_document_authoring",
+        "surface": "stable",
+        "quarantineReason": null,
+        "sourceHash": "sha256:a5bd79ecaff9a553518391f1cd55119e426273bc42bcfadc5b7d7befaab5e9a9"
+      },
+      {
         "id": "apply_scene_object_command",
         "surface": "stable",
         "quarantineReason": null,
@@ -1694,6 +1700,12 @@
         "surface": "stable",
         "quarantineReason": null,
         "sourceHash": "sha256:1c5c26c374e717ee721a8df4352e87325515c4c7ec753f8d816d18c7292af2b6"
+      },
+      {
+        "id": "configure_voxel_projection_instances",
+        "surface": "stable",
+        "quarantineReason": null,
+        "sourceHash": "sha256:db43f576719cfb8f232a08cf99c4d12fa4e3d68c46c9f3ca406c7dbd91657bbf"
       },
       {
         "id": "create_camera",
@@ -1802,6 +1814,12 @@
         "surface": "stable",
         "quarantineReason": null,
         "sourceHash": "sha256:440bd8dfc36c2f6db7aaddf99c3663276cb0081a6698deba5e60785df39c31a7"
+      },
+      {
+        "id": "pick_voxel_instance",
+        "surface": "stable",
+        "quarantineReason": null,
+        "sourceHash": "sha256:f0a28f6e9aea1abf52881fe4afaff5a42c4a3f98b3cfacab0c13c5e30786fc05"
       },
       {
         "id": "plan_voxel_conversion",
@@ -2789,7 +2807,7 @@
         "id": "@asha/contracts",
         "kind": "typescript",
         "disposition": "preferred",
-        "sourceHash": "sha256:6258a91ef1d41c86e63b3211632058c78c2e333397017aef7ba9f5bcc5692c97"
+        "sourceHash": "sha256:91455c2814247dcfca720d4a9f721508e6a73bc7347d523f91a884b865cf2ff5"
       },
       {
         "id": "@asha/cosmetic",
@@ -2819,7 +2837,7 @@
         "id": "@asha/game-workspace",
         "kind": "typescript",
         "disposition": "preferred",
-        "sourceHash": "sha256:b7f74e9cf1ba9ef8470b13ab1d9e3b6670b4e439932100522ba3317210034f3f"
+        "sourceHash": "sha256:594fa6491c9ccc4dc76920963dc884fa3384951a48c768d6eb1d8fe407ac5516"
       },
       {
         "id": "@asha/native-bridge",
@@ -2861,13 +2879,13 @@
         "id": "@asha/runtime-bridge",
         "kind": "typescript",
         "disposition": "preferred",
-        "sourceHash": "sha256:747dede3362b19f4ffff0bdb29f6276ab94f6f224a138f758db7b65777dd651f"
+        "sourceHash": "sha256:f9755b196e753bfa21edd108fb4c2ae59f6fb965b8da2a6bd6ee9f10d51b7e54"
       },
       {
         "id": "@asha/runtime-session",
         "kind": "typescript",
         "disposition": "preferred",
-        "sourceHash": "sha256:5bb3d39bb0dbbd94e49c6e7665b8edc67ee8c16c2c16969e918fe056497c28e4"
+        "sourceHash": "sha256:3ea6c60fd8bb6e0d39f929819c1b6177c86ae85fd732874d9dd8e9f6bc369ec7"
       },
       {
         "id": "@asha/script-host",
@@ -3071,5 +3089,5 @@
       }
     ]
   },
-  "catalogHash": "sha256:790e0aa21c5500c81d90090a02ff31f25ddd7d2ac9b81f26cb097564e3f377a3"
+  "catalogHash": "sha256:dcbb6406beecb0d31eeaeaeac6f9ce880a03a2c94d250c1707c3ac8c240eb7d0"
 }
