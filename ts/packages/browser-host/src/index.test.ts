@@ -719,6 +719,7 @@ function createFakeRuntimeBridge(): RuntimeBridge {
     readModelMaterialPreview: operation,
     decodeSceneDocument: operation,
     encodeSceneDocument: operation,
+    applySceneDocumentAuthoring: operation,
     loadFpsRuntimeSession: operation,
     readFpsRuntimeSession: operation,
     applyFpsPrimaryFire: operation,
