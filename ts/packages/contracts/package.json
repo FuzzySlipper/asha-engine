@@ -6,7 +6,7 @@
     "publicSurface": {
       "tier": 1,
       "role": "generated-contracts",
-      "allowedConsumers": ["asha-testing", "asha-demo", "asha-studio"],
+      "allowedConsumers": ["asha-testing", "asha-demo", "asha-studio", "downstream-authoring"],
       "rootExportOnly": true,
       "nativeTransportAccess": false,
       "source": "engine-rs/crates/protocol/* via protocol-codegen"

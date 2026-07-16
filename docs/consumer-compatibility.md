@@ -26,8 +26,8 @@ Every `ts/packages/*` package is listed there as `public`, `unstable`, or `inter
 Consumer repos should validate allowlists against that manifest instead of inventing
 their own package truth. The manifest records each package's ownership key, intended
 consumer role, compatibility marker when one exists, and changelog anchor.
-It also records consumer-role import policies, starting with the `asha-demo`
-package-root allowlist and private/internal forbidden alternatives.
+It also records consumer-role import policies: exact package-root allowlists,
+approved export subpaths, and private/internal forbidden alternatives.
 
 The Rust manifest records approved public facade crates for downstream compiled
 game modules. Shipping and clean-checkout consumers use the repository's
@@ -115,6 +115,7 @@ The metadata schema is intentionally tiny for now:
 - `asha-testing` is the synthetic proof/conformance consumer. It owns boundary checks, compatibility evidence, generated proof artifacts, and scripted conformance workflows.
 - `asha-demo` is the new human-facing demo/product-content repo. It should start from a product README and consume approved engine public or unstable surfaces through the engine manifest. Proof harnesses can be added later, but should not become the repo identity.
 - `asha-studio` is the editor/product tooling repo. It may use Studio-approved unstable packages through its own boundary policy, but those allowlists should validate against the engine manifest.
+- `downstream-authoring` is the reusable offline authoring/compiler role. It may import only the package roots `@asha/contracts`, `@asha/game-workspace`, `@asha/runtime-bridge`, and `@asha/runtime-session`, with no package subpaths. This role does not imply browser, renderer, UI, devtools, editor, raw native, or WASM access.
 
 No consumer should import raw native transports, generated contract internals, ASHA package `src/*` paths, Rust crate paths, or arbitrary runtime JSON tunnels. Missing public API should become an ASHA engine feature request, not a private import.
 

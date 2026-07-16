@@ -67,6 +67,27 @@ def require_root_only_export(pkg_name: str, pkg: dict[str, Any], record: dict[st
         fail(f"{pkg_name} must expose only approved exports; got {sorted(exports.keys())}, expected {sorted(expected_exports)}")
 
 
+def require_package_consumer_roles(
+    pkg_name: str,
+    pkg: dict[str, Any],
+    manifest_roles: list[str],
+) -> None:
+    asha = pkg.get("asha")
+    if not isinstance(asha, dict):
+        return
+    public_surface = asha.get("publicSurface")
+    if not isinstance(public_surface, dict):
+        return
+    package_roles = public_surface.get("allowedConsumers")
+    if not isinstance(package_roles, list) or not all(isinstance(role, str) for role in package_roles):
+        fail(f"{pkg_name} package publicSurface.allowedConsumers must be a string array")
+    if sorted(package_roles) != sorted(manifest_roles):
+        fail(
+            f"{pkg_name} package publicSurface.allowedConsumers must match "
+            f"ts-packages.json allowedConsumerRoles"
+        )
+
+
 def github_anchor(heading: str) -> str:
     slug = heading.strip().lower()
     slug = re.sub(r"`([^`]*)`", r"\1", slug)
@@ -291,6 +312,7 @@ def check_ts_manifest() -> None:
         if pkg.get("name") != pkg_name:
             fail(f"{pkg_name} package name drifted: {pkg.get('name')}")
         require_root_only_export(pkg_name, pkg, record)
+        require_package_consumer_roles(pkg_name, pkg, cast(list[str], allowed_roles))
 
         changelog = record.get("changelog")
         if status in {"public", "unstable"}:

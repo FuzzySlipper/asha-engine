@@ -6,7 +6,7 @@
     "publicSurface": {
       "tier": 1,
       "role": "runtime-session-facade",
-      "allowedConsumers": ["asha-testing", "asha-demo", "asha-studio"],
+      "allowedConsumers": ["asha-testing", "asha-demo", "asha-studio", "downstream-authoring"],
       "rootExportOnly": true,
       "nativeTransportAccess": false,
       "nativeTransportRule": "@asha/runtime-session must not import @asha/native-bridge or @asha/runtime-bridge; concrete bridge-backed adapters are constructed by @asha/runtime-bridge."

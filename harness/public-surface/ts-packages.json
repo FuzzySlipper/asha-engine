@@ -105,6 +105,43 @@
         "three/*",
         "engine-rs/crates/*"
       ]
+    },
+    {
+      "consumerRole": "downstream-authoring",
+      "approvedPackageRoots": [
+        "@asha/contracts",
+        "@asha/game-workspace",
+        "@asha/runtime-bridge",
+        "@asha/runtime-session"
+      ],
+      "approvedPackageSubpaths": [],
+      "forbiddenPackageRoots": [
+        "@asha/app",
+        "@asha/browser-host",
+        "@asha/catalog-core",
+        "@asha/command-registry",
+        "@asha/devtools",
+        "@asha/editor-tools",
+        "@asha/native-bridge",
+        "@asha/policy-core",
+        "@asha/policy-examples",
+        "@asha/render-projection",
+        "@asha/renderer-host",
+        "@asha/renderer-three",
+        "@asha/script-host",
+        "@asha/script-sdk",
+        "@asha/ui-dom",
+        "@asha/wasm-replay-bridge"
+      ],
+      "forbiddenSpecifierPatterns": [
+        "@asha/*/src/*",
+        "@asha/*/dist/generated/*",
+        "@asha/native-bridge/*",
+        "@asha/renderer-three/*",
+        "three",
+        "three/*",
+        "engine-rs/crates/*"
+      ]
     }
   ],
   "packages": [
@@ -113,7 +150,7 @@
       "status": "public",
       "ownershipKey": "ts/packages/contracts",
       "intendedConsumerRole": "Generated semantic DTO/type border for consumers.",
-      "allowedConsumerRoles": ["asha-testing", "asha-demo", "asha-studio"],
+      "allowedConsumerRoles": ["asha-testing", "asha-demo", "asha-studio", "downstream-authoring"],
       "compatibilityMarker": "contracts.v0",
       "changelog": "docs/consumer-compatibility.md#generated-contract-compatibility-log"
     },
@@ -131,7 +168,7 @@
       "status": "public",
       "ownershipKey": "ts/packages/runtime-bridge",
       "intendedConsumerRole": "Transport-neutral runtime facade; consumers never bypass it to raw transports.",
-      "allowedConsumerRoles": ["asha-testing", "asha-demo", "asha-studio"],
+      "allowedConsumerRoles": ["asha-testing", "asha-demo", "asha-studio", "downstream-authoring"],
       "allowedExportSubpaths": ["./reference"],
       "compatibilityMarker": "runtime-bridge.v0",
       "changelog": "docs/consumer-compatibility.md#runtime-bridge-compatibility-log"
@@ -141,7 +178,7 @@
       "status": "unstable",
       "ownershipKey": "ts/packages/runtime-session",
       "intendedConsumerRole": "Transport-neutral RuntimeSession semantic readouts, proposal envelopes, and domain helper projections consumed through the package root.",
-      "allowedConsumerRoles": ["asha-testing", "asha-demo", "asha-studio"],
+      "allowedConsumerRoles": ["asha-testing", "asha-demo", "asha-studio", "downstream-authoring"],
       "compatibilityMarker": "runtime-session.v0",
       "changelog": "docs/consumer-compatibility.md#runtime-session-compatibility-log"
     },
@@ -176,7 +213,7 @@
       "status": "unstable",
       "ownershipKey": "ts/packages/game-workspace",
       "intendedConsumerRole": "Typed game/workspace manifest validation plus atomic unknown-to-typed prefab source decoding, non-authoritative prefab draft commands, browser/selection readouts, placement records, and canonical source serialization for consumer repos.",
-      "allowedConsumerRoles": ["asha-testing", "asha-demo", "asha-studio"],
+      "allowedConsumerRoles": ["asha-testing", "asha-demo", "asha-studio", "downstream-authoring"],
       "compatibilityMarker": "game-workspace.v0",
       "changelog": "docs/consumer-compatibility.md#game-workspace-compatibility-log"
     },

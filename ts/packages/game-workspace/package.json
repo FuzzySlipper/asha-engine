@@ -1,6 +1,15 @@
 {
   "name": "@asha/game-workspace",
   "version": "0.1.0",
+  "asha": {
+    "publicSurface": {
+      "tier": 1,
+      "role": "downstream-authoring-workspace",
+      "allowedConsumers": ["asha-testing", "asha-demo", "asha-studio", "downstream-authoring"],
+      "rootExportOnly": true,
+      "nativeTransportAccess": false
+    }
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
