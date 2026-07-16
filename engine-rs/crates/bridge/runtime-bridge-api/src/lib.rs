@@ -84,10 +84,10 @@ pub use protocol_presentation::{
     ParticleProjectionDiagnostic, ParticleProjectionDiagnosticCode, ParticleProjectionOp,
     ParticleProjectionReadout, ParticleScalarKey, ParticleSpriteRef, PresentationFrameDiff,
     PresentationOp, PresentationOpMeta, PresentationOriginKind, PresentationOriginRef,
-    ProjectionReplayScope, RuntimeProjectionFrame, TelemetryOverlayCorner,
-    TelemetryOverlayDescriptor, TelemetryOverlayDiagnostic, TelemetryOverlayDiagnosticCode,
-    TelemetryOverlayHandle, TelemetryOverlayPatch, TelemetryOverlayProjectionOp,
-    TelemetryOverlayReadout, RUNTIME_PROJECTION_SCHEMA_VERSION,
+    ProjectionReplayScope, RuntimeProjectionFrame, SceneDocumentAuthoringResultDto,
+    TelemetryOverlayCorner, TelemetryOverlayDescriptor, TelemetryOverlayDiagnostic,
+    TelemetryOverlayDiagnosticCode, TelemetryOverlayHandle, TelemetryOverlayPatch,
+    TelemetryOverlayProjectionOp, TelemetryOverlayReadout, RUNTIME_PROJECTION_SCHEMA_VERSION,
 };
 pub(crate) use protocol_render::{
     MeshAttribute, MeshAttributeKind, MeshAttributeName, MeshBoundsDescriptor, MeshBufferLayout,
@@ -100,14 +100,13 @@ pub use protocol_render::{
 pub use protocol_scene::{
     AssetReferenceDto, AssetVersionReqDto, FlatSceneDocumentDto,
     SceneDocumentAuthoringRejectionCode, SceneDocumentAuthoringRejectionDto,
-    SceneDocumentAuthoringRequestDto, SceneDocumentAuthoringResultDto,
-    SceneDocumentCodecDiagnosticCode, SceneDocumentCodecDiagnosticDto, SceneDocumentCodecResultDto,
-    SceneDocumentDecodeRequestDto, SceneDocumentEncodeRequestDto, SceneLightDto,
-    SceneLightShadowIntentDto, SceneMetadataDto, SceneNodeKindDto, SceneNodeRecordDto,
-    SceneObjectCommandDto, SceneObjectCommandOutcomeDto, SceneObjectCommandRejectionCode,
-    SceneObjectCommandRejectionDto, SceneObjectCommandRequestDto, SceneObjectCommandResultDto,
-    SceneObjectRecordDto, SceneObjectSnapshotDto, SceneTransformDto, SceneValidationCode,
-    SceneValidationErrorDto, SceneValidationReportDto,
+    SceneDocumentAuthoringRequestDto, SceneDocumentCodecDiagnosticCode,
+    SceneDocumentCodecDiagnosticDto, SceneDocumentCodecResultDto, SceneDocumentDecodeRequestDto,
+    SceneDocumentEncodeRequestDto, SceneLightDto, SceneLightShadowIntentDto, SceneMetadataDto,
+    SceneNodeKindDto, SceneNodeRecordDto, SceneObjectCommandDto, SceneObjectCommandOutcomeDto,
+    SceneObjectCommandRejectionCode, SceneObjectCommandRejectionDto, SceneObjectCommandRequestDto,
+    SceneObjectCommandResultDto, SceneObjectRecordDto, SceneObjectSnapshotDto, SceneTransformDto,
+    SceneValidationCode, SceneValidationErrorDto, SceneValidationReportDto,
 };
 pub use protocol_time_control::{
     TimeControlCommand, TimeControlMode, TimeControlReceipt, TimeControlRejection,

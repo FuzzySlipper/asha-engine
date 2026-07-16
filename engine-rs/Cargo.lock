@@ -644,6 +644,7 @@ version = "0.1.0"
 dependencies = [
  "core-ids",
  "protocol-render",
+ "protocol-scene",
  "serde",
 ]
 
@@ -678,7 +679,6 @@ name = "protocol-scene"
 version = "0.1.0"
 dependencies = [
  "core-ids",
- "protocol-render",
 ]
 
 [[package]]

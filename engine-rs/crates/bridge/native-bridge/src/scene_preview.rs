@@ -11,13 +11,15 @@ use protocol_render::{
 };
 use protocol_scene::{
     AssetReferenceDto, AssetVersionReqDto, FlatSceneDocumentDto, SceneDocumentCodecResultDto,
-    SceneDocumentAuthoringRequestDto, SceneDocumentAuthoringResultDto,
+    SceneDocumentAuthoringRequestDto,
     SceneDocumentDecodeRequestDto, SceneDocumentEncodeRequestDto, SceneLightDto,
     SceneLightShadowIntentDto, SceneMetadataDto, SceneNodeKindDto, SceneNodeRecordDto,
     SceneObjectCommandDto, SceneObjectCommandRequestDto, SceneObjectCommandResultDto,
     SceneTransformDto, SceneValidationErrorDto,
 };
-use runtime_bridge_api::{RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind};
+use runtime_bridge_api::{
+    RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind, SceneDocumentAuthoringResultDto,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 

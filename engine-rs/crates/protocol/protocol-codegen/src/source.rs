@@ -889,6 +889,7 @@ const MODULE_PLANS: &[ModulePlan] = &[
         name: "scene",
         preferred_paths: &[
             "protocol/protocol-scene",
+            "protocol/protocol-presentation",
             "foundation/core-assets",
         ],
         imports: &[("./ids.js", "EntityId"), ("./render.js", "RenderFrameDiff")],

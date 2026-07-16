@@ -34,7 +34,6 @@
 #![forbid(unsafe_code)]
 
 use core_ids::{EntityId, RuntimeSessionId, SceneId, SceneNodeId};
-use protocol_render::RenderFrameDiff;
 
 // ── Stable string vocabularies (the contract) ─────────────────────────────────
 
@@ -485,17 +484,6 @@ pub struct SceneDocumentAuthoringRejectionDto {
     pub message: String,
     pub expected_hash: Option<String>,
     pub actual_hash: Option<String>,
-}
-
-/// Accepted stored authoring output. Rejections never carry a document or
-/// projection, preventing callers from adopting their unvalidated candidate.
-#[derive(Debug, Clone, PartialEq)]
-pub struct SceneDocumentAuthoringResultDto {
-    pub accepted: bool,
-    pub document: Option<FlatSceneDocumentDto>,
-    pub content_hash: Option<String>,
-    pub authored_light_frame: Option<RenderFrameDiff>,
-    pub rejection: Option<SceneDocumentAuthoringRejectionDto>,
 }
 
 // ── Validation border DTOs ────────────────────────────────────────────────────

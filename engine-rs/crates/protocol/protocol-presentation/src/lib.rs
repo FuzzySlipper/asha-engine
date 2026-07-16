@@ -7,6 +7,7 @@
 #![forbid(unsafe_code)]
 
 use protocol_render::{RenderFrameDiff, RenderHandle};
+use protocol_scene::{FlatSceneDocumentDto, SceneDocumentAuthoringRejectionDto};
 use serde::{Deserialize, Serialize};
 
 pub const RUNTIME_PROJECTION_SCHEMA_VERSION: u16 = 1;
@@ -733,6 +734,19 @@ pub struct RuntimeProjectionFrame {
     pub authority_tick: u64,
     pub scene: RenderFrameDiff,
     pub presentation: PresentationFrameDiff,
+}
+
+// The renderer-neutral scene protocol deliberately stops before this composite
+// boundary; protocol-presentation is the first layer allowed to join both types.
+/// Accepted stored authoring output. Rejections never carry a document or
+/// projection, preventing callers from adopting their unvalidated candidate.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SceneDocumentAuthoringResultDto {
+    pub accepted: bool,
+    pub document: Option<FlatSceneDocumentDto>,
+    pub content_hash: Option<String>,
+    pub authored_light_frame: Option<RenderFrameDiff>,
+    pub rejection: Option<SceneDocumentAuthoringRejectionDto>,
 }
 
 impl RuntimeProjectionFrame {

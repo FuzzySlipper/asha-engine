@@ -11,4 +11,3 @@ publish = false
 # It depends only on identifier and renderer-neutral border crates.
 [dependencies]
 core-ids = { path = "../../foundation/core-ids" }
-protocol-render = { path = "../protocol-render" }
