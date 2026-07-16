@@ -91,11 +91,15 @@ impl EngineBridge {
         }
 
         let result = CommandResult {
-            accepted: accepted_commands.len().min(u32::MAX as usize) as u32,
+            accepted: if rejections.is_empty() {
+                accepted_commands.len().min(u32::MAX as usize) as u32
+            } else {
+                0
+            },
             rejected: rejections.len().min(u32::MAX as usize) as u32,
             rejections,
         };
-        if accepted_commands.is_empty() {
+        if result.rejected != 0 || accepted_commands.is_empty() {
             return Ok(result);
         }
 

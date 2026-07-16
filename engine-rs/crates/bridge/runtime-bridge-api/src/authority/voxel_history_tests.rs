@@ -90,8 +90,12 @@ fn rejected_commands_do_not_invent_history_entries_or_undo_depth() {
 }
 
 #[test]
-fn mixed_batches_preserve_partial_acceptance_and_record_one_accepted_transaction() {
+fn mixed_batches_reject_atomically_without_world_projection_or_history_mutation() {
     let mut bridge = init_bridge();
+    let world_hash_before = rule_voxel_edit::voxel_world_hash(bridge.voxel.voxel.as_ref().unwrap());
+    let history_before = bridge.read_voxel_edit_history(read_request()).unwrap();
+    let _ = bridge.read_render_diffs(0).unwrap();
+
     let result = bridge
         .submit_commands(CommandBatch {
             commands: vec![
@@ -100,13 +104,18 @@ fn mixed_batches_preserve_partial_acceptance_and_record_one_accepted_transaction
             ],
         })
         .unwrap();
-    assert_eq!(result.accepted, 1);
+    assert_eq!(result.accepted, 0);
     assert_eq!(result.rejected, 1);
 
-    let summary = bridge.read_voxel_edit_history(read_request()).unwrap();
-    assert_eq!(summary.entries.len(), 1);
-    assert_eq!(summary.entries[0].command_count, 1);
-    assert_eq!(summary.cursor.undo_depth, 1);
+    assert_eq!(
+        rule_voxel_edit::voxel_world_hash(bridge.voxel.voxel.as_ref().unwrap()),
+        world_hash_before
+    );
+    assert_eq!(
+        bridge.read_voxel_edit_history(read_request()).unwrap(),
+        history_before
+    );
+    assert!(bridge.read_render_diffs(0).unwrap().ops.is_empty());
 }
 
 #[test]

@@ -654,8 +654,9 @@ fn mesh_evidence_fails_closed_before_init_and_unknown_grid() {
 }
 
 #[test]
-fn mixed_batch_accepts_valid_and_classifies_invalid_in_order() {
+fn mixed_batch_classifies_invalid_input_and_withholds_the_valid_peer_atomically() {
     let mut bridge = init_bridge();
+    let before = rule_voxel_edit::voxel_world_hash(bridge.voxel.voxel.as_ref().unwrap());
     let result = bridge
         .submit_commands(CommandBatch {
             commands: vec![
@@ -664,12 +665,16 @@ fn mixed_batch_accepts_valid_and_classifies_invalid_in_order() {
             ],
         })
         .unwrap();
-    assert_eq!(result.accepted, 1);
+    assert_eq!(result.accepted, 0);
     assert_eq!(result.rejected, 1);
     assert!(matches!(
         result.rejections[0],
         VoxelEditRejection::UnknownMaterial(_)
     ));
+    assert_eq!(
+        rule_voxel_edit::voxel_world_hash(bridge.voxel.voxel.as_ref().unwrap()),
+        before
+    );
 }
 
 // ── Voxel picking → Rust authority raycast (launchable-voxel, #2437) ──

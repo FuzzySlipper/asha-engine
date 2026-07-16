@@ -164,9 +164,12 @@ pub const VOXEL_COMMAND_BATCH_MAX_TOUCHED_VOXELS: u64 =
     rule_voxel_edit::DEFAULT_VOXEL_EDIT_MAX_TOUCHED_VOXELS;
 
 /// The classified outcome of a [`RuntimeBridge::submit_commands`] batch: how many
-/// commands authority accepted/rejected, plus the classified rejection for each
-/// refused command (never a silent drop). Accepted commands have already mutated
-/// authority voxel state and marked their chunks dirty.
+/// commands authority committed plus the classified rejection for each invalid
+/// command (never a silent drop). The batch is atomic: if any command is invalid,
+/// `accepted` is zero and otherwise-valid peer commands are withheld without
+/// mutation. In that case `accepted + rejected` need not equal the batch length.
+/// Accepted commands have already mutated authority voxel state and marked their
+/// chunks dirty.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct CommandResult {
     pub accepted: u32,

@@ -216,9 +216,7 @@ fn explicit_empty_instance_binding_never_recreates_the_legacy_default() {
 
     let mut empty = binding_request(4);
     empty.instances.clear();
-    let receipt = bridge
-        .configure_voxel_projection_instances(empty)
-        .unwrap();
+    let receipt = bridge.configure_voxel_projection_instances(empty).unwrap();
     assert_eq!(receipt.instance_count, 0);
     assert_eq!(receipt.projection_op_count, 2);
 
