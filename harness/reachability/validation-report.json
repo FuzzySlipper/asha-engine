@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "valid": true,
   "manifest": "harness/reachability/manifest.json",
-  "manifestHash": "sha256:eda46a7c45552e5f2bc139d44350d76c0ee8a08ec65b40907139780dcdd83e6c",
+  "manifestHash": "sha256:a28c97b0434608719f4c0b82a377d30979f62d0c97d4792316d8c8eb7d974c30",
   "identityCatalogHash": "sha256:812e952099ab5b6aad200e281ae1fe598758ccae2d70ad689e5b7f1b313757e3",
   "catalogs": [
     {
@@ -23,11 +23,11 @@
     },
     {
       "path": "harness/consumer-needs/validation-report.json",
-      "hash": "sha256:eb9d0925dc7bc8b5905fe9abe9055eb327c8c2da8a74fb3293cb0a22ab4871db"
+      "hash": "sha256:61525ee4a316f1526c6d970980dac3607b09dc0610caedd1ee20379f22f7d825"
     },
     {
       "path": "ts/packages/contracts/src/generated/gameExtension.ts",
-      "hash": "sha256:ea671385db805d0e4ff20d347d6a4771b34923d055d5fd13746c4fc7fbb044ca"
+      "hash": "sha256:7583f81c69e5ab3caf03e7369707b31d019b962b0a8a6a7a50ddcf77e8b4e4cb"
     }
   ],
   "capabilityCount": 25,
@@ -50,7 +50,7 @@
       "id": "catalog.generated-contracts",
       "kind": "generatedContracts",
       "valid": true,
-      "actualCount": 659
+      "actualCount": 663
     },
     {
       "id": "catalog.rust-public-surfaces",

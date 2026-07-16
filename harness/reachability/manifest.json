@@ -17,7 +17,7 @@
     {
       "id": "catalog.generated-contracts",
       "kind": "generatedContracts",
-      "expectedCount": 659,
+      "expectedCount": 663,
       "proof": { "path": "engine-rs/crates/protocol/protocol-codegen/src/lib.rs", "token": "rust_mirrored_ir_entries_have_round_trip_coverage_or_exemption" }
     },
     {
