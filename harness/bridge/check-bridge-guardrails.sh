@@ -27,7 +27,7 @@ TS_DIRS=(
 # (the tokens appear in doc comments describing the rules). grep output is
 # `path:lineno:content` — drop lines whose content starts with //, ///, //!, *, #.
 exclude_quarantine() {
-  grep -vE '(/generated/|\.test\.|/__tests__/|/devtools/|/fixtures/)' \
+  grep -vE '(/generated/|\.test\.|/__tests__/|/tests/|/tests\.rs:|/devtools/|/fixtures/)' \
     | grep -vE ':[0-9]+:[[:space:]]*(//|/\*|\*|#)'
 }
 
