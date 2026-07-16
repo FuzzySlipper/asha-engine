@@ -24,6 +24,7 @@ GAMEPLAY_MANIFEST_PATH = MANIFEST_DIR / "gameplay-module-fixture.json"
 GAMEPLAY_CONFORMANCE_MANIFEST = (
     ROOT / "harness/fixtures/gameplay-module-sdk/downstream-module/Cargo.toml"
 )
+DECLARED_EXTERNAL_EVIDENCE_ROOTS = {"asha-demo", "asha-studio"}
 
 KINDS = {
     "typescriptPackage", "runtimeOperation", "runtimeReadout", "generatedType",
@@ -126,6 +127,17 @@ def validate_evidence(
         )
         for ref in refs:
             if "://" in ref:
+                continue
+            parts = Path(ref).parts
+            if (
+                len(parts) >= 2
+                and parts[0] == ".."
+                and parts[1] in DECLARED_EXTERNAL_EVIDENCE_ROOTS
+                and not (ROOT.parent / parts[1]).is_dir()
+            ):
+                # Downstream evidence is validated when its declared sibling
+                # checkout is present. A clean engine checkout must not gain
+                # failures merely because ambient sibling repositories are absent.
                 continue
             evidence_path = (ROOT / ref).resolve()
             if not evidence_path.exists():

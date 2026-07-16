@@ -12,10 +12,30 @@ sys.path.insert(0, str(ROOT / "harness/identity"))
 
 from execution import ExecutionError, make_plan, run_plan  # noqa: E402
 
+DECLARED_EXTERNAL_EXECUTION_ROOTS = {"asha-demo", "asha-studio"}
+
+
+def available_execution_ids() -> list[str]:
+    definitions_path = ROOT / "harness/identity/executions.json"
+    definitions = json.loads(definitions_path.read_text(encoding="utf-8"))["executions"]
+    available: list[str] = []
+    for definition in definitions:
+        external_roots = {
+            parts[1]
+            for source in definition.get("inputs", [])
+            if len(parts := pathlib.PurePosixPath(source).parts) >= 2
+            and parts[0] == ".."
+            and parts[1] in DECLARED_EXTERNAL_EXECUTION_ROOTS
+        }
+        if any(not (ROOT.parent / root).is_dir() for root in external_roots):
+            continue
+        available.append(definition["id"])
+    return available
+
 
 def main() -> int:
     try:
-        plan = make_plan()
+        plan = make_plan(available_execution_ids())
         exit_code, report = run_plan(plan)
     except ExecutionError as error:
         print(f"conformance execution: {error}", file=sys.stderr)

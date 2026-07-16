@@ -14,6 +14,7 @@ import tomllib
 from typing import Any
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+DECLARED_EXTERNAL_EVIDENCE_ROOTS = {"asha-demo", "asha-studio"}
 DEFAULT_MANIFEST = ROOT / "harness/reachability/manifest.json"
 DEFAULT_REPORT = ROOT / "harness/reachability/validation-report.json"
 
@@ -84,6 +85,14 @@ def evidence_token(
         )
         return
     file_path = ROOT / source
+    source_parts = pathlib.PurePosixPath(source).parts
+    if (
+        len(source_parts) >= 2
+        and source_parts[0] == ".."
+        and source_parts[1] in DECLARED_EXTERNAL_EVIDENCE_ROOTS
+        and not (ROOT.parent / source_parts[1]).is_dir()
+    ):
+        return
     if not file_path.is_file():
         gap(gaps, capability, "missing_evidence_path", f"{path}.path", f"missing evidence file {source!r}")
         return
