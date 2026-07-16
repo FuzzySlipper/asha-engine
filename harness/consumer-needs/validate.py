@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import hashlib
 import json
 import subprocess
@@ -487,6 +488,19 @@ def main() -> int:
         REPORT_PATH.write_text(rendered, encoding="utf-8")
     elif not REPORT_PATH.exists() or REPORT_PATH.read_text(encoding="utf-8") != rendered:
         print("consumer-needs: validation-report.json is stale; run validate.py --write-report", file=sys.stderr)
+        committed = REPORT_PATH.read_text(encoding="utf-8") if REPORT_PATH.exists() else ""
+        print(
+            "".join(
+                difflib.unified_diff(
+                    committed.splitlines(keepends=True),
+                    rendered.splitlines(keepends=True),
+                    fromfile="validation-report.json",
+                    tofile="computed-validation-report.json",
+                )
+            ),
+            file=sys.stderr,
+            end="",
+        )
         return 1
     if args.check_fixtures:
         failures = check_negative_fixtures()
