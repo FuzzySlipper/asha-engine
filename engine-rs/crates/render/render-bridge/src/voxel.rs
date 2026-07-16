@@ -149,6 +149,7 @@ pub fn to_payload_descriptor(mesh: &MeshPayload) -> MeshPayloadDescriptor {
 #[derive(Debug)]
 pub struct VoxelChunkProjector<S = VisibleFaceStrategy> {
     strategy: S,
+    instance_bindings_configured: bool,
     instances: BTreeMap<String, VoxelProjectionInstance>,
     root_handles: BTreeMap<String, RenderHandle>,
     handles: BTreeMap<(String, ChunkCoord), RenderHandle>,
@@ -174,6 +175,7 @@ impl<S: ChunkMeshStrategy> VoxelChunkProjector<S> {
     pub fn with_strategy(strategy: S) -> Self {
         Self {
             strategy,
+            instance_bindings_configured: false,
             instances: BTreeMap::new(),
             root_handles: BTreeMap::new(),
             handles: BTreeMap::new(),
@@ -259,6 +261,7 @@ impl<S: ChunkMeshStrategy> VoxelChunkProjector<S> {
         }
 
         self.instances = next;
+        self.instance_bindings_configured = true;
         Ok(frame)
     }
 
@@ -278,6 +281,7 @@ impl<S: ChunkMeshStrategy> VoxelChunkProjector<S> {
         }
         self.handles.clear();
         self.instances.clear();
+        self.instance_bindings_configured = false;
         frame
     }
 
@@ -369,7 +373,7 @@ impl<S: ChunkMeshStrategy> VoxelChunkProjector<S> {
     }
 
     fn ensure_default_instance(&mut self) -> RenderFrameDiff {
-        if !self.instances.is_empty() {
+        if self.instance_bindings_configured || !self.instances.is_empty() {
             return RenderFrameDiff::new();
         }
         let instance = VoxelProjectionInstance {

@@ -196,3 +196,48 @@ fn public_pick_is_transform_aware_and_rejects_stale_or_untrusted_inputs() {
         VoxelInstancePickOutcome::Hit(_)
     ));
 }
+
+#[test]
+fn explicit_empty_instance_binding_never_recreates_the_legacy_default() {
+    let mut bridge = init_bridge();
+    bridge
+        .submit_commands(CommandBatch {
+            commands: vec![VoxelCommand::SetVoxel {
+                grid: GridId::new(1),
+                coord: VoxelCoord::new(5, 0, 0),
+                value: VoxelValue::solid_raw(1),
+            }],
+        })
+        .unwrap();
+    bridge
+        .configure_voxel_projection_instances(binding_request(3))
+        .unwrap();
+    let _ = bridge.read_render_diffs(0).unwrap();
+
+    let mut empty = binding_request(4);
+    empty.instances.clear();
+    let receipt = bridge
+        .configure_voxel_projection_instances(empty)
+        .unwrap();
+    assert_eq!(receipt.instance_count, 0);
+    assert_eq!(receipt.projection_op_count, 2);
+
+    let teardown = bridge.read_render_diffs(0).unwrap();
+    assert_eq!(teardown.ops.len(), 2);
+    assert!(teardown
+        .ops
+        .iter()
+        .all(|op| matches!(op, protocol_render::RenderDiff::Destroy { .. })));
+
+    bridge
+        .submit_commands(CommandBatch {
+            commands: vec![VoxelCommand::SetVoxel {
+                grid: GridId::new(1),
+                coord: VoxelCoord::new(6, 0, 0),
+                value: VoxelValue::solid_raw(1),
+            }],
+        })
+        .unwrap();
+    let after_edit = bridge.read_render_diffs(0).unwrap();
+    assert!(after_edit.ops.is_empty());
+}
