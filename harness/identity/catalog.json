@@ -1696,6 +1696,12 @@
         "sourceHash": "sha256:78bf3d70ca677c7935443df00b849c657d60c253f59253a0a6cd7598ec23451e"
       },
       {
+        "id": "close_workspace_authoring",
+        "surface": "stable",
+        "quarantineReason": null,
+        "sourceHash": "sha256:45d866a58806df9dec1e70ebbd0c8eac5071827f39e29e60ac6262bc5ac36578"
+      },
+      {
         "id": "configure_input_session",
         "surface": "stable",
         "quarantineReason": null,
@@ -1706,6 +1712,12 @@
         "surface": "stable",
         "quarantineReason": null,
         "sourceHash": "sha256:db43f576719cfb8f232a08cf99c4d12fa4e3d68c46c9f3ca406c7dbd91657bbf"
+      },
+      {
+        "id": "confirm_workspace_authoring_stored",
+        "surface": "stable",
+        "quarantineReason": null,
+        "sourceHash": "sha256:4b974cdf036157ec4f4c63999031bab0e67f04e87ea84cdbcfdd7d3677caea4c"
       },
       {
         "id": "create_camera",
@@ -1808,6 +1820,12 @@
         "surface": "stable",
         "quarantineReason": null,
         "sourceHash": "sha256:25ea9055df3adcba468fca3774f6acfd7175b20fb43610388a589a947164c8ec"
+      },
+      {
+        "id": "open_workspace_authoring",
+        "surface": "stable",
+        "quarantineReason": null,
+        "sourceHash": "sha256:9bfe6921b2c126913d1259587634786eef4001bae12b88610bc8b2b4415f5cc2"
       },
       {
         "id": "pick_voxel",
@@ -1958,6 +1976,18 @@
         "surface": "stable",
         "quarantineReason": null,
         "sourceHash": "sha256:dad368374368e7c40c027bbb3ff3d7682265a6b1f78c0e3b5a30d42664b2dede"
+      },
+      {
+        "id": "read_workspace_authoring_projection",
+        "surface": "stable",
+        "quarantineReason": null,
+        "sourceHash": "sha256:3f67a4776d4f329650ab6adcddac69a842703ca016b4bab4db6ce2e9a64f7d76"
+      },
+      {
+        "id": "read_workspace_authoring_state",
+        "surface": "stable",
+        "quarantineReason": null,
+        "sourceHash": "sha256:4a78c1cb170eccecefec09f4946ccd0d38cdfd74de93c206e10a6d7eb0cba9a2"
       },
       {
         "id": "redo_voxel_edit",
@@ -3089,5 +3119,5 @@
       }
     ]
   },
-  "catalogHash": "sha256:691e624190701b6fae26c82588c918e60e1216bbeb1690da83b022ad3f92d983"
+  "catalogHash": "sha256:0a0270f140afd32d849c209900233e1ee4d4b2193e6af1af951d90d0b70e2977"
 }

@@ -2,6 +2,23 @@ use super::*;
 
 pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
     coverage.extend([
+        interface_coverage_key("scene", "SceneDocumentAuthoringTarget"),
+        variant_coverage_key(
+            "scene",
+            "SceneDocumentAuthoringCommand",
+            "refreshProjection",
+        ),
+        variant_coverage_key("scene", "SceneDocumentAuthoringCommand", "create"),
+        variant_coverage_key("scene", "SceneDocumentAuthoringCommand", "delete"),
+        variant_coverage_key("scene", "SceneDocumentAuthoringCommand", "rename"),
+        variant_coverage_key("scene", "SceneDocumentAuthoringCommand", "reparent"),
+        variant_coverage_key("scene", "SceneDocumentAuthoringCommand", "setTransform"),
+        variant_coverage_key("scene", "SceneDocumentAuthoringCommand", "updateLight"),
+        variant_coverage_key(
+            "scene",
+            "SceneDocumentAuthoringCommand",
+            "retargetVoxelAsset",
+        ),
         interface_coverage_key("scene", "SceneDocumentAuthoringRequest"),
         interface_coverage_key("scene", "SceneDocumentAuthoringRejection"),
         interface_coverage_key("scene", "SceneDocumentAuthoringResult"),
@@ -78,9 +95,13 @@ fn scene_document_authoring_samples_match_generated_ir_shapes() {
         "metadata": { "name": "Authoring sample", "description": null, "tags": [] }
     });
     let request = json!({
+        "currentProjectId": 1,
         "expectedContentHash": "fnv1a64:1111111111111111",
         "currentDocument": document,
-        "candidateDocument": document
+        "command": {
+            "kind": "refreshProjection",
+            "target": { "projectId": 1, "sceneId": 2 }
+        }
     });
     let rejection = json!({
         "code": "stale-scene-document",

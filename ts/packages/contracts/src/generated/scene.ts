@@ -32,13 +32,13 @@ export type SceneNodeKindTag = 'emptyGroup' | 'staticMesh' | 'sprite' | 'voxelVo
 export type SceneValidationCode = 'duplicate-node-id' | 'unknown-parent' | 'cycle' | 'invalid-transform' | 'asset-kind-mismatch' | 'invalid-light';
 
 // Stable scene-object command rejection codes. Mirrors `core_scene::SceneObjectCommandRejection::label`; the string form is a contract.
-export type SceneObjectCommandRejectionCode = 'stale-scene-object-snapshot' | 'invalid-scene-before-command' | 'invalid-scene-after-command' | 'missing-scene-object' | 'duplicate-scene-object' | 'missing-scene-object-parent' | 'scene-object-self-parent' | 'blank-scene-object-label' | 'invalid-scene-object-transform' | 'readonly-scene-object-transform';
+export type SceneObjectCommandRejectionCode = 'stale-scene-object-snapshot' | 'invalid-scene-before-command' | 'invalid-scene-after-command' | 'missing-scene-object' | 'duplicate-scene-object' | 'missing-scene-object-parent' | 'scene-object-self-parent' | 'blank-scene-object-label' | 'invalid-scene-object-kind' | 'invalid-scene-object-transform' | 'readonly-scene-object-transform';
 
 // Stable classifications for stored scene-document codec failures. Structural decode failures are kept separate from semantic [`SceneValidationCode`] entries so authoring tools never need to parse Rust error prose.
 export type SceneDocumentCodecDiagnosticCode = 'invalid-json' | 'invalid-field' | 'invalid-asset' | 'unknown-kind' | 'unknown-version-requirement' | 'unsupported-schema' | 'unsupported-authoring-format' | 'invalid-document';
 
 // Stable classifications for a stored SceneDocument compare-and-swap authoring transaction.
-export type SceneDocumentAuthoringRejectionCode = 'stale-scene-document' | 'invalid-current-scene-document' | 'invalid-candidate-scene-document' | 'foreign-scene-document-identity';
+export type SceneDocumentAuthoringRejectionCode = 'stale-scene-document' | 'invalid-current-scene-document' | 'invalid-resulting-scene-document' | 'invalid-scene-document-command' | 'missing-scene-document-target' | 'foreign-scene-document-identity';
 
 // Border form of an asset version requirement. Mirrors the `{ "req": … }` wire object `core_scene::json` reads/writes.
 export type AssetVersionReq =
@@ -130,11 +130,29 @@ export interface SceneDocumentCodecResult {
   readonly validation: SceneValidationReport;
 }
 
-// One compare-and-swap proposal against durable stored scene data. The current document remains caller-owned input; Rust validates both documents and only returns a replacement after accepting the complete candidate atomically.
+// Durable project/scene identity targeted by one stored authoring command. The command target is checked against the current project identity and the current document's scene identity before Rust applies the edit.
+export interface SceneDocumentAuthoringTarget {
+  readonly projectId: ProjectId;
+  readonly sceneId: SceneId;
+}
+
+// Bounded stored SceneDocument commands. Unlike the live scene-object command surface, these commands edit caller-supplied durable scene data and return a canonical replacement without mutating RuntimeSession authority.
+export type SceneDocumentAuthoringCommand =
+  | { readonly kind: 'refreshProjection'; readonly target: SceneDocumentAuthoringTarget }
+  | { readonly kind: 'create'; readonly target: SceneDocumentAuthoringTarget; readonly record: SceneNodeRecord }
+  | { readonly kind: 'delete'; readonly target: SceneDocumentAuthoringTarget; readonly id: SceneNodeId }
+  | { readonly kind: 'rename'; readonly target: SceneDocumentAuthoringTarget; readonly id: SceneNodeId; readonly label: string | null }
+  | { readonly kind: 'reparent'; readonly target: SceneDocumentAuthoringTarget; readonly id: SceneNodeId; readonly parent: SceneNodeId | null; readonly childOrder: number }
+  | { readonly kind: 'setTransform'; readonly target: SceneDocumentAuthoringTarget; readonly id: SceneNodeId; readonly transform: SceneTransform }
+  | { readonly kind: 'updateLight'; readonly target: SceneDocumentAuthoringTarget; readonly id: SceneNodeId; readonly sceneLight: SceneLight }
+  | { readonly kind: 'retargetVoxelAsset'; readonly target: SceneDocumentAuthoringTarget; readonly id: SceneNodeId; readonly asset: AssetReference; readonly tags: readonly string[] };
+
+// One compare-and-swap command against durable stored scene data. The current document remains caller-owned input; Rust validates it, applies exactly one bounded command, and only returns the accepted canonical result.
 export interface SceneDocumentAuthoringRequest {
+  readonly currentProjectId: ProjectId;
   readonly expectedContentHash: string;
   readonly currentDocument: FlatSceneDocument;
-  readonly candidateDocument: FlatSceneDocument;
+  readonly command: SceneDocumentAuthoringCommand;
 }
 
 // Classified rejection from a stored scene authoring transaction.

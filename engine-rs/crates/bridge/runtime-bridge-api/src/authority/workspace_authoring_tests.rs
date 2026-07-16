@@ -181,3 +181,99 @@ fn projection_rejects_foreign_stale_and_future_bindings_before_drain() {
         "an accepted cursor retry remains idempotent"
     );
 }
+
+#[test]
+fn stored_confirmation_consumes_only_the_current_rust_save_candidate() {
+    let mut bridge = EngineBridge::new();
+    let opened = bridge
+        .open_workspace_authoring(open_request("workspace.local"))
+        .unwrap();
+    initialize_volume(&mut bridge);
+    bridge
+        .submit_commands(CommandBatch {
+            commands: vec![VoxelCommand::SetVoxel {
+                grid: GridId::new(2),
+                coord: VoxelCoord::new(0, 0, 0),
+                value: VoxelValue::solid_raw(1),
+            }],
+        })
+        .unwrap();
+
+    let save_candidate = |bridge: &mut EngineBridge| {
+        bridge
+            .save_voxel_volume_asset(VoxelVolumeAssetSaveRequest {
+                export_request: VoxelVolumeAssetExportRequest {
+                    grid: 2,
+                    volume_asset_id: Some("voxel-volume/workspace-authoring".to_owned()),
+                    target_asset_id: "voxel-volume/workspace-confirmation".to_owned(),
+                    label: Some("Workspace confirmation".to_owned()),
+                    created_by: Some("runtime-bridge-api-test".to_owned()),
+                    source_tool: Some("workspace-authoring".to_owned()),
+                    max_sparse_runs: 16,
+                    expected_session_hash: None,
+                },
+                target_project_bundle: "authoring-consumer".to_owned(),
+                target_asset_path: "assets/voxels/workspace-confirmation.avxl.json".to_owned(),
+                representation_kind: "sparse_runs".to_owned(),
+                expected_existing_canonical_json_hash: None,
+                expected_canonical_json_hash: None,
+                expected_voxel_data_hash: None,
+            })
+            .unwrap()
+            .canonical_json_hash
+            .expect("accepted save candidate has a canonical hash")
+    };
+
+    let first_hash = save_candidate(&mut bridge);
+    bridge
+        .submit_commands(CommandBatch {
+            commands: vec![VoxelCommand::SetVoxel {
+                grid: GridId::new(2),
+                coord: VoxelCoord::new(1, 0, 0),
+                value: VoxelValue::solid_raw(1),
+            }],
+        })
+        .unwrap();
+    let stale = bridge
+        .confirm_workspace_authoring_stored(WorkspaceAuthoringStoredConfirmationRequest {
+            expected_workspace_id: "workspace.local".to_owned(),
+            expected_generation: opened.identity.generation,
+            host_path: "/tmp/workspace-confirmation.avxl.json".to_owned(),
+            canonical_json_hash: first_hash,
+        })
+        .unwrap_err();
+    assert_eq!(stale.kind, RuntimeBridgeErrorKind::InvalidInput);
+
+    let current_hash = save_candidate(&mut bridge);
+    let wrong_hash = bridge
+        .confirm_workspace_authoring_stored(WorkspaceAuthoringStoredConfirmationRequest {
+            expected_workspace_id: "workspace.local".to_owned(),
+            expected_generation: opened.identity.generation,
+            host_path: "/tmp/workspace-confirmation.avxl.json".to_owned(),
+            canonical_json_hash: "fnv1a64:0000000000000000".to_owned(),
+        })
+        .unwrap_err();
+    assert_eq!(
+        wrong_hash.kind,
+        RuntimeBridgeErrorKind::StaleAuthoritySnapshot
+    );
+
+    let request = WorkspaceAuthoringStoredConfirmationRequest {
+        expected_workspace_id: "workspace.local".to_owned(),
+        expected_generation: opened.identity.generation,
+        host_path: "/tmp/workspace-confirmation.avxl.json".to_owned(),
+        canonical_json_hash: current_hash,
+    };
+    let accepted = bridge
+        .confirm_workspace_authoring_stored(request.clone())
+        .unwrap();
+    assert!(accepted.accepted);
+    assert_eq!(accepted.stored_revision, 3);
+    assert!(!bridge.read_workspace_authoring_state().unwrap().dirty);
+
+    let replayed = bridge
+        .confirm_workspace_authoring_stored(request)
+        .unwrap_err();
+    assert_eq!(replayed.kind, RuntimeBridgeErrorKind::InvalidInput);
+    assert!(!bridge.read_workspace_authoring_state().unwrap().dirty);
+}

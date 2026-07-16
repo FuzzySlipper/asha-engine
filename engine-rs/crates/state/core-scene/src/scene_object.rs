@@ -7,12 +7,13 @@
 
 use std::collections::BTreeSet;
 
+use core_assets::AssetReference;
 use core_ids::SceneNodeId;
 
 use crate::document::{FlatSceneDocument, SceneNodeKind, SceneNodeRecord};
 use crate::json::encode;
 use crate::validate::{validate, SceneValidationError};
-use crate::SceneLight;
+use crate::{SceneLight, SceneTransform};
 
 /// Stable fingerprint for a canonical scene document snapshot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -60,6 +61,15 @@ pub enum SceneObjectCommand {
         id: SceneNodeId,
         light: SceneLight,
     },
+    SetTransform {
+        id: SceneNodeId,
+        transform: SceneTransform,
+    },
+    RetargetVoxelAsset {
+        id: SceneNodeId,
+        asset: AssetReference,
+        tags: Vec<String>,
+    },
     Select {
         id: Option<SceneNodeId>,
     },
@@ -102,6 +112,9 @@ pub enum SceneObjectCommandRejection {
     BlankLabel {
         id: SceneNodeId,
     },
+    WrongObjectKind {
+        id: SceneNodeId,
+    },
 }
 
 impl SceneObjectCommandRejection {
@@ -116,6 +129,7 @@ impl SceneObjectCommandRejection {
             SceneObjectCommandRejection::MissingParent { .. } => "missing-scene-object-parent",
             SceneObjectCommandRejection::SelfParent { .. } => "scene-object-self-parent",
             SceneObjectCommandRejection::BlankLabel { .. } => "blank-scene-object-label",
+            SceneObjectCommandRejection::WrongObjectKind { .. } => "invalid-scene-object-kind",
         }
     }
 }
@@ -163,6 +177,7 @@ pub fn apply_scene_object_command(
     }
 
     let mut next = doc.canonical();
+    let mut reconcile_asset_dependencies = false;
     let selected = match command {
         SceneObjectCommand::Create { record } => {
             if contains_node(&next, record.id) {
@@ -180,7 +195,13 @@ pub fn apply_scene_object_command(
                 }
             }
             require_non_blank_label(record.id, record.metadata.label.as_deref())?;
+            if matches!(record.kind, SceneNodeKind::Light(_)) {
+                next.schema_version = next.schema_version.max(2);
+                next.metadata.authoring_format_version =
+                    next.metadata.authoring_format_version.max(2);
+            }
             next.nodes.push(record);
+            reconcile_asset_dependencies = true;
             None
         }
         SceneObjectCommand::Delete { id } => {
@@ -188,6 +209,7 @@ pub fn apply_scene_object_command(
                 return Err(SceneObjectCommandRejection::MissingObject { id });
             }
             delete_subtree(&mut next, id);
+            reconcile_asset_dependencies = true;
             None
         }
         SceneObjectCommand::Rename { id, label } => {
@@ -217,12 +239,33 @@ pub fn apply_scene_object_command(
             Some(id)
         }
         SceneObjectCommand::UpdateLight { id, light } => {
+            {
+                let node = find_node_mut(&mut next, id)
+                    .ok_or(SceneObjectCommandRejection::MissingObject { id })?;
+                if !matches!(node.kind, SceneNodeKind::Light(_)) {
+                    return Err(SceneObjectCommandRejection::WrongObjectKind { id });
+                }
+                node.kind = SceneNodeKind::Light(light);
+            }
+            next.schema_version = next.schema_version.max(2);
+            next.metadata.authoring_format_version = next.metadata.authoring_format_version.max(2);
+            Some(id)
+        }
+        SceneObjectCommand::SetTransform { id, transform } => {
             let node = find_node_mut(&mut next, id)
                 .ok_or(SceneObjectCommandRejection::MissingObject { id })?;
-            if !matches!(node.kind, SceneNodeKind::Light(_)) {
-                return Err(SceneObjectCommandRejection::MissingObject { id });
+            node.transform = transform;
+            Some(id)
+        }
+        SceneObjectCommand::RetargetVoxelAsset { id, asset, tags } => {
+            let node = find_node_mut(&mut next, id)
+                .ok_or(SceneObjectCommandRejection::MissingObject { id })?;
+            if !matches!(node.kind, SceneNodeKind::VoxelVolume(_)) {
+                return Err(SceneObjectCommandRejection::WrongObjectKind { id });
             }
-            node.kind = SceneNodeKind::Light(light);
+            node.kind = SceneNodeKind::VoxelVolume(asset);
+            node.metadata.tags = tags;
+            reconcile_asset_dependencies = true;
             Some(id)
         }
         SceneObjectCommand::Select { id } => {
@@ -235,6 +278,9 @@ pub fn apply_scene_object_command(
         }
     };
 
+    if reconcile_asset_dependencies {
+        reconcile_dependencies(&mut next);
+    }
     next.canonicalize();
     let after = validate(&next);
     if !after.is_ok() {
@@ -248,6 +294,23 @@ pub fn apply_scene_object_command(
         document: next,
         selected,
     })
+}
+
+fn reconcile_dependencies(doc: &mut FlatSceneDocument) {
+    let mut dependencies = Vec::new();
+    for node in &doc.nodes {
+        let Some(asset) = node.kind.asset() else {
+            continue;
+        };
+        if dependencies
+            .iter()
+            .any(|existing: &AssetReference| existing.id() == asset.id())
+        {
+            continue;
+        }
+        dependencies.push(asset.clone());
+    }
+    doc.dependencies = dependencies;
 }
 
 fn contains_node(doc: &FlatSceneDocument, id: SceneNodeId) -> bool {

@@ -250,30 +250,50 @@ impl EngineBridge {
             ));
         }
 
-        let candidate = match Self::scene_document_from_dto(request.candidate_document) {
-            Ok(document) => document,
-            Err(error) => {
-                return Ok(Self::scene_authoring_rejection(
-                    SceneDocumentAuthoringRejectionCode::InvalidCandidateDocument,
-                    error.message,
-                    Some(request.expected_content_hash.clone()),
-                    Some(actual_hash.clone()),
-                ))
-            }
-        };
-        if candidate.id != current.id {
+        let target = request.command.target();
+        if target.project_id != request.current_project_id || target.scene_id != current.id {
             return Ok(Self::scene_authoring_rejection(
                 SceneDocumentAuthoringRejectionCode::ForeignDocumentIdentity,
-                "stored scene authoring cannot replace scene identity",
+                "stored scene authoring command targets a foreign project or scene identity",
                 Some(request.expected_content_hash.clone()),
                 Some(actual_hash.clone()),
             ));
         }
+
+        let candidate = match request.command {
+            SceneDocumentAuthoringCommandDto::RefreshProjection { .. } => current,
+            command => {
+                let command = match Self::stored_scene_command(command) {
+                    Ok(command) => command,
+                    Err(error) => {
+                        return Ok(Self::scene_authoring_rejection(
+                            SceneDocumentAuthoringRejectionCode::InvalidCommand,
+                            error.message,
+                            Some(request.expected_content_hash.clone()),
+                            Some(actual_hash.clone()),
+                        ));
+                    }
+                };
+                let expected = core_scene::scene_object_snapshot(&current).document_hash;
+                match core_scene::apply_scene_object_command(&current, expected, command) {
+                    Ok(outcome) => outcome.document,
+                    Err(rejection) => {
+                        let (code, message) = Self::stored_scene_command_rejection(rejection);
+                        return Ok(Self::scene_authoring_rejection(
+                            code,
+                            message,
+                            Some(request.expected_content_hash.clone()),
+                            Some(actual_hash.clone()),
+                        ));
+                    }
+                }
+            }
+        };
         let candidate_result = Self::scene_codec_result(candidate);
         let content_hash = candidate_result.content_hash.clone();
         let Some(document) = candidate_result.document else {
             return Ok(Self::scene_authoring_rejection(
-                SceneDocumentAuthoringRejectionCode::InvalidCandidateDocument,
+                SceneDocumentAuthoringRejectionCode::InvalidResultingDocument,
                 Self::scene_codec_rejection_message(&candidate_result),
                 Some(request.expected_content_hash),
                 Some(actual_hash),
@@ -288,6 +308,75 @@ impl EngineBridge {
             authored_light_frame: Some(authored_light_frame),
             rejection: None,
         })
+    }
+
+    fn stored_scene_command(
+        command: SceneDocumentAuthoringCommandDto,
+    ) -> BridgeResult<core_scene::SceneObjectCommand> {
+        match command {
+            SceneDocumentAuthoringCommandDto::RefreshProjection { .. } => {
+                Err(RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::Internal,
+                    "refresh projection command must not reach scene mutation dispatch",
+                ))
+            }
+            SceneDocumentAuthoringCommandDto::Create { record, .. } => {
+                Ok(core_scene::SceneObjectCommand::Create {
+                    record: Self::scene_record_from_dto(record)?,
+                })
+            }
+            SceneDocumentAuthoringCommandDto::Delete { id, .. } => {
+                Ok(core_scene::SceneObjectCommand::Delete { id })
+            }
+            SceneDocumentAuthoringCommandDto::Rename { id, label, .. } => {
+                Ok(core_scene::SceneObjectCommand::Rename { id, label })
+            }
+            SceneDocumentAuthoringCommandDto::Reparent {
+                id,
+                parent,
+                child_order,
+                ..
+            } => Ok(core_scene::SceneObjectCommand::Reparent {
+                id,
+                parent,
+                child_order,
+            }),
+            SceneDocumentAuthoringCommandDto::SetTransform { id, transform, .. } => {
+                Ok(core_scene::SceneObjectCommand::SetTransform {
+                    id,
+                    transform: Self::scene_transform_from_dto(transform),
+                })
+            }
+            SceneDocumentAuthoringCommandDto::UpdateLight {
+                id, scene_light, ..
+            } => Ok(core_scene::SceneObjectCommand::UpdateLight {
+                id,
+                light: Self::scene_light_from_dto(scene_light),
+            }),
+            SceneDocumentAuthoringCommandDto::RetargetVoxelAsset {
+                id, asset, tags, ..
+            } => Ok(core_scene::SceneObjectCommand::RetargetVoxelAsset {
+                id,
+                asset: Self::scene_asset_from_dto(asset)?,
+                tags,
+            }),
+        }
+    }
+
+    fn stored_scene_command_rejection(
+        rejection: core_scene::SceneObjectCommandRejection,
+    ) -> (SceneDocumentAuthoringRejectionCode, String) {
+        let code = match rejection {
+            core_scene::SceneObjectCommandRejection::MissingObject { .. } => {
+                SceneDocumentAuthoringRejectionCode::MissingTarget
+            }
+            core_scene::SceneObjectCommandRejection::InvalidBefore { .. }
+            | core_scene::SceneObjectCommandRejection::InvalidAfter { .. } => {
+                SceneDocumentAuthoringRejectionCode::InvalidResultingDocument
+            }
+            _ => SceneDocumentAuthoringRejectionCode::InvalidCommand,
+        };
+        (code, rejection.label().to_string())
     }
 
     fn scene_codec_rejection_message(result: &SceneDocumentCodecResultDto) -> String {
@@ -622,30 +711,30 @@ impl EngineBridge {
             id: record.id,
             parent: record.parent,
             child_order: record.child_order,
-            transform: core_scene::SceneTransform {
-                translation: Vec3::new(
-                    record.transform.translation[0],
-                    record.transform.translation[1],
-                    record.transform.translation[2],
-                ),
-                rotation: core_scene::Quat::new(
-                    record.transform.rotation[0],
-                    record.transform.rotation[1],
-                    record.transform.rotation[2],
-                    record.transform.rotation[3],
-                ),
-                scale: Vec3::new(
-                    record.transform.scale[0],
-                    record.transform.scale[1],
-                    record.transform.scale[2],
-                ),
-            },
+            transform: Self::scene_transform_from_dto(record.transform),
             kind,
             metadata: core_scene::NodeMetadata {
                 label: record.label,
                 tags: record.tags,
             },
         })
+    }
+
+    fn scene_transform_from_dto(transform: SceneTransformDto) -> core_scene::SceneTransform {
+        core_scene::SceneTransform {
+            translation: Vec3::new(
+                transform.translation[0],
+                transform.translation[1],
+                transform.translation[2],
+            ),
+            rotation: core_scene::Quat::new(
+                transform.rotation[0],
+                transform.rotation[1],
+                transform.rotation[2],
+                transform.rotation[3],
+            ),
+            scale: Vec3::new(transform.scale[0], transform.scale[1], transform.scale[2]),
+        }
     }
 
     fn scene_asset_from_dto(asset: AssetReferenceDto) -> BridgeResult<AssetReference> {
@@ -862,6 +951,10 @@ impl EngineBridge {
             }
             core_scene::SceneObjectCommandRejection::BlankLabel { id } => {
                 dto.code = SceneObjectCommandRejectionCode::BlankLabel;
+                dto.id = Some(id);
+            }
+            core_scene::SceneObjectCommandRejection::WrongObjectKind { id } => {
+                dto.code = SceneObjectCommandRejectionCode::WrongObjectKind;
                 dto.id = Some(id);
             }
         }

@@ -1,4 +1,5 @@
 use super::*;
+use core_ids::ProjectId;
 
 fn material_preview_request() -> ModelMaterialPreviewRequest {
     ModelMaterialPreviewRequest {
@@ -192,10 +193,215 @@ fn stored_scene_codec_preserves_v2_lights_and_v1_without_migration() {
     assert_eq!(legacy.canonical_json.as_deref(), Some(v1));
 }
 
+fn stored_target(
+    project_id: ProjectId,
+    document: &FlatSceneDocumentDto,
+) -> SceneDocumentAuthoringTargetDto {
+    SceneDocumentAuthoringTargetDto {
+        project_id,
+        scene_id: document.id,
+    }
+}
+
+fn apply_stored_command(
+    bridge: &EngineBridge,
+    project_id: ProjectId,
+    current: FlatSceneDocumentDto,
+    current_hash: String,
+    command: SceneDocumentAuthoringCommandDto,
+) -> SceneDocumentAuthoringResultDto {
+    bridge
+        .apply_scene_document_authoring(SceneDocumentAuthoringRequestDto {
+            current_project_id: project_id,
+            expected_content_hash: current_hash,
+            current_document: current,
+            command,
+        })
+        .unwrap()
+}
+
 #[test]
-fn stored_scene_authoring_accepts_only_rust_validated_candidates_and_projects_lights() {
+fn stored_scene_authoring_applies_bounded_commands_and_projects_hierarchical_lights() {
     let bridge = init_bridge();
     let runtime_before = bridge.read_scene_object_snapshot().unwrap();
+    let project_id = ProjectId::new(41);
+    let decoded = bridge
+        .decode_scene_document(SceneDocumentDecodeRequestDto {
+            source_text: include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../../../harness/fixtures/scenes/lights-v2.json"
+            ))
+            .into(),
+        })
+        .unwrap();
+    let mut current_hash = decoded.content_hash.unwrap();
+    let mut current = decoded.document.unwrap();
+
+    let target = stored_target(project_id, &current);
+    let renamed = apply_stored_command(
+        &bridge,
+        project_id,
+        current,
+        current_hash,
+        SceneDocumentAuthoringCommandDto::Rename {
+            target,
+            id: SceneNodeId::new(4),
+            label: Some("Key spot".to_string()),
+        },
+    );
+    assert!(renamed.accepted);
+    current = renamed.document.unwrap();
+    current_hash = renamed.content_hash.unwrap();
+
+    let target = stored_target(project_id, &current);
+    let reparented = apply_stored_command(
+        &bridge,
+        project_id,
+        current,
+        current_hash,
+        SceneDocumentAuthoringCommandDto::Reparent {
+            target,
+            id: SceneNodeId::new(4),
+            parent: Some(SceneNodeId::new(2)),
+            child_order: 0,
+        },
+    );
+    assert!(reparented.accepted);
+    current = reparented.document.unwrap();
+    current_hash = reparented.content_hash.unwrap();
+
+    let target = stored_target(project_id, &current);
+    let transformed = apply_stored_command(
+        &bridge,
+        project_id,
+        current,
+        current_hash,
+        SceneDocumentAuthoringCommandDto::SetTransform {
+            target,
+            id: SceneNodeId::new(4),
+            transform: SceneTransformDto {
+                translation: [3.0, 4.0, 5.0],
+                rotation: [0.0, 0.0, 0.0, 1.0],
+                scale: [1.0, 1.0, 1.0],
+            },
+        },
+    );
+    assert!(transformed.accepted);
+    current = transformed.document.unwrap();
+    current_hash = transformed.content_hash.unwrap();
+
+    let target = stored_target(project_id, &current);
+    let updated = apply_stored_command(
+        &bridge,
+        project_id,
+        current,
+        current_hash,
+        SceneDocumentAuthoringCommandDto::UpdateLight {
+            target,
+            id: SceneNodeId::new(4),
+            scene_light: SceneLightDto::Spot {
+                color: [0.2, 0.4, 1.0],
+                intensity: 9.0,
+                enabled: true,
+                range: Some(16.0),
+                decay: 1.0,
+                outer_angle_radians: 0.7,
+                penumbra: 0.25,
+                shadow_intent: SceneLightShadowIntentDto::Disabled,
+            },
+        },
+    );
+    assert!(updated.accepted);
+    assert!(updated.authored_light_frame.as_ref().is_some_and(|frame| {
+        frame.ops.iter().any(|op| {
+            matches!(
+                op,
+                protocol_render::RenderDiff::CreateLight {
+                    light: protocol_render::LightDescriptor::Spot { intensity: 9.0, .. },
+                    ..
+                }
+            )
+        })
+    }));
+    current = updated.document.unwrap();
+    current_hash = updated.content_hash.unwrap();
+
+    let voxel_id = SceneNodeId::new(10);
+    let target = stored_target(project_id, &current);
+    let created = apply_stored_command(
+        &bridge,
+        project_id,
+        current,
+        current_hash,
+        SceneDocumentAuthoringCommandDto::Create {
+            target,
+            record: SceneNodeRecordDto {
+                id: voxel_id,
+                parent: None,
+                child_order: 4,
+                label: Some("Voxel".to_string()),
+                tags: vec!["source:a".to_string()],
+                transform: SceneTransformDto {
+                    translation: [0.0, 0.0, 0.0],
+                    rotation: [0.0, 0.0, 0.0, 1.0],
+                    scale: [1.0, 1.0, 1.0],
+                },
+                kind: SceneNodeKindDto::VoxelVolume(AssetReferenceDto {
+                    id: "voxel-volume/house-a".to_string(),
+                    version: AssetVersionReqDto::Any,
+                    hash: None,
+                }),
+            },
+        },
+    );
+    assert!(created.accepted);
+    current = created.document.unwrap();
+    current_hash = created.content_hash.unwrap();
+    assert_eq!(current.dependencies[0].id, "voxel-volume/house-a");
+
+    let target = stored_target(project_id, &current);
+    let retargeted = apply_stored_command(
+        &bridge,
+        project_id,
+        current,
+        current_hash,
+        SceneDocumentAuthoringCommandDto::RetargetVoxelAsset {
+            target,
+            id: voxel_id,
+            asset: AssetReferenceDto {
+                id: "voxel-volume/house-b".to_string(),
+                version: AssetVersionReqDto::Any,
+                hash: None,
+            },
+            tags: vec!["source:b".to_string()],
+        },
+    );
+    assert!(retargeted.accepted);
+    current = retargeted.document.unwrap();
+    current_hash = retargeted.content_hash.unwrap();
+    assert_eq!(current.dependencies.len(), 1);
+    assert_eq!(current.dependencies[0].id, "voxel-volume/house-b");
+
+    let target = stored_target(project_id, &current);
+    let deleted = apply_stored_command(
+        &bridge,
+        project_id,
+        current,
+        current_hash,
+        SceneDocumentAuthoringCommandDto::Delete {
+            target,
+            id: voxel_id,
+        },
+    );
+    assert!(deleted.accepted);
+    assert!(deleted.document.unwrap().dependencies.is_empty());
+    assert_eq!(bridge.read_scene_object_snapshot().unwrap(), runtime_before);
+}
+
+#[test]
+fn stored_scene_authoring_rejections_return_no_document_or_projection() {
+    let bridge = init_bridge();
+    let project_id = ProjectId::new(51);
     let decoded = bridge
         .decode_scene_document(SceneDocumentDecodeRequestDto {
             source_text: include_str!(concat!(
@@ -207,119 +413,57 @@ fn stored_scene_authoring_accepts_only_rust_validated_candidates_and_projects_li
         .unwrap();
     let current_hash = decoded.content_hash.unwrap();
     let current = decoded.document.unwrap();
+    let target = stored_target(project_id, &current);
 
-    let mut candidate = current.clone();
-    let spot = candidate
-        .nodes
-        .iter_mut()
-        .find(|node| {
-            matches!(
-                node.kind,
-                SceneNodeKindDto::Light(SceneLightDto::Spot { .. })
-            )
-        })
-        .expect("spot light fixture");
-    spot.transform.translation = [3.0, 4.0, 5.0];
-    if let SceneNodeKindDto::Light(SceneLightDto::Spot { intensity, .. }) = &mut spot.kind {
-        *intensity = 9.0;
+    let cases = [
+        (
+            format!("{current_hash}:stale"),
+            SceneDocumentAuthoringCommandDto::RefreshProjection { target },
+            SceneDocumentAuthoringRejectionCode::StaleDocument,
+        ),
+        (
+            current_hash.clone(),
+            SceneDocumentAuthoringCommandDto::SetTransform {
+                target,
+                id: SceneNodeId::new(4),
+                transform: SceneTransformDto {
+                    translation: [f32::NAN, 0.0, 0.0],
+                    rotation: [0.0, 0.0, 0.0, 1.0],
+                    scale: [1.0, 1.0, 1.0],
+                },
+            },
+            SceneDocumentAuthoringRejectionCode::InvalidResultingDocument,
+        ),
+        (
+            current_hash.clone(),
+            SceneDocumentAuthoringCommandDto::Rename {
+                target: SceneDocumentAuthoringTargetDto {
+                    project_id: ProjectId::new(999),
+                    scene_id: current.id,
+                },
+                id: SceneNodeId::new(4),
+                label: Some("Foreign".to_string()),
+            },
+            SceneDocumentAuthoringRejectionCode::ForeignDocumentIdentity,
+        ),
+        (
+            current_hash.clone(),
+            SceneDocumentAuthoringCommandDto::Delete {
+                target,
+                id: SceneNodeId::new(999),
+            },
+            SceneDocumentAuthoringRejectionCode::MissingTarget,
+        ),
+    ];
+
+    for (hash, command, expected_code) in cases {
+        let rejected = apply_stored_command(&bridge, project_id, current.clone(), hash, command);
+        assert!(!rejected.accepted);
+        assert!(rejected.document.is_none());
+        assert!(rejected.content_hash.is_none());
+        assert!(rejected.authored_light_frame.is_none());
+        assert_eq!(rejected.rejection.unwrap().code, expected_code);
     }
-
-    let accepted = bridge
-        .apply_scene_document_authoring(SceneDocumentAuthoringRequestDto {
-            expected_content_hash: current_hash.clone(),
-            current_document: current.clone(),
-            candidate_document: candidate,
-        })
-        .unwrap();
-    assert!(accepted.accepted);
-    assert!(accepted.document.is_some());
-    assert!(accepted.content_hash.is_some());
-    assert!(accepted.rejection.is_none());
-    assert!(accepted
-        .authored_light_frame
-        .as_ref()
-        .is_some_and(|frame| frame.ops.iter().any(|op| matches!(
-            op,
-            protocol_render::RenderDiff::CreateLight {
-                light: protocol_render::LightDescriptor::Spot { intensity: 9.0, .. },
-                ..
-            }
-        ))));
-    assert_eq!(bridge.read_scene_object_snapshot().unwrap(), runtime_before);
-
-    let stale = bridge
-        .apply_scene_document_authoring(SceneDocumentAuthoringRequestDto {
-            expected_content_hash: format!("{current_hash}:stale"),
-            current_document: current.clone(),
-            candidate_document: current.clone(),
-        })
-        .unwrap();
-    assert!(!stale.accepted);
-    assert!(stale.document.is_none());
-    assert!(stale.authored_light_frame.is_none());
-    assert_eq!(
-        stale.rejection.unwrap().code,
-        SceneDocumentAuthoringRejectionCode::StaleDocument
-    );
-
-    let mut invalid = current.clone();
-    invalid.nodes.push(invalid.nodes[0].clone());
-    let rejected = bridge
-        .apply_scene_document_authoring(SceneDocumentAuthoringRequestDto {
-            expected_content_hash: current_hash.clone(),
-            current_document: current.clone(),
-            candidate_document: invalid,
-        })
-        .unwrap();
-    assert!(!rejected.accepted);
-    assert!(rejected.document.is_none());
-    assert!(rejected.authored_light_frame.is_none());
-    assert_eq!(
-        rejected.rejection.unwrap().code,
-        SceneDocumentAuthoringRejectionCode::InvalidCandidateDocument
-    );
-
-    let mut foreign = current.clone();
-    foreign.id = SceneId::new(current.id.raw() + 1);
-    let rejected = bridge
-        .apply_scene_document_authoring(SceneDocumentAuthoringRequestDto {
-            expected_content_hash: current_hash,
-            current_document: current,
-            candidate_document: foreign,
-        })
-        .unwrap();
-    assert!(!rejected.accepted);
-    assert!(rejected.document.is_none());
-    assert!(rejected.authored_light_frame.is_none());
-    assert_eq!(
-        rejected.rejection.unwrap().code,
-        SceneDocumentAuthoringRejectionCode::ForeignDocumentIdentity
-    );
-
-    let v1 = bridge
-        .decode_scene_document(SceneDocumentDecodeRequestDto {
-            source_text: include_str!(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../../../../harness/fixtures/scenes/sample-flat.json"
-            ))
-            .into(),
-        })
-        .unwrap();
-    let v1_hash = v1.content_hash.unwrap();
-    let v1_document = v1.document.unwrap();
-    let mut upgraded = v1_document.clone();
-    upgraded.schema_version = 2;
-    upgraded.metadata.authoring_format_version = 2;
-    let upgraded = bridge
-        .apply_scene_document_authoring(SceneDocumentAuthoringRequestDto {
-            expected_content_hash: v1_hash,
-            current_document: v1_document,
-            candidate_document: upgraded,
-        })
-        .unwrap();
-    assert!(upgraded.accepted);
-    assert_eq!(upgraded.document.unwrap().schema_version, 2);
-    assert_eq!(bridge.read_scene_object_snapshot().unwrap(), runtime_before);
 }
 
 #[test]

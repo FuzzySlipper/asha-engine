@@ -1,4 +1,4 @@
-use core_ids::{SceneId, SceneNodeId};
+use core_ids::{ProjectId, SceneId, SceneNodeId};
 use napi_derive::napi;
 use protocol_assets::{
     AssetReference, CatalogEntry, CollisionMaterial, MaterialProjection, RenderMaterial, Rgba,
@@ -10,8 +10,9 @@ use protocol_render::{
     RenderDiff, StaticMeshAsset,
 };
 use protocol_scene::{
-    AssetReferenceDto, AssetVersionReqDto, FlatSceneDocumentDto, SceneDocumentCodecResultDto,
-    SceneDocumentAuthoringRequestDto,
+    AssetReferenceDto, AssetVersionReqDto, FlatSceneDocumentDto,
+    SceneDocumentAuthoringCommandDto, SceneDocumentAuthoringRequestDto,
+    SceneDocumentAuthoringTargetDto, SceneDocumentCodecResultDto,
     SceneDocumentDecodeRequestDto, SceneDocumentEncodeRequestDto, SceneLightDto,
     SceneLightShadowIntentDto, SceneMetadataDto, SceneNodeKindDto, SceneNodeRecordDto,
     SceneObjectCommandDto, SceneObjectCommandRequestDto, SceneObjectCommandResultDto,
@@ -488,9 +489,65 @@ struct SceneDocumentEncodeRequestJson {
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SceneDocumentAuthoringRequestJson {
+    current_project_id: u64,
     expected_content_hash: String,
     current_document: SceneDocumentJson,
-    candidate_document: SceneDocumentJson,
+    command: SceneDocumentAuthoringCommandJson,
+}
+
+#[derive(Clone, Copy, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SceneDocumentAuthoringTargetJson {
+    project_id: u64,
+    scene_id: u64,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
+enum SceneDocumentAuthoringCommandJson {
+    RefreshProjection {
+        target: SceneDocumentAuthoringTargetJson,
+    },
+    Create {
+        target: SceneDocumentAuthoringTargetJson,
+        record: SceneRecordJson,
+    },
+    Delete {
+        target: SceneDocumentAuthoringTargetJson,
+        id: u64,
+    },
+    Rename {
+        target: SceneDocumentAuthoringTargetJson,
+        id: u64,
+        label: Option<String>,
+    },
+    Reparent {
+        target: SceneDocumentAuthoringTargetJson,
+        id: u64,
+        parent: Option<u64>,
+        child_order: u32,
+    },
+    SetTransform {
+        target: SceneDocumentAuthoringTargetJson,
+        id: u64,
+        transform: SceneTransformJson,
+    },
+    UpdateLight {
+        target: SceneDocumentAuthoringTargetJson,
+        id: u64,
+        scene_light: SceneLightJson,
+    },
+    RetargetVoxelAsset {
+        target: SceneDocumentAuthoringTargetJson,
+        id: u64,
+        asset: SceneAssetDtoJson,
+        tags: Vec<String>,
+    },
 }
 
 #[derive(Deserialize, Serialize)]
@@ -782,6 +839,84 @@ impl SceneDocumentJson {
     }
 }
 
+impl SceneDocumentAuthoringTargetJson {
+    fn protocol(self) -> SceneDocumentAuthoringTargetDto {
+        SceneDocumentAuthoringTargetDto {
+            project_id: ProjectId::new(self.project_id),
+            scene_id: SceneId::new(self.scene_id),
+        }
+    }
+}
+
+impl SceneDocumentAuthoringCommandJson {
+    fn protocol(self) -> SceneDocumentAuthoringCommandDto {
+        match self {
+            Self::RefreshProjection { target } => {
+                SceneDocumentAuthoringCommandDto::RefreshProjection {
+                    target: target.protocol(),
+                }
+            }
+            Self::Create { target, record } => SceneDocumentAuthoringCommandDto::Create {
+                target: target.protocol(),
+                record: record.protocol(),
+            },
+            Self::Delete { target, id } => SceneDocumentAuthoringCommandDto::Delete {
+                target: target.protocol(),
+                id: SceneNodeId::new(id),
+            },
+            Self::Rename { target, id, label } => SceneDocumentAuthoringCommandDto::Rename {
+                target: target.protocol(),
+                id: SceneNodeId::new(id),
+                label,
+            },
+            Self::Reparent {
+                target,
+                id,
+                parent,
+                child_order,
+            } => SceneDocumentAuthoringCommandDto::Reparent {
+                target: target.protocol(),
+                id: SceneNodeId::new(id),
+                parent: parent.map(SceneNodeId::new),
+                child_order,
+            },
+            Self::SetTransform {
+                target,
+                id,
+                transform,
+            } => SceneDocumentAuthoringCommandDto::SetTransform {
+                target: target.protocol(),
+                id: SceneNodeId::new(id),
+                transform: SceneTransformDto {
+                    translation: transform.translation,
+                    rotation: transform.rotation,
+                    scale: transform.scale,
+                },
+            },
+            Self::UpdateLight {
+                target,
+                id,
+                scene_light,
+            } => SceneDocumentAuthoringCommandDto::UpdateLight {
+                target: target.protocol(),
+                id: SceneNodeId::new(id),
+                scene_light: scene_light.protocol(),
+            },
+            Self::RetargetVoxelAsset {
+                target,
+                id,
+                asset,
+                tags,
+            } => SceneDocumentAuthoringCommandDto::RetargetVoxelAsset {
+                target: target.protocol(),
+                id: SceneNodeId::new(id),
+                asset: asset.protocol(),
+                tags,
+            },
+        }
+    }
+}
+
 impl SceneCommandJson {
     fn protocol(self) -> SceneObjectCommandDto {
         match self {
@@ -1057,9 +1192,10 @@ pub fn apply_scene_document_authoring(handle: i64, request_json: String) -> napi
     with_bridge(handle, |bridge| {
         let result = bridge
             .apply_scene_document_authoring(SceneDocumentAuthoringRequestDto {
+                current_project_id: ProjectId::new(request.current_project_id),
                 expected_content_hash: request.expected_content_hash,
                 current_document: request.current_document.protocol(),
-                candidate_document: request.candidate_document.protocol(),
+                command: request.command.protocol(),
             })
             .map_err(to_napi)?;
         encode(scene_authoring_result_json(&result)?, "scene document authoring")

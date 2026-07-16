@@ -2,23 +2,23 @@
   "schemaVersion": 1,
   "valid": true,
   "inventory": "harness/conformance/probe-inventory.json",
-  "inventoryHash": "sha256:d0f0c06ea48a2af69ca97f5f6e90166a1570929edb3b83c7ab4b34213dc6c6c0",
+  "inventoryHash": "sha256:e61c6d77be8f8c0264449fe5cd7e76ca229404a5b6df58073497236728a69a9e",
   "identityCatalog": {
     "path": "harness/identity/catalog.json",
-    "hash": "sha256:691e624190701b6fae26c82588c918e60e1216bbeb1690da83b022ad3f92d983"
+    "hash": "sha256:0a0270f140afd32d849c209900233e1ee4d4b2193e6af1af951d90d0b70e2977"
   },
   "catalogs": [
     {
       "path": "harness/identity/catalog.json",
-      "hash": "sha256:3472961b304a23f17d6345306cf8ee408ea150e977a4b77db607045b9274a02b"
+      "hash": "sha256:3c052592f1e5ed5795fc1122431a644b6014dd08d3b2b2bc892f7b6e8cbc221c"
     },
     {
       "path": "engine-rs/crates/bridge/runtime-bridge-api/bridge-manifest.toml",
-      "hash": "sha256:cac801c3c1c4b358af33e6ed0ab4d4a891f06ac7993c7db0272c92e10d56289a"
+      "hash": "sha256:52cc78c2d24046ff54c00a08071bd674a1545bbf87330ffbdf2f17d8741d08f3"
     },
     {
       "path": "harness/consumer-needs/validation-report.json",
-      "hash": "sha256:9ac51b3f0a1b5d6763c6b67e01cd858763d0dcb0a3ed13507527221d6b665bb5"
+      "hash": "sha256:00bfbbc1dc0b1b120cd264e21a6ec26509c24b3e6f3a0e3479d1efa0df0c26df"
     },
     {
       "path": "harness/public-surface/rust-crates.json",
@@ -30,16 +30,16 @@
     },
     {
       "path": "harness/reachability/validation-report.json",
-      "hash": "sha256:53faed63fa4ae7784888699bf8e6d5a794715c848a3cfd3b03d25c92781681c7"
+      "hash": "sha256:e563e899e12cec450fd7b0fc3a119e62120e8e00da20a41ca2514eefaaa32c1d"
     },
     {
       "path": "ts/packages/runtime-bridge/src/native.ts",
-      "hash": "sha256:5ec535e82d58310141550c53ece5e3166cdf51812b3003fb7408574b0795589e"
+      "hash": "sha256:46103ce09edd44c553c1176423e6b302a0b9758087e1703b684680b699b7c028"
     }
   ],
   "summary": {
-    "stableOperationCount": 77,
-    "realOperationProbeCount": 77,
+    "stableOperationCount": 82,
+    "realOperationProbeCount": 82,
     "temporaryOperationExemptionCount": 0,
     "quarantinedOperationCount": 3,
     "semanticProbeCount": 27,
@@ -345,10 +345,10 @@
       "nativeWired": true,
       "evidenceAssertions": [
         {
-          "suite": "bridge.rust-authority",
-          "corpus": "bridge.rust-authority",
-          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/scene_preview.rs",
-          "assertion": "stored_scene_authoring_accepts_only_rust_validated_candidates_and_projects_lights"
+          "suite": "bridge.native-wrapper",
+          "corpus": "bridge.native-transport",
+          "path": "engine-rs/crates/bridge/native-bridge/src/tests.rs",
+          "assertion": "raw_json_entrypoints_reject_unknown_fields_before_domain_invocation"
         }
       ]
     },
@@ -502,6 +502,19 @@
       ]
     },
     {
+      "operation": "close_workspace_authoring",
+      "status": "probed",
+      "nativeWired": true,
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/workspace_authoring_tests.rs",
+          "assertion": "authoring_cell_is_distinct_from_gameplay_runtime_and_owns_revisions"
+        }
+      ]
+    },
+    {
       "operation": "configure_input_session",
       "status": "probed",
       "nativeWired": true,
@@ -548,6 +561,19 @@
           "corpus": "bridge.rust-authority",
           "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_instances.rs",
           "assertion": "public_pick_is_transform_aware_and_rejects_stale_or_untrusted_inputs"
+        }
+      ]
+    },
+    {
+      "operation": "confirm_workspace_authoring_stored",
+      "status": "probed",
+      "nativeWired": true,
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/workspace_authoring_tests.rs",
+          "assertion": "stored_confirmation_consumes_only_the_current_rust_save_candidate"
         }
       ]
     },
@@ -651,7 +677,13 @@
           "suite": "bridge.rust-authority",
           "corpus": "bridge.rust-authority",
           "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/scene_preview.rs",
-          "assertion": "stored_scene_authoring_accepts_only_rust_validated_candidates_and_projects_lights"
+          "assertion": "stored_scene_authoring_applies_bounded_commands_and_projects_hierarchical_lights"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/scene_preview.rs",
+          "assertion": "stored_scene_authoring_rejections_return_no_document_or_projection"
         },
         {
           "suite": "bridge.rust-authority",
@@ -1109,6 +1141,31 @@
           "corpus": "bridge.rust-authority",
           "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs",
           "assertion": "voxel_volume_asset_unload_restores_disjoint_same_identity_footprints"
+        }
+      ]
+    },
+    {
+      "operation": "open_workspace_authoring",
+      "status": "probed",
+      "nativeWired": true,
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/workspace_authoring_tests.rs",
+          "assertion": "authoring_cell_is_distinct_from_gameplay_runtime_and_owns_revisions"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/workspace_authoring_tests.rs",
+          "assertion": "projection_rejects_foreign_stale_and_future_bindings_before_drain"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/workspace_authoring_tests.rs",
+          "assertion": "stored_confirmation_consumes_only_the_current_rust_save_candidate"
         }
       ]
     },
@@ -1606,7 +1663,7 @@
           "suite": "bridge.rust-authority",
           "corpus": "bridge.rust-authority",
           "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/scene_preview.rs",
-          "assertion": "stored_scene_authoring_accepts_only_rust_validated_candidates_and_projects_lights"
+          "assertion": "stored_scene_authoring_applies_bounded_commands_and_projects_hierarchical_lights"
         },
         {
           "suite": "bridge.rust-authority",
@@ -1858,6 +1915,38 @@
       ]
     },
     {
+      "operation": "read_workspace_authoring_projection",
+      "status": "probed",
+      "nativeWired": true,
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/workspace_authoring_tests.rs",
+          "assertion": "projection_rejects_foreign_stale_and_future_bindings_before_drain"
+        }
+      ]
+    },
+    {
+      "operation": "read_workspace_authoring_state",
+      "status": "probed",
+      "nativeWired": true,
+      "evidenceAssertions": [
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/workspace_authoring_tests.rs",
+          "assertion": "authoring_cell_is_distinct_from_gameplay_runtime_and_owns_revisions"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/workspace_authoring_tests.rs",
+          "assertion": "stored_confirmation_consumes_only_the_current_rust_save_candidate"
+        }
+      ]
+    },
+    {
       "operation": "redo_voxel_edit",
       "status": "probed",
       "nativeWired": true,
@@ -2036,6 +2125,12 @@
           "corpus": "bridge.rust-authority",
           "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs",
           "assertion": "converted_volume_save_unload_and_reload_preserves_predecessor_model"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/workspace_authoring_tests.rs",
+          "assertion": "stored_confirmation_consumes_only_the_current_rust_save_candidate"
         }
       ]
     },
@@ -2116,6 +2211,12 @@
           "corpus": "bridge.rust-authority",
           "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
           "assertion": "speed_multiplier_executes_multiple_fixed_ticks_per_cadence_pulse"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/workspace_authoring_tests.rs",
+          "assertion": "authoring_cell_is_distinct_from_gameplay_runtime_and_owns_revisions"
         }
       ]
     },
@@ -2267,6 +2368,24 @@
           "corpus": "bridge.rust-authority",
           "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_history_tests.rs",
           "assertion": "undo_and_redo_move_the_rust_history_cursor_and_live_voxel_state_together"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/workspace_authoring_tests.rs",
+          "assertion": "authoring_cell_is_distinct_from_gameplay_runtime_and_owns_revisions"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/workspace_authoring_tests.rs",
+          "assertion": "projection_rejects_foreign_stale_and_future_bindings_before_drain"
+        },
+        {
+          "suite": "bridge.rust-authority",
+          "corpus": "bridge.rust-authority",
+          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/workspace_authoring_tests.rs",
+          "assertion": "stored_confirmation_consumes_only_the_current_rust_save_candidate"
         }
       ]
     },

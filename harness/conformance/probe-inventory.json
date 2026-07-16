@@ -29,7 +29,8 @@
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/time_control.rs",
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs",
         "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_instances.rs",
-        "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs"
+        "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel_unload.rs",
+        "engine-rs/crates/bridge/runtime-bridge-api/src/authority/workspace_authoring_tests.rs"
       ]
     }
   ],

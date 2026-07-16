@@ -2,16 +2,16 @@
   "schemaVersion": 1,
   "valid": true,
   "manifest": "harness/reachability/manifest.json",
-  "manifestHash": "sha256:e930b029da819809ca41ea943d1a1e206192aab651c38e85d1ef0ddfdbc9ea34",
-  "identityCatalogHash": "sha256:691e624190701b6fae26c82588c918e60e1216bbeb1690da83b022ad3f92d983",
+  "manifestHash": "sha256:1189bc7f6bcf056d2b9cef3f550f3fb9517e7139e42697dbc360c0efc1857ce0",
+  "identityCatalogHash": "sha256:0a0270f140afd32d849c209900233e1ee4d4b2193e6af1af951d90d0b70e2977",
   "catalogs": [
     {
       "path": "harness/identity/catalog.json",
-      "hash": "sha256:3472961b304a23f17d6345306cf8ee408ea150e977a4b77db607045b9274a02b"
+      "hash": "sha256:3c052592f1e5ed5795fc1122431a644b6014dd08d3b2b2bc892f7b6e8cbc221c"
     },
     {
       "path": "engine-rs/crates/bridge/runtime-bridge-api/bridge-manifest.toml",
-      "hash": "sha256:cac801c3c1c4b358af33e6ed0ab4d4a891f06ac7993c7db0272c92e10d56289a"
+      "hash": "sha256:52cc78c2d24046ff54c00a08071bd674a1545bbf87330ffbdf2f17d8741d08f3"
     },
     {
       "path": "harness/public-surface/ts-packages.json",
@@ -23,7 +23,7 @@
     },
     {
       "path": "harness/consumer-needs/validation-report.json",
-      "hash": "sha256:9ac51b3f0a1b5d6763c6b67e01cd858763d0dcb0a3ed13507527221d6b665bb5"
+      "hash": "sha256:00bfbbc1dc0b1b120cd264e21a6ec26509c24b3e6f3a0e3479d1efa0df0c26df"
     },
     {
       "path": "ts/packages/contracts/src/generated/gameExtension.ts",
@@ -38,7 +38,7 @@
       "id": "catalog.bridge-operations",
       "kind": "bridgeOperations",
       "valid": true,
-      "actualCount": 80
+      "actualCount": 85
     },
     {
       "id": "catalog.consumer-needs",
@@ -50,7 +50,7 @@
       "id": "catalog.generated-contracts",
       "kind": "generatedContracts",
       "valid": true,
-      "actualCount": 645
+      "actualCount": 659
     },
     {
       "id": "catalog.rust-public-surfaces",

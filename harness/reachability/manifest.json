@@ -4,8 +4,8 @@
     {
       "id": "catalog.bridge-operations",
       "kind": "bridgeOperations",
-      "expectedCount": 80,
-      "expectedStableCount": 77,
+      "expectedCount": 85,
+      "expectedStableCount": 82,
       "proof": { "path": "harness/bridge/validate-manifest.py", "token": "validate_protocol_ref" }
     },
     {
@@ -17,7 +17,7 @@
     {
       "id": "catalog.generated-contracts",
       "kind": "generatedContracts",
-      "expectedCount": 645,
+      "expectedCount": 659,
       "proof": { "path": "engine-rs/crates/protocol/protocol-codegen/src/lib.rs", "token": "rust_mirrored_ir_entries_have_round_trip_coverage_or_exemption" }
     },
     {

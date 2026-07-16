@@ -918,6 +918,7 @@ dependencies = [
  "protocol-game-rules",
  "protocol-input",
  "protocol-presentation",
+ "protocol-project-bundle",
  "protocol-render",
  "protocol-scene",
  "protocol-time-control",

@@ -94,6 +94,16 @@ fn raw_json_entrypoints_reject_unknown_fields_before_domain_invocation() {
     assert!(encode.reason.contains("unknown field"));
     assert!(encode.reason.contains("operation=encode_scene_document"));
 
+    let authoring = apply_scene_document_authoring(
+        0,
+        r#"{"currentProjectId":1,"expectedContentHash":"fnv1a64:test","currentDocument":{"schemaVersion":1,"id":1,"metadata":{"name":null,"authoringFormatVersion":1},"dependencies":[],"nodes":[]},"command":{"kind":"refreshProjection","target":{"projectId":1,"sceneId":1},"candidateDocument":{"id":999}}}"#.to_owned(),
+    )
+    .expect_err("stored scene command must reject candidate payloads before handle lookup");
+    assert!(authoring.reason.contains("unknown field"));
+    assert!(authoring
+        .reason
+        .contains("operation=apply_scene_document_authoring"));
+
     let voxel = read_voxel_mesh_evidence(
         0,
         r#"{"grid":1,"chunks":[{"x":0,"y":0,"z":0}],"unknown":true}"#.to_owned(),

@@ -33,7 +33,7 @@
 
 #![forbid(unsafe_code)]
 
-use core_ids::{EntityId, RuntimeSessionId, SceneId, SceneNodeId};
+use core_ids::{EntityId, ProjectId, RuntimeSessionId, SceneId, SceneNodeId};
 
 // ── Stable string vocabularies (the contract) ─────────────────────────────────
 
@@ -65,6 +65,7 @@ pub const SCENE_OBJECT_COMMAND_REJECTION_CODES: &[&str] = &[
     "missing-scene-object-parent",
     "scene-object-self-parent",
     "blank-scene-object-label",
+    "invalid-scene-object-kind",
     "invalid-scene-object-transform",
     "readonly-scene-object-transform",
 ];
@@ -88,7 +89,9 @@ pub const SCENE_DOCUMENT_CODEC_DIAGNOSTIC_CODES: &[&str] = &[
 pub const SCENE_DOCUMENT_AUTHORING_REJECTION_CODES: &[&str] = &[
     "stale-scene-document",
     "invalid-current-scene-document",
-    "invalid-candidate-scene-document",
+    "invalid-resulting-scene-document",
+    "invalid-scene-document-command",
+    "missing-scene-document-target",
     "foreign-scene-document-identity",
 ];
 
@@ -97,7 +100,9 @@ pub const SCENE_DOCUMENT_AUTHORING_REJECTION_CODES: &[&str] = &[
 pub enum SceneDocumentAuthoringRejectionCode {
     StaleDocument,
     InvalidCurrentDocument,
-    InvalidCandidateDocument,
+    InvalidResultingDocument,
+    InvalidCommand,
+    MissingTarget,
     ForeignDocumentIdentity,
 }
 
@@ -106,7 +111,9 @@ impl SceneDocumentAuthoringRejectionCode {
         match self {
             Self::StaleDocument => "stale-scene-document",
             Self::InvalidCurrentDocument => "invalid-current-scene-document",
-            Self::InvalidCandidateDocument => "invalid-candidate-scene-document",
+            Self::InvalidResultingDocument => "invalid-resulting-scene-document",
+            Self::InvalidCommand => "invalid-scene-document-command",
+            Self::MissingTarget => "missing-scene-document-target",
             Self::ForeignDocumentIdentity => "foreign-scene-document-identity",
         }
     }
@@ -199,6 +206,7 @@ pub enum SceneObjectCommandRejectionCode {
     MissingParent,
     SelfParent,
     BlankLabel,
+    WrongObjectKind,
     InvalidTransform,
     ReadonlyTransform,
 }
@@ -216,6 +224,7 @@ impl SceneObjectCommandRejectionCode {
             SceneObjectCommandRejectionCode::MissingParent => "missing-scene-object-parent",
             SceneObjectCommandRejectionCode::SelfParent => "scene-object-self-parent",
             SceneObjectCommandRejectionCode::BlankLabel => "blank-scene-object-label",
+            SceneObjectCommandRejectionCode::WrongObjectKind => "invalid-scene-object-kind",
             SceneObjectCommandRejectionCode::InvalidTransform => "invalid-scene-object-transform",
             SceneObjectCommandRejectionCode::ReadonlyTransform => "readonly-scene-object-transform",
         }
@@ -232,6 +241,7 @@ pub const ALL_SCENE_OBJECT_COMMAND_REJECTION_CODES: &[SceneObjectCommandRejectio
     SceneObjectCommandRejectionCode::MissingParent,
     SceneObjectCommandRejectionCode::SelfParent,
     SceneObjectCommandRejectionCode::BlankLabel,
+    SceneObjectCommandRejectionCode::WrongObjectKind,
     SceneObjectCommandRejectionCode::InvalidTransform,
     SceneObjectCommandRejectionCode::ReadonlyTransform,
 ];
@@ -467,14 +477,84 @@ pub struct SceneDocumentCodecResultDto {
     pub validation: SceneValidationReportDto,
 }
 
-/// One compare-and-swap proposal against durable stored scene data. The current
-/// document remains caller-owned input; Rust validates both documents and only
-/// returns a replacement after accepting the complete candidate atomically.
+/// Durable project/scene identity targeted by one stored authoring command.
+/// The command target is checked against the current project identity and the
+/// current document's scene identity before Rust applies the edit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SceneDocumentAuthoringTargetDto {
+    pub project_id: ProjectId,
+    pub scene_id: SceneId,
+}
+
+/// Bounded stored SceneDocument commands. Unlike the live scene-object command
+/// surface, these commands edit caller-supplied durable scene data and return a
+/// canonical replacement without mutating RuntimeSession authority.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SceneDocumentAuthoringCommandDto {
+    RefreshProjection {
+        target: SceneDocumentAuthoringTargetDto,
+    },
+    Create {
+        target: SceneDocumentAuthoringTargetDto,
+        record: SceneNodeRecordDto,
+    },
+    Delete {
+        target: SceneDocumentAuthoringTargetDto,
+        id: SceneNodeId,
+    },
+    Rename {
+        target: SceneDocumentAuthoringTargetDto,
+        id: SceneNodeId,
+        label: Option<String>,
+    },
+    Reparent {
+        target: SceneDocumentAuthoringTargetDto,
+        id: SceneNodeId,
+        parent: Option<SceneNodeId>,
+        child_order: u32,
+    },
+    SetTransform {
+        target: SceneDocumentAuthoringTargetDto,
+        id: SceneNodeId,
+        transform: SceneTransformDto,
+    },
+    UpdateLight {
+        target: SceneDocumentAuthoringTargetDto,
+        id: SceneNodeId,
+        scene_light: SceneLightDto,
+    },
+    RetargetVoxelAsset {
+        target: SceneDocumentAuthoringTargetDto,
+        id: SceneNodeId,
+        asset: AssetReferenceDto,
+        tags: Vec<String>,
+    },
+}
+
+impl SceneDocumentAuthoringCommandDto {
+    pub fn target(&self) -> SceneDocumentAuthoringTargetDto {
+        match self {
+            Self::RefreshProjection { target }
+            | Self::Create { target, .. }
+            | Self::Delete { target, .. }
+            | Self::Rename { target, .. }
+            | Self::Reparent { target, .. }
+            | Self::SetTransform { target, .. }
+            | Self::UpdateLight { target, .. }
+            | Self::RetargetVoxelAsset { target, .. } => *target,
+        }
+    }
+}
+
+/// One compare-and-swap command against durable stored scene data. The current
+/// document remains caller-owned input; Rust validates it, applies exactly one
+/// bounded command, and only returns the accepted canonical result.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SceneDocumentAuthoringRequestDto {
+    pub current_project_id: ProjectId,
     pub expected_content_hash: String,
     pub current_document: FlatSceneDocumentDto,
-    pub candidate_document: FlatSceneDocumentDto,
+    pub command: SceneDocumentAuthoringCommandDto,
 }
 
 /// Classified rejection from a stored scene authoring transaction.

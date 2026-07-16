@@ -1,10 +1,27 @@
 use super::*;
 
 pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
-    coverage.insert(interface_coverage_key(
-        "projectBundle",
-        "GameplayTriggerDefinition",
-    ));
+    coverage.extend([
+        interface_coverage_key("projectBundle", "GameplayTriggerDefinition"),
+        interface_coverage_key("projectBundle", "WorkspaceAuthoringProjectIdentity"),
+        interface_coverage_key("projectBundle", "WorkspaceAuthoringProjectBundleRef"),
+        interface_coverage_key("projectBundle", "WorkspaceAuthoringCompositionStatus"),
+        interface_coverage_key("projectBundle", "WorkspaceAuthoringOpenRequest"),
+        interface_coverage_key("projectBundle", "WorkspaceAuthoringIdentity"),
+        interface_coverage_key("projectBundle", "WorkspaceAuthoringStateSummary"),
+        interface_coverage_key("projectBundle", "WorkspaceAuthoringProjectionRequest"),
+        interface_coverage_key("projectBundle", "WorkspaceAuthoringProjectionReceipt"),
+        interface_coverage_key(
+            "projectBundle",
+            "WorkspaceAuthoringStoredConfirmationRequest",
+        ),
+        interface_coverage_key(
+            "projectBundle",
+            "WorkspaceAuthoringStoredConfirmationReceipt",
+        ),
+        interface_coverage_key("projectBundle", "WorkspaceAuthoringCloseRequest"),
+        interface_coverage_key("projectBundle", "WorkspaceAuthoringCloseReceipt"),
+    ]);
 }
 
 /// ProjectBundle vocabularies and prefab contracts are sourced from Rust and

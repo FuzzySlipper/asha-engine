@@ -1,4 +1,4 @@
-import { entityId, type FlatSceneDocument, type SceneId, type SceneNodeId } from '@asha/contracts';
+import { entityId, projectId, type FlatSceneDocument, type SceneId, type SceneNodeId } from '@asha/contracts';
 import {
   frameCursor,
   type ReplaySessionHandle,
@@ -233,9 +233,13 @@ export function createNativeOperationInvocations(
     ['decodeSceneDocument', (bridge) => bridge.decodeSceneDocument({ sourceText: JSON.stringify(SCENE_DOCUMENT) })],
     ['encodeSceneDocument', (bridge) => bridge.encodeSceneDocument({ document: SCENE_DOCUMENT })],
     ['applySceneDocumentAuthoring', (bridge) => bridge.applySceneDocumentAuthoring({
+      currentProjectId: projectId(1),
       expectedContentHash: 'fnv1a64:fixture',
       currentDocument: SCENE_DOCUMENT,
-      candidateDocument: SCENE_DOCUMENT,
+      command: {
+        kind: 'refreshProjection',
+        target: { projectId: projectId(1), sceneId: SCENE_DOCUMENT.id },
+      },
     })],
     ['readModelMaterialPreview', (bridge) => bridge.readModelMaterialPreview(input.materialPreview)],
     ['readSceneObjectSnapshot', (bridge) => bridge.readSceneObjectSnapshot()],

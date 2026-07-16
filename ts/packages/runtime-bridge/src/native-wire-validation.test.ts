@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {
+  projectId,
+  sceneId,
+  sceneNodeId,
+  type FlatSceneDocument,
+} from '@asha/contracts';
 import type { NativeAddon } from '@asha/native-bridge';
 
 import { RuntimeBridgeError } from './bridge.js';
@@ -45,6 +51,89 @@ void test('generated native input contracts reject scalar and tagged-union drift
     'invalid_input',
     'unknown_field',
   );
+  assertWireRejection(
+    () => validateOperationInput('apply_scene_document_authoring', {
+      currentProjectId: projectId(1),
+      expectedContentHash: 'fnv1a64:fixture',
+      currentDocument: {
+        schemaVersion: 1,
+        id: sceneId(1),
+        metadata: { name: null, authoringFormatVersion: 1 },
+        dependencies: [],
+        nodes: [],
+      },
+      command: {
+        kind: 'refreshProjection',
+        target: { projectId: projectId(1), sceneId: sceneId(1) },
+        candidateDocument: { id: sceneId(999) },
+      },
+    }),
+    'invalid_input',
+    'unknown_field',
+  );
+});
+
+void test('public native facade carries one bounded stored-scene command and consumes Rust output', () => {
+  const document: FlatSceneDocument = {
+    schemaVersion: 1,
+    id: sceneId(71),
+    metadata: { name: 'Facade fixture', authoringFormatVersion: 1 },
+    dependencies: [],
+    nodes: [{
+      id: sceneNodeId(1),
+      parent: null,
+      childOrder: 0,
+      label: 'Root',
+      tags: [],
+      transform: {
+        translation: [0, 0, 0],
+        rotation: [0, 0, 0, 1],
+        scale: [1, 1, 1],
+      },
+      kind: { kind: 'emptyGroup' },
+    }],
+  };
+  let captured: unknown = null;
+  const addon = {
+    initializeEngine: () => 1,
+    applySceneDocumentAuthoring: (_handle: number, requestJson: string) => {
+      captured = JSON.parse(requestJson) as unknown;
+      return JSON.stringify({
+        accepted: true,
+        document,
+        contentHash: 'fnv1a64:accepted',
+        authoredLightFrame: { ops: [] },
+        rejection: null,
+      });
+    },
+  } as unknown as NativeAddon;
+  const bridge = new NativeRuntimeBridge(addon);
+  bridge.initializeEngine({ seed: 1 });
+  const result = bridge.applySceneDocumentAuthoring({
+    currentProjectId: projectId(9),
+    expectedContentHash: 'fnv1a64:current',
+    currentDocument: document,
+    command: {
+      kind: 'rename',
+      target: { projectId: projectId(9), sceneId: document.id },
+      id: sceneNodeId(1),
+      label: 'Renamed root',
+    },
+  });
+
+  assert.deepEqual(captured, {
+    currentProjectId: 9,
+    expectedContentHash: 'fnv1a64:current',
+    currentDocument: document,
+    command: {
+      kind: 'rename',
+      target: { projectId: 9, sceneId: 71 },
+      id: 1,
+      label: 'Renamed root',
+    },
+  });
+  assert.deepEqual(result.document, document);
+  assert.deepEqual(result.authoredLightFrame, { ops: [] });
 });
 
 void test('handle, lifecycle, and gameplay inputs fail closed before native invocation', () => {

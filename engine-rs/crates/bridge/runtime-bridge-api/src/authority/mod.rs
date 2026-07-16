@@ -1,5 +1,6 @@
 use crate::*;
 
+mod collision_camera;
 mod enemy_navigation;
 mod fps_animation_catalog;
 mod initialization;
