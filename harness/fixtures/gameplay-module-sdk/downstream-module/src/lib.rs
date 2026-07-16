@@ -618,6 +618,7 @@ pub fn primary_fire_runtime_host_project_input() -> GameplayRuntimeProjectInput 
         load_plan: plan,
         artifacts,
         composition: primary_fire_composition(),
+        composition_requirement: None,
         bindings: GameplayModuleBindingRegistryBuilder::new().build(),
         entity_targets: GameplayBindingEntityTargets::new(),
         spatial_entities: vec![GameplayRuntimeSpatialEntity {
@@ -1190,6 +1191,7 @@ mod tests {
             load_plan: plan,
             artifacts,
             composition: composition(multiplier),
+            composition_requirement: None,
             bindings: binding_registry(multiplier),
             entity_targets: GameplayBindingEntityTargets::new(),
             spatial_entities: vec![

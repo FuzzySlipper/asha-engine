@@ -24,9 +24,9 @@
           "moduleId": "fixture.pulse.module",
           "namespace": "fixture.pulse",
           "version": "1.0.0",
-          "sdkHash": "fnv1a64:423dbcb90d661cd7",
+          "sdkHash": "fnv1a64:669691f614be751f",
           "contractHash": "fnv1a64:787fe49e16da7682",
-          "artifactHash": "fnv1a64:0513968b453e8457",
+          "artifactHash": "fnv1a64:4699fd1e2e522bc9",
           "providerId": "provider.fixture-pulse"
         },
         "configuration": {
@@ -65,7 +65,7 @@
       }
     ],
     "overrides": [],
-    "registryHash": "fnv1a64:5c8de42a8afe0be9"
+    "registryHash": "fnv1a64:f1e9aee25ad6f1bd"
   },
   "declaredReads": [
     {
