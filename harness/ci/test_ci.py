@@ -22,6 +22,7 @@ class CiSelectionTests(unittest.TestCase):
             "ts/packages/ui-dom/src/index.ts": {"typescript", "depgraph"},
             "engine-rs/crates/protocol/protocol-scene/src/lib.rs": {"contracts", "rust", "typescript", "bridge"},
             "harness/identity/execution.py": {"identities"},
+            "harness/public-surface/check-public-rust-distribution.py": {"identities", "bridge"},
             "engine-rs/crates/bridge/native-bridge/src/lib.rs": {"rust", "bridge", "native"},
             "engine-rs/crates/sim/sim-replay/src/lib.rs": {"rust", "replays"},
             "engine-rs/crates/render/render-bridge/src/lib.rs": {"rust", "render-goldens"},

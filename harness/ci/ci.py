@@ -178,6 +178,8 @@ def classify_path(path: str) -> set[str]:
         "harness/public-surface/",
     )):
         categories.add("harness-contract")
+    if normalized == "harness/public-surface/check-public-rust-distribution.py":
+        categories.add("bridge")
     if normalized.startswith("engine-rs/") or normalized in {"Cargo.toml", "engine-rs/Cargo.lock"}:
         categories.add("rust")
     if normalized.startswith("public-rust/"):

@@ -161,10 +161,11 @@ def main() -> None:
 
         environment = os.environ.copy()
         environment["CARGO_TARGET_DIR"] = str(target_dir)
-        # The first local Git checkout cannot run in Cargo offline mode. The
-        # source is a file:// repository; registry packages remain cacheable
-        # and the locked build below is offline.
+        # Resolve the exact local Git source and provision every registry
+        # package before enforcing the offline consumer build. A fresh runner
+        # must not rely on crates left in an ambient Cargo cache.
         run(["cargo", "generate-lockfile"], cwd=consumer_checkout, env=environment)
+        run(["cargo", "fetch", "--locked"], cwd=consumer_checkout, env=environment)
         run(["cargo", "check", "--locked", "--offline"], cwd=consumer_checkout, env=environment)
 
         lock_text = (consumer_checkout / "Cargo.lock").read_text()
