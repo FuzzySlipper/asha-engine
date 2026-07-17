@@ -102,7 +102,7 @@ void test('browser host serves a downstream UI root with provider status evidenc
       assert.equal(host.compatibilityVersion, ASHA_BROWSER_HOST_COMPATIBILITY_VERSION);
       assert.equal(host.provider.status, 'rust_authority');
 
-      const health = await readJson(`${host.url}/health`);
+      const health = await readJson(`${host.url}/health?source=studio`);
       assert.deepEqual(health, {
         ok: true,
         project: 'asha-demo',
@@ -118,6 +118,12 @@ void test('browser host serves a downstream UI root with provider status evidenc
       const html = await page.text();
       assert.match(html, /ASHA demo/);
       assert.match(html, /\/asha\/browser-host\/native-provider\.js/);
+
+      const pageWithStartupQuery = await fetch(
+        `${host.url}/?project=%2Fhome%2Fdev%2Fasha-demo`,
+      );
+      assert.equal(pageWithStartupQuery.status, 200);
+      assert.match(await pageWithStartupQuery.text(), /ASHA demo/);
 
       const script = await fetch(`${host.url}/asha/browser-host/native-provider.js`);
       assert.equal(script.status, 200);
@@ -140,7 +146,7 @@ void test('browser host serves a downstream UI root with provider status evidenc
         );
       }
 
-      const invocation = await fetch(`${host.url}/asha/browser-host/runtime-bridge/initializeEngine`, {
+      const invocation = await fetch(`${host.url}/asha/browser-host/runtime-bridge/initializeEngine?source=studio`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ args: [{ seed: 17 }] }),

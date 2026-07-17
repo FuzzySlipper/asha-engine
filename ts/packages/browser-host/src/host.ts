@@ -257,7 +257,8 @@ async function handleNativeBrowserHostRequest(
   bridgePool: NativeBrowserHostBridgePool,
 ): Promise<void> {
   response.setHeader('X-ASHA-Browser-Host', ASHA_BROWSER_HOST_COMPATIBILITY_VERSION);
-  if (request.url === '/health') {
+  const requestPath = readRequestPathname(request.url);
+  if (requestPath === '/health') {
     sendJson(response, 200, {
       ok: true,
       project: options.healthProject ?? 'asha-game-project',
@@ -265,11 +266,11 @@ async function handleNativeBrowserHostRequest(
     });
     return;
   }
-  if (request.url === '/asha/browser-host/runtime-provider.json') {
+  if (requestPath === '/asha/browser-host/runtime-provider.json') {
     sendJson(response, provider.available ? 200 : 503, provider);
     return;
   }
-  if (request.url === '/asha/browser-host/native-provider.js') {
+  if (requestPath === '/asha/browser-host/native-provider.js') {
     const browserSession = issueNativeBrowserHostSession(bridgePool);
     response.setHeader('Cache-Control', 'no-store');
     sendText(
@@ -280,20 +281,27 @@ async function handleNativeBrowserHostRequest(
     );
     return;
   }
-  if (request.url === '/asha/browser-host/runtime-bridge/client/disconnect') {
+  if (requestPath === '/asha/browser-host/runtime-bridge/client/disconnect') {
     await handleRuntimeBridgeClientDisconnect(request, response, bridgePool);
     return;
   }
-  if (request.url?.startsWith('/asha/browser-host/runtime-bridge/session/')) {
-    await handleRuntimeBridgeSessionDisconnect(request, response, bridgePool);
+  if (requestPath.startsWith('/asha/browser-host/runtime-bridge/session/')) {
+    await handleRuntimeBridgeSessionDisconnect(request, response, bridgePool, requestPath);
     return;
   }
-  if (request.url?.startsWith('/asha/browser-host/runtime-bridge/')) {
-    await handleRuntimeBridgeInvocation(request, response, bridgePool);
+  if (requestPath.startsWith('/asha/browser-host/runtime-bridge/')) {
+    await handleRuntimeBridgeInvocation(request, response, bridgePool, requestPath);
     return;
   }
-  const assetPath = request.url === '/' ? '/index.html' : decodeURIComponent(request.url ?? '/index.html');
+  const assetPath = requestPath === '/' ? '/index.html' : decodeURIComponent(requestPath);
   await sendStaticAssetFromRoot(response, uiRoot, assetPath, bridgePool.bridges.has('server:0'));
+}
+
+function readRequestPathname(requestTarget: string | undefined): string {
+  const target = requestTarget ?? '/';
+  const queryIndex = target.indexOf('?');
+  const pathname = queryIndex < 0 ? target : target.slice(0, queryIndex);
+  return pathname.length === 0 ? '/' : pathname;
 }
 
 function defaultGlobalScope(): NativeBrowserHostProviderScope {
@@ -377,12 +385,13 @@ async function handleRuntimeBridgeInvocation(
   request: IncomingMessage,
   response: ServerResponse,
   bridgePool: NativeBrowserHostBridgePool,
+  requestPath: string,
 ): Promise<void> {
   if (request.method !== 'POST') {
     sendJson(response, 405, { error: { message: 'RuntimeBridge host endpoint requires POST.' } });
     return;
   }
-  const methodName = readRuntimeBridgeMethodName(request.url ?? '');
+  const methodName = readRuntimeBridgeMethodName(requestPath);
   if (methodName === null) {
     sendJson(response, 404, { error: { message: 'Unknown RuntimeBridge host operation.' } });
     return;
@@ -588,12 +597,13 @@ async function handleRuntimeBridgeSessionDisconnect(
   request: IncomingMessage,
   response: ServerResponse,
   pool: NativeBrowserHostBridgePool,
+  requestPath: string,
 ): Promise<void> {
   if (request.method !== 'POST') {
     sendJson(response, 405, { error: { message: 'RuntimeBridge Session disconnect requires POST.' } });
     return;
   }
-  const match = request.url?.match(
+  const match = requestPath.match(
     /^\/asha\/browser-host\/runtime-bridge\/session\/([A-Za-z0-9_-]{32})\/disconnect$/u,
   );
   if (match === null || match === undefined) {
