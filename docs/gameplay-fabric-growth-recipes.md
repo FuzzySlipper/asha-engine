@@ -1,3 +1,11 @@
+---
+status: current
+audience: consumer
+tags: [gameplay, fabric, recipes, consumer]
+supersedes: []
+see-also: []
+---
+
 # Gameplay Fabric Growth Recipes
 
 Status: current paved road for adding expressive gameplay through governed

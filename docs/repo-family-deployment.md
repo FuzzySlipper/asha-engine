@@ -1,3 +1,11 @@
+---
+status: current
+audience: consumer
+tags: [consumer, deployment, setup]
+supersedes: []
+see-also: []
+---
+
 # ASHA repo family deployment map
 
 This page is the cold-start map for agents or users setting up the ASHA repo

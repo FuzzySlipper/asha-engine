@@ -1,3 +1,11 @@
+---
+status: current
+audience: consumer
+tags: [runtime, facade, api, consumer]
+supersedes: []
+see-also: []
+---
+
 # RuntimeSession Facade Status
 
 Status: current public semantic facade. Rust-backed RuntimeSession authority is the product/live path; the explicit reference helper remains a fixture and compatibility surface only.

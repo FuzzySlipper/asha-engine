@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [tunnel, levelgen, readout, runtime]
+supersedes: []
+see-also: []
+---
+
 # Generated Tunnel Runtime Readout
 
 Status: task #4050 public RuntimeSession readout for the #4038 tunnel fixture.

@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [voxel, coordinates, foundation]
+supersedes: []
+see-also: []
+---
+
 # Voxel coordinate foundation (`core-space`)
 
 Source design: Den `voxel-capability-01-spatial-coordinate-foundation`. Crate:

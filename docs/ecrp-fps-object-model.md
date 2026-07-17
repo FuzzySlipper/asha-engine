@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [ecrp, fps, object-model]
+supersedes: []
+see-also: []
+---
+
 # FPS ECRP Object Model
 
 Status: upstream public catalog surface for #4164.

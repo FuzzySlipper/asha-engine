@@ -1,3 +1,11 @@
+---
+status: current
+audience: consumer
+tags: [browser, host, native, consumer]
+supersedes: []
+see-also: []
+---
+
 # Native Browser Host
 
 Status: `browser-host.v0`

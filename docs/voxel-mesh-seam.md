@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [voxel, mesh, render]
+supersedes: []
+see-also: []
+---
+
 # Voxel mesh / render / material seam
 
 > Companion ADR: `governance/adr/0007-voxel-mesh-seam.md`.

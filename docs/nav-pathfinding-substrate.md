@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [nav, pathfinding, authority]
+supersedes: []
+see-also: []
+---
+
 # Navigation Pathfinding Substrate
 
 Task #4041 activates the upstream `svc-pathfinding` lane with a read-only

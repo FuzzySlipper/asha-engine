@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [input, actions, authority]
+supersedes: []
+see-also: []
+---
+
 # Named Input Actions and Session Contexts
 
 Status: #5641 contracts/resolver, #5642 browser/FPS/editor integration, and the

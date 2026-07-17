@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [render, lighting, projection]
+supersedes: []
+see-also: []
+---
+
 # Renderer-neutral lighting and uploaded mesh presentation
 
 ASHA represents ordinary lights as retained render projection, not as Three.js

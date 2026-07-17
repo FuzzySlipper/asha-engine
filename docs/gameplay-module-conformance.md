@@ -1,3 +1,11 @@
+---
+status: current
+audience: consumer
+tags: [gameplay, conformance, module, testing]
+supersedes: []
+see-also: []
+---
+
 # Gameplay-module conformance
 
 The public conformance kit lets a downstream agent validate its statically

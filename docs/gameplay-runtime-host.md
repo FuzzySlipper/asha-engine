@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [gameplay, runtime, host, rust]
+supersedes: []
+see-also: []
+---
+
 # Public Gameplay Runtime Host
 
 Status: implemented gameplay subsystem; the preferred provider boundary is the

@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [editor, viewport, render]
+supersedes: []
+see-also: []
+---
+
 # Backend-neutral editor viewport
 
 `@asha/renderer-host` owns the concrete browser renderer used by product and

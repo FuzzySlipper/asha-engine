@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [projection, billboard, render]
+supersedes: []
+see-also: []
+---
+
 # World-space billboard projection
 
 Status: implemented Wave 1 surface  

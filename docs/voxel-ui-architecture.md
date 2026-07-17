@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [voxel, ui, editor]
+supersedes: []
+see-also: []
+---
+
 # Voxel UI / editor architecture
 
 > Companion ADR: `governance/adr/0008-ui-editor-architecture.md`.

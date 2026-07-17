@@ -1,3 +1,11 @@
+---
+status: current
+audience: consumer
+tags: [gameplay, sdk, module, rust]
+supersedes: []
+see-also: []
+---
+
 # Public Gameplay-module SDK and Static Composition
 
 `asha-gameplay-module-sdk` is the public Rust path for downstream gameplay

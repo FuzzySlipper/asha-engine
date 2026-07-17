@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [projection, audio, render]
+supersedes: []
+see-also: []
+---
+
 # Audio projection: catalog identity to Web Audio
 
 Status: implemented Wave 1 surface  

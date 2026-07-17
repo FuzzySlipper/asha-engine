@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [voxel, launch, smoke]
+supersedes: []
+see-also: []
+---
+
 # Launchable voxel loop
 
 The end-to-end "first launchable" path: boot the runtime, load a canonical voxel

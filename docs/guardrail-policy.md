@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [ci, guardrails, governance]
+supersedes: []
+see-also: []
+---
+
 # Lightweight guardrail policy
 
 ASHA CI distinguishes consequential blockers from structural pressure. The

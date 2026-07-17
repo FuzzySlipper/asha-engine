@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [projection, channel, adr]
+supersedes: []
+see-also: []
+---
+
 # ADR: Shared non-scene projection channel
 
 Status: **Accepted for Wave 1**  

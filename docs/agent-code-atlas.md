@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [navigation, lanes, governance]
+supersedes: []
+see-also: [README.md, design.md]
+---
+
 # ASHA Agent Code Atlas
 
 Status: V1 navigation and governance layer for agents. Current task planning
@@ -14,7 +22,30 @@ agents to the right owner lane, public boundary, and acceptance gate.
 5. If this atlas disagrees with code/tests, fix the atlas or create a task; do
    not force code to match stale prose.
 
-## Maps
+## Topic Maps
+
+- [Voxel authority](topics/authority/voxel.md)
+- [ECRP content and capability](topics/authority/ecrp.md)
+- [Replay and determinism](topics/authority/replay.md)
+- [Input and camera](topics/authority/input.md)
+- [Simulation time](topics/authority/time.md)
+- [Animation](topics/authority/animation.md)
+- [Combat and lifecycle](topics/authority/combat.md)
+- [Navigation and pathfinding](topics/authority/nav.md)
+- [Projection overview](topics/projection/overview.md)
+- [Runtime bridge boundary](topics/bridge/boundary.md)
+- [Static RuntimeSession composition](topics/bridge/composition.md)
+- [Consumer compatibility](topics/consumer/compatibility.md)
+- [Consumer deployment](topics/consumer/deployment.md)
+- [Game code organization](topics/consumer/game-organization.md)
+- [Contract governance](topics/contracts/governance.md)
+- [Vocabulary compatibility](topics/contracts/vocabulary.md)
+- [CI guardrails](topics/ci/guardrails.md)
+- [CI feedback](topics/ci/feedback.md)
+- [Performance baseline](topics/ci/perf.md)
+- [Policy and catalog expression](topics/expression/policy.md)
+
+## Code Maps
 
 - [Rust authority and RuntimeSession](code-map/rust-authority-runtime-session.md)
 - [Protocol and generated contracts](code-map/protocol-generated-contracts.md)

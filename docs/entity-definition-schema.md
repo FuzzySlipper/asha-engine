@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [ecrp, entity, schema]
+supersedes: []
+see-also: []
+---
+
 # EntityDefinition Schema Status
 
 Status: upstream ECRP bootstrap substrate. Initial proof came from #4027; ProjectBundle batch hardening was added for #4161.

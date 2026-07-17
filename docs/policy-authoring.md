@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [policy, expression, typescript]
+supersedes: []
+see-also: []
+---
+
 # Policy authoring
 
 ## What policy is

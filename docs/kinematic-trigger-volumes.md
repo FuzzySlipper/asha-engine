@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [trigger, volumes, kinematic, gameplay]
+supersedes: []
+see-also: []
+---
+
 # Kinematic trigger volumes
 
 Status: implemented for Den task #5662.

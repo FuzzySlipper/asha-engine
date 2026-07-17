@@ -1,3 +1,11 @@
+---
+status: current
+audience: consumer
+tags: [consumer, game, organization]
+supersedes: []
+see-also: []
+---
+
 # Game Agent Code Organization
 
 Status: draft guidance for ASHA game consumer repos such as `asha-demo`.

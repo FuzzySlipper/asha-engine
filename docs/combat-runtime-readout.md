@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [combat, readout, runtime]
+supersedes: []
+see-also: []
+---
+
 # Combat Runtime Readout
 
 Status: public RuntimeSession combat/fire/health readout slice. The committed

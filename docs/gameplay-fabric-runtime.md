@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [gameplay, fabric, runtime, rust]
+supersedes: []
+see-also: []
+---
+
 # Gameplay Fabric Runtime Coordination
 
 Status: current canonical runtime coordinator after #5748/#5750/#5751. This

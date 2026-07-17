@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [projection, telemetry, diagnostics]
+supersedes: []
+see-also: []
+---
+
 # Live telemetry snapshot and overlay
 
 Status: **Implemented baseline**  

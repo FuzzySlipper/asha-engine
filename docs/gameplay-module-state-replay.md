@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [gameplay, replay, module-state]
+supersedes: []
+see-also: []
+---
+
 # Gameplay Module State, Session Snapshots, and Reaction Replay
 
 Status: implemented authority substrate for Den task #5633. The owning

@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [contracts, vocabulary, compatibility]
+supersedes: []
+see-also: []
+---
+
 # ASHA Vocabulary Compatibility Map
 
 Status: implementation-facing compatibility map for Den task #4017.

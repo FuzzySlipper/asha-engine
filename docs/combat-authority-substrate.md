@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [combat, authority, rust]
+supersedes: []
+see-also: []
+---
+
 # Combat Authority Substrate
 
 Task #4040 adds the first upstream combat/health/raycast proof surface. The

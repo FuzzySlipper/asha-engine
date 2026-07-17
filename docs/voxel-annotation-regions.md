@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [voxel, annotation, regions]
+supersedes: []
+see-also: []
+---
+
 # Voxel Annotation And Semantic Region Model
 
 Status: proposed by #5265. This is an implementation proposal, not yet a

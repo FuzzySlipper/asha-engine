@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [projection, hud, menu]
+supersedes: []
+see-also: []
+---
+
 # HUD Menu Projection
 
 Status: task #4043 reusable UI projection surface.

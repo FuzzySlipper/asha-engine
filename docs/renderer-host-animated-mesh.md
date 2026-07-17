@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [render, animation, mesh, projection]
+supersedes: []
+see-also: []
+---
+
 # Renderer Host Animated Meshes
 
 `@asha/renderer-host` is the public browser and standalone boundary for animated

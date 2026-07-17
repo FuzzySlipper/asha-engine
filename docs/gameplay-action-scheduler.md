@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [gameplay, scheduler, actions, rust]
+supersedes: []
+see-also: []
+---
+
 # Gameplay Action Scheduler
 
 Status: implemented gameplay scheduling authority for Den task #5605.

@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [ci, perf, baseline]
+supersedes: []
+see-also: []
+---
+
 # Launchable-voxel performance baseline
 
 A deterministic, **logged** performance scenario over the canonical launch fixture,

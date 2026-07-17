@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [nav, readout, runtime]
+supersedes: []
+see-also: []
+---
+
 # Navigation Runtime Readout
 
 Status: task #4052 public RuntimeSession and PolicyView nav/pathfinding readout.

@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [render, static-room, projection]
+supersedes: []
+see-also: []
+---
+
 # Static Room Render Path
 
 Status: task #4029 upstream evidence for the first `asha-demo` visual path.

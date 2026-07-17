@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [tunnel, levelgen, substrate, rust]
+supersedes: []
+see-also: []
+---
+
 # Deterministic Tunnel Generator Substrate
 
 Task #4038 adds the first generic generated-level substrate for enclosed voxel

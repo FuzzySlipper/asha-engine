@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [projection, devtools, diagnostics]
+supersedes: []
+see-also: []
+---
+
 # Consumer developer-console projection
 
 The developer console is a small runtime capability for games and authoring tools. It gives a pull-down game console and ASHA Studio's status/activity surface the same bounded vocabulary without turning either UI into a proof dashboard.

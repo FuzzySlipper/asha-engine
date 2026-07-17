@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [animation, authority, rust]
+supersedes: []
+see-also: []
+---
+
 # Animation controller authority
 
 Status: implemented foundation for task #5648  

@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [ci, github, gates, checks]
+supersedes: []
+see-also: []
+---
+
 # GitHub Check Gates
 
 ASHA exposes a fast changed-surface gate for ordinary iteration:

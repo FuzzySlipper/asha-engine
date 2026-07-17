@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [gameplay, reads, fabric, rust]
+supersedes: []
+see-also: []
+---
+
 # Declared Gameplay Reads
 
 Gameplay modules need useful knowledge of the Session without receiving a raw

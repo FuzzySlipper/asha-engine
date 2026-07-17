@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [gameplay, events, adapters, rust]
+supersedes: []
+see-also: []
+---
+
 # Engine Owner Facts on the Gameplay Fabric
 
 Status: implemented first standard adapter set for Den task #5632.

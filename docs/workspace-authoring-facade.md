@@ -1,3 +1,11 @@
+---
+status: current
+audience: consumer
+tags: [workspace, authoring, facade, consumer]
+supersedes: []
+see-also: []
+---
+
 # Workspace authoring authority
 
 `WorkspaceAuthoringFacade` is the public engine surface for editors and asset

@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [camera, input, authority]
+supersedes: []
+see-also: []
+---
+
 # Camera Modes, Navigation, and Transitions
 
 Status: current public engine boundary for Den task #5604.

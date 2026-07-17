@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [gameplay, bindings, module, rust]
+supersedes: []
+see-also: []
+---
+
 # Gameplay module configuration and ProjectBundle bindings
 
 Gameplay configuration is durable authored input to a statically linked Rust

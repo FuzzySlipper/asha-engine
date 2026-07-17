@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [contracts, governance, codegen]
+supersedes: []
+see-also: []
+---
+
 # Contract governance
 
 ## What a contract is

@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [voxel, mesh, import]
+supersedes: []
+see-also: []
+---
+
 # Reference Mesh Import
 
 Task #5553 adds the first public engine-authorized reference-mesh ingestion path

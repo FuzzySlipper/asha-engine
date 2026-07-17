@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [replay, determinism, authority]
+supersedes: []
+see-also: []
+---
+
 # Replay model
 
 ## Purpose

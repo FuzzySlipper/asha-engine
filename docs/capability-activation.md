@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [ecrp, capability, activation]
+supersedes: []
+see-also: []
+---
+
 # Typed Capability Activation
 
 Status: implemented authority/state foundation for Den task #5631.

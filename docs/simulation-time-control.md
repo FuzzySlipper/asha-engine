@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [time, simulation, authority]
+supersedes: []
+see-also: []
+---
+
 # Simulation Time Control
 
 Status: implemented public Session capability (#5613).

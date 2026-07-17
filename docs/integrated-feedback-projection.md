@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [projection, feedback, integrated]
+supersedes: []
+see-also: []
+---
+
 # Integrated gameplay feedback projection
 
 ## Purpose

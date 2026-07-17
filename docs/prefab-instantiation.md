@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [prefab, instantiation, runtime, rust]
+supersedes: []
+see-also: []
+---
+
 # Deterministic Prefab Instantiation
 
 Status: authoritative Rust instantiation substrate implemented by Den task

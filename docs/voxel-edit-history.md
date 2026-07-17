@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [voxel, edit, history]
+supersedes: []
+see-also: []
+---
+
 # Voxel Edit History, Undo, And Revert
 
 Status: implemented as Rust-owned timeline, ProjectBundle persistence, generated

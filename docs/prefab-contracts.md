@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [prefab, contracts, stored, rust]
+supersedes: []
+see-also: []
+---
+
 # Prefab Contracts and Reuse Ownership
 
 Status: Wave 1 stored contract implemented by Den task #5644. Authoritative

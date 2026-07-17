@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [render, protocol, projection]
+supersedes: []
+see-also: []
+---
+
 # Render protocol
 
 ## Model: retained-mode diffs

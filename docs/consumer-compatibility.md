@@ -1,3 +1,11 @@
+---
+status: current
+audience: consumer
+tags: [consumer, compatibility, packages]
+supersedes: []
+see-also: []
+---
+
 # Consumer Compatibility Surface
 
 Status: task #2536 compatibility surface for downstream consumers. This is not a public-registry semver promise.

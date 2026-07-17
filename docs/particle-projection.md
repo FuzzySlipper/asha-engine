@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [projection, particles, render]
+supersedes: []
+see-also: []
+---
+
 # Particle projection and renderer-owned simulation
 
 Status: implemented Wave 1 surface  

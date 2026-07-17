@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [governance, source-shape, ci]
+supersedes: []
+see-also: []
+---
+
 # Source-Shape And Structural-Pressure Governance
 
 ASHA source-shape limits keep ownership cells inspectable and prevent bridge, protocol, authority, or shell files from becoming default stuffing points. These limits are warning rails for assignment and review, not an architecture score and not a reason to split cohesive authority blindly.

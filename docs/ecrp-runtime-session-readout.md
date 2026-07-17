@@ -1,3 +1,11 @@
+---
+status: current
+audience: consumer
+tags: [ecrp, runtime, readout, consumer]
+supersedes: []
+see-also: []
+---
+
 # ECRP RuntimeSession Readout
 
 Status: public readout plus ProjectBundle-shaped load surface for #4163/#4189/#4224.

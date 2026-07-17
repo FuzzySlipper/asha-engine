@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [projection, materials, feedback]
+supersedes: []
+see-also: []
+---
+
 # Material feedback projection
 
 ASHA material feedback is a typed, retained render projection for communicating

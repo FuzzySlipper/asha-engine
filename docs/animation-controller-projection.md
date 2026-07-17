@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [animation, projection, render]
+supersedes: []
+see-also: []
+---
+
 # Animation controller G1 projection
 
 Status: implemented foundation for task #5649  

@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [voxel, conversion, texture]
+supersedes: []
+see-also: []
+---
+
 # Rust-Owned Voxel Conversion Texture Sampling
 
 Status: design record for Den task #4596, with the first implementation slice

@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [voxel, asset, format]
+supersedes: []
+see-also: []
+---
+
 # Asha Voxel Volume Asset Format
 
 Status: accepted first engine format for task #4816.

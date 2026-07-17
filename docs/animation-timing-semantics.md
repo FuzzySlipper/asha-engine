@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [animation, timing, determinism]
+supersedes: []
+see-also: []
+---
+
 # Animation timing semantics and gameplay-origin proof
 
 Status: implemented for task #5650  

@@ -1,3 +1,11 @@
+---
+status: current
+audience: consumer
+tags: [template, agents, consumer]
+supersedes: []
+see-also: []
+---
+
 # ASHA Project AGENTS.md Template
 
 Use this document as the starting point for `AGENTS.md` in a new ASHA-adjacent project repository. It is intentionally free of project-management-system assumptions so it can be used inside repos with plain GitHub issues, local task files, or other project trackers.

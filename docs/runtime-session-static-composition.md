@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [bridge, composition, runtime-session]
+supersedes: []
+see-also: []
+---
+
 # Static RuntimeSession Composition
 
 Status: preferred native provider shape after Wave 1 stabilization.

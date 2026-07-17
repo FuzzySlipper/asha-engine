@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [bridge, boundary, runtime]
+supersedes: []
+see-also: []
+---
+
 # Runtime bridge boundary
 
 > Companion ADR: `governance/adr/0006-runtime-bridge-boundary.md`.

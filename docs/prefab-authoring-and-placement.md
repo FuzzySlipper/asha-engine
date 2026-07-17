@@ -1,3 +1,11 @@
+---
+status: current
+audience: consumer
+tags: [prefab, authoring, placement, consumer]
+supersedes: []
+see-also: []
+---
+
 # Prefab Authoring and Public Placement
 
 Status: public consumer workflow implemented by Den task #5646.

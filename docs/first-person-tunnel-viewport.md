@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [camera, tunnel, viewport]
+supersedes: []
+see-also: []
+---
+
 # First-Person Tunnel Viewport Adapter
 
 Status: task #4067 upstream renderer-three projection adapter.

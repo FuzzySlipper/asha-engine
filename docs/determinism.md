@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [determinism, replay, time]
+supersedes: []
+see-also: []
+---
+
 # Determinism
 
 ## Why it matters

@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [voxel, edit, transactions]
+supersedes: []
+see-also: []
+---
+
 # Bulk Voxel Edit Transactions
 
 ASHA supports large authored voxel edits through a Rust-owned transaction surface

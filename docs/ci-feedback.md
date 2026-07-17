@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [ci, feedback, timing]
+supersedes: []
+see-also: []
+---
+
 # CI feedback tiers and measurement
 
 ASHA has one gate inventory with two selection tiers. Normal agent iteration uses:

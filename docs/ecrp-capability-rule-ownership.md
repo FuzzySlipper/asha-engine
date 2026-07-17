@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [ecrp, capability, ownership]
+supersedes: []
+see-also: []
+---
+
 # ECRP Capability Rule Ownership
 
 Status: implementation note for #4162/#4190/#4224.

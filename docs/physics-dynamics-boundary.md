@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [physics, dynamics, boundary, adr]
+supersedes: []
+see-also: []
+---
+
 # ADR: Kinematic collision, triggers, and future dynamics boundary
 
 Status: **Accepted boundary; dynamics deferred**  

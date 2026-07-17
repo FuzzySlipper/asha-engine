@@ -1,3 +1,11 @@
+---
+status: deprecated
+audience: agent
+tags: [wave1, compatibility, quarantine, migration]
+supersedes: []
+see-also: []
+---
+
 # Wave 1 Compatibility Quarantine
 
 Wave 1 compatibility is a finite migration lane, not a second public design.

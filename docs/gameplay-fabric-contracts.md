@@ -1,3 +1,11 @@
+---
+status: current
+audience: agent
+tags: [gameplay, fabric, contracts, rust]
+supersedes: []
+see-also: []
+---
+
 # Gameplay Fabric Contracts and Immutable Registry
 
 Status: implemented contract and bootstrap-registry foundation for Den task
