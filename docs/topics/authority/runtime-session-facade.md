@@ -100,7 +100,7 @@ Rust-capable bridge and `mode: 'rust'`; reference fixtures use
 - `readCameraProjection(request)`: reads typed camera projection matrices and projection hash.
 - `registerVoxelConversionSource(request)`: registers typed voxel conversion source geometry and material slots through the Rust-owned runtime bridge source registry. Rust-backed sessions delegate to the native/runtime bridge authority surface; reference sessions fail closed with `operation_unimplemented`.
 - `registerVoxelConversionMeshAsset(request)`: registers a ProjectBundle/catalog static mesh asset as a Rust authority-visible voxel conversion source. The mesh asset path validates source identity, primitive support, indexed triangle groups, and material slots before the source can be planned; reference sessions fail closed.
-- `importVoxelConversionMeshSource(request)`: imports host-provided GLB bytes through the engine-owned parser, computes the source SHA-256, registers canonical static mesh geometry, and returns bounded bounds/primitive/material metadata plus diagnostics. The supported subset and quotas are documented in `docs/reference-mesh-import.md`; reference sessions fail closed.
+- `importVoxelConversionMeshSource(request)`: imports host-provided GLB bytes through the engine-owned parser, computes the source SHA-256, registers canonical static mesh geometry, and returns bounded bounds/primitive/material metadata plus diagnostics. The supported subset and quotas are documented in `topics/authority/reference-mesh-import.md`; reference sessions fail closed.
 - `readVoxelConversionSourceMetadata(request)`: reads Rust-owned metadata for a registered/project mesh conversion source, including source path/hash, material slots, primitive/group counts and bounds, and the latest planned transform when one exists. Missing or stale source metadata returns typed diagnostics instead of requiring Studio to infer from catalog paths.
 - `planVoxelConversion(request)`: requests a Rust-owned mesh-to-voxel conversion plan using generated voxel conversion DTOs. Material maps may include authority-visible texture sample assets and per-slot UV sample bindings for the first nearest-texel `palette_index_u16` sampling slice; missing texture snapshots, stale hashes, unsupported policies, and malformed rules return typed conversion diagnostics. Rust-backed sessions route through the native/runtime bridge authority surface; reference sessions fail closed with `operation_unimplemented`.
 - `previewVoxelConversion(request)`: requests bounded conversion preview output for a previously planned conversion, guarded by the expected plan hash. Rust-backed sessions return typed diagnostics for stale plan hashes; reference sessions fail closed.
@@ -183,7 +183,7 @@ Evidence lanes:
 
 ## Runtime Vocabulary
 
-The public facade and bridge/native operation names use `RuntimeSession` and `ProjectBundle` vocabulary. The remaining legacy bundle vocabulary is in the protocol crate/wire DTO lane, as documented in `docs/vocabulary-compatibility.md`.
+The public facade and bridge/native operation names use `RuntimeSession` and `ProjectBundle` vocabulary. The remaining legacy bundle vocabulary is in the protocol crate/wire DTO lane, as documented in `topics/contracts/vocabulary-compatibility.md`.
 
 ## Non-Claims
 

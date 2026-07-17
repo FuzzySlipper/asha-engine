@@ -55,7 +55,7 @@ wall-clock pose state, mixer time, bones, or matrices into authority.
 The host has no mutation callback, proposal port, or gameplay command surface.
 Animation completion and keyframe callbacks cannot cross back into Rust
 authority. Gameplay-critical timing is the replayable typed fact documented in
-`docs/animation-timing-semantics.md`.
+`topics/authority/animation-timing-semantics.md`.
 
 ## Failure and diagnostics
 

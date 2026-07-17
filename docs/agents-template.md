@@ -237,12 +237,12 @@ Consult the current `asha-engine` docs for architecture and public-surface detai
 - `README.md`
 - `docs/design.md`
 - `docs/architecture-overview.md`
-- `docs/consumer-compatibility.md`
-- `docs/runtime-bridge-boundary.md`
-- `docs/runtime-session-facade.md`
-- `docs/contract-governance.md`
-- `docs/game-agent-code-organization.md`
-- `docs/repo-family-deployment.md`
-- `docs/github-check-gates.md`
+- `topics/consumer/consumer-compatibility.md`
+- `topics/bridge/runtime-bridge-boundary.md`
+- `topics/authority/runtime-session-facade.md`
+- `topics/contracts/contract-governance.md`
+- `topics/consumer/game-agent-code-organization.md`
+- `topics/consumer/repo-family-deployment.md`
+- `topics/ci/github-check-gates.md`
 
 Keep this repo's `AGENTS.md` shorter than the engine docs. It should tell agents how to behave here, not copy the whole upstream architecture manual.

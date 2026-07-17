@@ -17,4 +17,4 @@ cd ts
 ASHA_PERF_HOST=<stable-host-label> pnpm --filter @asha/smoke dev:asha-perf
 ```
 
-See `docs/perf-baseline.md` for field stability, output paths, and known limitations.
+See `topics/ci/perf-baseline.md` for field stability, output paths, and known limitations.

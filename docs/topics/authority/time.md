@@ -12,8 +12,8 @@ Time control is Rust Session authority. Pause, resume, cadence multiplier, and e
 
 ## Simulation Time Control
 
-`applyTimeControlCommand` accepts generated pause, resume, cadence-multiplier, or exact-step commands. Exact steps require paused mode, advance precisely the requested fixed-tick count, and remain paused. See `docs/simulation-time-control.md`.
+`applyTimeControlCommand` accepts generated pause, resume, cadence-multiplier, or exact-step commands. Exact steps require paused mode, advance precisely the requested fixed-tick count, and remain paused. See `topics/authority/simulation-time-control.md`.
 
 ## Determinism
 
-Deterministic replay requires explicit time control. Wall-clock time is forbidden inside policy execution. See `docs/determinism.md`.
+Deterministic replay requires explicit time control. Wall-clock time is forbidden inside policy execution. See `topics/authority/determinism.md`.

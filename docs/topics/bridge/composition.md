@@ -22,4 +22,4 @@ see-also: [runtime-session-facade.md, gameplay-module-sdk.md, gameplay-runtime-h
 - `readGameplayModuleView(request)` — selects one registry-owned named view by typed contract and scope.
 - `applyGameplayPrefabPartInteraction(request)` — resolves prefab role and emits standard owner event through the closed gameplay registry.
 
-See `docs/runtime-session-static-composition.md` for the full document.
+See `topics/bridge/runtime-session-static-composition.md` for the full document.

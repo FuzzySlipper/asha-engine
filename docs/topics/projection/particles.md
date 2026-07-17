@@ -10,4 +10,4 @@ see-also: [overview.md, particle-projection.md]
 
 Typed burst/retained particle projection with renderer-owned simulation and budgets. Particle projection is never authority.
 
-See `docs/particle-projection.md` for the full projection contract and downstream proof.
+See `topics/projection/particle-projection.md` for the full projection contract and downstream proof.

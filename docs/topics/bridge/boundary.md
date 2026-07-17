@@ -32,4 +32,4 @@ The runtime bridge is the transport-neutral facade between TypeScript consumers 
 - UI/renderer importing the native addon
 - Duplicate hand-written schemas in the bridge
 
-See `docs/runtime-bridge-boundary.md` for the full ADR and migration history.
+See `topics/bridge/runtime-bridge-boundary.md` for the full ADR and migration history.

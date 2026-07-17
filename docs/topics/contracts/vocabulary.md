@@ -16,4 +16,4 @@ The public facade and bridge/native operation names use `RuntimeSession` and `Pr
 - Legacy `World*` naming is gated behind `harness/vocab/legacy-term-allowlist.txt`.
 - The term-gravity gate bans `*Component`/`*Archetype` type names.
 
-See `docs/vocabulary-compatibility.md` for the full compatibility record.
+See `topics/contracts/vocabulary-compatibility.md` for the full compatibility record.

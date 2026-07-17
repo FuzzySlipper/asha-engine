@@ -131,7 +131,7 @@ poses, renderer handles, wall-clock time, or animation callbacks. Those remain
 presentation concerns. Resolved controller changes project through the G1
 animation domain and drive renderer-local clip sampling. Gameplay-origin timing
 facts and their verification-replay semantics are described in
-`docs/animation-timing-semantics.md`.
+`topics/authority/animation-timing-semantics.md`.
 
 ## Deliberate Wave 1 limits
 

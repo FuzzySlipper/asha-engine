@@ -10,15 +10,13 @@ use protocol_render::{
     RenderDiff, StaticMeshAsset,
 };
 use protocol_scene::{
-    AssetReferenceDto, AssetVersionReqDto, FlatSceneDocumentDto,
-    SceneDocumentAuthoringCommandDto, SceneDocumentAuthoringRequestDto,
-    SceneDocumentAuthoringTargetDto, SceneDocumentCodecResultDto,
-    SceneDocumentDecodeRequestDto, SceneDocumentEncodeRequestDto, SceneBootstrapBindingsDto,
-    SceneCatalogBindingDto, SceneEntityInstanceDto, SceneEntityReferenceDto,
+    AssetReferenceDto, AssetVersionReqDto, FlatSceneDocumentDto, SceneBootstrapBindingsDto,
+    SceneCatalogBindingDto, SceneDocumentAuthoringCommandDto, SceneDocumentAuthoringRequestDto,
+    SceneDocumentAuthoringTargetDto, SceneDocumentCodecResultDto, SceneDocumentDecodeRequestDto,
+    SceneDocumentEncodeRequestDto, SceneEntityInstanceDto, SceneEntityReferenceDto,
     SceneGeneratorBindingDto, SceneLightDto, SceneLightShadowIntentDto, SceneMetadataDto,
-    SceneNodeKindDto, SceneNodeRecordDto,
-    SceneObjectCommandDto, SceneObjectCommandRequestDto, SceneObjectCommandResultDto,
-    SceneTransformDto, SceneValidationErrorDto,
+    SceneNodeKindDto, SceneNodeRecordDto, SceneObjectCommandDto, SceneObjectCommandRequestDto,
+    SceneObjectCommandResultDto, SceneTransformDto, SceneValidationErrorDto,
 };
 use runtime_bridge_api::{
     RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind, SceneDocumentAuthoringResultDto,
@@ -638,12 +636,24 @@ struct SceneTransformJson {
 )]
 enum SceneKindJson {
     EmptyGroup,
-    StaticMesh { asset: SceneAssetDtoJson },
-    Sprite { asset: SceneAssetDtoJson },
-    VoxelVolume { asset: SceneAssetDtoJson },
-    Light { scene_light: SceneLightJson },
-    EntityInstance { instance: SceneEntityInstanceJson },
-    Bootstrap { bindings: SceneBootstrapBindingsJson },
+    StaticMesh {
+        asset: SceneAssetDtoJson,
+    },
+    Sprite {
+        asset: SceneAssetDtoJson,
+    },
+    VoxelVolume {
+        asset: SceneAssetDtoJson,
+    },
+    Light {
+        scene_light: SceneLightJson,
+    },
+    EntityInstance {
+        instance: SceneEntityInstanceJson,
+    },
+    Bootstrap {
+        bindings: SceneBootstrapBindingsJson,
+    },
 }
 
 #[derive(Deserialize, Serialize)]
@@ -662,7 +672,9 @@ struct SceneEntityInstanceJson {
     deny_unknown_fields
 )]
 enum SceneEntityReferenceJson {
-    EntityDefinition { stable_id: String },
+    EntityDefinition {
+        stable_id: String,
+    },
     Prefab {
         prefab_id: u64,
         variant_id: Option<String>,
@@ -861,9 +873,8 @@ impl SceneRecordJson {
                 SceneKindJson::Light { scene_light } => {
                     SceneNodeKindDto::Light(scene_light.protocol())
                 }
-                SceneKindJson::EntityInstance { instance } => {
-                    SceneNodeKindDto::EntityInstance {
-                        instance: SceneEntityInstanceDto {
+                SceneKindJson::EntityInstance { instance } => SceneNodeKindDto::EntityInstance {
+                    instance: SceneEntityInstanceDto {
                         instance_id: instance.instance_id,
                         reference: match instance.reference {
                             SceneEntityReferenceJson::EntityDefinition { stable_id } => {
@@ -878,19 +889,17 @@ impl SceneRecordJson {
                             },
                         },
                         spawn_marker_id: instance.spawn_marker_id,
-                        },
-                    }
-                }
-                SceneKindJson::Bootstrap { bindings } => {
-                    SceneNodeKindDto::Bootstrap {
-                        bindings: SceneBootstrapBindingsDto {
-                        generator: bindings.generator.map(|generator| {
-                            SceneGeneratorBindingDto {
+                    },
+                },
+                SceneKindJson::Bootstrap { bindings } => SceneNodeKindDto::Bootstrap {
+                    bindings: SceneBootstrapBindingsDto {
+                        generator: bindings
+                            .generator
+                            .map(|generator| SceneGeneratorBindingDto {
                                 provider_id: generator.provider_id,
                                 preset_id: generator.preset_id,
                                 seed: generator.seed,
-                            }
-                        }),
+                            }),
                         catalogs: bindings
                             .catalogs
                             .into_iter()
@@ -900,9 +909,8 @@ impl SceneRecordJson {
                                 source_path: catalog.source_path,
                             })
                             .collect(),
-                        },
-                    }
-                }
+                    },
+                },
             },
         }
     }
@@ -931,9 +939,7 @@ impl SceneDocumentJson {
     }
 }
 
-pub(crate) fn parse_scene_document_json(
-    source: &str,
-) -> napi::Result<FlatSceneDocumentDto> {
+pub(crate) fn parse_scene_document_json(source: &str) -> napi::Result<FlatSceneDocumentDto> {
     parse_wire_json::<SceneDocumentJson>("load_fps_runtime_session.scene_document", source)
         .map(SceneDocumentJson::protocol)
 }
@@ -1245,9 +1251,13 @@ fn scene_authoring_result_json(result: &SceneDocumentAuthoringResultDto) -> napi
         .authored_light_frame
         .as_ref()
         .map(|frame| {
-            serde_json::from_str::<Value>(&render_bridge::json::encode_frame(frame)).map_err(|error| {
-                internal(format!("authored light frame could not be encoded: {error}"))
-            })
+            serde_json::from_str::<Value>(&render_bridge::json::encode_frame(frame)).map_err(
+                |error| {
+                    internal(format!(
+                        "authored light frame could not be encoded: {error}"
+                    ))
+                },
+            )
         })
         .transpose()?;
     Ok(json!({
@@ -1326,7 +1336,10 @@ pub fn apply_scene_document_authoring(handle: i64, request_json: String) -> napi
                 command: request.command.protocol(),
             })
             .map_err(to_napi)?;
-        encode(scene_authoring_result_json(&result)?, "scene document authoring")
+        encode(
+            scene_authoring_result_json(&result)?,
+            "scene document authoring",
+        )
     })
 }
 

@@ -26,4 +26,4 @@ ASHA CI distinguishes consequential blockers from structural pressure. The machi
 
 Require a named consequential failure class, owner, bounded trigger and fallback, representative regression, rough cost, and a condition for narrowing or removal.
 
-See `docs/guardrail-policy.md` for the full policy and two-visible-slice calibration.
+See `topics/ci/guardrail-policy.md` for the full policy and two-visible-slice calibration.

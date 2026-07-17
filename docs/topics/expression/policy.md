@@ -22,4 +22,4 @@ Typed catalogs and data-like declarations. Rust validates catalog data before ac
 
 Loads policy packages, invokes policy functions, provides deterministic inputs, collects proposed commands, sandboxes forbidden APIs, records script diagnostics, and runs fixture-based script tests. Does not validate commands.
 
-See `docs/policy-authoring.md` for the full authoring guide.
+See `topics/expression/policy-authoring.md` for the full authoring guide.

@@ -12,12 +12,12 @@ Input and camera authority are Rust-owned. Browser hosts normalize platform samp
 
 ## Named Input Actions
 
-Rust owns the named-input catalog, context stack, raw resolution, and platform-free semantic replay surface. Browser samples converge on typed RuntimeSession proposals. See `docs/named-input-actions.md`.
+Rust owns the named-input catalog, context stack, raw resolution, and platform-free semantic replay surface. Browser samples converge on typed RuntimeSession proposals. See `topics/authority/named-input-actions.md`.
 
 ## Camera Modes
 
-First-person, orbit, and top-down controllers with expected-revision commands, terrain constraints, and renderer-only transitions. See `docs/camera-modes.md`.
+First-person, orbit, and top-down controllers with expected-revision commands, terrain constraints, and renderer-only transitions. See `topics/authority/camera-modes.md`.
 
 ## First-Person Tunnel Viewport
 
-The generated-tunnel FPS viewport uses collision-constrained camera input through the typed bridge surface. See `docs/first-person-tunnel-viewport.md`.
+The generated-tunnel FPS viewport uses collision-constrained camera input through the typed bridge surface. See `topics/authority/first-person-tunnel-viewport.md`.

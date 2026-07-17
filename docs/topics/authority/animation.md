@@ -12,12 +12,12 @@ Animation authority is Rust-owned through the animation controller. Projection e
 
 ## Animation Controller Authority
 
-The animation controller owns skeletal/state machine animation authority. See `docs/animation-controller-authority.md`.
+The animation controller owns skeletal/state machine animation authority. See `topics/authority/animation-controller-authority.md`.
 
 ## Animation Controller Projection
 
-The projection emits typed render diffs for animated mesh instances. See `docs/animation-controller-projection.md`.
+The projection emits typed render diffs for animated mesh instances. See `topics/projection/animation-controller-projection.md`.
 
 ## Animation Timing Semantics
 
-Animation timing is deterministic and replay-aware. See `docs/animation-timing-semantics.md`.
+Animation timing is deterministic and replay-aware. See `topics/authority/animation-timing-semantics.md`.

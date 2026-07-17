@@ -21,4 +21,4 @@ A contract is the generated TypeScript surface derived from a Rust protocol crat
 
 A protocol change includes: Rust protocol/schema update, regenerated TypeScript contracts, fixture/golden updates, downstream Rust/TS tests, and compatibility/diagnostic notes when the change affects runtime behavior.
 
-See `docs/contract-governance.md` for the full process.
+See `topics/contracts/contract-governance.md` for the full process.

@@ -274,7 +274,7 @@ Introduced by #5602.
 Evidence: `harness/ci/check-contracts.sh`,
 `harness/ci/check-render-goldens.sh`, and the generated
 `material-feedback.json` / `material-feedback.snapshot` pair. See
-`docs/material-feedback.md` for lifecycle and non-claims.
+`topics/projection/material-feedback.md` for lifecycle and non-claims.
 
 ## Rust game-rule extension compatibility log
 
@@ -320,10 +320,10 @@ applies accepted effects through Rust authority.
 
 New gameplay authority should not add another hook to this surface. Use
 `asha-gameplay-module-sdk` inside `asha-runtime-session-composition`, following
-`docs/gameplay-fabric-growth-recipes.md`. The compatibility hook is
+`topics/authority/gameplay-fabric-growth-recipes.md`. The compatibility hook is
 quarantined to `asha-demo` until #5734 migrates its remaining caller. The
 canonical inventory and diagnostic are in
-`docs/wave1-compatibility-quarantine.md`.
+`topics/consumer/wave1-compatibility-quarantine.md`.
 
 ## Rust gameplay module SDK compatibility log
 
@@ -871,7 +871,7 @@ Additive editor viewport in #5741:
 - Missing resources or malformed frames reject only the affected channel and
   retain its last accepted projection. Studio is now an approved consumer of
   `@asha/renderer-host`, but remains forbidden from `@asha/renderer-three`, its
-  backend subpaths, and bare `three` imports. See `docs/editor-viewport.md`.
+  backend subpaths, and bare `three` imports. See `topics/projection/editor-viewport.md`.
 - #5792 adds the root-exported `resolveAshaStoredEditorCamera` helper. It owns
   renderer-neutral look-at to canonical pose/basis conversion for stored editor
   cameras and rejects non-finite, coincident, collinear, or invalid-projection

@@ -216,7 +216,7 @@ owners, read kind/provider/selector/field mismatch, invalid configuration
 schema ownership, or state/view adapter mismatch. Configuration metadata is
 durable schema information; it is not live mutable state. ProjectBundle binding,
 stable target resolution, atomic state initialization, and save/reload behavior
-are specified in `docs/gameplay-module-bindings.md`.
+are specified in `topics/authority/gameplay-module-bindings.md`.
 
 Two independent fixture modules prove disjoint namespaces, configurations,
 states, views, codecs, contracts, and behavior. Their real code executes through

@@ -168,5 +168,5 @@ artifact trend monitoring on a chosen baseline host.
 - **No product targets.** This task measures; it sets no FPS/frame budgets and makes no
   optimization changes.
 
-Related: `docs/launchable-voxel.md` (the launch hub), `docs/replay-model.md` (durability),
+Related: `topics/authority/launchable-voxel.md` (the launch hub), `topics/authority/replay-model.md` (durability),
 `harness/fixtures/smoke/README.md` (the shared fixture).

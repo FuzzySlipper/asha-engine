@@ -10,4 +10,4 @@ see-also: [overview.md, live-telemetry-overlay.md]
 
 Machine-readable live telemetry with unavailable-counter posture and G1 overlay lifecycle. Telemetry is observational; it must not become authority event machinery.
 
-See `docs/live-telemetry-overlay.md` for the full projection contract and downstream proof.
+See `topics/projection/live-telemetry-overlay.md` for the full projection contract and downstream proof.

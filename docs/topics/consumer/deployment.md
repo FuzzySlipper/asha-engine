@@ -30,4 +30,4 @@ git clone git@github.com:FuzzySlipper/asha-studio.git asha-studio
 git clone git@github.com:FuzzySlipper/asha-testing.git asha-testing
 ```
 
-See `docs/repo-family-deployment.md` for full setup and check commands.
+See `topics/consumer/repo-family-deployment.md` for full setup and check commands.

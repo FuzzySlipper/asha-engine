@@ -40,7 +40,7 @@ for worker convenience. It is never hand-edited. `protocol-codegen` is the emitt
 3. Commit the Rust source change and the generated TypeScript together in one PR.
 4. Update affected golden fixtures in `harness/goldens/protocol/`.
 5. List every downstream TS package affected and confirm they still typecheck.
-6. Add or update `docs/consumer-compatibility.md` and the package-local
+6. Add or update `topics/consumer/consumer-compatibility.md` and the package-local
    `compatibility.json` when the change affects downstream consumers.
 7. Add a compatibility note if the change breaks existing replay files or saved state.
 8. Request `contract-steward` lane review.

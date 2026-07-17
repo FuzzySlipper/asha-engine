@@ -18,4 +18,4 @@ The last pre-retirement warm full run selected 16 gates in 99.618 seconds. The f
 
 The policy-change validation run safely expanded the fast selector to the policy validator plus all 13 retained gates. It completed in 93.064 seconds with zero repeats, zero advisory failures, zero blocking failures, and zero duplicate execution fingerprints.
 
-See `docs/ci-feedback.md` for gate-level and cold-run detail.
+See `topics/ci/ci-feedback.md` for gate-level and cold-run detail.

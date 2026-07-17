@@ -34,4 +34,4 @@ ASHA remains in-house engine substrate work, but downstream consumers need durab
 
 Unavailable native/reference backend support reports `RuntimeBridgeError` with `operation_unimplemented`. Unsupported source assets, invalid material maps, oversized output, stale hashes, and replay mismatches are typed diagnostics, not best-effort partial output.
 
-See `docs/consumer-compatibility.md` for the full changelog and migration notes.
+See `topics/consumer/consumer-compatibility.md` for the full changelog and migration notes.

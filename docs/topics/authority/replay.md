@@ -12,16 +12,16 @@ Replay is the core audit mechanism for agent-written changes. Determinism is enf
 
 ## Replay Model
 
-Recording proposed commands, accepted events, state hashes, snapshots, and divergence reports. Headless replay tests with compact diagnostics. See `docs/replay-model.md`.
+Recording proposed commands, accepted events, state hashes, snapshots, and divergence reports. Headless replay tests with compact diagnostics. See `topics/authority/replay-model.md`.
 
 ## Determinism
 
-Shipping WASM semantics are the replay authority. Native builds are for tools and fast iteration. All authoritative randomness comes from deterministic engine services. See `docs/determinism.md`.
+Shipping WASM semantics are the replay authority. Native builds are for tools and fast iteration. All authoritative randomness comes from deterministic engine services. See `topics/authority/determinism.md`.
 
 ## Simulation Time Control
 
-Pause, resume, cadence-multiplier, and exact-step commands through Rust Session authority. Exact steps require paused mode and advance precisely the requested tick count. See `docs/simulation-time-control.md`.
+Pause, resume, cadence-multiplier, and exact-step commands through Rust Session authority. Exact steps require paused mode and advance precisely the requested tick count. See `topics/authority/simulation-time-control.md`.
 
 ## Gameplay Module State Replay
 
-`GameplayReactionFrame` captures the inspectable causal boundary for one fabric reaction. Two replay modes: `playback_frame` (applies recorded facts) and `run_verification_replay` (reruns the fabric and categorizes divergences). See `docs/gameplay-module-state-replay.md`.
+`GameplayReactionFrame` captures the inspectable causal boundary for one fabric reaction. Two replay modes: `playback_frame` (applies recorded facts) and `run_verification_replay` (reruns the fabric and categorizes divergences). See `topics/authority/gameplay-module-state-replay.md`.

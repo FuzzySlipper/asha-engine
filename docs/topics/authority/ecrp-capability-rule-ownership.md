@@ -42,7 +42,7 @@ Forbidden mutations return `RuleOwnedEntityAuthoringOutcome::Forbidden` with an
 
 The separate `apply_rule_owned_capability_activation` path returns generated
 typed activation outcomes and applies the same closed ownership posture. See
-`docs/capability-activation.md` for the absence/inactivity/lifecycle semantics.
+`topics/authority/capability-activation.md` for the absence/inactivity/lifecycle semantics.
 
 ## Current Boundary
 

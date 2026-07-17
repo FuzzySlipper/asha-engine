@@ -106,13 +106,13 @@ hatches.
 - `README.md` for repo layout, command index, and durable surface map.
 - `docs/design.md` for canonical architecture.
 - `docs/architecture-overview.md` for short orientation.
-- `docs/consumer-compatibility.md` for public package surfaces and consumer
+- `topics/consumer/consumer-compatibility.md` for public package surfaces and consumer
   role policy.
-- `docs/runtime-bridge-boundary.md` and `docs/runtime-session-facade.md` for
+- `topics/bridge/runtime-bridge-boundary.md` and `topics/authority/runtime-session-facade.md` for
   runtime facade behavior.
-- `docs/contract-governance.md` for Rust protocol to TypeScript contract flow.
-- `docs/game-agent-code-organization.md` for downstream game repo structure.
-- `docs/github-check-gates.md` for Den GitHub check gate registration.
+- `topics/contracts/contract-governance.md` for Rust protocol to TypeScript contract flow.
+- `topics/consumer/game-agent-code-organization.md` for downstream game repo structure.
+- `topics/ci/github-check-gates.md` for Den GitHub check gate registration.
 
 Historical architecture analysis documents may remain as dated audit artifacts,
 but they are not setup instructions or the current work queue.

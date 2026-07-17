@@ -10,4 +10,4 @@ see-also: [overview.md, developer-console-projection.md]
 
 Bounded generated-contract snapshot for game pull-down consoles and authoring activity/status presentation. Observational current-session state, not replay evidence or an authority mutation surface.
 
-See `docs/developer-console-projection.md` for the full projection contract.
+See `topics/projection/developer-console-projection.md` for the full projection contract.

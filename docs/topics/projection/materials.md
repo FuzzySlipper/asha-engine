@@ -10,4 +10,4 @@ see-also: [overview.md, material-feedback.md]
 
 Typed, retained render projection for communicating gameplay state through tint and emission. Gameplay authority chooses state; the renderer visualizes. Material feedback is never authority.
 
-See `docs/material-feedback.md` for the full projection contract.
+See `topics/projection/material-feedback.md` for the full projection contract.

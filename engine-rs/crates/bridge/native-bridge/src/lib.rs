@@ -96,8 +96,8 @@ pub use input_session::{
 use presentation_operation::NativePresentationOp;
 pub use render_projection::read_render_diffs;
 pub use scene_preview::{
-    apply_scene_document_authoring, apply_scene_object_command, decode_scene_document, encode_scene_document,
-    read_model_material_preview, read_scene_object_snapshot,
+    apply_scene_document_authoring, apply_scene_object_command, decode_scene_document,
+    encode_scene_document, read_model_material_preview, read_scene_object_snapshot,
 };
 pub use time_control::{apply_time_control_command, read_time_control_state};
 pub use voxel_assets::{

@@ -5,8 +5,8 @@ use protocol_view::{
     VoxelSelectionOutcome,
 };
 use runtime_bridge_api::{
-    PickRay, PickResult, RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind, SceneTransformDto,
-    VoxelInstancePickHint, VoxelInstancePickOutcome, VoxelInstancePickRejection,
+    PickRay, PickResult, RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind,
+    SceneTransformDto, VoxelInstancePickHint, VoxelInstancePickOutcome, VoxelInstancePickRejection,
     VoxelInstancePickRequest, VoxelMeshEvidenceRequest, VoxelProjectionBindingRequest,
     VoxelProjectionInstanceBinding,
 };
@@ -251,8 +251,7 @@ pub fn configure_voxel_projection_instances(
 
 #[napi]
 pub fn pick_voxel_instance(handle: i64, request_json: String) -> napi::Result<String> {
-    let request =
-        parse_wire_json::<InstancePickJson>("pick_voxel_instance", &request_json)?;
+    let request = parse_wire_json::<InstancePickJson>("pick_voxel_instance", &request_json)?;
     let local_face = parse_face(&request.renderer_hint.local_face)?;
     with_bridge(handle, |bridge| {
         let result = bridge

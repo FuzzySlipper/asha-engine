@@ -10,4 +10,4 @@ see-also: [overview.md, hud-menu-projection.md]
 
 Reusable UI projection surface for health/status/menu readouts and typed UI intents. Does not execute runtime authority commands.
 
-See `docs/hud-menu-projection.md` for the full projection contract.
+See `topics/projection/hud-menu-projection.md` for the full projection contract.

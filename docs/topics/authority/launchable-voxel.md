@@ -26,8 +26,8 @@ build on the real system without reading chat history. The per-task Den docs
 
 The renderer and UI never mutate voxel state; they produce proposals/previews and
 project authority output. Every edit and pick crosses the runtime-bridge facade to Rust
-(`rule-voxel-edit`, `svc-collision`). See `docs/voxel-ui-architecture.md`,
-`docs/runtime-bridge-boundary.md`, and ADR `governance/adr/0008-ui-editor-architecture.md`.
+(`rule-voxel-edit`, `svc-collision`). See `topics/authority/voxel-ui-architecture.md`,
+`topics/bridge/runtime-bridge-boundary.md`, and ADR `governance/adr/0008-ui-editor-architecture.md`.
 
 ## Where each piece lives
 
@@ -100,7 +100,7 @@ A voxel world saves as a base **edit log**, optionally compacted into chunk
 `postLoad / postEdit / postReload` voxel state fingerprints for the canonical edit sequence
 and proves durability (`postEdit == postReload`); tampering fails closed with a
 classified error. Full model + the deferred generic-`ReplayRecord` unification:
-`docs/replay-model.md`.
+`topics/authority/replay-model.md`.
 
 Runtime-diverged **entity** authority — runtime-created entities, diverged
 transforms, capability tables, relations, and source traces — persists separately as
@@ -136,7 +136,7 @@ per-cycle render ops, replay divergence, command acceptance) — timings are tre
 never thresholded. A separate manual GPU/WebGL lane writes
 `launch-voxel-gpu-perf.{jsonl,latest.json}` only when explicitly opted in; external
 WebGL/browser calibration is context-only and non-gating. Full field-stability guide +
-how to compare runs: `docs/perf-baseline.md`.
+how to compare runs: `topics/ci/perf-baseline.md`.
 
 ## Regeneration command index
 
@@ -149,7 +149,7 @@ how to compare runs: `docs/perf-baseline.md`.
 | Session-state snapshot + equivalence | `BLESS=1 cargo test -p scene-diagnostics --test session_state_goldens` → `harness/fixtures/session-state/` |
 | Regen-conflict diagnostic | `cargo run -p rule-project-bundle --example dump_regen_conflict > harness/fixtures/project-bundle/regen-conflict.txt` |
 | Structural render goldens | `cd ts && pnpm --filter @asha/renderer-three test` (bless the `<name>.snapshot`); see `harness/goldens/render-diffs/README.md` |
-| Golden replays | record with `sim-runner::Recorder`; see `docs/replay-model.md` |
+| Golden replays | record with `sim-runner::Recorder`; see `topics/authority/replay-model.md` |
 | Reference smoke golden | re-render `formatResult(runSmoke(reference))` → `harness/fixtures/smoke/reference-smoke.txt`; see its README |
 
 ## Known limitations (deferred, on purpose)
@@ -159,7 +159,7 @@ intent and a fresh decision — do not assume they are unimplemented by accident
 
 - **Generic-replay unification** — voxel save/reload uses a dedicated fingerprint path,
   not the tick-stepped `ReplayRecord`. Deferred; kept comparable via the shared
-  `BundleHash`. (`docs/replay-model.md`, Den #2440.)
+  `BundleHash`. (`topics/authority/replay-model.md`, Den #2440.)
 - **Native-unwired operations** — the napi addon is excluded from the offline build, so
   `submit_commands`, `pick_voxel`, and most facade verbs fail closed with
   `operation_unimplemented` on the native path. The authority smoke/shell report this as
@@ -172,7 +172,7 @@ intent and a fresh decision — do not assume they are unimplemented by accident
 - **Pixel/screenshot goldens** — the render gate is the structural snapshot; true
   pixel goldens (real WebGL/offscreen) are deferred (`harness/goldens/screenshots/README.md`).
 - **Performance budgets** — there is a logged same-host perf *baseline* (`dev:asha-perf`,
-  `docs/perf-baseline.md`) for trend tracking, plus a lowest-priority manual GPU/WebGL
+  `topics/ci/perf-baseline.md`) for trend tracking, plus a lowest-priority manual GPU/WebGL
   lane (`dev:asha-gpu-perf`) for discrete-host context. There is still no enforced
   timing/throughput budget and no product FPS target. Wiring a CI timing gate is
   deliberately avoided (it would be flaky); only the structural invariants fail hard.
@@ -181,12 +181,12 @@ intent and a fresh decision — do not assume they are unimplemented by accident
 
 | Repo doc | Purpose |
 |---|---|
-| `docs/voxel-ui-architecture.md` | Editor/UI authority boundary (ADR 0008) |
-| `docs/voxel-mesh-seam.md` | Meshing / projection seam (`VoxelChunkProjector`) |
-| `docs/voxel-coordinates.md` | Grid/chunk/voxel coordinate conventions |
-| `docs/runtime-bridge-boundary.md` | Facade surface + error taxonomy |
-| `docs/replay-model.md` | Replay + voxel durability evidence |
-| `docs/perf-baseline.md` | Same-host perf baseline harness (`dev:asha-perf`) plus optional non-gating GPU/WebGL lane (`dev:asha-gpu-perf`): trend tracking, field stability |
+| `topics/authority/voxel-ui-architecture.md` | Editor/UI authority boundary (ADR 0008) |
+| `topics/authority/voxel-mesh-seam.md` | Meshing / projection seam (`VoxelChunkProjector`) |
+| `topics/authority/voxel-coordinates.md` | Grid/chunk/voxel coordinate conventions |
+| `topics/bridge/runtime-bridge-boundary.md` | Facade surface + error taxonomy |
+| `topics/authority/replay-model.md` | Replay + voxel durability evidence |
+| `topics/ci/perf-baseline.md` | Same-host perf baseline harness (`dev:asha-perf`) plus optional non-gating GPU/WebGL lane (`dev:asha-gpu-perf`): trend tracking, field stability |
 | `harness/fixtures/voxel-world/README.md` | Canonical fixture details |
 | `harness/fixtures/project-bundle/README.md` | Save/compaction/durability goldens |
 | `harness/fixtures/smoke/README.md` | Smoke golden + regeneration |

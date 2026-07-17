@@ -9,7 +9,7 @@ see-also: []
 # Prefab Contracts and Reuse Ownership
 
 Status: Wave 1 stored contract implemented by Den task #5644. Authoritative
-runtime instantiation is described in `docs/prefab-instantiation.md` (#5645).
+runtime instantiation is described in `topics/authority/prefab-instantiation.md` (#5645).
 
 ## Purpose
 

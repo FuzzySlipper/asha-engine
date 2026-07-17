@@ -39,7 +39,7 @@ conversion remain handwritten in their owning Rust lanes.
 ## 2. Layers
 
 Consumer-facing compatibility metadata for the two Tier 1 surfaces lives in
-`docs/consumer-compatibility.md` plus package-local `compatibility.json` files:
+`topics/consumer/consumer-compatibility.md` plus package-local `compatibility.json` files:
 `ts/packages/contracts/compatibility.json` and
 `ts/packages/runtime-bridge/compatibility.json`.
 
@@ -178,7 +178,7 @@ continues through the native bridge and the transport-agnostic `@asha/runtime-br
 ## 7. Affected files / packages (cold-start checklist)
 
 Docs/config (this task, #2248):
-- `docs/runtime-bridge-boundary.md` (this file), `governance/adr/0006-runtime-bridge-boundary.md`.
+- `topics/bridge/runtime-bridge-boundary.md` (this file), `governance/adr/0006-runtime-bridge-boundary.md`.
 - `governance/dependency-policy.toml` — add `bridge` layer + forbidden cross-layer pairs.
 - `governance/ownership.toml` — register `runtime-bridge`, `native-bridge`,
   `wasm-replay-bridge`, `runtime-bridge-api`, `native-bridge` (Rust) import rules.

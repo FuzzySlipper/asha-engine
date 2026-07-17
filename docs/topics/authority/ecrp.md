@@ -12,20 +12,20 @@ ECRP is ASHA's content and runtime object model. Entities are typed IDs with att
 
 ## Capability Activation
 
-Typed collision/controller activation with lifecycle interaction, persistence, and owner gates. See `docs/capability-activation.md`.
+Typed collision/controller activation with lifecycle interaction, persistence, and owner gates. See `topics/authority/capability-activation.md`.
 
 ## Capability / Rule Ownership Matrix
 
-The rule-owner matrix maps ECRP capabilities to their owning Rust rule crates. See `docs/ecrp-capability-rule-ownership.md`.
+The rule-owner matrix maps ECRP capabilities to their owning Rust rule crates. See `topics/authority/ecrp-capability-rule-ownership.md`.
 
 ## FPS Object Model
 
-The generated-tunnel loop maps roles to ECRP capabilities and runtime surfaces. See `docs/ecrp-fps-object-model.md`.
+The generated-tunnel loop maps roles to ECRP capabilities and runtime surfaces. See `topics/authority/ecrp-fps-object-model.md`.
 
 ## Entity Definition Schema
 
-Stored capability defaults used when authority creates an Entity. See `docs/entity-definition-schema.md`.
+Stored capability defaults used when authority creates an Entity. See `topics/authority/entity-definition-schema.md`.
 
 ## ECRP RuntimeSession Readout
 
-`RuntimeSessionFacade.readEcrpRuntimeReadout()` exposes live Entity/CapabilityState/event readouts. `loadEcrpProject()` bootstraps ProjectBundle-shaped ECRP content. See `docs/ecrp-runtime-session-readout.md`.
+`RuntimeSessionFacade.readEcrpRuntimeReadout()` exposes live Entity/CapabilityState/event readouts. `loadEcrpProject()` bootstraps ProjectBundle-shaped ECRP content. See `topics/authority/ecrp-runtime-session-readout.md`.

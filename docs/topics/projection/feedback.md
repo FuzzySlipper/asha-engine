@@ -10,4 +10,4 @@ see-also: [overview.md, integrated-feedback-projection.md]
 
 The integrated gameplay feedback projection is a game-facing composition path, not a collection of independent effects. The G1 presentation channel composes audio, particle, billboard, animation, and telemetry-overlay domains beside the scene.
 
-See `docs/integrated-feedback-projection.md` for the composed public-path proof and disposal boundary.
+See `topics/projection/integrated-feedback-projection.md` for the composed public-path proof and disposal boundary.

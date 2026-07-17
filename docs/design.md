@@ -77,7 +77,7 @@ machine-reviewable.
 The prohibited shape is an ambient bus where arbitrary handlers discover one
 another, query raw SessionState, and mutate authority. The implemented fabric
 is the paved alternative, not an exception to the authority rules. See
-`docs/gameplay-fabric-growth-recipes.md`.
+`topics/authority/gameplay-fabric-growth-recipes.md`.
 
 ### 2.2 Contracts are borders
 
@@ -1171,11 +1171,11 @@ Canonical and supporting docs:
 /governance/boundary-rules.md
 /governance/contract-change-process.md
 /docs/architecture-overview.md
-/docs/replay-model.md
-/docs/policy-authoring.md
-/docs/render-protocol.md
-/docs/determinism.md
-/docs/contract-governance.md
+/topics/authority/replay-model.md
+/topics/expression/policy-authoring.md
+/topics/projection/render-protocol.md
+/topics/authority/determinism.md
+/topics/contracts/contract-governance.md
 ```
 
 Each lane doc should answer:
@@ -1297,25 +1297,7 @@ Required checks:
 
 ---
 
-## 18. Historical open questions
-
-These were original design prompts. Check Den planning docs/tasks before treating
-any item here as current work.
-
-1. **Replay target:** Should canonical replay be WASM-only, native-plus-WASM, or native until render integration forces WASM parity?
-2. **Crate granularity:** What is the smallest useful crate boundary before cross-crate API churn outweighs isolation?
-3. **Protocol granularity:** Should render diffs remain one general protocol or split into channels for transforms, geometry, materials, debug overlays, and UI-facing labels?
-4. **Policy execution:** Should policy packs be bundled into the app, dynamically loaded during development only, or both?
-5. **Catalog validation:** Should catalogs originate in TypeScript and be validated by Rust, or should Rust own more of the catalog schema earlier?
-6. **Tool omniscience:** How much private state/protocol access may devtools have before they start normalizing bad runtime dependencies?
-7. **Lint investment:** Which governance rules should become custom lints immediately, and which can remain prose until the first violation?
-8. **Native/WASM divergence:** What diagnostics are needed when native tests pass but WASM replay diverges?
-9. **Public API drift:** Which crates/packages require public API review on every exported symbol change?
-10. **Agent fan-out limit:** At what number of simultaneous workers do contract-steward and foundation lanes become bottlenecks?
-
----
-
-## 19. One-breath summary
+## 18. One-breath summary
 
 > A Rust authority core owns state, validation, deterministic services, replay, and heavy simulation; constrained TypeScript policy/catalog packages author high-level intent through generated read-only views and command types; a separate TypeScript shell renders and displays projected truth; protocols are generated from Rust and stewarded as border infrastructure; every crate and package is an agent assignment cell with machine-checkable dependency rules.
 
