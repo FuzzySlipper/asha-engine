@@ -632,6 +632,92 @@ fn procedural_materialization_is_preview_pure_candidate_bound_and_combined_savea
 }
 
 #[test]
+fn reopened_procedural_environment_replaces_from_loaded_asset_provenance() {
+    let mut source_bridge = EngineBridge::new();
+    let source_opened = source_bridge
+        .open_workspace_authoring(open_request("workspace.procedural-source"))
+        .unwrap();
+    let source_scene = source_bridge
+        .decode_scene_document(SceneDocumentDecodeRequestDto {
+            source_text: core_scene::encode(&procedural_scene(42)),
+        })
+        .unwrap();
+    let source_preview = source_bridge
+        .preview_procedural_environment(procedural_request(
+            "workspace.procedural-source",
+            source_opened.identity.generation,
+            source_scene.content_hash.unwrap(),
+        ))
+        .unwrap();
+    let stored = source_preview.candidate.expect("source candidate");
+
+    let mut bridge = EngineBridge::new();
+    let opened = bridge
+        .open_workspace_authoring(open_request("workspace.procedural-reopen"))
+        .unwrap();
+    let decoded = bridge
+        .decode_scene_document(SceneDocumentDecodeRequestDto {
+            source_text: stored.scene_file.canonical_json,
+        })
+        .unwrap();
+    assert!(decoded.accepted, "{:?}", decoded.diagnostics);
+    let scene_hash = decoded.content_hash.expect("stored scene hash");
+    let loaded = bridge
+        .load_voxel_volume_asset(VoxelVolumeAssetLoadRequest {
+            asset: stored.asset,
+            target_grid: 1,
+            target_volume_asset_id: Some("voxel/generated-tunnel".to_owned()),
+            replace_existing: true,
+            include_material_counts: true,
+        })
+        .unwrap();
+    assert!(loaded.loaded, "{:?}", loaded.diagnostics);
+    assert_eq!(
+        bridge
+            .read_workspace_authoring_state()
+            .unwrap()
+            .working_revision,
+        1
+    );
+
+    let mut changed_seed = procedural_request(
+        "workspace.procedural-reopen",
+        opened.identity.generation,
+        scene_hash.clone(),
+    );
+    changed_seed.expected_working_revision = 1;
+    changed_seed.seed = 43;
+    let changed = bridge.preview_procedural_environment(changed_seed).unwrap();
+    assert!(changed.accepted, "{:?}", changed.diagnostics);
+    assert_eq!(
+        changed
+            .candidate
+            .expect("changed candidate")
+            .provenance
+            .seed,
+        43
+    );
+
+    let mut replacement = procedural_request(
+        "workspace.procedural-reopen",
+        opened.identity.generation,
+        scene_hash,
+    );
+    replacement.expected_working_revision = 1;
+    let preview = bridge.preview_procedural_environment(replacement).unwrap();
+    assert!(preview.accepted, "{:?}", preview.diagnostics);
+    let scene = preview.candidate.expect("replacement candidate").scene;
+    assert_eq!(
+        scene
+            .nodes
+            .iter()
+            .filter(|record| matches!(record.kind, SceneNodeKindDto::VoxelVolume(_)))
+            .count(),
+        1
+    );
+}
+
+#[test]
 fn procedural_materialization_rejects_stale_unresolved_and_oversized_without_mutation() {
     let mut bridge = EngineBridge::new();
     let opened = bridge

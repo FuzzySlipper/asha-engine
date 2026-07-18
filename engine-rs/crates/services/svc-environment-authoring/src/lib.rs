@@ -57,6 +57,10 @@ pub struct EnvironmentMaterializationInput {
     pub provider_id: String,
     pub preset_id: String,
     pub seed: u64,
+    /// Canonical asset already validated and loaded into this authoring
+    /// generation. It is used only to authorize replacement after the stored
+    /// scene has correctly discarded its runtime generator binding.
+    pub replacement_asset: Option<VoxelVolumeAsset>,
     pub target: EnvironmentTarget,
     pub material_palette: Vec<VoxelAssetMaterialBinding>,
     pub authoring: VoxelAssetAuthoringMetadata,
@@ -348,30 +352,8 @@ fn validate_request(
         ));
     }
 
-    let recipe = current_scene.nodes.iter().find_map(|record| {
-        let SceneNodeKind::Bootstrap(bindings) = &record.kind else {
-            return None;
-        };
-        bindings.generator.as_ref()
-    });
-    match recipe {
-        None => diagnostics.push(diagnostic(
-            ProceduralEnvironmentDiagnosticCode::RecipeMismatch,
-            "scene.bootstrap.generator",
-            "current scene does not declare a procedural generator recipe",
-        )),
-        Some(recipe)
-            if recipe.provider_id != input.provider_id
-                || recipe.preset_id != input.preset_id
-                || recipe.seed != input.seed =>
-        {
-            diagnostics.push(diagnostic(
-                ProceduralEnvironmentDiagnosticCode::RecipeMismatch,
-                "scene.bootstrap.generator",
-                "request provider, preset, and seed must match the stored scene recipe",
-            ));
-        }
-        Some(_) => {}
+    if let Err(recipe_diagnostic) = validate_authoring_recipe(current_scene, input) {
+        diagnostics.push(recipe_diagnostic);
     }
 
     let source_ids = input
@@ -423,6 +405,123 @@ fn validate_request(
         ));
     }
     diagnostics
+}
+
+fn validate_authoring_recipe(
+    current_scene: &FlatSceneDocument,
+    input: &EnvironmentMaterializationInput,
+) -> Result<(), ProceduralEnvironmentDiagnosticDto> {
+    let stored_recipe = current_scene.nodes.iter().find_map(|record| {
+        let SceneNodeKind::Bootstrap(bindings) = &record.kind else {
+            return None;
+        };
+        bindings.generator.as_ref()
+    });
+    if let Some(recipe) = stored_recipe {
+        if recipe.provider_id == input.provider_id
+            && recipe.preset_id == input.preset_id
+            && recipe.seed == input.seed
+        {
+            return Ok(());
+        }
+        return Err(diagnostic(
+            ProceduralEnvironmentDiagnosticCode::RecipeMismatch,
+            "scene.bootstrap.generator",
+            "request provider, preset, and seed must match the stored scene recipe",
+        ));
+    }
+
+    let target_node = current_scene
+        .nodes
+        .iter()
+        .find(|record| record.id == input.target.voxel_node_id);
+    let target_matches_asset = target_node.is_some_and(|record| {
+        matches!(
+            &record.kind,
+            SceneNodeKind::VoxelVolume(reference)
+                if reference.id().as_str() == input.target.asset_id
+        )
+    });
+    if !target_matches_asset {
+        return Err(diagnostic(
+            ProceduralEnvironmentDiagnosticCode::InvalidTarget,
+            "target.voxelNodeId",
+            "generator-free replacement must target the existing voxel-volume node for the requested asset",
+        ));
+    }
+
+    let Some(asset) = input.replacement_asset.as_ref() else {
+        return Err(diagnostic(
+            ProceduralEnvironmentDiagnosticCode::RecipeMismatch,
+            "replacementAsset.provenance",
+            "generator-free replacement requires the canonical target asset loaded in this authoring generation",
+        ));
+    };
+    if asset.asset_id != input.target.asset_id || !svc_voxel_asset::validate_asset(asset).is_valid()
+    {
+        return Err(diagnostic(
+            ProceduralEnvironmentDiagnosticCode::InvalidTarget,
+            "replacementAsset",
+            "loaded replacement asset is invalid or does not match target.assetId",
+        ));
+    }
+    let generated = asset
+        .provenance
+        .iter()
+        .filter(|reference| reference.kind == VoxelAssetProvenanceKind::Generated)
+        .collect::<Vec<_>>();
+    if asset.provenance.len() != 1 || generated.len() != 1 {
+        return Err(diagnostic(
+            ProceduralEnvironmentDiagnosticCode::RecipeMismatch,
+            "replacementAsset.provenance",
+            "replacement asset must contain exactly one unambiguous generated provenance record",
+        ));
+    }
+    parse_stored_generated_recipe(generated[0]).ok_or_else(|| {
+        diagnostic(
+            ProceduralEnvironmentDiagnosticCode::RecipeMismatch,
+            "replacementAsset.provenance[0]",
+            "replacement asset generated provenance is malformed",
+        )
+    })?;
+    Ok(())
+}
+
+fn parse_stored_generated_recipe(reference: &VoxelAssetProvenanceRef) -> Option<()> {
+    if reference.kind != VoxelAssetProvenanceKind::Generated {
+        return None;
+    }
+    let suffix = reference
+        .uri
+        .strip_prefix(GENERATED_PROVENANCE_URI_PREFIX)?;
+    let (path, query) = suffix.split_once('?')?;
+    let mut segments = path.split('/');
+    let provider_id = segments.next()?;
+    let preset_id = segments.next()?;
+    let provider_version: u32 = segments.next()?.strip_prefix('v')?.parse().ok()?;
+    if provider_id.is_empty()
+        || preset_id.is_empty()
+        || segments.next().is_some()
+        || !reference.content_hash.starts_with("fnv1a64:")
+    {
+        return None;
+    }
+    let mut fields = BTreeMap::new();
+    for pair in query.split('&') {
+        let (key, value) = pair.split_once('=')?;
+        if value.is_empty() || fields.insert(key, value).is_some() {
+            return None;
+        }
+    }
+    if fields.len() != 2 {
+        return None;
+    }
+    let _seed: u64 = fields.get("seed")?.parse().ok()?;
+    let config_hash = fields.get("configHash")?;
+    if provider_version == 0 || !config_hash.starts_with("fnv1a64:") {
+        return None;
+    }
+    Some(())
 }
 
 fn materialized_scene(
@@ -698,6 +797,7 @@ mod tests {
             provider_id: TUNNEL_GENERATOR_ID.into(),
             preset_id: "tiny-enclosed".into(),
             seed: 42,
+            replacement_asset: None,
             target: EnvironmentTarget {
                 scene_path: "scenes/tunnel.scene.json".into(),
                 asset_id: "voxel-volume/generated-tunnel".into(),
@@ -786,6 +886,64 @@ mod tests {
             decoded_asset.provenance[0].content_hash,
             first.provenance.output_hash
         );
+    }
+
+    #[test]
+    fn generator_free_scene_replacement_requires_matching_loaded_asset_provenance() {
+        let first = materialize_environment(&base_scene(), &input()).unwrap();
+        let mut replacement = input();
+        replacement.replacement_asset = Some(first.asset.clone());
+
+        let replaced = materialize_environment(&first.scene, &replacement).unwrap();
+        assert_eq!(
+            replaced
+                .scene
+                .nodes
+                .iter()
+                .filter(|record| matches!(record.kind, SceneNodeKind::VoxelVolume(_)))
+                .count(),
+            1
+        );
+        assert!(replaced.scene.nodes.iter().any(|record| {
+            record.id == replacement.target.voxel_node_id
+                && matches!(record.kind, SceneNodeKind::VoxelVolume(_))
+        }));
+
+        let mut changed_seed = replacement.clone();
+        changed_seed.seed += 1;
+        let changed = materialize_environment(&first.scene, &changed_seed).unwrap();
+        assert_eq!(changed.provenance.seed, 43);
+        assert_ne!(changed.asset.content_hashes, first.asset.content_hashes);
+
+        let mut missing_asset = replacement;
+        missing_asset.replacement_asset = None;
+        let diagnostics = materialize_environment(&first.scene, &missing_asset).unwrap_err();
+        assert!(diagnostics.iter().any(|entry| {
+            entry.code == ProceduralEnvironmentDiagnosticCode::RecipeMismatch
+                && entry.path == "replacementAsset.provenance"
+        }));
+
+        let mut malformed_asset = first.asset.clone();
+        malformed_asset.provenance[0].uri = "asha-generator://malformed".into();
+        let malformed_asset = svc_voxel_asset::with_computed_hashes(&malformed_asset);
+        let mut malformed = input();
+        malformed.replacement_asset = Some(malformed_asset);
+        let diagnostics = materialize_environment(&first.scene, &malformed).unwrap_err();
+        assert!(diagnostics.iter().any(|entry| {
+            entry.code == ProceduralEnvironmentDiagnosticCode::RecipeMismatch
+                && entry.path == "replacementAsset.provenance[0]"
+        }));
+
+        let mut foreign_asset = first.asset.clone();
+        foreign_asset.provenance[0].kind = VoxelAssetProvenanceKind::Authored;
+        let foreign_asset = svc_voxel_asset::with_computed_hashes(&foreign_asset);
+        let mut foreign = input();
+        foreign.replacement_asset = Some(foreign_asset);
+        let diagnostics = materialize_environment(&first.scene, &foreign).unwrap_err();
+        assert!(diagnostics.iter().any(|entry| {
+            entry.code == ProceduralEnvironmentDiagnosticCode::RecipeMismatch
+                && entry.path == "replacementAsset.provenance"
+        }));
     }
 
     #[test]

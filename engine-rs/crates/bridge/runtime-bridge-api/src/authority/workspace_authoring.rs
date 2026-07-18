@@ -102,6 +102,7 @@ impl EngineBridge {
             next_projection_cursor: 0,
             projection_initialized: false,
             last_projection_receipt: None,
+            loaded_voxel_assets: BTreeMap::new(),
             project_content_scenes: BTreeMap::new(),
             project_content_reference_revision: 0,
             project_content_current: None,
@@ -312,16 +313,21 @@ impl EngineBridge {
                 .expect("workspace authoring revision overflow is unreachable in one process");
             authority.pending_save_candidate = None;
             authority.pending_procedural_environment = None;
+            authority.loaded_voxel_assets.clear();
             self.projection.voxel_instance_binding = None;
         }
     }
 
-    pub(super) fn record_workspace_authoring_loaded_asset(&mut self, canonical_json_hash: String) {
+    pub(super) fn record_workspace_authoring_loaded_asset(&mut self, asset: VoxelVolumeAsset) {
+        let canonical_json_hash = asset.content_hashes.canonical_json.clone();
         self.record_workspace_authoring_mutation();
         if let Some(authority) = self.workspace_authoring.as_mut().filter(|value| value.open) {
             authority.stored_revision = authority.working_revision;
             authority.last_stored_canonical_json_hash = Some(canonical_json_hash);
             authority.pending_save_candidate = None;
+            authority
+                .loaded_voxel_assets
+                .insert(asset.asset_id.clone(), asset);
         }
     }
 

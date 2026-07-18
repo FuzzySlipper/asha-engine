@@ -902,7 +902,7 @@ impl RuntimeBridge for EngineBridge {
         request: VoxelVolumeAssetLoadRequest,
     ) -> BridgeResult<VoxelVolumeAssetLoadReceipt> {
         self.require_runtime_or_workspace_authoring("load_voxel_volume_asset")?;
-        let loaded_canonical_json_hash = request.asset.content_hashes.canonical_json.clone();
+        let loaded_asset = request.asset.clone();
         let asset = &request.asset;
         let scene_instance = self.voxel_asset_scene_instance(&asset.asset_id)?;
         let report = svc_voxel_asset::validate_asset(asset);
@@ -983,7 +983,7 @@ impl RuntimeBridge for EngineBridge {
         self.voxel.voxel_model_infos.insert(key.clone(), info);
         self.voxel.active_voxel_model = Some(key);
         if receipt.loaded {
-            self.record_workspace_authoring_loaded_asset(loaded_canonical_json_hash);
+            self.record_workspace_authoring_loaded_asset(loaded_asset);
         }
         Ok(receipt)
     }

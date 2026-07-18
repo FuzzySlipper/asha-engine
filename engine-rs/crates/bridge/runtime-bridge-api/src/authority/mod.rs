@@ -232,6 +232,7 @@ struct WorkspaceAuthoringAuthority {
     next_projection_cursor: u64,
     projection_initialized: bool,
     last_projection_receipt: Option<WorkspaceAuthoringProjectionReceipt>,
+    loaded_voxel_assets: BTreeMap<String, VoxelVolumeAsset>,
     project_content_scenes: BTreeMap<u64, FlatSceneDocumentDto>,
     project_content_reference_revision: u64,
     project_content_current: Option<svc_project_content::ValidatedProjectContentSet>,

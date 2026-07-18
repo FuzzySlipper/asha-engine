@@ -55,6 +55,7 @@ fn stored_tunnel_materialization(
             provider_id: svc_levelgen::TUNNEL_GENERATOR_ID.to_owned(),
             preset_id: "tiny-enclosed".to_owned(),
             seed: 42,
+            replacement_asset: None,
             target: svc_environment_authoring::EnvironmentTarget {
                 scene_path: "scenes/runtime-saved.scene.json".to_owned(),
                 asset_id: "voxel-volume/runtime-saved-tunnel".to_owned(),

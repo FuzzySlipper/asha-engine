@@ -12,7 +12,7 @@ impl EngineBridge {
             request.expected_working_revision,
         )?;
 
-        let (scene_dto, working_revision) = {
+        let (scene_dto, working_revision, replacement_asset) = {
             let authority =
                 self.require_open_workspace_authoring_mut("preview_procedural_environment")?;
             let Some(scene) = authority
@@ -27,7 +27,11 @@ impl EngineBridge {
                     "target scene is not loaded in the current workspace generation",
                 ));
             };
-            (scene, authority.working_revision)
+            let replacement_asset = authority
+                .loaded_voxel_assets
+                .get(&request.target.asset_id)
+                .cloned();
+            (scene, authority.working_revision, replacement_asset)
         };
         let scene = Self::scene_document_from_dto(scene_dto)?;
         let canonical_scene = scene.canonical();
@@ -60,6 +64,7 @@ impl EngineBridge {
                 provider_id: request.provider_id,
                 preset_id: request.preset_id,
                 seed: request.seed,
+                replacement_asset,
                 target,
                 material_palette: request.material_palette,
                 authoring: request.authoring,
