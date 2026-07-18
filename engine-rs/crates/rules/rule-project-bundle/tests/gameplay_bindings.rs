@@ -223,8 +223,14 @@ fn composition() -> GameplayStaticComposition {
         codec_id: "codec.binding-fixture.configuration".to_owned(),
         fields: vec![GameplayConfigurationFieldMetadata {
             name: "multiplier".to_owned(),
-            value_type: "u64".to_owned(),
+            label: "Multiplier".to_owned(),
+            value_kind: GameplayConfigurationValueKind::Integer,
             required: true,
+            reference_kind: None,
+            integer_min: Some(0),
+            integer_max: None,
+            number_min: None,
+            number_max: None,
         }],
     };
     let provider = GameplayStaticModuleProvider::linked_from_manifest(
@@ -304,10 +310,9 @@ fn project_content_uses_composed_provider_codec_and_runtime_contract_admission()
         },
     );
     assert!(accepted.accepted, "{:?}", accepted.diagnostics);
-    assert!(accepted
-        .field_metadata
-        .iter()
-        .any(|field| field.path == "configurationValues.multiplier"));
+    assert!(accepted.field_metadata.iter().any(|field| field.path
+        == "document.configurations[0].values.multiplier"
+        && field.configuration_id.as_deref() == Some("binding-fixture.default")));
 
     let typed_codec_rejection = encode_project_content(
         ProjectContentEncodeRequestDto {

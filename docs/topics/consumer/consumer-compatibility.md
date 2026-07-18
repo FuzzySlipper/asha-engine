@@ -260,9 +260,12 @@ nodes and prefab instantiation seeds. Prefab variants now require a stable
 Consumers must regenerate/rebuild contracts and migrate authored scenes and
 prefab registries together. Provider configuration schemas now come only from
 the statically linked Rust composition; project-content wire requests carry no
-schema or scene authority. Stored gameplay documents may not define their own
-schema. Unknown fields, unresolved named variants, and old runtime-id trigger
-targets fail closed.
+schema or scene authority. Responses expose the complete read-only
+`providerSchemas` catalog even for an empty document set, including module,
+provider, contract, codec, reference, and numeric-bound descriptors. Stored
+gameplay documents may not define their own schema. Unknown fields, unresolved
+named variants, duplicate trigger targets, and old runtime-id trigger targets
+fail closed.
 
 ### `render-material-descriptor.v2` — typed feedback parameters
 
@@ -452,15 +455,19 @@ the stable diagnostic is
   combat/event and movement/trigger delivery, combined readout/checkpoint
   hashes, and provider-level restore.
 
-### `asha-runtime-session-composition` — one native provider cell
+### `asha-runtime-session-composition` — distinct native authority cells
 
 Status: task #5749 preferred public Rust provider boundary.
 
 - Public facade: `public-rust/runtime-session-composition`.
 - Engine source: `engine-rs/crates/bridge/runtime-bridge-api`.
-- Consumer shape: one `createRuntimeBridge` factory; no `gameplayHost` property.
+- Consumer shape: a RuntimeSession constructor and a pre-runtime project-authoring
+  constructor; no `gameplayHost` property.
 - Static only: no dynamic modules, callbacks, raw EntityStore access, or generic
   RPC.
+- `StaticProjectAuthoringBuilder` consumes static composition and retains only
+  immutable provider registry/schema/codec authority. It does not load a
+  ProjectBundle or activate module/runtime state.
 - A downstream crate may install one concrete `ComposedGameplayOwner` through
   `StaticRuntimeSessionBuilder::with_gameplay_owner`. Its typed state codec
   produces `ComposedGameplayOwnerCheckpoint`; its pre-commit result may emit
@@ -574,7 +581,10 @@ available only while the distinct authoring workspace is open. Mutations carry
 workspace id, generation, working revision, and content-set hash guards; an
 accepted Rust result becomes the only candidate eligible for trusted-host
 stored confirmation. This is additive to runtime-session v0, but consumers
-must rebuild against the matching generated contract and bridge versions.
+must rebuild against the matching generated contract and bridge versions. A
+provider-backed workspace may be constructed before runtime activation, and
+its response catalog is sufficient to create the first typed provider
+configuration.
 
 ## Runtime bridge compatibility log
 

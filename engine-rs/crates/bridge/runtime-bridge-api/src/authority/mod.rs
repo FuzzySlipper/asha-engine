@@ -153,6 +153,7 @@ struct BridgeGameplayState {
     fps_seed: Option<FpsRuntimeSessionLoadRequest>,
     fps_epoch: u64,
     static_gameplay_host: Option<gameplay_runtime_host::GameplayRuntimeHost>,
+    static_project_content_admission: Option<rule_project_bundle::GameplayProjectContentAdmission>,
     static_gameplay_reset_checkpoint: Option<gameplay_runtime_host::GameplayRuntimeResetCheckpoint>,
     static_gameplay_base_entities: Option<EntityStore>,
     game_rule_modules: BTreeMap<String, GameRuleModuleManifest>,
@@ -606,7 +607,7 @@ pub use composition::{
     ComposedGameplayOwner, ComposedGameplayOwnerCheckpoint, ComposedGameplayOwnerOutput,
     ComposedGameplayOwnerReadout, ComposedGameplayOwnerTransactionReceipt, ComposedGameplayRuntime,
     ComposedGameplayRuntimeBuilder, ComposedRuntimeSessionCheckpoint,
-    ComposedRuntimeSessionReadout, StaticRuntimeSessionBuilder,
+    ComposedRuntimeSessionReadout, StaticProjectAuthoringBuilder, StaticRuntimeSessionBuilder,
     StaticRuntimeSessionCompositionError,
 };
 

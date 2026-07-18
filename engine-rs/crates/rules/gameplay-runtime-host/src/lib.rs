@@ -30,8 +30,9 @@ use core_entity::{
 };
 use core_math::Vec3;
 pub use gameplay_module_sdk::{
-    gameplay_runtime_composition_identity, GameplayProjectConfigurationAuthority,
-    GameplayRuntimeCompositionIdentity, GameplayRuntimeDeclaredReadPlan, GameplayStaticComposition,
+    gameplay_runtime_composition_identity, GameplayConfigurationValueKind,
+    GameplayProjectConfigurationAuthority, GameplayRuntimeCompositionIdentity,
+    GameplayRuntimeDeclaredReadPlan, GameplayStaticComposition,
 };
 use protocol_diagnostics::DiagnosticSeverity;
 use protocol_game_extension::{
@@ -1943,8 +1944,14 @@ mod tests {
             codec_id: "codec.fixture-wave-barrier.configuration".to_owned(),
             fields: vec![GameplayConfigurationFieldMetadata {
                 name: "initialValue".to_owned(),
-                value_type: "u64".to_owned(),
+                label: "Initial value".to_owned(),
+                value_kind: GameplayConfigurationValueKind::Integer,
                 required: true,
+                reference_kind: None,
+                integer_min: Some(0),
+                integer_max: None,
+                number_min: None,
+                number_max: None,
             }],
         };
         let event_codec = |event: GameplayContractRef, _legacy_codec_id: &str| {

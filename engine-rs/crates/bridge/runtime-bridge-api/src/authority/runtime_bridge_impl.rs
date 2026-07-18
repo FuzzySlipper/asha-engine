@@ -1118,6 +1118,10 @@ impl RuntimeBridge for EngineBridge {
                         documents: Vec::new(),
                         canonical_files: Vec::new(),
                         set_hash: Some(current.set_hash().to_owned()),
+                        provider_schemas: svc_project_content::ProjectContentGameplayAdmission::configuration_schemas(
+                            &authority.project_content_admission,
+                        )
+                        .to_vec(),
                         field_metadata: Vec::new(),
                         diagnostics: vec![ProjectContentDiagnosticDto {
                             code: ProjectContentDiagnosticCode::StaleRevision,

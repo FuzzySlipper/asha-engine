@@ -40,6 +40,7 @@ export interface ProjectConfigurationField {
 
 export interface ProjectConfigurationSchema {
   readonly schemaId: string;
+  readonly moduleId: string;
   readonly providerId: string;
   readonly contract: GameplayContractRef;
   readonly codecId: string;
@@ -137,6 +138,16 @@ export interface ProjectContentFieldMetadata {
   readonly required: boolean;
   readonly editable: boolean;
   readonly referenceKind: ProjectContentReferenceKind | null;
+  readonly configurationId: string | null;
+  readonly schemaId: string | null;
+  readonly moduleId: string | null;
+  readonly providerId: string | null;
+  readonly contract: GameplayContractRef | null;
+  readonly codecId: string | null;
+  readonly integerMin: number | null;
+  readonly integerMax: number | null;
+  readonly numberMin: number | null;
+  readonly numberMax: number | null;
 }
 
 export interface ProjectContentCodecResult {
@@ -144,6 +155,7 @@ export interface ProjectContentCodecResult {
   readonly documents: readonly ProjectContentDocument[];
   readonly canonicalFiles: readonly ProjectContentCanonicalFile[];
   readonly setHash: string | null;
+  readonly providerSchemas: readonly ProjectConfigurationSchema[];
   readonly fieldMetadata: readonly ProjectContentFieldMetadata[];
   readonly diagnostics: readonly ProjectContentDiagnostic[];
 }
@@ -165,6 +177,7 @@ export interface ProjectContentAuthoringResult {
   readonly documents: readonly ProjectContentDocument[];
   readonly canonicalFiles: readonly ProjectContentCanonicalFile[];
   readonly setHash: string | null;
+  readonly providerSchemas: readonly ProjectConfigurationSchema[];
   readonly fieldMetadata: readonly ProjectContentFieldMetadata[];
   readonly diagnostics: readonly ProjectContentDiagnostic[];
 }

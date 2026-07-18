@@ -80,9 +80,9 @@ impl EngineBridge {
 
         let project_content_admission = self
             .gameplay
-            .static_gameplay_host
+            .static_project_content_admission
             .as_ref()
-            .map(gameplay_runtime_host::GameplayRuntimeHost::project_content_admission)
+            .cloned()
             .unwrap_or_default();
 
         self.workspace_authoring = Some(WorkspaceAuthoringAuthority {

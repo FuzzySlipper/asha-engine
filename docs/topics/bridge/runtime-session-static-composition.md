@@ -38,6 +38,14 @@ returns the bridge built above. ASHA's generated N-API operation table remains
 the transport implementation; the downstream crate supplies only its closed
 RuntimeSession composition and never copies individual verbs.
 
+The same addon installs a separate
+`install_native_project_authoring_bridge_factory` constructor. It uses
+`StaticProjectAuthoringBuilder::from_static_composition` and returns a bridge
+that retains only immutable provider registry, schema, and typed-codec
+authority. Opening Studio authoring therefore does not load a ProjectBundle,
+activate module state, or create a RuntimeSession as a prerequisite. The
+authoring handle cannot call composed-runtime operations.
+
 The returned bridge is the native provider cell. It owns one EntityStore. FPS
 combat/lifecycle rules borrow that store from the bridge rather than embedding
 another store, and the gameplay host temporarily receives ownership of the

@@ -265,8 +265,14 @@ fn provider_with_adapter_view(
         contract(namespace, "configuration"),
         vec![GameplayConfigurationFieldMetadata {
             name: "multiplier".to_owned(),
-            value_type: "u64".to_owned(),
+            label: "Multiplier".to_owned(),
+            value_kind: GameplayConfigurationValueKind::Integer,
             required: true,
+            reference_kind: None,
+            integer_min: Some(0),
+            integer_max: None,
+            number_min: None,
+            number_max: None,
         }],
     );
     let mut provider = GameplayStaticModuleProvider::linked_from_manifest(

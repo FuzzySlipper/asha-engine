@@ -6,7 +6,7 @@ use gameplay_runtime_host::{
     GameplayRuntimePrefabBootstrap, GameplayRuntimePrefabInteractionIntent,
     GameplayRuntimeProjectInput, GameplayRuntimeResetCheckpoint, GameplayRuntimeSchedulerCommand,
     GameplayRuntimeSchedulerCommandReceipt, GameplayRuntimeSchedulerRoutingReceipt,
-    ScheduledActionId,
+    GameplayStaticComposition, ScheduledActionId,
 };
 use protocol_game_extension::{GameplayEventEnvelope, GameplayOwnerRef, GameplayProposalEnvelope};
 use rule_gameplay_fabric::GameplayModuleStateScope;
@@ -147,6 +147,32 @@ impl std::error::Error for StaticRuntimeSessionCompositionError {}
 impl From<GameplayRuntimeHostError> for StaticRuntimeSessionCompositionError {
     fn from(value: GameplayRuntimeHostError) -> Self {
         Self::Gameplay(value)
+    }
+}
+
+/// Pre-runtime composition root for Studio and other trusted project tools.
+///
+/// Consuming a static gameplay composition here retains only its immutable
+/// registry, schema, and typed-codec authority. It never loads a ProjectBundle,
+/// creates runtime entities, activates module state, or installs a gameplay
+/// RuntimeSession host in the returned bridge.
+pub struct StaticProjectAuthoringBuilder {
+    project_content_admission: rule_project_bundle::GameplayProjectContentAdmission,
+}
+
+impl StaticProjectAuthoringBuilder {
+    pub fn from_static_composition(composition: GameplayStaticComposition) -> Self {
+        Self {
+            project_content_admission: rule_project_bundle::GameplayProjectContentAdmission::new(
+                composition.project_configuration_authority(),
+            ),
+        }
+    }
+
+    pub fn build(self) -> EngineBridge {
+        let mut bridge = EngineBridge::new();
+        bridge.gameplay.static_project_content_admission = Some(self.project_content_admission);
+        bridge
     }
 }
 

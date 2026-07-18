@@ -95,7 +95,7 @@ pub struct ProjectContentValidationOutcome {
 pub fn decode_project_content_sources(
     sources: &[protocol_project_content::ProjectContentSourceDto],
 ) -> Result<Vec<ProjectContentDocumentDto>, Box<ProjectContentCodecResultDto>> {
-    codec::decode_sources(sources).map_err(|diagnostics| Box::new(rejected_codec(diagnostics)))
+    codec::decode_sources(sources).map_err(|diagnostics| Box::new(rejected_codec(diagnostics, &[])))
 }
 
 pub fn decode_project_content(
@@ -104,7 +104,10 @@ pub fn decode_project_content(
 ) -> ProjectContentValidationOutcome {
     match codec::decode_sources(&request.sources) {
         Ok(documents) => encode_documents(documents, context),
-        Err(diagnostics) => outcome(rejected_codec(diagnostics)),
+        Err(diagnostics) => outcome(rejected_codec(
+            diagnostics,
+            context.gameplay.configuration_schemas(),
+        )),
     }
 }
 
@@ -131,6 +134,7 @@ pub fn apply_project_content_authoring(
             documents: Vec::new(),
             canonical_files: Vec::new(),
             set_hash: Some(current.set_hash().to_owned()),
+            provider_schemas: context.gameplay.configuration_schemas().to_vec(),
             field_metadata: Vec::new(),
             diagnostics: vec![ProjectContentDiagnosticDto {
                 code: ProjectContentDiagnosticCode::StaleRevision,
@@ -163,6 +167,7 @@ pub fn apply_project_content_authoring(
                     documents: Vec::new(),
                     canonical_files: Vec::new(),
                     set_hash: Some(current.set_hash().to_owned()),
+                    provider_schemas: context.gameplay.configuration_schemas().to_vec(),
                     field_metadata: Vec::new(),
                     diagnostics: vec![ProjectContentDiagnosticDto {
                         code: ProjectContentDiagnosticCode::UnknownReference,
@@ -201,7 +206,10 @@ fn encode_documents(
         }
     }
     if !duplicate_diagnostics.is_empty() {
-        return outcome(rejected_codec(duplicate_diagnostics));
+        return outcome(rejected_codec(
+            duplicate_diagnostics,
+            context.gameplay.configuration_schemas(),
+        ));
     }
 
     let mut diagnostics = validate::validate_document_set(
@@ -211,7 +219,10 @@ fn encode_documents(
     );
     diagnostics.extend(context.gameplay.validate_gameplay(&documents));
     if !diagnostics.is_empty() {
-        return outcome(rejected_codec(diagnostics));
+        return outcome(rejected_codec(
+            diagnostics,
+            context.gameplay.configuration_schemas(),
+        ));
     }
     match codec::canonical_files(&documents) {
         Ok(canonical_files) => {
@@ -223,6 +234,7 @@ fn encode_documents(
                 documents,
                 canonical_files,
                 set_hash,
+                provider_schemas: context.gameplay.configuration_schemas().to_vec(),
                 field_metadata,
                 diagnostics: Vec::new(),
             };
@@ -234,7 +246,10 @@ fn encode_documents(
                 result,
             }
         }
-        Err(diagnostics) => outcome(rejected_codec(diagnostics)),
+        Err(diagnostics) => outcome(rejected_codec(
+            diagnostics,
+            context.gameplay.configuration_schemas(),
+        )),
     }
 }
 
@@ -245,12 +260,16 @@ fn outcome(result: ProjectContentCodecResultDto) -> ProjectContentValidationOutc
     }
 }
 
-fn rejected_codec(diagnostics: Vec<ProjectContentDiagnosticDto>) -> ProjectContentCodecResultDto {
+fn rejected_codec(
+    diagnostics: Vec<ProjectContentDiagnosticDto>,
+    provider_schemas: &[protocol_project_content::ProjectConfigurationSchemaDto],
+) -> ProjectContentCodecResultDto {
     ProjectContentCodecResultDto {
         accepted: false,
         documents: Vec::new(),
         canonical_files: Vec::new(),
         set_hash: None,
+        provider_schemas: provider_schemas.to_vec(),
         field_metadata: Vec::new(),
         diagnostics,
     }
@@ -262,6 +281,7 @@ fn authoring_from_codec(result: ProjectContentCodecResultDto) -> ProjectContentA
         documents: result.documents,
         canonical_files: result.canonical_files,
         set_hash: result.set_hash,
+        provider_schemas: result.provider_schemas,
         field_metadata: result.field_metadata,
         diagnostics: result.diagnostics,
     }
@@ -420,6 +440,7 @@ mod tests {
         FixtureAdmission {
             schemas: vec![ProjectConfigurationSchemaDto {
                 schema_id: "reference.primary-action.v1".to_owned(),
+                module_id: "reference.primary-action".to_owned(),
                 provider_id: "provider.reference.primary-action".to_owned(),
                 contract: protocol_game_extension::GameplayContractRef {
                     namespace: "reference.primary-action".to_owned(),
@@ -553,11 +574,14 @@ mod tests {
         assert!(decoded.result.accepted, "{:?}", decoded.result.diagnostics);
         assert_eq!(decoded.result.documents.len(), 6);
         assert_eq!(decoded.result.canonical_files.len(), 6);
-        assert!(decoded
-            .result
-            .field_metadata
-            .iter()
-            .any(|field| field.path == "configurationValues.cooldownTicks"));
+        assert!(decoded.result.field_metadata.iter().any(|field| field.path
+            == "document.configurations[0].values.cooldownTicks"
+            && field.schema_id.as_deref() == Some("reference.primary-action.v1")));
+        assert_eq!(decoded.result.provider_schemas.len(), 1);
+        assert_eq!(
+            decoded.result.provider_schemas[0].fields[0].integer_max,
+            Some(120)
+        );
 
         let reopened = decode(ProjectContentDecodeRequestDto {
             sources: decoded
@@ -710,6 +734,56 @@ mod tests {
             result.diagnostics[0].code,
             ProjectContentDiagnosticCode::StaleRevision
         );
+    }
+
+    #[test]
+    fn duplicate_trigger_targets_reject_before_returning_a_save_candidate() {
+        let decoded = decode(request());
+        assert!(decoded.result.accepted, "{:?}", decoded.result.diagnostics);
+        let expected_set_hash = decoded.result.set_hash.clone().expect("accepted set hash");
+        let mut gameplay = decoded
+            .result
+            .documents
+            .iter()
+            .find_map(|document| match document {
+                ProjectContentDocumentDto::GameplayConfiguration {
+                    document_id,
+                    document,
+                } => Some((document_id.clone(), document.clone())),
+                _ => None,
+            })
+            .expect("gameplay document");
+        gameplay.1.triggers.push(gameplay.1.triggers[0].clone());
+
+        let scenes = vec![scene()];
+        let admission = admission();
+        let (authored, next) = apply_project_content_authoring(
+            decoded.validated.as_ref().unwrap(),
+            ProjectContentAuthoringRequestDto {
+                expected_workspace_id: "workspace/reference".to_owned(),
+                expected_generation: 1,
+                expected_working_revision: 0,
+                expected_set_hash,
+                command: ProjectContentAuthoringCommandDto::Upsert {
+                    document: ProjectContentDocumentDto::GameplayConfiguration {
+                        document_id: gameplay.0,
+                        document: gameplay.1,
+                    },
+                },
+            },
+            ProjectContentValidationContext {
+                scenes: &scenes,
+                gameplay: &admission,
+                reference_revision: 0,
+            },
+        );
+        assert!(!authored.accepted);
+        assert!(next.is_none());
+        assert!(authored.canonical_files.is_empty());
+        assert!(authored.diagnostics.iter().any(|diagnostic| {
+            diagnostic.path == "document.triggers[1].sceneInstanceId"
+                && diagnostic.message.contains("only one trigger definition")
+        }));
     }
 
     #[test]

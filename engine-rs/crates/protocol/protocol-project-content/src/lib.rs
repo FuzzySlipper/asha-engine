@@ -68,6 +68,7 @@ pub struct ProjectConfigurationFieldDto {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProjectConfigurationSchemaDto {
     pub schema_id: String,
+    pub module_id: String,
     pub provider_id: String,
     pub contract: GameplayContractRef,
     pub codec_id: String,
@@ -254,7 +255,7 @@ pub struct ProjectContentCanonicalFileDto {
     pub content_hash: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ProjectContentFieldMetadataDto {
     pub document_id: String,
     pub path: String,
@@ -263,6 +264,16 @@ pub struct ProjectContentFieldMetadataDto {
     pub required: bool,
     pub editable: bool,
     pub reference_kind: Option<ProjectContentReferenceKind>,
+    pub configuration_id: Option<String>,
+    pub schema_id: Option<String>,
+    pub module_id: Option<String>,
+    pub provider_id: Option<String>,
+    pub contract: Option<GameplayContractRef>,
+    pub codec_id: Option<String>,
+    pub integer_min: Option<i64>,
+    pub integer_max: Option<i64>,
+    pub number_min: Option<f64>,
+    pub number_max: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -271,6 +282,9 @@ pub struct ProjectContentCodecResultDto {
     pub documents: Vec<ProjectContentDocumentDto>,
     pub canonical_files: Vec<ProjectContentCanonicalFileDto>,
     pub set_hash: Option<String>,
+    /// Read-only catalog derived from the statically composed Rust providers.
+    /// Requests never supply or amend these schemas.
+    pub provider_schemas: Vec<ProjectConfigurationSchemaDto>,
     pub field_metadata: Vec<ProjectContentFieldMetadataDto>,
     pub diagnostics: Vec<ProjectContentDiagnosticDto>,
 }
@@ -301,6 +315,8 @@ pub struct ProjectContentAuthoringResultDto {
     pub documents: Vec<ProjectContentDocumentDto>,
     pub canonical_files: Vec<ProjectContentCanonicalFileDto>,
     pub set_hash: Option<String>,
+    /// Read-only catalog derived from the statically composed Rust providers.
+    pub provider_schemas: Vec<ProjectConfigurationSchemaDto>,
     pub field_metadata: Vec<ProjectContentFieldMetadataDto>,
     pub diagnostics: Vec<ProjectContentDiagnosticDto>,
 }

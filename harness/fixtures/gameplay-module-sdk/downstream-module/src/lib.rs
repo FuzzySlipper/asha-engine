@@ -285,6 +285,8 @@ pub struct PulseStateAdapter;
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PulseConfiguration {
     multiplier: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    asset_id: Option<String>,
 }
 
 impl GameplaySerdeModuleStateAdapter for PulseStateAdapter {
@@ -463,11 +465,30 @@ where
     let configuration = GameplaySerdeConfiguration::<PulseConfiguration>::new(
         "fixture.pulse.module",
         contract("configuration"),
-        vec![GameplayConfigurationFieldMetadata {
-            name: "multiplier".to_owned(),
-            value_type: "u64".to_owned(),
-            required: true,
-        }],
+        vec![
+            GameplayConfigurationFieldMetadata {
+                name: "multiplier".to_owned(),
+                label: "Pulse multiplier".to_owned(),
+                value_kind: GameplayConfigurationValueKind::Integer,
+                required: true,
+                reference_kind: None,
+                integer_min: Some(0),
+                integer_max: Some(64),
+                number_min: None,
+                number_max: None,
+            },
+            GameplayConfigurationFieldMetadata {
+                name: "assetId".to_owned(),
+                label: "Pulse presentation asset".to_owned(),
+                value_kind: GameplayConfigurationValueKind::Reference,
+                required: false,
+                reference_kind: Some(GameplayConfigurationReferenceKind::Asset),
+                integer_min: None,
+                integer_max: None,
+                number_min: None,
+                number_max: None,
+            },
+        ],
     );
     GameplayStaticModuleProvider::linked_from_manifest(manifest, &build_provenance(), behavior)
         .event_codec(json_codec(contract("pulse")))
@@ -539,8 +560,11 @@ fn binding_registry_for_module(
     module: GameplayModuleRef,
     multiplier: u64,
 ) -> GameplayModuleBindingRegistry {
-    let canonical_config =
-        serde_json::to_vec(&PulseConfiguration { multiplier }).expect("multiplier serializes");
+    let canonical_config = serde_json::to_vec(&PulseConfiguration {
+        multiplier,
+        asset_id: None,
+    })
+    .expect("multiplier serializes");
     let configuration = GameplayModuleConfiguration {
         configuration_id: "fixture.pulse.default".to_owned(),
         module,
@@ -569,6 +593,16 @@ pub fn composition(multiplier: u64) -> GameplayStaticComposition {
     builder.include_standard_owner_events();
     builder.add_provider(provider(multiplier));
     builder.build().expect("public provider composes")
+}
+
+pub fn composed_static_composition(multiplier: u64) -> GameplayStaticComposition {
+    let mut composition = GameplayStaticCompositionBuilder::new();
+    composition.include_standard_owner_events();
+    composition.add_provider(primary_fire_provider());
+    composition.add_provider(provider(multiplier));
+    composition
+        .build()
+        .expect("composed fixture providers compose")
 }
 
 /// Consumer-owned native provider root. Building this crate as its declared
@@ -657,13 +691,7 @@ pub fn primary_fire_runtime_host_project_input() -> GameplayRuntimeProjectInput 
 /// projection without a sidecar host.
 pub fn composed_runtime_host_project_input(multiplier: u64) -> GameplayRuntimeProjectInput {
     let mut input = primary_fire_runtime_host_project_input();
-    let mut composition = GameplayStaticCompositionBuilder::new();
-    composition.include_standard_owner_events();
-    composition.add_provider(primary_fire_provider());
-    composition.add_provider(provider(multiplier));
-    input.composition = composition
-        .build()
-        .expect("composed fixture providers compose");
+    input.composition = composed_static_composition(multiplier);
     input.bindings = binding_registry(multiplier);
     input.declared_reads = primary_fire_topology().declared_reads().to_vec();
     input

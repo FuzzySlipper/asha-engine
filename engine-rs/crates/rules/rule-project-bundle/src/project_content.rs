@@ -2,7 +2,8 @@ use std::collections::BTreeMap;
 
 use core_ids::EntityId;
 use gameplay_module_sdk::{
-    gameplay_module_payload_hash, GameplayModuleBindingRegistryBuilder,
+    gameplay_module_payload_hash, GameplayConfigurationReferenceKind,
+    GameplayConfigurationValueKind, GameplayModuleBindingRegistryBuilder,
     GameplayProjectConfigurationAuthority,
 };
 use protocol_diagnostics::DiagnosticSeverity;
@@ -51,6 +52,7 @@ impl GameplayProjectContentAdmission {
                     .unwrap_or_default();
                 ProjectConfigurationSchemaDto {
                     schema_id: schema.configuration.key(),
+                    module_id: schema.module_id.clone(),
                     provider_id,
                     contract: schema.configuration.clone(),
                     codec_id: schema.codec_id.clone(),
@@ -59,14 +61,14 @@ impl GameplayProjectContentAdmission {
                         .iter()
                         .map(|field| ProjectConfigurationFieldDto {
                             field_id: field.name.clone(),
-                            label: field.name.clone(),
-                            value_kind: value_kind(&field.value_type),
+                            label: field.label.clone(),
+                            value_kind: value_kind(field.value_kind),
                             required: field.required,
-                            reference_kind: None,
-                            integer_min: None,
-                            integer_max: None,
-                            number_min: None,
-                            number_max: None,
+                            reference_kind: field.reference_kind.map(reference_kind),
+                            integer_min: field.integer_min,
+                            integer_max: field.integer_max,
+                            number_min: field.number_min,
+                            number_max: field.number_max,
                         })
                         .collect(),
                 }
@@ -274,14 +276,33 @@ fn project_diagnostic(
     }
 }
 
-fn value_kind(value_type: &str) -> ProjectConfigurationValueKind {
-    match value_type {
-        "bool" => ProjectConfigurationValueKind::Boolean,
-        "i8" | "i16" | "i32" | "i64" | "isize" | "u8" | "u16" | "u32" | "u64" | "usize" => {
-            ProjectConfigurationValueKind::Integer
+fn value_kind(value: GameplayConfigurationValueKind) -> ProjectConfigurationValueKind {
+    match value {
+        GameplayConfigurationValueKind::Boolean => ProjectConfigurationValueKind::Boolean,
+        GameplayConfigurationValueKind::Integer => ProjectConfigurationValueKind::Integer,
+        GameplayConfigurationValueKind::Number => ProjectConfigurationValueKind::Number,
+        GameplayConfigurationValueKind::String => ProjectConfigurationValueKind::String,
+        GameplayConfigurationValueKind::Reference => ProjectConfigurationValueKind::Reference,
+    }
+}
+
+fn reference_kind(
+    value: GameplayConfigurationReferenceKind,
+) -> protocol_project_content::ProjectContentReferenceKind {
+    use protocol_project_content::ProjectContentReferenceKind;
+    match value {
+        GameplayConfigurationReferenceKind::Asset => ProjectContentReferenceKind::Asset,
+        GameplayConfigurationReferenceKind::EntityDefinition => {
+            ProjectContentReferenceKind::EntityDefinition
         }
-        "f32" | "f64" => ProjectConfigurationValueKind::Number,
-        _ => ProjectConfigurationValueKind::String,
+        GameplayConfigurationReferenceKind::SceneInstance => {
+            ProjectContentReferenceKind::SceneInstance
+        }
+        GameplayConfigurationReferenceKind::Prefab => ProjectContentReferenceKind::Prefab,
+        GameplayConfigurationReferenceKind::PrefabPart => ProjectContentReferenceKind::PrefabPart,
+        GameplayConfigurationReferenceKind::PresentationResource => {
+            ProjectContentReferenceKind::PresentationResource
+        }
     }
 }
 

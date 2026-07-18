@@ -70,6 +70,7 @@ fn project_content_samples_match_closed_generated_ir_shapes() {
     });
     let schema = json!({
         "schemaId": "demo.weapon.v1",
+        "moduleId": "demo.weapon.module",
         "providerId": "demo.weapon",
         "contract": { "contractId": "demo.weapon", "version": 1 },
         "codecId": "asha.project-configuration.canonical-json.v1",
@@ -173,8 +174,26 @@ fn project_content_samples_match_closed_generated_ir_shapes() {
     let encode = json!({ "documents": [documents[3].1] });
     let diagnostic = json!({ "code": "invalidField", "documentId": "gameplay/demo", "path": "configurations[0]", "message": "invalid" });
     let canonical = json!({ "documentId": "gameplay/demo", "kind": "gameplayConfiguration", "canonicalJson": "{}\n", "contentHash": "fnv1a64:1" });
-    let metadata = json!({ "documentId": "gameplay/demo", "path": "configurations[0].values.damage", "label": "Damage", "valueKind": "integer", "required": true, "editable": true, "referenceKind": null });
-    let result = json!({ "accepted": true, "documents": [documents[3].1], "canonicalFiles": [canonical], "setHash": "fnv1a64:set", "fieldMetadata": [metadata], "diagnostics": [] });
+    let metadata = json!({
+        "documentId": "gameplay/demo",
+        "path": "document.configurations[0].values.damage",
+        "label": "Damage",
+        "valueKind": "integer",
+        "required": true,
+        "editable": true,
+        "referenceKind": null,
+        "configurationId": "demo.weapon.primary",
+        "schemaId": "demo.weapon.v1",
+        "moduleId": "demo.weapon.module",
+        "providerId": "demo.weapon",
+        "contract": { "contractId": "demo.weapon", "version": 1 },
+        "codecId": "asha.project-configuration.canonical-json.v1",
+        "integerMin": 0,
+        "integerMax": 100,
+        "numberMin": null,
+        "numberMax": null
+    });
+    let result = json!({ "accepted": true, "documents": [documents[3].1], "canonicalFiles": [canonical], "setHash": "fnv1a64:set", "providerSchemas": [schema], "fieldMetadata": [metadata], "diagnostics": [] });
     let upsert = json!({ "kind": "upsert", "document": documents[3].1 });
     let delete = json!({ "kind": "delete", "documentId": "gameplay/demo", "documentKind": "gameplayConfiguration" });
     let authoring = json!({ "expectedWorkspaceId": "workspace-1", "expectedGeneration": 2, "expectedWorkingRevision": 3, "expectedSetHash": "fnv1a64:set", "command": upsert });

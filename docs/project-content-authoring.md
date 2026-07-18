@@ -26,10 +26,14 @@ Engine-owned scene set. Project-content requests carry no scene index.
 ## Provider-owned configuration
 
 Gameplay providers export immutable `ProjectConfigurationSchema` descriptors
-from their statically linked Rust composition. Studio receives those
-descriptors as returned field metadata, but neither decode nor authoring
-requests can supply or edit them. Stored gameplay content contains only the
-selected schema id and typed field values.
+from their statically linked Rust composition. Every codec and authoring result
+returns the complete read-only `providerSchemas` catalog, including module,
+provider, contract, codec, typed field, reference-picker, and numeric-bound
+descriptors. This includes an empty document set, so Studio can create the
+first provider configuration without inventing schema data. Per-document field
+metadata links existing values back to their configuration and schema. Neither
+decode nor authoring requests can supply or edit this catalog. Stored gameplay
+content contains only the selected schema id and typed field values.
 
 Rust invokes the selected provider's registered typed codec, verifies module,
 provider, state/read/output contracts and configuration ownership, and resolves
@@ -60,6 +64,14 @@ File selection and persistence are trusted-host responsibilities. The host
 writes the returned `canonicalFiles` only after Rust acceptance, then calls the
 ordinary workspace stored-confirmation operation with the accepted set hash.
 Browser code never accepts an edit or promotes a file itself.
+
+Downstream native addons install separate runtime and project-authoring bridge
+constructors. `StaticProjectAuthoringBuilder` consumes the static gameplay
+composition but retains only immutable registry/schema/codec authority. It does
+not load a ProjectBundle or activate a gameplay host. Consequently an invalid
+project can open for diagnostics before any `RuntimeSession` exists, and
+runtime operations such as `readComposedRuntimeSession` are unavailable on its
+authoring handle.
 
 ## Non-claims
 

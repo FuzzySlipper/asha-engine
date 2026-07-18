@@ -396,6 +396,7 @@ fn validate_gameplay(
     schemas: &BTreeMap<&str, &ProjectConfigurationSchemaDto>,
     diagnostics: &mut Vec<ProjectContentDiagnosticDto>,
 ) {
+    let mut trigger_targets = BTreeSet::new();
     for content in documents {
         let ProjectContentDocumentDto::GameplayConfiguration {
             document_id,
@@ -564,6 +565,15 @@ fn validate_gameplay(
             }
         }
         for (trigger_index, trigger) in document.triggers.iter().enumerate() {
+            if !trigger_targets.insert(trigger.scene_instance_id.as_str()) {
+                push(
+                    diagnostics,
+                    ProjectContentDiagnosticCode::InvalidDocument,
+                    Some(document_id),
+                    &format!("document.triggers[{trigger_index}].sceneInstanceId"),
+                    "only one trigger definition may target a stored scene entity",
+                );
+            }
             let Some(SceneInstanceReference::EntityDefinition {
                 stable_id,
                 transform_ok,
@@ -609,6 +619,7 @@ fn validate_configuration_schemas<'a>(
     for (schema_index, schema) in provider_schemas.iter().enumerate() {
         let path = format!("composition.providerSchemas[{schema_index}]");
         if schema.schema_id.trim().is_empty()
+            || schema.module_id.trim().is_empty()
             || schema.provider_id.trim().is_empty()
             || schema.codec_id.trim().is_empty()
             || schemas.insert(schema.schema_id.as_str(), schema).is_some()
@@ -618,7 +629,7 @@ fn validate_configuration_schemas<'a>(
                 ProjectContentDiagnosticCode::InvalidDocument,
                 None,
                 &path,
-                "composed provider schemas require unique ids and non-empty provider/codec identities",
+                "composed provider schemas require unique ids and non-empty module/provider/codec identities",
             );
         }
         validate_schema_fields(schema_index, schema, diagnostics);
@@ -661,10 +672,12 @@ fn validate_schema_fields(
             .integer_min
             .zip(field.integer_max)
             .is_some_and(|(min, max)| min > max)
+            || field.number_min.is_some_and(|min| !min.is_finite())
+            || field.number_max.is_some_and(|max| !max.is_finite())
             || field
                 .number_min
                 .zip(field.number_max)
-                .is_some_and(|(min, max)| !min.is_finite() || !max.is_finite() || min > max)
+                .is_some_and(|(min, max)| min > max)
         {
             push(
                 diagnostics,
@@ -685,6 +698,15 @@ fn validate_configuration_values(
     index: &ReferenceIndex<'_>,
     diagnostics: &mut Vec<ProjectContentDiagnosticDto>,
 ) {
+    if configuration.module.module_id != schema.module_id {
+        push(
+            diagnostics,
+            ProjectContentDiagnosticCode::ReferenceKindMismatch,
+            Some(document_id),
+            &format!("document.configurations[{configuration_index}].module.moduleId"),
+            "configuration module does not own the selected schema",
+        );
+    }
     if configuration.module.provider_id != schema.provider_id {
         push(
             diagnostics,
@@ -1079,24 +1101,37 @@ pub(super) fn field_metadata(
                 }
             }
             ProjectContentDocumentDto::GameplayConfiguration { document, .. } => {
-                let selected_schema_ids = document
-                    .configurations
-                    .iter()
-                    .map(|configuration| configuration.schema_id.as_str())
-                    .collect::<BTreeSet<_>>();
-                for schema in configuration_schemas
-                    .iter()
-                    .filter(|schema| selected_schema_ids.contains(schema.schema_id.as_str()))
+                for (configuration_index, configuration) in
+                    document.configurations.iter().enumerate()
                 {
+                    let Some(schema) = configuration_schemas
+                        .iter()
+                        .find(|schema| schema.schema_id == configuration.schema_id)
+                    else {
+                        continue;
+                    };
                     for field in &schema.fields {
                         fields.push(ProjectContentFieldMetadataDto {
                             document_id: document_id.clone(),
-                            path: format!("configurationValues.{}", field.field_id),
+                            path: format!(
+                                "document.configurations[{configuration_index}].values.{}",
+                                field.field_id
+                            ),
                             label: field.label.clone(),
                             value_kind: field.value_kind,
                             required: field.required,
                             editable: true,
                             reference_kind: field.reference_kind,
+                            configuration_id: Some(configuration.configuration_id.clone()),
+                            schema_id: Some(schema.schema_id.clone()),
+                            module_id: Some(schema.module_id.clone()),
+                            provider_id: Some(schema.provider_id.clone()),
+                            contract: Some(schema.contract.clone()),
+                            codec_id: Some(schema.codec_id.clone()),
+                            integer_min: field.integer_min,
+                            integer_max: field.integer_max,
+                            number_min: field.number_min,
+                            number_max: field.number_max,
                         });
                     }
                 }
@@ -1138,6 +1173,16 @@ fn metadata(
         required,
         editable: true,
         reference_kind,
+        configuration_id: None,
+        schema_id: None,
+        module_id: None,
+        provider_id: None,
+        contract: None,
+        codec_id: None,
+        integer_min: None,
+        integer_max: None,
+        number_min: None,
+        number_max: None,
     }
 }
 

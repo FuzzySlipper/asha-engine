@@ -138,14 +138,39 @@ impl GameplayModuleBuildProvenance {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GameplayConfigurationFieldMetadata {
-    pub name: String,
-    pub value_type: String,
-    pub required: bool,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GameplayConfigurationReferenceKind {
+    Asset,
+    EntityDefinition,
+    SceneInstance,
+    Prefab,
+    PrefabPart,
+    PresentationResource,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GameplayConfigurationValueKind {
+    Boolean,
+    Integer,
+    Number,
+    String,
+    Reference,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GameplayConfigurationFieldMetadata {
+    pub name: String,
+    pub label: String,
+    pub value_kind: GameplayConfigurationValueKind,
+    pub required: bool,
+    pub reference_kind: Option<GameplayConfigurationReferenceKind>,
+    pub integer_min: Option<i64>,
+    pub integer_max: Option<i64>,
+    pub number_min: Option<f64>,
+    pub number_max: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct GameplayConfigurationSchemaMetadata {
     pub module_id: String,
     pub configuration: GameplayContractRef,
@@ -166,12 +191,15 @@ impl GameplayConfigurationCodecRegistration {
     where
         T: DeserializeOwned + Serialize + 'static,
     {
+        let constraint_metadata = metadata.clone();
         Self {
             metadata,
-            canonicalize: Arc::new(|source| {
+            canonicalize: Arc::new(move |source| {
                 let decoded: T =
                     serde_json::from_slice(source).map_err(|error| error.to_string())?;
-                serde_json::to_vec(&decoded).map_err(|error| error.to_string())
+                let canonical = serde_json::to_vec(&decoded).map_err(|error| error.to_string())?;
+                validate_configuration_field_constraints(&constraint_metadata, &canonical)?;
+                Ok(canonical)
             }),
         }
     }
@@ -194,6 +222,74 @@ impl GameplayConfigurationCodecRegistration {
     pub fn canonicalize(&self, source: &[u8]) -> Result<Vec<u8>, String> {
         (self.canonicalize)(source)
     }
+}
+
+fn validate_configuration_field_constraints(
+    metadata: &GameplayConfigurationSchemaMetadata,
+    canonical: &[u8],
+) -> Result<(), String> {
+    let value: serde_json::Value =
+        serde_json::from_slice(canonical).map_err(|error| error.to_string())?;
+    let object = value.as_object().ok_or_else(|| {
+        "provider configuration must encode as a canonical JSON object".to_owned()
+    })?;
+    for field in &metadata.fields {
+        let value = object.get(&field.name);
+        if value.is_none() || value.is_some_and(serde_json::Value::is_null) {
+            if field.required {
+                return Err(format!(
+                    "required configuration field `{}` is missing",
+                    field.name
+                ));
+            }
+            continue;
+        }
+        let value = value.expect("checked above");
+        if field.reference_kind.is_some()
+            && value.as_str().is_none_or(|target| target.trim().is_empty())
+        {
+            return Err(format!(
+                "reference configuration field `{}` must be a non-empty string",
+                field.name
+            ));
+        }
+        if field.integer_min.is_some() || field.integer_max.is_some() {
+            let integer = value.as_i64().ok_or_else(|| {
+                format!(
+                    "bounded integer configuration field `{}` must be an i64 value",
+                    field.name
+                )
+            })?;
+            if field.integer_min.is_some_and(|minimum| integer < minimum)
+                || field.integer_max.is_some_and(|maximum| integer > maximum)
+            {
+                return Err(format!(
+                    "configuration field `{}` is outside its declared integer bounds",
+                    field.name
+                ));
+            }
+        }
+        if field.number_min.is_some() || field.number_max.is_some() {
+            let number = value
+                .as_f64()
+                .filter(|number| number.is_finite())
+                .ok_or_else(|| {
+                    format!(
+                        "bounded number configuration field `{}` must be finite",
+                        field.name
+                    )
+                })?;
+            if field.number_min.is_some_and(|minimum| number < minimum)
+                || field.number_max.is_some_and(|maximum| number > maximum)
+            {
+                return Err(format!(
+                    "configuration field `{}` is outside its declared number bounds",
+                    field.name
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Immutable provider/configuration authority retained after a static
@@ -728,7 +824,23 @@ fn validate_configuration_schemas(
         let mut field_names = BTreeSet::new();
         if schema.fields.iter().any(|field| {
             field.name.trim().is_empty()
-                || field.value_type.trim().is_empty()
+                || field.label.trim().is_empty()
+                || (field.value_kind == GameplayConfigurationValueKind::Reference)
+                    != field.reference_kind.is_some()
+                || ((field.integer_min.is_some() || field.integer_max.is_some())
+                    && field.value_kind != GameplayConfigurationValueKind::Integer)
+                || ((field.number_min.is_some() || field.number_max.is_some())
+                    && field.value_kind != GameplayConfigurationValueKind::Number)
+                || field
+                    .integer_min
+                    .zip(field.integer_max)
+                    .is_some_and(|(minimum, maximum)| minimum > maximum)
+                || field.number_min.is_some_and(|minimum| !minimum.is_finite())
+                || field.number_max.is_some_and(|maximum| !maximum.is_finite())
+                || field
+                    .number_min
+                    .zip(field.number_max)
+                    .is_some_and(|(minimum, maximum)| minimum > maximum)
                 || !field_names.insert(field.name.as_str())
         }) {
             return Err(GameplayStaticCompositionError::InvalidConfigurationSchema(

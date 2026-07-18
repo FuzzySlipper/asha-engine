@@ -1,7 +1,10 @@
-//! Public Rust facade for one statically composed native RuntimeSession cell.
+//! Public Rust facade for distinct statically composed RuntimeSession and
+//! pre-runtime project-authoring cells.
 //!
 //! Downstream addons register concrete gameplay modules through the gameplay
-//! SDK, build one cell here, and expose the returned bounded RuntimeBridge root.
+//! SDK, then choose `StaticRuntimeSessionBuilder` for live authority or
+//! `StaticProjectAuthoringBuilder` for immutable provider schema/codec
+//! authority without ProjectBundle activation.
 
 #![forbid(unsafe_code)]
 

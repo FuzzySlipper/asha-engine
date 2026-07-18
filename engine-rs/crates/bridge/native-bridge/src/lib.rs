@@ -128,8 +128,11 @@ static SESSIONS: OnceLock<Mutex<NativeSessions>> = OnceLock::new();
 /// `EngineBridge` root consumed by the generated N-API operation table; no
 /// semantic callback or per-operation hook crosses the transport boundary.
 pub type NativeEngineBridgeFactory = fn() -> Result<EngineBridge, RuntimeBridgeError>;
+pub type NativeProjectAuthoringBridgeFactory = fn() -> Result<EngineBridge, RuntimeBridgeError>;
 
 static ENGINE_BRIDGE_FACTORY: OnceLock<NativeEngineBridgeFactory> = OnceLock::new();
+static PROJECT_AUTHORING_BRIDGE_FACTORY: OnceLock<NativeProjectAuthoringBridgeFactory> =
+    OnceLock::new();
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NativeEngineBridgeFactoryInstallError;
@@ -141,6 +144,17 @@ impl core::fmt::Display for NativeEngineBridgeFactoryInstallError {
 }
 
 impl std::error::Error for NativeEngineBridgeFactoryInstallError {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NativeProjectAuthoringBridgeFactoryInstallError;
+
+impl core::fmt::Display for NativeProjectAuthoringBridgeFactoryInstallError {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        formatter.write_str("a native project-authoring EngineBridge factory is already installed")
+    }
+}
+
+impl std::error::Error for NativeProjectAuthoringBridgeFactoryInstallError {}
 
 /// Install the one bridge constructor for this native addon image.
 ///
@@ -154,8 +168,28 @@ pub fn install_native_engine_bridge_factory(
         .map_err(|_| NativeEngineBridgeFactoryInstallError)
 }
 
+/// Install the authoring-only constructor for this native addon image.
+///
+/// This factory is intentionally distinct from the runtime constructor: it
+/// must return a bridge containing only immutable provider schema/codec
+/// authority and no activated gameplay RuntimeSession.
+pub fn install_native_project_authoring_bridge_factory(
+    factory: NativeProjectAuthoringBridgeFactory,
+) -> Result<(), NativeProjectAuthoringBridgeFactoryInstallError> {
+    PROJECT_AUTHORING_BRIDGE_FACTORY
+        .set(factory)
+        .map_err(|_| NativeProjectAuthoringBridgeFactoryInstallError)
+}
+
 fn create_engine_bridge() -> Result<EngineBridge, RuntimeBridgeError> {
     match ENGINE_BRIDGE_FACTORY.get() {
+        Some(factory) => factory(),
+        None => Ok(EngineBridge::new()),
+    }
+}
+
+fn create_project_authoring_bridge() -> Result<EngineBridge, RuntimeBridgeError> {
+    match PROJECT_AUTHORING_BRIDGE_FACTORY.get() {
         Some(factory) => factory(),
         None => Ok(EngineBridge::new()),
     }
@@ -731,7 +765,7 @@ pub fn open_workspace_authoring(existing_handle: i64, request_json: String) -> n
             Ok(existing_handle)
         });
     }
-    let mut bridge = create_engine_bridge().map_err(to_napi)?;
+    let mut bridge = create_project_authoring_bridge().map_err(to_napi)?;
     bridge.open_workspace_authoring(request).map_err(to_napi)?;
     insert_native_bridge(bridge)
 }

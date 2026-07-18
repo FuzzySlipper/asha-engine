@@ -43,6 +43,39 @@ const authoringHandle = addon.openWorkspaceAuthoring(-1, JSON.stringify({
   project: { gameId: 'fixture.pulse', workspaceId: 'fixture.pulse.authoring' },
   projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 90 },
 }));
+assert.throws(
+  () => addon.readComposedRuntimeSession(authoringHandle),
+  /not initialized|not built/i,
+);
+const emptyAuthoringResult = JSON.parse(addon.encodeProjectContent(
+  authoringHandle,
+  JSON.stringify({
+    documents: [{
+      kind: 'gameplayConfiguration',
+      documentId: 'gameplay/empty.json',
+      document: {
+        schemaVersion: 1,
+        configurations: [],
+        bindings: [],
+        overrides: [],
+        triggers: [],
+      },
+    }],
+  }),
+));
+assert.equal(emptyAuthoringResult.accepted, true);
+const pulseSchema = emptyAuthoringResult.providerSchemas.find(
+  (schema) => schema.schemaId === `${authoredConfiguration.configuration.namespace}.${authoredConfiguration.configuration.name}.v${authoredConfiguration.configuration.version}`,
+);
+assert.ok(pulseSchema, 'empty project content exposes composed provider schemas');
+assert.equal(pulseSchema.moduleId, authoredConfiguration.module.moduleId);
+assert.equal(pulseSchema.providerId, authoredConfiguration.module.providerId);
+const multiplierField = pulseSchema.fields.find((field) => field.fieldId === 'multiplier');
+assert.equal(multiplierField.integerMin, 0);
+assert.equal(multiplierField.integerMax, 64);
+const assetField = pulseSchema.fields.find((field) => field.fieldId === 'assetId');
+assert.equal(assetField.valueKind, 'reference');
+assert.equal(assetField.referenceKind, 'asset');
 const decodeGameplayDocument = (multiplier) => JSON.parse(addon.decodeProjectContent(
   authoringHandle,
   JSON.stringify({
@@ -55,13 +88,24 @@ const decodeGameplayDocument = (multiplier) => JSON.parse(addon.decodeProjectCon
 ));
 const malformedAuthoredGameplay = decodeGameplayDocument(-1);
 assert.equal(malformedAuthoredGameplay.accepted, false);
+assert.ok(malformedAuthoredGameplay.providerSchemas.some(
+  (schema) => schema.schemaId === pulseSchema.schemaId,
+));
 assert.ok(malformedAuthoredGameplay.diagnostics.some(
-  (diagnostic) => diagnostic.message.includes('typed provider codec rejected configuration'),
+  (diagnostic) => diagnostic.message.includes('bounds')
+    || diagnostic.message.includes('typed provider codec rejected configuration'),
+));
+const outOfRangeAuthoredGameplay = decodeGameplayDocument(65);
+assert.equal(outOfRangeAuthoredGameplay.accepted, false);
+assert.ok(outOfRangeAuthoredGameplay.diagnostics.some(
+  (diagnostic) => diagnostic.message.includes('bounds'),
 ));
 const acceptedAuthoredGameplay = decodeGameplayDocument(4);
 assert.equal(acceptedAuthoredGameplay.accepted, true);
 assert.ok(acceptedAuthoredGameplay.fieldMetadata.some(
-  (field) => field.path === 'configurationValues.multiplier',
+  (field) => field.path === 'document.configurations[0].values.multiplier'
+    && field.schemaId === pulseSchema.schemaId
+    && field.providerId === pulseSchema.providerId,
 ));
 
 const handle = addon.initializeEngine(41);

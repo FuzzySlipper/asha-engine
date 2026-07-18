@@ -304,7 +304,7 @@ Source: [bridge-manifest.toml](../../engine-rs/crates/bridge/runtime-bridge-api/
 
 ## Assignment And Dependency Pressure
 
-Committed path classes: 748 source; 27 generated source; 522 other; 0 build/cache/output.
+Committed path classes: 749 source; 27 generated source; 522 other; 0 build/cache/output.
 
 ### Rust actual and allowed edges
 
@@ -440,8 +440,8 @@ Committed path classes: 748 source; 27 generated source; 522 other; 0 build/cach
 
 | Source | Lines / warning / cap | Owner | Review by |
 |---|---:|---|---|
-| `engine-rs/crates/rules/gameplay-runtime-host/src/lib.rs` | 3157 / 2950 / 3036 | rust-rule | 2026-09-15 |
-| `engine-rs/crates/bridge/runtime-bridge-api/src/authority/runtime_bridge_impl.rs` | 1662 / 1570 / 1621 | rust-bridge | 2026-10-15 |
+| `engine-rs/crates/rules/gameplay-runtime-host/src/lib.rs` | 3164 / 2950 / 3036 | rust-rule | 2026-09-15 |
+| `engine-rs/crates/bridge/runtime-bridge-api/src/authority/runtime_bridge_impl.rs` | 1666 / 1570 / 1621 | rust-bridge | 2026-10-15 |
 | `ts/packages/runtime-bridge/src/mock.ts` | 1637 / 1580 / 1620 | ts-shell | 2026-10-15 |
 | `engine-rs/crates/render/render-bridge/src/presentation.rs` | 1608 / 1400 / 1600 | rust-render | global policy |
 | `engine-rs/crates/rules/rule-gameplay-fabric/src/observe.rs` | 1622 / 1580 / 1622 | rust-rule | 2026-10-15 |

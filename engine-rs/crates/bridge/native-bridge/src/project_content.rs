@@ -155,6 +155,7 @@ fn result_json(
     accepted: bool,
     canonical_files: &[ProjectContentCanonicalFileDto],
     set_hash: &Option<String>,
+    provider_schemas: &[ProjectConfigurationSchemaDto],
     field_metadata: &[ProjectContentFieldMetadataDto],
     diagnostics: &[ProjectContentDiagnosticDto],
 ) -> napi::Result<Value> {
@@ -172,6 +173,7 @@ fn result_json(
             "contentHash": file.content_hash,
         })).collect::<Vec<_>>(),
         "setHash": set_hash,
+        "providerSchemas": provider_schemas.iter().map(configuration_schema_json).collect::<Vec<_>>(),
         "fieldMetadata": field_metadata.iter().map(|field| json!({
             "documentId": field.document_id,
             "path": field.path,
@@ -180,6 +182,16 @@ fn result_json(
             "required": field.required,
             "editable": field.editable,
             "referenceKind": field.reference_kind.map(reference_kind_tag),
+            "configurationId": field.configuration_id,
+            "schemaId": field.schema_id,
+            "moduleId": field.module_id,
+            "providerId": field.provider_id,
+            "contract": field.contract.as_ref().map(contract_json),
+            "codecId": field.codec_id,
+            "integerMin": field.integer_min,
+            "integerMax": field.integer_max,
+            "numberMin": field.number_min,
+            "numberMax": field.number_max,
         })).collect::<Vec<_>>(),
         "diagnostics": diagnostics.iter().map(|diagnostic| json!({
             "code": diagnostic_code_tag(diagnostic.code),
@@ -195,6 +207,7 @@ fn codec_result_json(result: &ProjectContentCodecResultDto) -> napi::Result<Valu
         result.accepted,
         &result.canonical_files,
         &result.set_hash,
+        &result.provider_schemas,
         &result.field_metadata,
         &result.diagnostics,
     )
@@ -205,9 +218,40 @@ fn authoring_result_json(result: &ProjectContentAuthoringResultDto) -> napi::Res
         result.accepted,
         &result.canonical_files,
         &result.set_hash,
+        &result.provider_schemas,
         &result.field_metadata,
         &result.diagnostics,
     )
+}
+
+fn configuration_schema_json(schema: &ProjectConfigurationSchemaDto) -> Value {
+    json!({
+        "schemaId": schema.schema_id,
+        "moduleId": schema.module_id,
+        "providerId": schema.provider_id,
+        "contract": contract_json(&schema.contract),
+        "codecId": schema.codec_id,
+        "fields": schema.fields.iter().map(|field| json!({
+            "fieldId": field.field_id,
+            "label": field.label,
+            "valueKind": value_kind_tag(field.value_kind),
+            "required": field.required,
+            "referenceKind": field.reference_kind.map(reference_kind_tag),
+            "integerMin": field.integer_min,
+            "integerMax": field.integer_max,
+            "numberMin": field.number_min,
+            "numberMax": field.number_max,
+        })).collect::<Vec<_>>(),
+    })
+}
+
+fn contract_json(contract: &GameplayContractRef) -> Value {
+    json!({
+        "namespace": contract.namespace,
+        "name": contract.name,
+        "version": contract.version,
+        "schemaHash": contract.schema_hash,
+    })
 }
 
 fn document_json(file: &ProjectContentCanonicalFileDto) -> napi::Result<Value> {
