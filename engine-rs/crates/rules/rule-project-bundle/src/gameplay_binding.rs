@@ -574,10 +574,15 @@ fn resolve_bindings(
             &mut diagnostics,
         );
     }
+    validate_override_contracts(
+        &bindings.overrides,
+        &indexed_bindings,
+        &configurations,
+        &mut diagnostics,
+    );
     let overrides = validate_overrides(
         bindings,
         &indexed_bindings,
-        &configurations,
         bundle,
         entity_targets,
         &mut diagnostics,
@@ -695,7 +700,7 @@ fn resolve_bindings(
     })
 }
 
-fn validate_configuration(
+pub(super) fn validate_configuration(
     configuration: &GameplayModuleConfiguration,
     registry: &GameplayFabricRegistry,
     codecs: &[GameplayConfigurationCodecRegistration],
@@ -790,7 +795,7 @@ fn module_refs_are_semantically_compatible(
         && compiled.provider_id == authored.provider_id
 }
 
-fn validate_binding(
+pub(super) fn validate_binding(
     binding: &GameplayModuleBinding,
     configuration: Option<&GameplayModuleConfiguration>,
     registry: &GameplayFabricRegistry,
@@ -854,10 +859,46 @@ fn validate_binding(
 
 type OverrideIndex<'a> = BTreeMap<(String, PrefabInstanceId), &'a GameplayModuleBindingOverride>;
 
+pub(super) fn validate_override_contracts<'a>(
+    overrides: &'a [GameplayModuleBindingOverride],
+    indexed_bindings: &BTreeMap<String, &'a GameplayModuleBinding>,
+    configurations: &BTreeMap<String, &'a GameplayModuleConfiguration>,
+    diagnostics: &mut Vec<GameplayModuleBindingDiagnostic>,
+) {
+    let mut identities = BTreeSet::new();
+    for (index, layer) in overrides.iter().enumerate() {
+        let path = format!("overrides[{index}]");
+        let Some(binding) = indexed_bindings.get(&layer.binding_id).copied() else {
+            diagnostics.push(diag(
+                GameplayModuleBindingDiagnosticCode::InvalidOverride,
+                format!("{path}.bindingId"),
+                "override references an unknown binding",
+            ));
+            continue;
+        };
+        if let Some(configuration_id) = &layer.configuration_id {
+            match configurations.get(configuration_id) {
+                Some(configuration) if configuration.module.module_id == binding.module_id => {}
+                _ => diagnostics.push(diag(
+                    GameplayModuleBindingDiagnosticCode::InvalidOverride,
+                    format!("{path}.configurationId"),
+                    "override configuration is missing or belongs to another module",
+                )),
+            }
+        }
+        if !identities.insert((layer.binding_id.as_str(), layer.scene_instance_id.as_str())) {
+            diagnostics.push(diag(
+                GameplayModuleBindingDiagnosticCode::InvalidOverride,
+                path,
+                "only one override is allowed per binding and scene instance",
+            ));
+        }
+    }
+}
+
 fn validate_overrides<'a>(
     bindings: &'a GameplayModuleBindingRegistry,
     indexed_bindings: &BTreeMap<String, &'a GameplayModuleBinding>,
-    configurations: &BTreeMap<String, &'a GameplayModuleConfiguration>,
     bundle: &ProjectBundleLoadResult,
     entity_targets: &GameplayBindingEntityTargets,
     diagnostics: &mut Vec<GameplayModuleBindingDiagnostic>,
@@ -866,11 +907,6 @@ fn validate_overrides<'a>(
     for (index, layer) in bindings.overrides.iter().enumerate() {
         let path = format!("overrides[{index}]");
         let Some(binding) = indexed_bindings.get(&layer.binding_id).copied() else {
-            diagnostics.push(diag(
-                GameplayModuleBindingDiagnosticCode::InvalidOverride,
-                format!("{path}.bindingId"),
-                "override references an unknown binding",
-            ));
             continue;
         };
         let Some(prefab_instance) = entity_targets.prefab_instance(&layer.scene_instance_id) else {
@@ -901,26 +937,7 @@ fn validate_overrides<'a>(
                 "override instance does not belong to the binding target prefab",
             ));
         }
-        if let Some(configuration_id) = &layer.configuration_id {
-            match configurations.get(configuration_id) {
-                Some(configuration) if configuration.module.module_id == binding.module_id => {}
-                _ => diagnostics.push(diag(
-                    GameplayModuleBindingDiagnosticCode::InvalidOverride,
-                    format!("{path}.configurationId"),
-                    "override configuration is missing or belongs to another module",
-                )),
-            }
-        }
-        if indexed
-            .insert((layer.binding_id.clone(), prefab_instance), layer)
-            .is_some()
-        {
-            diagnostics.push(diag(
-                GameplayModuleBindingDiagnosticCode::InvalidOverride,
-                path,
-                "only one override is allowed per binding and prefab instance",
-            ));
-        }
+        indexed.insert((layer.binding_id.clone(), prefab_instance), layer);
     }
     indexed
 }

@@ -346,6 +346,7 @@ dependencies = [
  "core-entity",
  "core-ids",
  "core-math",
+ "core-scene",
  "gameplay-module-sdk",
  "protocol-diagnostics",
  "protocol-entity-authoring",
@@ -748,6 +749,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "protocol-project-content"
+version = "0.1.0"
+dependencies = [
+ "protocol-assets",
+ "protocol-entity-authoring",
+ "protocol-game-extension",
+ "protocol-project-bundle",
+]
+
+[[package]]
 name = "protocol-render"
 version = "0.1.0"
 dependencies = [
@@ -1008,6 +1019,8 @@ dependencies = [
  "gameplay-module-sdk",
  "protocol-diagnostics",
  "protocol-game-extension",
+ "protocol-project-bundle",
+ "protocol-project-content",
  "protocol-voxel-annotation",
  "rule-gameplay-fabric",
  "rule-trigger-volume",
@@ -1015,6 +1028,7 @@ dependencies = [
  "serde",
  "serde_json",
  "svc-gameplay-fabric",
+ "svc-project-content",
  "svc-serialization",
  "svc-spatial",
  "svc-volume",
@@ -1089,6 +1103,7 @@ dependencies = [
  "protocol-input",
  "protocol-presentation",
  "protocol-project-bundle",
+ "protocol-project-content",
  "protocol-render",
  "protocol-scene",
  "protocol-time-control",
@@ -1107,6 +1122,7 @@ dependencies = [
  "rule-gameplay-fabric",
  "rule-input",
  "rule-lifecycle",
+ "rule-project-bundle",
  "rule-voxel-edit",
  "serde",
  "serde_json",
@@ -1118,6 +1134,7 @@ dependencies = [
  "svc-mesh",
  "svc-mesh-import",
  "svc-pathfinding",
+ "svc-project-content",
  "svc-serialization",
  "svc-spatial",
  "svc-volume",
@@ -1379,6 +1396,25 @@ dependencies = [
  "core-math",
  "core-space",
  "svc-spatial",
+]
+
+[[package]]
+name = "svc-project-content"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "core-catalog",
+ "core-ids",
+ "protocol-assets",
+ "protocol-entity-authoring",
+ "protocol-game-extension",
+ "protocol-project-bundle",
+ "protocol-project-content",
+ "protocol-scene",
+ "serde",
+ "serde_json",
+ "svc-entity-authoring",
+ "svc-serialization",
 ]
 
 [[package]]

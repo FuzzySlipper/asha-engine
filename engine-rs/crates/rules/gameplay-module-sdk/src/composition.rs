@@ -156,10 +156,10 @@ pub struct GameplayConfigurationSchemaMetadata {
 #[derive(Clone)]
 pub struct GameplayConfigurationCodecRegistration {
     metadata: GameplayConfigurationSchemaMetadata,
-    validate: Arc<GameplayConfigurationValidator>,
+    canonicalize: Arc<GameplayConfigurationCanonicalizer>,
 }
 
-type GameplayConfigurationValidator = dyn Fn(&[u8]) -> Result<(), String> + Send + Sync;
+type GameplayConfigurationCanonicalizer = dyn Fn(&[u8]) -> Result<Vec<u8>, String> + Send + Sync;
 
 impl GameplayConfigurationCodecRegistration {
     pub fn typed<T>(metadata: GameplayConfigurationSchemaMetadata) -> Self
@@ -168,16 +168,10 @@ impl GameplayConfigurationCodecRegistration {
     {
         Self {
             metadata,
-            validate: Arc::new(|canonical| {
+            canonicalize: Arc::new(|source| {
                 let decoded: T =
-                    serde_json::from_slice(canonical).map_err(|error| error.to_string())?;
-                let encoded = serde_json::to_vec(&decoded).map_err(|error| error.to_string())?;
-                if encoded != canonical {
-                    return Err(
-                        "configuration bytes are not canonical for the typed codec".to_owned()
-                    );
-                }
-                Ok(())
+                    serde_json::from_slice(source).map_err(|error| error.to_string())?;
+                serde_json::to_vec(&decoded).map_err(|error| error.to_string())
             }),
         }
     }
@@ -187,7 +181,51 @@ impl GameplayConfigurationCodecRegistration {
     }
 
     pub fn validate(&self, canonical: &[u8]) -> Result<(), String> {
-        (self.validate)(canonical)
+        let encoded = self.canonicalize(canonical)?;
+        if encoded != canonical {
+            return Err("configuration bytes are not canonical for the typed codec".to_owned());
+        }
+        Ok(())
+    }
+
+    /// Decode provider-owned configuration input and return the provider's
+    /// canonical typed bytes. Authoring uses this before runtime admission so
+    /// it cannot substitute a shape-only Engine codec for the linked provider.
+    pub fn canonicalize(&self, source: &[u8]) -> Result<Vec<u8>, String> {
+        (self.canonicalize)(source)
+    }
+}
+
+/// Immutable provider/configuration authority retained after a static
+/// composition is consumed by RuntimeSession activation. It contains no
+/// behavior callbacks or mutable registration surface.
+#[derive(Clone)]
+pub struct GameplayProjectConfigurationAuthority {
+    registry: Arc<GameplayFabricRegistry>,
+    schemas: Vec<GameplayConfigurationSchemaMetadata>,
+    codecs: Vec<GameplayConfigurationCodecRegistration>,
+}
+
+impl GameplayProjectConfigurationAuthority {
+    pub fn registry(&self) -> &GameplayFabricRegistry {
+        self.registry.as_ref()
+    }
+
+    pub fn schemas(&self) -> &[GameplayConfigurationSchemaMetadata] {
+        &self.schemas
+    }
+
+    pub fn codecs(&self) -> &[GameplayConfigurationCodecRegistration] {
+        &self.codecs
+    }
+}
+
+impl Default for GameplayProjectConfigurationAuthority {
+    fn default() -> Self {
+        GameplayStaticCompositionBuilder::new()
+            .build()
+            .expect("empty gameplay composition is valid")
+            .project_configuration_authority()
     }
 }
 
@@ -438,6 +476,14 @@ impl GameplayStaticComposition {
 
     pub fn configuration_schemas(&self) -> &[GameplayConfigurationSchemaMetadata] {
         &self.configuration_schemas
+    }
+
+    pub fn project_configuration_authority(&self) -> GameplayProjectConfigurationAuthority {
+        GameplayProjectConfigurationAuthority {
+            registry: self.registry.clone(),
+            schemas: self.configuration_schemas.clone(),
+            codecs: self.configuration_codecs.clone(),
+        }
     }
 
     /// Executes one static Session Observe root for modules that emit only

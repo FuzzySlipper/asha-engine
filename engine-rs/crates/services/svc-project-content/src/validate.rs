@@ -34,7 +34,8 @@ enum SceneInstanceReference {
 
 pub(super) fn validate_document_set(
     documents: &[ProjectContentDocumentDto],
-    references: &ProjectContentReferenceContextDto,
+    scenes: &[FlatSceneDocumentDto],
+    provider_schemas: &[ProjectConfigurationSchemaDto],
 ) -> Vec<ProjectContentDiagnosticDto> {
     let mut diagnostics = Vec::new();
     let mut index = ReferenceIndex::default();
@@ -43,9 +44,8 @@ pub(super) fn validate_document_set(
     index_catalogs(documents, &mut index, &mut diagnostics);
     index_prefabs(documents, &mut index, &mut diagnostics);
     index_presentation(documents, &mut index, &mut diagnostics);
-    index_scenes(&references.scenes, &mut index, &mut diagnostics);
-    let configuration_schemas =
-        validate_configuration_schemas(&references.configuration_schemas, &mut diagnostics);
+    index_scenes(scenes, &mut index, &mut diagnostics);
+    let configuration_schemas = validate_configuration_schemas(provider_schemas, &mut diagnostics);
 
     validate_entities(documents, &mut diagnostics);
     validate_prefabs(documents, &index, &mut diagnostics);
@@ -212,8 +212,8 @@ fn index_scenes(
     index: &mut ReferenceIndex<'_>,
     diagnostics: &mut Vec<ProjectContentDiagnosticDto>,
 ) {
-    let mut marker_ids = BTreeSet::new();
     for scene in scenes {
+        let mut marker_ids = BTreeSet::new();
         let nodes = scene
             .nodes
             .iter()
@@ -226,7 +226,7 @@ fn index_scenes(
                         diagnostics,
                         ProjectContentDiagnosticCode::InvalidDocument,
                         None,
-                        "references.scenes.nodes.markerId",
+                        "workspace.scenes.nodes.markerId",
                         "scene marker ids must be non-empty and unique",
                     );
                 }
@@ -243,7 +243,7 @@ fn index_scenes(
                     diagnostics,
                     ProjectContentDiagnosticCode::InvalidDocument,
                     None,
-                    "references.scenes.nodes.instanceId",
+                    "workspace.scenes.nodes.instanceId",
                     "scene instance ids must be non-empty and unique across project scenes",
                 );
                 continue;
@@ -254,7 +254,7 @@ fn index_scenes(
                         diagnostics,
                         ProjectContentDiagnosticCode::UnknownReference,
                         None,
-                        "references.scenes.nodes.spawnMarkerId",
+                        "workspace.scenes.nodes.spawnMarkerId",
                         "scene entity instance references an unknown marker",
                     );
                 }
@@ -276,7 +276,7 @@ fn index_scenes(
                             diagnostics,
                             ProjectContentDiagnosticCode::UnknownReference,
                             None,
-                            "references.scenes.nodes.reference.prefabId",
+                            "workspace.scenes.nodes.reference.prefabId",
                             "scene instance references an unknown base prefab",
                         );
                     }
@@ -290,7 +290,7 @@ fn index_scenes(
                                 diagnostics,
                                 ProjectContentDiagnosticCode::UnknownReference,
                                 None,
-                                "references.scenes.nodes.reference.variantId",
+                                "workspace.scenes.nodes.reference.variantId",
                                 "scene instance references an unknown variant for its base prefab",
                             );
                         }
@@ -462,14 +462,27 @@ fn validate_gameplay(
                     "binding ids must be non-empty and unique",
                 );
             }
-            if !configurations.contains_key(binding.configuration_id.as_str()) {
-                push(
+            match configurations
+                .get(binding.configuration_id.as_str())
+                .copied()
+            {
+                None => push(
                     diagnostics,
                     ProjectContentDiagnosticCode::UnknownReference,
                     Some(document_id),
                     &format!("document.bindings[{binding_index}].configurationId"),
                     "binding references an unknown typed configuration",
-                );
+                ),
+                Some(configuration) if configuration.module.module_id != binding.module_id => {
+                    push(
+                        diagnostics,
+                        ProjectContentDiagnosticCode::ReferenceKindMismatch,
+                        Some(document_id),
+                        &format!("document.bindings[{binding_index}].moduleId"),
+                        "binding and selected configuration belong to different modules",
+                    );
+                }
+                Some(_) => {}
             }
             validate_binding_target(
                 document_id,
@@ -479,7 +492,19 @@ fn validate_gameplay(
                 diagnostics,
             );
         }
+        let mut override_identities = BTreeSet::new();
         for (override_index, layer) in document.overrides.iter().enumerate() {
+            if !override_identities
+                .insert((layer.binding_id.as_str(), layer.scene_instance_id.as_str()))
+            {
+                push(
+                    diagnostics,
+                    ProjectContentDiagnosticCode::InvalidDocument,
+                    Some(document_id),
+                    &format!("document.overrides[{override_index}]"),
+                    "only one override is allowed per binding and scene instance",
+                );
+            }
             let Some(binding) = bindings.get(layer.binding_id.as_str()).copied() else {
                 push(
                     diagnostics,
@@ -517,14 +542,24 @@ fn validate_gameplay(
                 );
             }
             if let Some(configuration_id) = &layer.configuration_id {
-                if !configurations.contains_key(configuration_id.as_str()) {
-                    push(
+                match configurations.get(configuration_id.as_str()).copied() {
+                    None => push(
                         diagnostics,
                         ProjectContentDiagnosticCode::UnknownReference,
                         Some(document_id),
                         &format!("document.overrides[{override_index}].configurationId"),
                         "override references an unknown typed configuration",
-                    );
+                    ),
+                    Some(configuration) if configuration.module.module_id != binding.module_id => {
+                        push(
+                            diagnostics,
+                            ProjectContentDiagnosticCode::ReferenceKindMismatch,
+                            Some(document_id),
+                            &format!("document.overrides[{override_index}].configurationId"),
+                            "override configuration belongs to a different binding module",
+                        );
+                    }
+                    Some(_) => {}
                 }
             }
         }
@@ -572,10 +607,10 @@ fn validate_configuration_schemas<'a>(
 ) -> BTreeMap<&'a str, &'a ProjectConfigurationSchemaDto> {
     let mut schemas = BTreeMap::new();
     for (schema_index, schema) in provider_schemas.iter().enumerate() {
-        let path = format!("references.configurationSchemas[{schema_index}]");
+        let path = format!("composition.providerSchemas[{schema_index}]");
         if schema.schema_id.trim().is_empty()
             || schema.provider_id.trim().is_empty()
-            || schema.codec_id != "asha.project-configuration.canonical-json.v1"
+            || schema.codec_id.trim().is_empty()
             || schemas.insert(schema.schema_id.as_str(), schema).is_some()
         {
             push(
@@ -583,7 +618,7 @@ fn validate_configuration_schemas<'a>(
                 ProjectContentDiagnosticCode::InvalidDocument,
                 None,
                 &path,
-                "provider schemas require unique ids, providers, and the supported typed codec",
+                "composed provider schemas require unique ids and non-empty provider/codec identities",
             );
         }
         validate_schema_fields(schema_index, schema, diagnostics);
@@ -598,7 +633,7 @@ fn validate_schema_fields(
 ) {
     let mut fields = BTreeSet::new();
     for (field_index, field) in schema.fields.iter().enumerate() {
-        let path = format!("references.configurationSchemas[{schema_index}].fields[{field_index}]");
+        let path = format!("composition.providerSchemas[{schema_index}].fields[{field_index}]");
         if field.field_id.trim().is_empty()
             || field.label.trim().is_empty()
             || !fields.insert(field.field_id.as_str())
@@ -989,7 +1024,7 @@ fn validate_presentation(
 
 pub(super) fn field_metadata(
     documents: &[ProjectContentDocumentDto],
-    references: &ProjectContentReferenceContextDto,
+    configuration_schemas: &[ProjectConfigurationSchemaDto],
 ) -> Vec<ProjectContentFieldMetadataDto> {
     let mut fields = Vec::new();
     for document in documents {
@@ -1049,8 +1084,7 @@ pub(super) fn field_metadata(
                     .iter()
                     .map(|configuration| configuration.schema_id.as_str())
                     .collect::<BTreeSet<_>>();
-                for schema in references
-                    .configuration_schemas
+                for schema in configuration_schemas
                     .iter()
                     .filter(|schema| selected_schema_ids.contains(schema.schema_id.as_str()))
                 {

@@ -66,6 +66,7 @@ protocol-entity-authoring = { path = "../../protocol/protocol-entity-authoring" 
 game-rule-extension = { path = "../../rules/game-rule-extension" }
 rule-gameplay-fabric = { path = "../../rules/rule-gameplay-fabric" }
 gameplay-runtime-host = { path = "../../rules/gameplay-runtime-host" }
+rule-project-bundle = { path = "../../rules/rule-project-bundle" }
 rule-lifecycle = { path = "../../rules/rule-lifecycle" }
 rule-input = { path = "../../rules/rule-input" }
 svc-combat = { path = "../../services/svc-combat" }

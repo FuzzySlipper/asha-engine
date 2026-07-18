@@ -742,7 +742,6 @@ dependencies = [
  "protocol-entity-authoring",
  "protocol-game-extension",
  "protocol-project-bundle",
- "protocol-scene",
 ]
 
 [[package]]
@@ -1006,6 +1005,8 @@ dependencies = [
  "gameplay-module-sdk",
  "protocol-diagnostics",
  "protocol-game-extension",
+ "protocol-project-bundle",
+ "protocol-project-content",
  "protocol-voxel-annotation",
  "rule-gameplay-fabric",
  "rule-trigger-volume",
@@ -1013,6 +1014,7 @@ dependencies = [
  "serde",
  "serde_json",
  "svc-gameplay-fabric",
+ "svc-project-content",
  "svc-serialization",
  "svc-spatial",
  "svc-volume",
@@ -1106,6 +1108,7 @@ dependencies = [
  "rule-gameplay-fabric",
  "rule-input",
  "rule-lifecycle",
+ "rule-project-bundle",
  "rule-voxel-edit",
  "serde",
  "serde_json",

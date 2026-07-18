@@ -258,10 +258,11 @@ nodes and prefab instantiation seeds. Prefab variants now require a stable
 `instanceId` values rather than caller-created runtime ids.
 
 Consumers must regenerate/rebuild contracts and migrate authored scenes and
-prefab registries together. Provider configuration schemas are supplied as
-read-only `ProjectContentReferenceContext.configurationSchemas`; stored
-gameplay documents may not define their own schema. Unknown fields, unresolved
-named variants, and old runtime-id trigger targets fail closed.
+prefab registries together. Provider configuration schemas now come only from
+the statically linked Rust composition; project-content wire requests carry no
+schema or scene authority. Stored gameplay documents may not define their own
+schema. Unknown fields, unresolved named variants, and old runtime-id trigger
+targets fail closed.
 
 ### `render-material-descriptor.v2` — typed feedback parameters
 

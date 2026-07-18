@@ -12,7 +12,6 @@ use protocol_game_extension::{
     GameplayContractRef, GameplayModuleBinding, GameplayModuleBindingOverride, GameplayModuleRef,
 };
 use protocol_project_bundle::{GameplayTriggerDefinition, PrefabRegistry};
-use protocol_scene::FlatSceneDocumentDto;
 
 pub const PROJECT_CONTENT_SCHEMA_VERSION: u32 = 1;
 
@@ -217,25 +216,14 @@ impl ProjectContentDocumentDto {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct ProjectContentReferenceContextDto {
-    pub scenes: Vec<FlatSceneDocumentDto>,
-    /// Immutable descriptors exported by the statically composed gameplay
-    /// providers. They are inspection/validation input, never authored project
-    /// document content.
-    pub configuration_schemas: Vec<ProjectConfigurationSchemaDto>,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProjectContentDecodeRequestDto {
     pub sources: Vec<ProjectContentSourceDto>,
-    pub references: ProjectContentReferenceContextDto,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProjectContentEncodeRequestDto {
     pub documents: Vec<ProjectContentDocumentDto>,
-    pub references: ProjectContentReferenceContextDto,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -304,8 +292,6 @@ pub struct ProjectContentAuthoringRequestDto {
     pub expected_generation: u64,
     pub expected_working_revision: u64,
     pub expected_set_hash: String,
-    pub current_documents: Vec<ProjectContentDocumentDto>,
-    pub references: ProjectContentReferenceContextDto,
     pub command: ProjectContentAuthoringCommandDto,
 }
 

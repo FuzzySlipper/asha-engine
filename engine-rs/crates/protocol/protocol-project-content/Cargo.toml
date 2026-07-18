@@ -13,4 +13,3 @@ protocol-assets = { path = "../protocol-assets" }
 protocol-entity-authoring = { path = "../protocol-entity-authoring" }
 protocol-game-extension = { path = "../protocol-game-extension" }
 protocol-project-bundle = { path = "../protocol-project-bundle" }
-protocol-scene = { path = "../protocol-scene" }

@@ -3,7 +3,6 @@ use runtime_bridge_api::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
-use crate::scene_preview::SceneDocumentJson;
 use crate::wire::parse_wire_json;
 use crate::{to_napi, with_bridge};
 
@@ -33,68 +32,14 @@ struct SourceJson {
 
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-struct ReferenceContextJson {
-    scenes: Vec<SceneDocumentJson>,
-    configuration_schemas: Vec<ConfigurationSchemaJson>,
-}
-
-#[derive(Deserialize, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct ConfigurationSchemaJson {
-    schema_id: String,
-    provider_id: String,
-    contract: protocol_game_extension::GameplayContractRef,
-    codec_id: String,
-    fields: Vec<ConfigurationFieldJson>,
-}
-
-#[derive(Deserialize, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct ConfigurationFieldJson {
-    field_id: String,
-    label: String,
-    value_kind: ConfigurationValueKindJson,
-    required: bool,
-    reference_kind: Option<ReferenceKindJson>,
-    integer_min: Option<i64>,
-    integer_max: Option<i64>,
-    number_min: Option<f64>,
-    number_max: Option<f64>,
-}
-
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-enum ConfigurationValueKindJson {
-    Boolean,
-    Integer,
-    Number,
-    String,
-    Reference,
-}
-
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-enum ReferenceKindJson {
-    Asset,
-    EntityDefinition,
-    SceneInstance,
-    Prefab,
-    PrefabPart,
-    PresentationResource,
-}
-
-#[derive(Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
 struct DecodeRequestJson {
     sources: Vec<SourceJson>,
-    references: ReferenceContextJson,
 }
 
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct EncodeRequestJson {
     documents: Vec<Value>,
-    references: ReferenceContextJson,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -104,8 +49,6 @@ struct AuthoringRequestJson {
     expected_generation: u64,
     expected_working_revision: u64,
     expected_set_hash: String,
-    current_documents: Vec<Value>,
-    references: ReferenceContextJson,
     command: AuthoringCommandJson,
 }
 
@@ -134,74 +77,6 @@ impl From<DocumentKindJson> for ProjectContentDocumentKind {
             DocumentKindJson::PrefabRegistry => Self::PrefabRegistry,
             DocumentKindJson::GameplayConfiguration => Self::GameplayConfiguration,
             DocumentKindJson::PresentationCatalog => Self::PresentationCatalog,
-        }
-    }
-}
-
-impl ReferenceContextJson {
-    fn protocol(self) -> ProjectContentReferenceContextDto {
-        ProjectContentReferenceContextDto {
-            scenes: self
-                .scenes
-                .into_iter()
-                .map(SceneDocumentJson::protocol)
-                .collect(),
-            configuration_schemas: self
-                .configuration_schemas
-                .into_iter()
-                .map(|schema| ProjectConfigurationSchemaDto {
-                    schema_id: schema.schema_id,
-                    provider_id: schema.provider_id,
-                    contract: schema.contract,
-                    codec_id: schema.codec_id,
-                    fields: schema
-                        .fields
-                        .into_iter()
-                        .map(|field| ProjectConfigurationFieldDto {
-                            field_id: field.field_id,
-                            label: field.label,
-                            value_kind: match field.value_kind {
-                                ConfigurationValueKindJson::Boolean => {
-                                    ProjectConfigurationValueKind::Boolean
-                                }
-                                ConfigurationValueKindJson::Integer => {
-                                    ProjectConfigurationValueKind::Integer
-                                }
-                                ConfigurationValueKindJson::Number => {
-                                    ProjectConfigurationValueKind::Number
-                                }
-                                ConfigurationValueKindJson::String => {
-                                    ProjectConfigurationValueKind::String
-                                }
-                                ConfigurationValueKindJson::Reference => {
-                                    ProjectConfigurationValueKind::Reference
-                                }
-                            },
-                            required: field.required,
-                            reference_kind: field.reference_kind.map(|kind| match kind {
-                                ReferenceKindJson::Asset => ProjectContentReferenceKind::Asset,
-                                ReferenceKindJson::EntityDefinition => {
-                                    ProjectContentReferenceKind::EntityDefinition
-                                }
-                                ReferenceKindJson::SceneInstance => {
-                                    ProjectContentReferenceKind::SceneInstance
-                                }
-                                ReferenceKindJson::Prefab => ProjectContentReferenceKind::Prefab,
-                                ReferenceKindJson::PrefabPart => {
-                                    ProjectContentReferenceKind::PrefabPart
-                                }
-                                ReferenceKindJson::PresentationResource => {
-                                    ProjectContentReferenceKind::PresentationResource
-                                }
-                            }),
-                            integer_min: field.integer_min,
-                            integer_max: field.integer_max,
-                            number_min: field.number_min,
-                            number_max: field.number_max,
-                        })
-                        .collect(),
-                })
-                .collect(),
         }
     }
 }
@@ -267,20 +142,13 @@ fn source_from_document(value: &Value) -> napi::Result<ProjectContentSourceDto> 
 }
 
 fn decode_document_values(
-    bridge: &runtime_bridge_api::EngineBridge,
     documents: &[Value],
-    references: ProjectContentReferenceContextDto,
-) -> napi::Result<ProjectContentCodecResultDto> {
+) -> napi::Result<Result<Vec<ProjectContentDocumentDto>, Box<ProjectContentCodecResultDto>>> {
     let sources = documents
         .iter()
         .map(source_from_document)
         .collect::<Result<Vec<_>, _>>()?;
-    bridge
-        .decode_project_content(ProjectContentDecodeRequestDto {
-            sources,
-            references,
-        })
-        .map_err(to_napi)
+    Ok(EngineBridge::decode_project_content_sources(&sources))
 }
 
 fn result_json(
@@ -426,7 +294,6 @@ pub fn decode_project_content(handle: i64, request_json: String) -> napi::Result
                         source_text: source.source_text,
                     })
                     .collect(),
-                references: request.references.protocol(),
             })
             .map_err(to_napi)?;
         encode(codec_result_json(&result)?, "project-content decode")
@@ -437,16 +304,17 @@ pub fn decode_project_content(handle: i64, request_json: String) -> napi::Result
 pub fn encode_project_content(handle: i64, request_json: String) -> napi::Result<String> {
     let request = parse_wire_json::<EncodeRequestJson>("encode_project_content", &request_json)?;
     with_bridge(handle, |bridge| {
-        let references = request.references.protocol();
-        let decoded = decode_document_values(bridge, &request.documents, references.clone())?;
-        if !decoded.accepted {
-            return encode(codec_result_json(&decoded)?, "project-content encode");
-        }
+        let decoded = match decode_document_values(&request.documents)? {
+            Ok(documents) => documents,
+            Err(rejection) => {
+                return encode(
+                    codec_result_json(rejection.as_ref())?,
+                    "project-content encode",
+                )
+            }
+        };
         let result = bridge
-            .encode_project_content(ProjectContentEncodeRequestDto {
-                documents: decoded.documents,
-                references,
-            })
+            .encode_project_content(ProjectContentEncodeRequestDto { documents: decoded })
             .map_err(to_napi)?;
         encode(codec_result_json(&result)?, "project-content encode")
     })
@@ -457,12 +325,6 @@ pub fn apply_project_content_authoring(handle: i64, request_json: String) -> nap
     let request =
         parse_wire_json::<AuthoringRequestJson>("apply_project_content_authoring", &request_json)?;
     with_bridge(handle, |bridge| {
-        let references = request.references.protocol();
-        let current =
-            decode_document_values(bridge, &request.current_documents, references.clone())?;
-        if !current.accepted {
-            return encode(codec_result_json(&current)?, "project-content authoring");
-        }
         let command = match request.command {
             AuthoringCommandJson::Delete {
                 document_id,
@@ -473,36 +335,26 @@ pub fn apply_project_content_authoring(handle: i64, request_json: String) -> nap
             },
             AuthoringCommandJson::Upsert { document } => {
                 let source = source_from_document(&document)?;
-                let mut candidate_sources = request
-                    .current_documents
-                    .iter()
-                    .map(source_from_document)
-                    .collect::<Result<Vec<_>, _>>()?;
-                candidate_sources.retain(|candidate| {
-                    candidate.kind != source.kind || candidate.document_id != source.document_id
-                });
-                candidate_sources.push(source.clone());
-                let candidate = bridge
-                    .decode_project_content(ProjectContentDecodeRequestDto {
-                        sources: candidate_sources,
-                        references: references.clone(),
-                    })
-                    .map_err(to_napi)?;
-                if !candidate.accepted {
-                    return encode(codec_result_json(&candidate)?, "project-content authoring");
-                }
-                let document = candidate
-                    .documents
-                    .into_iter()
-                    .find(|document| {
-                        document.kind() == source.kind
-                            && document.document_id() == source.document_id
-                    })
-                    .ok_or_else(|| {
-                        napi::Error::from_reason(
-                            "accepted upsert document was not returned by Rust".to_owned(),
+                let parsed =
+                    EngineBridge::decode_project_content_sources(std::slice::from_ref(&source));
+                let document = match parsed {
+                    Ok(documents) => documents,
+                    Err(rejection) => {
+                        return encode(
+                            codec_result_json(rejection.as_ref())?,
+                            "project-content authoring",
                         )
-                    })?;
+                    }
+                }
+                .into_iter()
+                .find(|document| {
+                    document.kind() == source.kind && document.document_id() == source.document_id
+                })
+                .ok_or_else(|| {
+                    napi::Error::from_reason(
+                        "accepted upsert document was not returned by Rust".to_owned(),
+                    )
+                })?;
                 ProjectContentAuthoringCommandDto::Upsert { document }
             }
         };
@@ -512,8 +364,6 @@ pub fn apply_project_content_authoring(handle: i64, request_json: String) -> nap
                 expected_generation: request.expected_generation,
                 expected_working_revision: request.expected_working_revision,
                 expected_set_hash: request.expected_set_hash,
-                current_documents: current.documents,
-                references,
                 command,
             })
             .map_err(to_napi)?;

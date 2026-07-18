@@ -20,6 +20,50 @@ const require = createRequire(import.meta.url);
 const addon = require(addonPath);
 assert.deepEqual(Object.keys(addon).sort(), expectedExports);
 
+const authoredProject = JSON.parse(readFileSync(
+  `${repoRoot}/harness/fixtures/gameplay-module-sdk/downstream-module/project/gameplay-project.json`,
+  'utf8',
+));
+const authoredConfiguration = authoredProject.gameplayModuleBindings.configurations[0];
+const authoredGameplayDocument = (multiplier) => ({
+  schemaVersion: 1,
+  configurations: [{
+    configurationId: authoredConfiguration.configurationId,
+    module: authoredConfiguration.module,
+    schemaId: `${authoredConfiguration.configuration.namespace}.${authoredConfiguration.configuration.name}.v${authoredConfiguration.configuration.version}`,
+    values: [{ fieldId: 'multiplier', value: { kind: 'integer', value: multiplier } }],
+  }],
+  bindings: authoredProject.gameplayModuleBindings.bindings,
+  overrides: [],
+  triggers: [],
+});
+const authoringHandle = addon.openWorkspaceAuthoring(-1, JSON.stringify({
+  authoringId: 'composed-provider-authoring-smoke',
+  seed: 41,
+  project: { gameId: 'fixture.pulse', workspaceId: 'fixture.pulse.authoring' },
+  projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 90 },
+}));
+const decodeGameplayDocument = (multiplier) => JSON.parse(addon.decodeProjectContent(
+  authoringHandle,
+  JSON.stringify({
+    sources: [{
+      documentId: 'gameplay/fixture-pulse.json',
+      kind: 'gameplayConfiguration',
+      sourceText: JSON.stringify(authoredGameplayDocument(multiplier)),
+    }],
+  }),
+));
+const malformedAuthoredGameplay = decodeGameplayDocument(-1);
+assert.equal(malformedAuthoredGameplay.accepted, false);
+assert.ok(malformedAuthoredGameplay.diagnostics.some(
+  (diagnostic) => diagnostic.message.includes('typed provider codec rejected configuration'),
+));
+const acceptedAuthoredGameplay = decodeGameplayDocument(4);
+assert.equal(acceptedAuthoredGameplay.accepted, true);
+assert.ok(acceptedAuthoredGameplay.fieldMetadata.some(
+  (field) => field.path === 'configurationValues.multiplier',
+));
+
 const handle = addon.initializeEngine(41);
 addon.loadProjectBundle(handle, 1, 1, 1);
 const definitions = [
@@ -79,9 +123,52 @@ const definitions = [
     },
   },
 ];
+const fpsSceneDocument = {
+  schemaVersion: 3,
+  id: 77,
+  metadata: { name: 'Composed provider scene', authoringFormatVersion: 3 },
+  dependencies: [],
+  nodes: definitions.map((definition, childOrder) => ({
+    id: definition.entity,
+    parent: null,
+    childOrder,
+    label: definition.displayName,
+    tags: [],
+    transform: {
+      translation: [
+        definition.transform.translation.x,
+        definition.transform.translation.y,
+        definition.transform.translation.z,
+      ],
+      rotation: definition.transform.rotation,
+      scale: [
+        definition.transform.scale.x,
+        definition.transform.scale.y,
+        definition.transform.scale.z,
+      ],
+    },
+    kind: {
+      kind: 'entityInstance',
+      instance: {
+        instanceId: `${definition.stableId}.instance`,
+        reference: { kind: 'entityDefinition', stableId: definition.stableId },
+        spawnMarkerId: null,
+      },
+    },
+  })),
+};
+const fpsBootstrapRegistry = {
+  schemaVersion: 1,
+  entityDefinitionIds: definitions.map((definition) => definition.stableId),
+  prefabIds: [],
+  generatorPresets: [],
+  catalogIds: [],
+};
 const loaded = addon.loadFpsRuntimeSession(
   handle,
   'composed-native-provider',
+  JSON.stringify(fpsSceneDocument),
+  JSON.stringify(fpsBootstrapRegistry),
   definitions,
   '[]',
 );
@@ -91,6 +178,8 @@ addon.loadProjectBundle(secondHandle, 1, 1, 2);
 const secondLoaded = addon.loadFpsRuntimeSession(
   secondHandle,
   'composed-native-provider-second',
+  JSON.stringify(fpsSceneDocument),
+  JSON.stringify(fpsBootstrapRegistry),
   definitions,
   '[]',
 );

@@ -157,10 +157,10 @@ impl EngineBridge {
     }
 
     pub(super) fn decode_scene_document_authority(
-        &self,
+        &mut self,
         request: SceneDocumentDecodeRequestDto,
     ) -> BridgeResult<SceneDocumentCodecResultDto> {
-        self.require_initialized("decode_scene_document")?;
+        self.require_runtime_or_workspace_authoring("decode_scene_document")?;
         let document = match core_scene::decode(&request.source_text) {
             Ok(document) => document,
             Err(error) => {
@@ -190,14 +190,16 @@ impl EngineBridge {
                 return Ok(Self::scene_codec_rejection(code, message));
             }
         };
-        Ok(Self::scene_codec_result(document))
+        let result = Self::scene_codec_result(document);
+        self.remember_project_content_scene(&result);
+        Ok(result)
     }
 
     pub(super) fn encode_scene_document_authority(
         &self,
         request: SceneDocumentEncodeRequestDto,
     ) -> BridgeResult<SceneDocumentCodecResultDto> {
-        self.require_initialized("encode_scene_document")?;
+        self.require_runtime_or_workspace_authoring("encode_scene_document")?;
         let document = match Self::scene_document_from_dto(request.document) {
             Ok(document) => document,
             Err(error) => {
@@ -211,10 +213,10 @@ impl EngineBridge {
     }
 
     pub(super) fn apply_scene_document_authoring_authority(
-        &self,
+        &mut self,
         request: SceneDocumentAuthoringRequestDto,
     ) -> BridgeResult<SceneDocumentAuthoringResultDto> {
-        self.require_initialized("apply_scene_document_authoring")?;
+        self.require_runtime_or_workspace_authoring("apply_scene_document_authoring")?;
         let current = match Self::scene_document_from_dto(request.current_document) {
             Ok(document) => document,
             Err(error) => {
@@ -305,13 +307,49 @@ impl EngineBridge {
         };
         let canonical = Self::scene_document_from_dto(document.clone())?;
         let authored_light_frame = render_bridge::project_authored_scene_lights(&canonical);
-        Ok(SceneDocumentAuthoringResultDto {
+        let result = SceneDocumentAuthoringResultDto {
             accepted: true,
             document: Some(document),
             content_hash,
             authored_light_frame: Some(authored_light_frame),
             rejection: None,
-        })
+        };
+        if let Some(document) = result.document.as_ref() {
+            self.remember_project_content_scene_document(document);
+        }
+        Ok(result)
+    }
+
+    fn remember_project_content_scene(&mut self, result: &SceneDocumentCodecResultDto) {
+        let (Some(authority), Some(document)) =
+            (self.workspace_authoring.as_mut(), result.document.as_ref())
+        else {
+            return;
+        };
+        Self::replace_project_content_scene(authority, document);
+    }
+
+    fn remember_project_content_scene_document(&mut self, document: &FlatSceneDocumentDto) {
+        let Some(authority) = self.workspace_authoring.as_mut() else {
+            return;
+        };
+        Self::replace_project_content_scene(authority, document);
+    }
+
+    fn replace_project_content_scene(
+        authority: &mut WorkspaceAuthoringAuthority,
+        document: &FlatSceneDocumentDto,
+    ) {
+        let changed = authority.project_content_scenes.get(&document.id.raw()) != Some(document);
+        if changed {
+            authority
+                .project_content_scenes
+                .insert(document.id.raw(), document.clone());
+            authority.project_content_reference_revision = authority
+                .project_content_reference_revision
+                .saturating_add(1);
+            authority.pending_save_candidate = None;
+        }
     }
 
     fn stored_scene_command(

@@ -251,6 +251,16 @@ impl EngineBridge {
         Self::default()
     }
 
+    /// Native transport helper for turning strict closed document JSON into
+    /// typed protocol values before the authority cell validates the complete
+    /// set. It does not install or accept project-content state.
+    #[doc(hidden)]
+    pub fn decode_project_content_sources(
+        sources: &[ProjectContentSourceDto],
+    ) -> Result<Vec<ProjectContentDocumentDto>, Box<ProjectContentCodecResultDto>> {
+        svc_project_content::decode_project_content_sources(sources)
+    }
+
     /// The default launch grid: id 1, voxel size 1.0, cubic 2×2×2 chunks (matches
     /// the canonical voxel fixture). Chunk dims come from the spec, not a global.
     pub(super) fn launch_grid() -> VoxelGridSpec {

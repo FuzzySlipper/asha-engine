@@ -18,22 +18,22 @@ or JSON value bus.
 - `presentationCatalog` — renderer-neutral resources and animation, audio,
   particle, or overlay cue records.
 
-Scene nodes remain in the existing scene-document codec. Project-content
-requests carry the actual validated scenes as reference context so prefab
-placements, trigger volumes, and per-instance overrides are checked against
-the stored hierarchy rather than a caller-created index.
+Scene nodes remain in the existing scene-document codec. A workspace retains
+only scenes accepted by that codec, and project-content validation resolves
+prefab placements, trigger volumes, and per-instance overrides against that
+Engine-owned scene set. Project-content requests carry no scene index.
 
 ## Provider-owned configuration
 
 Gameplay providers export immutable `ProjectConfigurationSchema` descriptors
-through `ProjectContentReferenceContext.configurationSchemas`. Studio may use
-their labels, bounds, value kinds, and reference kinds to construct an editor,
-but project documents cannot edit those descriptors. Stored gameplay content
-contains only the selected schema id and typed field values.
+from their statically linked Rust composition. Studio receives those
+descriptors as returned field metadata, but neither decode nor authoring
+requests can supply or edit them. Stored gameplay content contains only the
+selected schema id and typed field values.
 
-Rust admits the provider schema only through the supported canonical typed
-codec, verifies provider ownership, required fields, value types and bounds,
-and resolves typed references against the project content set. Provider and
+Rust invokes the selected provider's registered typed codec, verifies module,
+provider, state/read/output contracts and configuration ownership, and resolves
+typed references against the project content set. Provider and
 product-specific combat or weapon vocabulary does not enter the generic
 document contract.
 
@@ -48,8 +48,10 @@ The workspace-authoring facade exposes:
    documents before canonical encoding; and
 3. `applyProjectContentAuthoring`, which applies one typed upsert or delete.
 
-An authoring request is bound to the workspace id, workspace generation,
-working revision, and current project-content set hash. A stale request cannot
+The first accepted decode installs an opaque validated document-set artifact in
+the Rust workspace cell. An authoring request is bound to the workspace id,
+workspace generation, working revision, and that Engine-owned set hash; it no
+longer resubmits current documents. A stale request cannot
 invoke the edit or create a save candidate. An accepted edit increments the
 Rust workspace revision and registers its returned set hash as the only hash a
 trusted host may confirm as stored.

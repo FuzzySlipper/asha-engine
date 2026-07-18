@@ -284,21 +284,21 @@ fn project_content_authoring_is_revision_bound_and_promotes_only_the_rust_candid
     let opened = bridge
         .open_workspace_authoring(open_request("workspace.project-content"))
         .unwrap();
+    let source = ProjectContentSourceDto {
+        document_id: "entities/fixture.json".to_owned(),
+        kind: ProjectContentDocumentKind::EntityDefinition,
+        source_text: r#"{
+            "kind":"EntityDefinition",
+            "stableId":"fixture.entity",
+            "displayName":"Fixture Entity",
+            "source":{"projectBundle":"fixture","relativePath":"entities/fixture.json"},
+            "tags":[],"metadata":[],"capabilities":[]
+        }"#
+        .to_owned(),
+    };
     let decoded = bridge
         .decode_project_content(ProjectContentDecodeRequestDto {
-            sources: vec![ProjectContentSourceDto {
-                document_id: "entities/fixture.json".to_owned(),
-                kind: ProjectContentDocumentKind::EntityDefinition,
-                source_text: r#"{
-                    "kind":"EntityDefinition",
-                    "stableId":"fixture.entity",
-                    "displayName":"Fixture Entity",
-                    "source":{"projectBundle":"fixture","relativePath":"entities/fixture.json"},
-                    "tags":[],"metadata":[],"capabilities":[]
-                }"#
-                .to_owned(),
-            }],
-            references: ProjectContentReferenceContextDto::default(),
+            sources: vec![source.clone()],
         })
         .unwrap();
     assert!(decoded.accepted, "{:?}", decoded.diagnostics);
@@ -309,14 +309,81 @@ fn project_content_authoring_is_revision_bound_and_promotes_only_the_rust_candid
     };
     definition.display_name = "Changed Fixture Entity".to_owned();
 
+    let substituted_subset = bridge
+        .encode_project_content(ProjectContentEncodeRequestDto {
+            documents: Vec::new(),
+        })
+        .unwrap();
+    assert!(substituted_subset.accepted);
+    let subset_hash = substituted_subset.set_hash.unwrap();
+    let rejected_subset = bridge
+        .apply_project_content_authoring(ProjectContentAuthoringRequestDto {
+            expected_workspace_id: "workspace.project-content".to_owned(),
+            expected_generation: opened.identity.generation,
+            expected_working_revision: 0,
+            expected_set_hash: subset_hash,
+            command: ProjectContentAuthoringCommandDto::Upsert {
+                document: changed.clone(),
+            },
+        })
+        .unwrap();
+    assert!(!rejected_subset.accepted);
+    assert_eq!(
+        rejected_subset.diagnostics[0].code,
+        ProjectContentDiagnosticCode::StaleRevision
+    );
+    assert_eq!(
+        bridge
+            .read_workspace_authoring_state()
+            .unwrap()
+            .working_revision,
+        0
+    );
+
+    let accepted_scene = bridge
+        .decode_scene_document(SceneDocumentDecodeRequestDto {
+            source_text: include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../../../harness/fixtures/scenes/sample-flat.json"
+            ))
+            .to_owned(),
+        })
+        .unwrap();
+    assert!(accepted_scene.accepted);
+    let rejected_stale_references = bridge
+        .apply_project_content_authoring(ProjectContentAuthoringRequestDto {
+            expected_workspace_id: "workspace.project-content".to_owned(),
+            expected_generation: opened.identity.generation,
+            expected_working_revision: 0,
+            expected_set_hash: expected_set_hash.clone(),
+            command: ProjectContentAuthoringCommandDto::Upsert {
+                document: changed.clone(),
+            },
+        })
+        .unwrap();
+    assert!(!rejected_stale_references.accepted);
+    assert_eq!(
+        rejected_stale_references.diagnostics[0].code,
+        ProjectContentDiagnosticCode::StaleRevision
+    );
+
+    let refreshed = bridge
+        .decode_project_content(ProjectContentDecodeRequestDto {
+            sources: vec![source],
+        })
+        .unwrap();
+    assert!(refreshed.accepted, "{:?}", refreshed.diagnostics);
+    assert_eq!(
+        refreshed.set_hash.as_deref(),
+        Some(expected_set_hash.as_str())
+    );
+
     let accepted = bridge
         .apply_project_content_authoring(ProjectContentAuthoringRequestDto {
             expected_workspace_id: "workspace.project-content".to_owned(),
             expected_generation: opened.identity.generation,
             expected_working_revision: 0,
             expected_set_hash,
-            current_documents: decoded.documents,
-            references: ProjectContentReferenceContextDto::default(),
             command: ProjectContentAuthoringCommandDto::Upsert { document: changed },
         })
         .unwrap();
@@ -336,8 +403,6 @@ fn project_content_authoring_is_revision_bound_and_promotes_only_the_rust_candid
             expected_generation: opened.identity.generation,
             expected_working_revision: 0,
             expected_set_hash: candidate_hash.clone(),
-            current_documents: accepted.documents.clone(),
-            references: ProjectContentReferenceContextDto::default(),
             command: ProjectContentAuthoringCommandDto::Delete {
                 document_id: "entities/fixture.json".to_owned(),
                 document_kind: ProjectContentDocumentKind::EntityDefinition,

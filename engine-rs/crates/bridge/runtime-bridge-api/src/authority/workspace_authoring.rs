@@ -78,6 +78,13 @@ impl EngineBridge {
         self.projection.pending_voxel_frame = RenderFrameDiff::default();
         self.projection.voxel_instance_binding = None;
 
+        let project_content_admission = self
+            .gameplay
+            .static_gameplay_host
+            .as_ref()
+            .map(gameplay_runtime_host::GameplayRuntimeHost::project_content_admission)
+            .unwrap_or_default();
+
         self.workspace_authoring = Some(WorkspaceAuthoringAuthority {
             identity,
             composition: WorkspaceAuthoringCompositionStatus {
@@ -94,6 +101,10 @@ impl EngineBridge {
             next_projection_cursor: 0,
             projection_initialized: false,
             last_projection_receipt: None,
+            project_content_scenes: BTreeMap::new(),
+            project_content_reference_revision: 0,
+            project_content_current: None,
+            project_content_admission,
         });
         self.read_workspace_authoring_state_authority()
     }
@@ -341,6 +352,21 @@ impl EngineBridge {
             ));
         }
         Ok(())
+    }
+
+    pub(super) fn require_open_workspace_authoring_mut(
+        &mut self,
+        operation: &str,
+    ) -> BridgeResult<&mut WorkspaceAuthoringAuthority> {
+        self.workspace_authoring
+            .as_mut()
+            .filter(|authority| authority.open)
+            .ok_or_else(|| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::NotInitialized,
+                    format!("{operation} called before workspace authoring open"),
+                )
+            })
     }
 
     fn require_bound_workspace_authoring(

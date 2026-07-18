@@ -130,7 +130,7 @@ fn scene_object_commands_are_hash_guarded_and_commit_canonical_state() {
 
 #[test]
 fn stored_scene_codec_round_trips_the_canonical_golden_without_runtime_mutation() {
-    let bridge = init_bridge();
+    let mut bridge = init_bridge();
     let before = bridge.read_scene_object_snapshot().unwrap();
     let source = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -162,7 +162,7 @@ fn stored_scene_codec_round_trips_the_canonical_golden_without_runtime_mutation(
 
 #[test]
 fn stored_scene_codec_preserves_v2_lights_and_v1_without_migration() {
-    let bridge = init_bridge();
+    let mut bridge = init_bridge();
     let lights = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../../../harness/fixtures/scenes/lights-v2.json"
@@ -204,7 +204,7 @@ fn stored_target(
 }
 
 fn apply_stored_command(
-    bridge: &EngineBridge,
+    bridge: &mut EngineBridge,
     project_id: ProjectId,
     current: FlatSceneDocumentDto,
     current_hash: String,
@@ -222,7 +222,7 @@ fn apply_stored_command(
 
 #[test]
 fn stored_scene_authoring_applies_bounded_commands_and_projects_hierarchical_lights() {
-    let bridge = init_bridge();
+    let mut bridge = init_bridge();
     let runtime_before = bridge.read_scene_object_snapshot().unwrap();
     let project_id = ProjectId::new(41);
     let decoded = bridge
@@ -239,7 +239,7 @@ fn stored_scene_authoring_applies_bounded_commands_and_projects_hierarchical_lig
 
     let target = stored_target(project_id, &current);
     let renamed = apply_stored_command(
-        &bridge,
+        &mut bridge,
         project_id,
         current,
         current_hash,
@@ -255,7 +255,7 @@ fn stored_scene_authoring_applies_bounded_commands_and_projects_hierarchical_lig
 
     let target = stored_target(project_id, &current);
     let reparented = apply_stored_command(
-        &bridge,
+        &mut bridge,
         project_id,
         current,
         current_hash,
@@ -272,7 +272,7 @@ fn stored_scene_authoring_applies_bounded_commands_and_projects_hierarchical_lig
 
     let target = stored_target(project_id, &current);
     let transformed = apply_stored_command(
-        &bridge,
+        &mut bridge,
         project_id,
         current,
         current_hash,
@@ -292,7 +292,7 @@ fn stored_scene_authoring_applies_bounded_commands_and_projects_hierarchical_lig
 
     let target = stored_target(project_id, &current);
     let updated = apply_stored_command(
-        &bridge,
+        &mut bridge,
         project_id,
         current,
         current_hash,
@@ -329,7 +329,7 @@ fn stored_scene_authoring_applies_bounded_commands_and_projects_hierarchical_lig
     let voxel_id = SceneNodeId::new(10);
     let target = stored_target(project_id, &current);
     let created = apply_stored_command(
-        &bridge,
+        &mut bridge,
         project_id,
         current,
         current_hash,
@@ -361,7 +361,7 @@ fn stored_scene_authoring_applies_bounded_commands_and_projects_hierarchical_lig
 
     let target = stored_target(project_id, &current);
     let retargeted = apply_stored_command(
-        &bridge,
+        &mut bridge,
         project_id,
         current,
         current_hash,
@@ -384,7 +384,7 @@ fn stored_scene_authoring_applies_bounded_commands_and_projects_hierarchical_lig
 
     let target = stored_target(project_id, &current);
     let deleted = apply_stored_command(
-        &bridge,
+        &mut bridge,
         project_id,
         current,
         current_hash,
@@ -400,7 +400,7 @@ fn stored_scene_authoring_applies_bounded_commands_and_projects_hierarchical_lig
 
 #[test]
 fn stored_scene_authoring_rejections_return_no_document_or_projection() {
-    let bridge = init_bridge();
+    let mut bridge = init_bridge();
     let project_id = ProjectId::new(51);
     let decoded = bridge
         .decode_scene_document(SceneDocumentDecodeRequestDto {
@@ -457,7 +457,8 @@ fn stored_scene_authoring_rejections_return_no_document_or_projection() {
     ];
 
     for (hash, command, expected_code) in cases {
-        let rejected = apply_stored_command(&bridge, project_id, current.clone(), hash, command);
+        let rejected =
+            apply_stored_command(&mut bridge, project_id, current.clone(), hash, command);
         assert!(!rejected.accepted);
         assert!(rejected.document.is_none());
         assert!(rejected.content_hash.is_none());
@@ -540,7 +541,7 @@ fn blank_runtime_scene_accepts_typed_light_create_and_update_commands() {
 
 #[test]
 fn stored_scene_codec_classifies_structural_semantic_and_version_rejections() {
-    let bridge = init_bridge();
+    let mut bridge = init_bridge();
     let before = bridge.read_scene_object_snapshot().unwrap();
 
     let malformed = bridge

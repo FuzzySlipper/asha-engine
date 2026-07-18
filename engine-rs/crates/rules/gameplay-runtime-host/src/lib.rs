@@ -30,8 +30,8 @@ use core_entity::{
 };
 use core_math::Vec3;
 pub use gameplay_module_sdk::{
-    gameplay_runtime_composition_identity, GameplayRuntimeCompositionIdentity,
-    GameplayRuntimeDeclaredReadPlan, GameplayStaticComposition,
+    gameplay_runtime_composition_identity, GameplayProjectConfigurationAuthority,
+    GameplayRuntimeCompositionIdentity, GameplayRuntimeDeclaredReadPlan, GameplayStaticComposition,
 };
 use protocol_diagnostics::DiagnosticSeverity;
 use protocol_game_extension::{
@@ -239,6 +239,7 @@ pub struct GameplayRuntimeMovementReceipt {
 
 pub struct GameplayRuntimeHost {
     session: GameplayBoundProjectBundleSession,
+    project_configuration_authority: GameplayProjectConfigurationAuthority,
     prefab_registry: ValidatedPrefabRegistry,
     declared_reads: Vec<GameplayRuntimeDeclaredReadPlan>,
     reaction_frames: Vec<GameplayReactionFrame>,
@@ -250,6 +251,17 @@ pub struct GameplayRuntimeHost {
 }
 
 impl GameplayRuntimeHost {
+    /// Produce the closed ProjectBundle authoring admission view for this
+    /// statically composed host. Provider registry and typed-codec resolution
+    /// remain in the gameplay RuntimeSession lane.
+    pub fn project_content_admission(
+        &self,
+    ) -> rule_project_bundle::GameplayProjectContentAdmission {
+        rule_project_bundle::GameplayProjectContentAdmission::new(
+            self.project_configuration_authority.clone(),
+        )
+    }
+
     /// Transfer the live entity authority into a surrounding composed
     /// RuntimeSession cell. This integration seam is intentionally ownership
     /// based: no clone or mutable handle can create a shadow authority store.
@@ -416,6 +428,7 @@ impl GameplayRuntimeHost {
             )?;
         let trigger_definitions =
             resolve_trigger_definitions(&input.bundle, core::mem::take(&mut input.triggers))?;
+        let project_configuration_authority = input.composition.project_configuration_authority();
         let mut session = GameplayBoundProjectBundleSession::activate_with_mode(
             input.bundle,
             input.composition,
@@ -430,6 +443,7 @@ impl GameplayRuntimeHost {
         let scheduler = input.scheduler.build();
         Ok(Self {
             session,
+            project_configuration_authority,
             prefab_registry,
             declared_reads: input.declared_reads,
             reaction_frames: Vec::new(),
@@ -481,6 +495,7 @@ impl GameplayRuntimeHost {
         }
         let trigger_definitions =
             resolve_trigger_definitions(&input.bundle, core::mem::take(&mut input.triggers))?;
+        let project_configuration_authority = input.composition.project_configuration_authority();
         let session = GameplayBoundProjectBundleSession::restore_with_mode(
             input.bundle,
             input.composition,
@@ -524,6 +539,7 @@ impl GameplayRuntimeHost {
         )?;
         Ok(Self {
             session,
+            project_configuration_authority,
             prefab_registry,
             declared_reads: input.declared_reads,
             reaction_frames: stored.reaction_frames,

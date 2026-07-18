@@ -74,19 +74,17 @@ void test('generated native input contracts reject scalar and tagged-union drift
   assertWireRejection(
     () => validateOperationInput('decode_project_content', {
       sources: [],
+      providerSchemas: [],
+    }),
+    'invalid_input',
+    'unknown_field',
+  );
+  assertWireRejection(
+    () => validateOperationInput('decode_project_content', {
+      sources: [],
       references: {
         scenes: [],
-        configurationSchemas: [{
-          schemaId: 'fixture.schema.v1',
-          providerId: 'provider.fixture',
-          contract: { namespace: 'fixture', name: 'configuration', version: 1, schemaHash: 'fnv1a64:fixture' },
-          codecId: 'asha.project-configuration.canonical-json.v1',
-          fields: [{
-            fieldId: 'amount', label: 'Amount', valueKind: 'integer', required: true,
-            referenceKind: null, integerMin: 0, integerMax: 10, numberMin: null, numberMax: null,
-            browserValidated: true,
-          }],
-        }],
+        configurationSchemas: [],
       },
     }),
     'invalid_input',

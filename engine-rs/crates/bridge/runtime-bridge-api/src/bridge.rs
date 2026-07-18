@@ -259,7 +259,7 @@ pub trait RuntimeBridge {
     ) -> BridgeResult<ModelMaterialPreviewSnapshot>;
     /// Decode, canonicalize, and validate stored authored scene source text.
     fn decode_scene_document(
-        &self,
+        &mut self,
         request: SceneDocumentDecodeRequestDto,
     ) -> BridgeResult<SceneDocumentCodecResultDto>;
     /// Validate and canonically encode a typed stored authored scene document.
@@ -269,12 +269,12 @@ pub trait RuntimeBridge {
     ) -> BridgeResult<SceneDocumentCodecResultDto>;
     /// Atomically validate a candidate replacement for caller-owned stored scene data.
     fn apply_scene_document_authoring(
-        &self,
+        &mut self,
         request: SceneDocumentAuthoringRequestDto,
     ) -> BridgeResult<SceneDocumentAuthoringResultDto>;
     /// Strictly decode and validate one closed set of durable project-content documents.
     fn decode_project_content(
-        &self,
+        &mut self,
         request: ProjectContentDecodeRequestDto,
     ) -> BridgeResult<ProjectContentCodecResultDto>;
     /// Validate and canonically encode a typed project-content document set.

@@ -253,7 +253,7 @@ impl TriggerVolumeRule {
         &mut self,
         mut definition: KinematicTriggerDefinition,
     ) -> Result<(), TriggerVolumeError> {
-        let mut diagnostics = validate_definition(&definition);
+        let mut diagnostics = validate_kinematic_trigger_definition(&definition);
         let trigger = definition.trigger_id();
         if self.definitions.contains_key(&trigger) {
             diagnostics.push(diagnostic(
@@ -433,7 +433,7 @@ impl TriggerVolumeRule {
             ));
         }
         for definition in &snapshot.definitions {
-            diagnostics.extend(validate_definition(definition));
+            diagnostics.extend(validate_kinematic_trigger_definition(definition));
             if definitions
                 .insert(definition.trigger_id(), definition.clone())
                 .is_some()
@@ -662,7 +662,12 @@ fn aabb_overlap(a: WorldAabb, b: WorldAabb) -> bool {
         && a.max[2] > b.min[2]
 }
 
-fn validate_definition(definition: &KinematicTriggerDefinition) -> Vec<TriggerVolumeDiagnostic> {
+/// Validate the same trigger metadata used by runtime installation. Stored
+/// authoring calls this before promotion so invalid scope/tag syntax cannot be
+/// deferred until RuntimeSession activation.
+pub fn validate_kinematic_trigger_definition(
+    definition: &KinematicTriggerDefinition,
+) -> Vec<TriggerVolumeDiagnostic> {
     let mut diagnostics = Vec::new();
     if !valid_identifier(&definition.scope) {
         diagnostics.push(diagnostic(

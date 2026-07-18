@@ -10,7 +10,6 @@ import type { EntityDefinition } from './entityAuthoring.js';
 import type { StoredAssetCatalog } from './assets.js';
 import type { PrefabRegistry, GameplayTriggerDefinition } from './projectBundle.js';
 import type { GameplayContractRef, GameplayModuleRef, GameplayModuleBinding, GameplayModuleBindingOverride } from './gameExtension.js';
-import type { FlatSceneDocument } from './scene.js';
 
 export const PROJECT_CONTENT_SCHEMA_VERSION = 1;
 
@@ -106,19 +105,12 @@ export type ProjectContentDocument =
   | { readonly kind: 'gameplayConfiguration'; readonly documentId: string; readonly document: ProjectGameplayConfigurationDocument }
   | { readonly kind: 'presentationCatalog'; readonly documentId: string; readonly catalog: ProjectPresentationCatalog };
 
-export interface ProjectContentReferenceContext {
-  readonly scenes: readonly FlatSceneDocument[];
-  readonly configurationSchemas: readonly ProjectConfigurationSchema[];
-}
-
 export interface ProjectContentDecodeRequest {
   readonly sources: readonly ProjectContentSource[];
-  readonly references: ProjectContentReferenceContext;
 }
 
 export interface ProjectContentEncodeRequest {
   readonly documents: readonly ProjectContentDocument[];
-  readonly references: ProjectContentReferenceContext;
 }
 
 export type ProjectContentDiagnosticCode = 'invalidJson' | 'unknownField' | 'invalidField' | 'duplicateDocument' | 'invalidDocument' | 'unknownReference' | 'referenceKindMismatch' | 'staleRevision';
@@ -165,8 +157,6 @@ export interface ProjectContentAuthoringRequest {
   readonly expectedGeneration: number;
   readonly expectedWorkingRevision: number;
   readonly expectedSetHash: string;
-  readonly currentDocuments: readonly ProjectContentDocument[];
-  readonly references: ProjectContentReferenceContext;
   readonly command: ProjectContentAuthoringCommand;
 }
 

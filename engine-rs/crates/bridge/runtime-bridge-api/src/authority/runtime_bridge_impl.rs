@@ -1072,7 +1072,7 @@ impl RuntimeBridge for EngineBridge {
     }
 
     fn decode_scene_document(
-        &self,
+        &mut self,
         request: SceneDocumentDecodeRequestDto,
     ) -> BridgeResult<SceneDocumentCodecResultDto> {
         self.decode_scene_document_authority(request)
@@ -1086,26 +1086,81 @@ impl RuntimeBridge for EngineBridge {
     }
 
     fn apply_scene_document_authoring(
-        &self,
+        &mut self,
         request: SceneDocumentAuthoringRequestDto,
     ) -> BridgeResult<SceneDocumentAuthoringResultDto> {
         self.apply_scene_document_authoring_authority(request)
     }
 
     fn decode_project_content(
-        &self,
+        &mut self,
         request: ProjectContentDecodeRequestDto,
     ) -> BridgeResult<ProjectContentCodecResultDto> {
-        self.require_runtime_or_workspace_authoring("decode_project_content")?;
-        Ok(svc_project_content::decode_project_content(request))
+        let authority = self.require_open_workspace_authoring_mut("decode_project_content")?;
+        let scenes = authority
+            .project_content_scenes
+            .values()
+            .cloned()
+            .collect::<Vec<_>>();
+        let outcome = svc_project_content::decode_project_content(
+            request,
+            svc_project_content::ProjectContentValidationContext {
+                scenes: &scenes,
+                gameplay: &authority.project_content_admission,
+                reference_revision: authority.project_content_reference_revision,
+            },
+        );
+        if let Some(validated) = outcome.validated {
+            if let Some(current) = &authority.project_content_current {
+                if current.set_hash() != validated.set_hash() {
+                    return Ok(ProjectContentCodecResultDto {
+                        accepted: false,
+                        documents: Vec::new(),
+                        canonical_files: Vec::new(),
+                        set_hash: Some(current.set_hash().to_owned()),
+                        field_metadata: Vec::new(),
+                        diagnostics: vec![ProjectContentDiagnosticDto {
+                            code: ProjectContentDiagnosticCode::StaleRevision,
+                            document_id: None,
+                            path: "sources".to_owned(),
+                            message: "a different project-content set is already loaded in this workspace generation"
+                                .to_owned(),
+                        }],
+                    });
+                }
+            }
+            authority.project_content_current = Some(validated);
+        }
+        Ok(outcome.result)
     }
 
     fn encode_project_content(
         &self,
         request: ProjectContentEncodeRequestDto,
     ) -> BridgeResult<ProjectContentCodecResultDto> {
-        self.require_runtime_or_workspace_authoring("encode_project_content")?;
-        Ok(svc_project_content::encode_project_content(request))
+        let authority = self
+            .workspace_authoring
+            .as_ref()
+            .filter(|authority| authority.open)
+            .ok_or_else(|| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::NotInitialized,
+                    "encode_project_content called before workspace authoring open",
+                )
+            })?;
+        let scenes = authority
+            .project_content_scenes
+            .values()
+            .cloned()
+            .collect::<Vec<_>>();
+        Ok(svc_project_content::encode_project_content(
+            request,
+            svc_project_content::ProjectContentValidationContext {
+                scenes: &scenes,
+                gameplay: &authority.project_content_admission,
+                reference_revision: authority.project_content_reference_revision,
+            },
+        ))
     }
 
     fn apply_project_content_authoring(
@@ -1119,8 +1174,40 @@ impl RuntimeBridge for EngineBridge {
             request.expected_generation,
             request.expected_working_revision,
         )?;
-        let result = svc_project_content::apply_project_content_authoring(request);
+        let (result, validated) = {
+            let authority =
+                self.require_open_workspace_authoring_mut("apply_project_content_authoring")?;
+            let scenes = authority
+                .project_content_scenes
+                .values()
+                .cloned()
+                .collect::<Vec<_>>();
+            let current = authority.project_content_current.as_ref().ok_or_else(|| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::NotInitialized,
+                    "apply_project_content_authoring requires a decoded Engine-owned current set",
+                )
+            })?;
+            svc_project_content::apply_project_content_authoring(
+                current,
+                request,
+                svc_project_content::ProjectContentValidationContext {
+                    scenes: &scenes,
+                    gameplay: &authority.project_content_admission,
+                    reference_revision: authority.project_content_reference_revision,
+                },
+            )
+        };
         if result.accepted {
+            let validated = validated.ok_or_else(|| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::Internal,
+                    "accepted project-content authoring omitted its validated set artifact",
+                )
+            })?;
+            let authority =
+                self.require_open_workspace_authoring_mut("apply_project_content_authoring")?;
+            authority.project_content_current = Some(validated);
             self.record_workspace_authoring_mutation();
             if let Some(set_hash) = result.set_hash.clone() {
                 self.remember_workspace_authoring_save_candidate(set_hash);

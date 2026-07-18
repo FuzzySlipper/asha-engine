@@ -11,7 +11,14 @@ use protocol_game_extension::{
     GameplayModuleBindingRegistry, GameplayModuleBindingTarget, GameplayModuleConfiguration,
     PrefabPartReference as ProtocolPrefabPartReference, GAMEPLAY_MODULE_BINDING_SCHEMA_VERSION,
 };
+use protocol_project_bundle::GameplayTriggerDefinition;
+use protocol_project_content::{
+    ProjectConfigurationFieldValueDto, ProjectConfigurationValueDto, ProjectContentDocumentDto,
+    ProjectContentEncodeRequestDto, ProjectGameplayConfigurationDocumentDto,
+    ProjectGameplayConfigurationDto, PROJECT_CONTENT_SCHEMA_VERSION,
+};
 use rule_project_bundle::*;
+use svc_project_content::{encode_project_content, ProjectContentValidationContext};
 use svc_serialization::{
     LoadPlan, LoadStep, PrefabDefinition, PrefabInstanceRecord, PrefabPart, PrefabPartReference,
     PrefabPartRoleBinding, PrefabPartSource, PrefabRegistry, PrefabRegistryValidationContext,
@@ -250,6 +257,174 @@ fn composition() -> GameplayStaticComposition {
     builder.include_standard_owner_events();
     builder.add_provider(provider);
     builder.build().unwrap()
+}
+
+fn authored_gameplay_document(multiplier: i64) -> ProjectContentDocumentDto {
+    ProjectContentDocumentDto::GameplayConfiguration {
+        document_id: "gameplay/binding-fixture.json".to_owned(),
+        document: ProjectGameplayConfigurationDocumentDto {
+            schema_version: PROJECT_CONTENT_SCHEMA_VERSION,
+            configurations: vec![ProjectGameplayConfigurationDto {
+                configuration_id: "binding-fixture.default".to_owned(),
+                module: module_ref(),
+                schema_id: contract("configuration").key(),
+                values: vec![ProjectConfigurationFieldValueDto {
+                    field_id: "multiplier".to_owned(),
+                    value: ProjectConfigurationValueDto::Integer { value: multiplier },
+                }],
+            }],
+            bindings: vec![GameplayModuleBinding {
+                binding_id: "binding-fixture.session".to_owned(),
+                module_id: MODULE_ID.to_owned(),
+                configuration_id: "binding-fixture.default".to_owned(),
+                state_schema: contract("state"),
+                target: GameplayModuleBindingTarget::Session,
+                required_reads: Vec::new(),
+                output_contracts: vec![contract("result")],
+                enabled: true,
+            }],
+            overrides: Vec::new(),
+            triggers: Vec::new(),
+        },
+    }
+}
+
+#[test]
+fn project_content_uses_composed_provider_codec_and_runtime_contract_admission() {
+    let authority = composition().project_configuration_authority();
+    let admission = GameplayProjectContentAdmission::new(authority);
+    let accepted = encode_project_content(
+        ProjectContentEncodeRequestDto {
+            documents: vec![authored_gameplay_document(4)],
+        },
+        ProjectContentValidationContext {
+            scenes: &[],
+            gameplay: &admission,
+            reference_revision: 0,
+        },
+    );
+    assert!(accepted.accepted, "{:?}", accepted.diagnostics);
+    assert!(accepted
+        .field_metadata
+        .iter()
+        .any(|field| field.path == "configurationValues.multiplier"));
+
+    let typed_codec_rejection = encode_project_content(
+        ProjectContentEncodeRequestDto {
+            documents: vec![authored_gameplay_document(-1)],
+        },
+        ProjectContentValidationContext {
+            scenes: &[],
+            gameplay: &admission,
+            reference_revision: 0,
+        },
+    );
+    assert!(!typed_codec_rejection.accepted);
+    assert!(typed_codec_rejection
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.message.contains("typed provider codec rejected")));
+
+    let mut invalid_contract = authored_gameplay_document(4);
+    let ProjectContentDocumentDto::GameplayConfiguration { document, .. } = &mut invalid_contract
+    else {
+        unreachable!();
+    };
+    document.bindings[0].state_schema = contract("foreign-state");
+    let runtime_rejection = encode_project_content(
+        ProjectContentEncodeRequestDto {
+            documents: vec![invalid_contract],
+        },
+        ProjectContentValidationContext {
+            scenes: &[],
+            gameplay: &admission,
+            reference_revision: 0,
+        },
+    );
+    assert!(!runtime_rejection.accepted);
+    assert!(runtime_rejection
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.message.contains("state schema is not owned")));
+
+    let mut module_mismatch = authored_gameplay_document(4);
+    let ProjectContentDocumentDto::GameplayConfiguration { document, .. } = &mut module_mismatch
+    else {
+        unreachable!();
+    };
+    document.bindings[0].module_id = "game.foreign.module".to_owned();
+    let module_rejection = encode_project_content(
+        ProjectContentEncodeRequestDto {
+            documents: vec![module_mismatch],
+        },
+        ProjectContentValidationContext {
+            scenes: &[],
+            gameplay: &admission,
+            reference_revision: 0,
+        },
+    );
+    assert!(module_rejection.diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("binding and selected configuration belong to different modules")
+    }));
+
+    let mut semantic_mismatches = authored_gameplay_document(4);
+    let ProjectContentDocumentDto::GameplayConfiguration { document, .. } =
+        &mut semantic_mismatches
+    else {
+        unreachable!();
+    };
+    let mut foreign_configuration = document.configurations[0].clone();
+    foreign_configuration.configuration_id = "binding-fixture.foreign".to_owned();
+    foreign_configuration.module.module_id = "game.foreign.module".to_owned();
+    document.configurations.push(foreign_configuration);
+    document.overrides = vec![
+        GameplayModuleBindingOverride {
+            binding_id: "binding-fixture.session".to_owned(),
+            scene_instance_id: "scene.prefab.one".to_owned(),
+            configuration_id: Some("binding-fixture.foreign".to_owned()),
+            enabled: None,
+        },
+        GameplayModuleBindingOverride {
+            binding_id: "binding-fixture.session".to_owned(),
+            scene_instance_id: "scene.prefab.one".to_owned(),
+            configuration_id: None,
+            enabled: Some(false),
+        },
+    ];
+    document.triggers.push(GameplayTriggerDefinition {
+        schema_version: 999,
+        scene_instance_id: "scene.trigger.one".to_owned(),
+        scope: "invalid scope".to_owned(),
+        tags: vec!["invalid tag".to_owned()],
+    });
+    let semantic_rejection = encode_project_content(
+        ProjectContentEncodeRequestDto {
+            documents: vec![semantic_mismatches],
+        },
+        ProjectContentValidationContext {
+            scenes: &[],
+            gameplay: &admission,
+            reference_revision: 0,
+        },
+    );
+    assert!(!semantic_rejection.accepted);
+    for expected in [
+        "override configuration is missing or belongs to another module",
+        "only one override is allowed per binding and scene instance",
+        "trigger schema version is not accepted",
+        "trigger scope must be a non-empty",
+    ] {
+        assert!(
+            semantic_rejection
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains(expected)),
+            "missing `{expected}` in {:?}",
+            semantic_rejection.diagnostics
+        );
+    }
 }
 
 fn json_u64_codec(event: GameplayContractRef, codec_id: &str) -> GameplayEventCodecRegistration {

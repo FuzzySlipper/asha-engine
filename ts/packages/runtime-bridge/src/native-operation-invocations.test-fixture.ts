@@ -243,19 +243,15 @@ export function createNativeOperationInvocations(
     })],
     ['decodeProjectContent', (bridge) => bridge.decodeProjectContent({
       sources: [],
-      references: { scenes: [], configurationSchemas: [] },
     })],
     ['encodeProjectContent', (bridge) => bridge.encodeProjectContent({
       documents: [],
-      references: { scenes: [], configurationSchemas: [] },
     })],
     ['applyProjectContentAuthoring', (bridge) => bridge.applyProjectContentAuthoring({
       expectedWorkspaceId: 'workspace/native-fixture',
       expectedGeneration: 1,
       expectedWorkingRevision: 0,
       expectedSetHash: input.hashA,
-      currentDocuments: [],
-      references: { scenes: [], configurationSchemas: [] },
       command: {
         kind: 'delete',
         documentId: 'entity/native-fixture',

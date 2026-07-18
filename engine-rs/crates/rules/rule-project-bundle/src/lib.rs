@@ -24,6 +24,7 @@ pub mod gameplay_binding;
 pub mod load;
 pub mod prefab_instance;
 mod prefab_snapshot;
+pub mod project_content;
 pub mod regen;
 pub mod session_state;
 
@@ -48,6 +49,7 @@ pub use prefab_instance::{
     ResolvedPrefabInstance, ResolvedPrefabPart, PREFAB_INSTANCE_SNAPSHOT_VERSION,
 };
 pub use prefab_snapshot::PrefabSnapshotDecodeError;
+pub use project_content::*;
 pub use regen::{
     check_generator, regenerate_and_replay, replay_against, EditConflict, GeneratorMismatch,
     GeneratorPolicy, RegenReplayReport, SuggestedAction,

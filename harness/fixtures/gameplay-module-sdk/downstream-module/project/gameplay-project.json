@@ -26,7 +26,7 @@
           "version": "1.0.0",
           "sdkHash": "fnv1a64:669691f614be751f",
           "contractHash": "fnv1a64:787fe49e16da7682",
-          "artifactHash": "fnv1a64:b5d8640480db4c6c",
+          "artifactHash": "fnv1a64:c45fca419c4c1881",
           "providerId": "provider.fixture-pulse"
         },
         "configuration": {
@@ -65,7 +65,7 @@
       }
     ],
     "overrides": [],
-    "registryHash": "fnv1a64:77ae6a11d5b06914"
+    "registryHash": "fnv1a64:432ca20538245ec1"
   },
   "declaredReads": [
     {

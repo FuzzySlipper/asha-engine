@@ -36,7 +36,6 @@ pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
             "ProjectContentDocument",
             "presentationCatalog",
         ),
-        interface_coverage_key("projectContent", "ProjectContentReferenceContext"),
         interface_coverage_key("projectContent", "ProjectContentDecodeRequest"),
         interface_coverage_key("projectContent", "ProjectContentEncodeRequest"),
         interface_coverage_key("projectContent", "ProjectContentDiagnostic"),
@@ -170,19 +169,17 @@ fn project_content_samples_match_closed_generated_ir_shapes() {
     for (tag, document) in &documents {
         compare_object_to_variant(&project, "ProjectContentDocument", tag, document).unwrap();
     }
-    let references = json!({ "scenes": [], "configurationSchemas": [schema] });
-    let decode = json!({ "sources": [source], "references": references });
-    let encode = json!({ "documents": [documents[3].1], "references": references });
+    let decode = json!({ "sources": [source] });
+    let encode = json!({ "documents": [documents[3].1] });
     let diagnostic = json!({ "code": "invalidField", "documentId": "gameplay/demo", "path": "configurations[0]", "message": "invalid" });
     let canonical = json!({ "documentId": "gameplay/demo", "kind": "gameplayConfiguration", "canonicalJson": "{}\n", "contentHash": "fnv1a64:1" });
     let metadata = json!({ "documentId": "gameplay/demo", "path": "configurations[0].values.damage", "label": "Damage", "valueKind": "integer", "required": true, "editable": true, "referenceKind": null });
     let result = json!({ "accepted": true, "documents": [documents[3].1], "canonicalFiles": [canonical], "setHash": "fnv1a64:set", "fieldMetadata": [metadata], "diagnostics": [] });
     let upsert = json!({ "kind": "upsert", "document": documents[3].1 });
     let delete = json!({ "kind": "delete", "documentId": "gameplay/demo", "documentKind": "gameplayConfiguration" });
-    let authoring = json!({ "expectedWorkspaceId": "workspace-1", "expectedGeneration": 2, "expectedWorkingRevision": 3, "expectedSetHash": "fnv1a64:set", "currentDocuments": [documents[3].1], "references": references, "command": upsert });
+    let authoring = json!({ "expectedWorkspaceId": "workspace-1", "expectedGeneration": 2, "expectedWorkingRevision": 3, "expectedSetHash": "fnv1a64:set", "command": upsert });
 
     for (name, value) in [
-        ("ProjectContentReferenceContext", &references),
         ("ProjectContentDecodeRequest", &decode),
         ("ProjectContentEncodeRequest", &encode),
         ("ProjectContentDiagnostic", &diagnostic),
