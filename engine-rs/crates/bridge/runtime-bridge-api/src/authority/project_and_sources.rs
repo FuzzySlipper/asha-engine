@@ -258,8 +258,32 @@ impl EngineBridge {
     #[doc(hidden)]
     pub fn decode_project_content_sources(
         sources: &[ProjectContentSourceDto],
-    ) -> Result<Vec<ProjectContentDocumentDto>, Box<ProjectContentCodecResultDto>> {
+    ) -> Result<Vec<ProjectContentDocumentDto>, Vec<ProjectContentDiagnosticDto>> {
         svc_project_content::decode_project_content_sources(sources)
+    }
+
+    /// Completes a transport-level strict parse rejection with the catalog
+    /// owned by the open project-authoring authority. Parsing itself is pure;
+    /// only this authority cell can supply the composed provider context.
+    #[doc(hidden)]
+    pub fn reject_project_content_parse(
+        &self,
+        diagnostics: Vec<ProjectContentDiagnosticDto>,
+    ) -> BridgeResult<ProjectContentCodecResultDto> {
+        let authority = self
+            .workspace_authoring
+            .as_ref()
+            .filter(|authority| authority.open)
+            .ok_or_else(|| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::NotInitialized,
+                    "project-content parse rejection requested before workspace authoring open",
+                )
+            })?;
+        Ok(svc_project_content::reject_project_content_parse(
+            diagnostics,
+            &authority.project_content_admission,
+        ))
     }
 
     /// The default launch grid: id 1, voxel size 1.0, cubic 2×2×2 chunks (matches

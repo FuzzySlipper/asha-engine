@@ -143,7 +143,7 @@ fn source_from_document(value: &Value) -> napi::Result<ProjectContentSourceDto> 
 
 fn decode_document_values(
     documents: &[Value],
-) -> napi::Result<Result<Vec<ProjectContentDocumentDto>, Box<ProjectContentCodecResultDto>>> {
+) -> napi::Result<Result<Vec<ProjectContentDocumentDto>, Vec<ProjectContentDiagnosticDto>>> {
     let sources = documents
         .iter()
         .map(source_from_document)
@@ -350,9 +350,12 @@ pub fn encode_project_content(handle: i64, request_json: String) -> napi::Result
     with_bridge(handle, |bridge| {
         let decoded = match decode_document_values(&request.documents)? {
             Ok(documents) => documents,
-            Err(rejection) => {
+            Err(diagnostics) => {
+                let rejection = bridge
+                    .reject_project_content_parse(diagnostics)
+                    .map_err(to_napi)?;
                 return encode(
-                    codec_result_json(rejection.as_ref())?,
+                    codec_result_json(&rejection)?,
                     "project-content encode",
                 )
             }
@@ -383,9 +386,12 @@ pub fn apply_project_content_authoring(handle: i64, request_json: String) -> nap
                     EngineBridge::decode_project_content_sources(std::slice::from_ref(&source));
                 let document = match parsed {
                     Ok(documents) => documents,
-                    Err(rejection) => {
+                    Err(diagnostics) => {
+                        let rejection = bridge
+                            .reject_project_content_parse(diagnostics)
+                            .map_err(to_napi)?;
                         return encode(
-                            codec_result_json(rejection.as_ref())?,
+                            codec_result_json(&rejection)?,
                             "project-content authoring",
                         )
                     }

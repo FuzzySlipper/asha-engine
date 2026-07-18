@@ -76,6 +76,24 @@ assert.equal(multiplierField.integerMax, 64);
 const assetField = pulseSchema.fields.find((field) => field.fieldId === 'assetId');
 assert.equal(assetField.valueKind, 'reference');
 assert.equal(assetField.referenceKind, 'asset');
+const malformedGameplayDocument = {
+  ...authoredGameplayDocument(4),
+  unexpectedField: true,
+};
+const malformedEncodeResult = JSON.parse(addon.encodeProjectContent(
+  authoringHandle,
+  JSON.stringify({
+    documents: [{
+      kind: 'gameplayConfiguration',
+      documentId: 'gameplay/malformed-encode.json',
+      document: malformedGameplayDocument,
+    }],
+  }),
+));
+assert.equal(malformedEncodeResult.accepted, false);
+assert.ok(malformedEncodeResult.providerSchemas.some(
+  (schema) => schema.schemaId === pulseSchema.schemaId,
+));
 const decodeGameplayDocument = (multiplier) => JSON.parse(addon.decodeProjectContent(
   authoringHandle,
   JSON.stringify({
@@ -107,6 +125,37 @@ assert.ok(acceptedAuthoredGameplay.fieldMetadata.some(
     && field.schemaId === pulseSchema.schemaId
     && field.providerId === pulseSchema.providerId,
 ));
+const authoringStateBeforeMalformedUpsert = JSON.parse(
+  addon.readWorkspaceAuthoringState(authoringHandle),
+);
+const malformedUpsertResult = JSON.parse(addon.applyProjectContentAuthoring(
+  authoringHandle,
+  JSON.stringify({
+    expectedWorkspaceId: authoringStateBeforeMalformedUpsert.identity.project.workspaceId,
+    expectedGeneration: authoringStateBeforeMalformedUpsert.identity.generation,
+    expectedWorkingRevision: authoringStateBeforeMalformedUpsert.workingRevision,
+    expectedSetHash: acceptedAuthoredGameplay.setHash,
+    command: {
+      kind: 'upsert',
+      document: {
+        kind: 'gameplayConfiguration',
+        documentId: 'gameplay/malformed-upsert.json',
+        document: malformedGameplayDocument,
+      },
+    },
+  }),
+));
+assert.equal(malformedUpsertResult.accepted, false);
+assert.ok(malformedUpsertResult.providerSchemas.some(
+  (schema) => schema.schemaId === pulseSchema.schemaId,
+));
+const authoringStateAfterMalformedUpsert = JSON.parse(
+  addon.readWorkspaceAuthoringState(authoringHandle),
+);
+assert.equal(
+  authoringStateAfterMalformedUpsert.workingRevision,
+  authoringStateBeforeMalformedUpsert.workingRevision,
+);
 
 const handle = addon.initializeEngine(41);
 addon.loadProjectBundle(handle, 1, 1, 1);

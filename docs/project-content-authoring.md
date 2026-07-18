@@ -29,11 +29,13 @@ Gameplay providers export immutable `ProjectConfigurationSchema` descriptors
 from their statically linked Rust composition. Every codec and authoring result
 returns the complete read-only `providerSchemas` catalog, including module,
 provider, contract, codec, typed field, reference-picker, and numeric-bound
-descriptors. This includes an empty document set, so Studio can create the
-first provider configuration without inventing schema data. Per-document field
-metadata links existing values back to their configuration and schema. Neither
-decode nor authoring requests can supply or edit this catalog. Stored gameplay
-content contains only the selected schema id and typed field values.
+descriptors. The catalog remains present on strict parse and validation
+rejections as well as accepted results. This includes an empty document set,
+so Studio can create the first provider configuration without inventing schema
+data. Per-document field metadata links existing values back to their
+configuration and schema. Neither decode nor authoring requests can supply or
+edit this catalog. Stored gameplay content contains only the selected schema
+id and typed field values.
 
 Rust invokes the selected provider's registered typed codec, verifies module,
 provider, state/read/output contracts and configuration ownership, and resolves

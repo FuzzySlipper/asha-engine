@@ -94,8 +94,15 @@ pub struct ProjectContentValidationOutcome {
 
 pub fn decode_project_content_sources(
     sources: &[protocol_project_content::ProjectContentSourceDto],
-) -> Result<Vec<ProjectContentDocumentDto>, Box<ProjectContentCodecResultDto>> {
-    codec::decode_sources(sources).map_err(|diagnostics| Box::new(rejected_codec(diagnostics, &[])))
+) -> Result<Vec<ProjectContentDocumentDto>, Vec<ProjectContentDiagnosticDto>> {
+    codec::decode_sources(sources)
+}
+
+pub fn reject_project_content_parse(
+    diagnostics: Vec<ProjectContentDiagnosticDto>,
+    gameplay: &dyn ProjectContentGameplayAdmission,
+) -> ProjectContentCodecResultDto {
+    rejected_codec(diagnostics, gameplay.configuration_schemas())
 }
 
 pub fn decode_project_content(
