@@ -25,6 +25,13 @@ data used for collision and navigation derivation. A fresh RuntimeSession loads
 the saved scene and voxel asset and derives rendering and collision from those
 files; it does not rerun the procedural recipe.
 
+The complete recipe identity is durable authoring evidence on the generated
+asset's `provenance` entry. Its canonical `asha-generator://` URI carries the
+provider, preset, provider version, seed, and configuration hash; the entry's
+content hash is the generator output hash. Materialization consumes the matching
+scene bootstrap generator binding while preserving any catalog bindings. Runtime
+admission neither resolves nor registers the generator for the saved artifacts.
+
 ## Public workflow
 
 The Rust-backed `WorkspaceAuthoringFacade` exposes this sequence:

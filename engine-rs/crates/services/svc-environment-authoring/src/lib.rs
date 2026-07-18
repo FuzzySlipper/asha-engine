@@ -37,6 +37,7 @@ use svc_spatial::VoxelWorld;
 pub const MAX_GENERATED_VOXELS: u64 = 1_000_000;
 pub const MAX_GENERATED_SPARSE_RUNS: u64 = 65_536;
 pub const MAX_GENERATED_MARKERS: u64 = 128;
+const GENERATED_PROVENANCE_URI_PREFIX: &str = "asha-generator://";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnvironmentTarget {
@@ -165,14 +166,7 @@ pub fn materialize_environment(
             sparse_runs,
         },
         material_palette: input.material_palette.clone(),
-        provenance: vec![VoxelAssetProvenanceRef {
-            kind: VoxelAssetProvenanceKind::Generated,
-            uri: format!(
-                "asha-generator://{}/{}/{}",
-                generated.record.generator_id, generated.record.preset, generated.record.seed
-            ),
-            content_hash: output_hash.clone(),
-        }],
+        provenance: vec![generated_provenance_ref(&provenance)],
         authoring: input.authoring.clone(),
         validation_diagnostics: Vec::new(),
         content_hashes: VoxelAssetContentHashes {
@@ -474,6 +468,22 @@ fn materialized_scene(
     let asset_id = AssetId::parse(&asset.asset_id).expect("validated asset id");
     let asset_reference = AssetReference::new(asset_id, AssetVersionReq::Any, None);
     let mut scene = current_scene.clone();
+    for record in &mut scene.nodes {
+        let SceneNodeKind::Bootstrap(bindings) = &mut record.kind else {
+            continue;
+        };
+        if bindings.generator.as_ref().is_some_and(|recipe| {
+            recipe.provider_id == input.provider_id
+                && recipe.preset_id == input.preset_id
+                && recipe.seed == input.seed
+        }) {
+            // The recipe has now produced canonical stored content. Catalogs
+            // remain runtime bootstrap inputs, but generator identity is
+            // authoring provenance and must not survive as a runtime
+            // dependency.
+            bindings.generator = None;
+        }
+    }
     scene
         .nodes
         .retain(|record| !replaced_ids.contains(&record.id.raw()));
@@ -534,6 +544,24 @@ fn materialized_scene(
         });
     }
     Ok((scene, markers))
+}
+
+fn generated_provenance_ref(
+    provenance: &ProceduralEnvironmentProvenanceDto,
+) -> VoxelAssetProvenanceRef {
+    VoxelAssetProvenanceRef {
+        kind: VoxelAssetProvenanceKind::Generated,
+        uri: format!(
+            "{}{}/{}/v{}?seed={}&configHash={}",
+            GENERATED_PROVENANCE_URI_PREFIX,
+            provenance.provider_id,
+            provenance.preset_id,
+            provenance.provider_version,
+            provenance.seed,
+            provenance.config_hash,
+        ),
+        content_hash: provenance.output_hash.clone(),
+    }
 }
 
 fn resident_voxels(world: &VoxelWorld) -> BTreeMap<VoxelCoord, u16> {
@@ -731,6 +759,33 @@ mod tests {
         assert_eq!(first.markers.len(), 2);
         assert!(first.sources.solid_voxel_count > 0);
         assert!(core_scene::validate(&first.scene).is_ok());
+        assert!(first.scene.nodes.iter().all(|record| {
+            !matches!(
+                &record.kind,
+                SceneNodeKind::Bootstrap(bindings) if bindings.generator.is_some()
+            )
+        }));
+
+        let decoded_asset = svc_voxel_asset::decode_asset(&first.asset_json).unwrap();
+        assert_eq!(
+            decoded_asset.provenance,
+            vec![generated_provenance_ref(&first.provenance)]
+        );
+        assert_eq!(
+            decoded_asset.provenance[0].uri,
+            format!(
+                "asha-generator://{}/{}/v{}?seed={}&configHash={}",
+                first.provenance.provider_id,
+                first.provenance.preset_id,
+                first.provenance.provider_version,
+                first.provenance.seed,
+                first.provenance.config_hash,
+            )
+        );
+        assert_eq!(
+            decoded_asset.provenance[0].content_hash,
+            first.provenance.output_hash
+        );
     }
 
     #[test]

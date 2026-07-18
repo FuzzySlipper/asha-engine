@@ -180,22 +180,54 @@ fn fresh_runtime_derives_voxel_collision_and_projection_from_saved_scene_and_ass
             },
         },
     });
-    request
+    assert!(request
         .bootstrap_resolution_registry
         .generator_presets
-        .push(FpsBootstrapGeneratorPresetIdentity {
-            provider_id: svc_levelgen::TUNNEL_GENERATOR_ID.to_owned(),
-            preset_id: "tiny-enclosed".to_owned(),
-        });
+        .is_empty());
     let materialized = stored_tunnel_materialization(&request.scene_document);
-    request.scene_document = EngineBridge::scene_document_dto(&materialized.scene);
+    assert!(materialized.scene.nodes.iter().all(|record| {
+        !matches!(
+            &record.kind,
+            core_scene::SceneNodeKind::Bootstrap(bindings) if bindings.generator.is_some()
+        )
+    }));
+    let decoded_scene = core_scene::decode(&materialized.scene_json).unwrap();
+    let decoded_asset = svc_voxel_asset::decode_asset(&materialized.asset_json).unwrap();
+    assert_eq!(
+        decoded_asset.content_hashes,
+        materialized.asset.content_hashes
+    );
+    assert_eq!(decoded_asset.provenance, materialized.asset.provenance);
+    assert_eq!(decoded_asset.provenance.len(), 1);
+    assert_eq!(
+        decoded_asset.provenance[0].kind,
+        VoxelAssetProvenanceKind::Generated
+    );
+    assert_eq!(
+        decoded_asset.provenance[0].uri,
+        format!(
+            "asha-generator://{}/{}/v{}?seed={}&configHash={}",
+            materialized.provenance.provider_id,
+            materialized.provenance.preset_id,
+            materialized.provenance.provider_version,
+            materialized.provenance.seed,
+            materialized.provenance.config_hash,
+        )
+    );
+    assert_eq!(
+        decoded_asset.provenance[0].content_hash,
+        materialized.provenance.output_hash
+    );
+    assert_eq!(decoded_scene.id, materialized.scene.id);
+    assert_eq!(core_scene::encode(&decoded_scene), materialized.scene_json);
+    request.scene_document = EngineBridge::scene_document_dto(&decoded_scene);
 
     bridge.load_fps_runtime_session(request).unwrap();
     let receipt = bridge
         .load_voxel_volume_asset(VoxelVolumeAssetLoadRequest {
-            asset: materialized.asset.clone(),
+            asset: decoded_asset.clone(),
             target_grid: 8,
-            target_volume_asset_id: Some(materialized.asset.asset_id.clone()),
+            target_volume_asset_id: Some(decoded_asset.asset_id.clone()),
             replace_existing: true,
             include_material_counts: true,
         })
@@ -203,7 +235,7 @@ fn fresh_runtime_derives_voxel_collision_and_projection_from_saved_scene_and_ass
     assert!(receipt.loaded, "{:?}", receipt.diagnostics);
     assert_eq!(
         receipt.canonical_json_hash,
-        Some(materialized.asset.content_hashes.canonical_json.clone())
+        Some(decoded_asset.content_hashes.canonical_json.clone())
     );
     assert_eq!(bridge.voxel.collision_world_offset, [-3.5, -1.0, -5.5]);
 
@@ -222,11 +254,6 @@ fn fresh_runtime_derives_voxel_collision_and_projection_from_saved_scene_and_ass
         )
     }));
 
-    let decoded = svc_voxel_asset::decode_asset(&materialized.asset_json).unwrap();
-    assert_eq!(decoded.content_hashes, materialized.asset.content_hashes);
-    let decoded_scene = core_scene::decode(&materialized.scene_json).unwrap();
-    assert_eq!(decoded_scene.id, materialized.scene.id);
-    assert_eq!(core_scene::encode(&decoded_scene), materialized.scene_json);
     assert_eq!(
         core_scene::encode(bridge.scene.scene_document.as_ref().unwrap()),
         materialized.scene_json

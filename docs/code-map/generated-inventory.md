@@ -307,7 +307,7 @@ Source: [bridge-manifest.toml](../../engine-rs/crates/bridge/runtime-bridge-api/
 
 ## Assignment And Dependency Pressure
 
-Committed path classes: 749 source; 27 generated source; 522 other; 0 build/cache/output.
+Committed path classes: 752 source; 27 generated source; 524 other; 0 build/cache/output.
 
 ### Rust actual and allowed edges
 
