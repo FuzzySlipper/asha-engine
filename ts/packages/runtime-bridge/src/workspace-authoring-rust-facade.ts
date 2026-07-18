@@ -18,6 +18,12 @@ import type {
   ProjectContentCodecResult,
   ProjectContentDecodeRequest,
   ProjectContentEncodeRequest,
+  ProceduralEnvironmentApplyRequest,
+  ProceduralEnvironmentApplyResult,
+  ProceduralEnvironmentPreviewRequest,
+  ProceduralEnvironmentPreviewResult,
+  SceneDocumentCodecResult,
+  SceneDocumentDecodeRequest,
 } from '@asha/contracts';
 import {
   RuntimeBridgeError,
@@ -113,6 +119,11 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
     return projection;
   }
 
+  decodeSceneDocument(input: SceneDocumentDecodeRequest): SceneDocumentCodecResult {
+    this.#requireOpen('decodeSceneDocument');
+    return this.#bridge.decodeSceneDocument(input);
+  }
+
   decodeProjectContent(input: ProjectContentDecodeRequest): ProjectContentCodecResult {
     this.#requireOpen('decodeProjectContent');
     return this.#bridge.decodeProjectContent(input);
@@ -128,6 +139,24 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
   ): ProjectContentAuthoringResult {
     this.#requireOpen('applyProjectContentAuthoring');
     const result = this.#bridge.applyProjectContentAuthoring(input);
+    if (result.accepted) {
+      this.#refreshAfterMutation();
+    }
+    return result;
+  }
+
+  previewProceduralEnvironment(
+    input: ProceduralEnvironmentPreviewRequest,
+  ): ProceduralEnvironmentPreviewResult {
+    this.#requireOpen('previewProceduralEnvironment');
+    return this.#bridge.previewProceduralEnvironment(input);
+  }
+
+  applyProceduralEnvironment(
+    input: ProceduralEnvironmentApplyRequest,
+  ): ProceduralEnvironmentApplyResult {
+    this.#requireOpen('applyProceduralEnvironment');
+    const result = this.#bridge.applyProceduralEnvironment(input);
     if (result.accepted) {
       this.#refreshAfterMutation();
     }

@@ -44,6 +44,10 @@ import type {
   ProjectContentCodecResult,
   ProjectContentDecodeRequest,
   ProjectContentEncodeRequest,
+  ProceduralEnvironmentApplyRequest,
+  ProceduralEnvironmentApplyResult,
+  ProceduralEnvironmentPreviewRequest,
+  ProceduralEnvironmentPreviewResult,
   ScreenPointToPickRayRequest,
   VoxelCoord,
   VoxelConversionApplyRequest,
@@ -1346,6 +1350,26 @@ export class MockRuntimeBridge implements RuntimeBridge {
     return this.#unsupportedAfterInit(
       'applyProjectContentAuthoring',
       'Project-content authoring transactions require Rust authority',
+    );
+  }
+
+  previewProceduralEnvironment(
+    _request: ProceduralEnvironmentPreviewRequest,
+  ): ProceduralEnvironmentPreviewResult {
+    void _request;
+    return this.#unsupportedAfterInit(
+      'previewProceduralEnvironment',
+      'Procedural environment materialization requires Rust authority',
+    );
+  }
+
+  applyProceduralEnvironment(
+    _request: ProceduralEnvironmentApplyRequest,
+  ): ProceduralEnvironmentApplyResult {
+    void _request;
+    return this.#unsupportedAfterInit(
+      'applyProceduralEnvironment',
+      'Procedural environment candidate apply requires Rust authority',
     );
   }
 

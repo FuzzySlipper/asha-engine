@@ -354,10 +354,7 @@ pub fn encode_project_content(handle: i64, request_json: String) -> napi::Result
                 let rejection = bridge
                     .reject_project_content_parse(diagnostics)
                     .map_err(to_napi)?;
-                return encode(
-                    codec_result_json(&rejection)?,
-                    "project-content encode",
-                )
+                return encode(codec_result_json(&rejection)?, "project-content encode");
             }
         };
         let result = bridge
@@ -390,10 +387,7 @@ pub fn apply_project_content_authoring(handle: i64, request_json: String) -> nap
                         let rejection = bridge
                             .reject_project_content_parse(diagnostics)
                             .map_err(to_napi)?;
-                        return encode(
-                            codec_result_json(&rejection)?,
-                            "project-content authoring",
-                        )
+                        return encode(codec_result_json(&rejection)?, "project-content authoring");
                     }
                 }
                 .into_iter()

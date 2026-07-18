@@ -581,6 +581,7 @@ dependencies = [
  "protocol-render",
  "protocol-scene",
  "protocol-view",
+ "protocol-voxel-asset",
  "render-bridge",
  "runtime-bridge-api",
  "serde",
@@ -738,10 +739,14 @@ dependencies = [
 name = "protocol-project-content"
 version = "0.1.0"
 dependencies = [
+ "core-ids",
  "protocol-assets",
  "protocol-entity-authoring",
  "protocol-game-extension",
  "protocol-project-bundle",
+ "protocol-render",
+ "protocol-scene",
+ "protocol-voxel-asset",
 ]
 
 [[package]]
@@ -1115,6 +1120,7 @@ dependencies = [
  "sim-runner",
  "svc-collision",
  "svc-combat",
+ "svc-environment-authoring",
  "svc-game-rules",
  "svc-levelgen",
  "svc-mesh",
@@ -1323,6 +1329,25 @@ dependencies = [
  "core-ids",
  "core-math",
  "protocol-entity-authoring",
+]
+
+[[package]]
+name = "svc-environment-authoring"
+version = "0.1.0"
+dependencies = [
+ "core-assets",
+ "core-ids",
+ "core-math",
+ "core-scene",
+ "core-space",
+ "protocol-project-content",
+ "protocol-voxel-asset",
+ "svc-collision",
+ "svc-levelgen",
+ "svc-pathfinding",
+ "svc-serialization",
+ "svc-spatial",
+ "svc-voxel-asset",
 ]
 
 [[package]]

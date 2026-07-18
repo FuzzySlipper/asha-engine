@@ -287,6 +287,18 @@ pub trait RuntimeBridge {
         &mut self,
         request: ProjectContentAuthoringRequestDto,
     ) -> BridgeResult<ProjectContentAuthoringResultDto>;
+    /// Materialize a stored procedural recipe into an immutable, revision-bound
+    /// scene/voxel candidate without mutating workspace or runtime authority.
+    fn preview_procedural_environment(
+        &mut self,
+        request: ProceduralEnvironmentPreviewRequestDto,
+    ) -> BridgeResult<ProceduralEnvironmentPreviewResultDto>;
+    /// Consume the current Engine-owned candidate and create one combined host
+    /// save proposal. Callers cannot resubmit candidate artifact bytes.
+    fn apply_procedural_environment(
+        &mut self,
+        request: ProceduralEnvironmentApplyRequestDto,
+    ) -> BridgeResult<ProceduralEnvironmentApplyResultDto>;
     /// Read the canonical authored scene hierarchy without exposing mutable state.
     fn read_scene_object_snapshot(&self) -> BridgeResult<SceneObjectSnapshotDto>;
     /// Apply one hash-guarded authored scene hierarchy command through Rust authority.

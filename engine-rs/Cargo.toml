@@ -69,6 +69,7 @@ members = [
     "crates/services/svc-voxel-annotation",
     "crates/services/svc-policy-view",
     "crates/services/svc-project-content",
+    "crates/services/svc-environment-authoring",
     "crates/services/svc-entity-authoring",
     "crates/services/svc-levelgen",
     "crates/services/svc-combat",

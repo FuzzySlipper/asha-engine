@@ -1,0 +1,22 @@
+[package]
+name = "svc-environment-authoring"
+version.workspace = true
+edition.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+core-assets = { path = "../../foundation/core-assets" }
+core-ids = { path = "../../foundation/core-ids" }
+core-math = { path = "../../foundation/core-math" }
+core-scene = { path = "../../state/core-scene" }
+core-space = { path = "../../foundation/core-space" }
+protocol-project-content = { path = "../../protocol/protocol-project-content" }
+protocol-voxel-asset = { path = "../../protocol/protocol-voxel-asset" }
+svc-collision = { path = "../svc-collision" }
+svc-levelgen = { path = "../svc-levelgen" }
+svc-pathfinding = { path = "../svc-pathfinding" }
+svc-serialization = { path = "../svc-serialization" }
+svc-spatial = { path = "../svc-spatial" }
+svc-voxel-asset = { path = "../svc-voxel-asset" }

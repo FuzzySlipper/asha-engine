@@ -182,6 +182,8 @@
         "decode_project_content",
         "encode_project_content",
         "apply_project_content_authoring",
+        "preview_procedural_environment",
+        "apply_procedural_environment",
         "confirm_workspace_authoring_stored",
         "close_workspace_authoring"
       ]
@@ -430,6 +432,54 @@
       "outputWire": {
         "owner": "generated",
         "name": "projectContent.ProjectContentAuthoringResult",
+        "repeated": false
+      },
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "preview_procedural_environment",
+      "facadeMethod": "previewProceduralEnvironment",
+      "capability": "workspace_authoring",
+      "surface": "stable",
+      "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
+      "input": "protocol_project_content::ProceduralEnvironmentPreviewRequest",
+      "output": "protocol_project_content::ProceduralEnvironmentPreviewResult",
+      "facadeInput": "contracts::ProceduralEnvironmentPreviewRequest",
+      "facadeOutput": "contracts::ProceduralEnvironmentPreviewResult",
+      "inputWire": {
+        "owner": "generated",
+        "name": "projectContent.ProceduralEnvironmentPreviewRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "projectContent.ProceduralEnvironmentPreviewResult",
+        "repeated": false
+      },
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "apply_procedural_environment",
+      "facadeMethod": "applyProceduralEnvironment",
+      "capability": "workspace_authoring",
+      "surface": "stable",
+      "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
+      "input": "protocol_project_content::ProceduralEnvironmentApplyRequest",
+      "output": "protocol_project_content::ProceduralEnvironmentApplyResult",
+      "facadeInput": "contracts::ProceduralEnvironmentApplyRequest",
+      "facadeOutput": "contracts::ProceduralEnvironmentApplyResult",
+      "inputWire": {
+        "owner": "generated",
+        "name": "projectContent.ProceduralEnvironmentApplyRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "projectContent.ProceduralEnvironmentApplyResult",
         "repeated": false
       },
       "errors": "RuntimeBridgeError"

@@ -904,6 +904,7 @@ impl RuntimeBridge for EngineBridge {
         self.require_runtime_or_workspace_authoring("load_voxel_volume_asset")?;
         let loaded_canonical_json_hash = request.asset.content_hashes.canonical_json.clone();
         let asset = &request.asset;
+        let scene_instance = self.voxel_asset_scene_instance(&asset.asset_id)?;
         let report = svc_voxel_asset::validate_asset(asset);
         if !report.is_valid() {
             return Ok(Self::rejected_voxel_volume_asset_load(
@@ -950,7 +951,31 @@ impl RuntimeBridge for EngineBridge {
         let info = Self::loaded_voxel_asset_info(&request, &target, &prior_world, existing);
         let receipt =
             Self::voxel_volume_asset_load_receipt(&request, &target, &info, true, Vec::new());
-        self.reset_voxel_edit_history(candidate);
+        let collision_offset = scene_instance
+            .as_ref()
+            .map(|(_, transform)| transform.translation.to_array().map(f64::from))
+            .unwrap_or([0.0; 3]);
+        self.reset_voxel_edit_history_with_collision_offset(candidate.clone(), collision_offset);
+        if let Some((node_id, transform)) = scene_instance {
+            let frame = self
+                .projection
+                .voxel_projector
+                .set_instances(
+                    &candidate,
+                    vec![VoxelProjectionInstance {
+                        instance_id: format!("scene-node/{}", node_id.raw()),
+                        asset_id: asset.asset_id.clone(),
+                        transform,
+                    }],
+                )
+                .map_err(|error| {
+                    RuntimeBridgeError::new(
+                        RuntimeBridgeErrorKind::InvalidInput,
+                        format!("stored voxel scene projection was rejected: {error:?}"),
+                    )
+                })?;
+            self.projection.pending_voxel_frame.ops.extend(frame.ops);
+        }
         self.voxel.voxel_conversion_targets.insert(
             Self::voxel_model_key(info.grid, &info.volume_asset_id),
             target,
@@ -1218,6 +1243,20 @@ impl RuntimeBridge for EngineBridge {
             }
         }
         Ok(result)
+    }
+
+    fn preview_procedural_environment(
+        &mut self,
+        request: ProceduralEnvironmentPreviewRequestDto,
+    ) -> BridgeResult<ProceduralEnvironmentPreviewResultDto> {
+        self.preview_procedural_environment_authority(request)
+    }
+
+    fn apply_procedural_environment(
+        &mut self,
+        request: ProceduralEnvironmentApplyRequestDto,
+    ) -> BridgeResult<ProceduralEnvironmentApplyResultDto> {
+        self.apply_procedural_environment_authority(request)
     }
 
     fn read_scene_object_snapshot(&self) -> BridgeResult<SceneObjectSnapshotDto> {

@@ -103,6 +103,8 @@ impl EngineBridge {
         request: FpsRuntimeSessionLoadRequest,
     ) -> BridgeResult<FpsRuntimeSessionSnapshot> {
         self.require_initialized("load_fps_runtime_session")?;
+        let canonical_scene =
+            Self::scene_document_from_dto(request.scene_document.clone())?.canonical();
         let input = Self::convert_fps_load_request(&request)?;
         let game_rule_modules = Self::verify_game_rule_modules(&request.game_rule_modules)?;
         let mut entities = self
@@ -119,6 +121,7 @@ impl EngineBridge {
             .expect("composed gameplay reset checkpoint requires a static gameplay host");
         }
         self.scene.entities = entities;
+        self.scene.scene_document = Some(canonical_scene);
         self.gameplay.fps_session = Some(loaded);
         self.gameplay.fps_seed = Some(request);
         self.gameplay.fps_epoch = self.gameplay.fps_epoch.saturating_add(1);

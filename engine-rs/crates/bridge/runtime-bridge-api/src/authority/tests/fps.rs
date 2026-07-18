@@ -45,6 +45,70 @@ fn centered_tunnel_fps_load_request(enemy_health: u32) -> FpsRuntimeSessionLoadR
     request
 }
 
+fn stored_tunnel_materialization(
+    base: &FlatSceneDocumentDto,
+) -> svc_environment_authoring::MaterializedEnvironment {
+    let scene = EngineBridge::scene_document_from_dto(base.clone()).unwrap();
+    svc_environment_authoring::materialize_environment(
+        &scene,
+        &svc_environment_authoring::EnvironmentMaterializationInput {
+            provider_id: svc_levelgen::TUNNEL_GENERATOR_ID.to_owned(),
+            preset_id: "tiny-enclosed".to_owned(),
+            seed: 42,
+            target: svc_environment_authoring::EnvironmentTarget {
+                scene_path: "scenes/runtime-saved.scene.json".to_owned(),
+                asset_id: "voxel-volume/runtime-saved-tunnel".to_owned(),
+                asset_path: "assets/runtime-saved-tunnel.avxl.json".to_owned(),
+                voxel_node_id: SceneNodeId::new(9010),
+                voxel_parent_id: None,
+                voxel_child_order: 3,
+                voxel_label: Some("Saved tunnel".to_owned()),
+                voxel_transform: core_scene::SceneTransform {
+                    translation: Vec3::new(-3.5, -1.0, -5.5),
+                    ..core_scene::SceneTransform::IDENTITY
+                },
+                marker_targets: vec![
+                    ProceduralEnvironmentMarkerTargetDto {
+                        source_marker_id: "player_start".to_owned(),
+                        node_id: SceneNodeId::new(9011),
+                        marker_id: "spawn/runtime-player".to_owned(),
+                        child_order: 0,
+                    },
+                    ProceduralEnvironmentMarkerTargetDto {
+                        source_marker_id: "exit_hint".to_owned(),
+                        node_id: SceneNodeId::new(9012),
+                        marker_id: "navigation/runtime-exit".to_owned(),
+                        child_order: 1,
+                    },
+                ],
+            },
+            material_palette: [1u16, 2, 3]
+                .into_iter()
+                .map(|material| VoxelAssetMaterialBinding {
+                    voxel_material: material,
+                    palette_entry_id: format!("voxel-material/runtime-{material}"),
+                    display_name: None,
+                    material_asset_id: format!("material/runtime-{material}"),
+                    material_catalog_binding_id: Some(format!(
+                        "catalog-binding/runtime-{material}"
+                    )),
+                })
+                .collect(),
+            authoring: VoxelAssetAuthoringMetadata {
+                label: Some("Saved runtime tunnel".to_owned()),
+                created_by: Some("runtime-test".to_owned()),
+                source_tool: Some("Studio".to_owned()),
+            },
+            limits: ProceduralEnvironmentLimitsDto {
+                max_voxels: 10_000,
+                max_sparse_runs: 10_000,
+                max_markers: 8,
+            },
+        },
+    )
+    .unwrap()
+}
+
 #[test]
 fn fps_runtime_session_loads_project_bundle_through_rust_authority() {
     let mut bridge = init_bridge();
@@ -86,6 +150,87 @@ fn fps_runtime_session_loads_project_bundle_through_rust_authority() {
         .read_sets
         .iter()
         .any(|view| view.owner == "rule-lifecycle"));
+}
+
+#[test]
+fn fresh_runtime_derives_voxel_collision_and_projection_from_saved_scene_and_asset() {
+    let mut bridge = init_bridge();
+    let mut request = fps_load_request(75);
+    request.scene_document.schema_version = 4;
+    request.scene_document.metadata.authoring_format_version = 4;
+    request.scene_document.nodes.push(SceneNodeRecordDto {
+        id: SceneNodeId::new(9000),
+        parent: None,
+        child_order: 2,
+        label: Some("Stored recipe".to_owned()),
+        tags: Vec::new(),
+        transform: SceneTransformDto {
+            translation: [0.0; 3],
+            rotation: [0.0, 0.0, 0.0, 1.0],
+            scale: [1.0; 3],
+        },
+        kind: SceneNodeKindDto::Bootstrap {
+            bindings: SceneBootstrapBindingsDto {
+                generator: Some(SceneGeneratorBindingDto {
+                    provider_id: svc_levelgen::TUNNEL_GENERATOR_ID.to_owned(),
+                    preset_id: "tiny-enclosed".to_owned(),
+                    seed: 42,
+                }),
+                catalogs: Vec::new(),
+            },
+        },
+    });
+    request
+        .bootstrap_resolution_registry
+        .generator_presets
+        .push(FpsBootstrapGeneratorPresetIdentity {
+            provider_id: svc_levelgen::TUNNEL_GENERATOR_ID.to_owned(),
+            preset_id: "tiny-enclosed".to_owned(),
+        });
+    let materialized = stored_tunnel_materialization(&request.scene_document);
+    request.scene_document = EngineBridge::scene_document_dto(&materialized.scene);
+
+    bridge.load_fps_runtime_session(request).unwrap();
+    let receipt = bridge
+        .load_voxel_volume_asset(VoxelVolumeAssetLoadRequest {
+            asset: materialized.asset.clone(),
+            target_grid: 8,
+            target_volume_asset_id: Some(materialized.asset.asset_id.clone()),
+            replace_existing: true,
+            include_material_counts: true,
+        })
+        .unwrap();
+    assert!(receipt.loaded, "{:?}", receipt.diagnostics);
+    assert_eq!(
+        receipt.canonical_json_hash,
+        Some(materialized.asset.content_hashes.canonical_json.clone())
+    );
+    assert_eq!(bridge.voxel.collision_world_offset, [-3.5, -1.0, -5.5]);
+
+    let projection = bridge.read_render_diffs(0).unwrap();
+    assert!(projection.ops.iter().any(|operation| {
+        matches!(
+            operation,
+            protocol_render::RenderDiff::Create { node, .. }
+                if node.transform.translation == [-3.5, -1.0, -5.5]
+        )
+    }));
+    assert!(projection.ops.iter().any(|operation| {
+        matches!(
+            operation,
+            protocol_render::RenderDiff::ReplaceMeshPayload { .. }
+        )
+    }));
+
+    let decoded = svc_voxel_asset::decode_asset(&materialized.asset_json).unwrap();
+    assert_eq!(decoded.content_hashes, materialized.asset.content_hashes);
+    let decoded_scene = core_scene::decode(&materialized.scene_json).unwrap();
+    assert_eq!(decoded_scene.id, materialized.scene.id);
+    assert_eq!(core_scene::encode(&decoded_scene), materialized.scene_json);
+    assert_eq!(
+        core_scene::encode(bridge.scene.scene_document.as_ref().unwrap()),
+        materialized.scene_json
+    );
 }
 
 #[test]

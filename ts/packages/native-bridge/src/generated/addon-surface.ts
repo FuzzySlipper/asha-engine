@@ -13,6 +13,8 @@ const GENERATED_NATIVE_ADDON_EXPORT_NAMES = [
   'decodeProjectContent',
   'encodeProjectContent',
   'applyProjectContentAuthoring',
+  'previewProceduralEnvironment',
+  'applyProceduralEnvironment',
   'stepSimulation',
   'applyTimeControlCommand',
   'readTimeControlState',

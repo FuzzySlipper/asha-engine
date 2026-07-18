@@ -312,6 +312,8 @@ interface NativeAddonBindings {
   decodeProjectContent(handle: number, requestJson: string): string;
   encodeProjectContent(handle: number, requestJson: string): string;
   applyProjectContentAuthoring(handle: number, requestJson: string): string;
+  previewProceduralEnvironment(handle: number, requestJson: string): string;
+  applyProceduralEnvironment(handle: number, requestJson: string): string;
   readSceneObjectSnapshot(handle: number): string;
   applySceneObjectCommand(handle: number, requestJson: string): string;
   applyGeneratedTunnelToRuntimeWorld(

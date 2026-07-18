@@ -53,6 +53,18 @@ pub(crate) const REQUIRED_NATIVE_EXPORTS: &[(&str, &str, usize, usize)] = &[
         8388608,
         8388608,
     ),
+    (
+        "preview_procedural_environment",
+        "previewProceduralEnvironment",
+        8388608,
+        8388608,
+    ),
+    (
+        "apply_procedural_environment",
+        "applyProceduralEnvironment",
+        8388608,
+        8388608,
+    ),
     ("step_simulation", "stepSimulation", 8388608, 8388608),
     (
         "apply_time_control_command",

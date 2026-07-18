@@ -67,6 +67,10 @@ CONTRACT_WIRE_MODULES = {
     "ProjectContentAuthoringRequest": "projectContent",
     "ProjectContentCodecResult": "projectContent",
     "ProjectContentAuthoringResult": "projectContent",
+    "ProceduralEnvironmentPreviewRequest": "projectContent",
+    "ProceduralEnvironmentPreviewResult": "projectContent",
+    "ProceduralEnvironmentApplyRequest": "projectContent",
+    "ProceduralEnvironmentApplyResult": "projectContent",
 }
 
 

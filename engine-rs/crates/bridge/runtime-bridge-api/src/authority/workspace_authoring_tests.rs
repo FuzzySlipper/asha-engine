@@ -48,6 +48,98 @@ fn projection_request(
     }
 }
 
+fn procedural_scene(seed: u64) -> core_scene::FlatSceneDocument {
+    core_scene::FlatSceneDocument {
+        schema_version: 4,
+        id: SceneId::new(42),
+        metadata: core_scene::SceneMetadata {
+            name: Some("Procedural authoring".to_owned()),
+            authoring_format_version: 4,
+        },
+        dependencies: Vec::new(),
+        nodes: vec![core_scene::SceneNodeRecord {
+            id: SceneNodeId::new(1),
+            parent: None,
+            child_order: 0,
+            transform: core_scene::SceneTransform::IDENTITY,
+            kind: core_scene::SceneNodeKind::Bootstrap(core_scene::SceneBootstrapBindings {
+                generator: Some(core_scene::SceneGeneratorBinding {
+                    provider_id: svc_levelgen::TUNNEL_GENERATOR_ID.to_owned(),
+                    preset_id: "tiny-enclosed".to_owned(),
+                    seed,
+                }),
+                catalogs: Vec::new(),
+            }),
+            metadata: core_scene::NodeMetadata::default(),
+        }],
+    }
+}
+
+fn procedural_request(
+    workspace_id: &str,
+    generation: u64,
+    scene_hash: String,
+) -> ProceduralEnvironmentPreviewRequestDto {
+    ProceduralEnvironmentPreviewRequestDto {
+        expected_workspace_id: workspace_id.to_owned(),
+        expected_generation: generation,
+        expected_working_revision: 0,
+        expected_scene_content_hash: scene_hash,
+        provider_id: svc_levelgen::TUNNEL_GENERATOR_ID.to_owned(),
+        preset_id: "tiny-enclosed".to_owned(),
+        seed: 42,
+        target: ProceduralEnvironmentTargetDto {
+            scene_id: SceneId::new(42),
+            scene_path: "scenes/generated-tunnel.scene.json".to_owned(),
+            asset_id: "voxel-volume/generated-tunnel".to_owned(),
+            asset_path: "assets/generated-tunnel.avxl.json".to_owned(),
+            voxel_node_id: SceneNodeId::new(10),
+            voxel_parent_id: None,
+            voxel_child_order: 1,
+            voxel_label: Some("Generated tunnel".to_owned()),
+            voxel_transform: SceneTransformDto {
+                translation: [-3.5, -1.0, -5.5],
+                rotation: [0.0, 0.0, 0.0, 1.0],
+                scale: [1.0, 1.0, 1.0],
+            },
+            marker_targets: vec![
+                ProceduralEnvironmentMarkerTargetDto {
+                    source_marker_id: "player_start".to_owned(),
+                    node_id: SceneNodeId::new(11),
+                    marker_id: "spawn/player".to_owned(),
+                    child_order: 0,
+                },
+                ProceduralEnvironmentMarkerTargetDto {
+                    source_marker_id: "exit_hint".to_owned(),
+                    node_id: SceneNodeId::new(12),
+                    marker_id: "navigation/exit".to_owned(),
+                    child_order: 1,
+                },
+            ],
+        },
+        material_palette: [1u16, 2, 3]
+            .into_iter()
+            .map(|material| VoxelAssetMaterialBinding {
+                voxel_material: material,
+                palette_entry_id: format!("voxel-material/tunnel-{material}"),
+                display_name: Some(format!("Tunnel {material}")),
+                material_asset_id: format!("material/tunnel-{material}"),
+                material_catalog_binding_id: Some(format!("catalog-binding/tunnel-{material}")),
+            })
+            .collect(),
+        authoring: VoxelAssetAuthoringMetadata {
+            label: Some("Generated tunnel".to_owned()),
+            created_by: Some("runtime-bridge-api-test".to_owned()),
+            source_tool: Some("workspace-authoring".to_owned()),
+        },
+        limits: ProceduralEnvironmentLimitsDto {
+            max_voxels: 10_000,
+            max_sparse_runs: 10_000,
+            max_markers: 8,
+        },
+    }
+}
+
 #[test]
 fn authoring_cell_is_distinct_from_gameplay_runtime_and_owns_revisions() {
     let mut bridge = EngineBridge::new();
@@ -429,4 +521,170 @@ fn project_content_authoring_is_revision_bound_and_promotes_only_the_rust_candid
     assert_eq!(stored.stored_revision, 1);
     assert!(stored.accepted);
     assert!(!bridge.read_workspace_authoring_state().unwrap().dirty);
+}
+
+#[test]
+fn procedural_materialization_is_preview_pure_candidate_bound_and_combined_saveable() {
+    let mut bridge = EngineBridge::new();
+    let opened = bridge
+        .open_workspace_authoring(open_request("workspace.procedural"))
+        .unwrap();
+    let decoded = bridge
+        .decode_scene_document(SceneDocumentDecodeRequestDto {
+            source_text: core_scene::encode(&procedural_scene(42)),
+        })
+        .unwrap();
+    assert!(decoded.accepted, "{:?}", decoded.diagnostics);
+    let scene_hash = decoded.content_hash.expect("scene hash");
+
+    let preview = bridge
+        .preview_procedural_environment(procedural_request(
+            "workspace.procedural",
+            opened.identity.generation,
+            scene_hash,
+        ))
+        .unwrap();
+    assert!(preview.accepted, "{:?}", preview.diagnostics);
+    assert!(preview.preview_diff_count > 0);
+    assert!(
+        bridge.voxel.voxel.is_none(),
+        "preview must not install authority"
+    );
+    assert_eq!(
+        bridge
+            .read_workspace_authoring_state()
+            .unwrap()
+            .working_revision,
+        0
+    );
+    let candidate = preview.candidate.expect("accepted candidate");
+    assert_eq!(candidate.asset.grid.origin, [0.0; 3]);
+    assert_eq!(candidate.markers.len(), 2);
+    assert!(candidate.scene.nodes.iter().any(|record| {
+        record.id == SceneNodeId::new(10)
+            && record.transform.translation == [-3.5, -1.0, -5.5]
+            && matches!(record.kind, SceneNodeKindDto::VoxelVolume(_))
+    }));
+    let candidate_hash = candidate.candidate_hash.clone();
+
+    let wrong = bridge
+        .apply_procedural_environment(ProceduralEnvironmentApplyRequestDto {
+            expected_workspace_id: "workspace.procedural".to_owned(),
+            expected_generation: opened.identity.generation,
+            expected_working_revision: 0,
+            candidate_hash: "fnv1a64:wrong".to_owned(),
+        })
+        .unwrap();
+    assert!(!wrong.accepted);
+    assert!(bridge.voxel.voxel.is_none());
+    assert_eq!(
+        bridge
+            .read_workspace_authoring_state()
+            .unwrap()
+            .working_revision,
+        0
+    );
+
+    let applied = bridge
+        .apply_procedural_environment(ProceduralEnvironmentApplyRequestDto {
+            expected_workspace_id: "workspace.procedural".to_owned(),
+            expected_generation: opened.identity.generation,
+            expected_working_revision: 0,
+            candidate_hash: candidate_hash.clone(),
+        })
+        .unwrap();
+    assert!(applied.accepted, "{:?}", applied.diagnostics);
+    assert_eq!(applied.working_revision, 1);
+    assert!(bridge.voxel.voxel.is_some());
+    let save_hash = applied
+        .save_candidate_hash
+        .clone()
+        .expect("combined save hash");
+    assert_eq!(save_hash, candidate.artifact_set_hash);
+
+    let replay = bridge
+        .apply_procedural_environment(ProceduralEnvironmentApplyRequestDto {
+            expected_workspace_id: "workspace.procedural".to_owned(),
+            expected_generation: opened.identity.generation,
+            expected_working_revision: 1,
+            candidate_hash,
+        })
+        .unwrap();
+    assert!(!replay.accepted);
+    assert_eq!(
+        bridge
+            .read_workspace_authoring_state()
+            .unwrap()
+            .working_revision,
+        1
+    );
+
+    let stored = bridge
+        .confirm_workspace_authoring_stored(WorkspaceAuthoringStoredConfirmationRequest {
+            expected_workspace_id: "workspace.procedural".to_owned(),
+            expected_generation: opened.identity.generation,
+            host_path: "/tmp/generated-tunnel.artifact-set".to_owned(),
+            canonical_json_hash: save_hash,
+        })
+        .unwrap();
+    assert_eq!(stored.stored_revision, 1);
+    assert!(!bridge.read_workspace_authoring_state().unwrap().dirty);
+}
+
+#[test]
+fn procedural_materialization_rejects_stale_unresolved_and_oversized_without_mutation() {
+    let mut bridge = EngineBridge::new();
+    let opened = bridge
+        .open_workspace_authoring(open_request("workspace.procedural-rejection"))
+        .unwrap();
+    let decoded = bridge
+        .decode_scene_document(SceneDocumentDecodeRequestDto {
+            source_text: core_scene::encode(&procedural_scene(42)),
+        })
+        .unwrap();
+    let scene_hash = decoded.content_hash.unwrap();
+
+    let mut stale = procedural_request(
+        "workspace.procedural-rejection",
+        opened.identity.generation,
+        "fnv1a64:stale".to_owned(),
+    );
+    let stale_result = bridge
+        .preview_procedural_environment(stale.clone())
+        .unwrap();
+    assert!(!stale_result.accepted);
+    assert_eq!(
+        stale_result.diagnostics[0].code,
+        ProceduralEnvironmentDiagnosticCode::StaleScene
+    );
+
+    stale.expected_scene_content_hash = scene_hash.clone();
+    stale.provider_id = "unknown.provider".to_owned();
+    let unresolved = bridge.preview_procedural_environment(stale).unwrap();
+    assert!(!unresolved.accepted);
+    assert!(unresolved
+        .diagnostics
+        .iter()
+        .any(|entry| entry.code == ProceduralEnvironmentDiagnosticCode::UnknownProvider));
+
+    let mut oversized = procedural_request(
+        "workspace.procedural-rejection",
+        opened.identity.generation,
+        scene_hash,
+    );
+    oversized.limits.max_voxels = 1;
+    let bounded = bridge.preview_procedural_environment(oversized).unwrap();
+    assert!(!bounded.accepted);
+    assert!(bounded
+        .diagnostics
+        .iter()
+        .any(|entry| entry.code == ProceduralEnvironmentDiagnosticCode::LimitExceeded));
+    assert_eq!(
+        bridge
+            .read_workspace_authoring_state()
+            .unwrap()
+            .working_revision,
+        0
+    );
+    assert!(bridge.voxel.voxel.is_none());
 }

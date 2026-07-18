@@ -608,7 +608,7 @@ function isFlatSceneDocument(value: unknown): boolean {
 function isSceneValidationError(value: unknown): boolean {
   return isPlainObject(value)
     && hasExactKeys(value, ['code', 'node', 'parent', 'expectedKind', 'actualKind', 'transformReason', 'lightReason', 'detailReason', 'instanceId', 'bindingId', 'cyclePath'])
-    && isLiteral(value.code, ['duplicate-node-id', 'unknown-parent', 'cycle', 'invalid-transform', 'asset-kind-mismatch', 'invalid-light', 'duplicate-entity-instance-id', 'invalid-entity-instance', 'duplicate-bootstrap-node', 'invalid-bootstrap', 'duplicate-catalog-binding'])
+    && isLiteral(value.code, ['duplicate-node-id', 'unknown-parent', 'cycle', 'invalid-transform', 'invalid-voxel-volume-transform', 'asset-kind-mismatch', 'invalid-light', 'duplicate-marker-id', 'invalid-marker', 'duplicate-entity-instance-id', 'invalid-entity-instance', 'duplicate-bootstrap-node', 'invalid-bootstrap', 'duplicate-catalog-binding'])
     && (value.node === null || isInteger(value.node))
     && (value.parent === null || isInteger(value.parent))
     && (value.expectedKind === null || isString(value.expectedKind))
@@ -629,7 +629,7 @@ function isSceneObjectRecord(value: unknown): boolean {
     && (value.parent === null || isInteger(value.parent))
     && isInteger(value.childOrder)
     && (value.label === null || isString(value.label))
-    && isLiteral(value.kind, ['emptyGroup', 'staticMesh', 'sprite', 'voxelVolume', 'light', 'entityInstance', 'bootstrap'])
+    && isLiteral(value.kind, ['emptyGroup', 'staticMesh', 'sprite', 'voxelVolume', 'light', 'marker', 'entityInstance', 'bootstrap'])
     && typeof value.hasRenderableAsset === 'boolean';
 }
 

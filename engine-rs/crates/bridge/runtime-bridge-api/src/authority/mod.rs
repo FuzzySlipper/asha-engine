@@ -5,6 +5,7 @@ mod enemy_navigation;
 mod fps_animation_catalog;
 mod initialization;
 mod input;
+mod procedural_environment;
 mod scene_and_preview;
 mod time_control;
 mod voxel_instances;
@@ -208,6 +209,17 @@ struct WorkspaceAuthoringSaveCandidate {
     working_revision: u64,
 }
 
+#[derive(Debug, Clone)]
+struct PendingProceduralEnvironmentCandidate {
+    candidate_hash: String,
+    base_scene_hash: String,
+    working_revision: u64,
+    scene_path: String,
+    asset_path: String,
+    voxel_node_id: SceneNodeId,
+    materialized: svc_environment_authoring::MaterializedEnvironment,
+}
+
 struct WorkspaceAuthoringAuthority {
     identity: WorkspaceAuthoringIdentity,
     composition: WorkspaceAuthoringCompositionStatus,
@@ -216,6 +228,7 @@ struct WorkspaceAuthoringAuthority {
     stored_revision: u64,
     last_stored_canonical_json_hash: Option<String>,
     pending_save_candidate: Option<WorkspaceAuthoringSaveCandidate>,
+    pending_procedural_environment: Option<PendingProceduralEnvironmentCandidate>,
     next_projection_cursor: u64,
     projection_initialized: bool,
     last_projection_receipt: Option<WorkspaceAuthoringProjectionReceipt>,

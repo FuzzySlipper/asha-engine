@@ -55,6 +55,7 @@ pub const VOXEL_ASSET_REPRESENTATION_KINDS: &[&str] = &["sparse_runs"];
 pub const VOXEL_ASSET_PROVENANCE_KINDS: &[&str] = &[
     "authored",
     "converted",
+    "generated",
     "runtime_export",
     "imported_reference",
 ];
@@ -99,6 +100,7 @@ impl VoxelAssetRepresentationKind {
 pub enum VoxelAssetProvenanceKind {
     Authored,
     Converted,
+    Generated,
     RuntimeExport,
     ImportedReference,
 }
@@ -108,6 +110,7 @@ impl VoxelAssetProvenanceKind {
         match self {
             VoxelAssetProvenanceKind::Authored => "authored",
             VoxelAssetProvenanceKind::Converted => "converted",
+            VoxelAssetProvenanceKind::Generated => "generated",
             VoxelAssetProvenanceKind::RuntimeExport => "runtime_export",
             VoxelAssetProvenanceKind::ImportedReference => "imported_reference",
         }
@@ -507,6 +510,7 @@ mod tests {
             [
                 VoxelAssetProvenanceKind::Authored,
                 VoxelAssetProvenanceKind::Converted,
+                VoxelAssetProvenanceKind::Generated,
                 VoxelAssetProvenanceKind::RuntimeExport,
                 VoxelAssetProvenanceKind::ImportedReference,
             ]

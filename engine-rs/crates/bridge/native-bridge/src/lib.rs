@@ -50,6 +50,7 @@ mod generated_tunnel;
 mod input_session;
 mod particle_projection;
 mod presentation_operation;
+mod procedural_environment;
 mod project_content;
 mod render_projection;
 #[cfg(test)]
@@ -95,6 +96,7 @@ pub use input_session::{
     replay_resolved_input_action, submit_raw_input,
 };
 use presentation_operation::NativePresentationOp;
+pub use procedural_environment::{apply_procedural_environment, preview_procedural_environment};
 pub use project_content::{
     apply_project_content_authoring, decode_project_content, encode_project_content,
 };

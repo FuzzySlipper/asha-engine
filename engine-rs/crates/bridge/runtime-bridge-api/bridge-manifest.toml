@@ -121,7 +121,7 @@ initialization = "createsEngine"
 project_bundle = "ownsLoadUnload"
 snapshot_hash = "workspaceAuthoringAuthority"
 resource_lifetime = "session"
-operations = ["open_workspace_authoring", "read_workspace_authoring_state", "read_workspace_authoring_projection", "decode_project_content", "encode_project_content", "apply_project_content_authoring", "confirm_workspace_authoring_stored", "close_workspace_authoring"]
+operations = ["open_workspace_authoring", "read_workspace_authoring_state", "read_workspace_authoring_projection", "decode_project_content", "encode_project_content", "apply_project_content_authoring", "preview_procedural_environment", "apply_procedural_environment", "confirm_workspace_authoring_stored", "close_workspace_authoring"]
 
 [[capability]]
 id = "bundle_lifecycle"
@@ -233,6 +233,26 @@ errors = "RuntimeBridgeError"
 summary = "Apply one closed typed compare-and-swap project-content edit and return canonical trusted-host file candidates only after Rust acceptance."
 facade_input = "contracts::ProjectContentAuthoringRequest"
 facade_output = "contracts::ProjectContentAuthoringResult"
+
+[[operation]]
+name = "preview_procedural_environment"
+surface = "stable"
+input = "protocol_project_content::ProceduralEnvironmentPreviewRequest"
+output = "protocol_project_content::ProceduralEnvironmentPreviewResult"
+errors = "RuntimeBridgeError"
+summary = "Materialize one closed-registry procedural recipe as a revision-bound canonical scene and voxel candidate without RuntimeSession mutation."
+facade_input = "contracts::ProceduralEnvironmentPreviewRequest"
+facade_output = "contracts::ProceduralEnvironmentPreviewResult"
+
+[[operation]]
+name = "apply_procedural_environment"
+surface = "stable"
+input = "protocol_project_content::ProceduralEnvironmentApplyRequest"
+output = "protocol_project_content::ProceduralEnvironmentApplyResult"
+errors = "RuntimeBridgeError"
+summary = "Consume the current Engine-owned procedural candidate and expose one combined revision-bound host save proposal."
+facade_input = "contracts::ProceduralEnvironmentApplyRequest"
+facade_output = "contracts::ProceduralEnvironmentApplyResult"
 
 [[operation]]
 name = "step_simulation"

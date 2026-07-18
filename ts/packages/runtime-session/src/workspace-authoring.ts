@@ -6,7 +6,13 @@ import type {
   ProjectContentCodecResult,
   ProjectContentDecodeRequest,
   ProjectContentEncodeRequest,
+  ProceduralEnvironmentApplyRequest,
+  ProceduralEnvironmentApplyResult,
+  ProceduralEnvironmentPreviewRequest,
+  ProceduralEnvironmentPreviewResult,
   RenderFrameDiff,
+  SceneDocumentCodecResult,
+  SceneDocumentDecodeRequest,
   VoxelInstancePickRequest,
   VoxelInstancePickResult,
   VoxelProjectionBindingReceipt,
@@ -164,6 +170,8 @@ export interface WorkspaceAuthoringFacade extends WorkspaceAuthoringVoxelOperati
   open(input: WorkspaceAuthoringOpenInput): WorkspaceAuthoringStateSummary;
   readState(): WorkspaceAuthoringStateSummary;
   readProjection(): WorkspaceAuthoringProjectionSummary;
+  /** Decode and install one canonical scene into the Engine-owned workspace set. */
+  decodeSceneDocument(input: SceneDocumentDecodeRequest): SceneDocumentCodecResult;
   configureVoxelProjectionInstances(
     input: WorkspaceVoxelProjectionBindingInput,
   ): VoxelProjectionBindingReceipt;
@@ -174,6 +182,12 @@ export interface WorkspaceAuthoringFacade extends WorkspaceAuthoringVoxelOperati
   applyProjectContentAuthoring(
     input: ProjectContentAuthoringRequest,
   ): ProjectContentAuthoringResult;
+  previewProceduralEnvironment(
+    input: ProceduralEnvironmentPreviewRequest,
+  ): ProceduralEnvironmentPreviewResult;
+  applyProceduralEnvironment(
+    input: ProceduralEnvironmentApplyRequest,
+  ): ProceduralEnvironmentApplyResult;
   confirmStored(
     input: WorkspaceAuthoringStoredConfirmationInput,
   ): WorkspaceAuthoringStoredConfirmationReceipt;

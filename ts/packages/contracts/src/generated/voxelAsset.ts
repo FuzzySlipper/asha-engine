@@ -42,7 +42,7 @@ export const VOXEL_PALETTE_UPDATE_MAX_STRING_BYTES = 4096;
 export type VoxelAssetRepresentationKind = 'sparse_runs';
 
 // Stored voxel-volume provenance kind.
-export type VoxelAssetProvenanceKind = 'authored' | 'converted' | 'runtime_export' | 'imported_reference';
+export type VoxelAssetProvenanceKind = 'authored' | 'converted' | 'generated' | 'runtime_export' | 'imported_reference';
 
 // Classified stored-voxel asset diagnostic code.
 export type VoxelAssetDiagnosticCode = 'unsupported_schema_version' | 'unsupported_media_type' | 'invalid_asset_id' | 'invalid_grid' | 'invalid_bounds' | 'unsupported_representation' | 'invalid_sparse_run' | 'duplicate_voxel' | 'duplicate_material_binding' | 'invalid_material_reference' | 'unknown_voxel_material' | 'content_hash_mismatch' | 'runtime_model_unavailable' | 'export_limit_exceeded' | 'stale_runtime_snapshot';

@@ -41,6 +41,10 @@ import type {
   ProjectContentCodecResult,
   ProjectContentDecodeRequest,
   ProjectContentEncodeRequest,
+  ProceduralEnvironmentApplyRequest,
+  ProceduralEnvironmentApplyResult,
+  ProceduralEnvironmentPreviewRequest,
+  ProceduralEnvironmentPreviewResult,
   VoxelConversionApplyRequest,
   VoxelConversionEvidenceRef,
   VoxelConversionMeshAssetRegistrationRequest,
@@ -1161,6 +1165,34 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     return parseGeneratedOperationOutput<ProjectContentAuthoringResult>(
       'apply_project_content_authoring',
       'projectContent.ProjectContentAuthoringResult',
+      payload,
+    );
+  }
+
+  previewProceduralEnvironment(
+    request: ProceduralEnvironmentPreviewRequest,
+  ): ProceduralEnvironmentPreviewResult {
+    const handle = this.#requireHandle('previewProceduralEnvironment');
+    const payload = callNative(() =>
+      this.#addon.previewProceduralEnvironment(handle, JSON.stringify(request)),
+    );
+    return parseGeneratedOperationOutput<ProceduralEnvironmentPreviewResult>(
+      'preview_procedural_environment',
+      'projectContent.ProceduralEnvironmentPreviewResult',
+      payload,
+    );
+  }
+
+  applyProceduralEnvironment(
+    request: ProceduralEnvironmentApplyRequest,
+  ): ProceduralEnvironmentApplyResult {
+    const handle = this.#requireHandle('applyProceduralEnvironment');
+    const payload = callNative(() =>
+      this.#addon.applyProceduralEnvironment(handle, JSON.stringify(request)),
+    );
+    return parseGeneratedOperationOutput<ProceduralEnvironmentApplyResult>(
+      'apply_procedural_environment',
+      'projectContent.ProceduralEnvironmentApplyResult',
       payload,
     );
   }

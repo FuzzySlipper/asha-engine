@@ -186,6 +186,8 @@ function describeValidationError(error: SceneValidationError): string {
       return `parent cycle: ${error.cyclePath.map((id) => id as number).join(' → ')}`;
     case 'invalid-transform':
       return `node ${error.node as number} has an invalid transform${error.transformReason ? ` (${error.transformReason})` : ''}`;
+    case 'invalid-voxel-volume-transform':
+      return `node ${error.node as number} has an unsupported voxel transform${error.detailReason ? ` (${error.detailReason})` : ''}`;
     case 'asset-kind-mismatch':
       return `node ${error.node as number} expected ${error.expectedKind}, found ${error.actualKind}`;
     case 'invalid-light':

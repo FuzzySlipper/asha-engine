@@ -160,8 +160,8 @@ may_not_depend_on = ["core-state", "svc-serialization", "rule-project-bundle", "
 # svc-project-content.
 [crate."engine-rs/crates/protocol/protocol-project-content"]
 lane = "contract-steward"
-may_depend_on = ["protocol-assets", "protocol-entity-authoring", "protocol-game-extension", "protocol-project-bundle", "protocol-scene"]
-may_not_depend_on = ["core-state", "core-scene", "svc-project-content", "runtime-bridge-api", "protocol-render", "render-bridge", "wasm-api"]
+may_depend_on = ["core-ids", "protocol-assets", "protocol-entity-authoring", "protocol-game-extension", "protocol-project-bundle", "protocol-render", "protocol-scene", "protocol-voxel-asset"]
+may_not_depend_on = ["core-state", "core-scene", "svc-project-content", "runtime-bridge-api", "render-bridge", "wasm-api"]
 
 # Asset catalog cross-boundary schema (scene-capability-super, #2367): catalog
 # entries, asset-lock drift, fallback decisions, and the disjoint material
@@ -326,6 +326,11 @@ may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 [crate."engine-rs/crates/services/svc-project-content"]
 lane = "rust-service"
 may_depend_on = ["core-assets", "core-catalog", "core-ids", "protocol-assets", "protocol-entity-authoring", "protocol-game-extension", "protocol-project-bundle", "protocol-project-content", "protocol-scene", "svc-entity-authoring", "svc-serialization"]
+may_not_depend_on = ["core-state", "runtime-bridge-api", "protocol-render", "render-bridge", "wasm-api"]
+
+[crate."engine-rs/crates/services/svc-environment-authoring"]
+lane = "rust-service"
+may_depend_on = ["core-assets", "core-ids", "core-math", "core-scene", "core-space", "protocol-project-content", "protocol-voxel-asset", "svc-collision", "svc-levelgen", "svc-pathfinding", "svc-serialization", "svc-spatial", "svc-voxel-asset"]
 may_not_depend_on = ["core-state", "runtime-bridge-api", "protocol-render", "render-bridge", "wasm-api"]
 
 [crate."engine-rs/crates/services/svc-volume"]
@@ -829,10 +834,10 @@ lane = "rust-bridge"
 # Project-content authoring retains the concrete, closed ProjectBundle
 # admission cell; bridge guardrails forbid replacing it with a dynamic plugin
 # or boxed trait-object escape hatch (#5946).
-may_depend_on = ["core-ids", "core-error", "core-math", "core-assets", "core-space", "core-voxel", "core-catalog", "core-commands", "core-entity", "core-scene", "sim-runner", "svc-spatial", "svc-volume", "svc-collision", "svc-mesh", "svc-mesh-import", "svc-serialization", "svc-project-content", "svc-pathfinding", "svc-combat", "svc-levelgen", "svc-voxel-conversion", "svc-voxel-asset", "svc-voxel-annotation", "svc-game-rules", "rule-voxel-edit", "rule-lifecycle", "rule-input", "rule-gameplay-fabric", "rule-project-bundle", "gameplay-runtime-host", "rule-animation-controller", "game-rule-extension", "render-bridge", "render-audio", "render-billboard", "render-particle", "render-animation", "render-telemetry-overlay", "protocol-assets", "protocol-diagnostics", "protocol-scene", "protocol-project-bundle", "protocol-project-content", "protocol-view", "protocol-render", "protocol-presentation", "protocol-script", "protocol-replay", "protocol-input", "protocol-time-control", "protocol-entity-authoring", "protocol-voxel-conversion", "protocol-voxel-asset", "protocol-voxel-annotation", "protocol-voxel-edit-history", "protocol-game-rules", "protocol-game-extension"]
+may_depend_on = ["core-ids", "core-error", "core-math", "core-assets", "core-space", "core-voxel", "core-catalog", "core-commands", "core-entity", "core-scene", "sim-runner", "svc-spatial", "svc-volume", "svc-collision", "svc-mesh", "svc-mesh-import", "svc-serialization", "svc-project-content", "svc-environment-authoring", "svc-pathfinding", "svc-combat", "svc-levelgen", "svc-voxel-conversion", "svc-voxel-asset", "svc-voxel-annotation", "svc-game-rules", "rule-voxel-edit", "rule-lifecycle", "rule-input", "rule-gameplay-fabric", "rule-project-bundle", "gameplay-runtime-host", "rule-animation-controller", "game-rule-extension", "render-bridge", "render-audio", "render-billboard", "render-particle", "render-animation", "render-telemetry-overlay", "protocol-assets", "protocol-diagnostics", "protocol-scene", "protocol-project-bundle", "protocol-project-content", "protocol-view", "protocol-render", "protocol-presentation", "protocol-script", "protocol-replay", "protocol-input", "protocol-time-control", "protocol-entity-authoring", "protocol-voxel-conversion", "protocol-voxel-asset", "protocol-voxel-annotation", "protocol-voxel-edit-history", "protocol-game-rules", "protocol-game-extension"]
 may_not_depend_on = ["napi", "wasm-bindgen"]
 
 [crate."engine-rs/crates/bridge/native-bridge"]
 lane = "rust-bridge"
-may_depend_on = ["runtime-bridge-api", "core-ids", "core-math", "core-space", "core-voxel", "protocol-assets", "protocol-diagnostics", "protocol-game-extension", "protocol-render", "protocol-scene", "protocol-view", "protocol-script", "protocol-replay", "sim-runner", "render-bridge", "napi", "napi-derive"]
+may_depend_on = ["runtime-bridge-api", "core-ids", "core-math", "core-space", "core-voxel", "protocol-assets", "protocol-diagnostics", "protocol-game-extension", "protocol-render", "protocol-scene", "protocol-view", "protocol-voxel-asset", "protocol-script", "protocol-replay", "sim-runner", "render-bridge", "napi", "napi-derive"]
 may_not_depend_on = ["wasm-bindgen", "core-state"]

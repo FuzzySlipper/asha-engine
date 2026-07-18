@@ -15,6 +15,8 @@ handwritten semantic exports. Quarantined compatibility wiring is explicit.
 | `decode_project_content` | `workspace_authoring` | stable | `protocol_project_content::ProjectContentDecodeRequest` | `protocol_project_content::ProjectContentCodecResult` | `RuntimeBridgeError` |
 | `encode_project_content` | `workspace_authoring` | stable | `protocol_project_content::ProjectContentEncodeRequest` | `protocol_project_content::ProjectContentCodecResult` | `RuntimeBridgeError` |
 | `apply_project_content_authoring` | `workspace_authoring` | stable | `protocol_project_content::ProjectContentAuthoringRequest` | `protocol_project_content::ProjectContentAuthoringResult` | `RuntimeBridgeError` |
+| `preview_procedural_environment` | `workspace_authoring` | stable | `protocol_project_content::ProceduralEnvironmentPreviewRequest` | `protocol_project_content::ProceduralEnvironmentPreviewResult` | `RuntimeBridgeError` |
+| `apply_procedural_environment` | `workspace_authoring` | stable | `protocol_project_content::ProceduralEnvironmentApplyRequest` | `protocol_project_content::ProceduralEnvironmentApplyResult` | `RuntimeBridgeError` |
 | `step_simulation` | `time_simulation` | stable | `protocol_runtime::StepInputEnvelope` | `protocol_runtime::StepResult` | `RuntimeBridgeError` |
 | `apply_time_control_command` | `time_simulation` | stable | `protocol_time_control::TimeControlCommand` | `protocol_time_control::TimeControlReceipt` | `RuntimeBridgeError` |
 | `read_time_control_state` | `time_simulation` | stable | `Unit` | `protocol_time_control::TimeControlState` | `RuntimeBridgeError` |

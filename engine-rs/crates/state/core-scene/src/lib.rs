@@ -70,7 +70,9 @@ pub use scene_object::{
 };
 pub use spatial_session::{EntityRuntime, SpatialSessionHash, SpatialSessionState};
 pub use transform::{Quat, SceneTransform, TransformInvalid};
-pub use validate::{validate, SceneValidationError, SceneValidationReport};
+pub use validate::{
+    composed_world_transforms, validate, SceneValidationError, SceneValidationReport,
+};
 
 #[cfg(test)]
 mod tests {
@@ -81,6 +83,12 @@ mod tests {
 
     fn mesh_ref(id: &str) -> AssetReference {
         AssetRef::<markers::StaticMesh>::parse(id, AssetVersionReq::Any, None)
+            .unwrap()
+            .erase()
+    }
+
+    fn voxel_ref(id: &str) -> AssetReference {
+        AssetRef::<markers::VoxelVolume>::parse(id, AssetVersionReq::Any, None)
             .unwrap()
             .erase()
     }
@@ -244,6 +252,36 @@ mod tests {
                 actual: core_assets::AssetKind::Material,
                 ..
             }
+        )));
+    }
+
+    #[test]
+    fn voxel_volume_rejects_inherited_rotation_with_stable_reason() {
+        let mut flat = sample_tree().to_flat();
+        flat.nodes[0].transform.rotation = Quat::new(0.0, 0.0, 1.0, 0.0);
+        flat.nodes[1].kind = SceneNodeKind::VoxelVolume(voxel_ref("voxel-volume/fixture"));
+
+        let report = validate(&flat);
+
+        assert!(report.errors.iter().any(|error| matches!(
+            error,
+            SceneValidationError::InvalidVoxelVolumeTransform { node, reason }
+                if *node == SceneNodeId::new(2) && reason == "nonIdentityRotation"
+        )));
+    }
+
+    #[test]
+    fn voxel_volume_rejects_inherited_scale_with_stable_reason() {
+        let mut flat = sample_tree().to_flat();
+        flat.nodes[0].transform.scale = Vec3::new(2.0, 1.0, 1.0);
+        flat.nodes[1].kind = SceneNodeKind::VoxelVolume(voxel_ref("voxel-volume/fixture"));
+
+        let report = validate(&flat);
+
+        assert!(report.errors.iter().any(|error| matches!(
+            error,
+            SceneValidationError::InvalidVoxelVolumeTransform { node, reason }
+                if *node == SceneNodeId::new(2) && reason == "nonUnitScale"
         )));
     }
 

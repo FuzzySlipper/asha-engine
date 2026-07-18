@@ -98,6 +98,7 @@ impl EngineBridge {
             stored_revision: 0,
             last_stored_canonical_json_hash: None,
             pending_save_candidate: None,
+            pending_procedural_environment: None,
             next_projection_cursor: 0,
             projection_initialized: false,
             last_projection_receipt: None,
@@ -150,6 +151,7 @@ impl EngineBridge {
         authority.stored_revision = stored_revision;
         authority.last_stored_canonical_json_hash = Some(candidate.canonical_json_hash.clone());
         authority.pending_save_candidate = None;
+        authority.pending_procedural_environment = None;
         let lifecycle_hash = Self::workspace_authoring_lifecycle_hash(authority);
         Ok(WorkspaceAuthoringStoredConfirmationReceipt {
             kind: "workspace_authoring.stored_confirmation.v0".to_owned(),
@@ -181,6 +183,7 @@ impl EngineBridge {
         }
         authority.open = false;
         authority.pending_save_candidate = None;
+        authority.pending_procedural_environment = None;
         authority.last_projection_receipt = None;
         let workspace_id = authority.identity.project.workspace_id.clone();
         let generation = authority.identity.generation;
@@ -308,6 +311,7 @@ impl EngineBridge {
                 .checked_add(1)
                 .expect("workspace authoring revision overflow is unreachable in one process");
             authority.pending_save_candidate = None;
+            authority.pending_procedural_environment = None;
             self.projection.voxel_instance_binding = None;
         }
     }

@@ -58,6 +58,12 @@ continuous axis sweep so a command cannot tunnel through intervening voxels.
 Each command is limited to 256 world units of travel per axis; larger proposals
 fail closed as invalid input without mutating the camera.
 
+That operation is a legacy runtime fixture path, not the normal content
+pipeline. Authored projects use the Rust workspace transaction in
+`docs/procedural-environment-authoring.md` to materialize and save a canonical
+scene plus local-space voxel asset. A fresh RuntimeSession then consumes those
+saved artifacts without independently regenerating the tunnel.
+
 Non-claims:
 
 - No TypeScript generation algorithm.

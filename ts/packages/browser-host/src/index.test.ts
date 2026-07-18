@@ -726,6 +726,8 @@ function createFakeRuntimeBridge(): RuntimeBridge {
     decodeSceneDocument: operation,
     encodeSceneDocument: operation,
     applySceneDocumentAuthoring: operation,
+    previewProceduralEnvironment: operation,
+    applyProceduralEnvironment: operation,
     decodeProjectContent: operation,
     encodeProjectContent: operation,
     applyProjectContentAuthoring: operation,

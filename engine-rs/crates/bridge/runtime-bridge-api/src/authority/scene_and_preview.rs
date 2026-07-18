@@ -349,6 +349,7 @@ impl EngineBridge {
                 .project_content_reference_revision
                 .saturating_add(1);
             authority.pending_save_candidate = None;
+            authority.pending_procedural_environment = None;
         }
     }
 
@@ -578,7 +579,9 @@ impl EngineBridge {
         }
     }
 
-    fn scene_document_dto(document: &core_scene::FlatSceneDocument) -> FlatSceneDocumentDto {
+    pub(super) fn scene_document_dto(
+        document: &core_scene::FlatSceneDocument,
+    ) -> FlatSceneDocumentDto {
         let document = document.canonical();
         FlatSceneDocumentDto {
             schema_version: document.schema_version,
@@ -839,7 +842,9 @@ impl EngineBridge {
         })
     }
 
-    fn scene_transform_from_dto(transform: SceneTransformDto) -> core_scene::SceneTransform {
+    pub(super) fn scene_transform_from_dto(
+        transform: SceneTransformDto,
+    ) -> core_scene::SceneTransform {
         core_scene::SceneTransform {
             translation: Vec3::new(
                 transform.translation[0],
@@ -1100,6 +1105,11 @@ impl EngineBridge {
                 dto.code = SceneValidationCode::InvalidTransform;
                 dto.node = Some(node);
                 dto.transform_reason = Some(format!("{reason:?}"));
+            }
+            core_scene::SceneValidationError::InvalidVoxelVolumeTransform { node, reason } => {
+                dto.code = SceneValidationCode::InvalidVoxelVolumeTransform;
+                dto.node = Some(node);
+                dto.detail_reason = Some(reason);
             }
             core_scene::SceneValidationError::AssetKindMismatch {
                 node,

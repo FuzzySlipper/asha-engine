@@ -120,6 +120,21 @@ fn map_scene_error(error: &SceneValidationError) -> DiagnosticReport {
             RemedyAction::Inspect,
             "fix the node transform (finite translation/scale, normalized rotation)",
         )),
+        SceneValidationError::InvalidVoxelVolumeTransform { node, reason } => {
+            DiagnosticReport::new(
+                DiagnosticCode::InvalidSceneTransform,
+                format!("node:{}", node.raw()),
+                DiagnosticSourceRef::empty().with_scene_node(node.raw()),
+                format!(
+                    "scene voxel-volume node {} uses unsupported composed transform: {reason}",
+                    node.raw()
+                ),
+            )
+            .with_remedy(SuggestedRemedy::new(
+                RemedyAction::Inspect,
+                "use identity rotation and unit scale on the voxel node and its ancestors",
+            ))
+        }
         SceneValidationError::AssetKindMismatch {
             node,
             expected,

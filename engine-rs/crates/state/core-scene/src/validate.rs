@@ -5,7 +5,7 @@
 //! can route on the variant rather than parse prose (scene-capability-01,
 //! "Rust validation and error classification").
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use core_assets::AssetKind;
 use core_ids::SceneNodeId;
@@ -31,6 +31,9 @@ pub enum SceneValidationError {
         node: SceneNodeId,
         reason: TransformInvalid,
     },
+    /// A voxel-volume instance uses a composed transform the shared
+    /// render/collision path cannot preserve yet.
+    InvalidVoxelVolumeTransform { node: SceneNodeId, reason: String },
     /// A node references an asset of the wrong kind for its variant.
     AssetKindMismatch {
         node: SceneNodeId,
@@ -75,6 +78,9 @@ impl SceneValidationError {
             SceneValidationError::UnknownParent { .. } => "unknown-parent",
             SceneValidationError::Cycle { .. } => "cycle",
             SceneValidationError::InvalidTransform { .. } => "invalid-transform",
+            SceneValidationError::InvalidVoxelVolumeTransform { .. } => {
+                "invalid-voxel-volume-transform"
+            }
             SceneValidationError::AssetKindMismatch { .. } => "asset-kind-mismatch",
             SceneValidationError::InvalidLight { .. } => "invalid-light",
             SceneValidationError::DuplicateMarkerId { .. } => "duplicate-marker-id",
@@ -313,7 +319,71 @@ pub fn validate(doc: &FlatSceneDocument) -> SceneValidationReport {
     //    unknown parent is already reported above and terminates a walk.
     detect_cycles(doc, &known, &mut errors);
 
+    // Stored voxel assets remain in local coordinates. The first shared
+    // render/collision admission slice supports composed translation only, so
+    // reject transforms that would otherwise drift between those consumers.
+    if !errors.iter().any(|error| {
+        matches!(
+            error,
+            SceneValidationError::DuplicateNodeId { .. }
+                | SceneValidationError::UnknownParent { .. }
+                | SceneValidationError::Cycle { .. }
+                | SceneValidationError::InvalidTransform { .. }
+        )
+    }) {
+        let world_transforms = composed_world_transforms(doc);
+        for record in &doc.nodes {
+            if !matches!(record.kind, SceneNodeKind::VoxelVolume(_)) {
+                continue;
+            }
+            let transform = world_transforms[&record.id.raw()];
+            if transform.rotation != crate::Quat::IDENTITY {
+                errors.push(SceneValidationError::InvalidVoxelVolumeTransform {
+                    node: record.id,
+                    reason: "nonIdentityRotation".to_owned(),
+                });
+            }
+            if transform.scale != core_math::Vec3::ONE {
+                errors.push(SceneValidationError::InvalidVoxelVolumeTransform {
+                    node: record.id,
+                    reason: "nonUnitScale".to_owned(),
+                });
+            }
+        }
+    }
+
     SceneValidationReport { errors }
+}
+
+/// Resolve canonical authored world transforms for a structurally valid flat
+/// document. Callers must validate parent references and cycles first.
+pub fn composed_world_transforms(doc: &FlatSceneDocument) -> BTreeMap<u64, crate::SceneTransform> {
+    let records = doc
+        .nodes
+        .iter()
+        .map(|record| (record.id.raw(), record))
+        .collect::<BTreeMap<_, _>>();
+    let mut resolved = BTreeMap::new();
+    for record in &doc.nodes {
+        resolve_world_transform(record.id.raw(), &records, &mut resolved);
+    }
+    resolved
+}
+
+fn resolve_world_transform(
+    node: u64,
+    records: &BTreeMap<u64, &crate::SceneNodeRecord>,
+    resolved: &mut BTreeMap<u64, crate::SceneTransform>,
+) -> crate::SceneTransform {
+    if let Some(transform) = resolved.get(&node) {
+        return *transform;
+    }
+    let record = records[&node];
+    let world = record.parent.map_or(record.transform, |parent| {
+        resolve_world_transform(parent.raw(), records, resolved).compose(record.transform)
+    });
+    resolved.insert(node, world);
+    world
 }
 
 fn valid_stable_id(value: &str) -> bool {

@@ -9,6 +9,9 @@
 import type { EntityDefinition } from './entityAuthoring.js';
 import type { StoredAssetCatalog } from './assets.js';
 import type { PrefabRegistry, GameplayTriggerDefinition } from './projectBundle.js';
+import type { RenderFrameDiff } from './render.js';
+import type { SceneId, SceneNodeId, SceneTransform, FlatSceneDocument } from './scene.js';
+import type { VoxelAssetAuthoringMetadata, VoxelAssetMaterialBinding, VoxelVolumeAsset } from './voxelAsset.js';
 import type { GameplayContractRef, GameplayModuleRef, GameplayModuleBinding, GameplayModuleBindingOverride } from './gameExtension.js';
 
 export const PROJECT_CONTENT_SCHEMA_VERSION = 1;
@@ -180,4 +183,128 @@ export interface ProjectContentAuthoringResult {
   readonly providerSchemas: readonly ProjectConfigurationSchema[];
   readonly fieldMetadata: readonly ProjectContentFieldMetadata[];
   readonly diagnostics: readonly ProjectContentDiagnostic[];
+}
+
+// Caller-selected bounds for one procedural materialization request. Rust applies stricter provider limits when they are lower than these values.
+export interface ProceduralEnvironmentLimits {
+  readonly maxVoxels: number;
+  readonly maxSparseRuns: number;
+  readonly maxMarkers: number;
+}
+
+// Deterministic mapping from one provider marker to one stored scene marker.
+export interface ProceduralEnvironmentMarkerTarget {
+  readonly sourceMarkerId: string;
+  readonly nodeId: SceneNodeId;
+  readonly markerId: string;
+  readonly childOrder: number;
+}
+
+// Explicit stored artifact identities and placement for materialization.
+export interface ProceduralEnvironmentTarget {
+  readonly sceneId: SceneId;
+  readonly scenePath: string;
+  readonly assetId: string;
+  readonly assetPath: string;
+  readonly voxelNodeId: SceneNodeId;
+  readonly voxelParentId: SceneNodeId | null;
+  readonly voxelChildOrder: number;
+  readonly voxelLabel: string | null;
+  readonly voxelTransform: SceneTransform;
+  readonly markerTargets: readonly ProceduralEnvironmentMarkerTarget[];
+}
+
+// Pure preview request bound to one Rust workspace revision and one Engine-owned canonical scene.
+export interface ProceduralEnvironmentPreviewRequest {
+  readonly expectedWorkspaceId: string;
+  readonly expectedGeneration: number;
+  readonly expectedWorkingRevision: number;
+  readonly expectedSceneContentHash: string;
+  readonly providerId: string;
+  readonly presetId: string;
+  readonly seed: number;
+  readonly target: ProceduralEnvironmentTarget;
+  readonly materialPalette: readonly VoxelAssetMaterialBinding[];
+  readonly authoring: VoxelAssetAuthoringMetadata;
+  readonly limits: ProceduralEnvironmentLimits;
+}
+
+export type ProceduralEnvironmentDiagnosticCode = 'missingScene' | 'staleScene' | 'unknownProvider' | 'unknownPreset' | 'recipeMismatch' | 'invalidTarget' | 'limitExceeded' | 'invalidGeneratedAsset' | 'invalidGeneratedScene' | 'staleCandidate';
+
+export interface ProceduralEnvironmentDiagnostic {
+  readonly code: ProceduralEnvironmentDiagnosticCode;
+  readonly path: string;
+  readonly message: string;
+}
+
+// Durable recipe and generated-output identity retained with the artifacts.
+export interface ProceduralEnvironmentProvenance {
+  readonly providerId: string;
+  readonly providerVersion: number;
+  readonly presetId: string;
+  readonly seed: number;
+  readonly configHash: string;
+  readonly outputHash: string;
+}
+
+export interface ProceduralEnvironmentMarkerReadout {
+  readonly sourceMarkerId: string;
+  readonly markerId: string;
+  readonly nodeId: SceneNodeId;
+  readonly localPosition: readonly [number, number, number];
+  readonly yawDegrees: number;
+}
+
+// Renderer-neutral and simulation-neutral derivation evidence. These hashes identify the exact saved voxel source used to build both consumers.
+export interface ProceduralEnvironmentSourceReadout {
+  readonly voxelDataHash: string;
+  readonly collisionSourceHash: string;
+  readonly navigationSourceHash: string;
+  readonly solidVoxelCount: number;
+  readonly walkableVoxelCount: number;
+}
+
+export interface ProceduralEnvironmentCanonicalFile {
+  readonly path: string;
+  readonly mediaType: string;
+  readonly canonicalJson: string;
+  readonly contentHash: string;
+}
+
+// Complete immutable candidate owned by Rust between preview and apply.
+export interface ProceduralEnvironmentArtifactCandidate {
+  readonly candidateHash: string;
+  readonly sceneFile: ProceduralEnvironmentCanonicalFile;
+  readonly voxelFile: ProceduralEnvironmentCanonicalFile;
+  readonly artifactSetHash: string;
+  readonly scene: FlatSceneDocument;
+  readonly asset: VoxelVolumeAsset;
+  readonly provenance: ProceduralEnvironmentProvenance;
+  readonly markers: readonly ProceduralEnvironmentMarkerReadout[];
+  readonly sources: ProceduralEnvironmentSourceReadout;
+}
+
+export interface ProceduralEnvironmentPreviewResult {
+  readonly accepted: boolean;
+  readonly candidate: ProceduralEnvironmentArtifactCandidate | null;
+  readonly previewFrame: RenderFrameDiff | null;
+  readonly previewProjectionHash: string | null;
+  readonly previewDiffCount: number;
+  readonly diagnostics: readonly ProceduralEnvironmentDiagnostic[];
+}
+
+// Apply consumes the Engine-owned candidate by identity. Artifact bytes are deliberately absent so callers cannot substitute a different valid set.
+export interface ProceduralEnvironmentApplyRequest {
+  readonly expectedWorkspaceId: string;
+  readonly expectedGeneration: number;
+  readonly expectedWorkingRevision: number;
+  readonly candidateHash: string;
+}
+
+export interface ProceduralEnvironmentApplyResult {
+  readonly accepted: boolean;
+  readonly workingRevision: number;
+  readonly saveCandidateHash: string | null;
+  readonly candidate: ProceduralEnvironmentArtifactCandidate | null;
+  readonly diagnostics: readonly ProceduralEnvironmentDiagnostic[];
 }

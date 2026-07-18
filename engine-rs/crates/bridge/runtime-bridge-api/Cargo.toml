@@ -51,6 +51,7 @@ svc-mesh        = { path = "../../services/svc-mesh" }
 svc-mesh-import = { path = "../../services/svc-mesh-import" }
 svc-serialization = { path = "../../services/svc-serialization" }
 svc-project-content = { path = "../../services/svc-project-content" }
+svc-environment-authoring = { path = "../../services/svc-environment-authoring" }
 svc-pathfinding = { path = "../../services/svc-pathfinding" }
 svc-voxel-asset = { path = "../../services/svc-voxel-asset" }
 svc-voxel-annotation = { path = "../../services/svc-voxel-annotation" }

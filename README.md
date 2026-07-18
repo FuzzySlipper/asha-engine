@@ -42,7 +42,7 @@ For multi-repo checkout, consumer setup, and deployment-viable repo roles, see
 ## Repository layout
 
 <!-- workspace-counts:start -->
-Workspace inventory: **95 default Cargo workspace members, 1 explicit-build excluded crate (96 governed Rust crates total), and 24 pnpm workspace packages (workspace root excluded).**
+Workspace inventory: **96 default Cargo workspace members, 1 explicit-build excluded crate (97 governed Rust crates total), and 24 pnpm workspace packages (workspace root excluded).**
 <!-- workspace-counts:end -->
 
 ```text
@@ -297,6 +297,7 @@ Check the relevant package scripts before adding new commands; this workspace in
 | `docs/prefab-instantiation.md` | Deterministic prefab expansion, role maps, provenance, typed overrides, atomicity, and replay |
 | `docs/prefab-authoring-and-placement.md` | Public prefab draft commands/readouts, validated runtime bootstrap, stable gameplay addressing, downstream placement proof, and limits |
 | `docs/project-content-authoring.md` | Rust-owned non-scene project-content codecs, provider-schema inspection, revision-bound typed edits, and trusted-host persistence |
+| `docs/procedural-environment-authoring.md` | Rust-owned recipe-to-scene/voxel materialization, pure preview, revision-bound apply, and saved-state runtime consumption |
 | `docs/ecrp-fps-object-model.md` | Public FPS object-model map from generated-tunnel roles to ECRP capabilities and runtime surfaces |
 | `docs/ecrp-capability-rule-ownership.md` | ECRP rule-owner matrix and current FPS RuntimeSession authority slice |
 | `docs/capability-activation.md` | Typed collision/controller activation, lifecycle interaction, persistence, and owner gates |

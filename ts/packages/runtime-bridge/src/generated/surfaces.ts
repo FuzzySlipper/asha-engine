@@ -107,6 +107,8 @@ export interface RuntimeWorkspaceAuthoringPort {
   decodeProjectContent(input: Contracts.ProjectContentDecodeRequest): Contracts.ProjectContentCodecResult;
   encodeProjectContent(input: Contracts.ProjectContentEncodeRequest): Contracts.ProjectContentCodecResult;
   applyProjectContentAuthoring(input: Contracts.ProjectContentAuthoringRequest): Contracts.ProjectContentAuthoringResult;
+  previewProceduralEnvironment(input: Contracts.ProceduralEnvironmentPreviewRequest): Contracts.ProceduralEnvironmentPreviewResult;
+  applyProceduralEnvironment(input: Contracts.ProceduralEnvironmentApplyRequest): Contracts.ProceduralEnvironmentApplyResult;
   confirmWorkspaceAuthoringStored(input: Contracts.WorkspaceAuthoringStoredConfirmationRequest): Contracts.WorkspaceAuthoringStoredConfirmationReceipt;
   closeWorkspaceAuthoring(input: Contracts.WorkspaceAuthoringCloseRequest): Contracts.WorkspaceAuthoringCloseReceipt;
 }

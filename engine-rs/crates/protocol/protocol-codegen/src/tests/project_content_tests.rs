@@ -46,6 +46,19 @@ pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
         variant_coverage_key("projectContent", "ProjectContentAuthoringCommand", "delete"),
         interface_coverage_key("projectContent", "ProjectContentAuthoringRequest"),
         interface_coverage_key("projectContent", "ProjectContentAuthoringResult"),
+        interface_coverage_key("projectContent", "ProceduralEnvironmentLimits"),
+        interface_coverage_key("projectContent", "ProceduralEnvironmentMarkerTarget"),
+        interface_coverage_key("projectContent", "ProceduralEnvironmentTarget"),
+        interface_coverage_key("projectContent", "ProceduralEnvironmentPreviewRequest"),
+        interface_coverage_key("projectContent", "ProceduralEnvironmentDiagnostic"),
+        interface_coverage_key("projectContent", "ProceduralEnvironmentProvenance"),
+        interface_coverage_key("projectContent", "ProceduralEnvironmentMarkerReadout"),
+        interface_coverage_key("projectContent", "ProceduralEnvironmentSourceReadout"),
+        interface_coverage_key("projectContent", "ProceduralEnvironmentCanonicalFile"),
+        interface_coverage_key("projectContent", "ProceduralEnvironmentArtifactCandidate"),
+        interface_coverage_key("projectContent", "ProceduralEnvironmentPreviewResult"),
+        interface_coverage_key("projectContent", "ProceduralEnvironmentApplyRequest"),
+        interface_coverage_key("projectContent", "ProceduralEnvironmentApplyResult"),
     ]);
 }
 
@@ -224,4 +237,161 @@ fn project_content_samples_match_closed_generated_ir_shapes() {
         &delete,
     )
     .unwrap();
+
+    let environment_limits = json!({ "maxVoxels": 10000, "maxSparseRuns": 10000, "maxMarkers": 8 });
+    let marker_target = json!({
+        "sourceMarkerId": "player_start",
+        "nodeId": 11,
+        "markerId": "spawn/player",
+        "childOrder": 0
+    });
+    let environment_target = json!({
+        "sceneId": 7,
+        "scenePath": "scenes/tunnel.scene.json",
+        "assetId": "voxel-volume/generated-tunnel",
+        "assetPath": "assets/generated-tunnel.avxl.json",
+        "voxelNodeId": 10,
+        "voxelParentId": null,
+        "voxelChildOrder": 1,
+        "voxelLabel": "Generated tunnel",
+        "voxelTransform": {
+            "translation": [-3.5, -1.0, -5.5],
+            "rotation": [0.0, 0.0, 0.0, 1.0],
+            "scale": [1.0, 1.0, 1.0]
+        },
+        "markerTargets": [marker_target]
+    });
+    let palette_binding = json!({
+        "voxelMaterial": 1,
+        "paletteEntryId": "voxel-material/tunnel",
+        "displayName": "Tunnel",
+        "materialAssetId": "material/tunnel",
+        "materialCatalogBindingId": null
+    });
+    let asset_authoring = json!({
+        "label": "Generated tunnel",
+        "createdBy": "protocol-codegen",
+        "sourceTool": "svc-environment-authoring"
+    });
+    let preview_request = json!({
+        "expectedWorkspaceId": "workspace-1",
+        "expectedGeneration": 2,
+        "expectedWorkingRevision": 3,
+        "expectedSceneContentHash": "fnv1a64:scene",
+        "providerId": "asha.tunnel.enclosed.v2",
+        "presetId": "tiny-enclosed",
+        "seed": 42,
+        "target": environment_target,
+        "materialPalette": [palette_binding],
+        "authoring": asset_authoring,
+        "limits": environment_limits
+    });
+    let environment_diagnostic =
+        json!({ "code": "staleCandidate", "path": "candidateHash", "message": "stale" });
+    let provenance = json!({
+        "providerId": "asha.tunnel.enclosed.v2",
+        "providerVersion": 2,
+        "presetId": "tiny-enclosed",
+        "seed": 42,
+        "configHash": "fnv1a64:config",
+        "outputHash": "fnv1a64:output"
+    });
+    let marker_readout = json!({
+        "sourceMarkerId": "player_start",
+        "markerId": "spawn/player",
+        "nodeId": 11,
+        "localPosition": [1.0, 2.0, 3.0],
+        "yawDegrees": 90
+    });
+    let sources = json!({
+        "voxelDataHash": "fnv1a64:voxels",
+        "collisionSourceHash": "fnv1a64:collision",
+        "navigationSourceHash": "fnv1a64:navigation",
+        "solidVoxelCount": 120,
+        "walkableVoxelCount": 40
+    });
+    let scene_file = json!({
+        "path": "scenes/tunnel.scene.json",
+        "mediaType": "application/vnd.asha.scene+json;version=4",
+        "canonicalJson": "{}\n",
+        "contentHash": "fnv1a64:scene"
+    });
+    let voxel_file = json!({
+        "path": "assets/generated-tunnel.avxl.json",
+        "mediaType": "application/vnd.asha.voxel-volume+json;version=1",
+        "canonicalJson": "{}\n",
+        "contentHash": "fnv1a64:asset"
+    });
+    let stored_scene = json!({
+        "schemaVersion": 4,
+        "id": 7,
+        "metadata": { "name": "Tunnel", "authoringFormatVersion": 4 },
+        "dependencies": [],
+        "nodes": []
+    });
+    let stored_asset = json!({
+        "assetId": "voxel-volume/generated-tunnel",
+        "schemaVersion": 1,
+        "mediaType": "application/vnd.asha.voxel-volume+json;version=1",
+        "grid": { "origin": [0.0, 0.0, 0.0], "cellSize": 1.0, "coordinateSystem": "asha-y-up-right-handed" },
+        "bounds": { "min": { "x": 0, "y": 0, "z": 0 }, "max": { "x": 1, "y": 1, "z": 1 } },
+        "representation": { "kind": "sparse_runs", "sparseRuns": [] },
+        "materialPalette": [palette_binding],
+        "provenance": [{ "kind": "generated", "uri": "asha-generator://tunnel", "contentHash": "fnv1a64:output" }],
+        "authoring": asset_authoring,
+        "validationDiagnostics": [],
+        "contentHashes": { "canonicalJson": "fnv1a64:asset", "voxelData": "fnv1a64:voxels" }
+    });
+    let artifact_candidate = json!({
+        "candidateHash": "fnv1a64:candidate",
+        "sceneFile": scene_file,
+        "voxelFile": voxel_file,
+        "artifactSetHash": "fnv1a64:set",
+        "scene": stored_scene,
+        "asset": stored_asset,
+        "provenance": provenance,
+        "markers": [marker_readout],
+        "sources": sources
+    });
+    let preview_result = json!({
+        "accepted": true,
+        "candidate": artifact_candidate,
+        "previewFrame": { "ops": [] },
+        "previewProjectionHash": "fnv1a64:preview",
+        "previewDiffCount": 1,
+        "diagnostics": []
+    });
+    let apply_request = json!({
+        "expectedWorkspaceId": "workspace-1",
+        "expectedGeneration": 2,
+        "expectedWorkingRevision": 3,
+        "candidateHash": "fnv1a64:candidate"
+    });
+    let apply_result = json!({
+        "accepted": true,
+        "workingRevision": 4,
+        "saveCandidateHash": "fnv1a64:set",
+        "candidate": artifact_candidate,
+        "diagnostics": []
+    });
+    for (name, value) in [
+        ("ProceduralEnvironmentLimits", &environment_limits),
+        ("ProceduralEnvironmentMarkerTarget", &marker_target),
+        ("ProceduralEnvironmentTarget", &environment_target),
+        ("ProceduralEnvironmentPreviewRequest", &preview_request),
+        ("ProceduralEnvironmentDiagnostic", &environment_diagnostic),
+        ("ProceduralEnvironmentProvenance", &provenance),
+        ("ProceduralEnvironmentMarkerReadout", &marker_readout),
+        ("ProceduralEnvironmentSourceReadout", &sources),
+        ("ProceduralEnvironmentCanonicalFile", &scene_file),
+        (
+            "ProceduralEnvironmentArtifactCandidate",
+            &artifact_candidate,
+        ),
+        ("ProceduralEnvironmentPreviewResult", &preview_result),
+        ("ProceduralEnvironmentApplyRequest", &apply_request),
+        ("ProceduralEnvironmentApplyResult", &apply_result),
+    ] {
+        compare_object_to_interface(&project, name, value).unwrap();
+    }
 }

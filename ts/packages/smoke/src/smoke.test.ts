@@ -204,6 +204,8 @@ function bridgeWith(overrides: Partial<RuntimeBridge>): RuntimeBridge {
     decodeSceneDocument: base.decodeSceneDocument.bind(base),
     encodeSceneDocument: base.encodeSceneDocument.bind(base),
     applySceneDocumentAuthoring: base.applySceneDocumentAuthoring.bind(base),
+    previewProceduralEnvironment: base.previewProceduralEnvironment.bind(base),
+    applyProceduralEnvironment: base.applyProceduralEnvironment.bind(base),
     decodeProjectContent: base.decodeProjectContent.bind(base),
     encodeProjectContent: base.encodeProjectContent.bind(base),
     applyProjectContentAuthoring: base.applyProjectContentAuthoring.bind(base),

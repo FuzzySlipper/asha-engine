@@ -8,6 +8,7 @@ import type {
   VoxelProjectionBindingReceipt,
   VoxelProjectionBindingRequest,
 } from '@asha/contracts';
+import { sceneId, sceneNodeId } from '@asha/contracts';
 import {
   RuntimeBridgeError,
   createNativeRuntimeBridge,
@@ -399,6 +400,143 @@ void test('native workspace authoring creates, stores, closes, and reopens voxel
     false,
     'close/reopen does not reuse retained instance handles',
   );
+  assert.throws(
+    () => bridge.readFpsRuntimeSession(),
+    (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'not_initialized',
+  );
+});
+
+void test('native public workspace facade materializes a typed procedural preview and consumes its candidate once', (t) => {
+  let bridge;
+  try {
+    bridge = createNativeRuntimeBridge();
+  } catch (error) {
+    if (error instanceof RuntimeBridgeError && error.kind === 'native_unavailable') {
+      t.skip('native addon not built (run harness/ci/check-native.sh)');
+      return;
+    }
+    throw error;
+  }
+  const authoring = createWorkspaceAuthoringFacade({ bridge });
+  const opened = authoring.open({
+    ...OPEN_INPUT,
+    authoringId: 'workspace-authoring.procedural-environment',
+  });
+  const scene = {
+    schemaVersion: 4,
+    id: sceneId(42),
+    metadata: { name: 'Procedural environment', authoringFormatVersion: 4 },
+    dependencies: [],
+    nodes: [{
+      id: sceneNodeId(1),
+      parent: null,
+      childOrder: 0,
+      label: 'Stored tunnel recipe',
+      tags: [],
+      transform: {
+        translation: [0, 0, 0],
+        rotation: [0, 0, 0, 1],
+        scale: [1, 1, 1],
+      },
+      kind: {
+        kind: 'bootstrap',
+        bindings: {
+          generator: {
+            providerId: 'asha.tunnel.enclosed.v2',
+            presetId: 'tiny-enclosed',
+            seed: 42,
+          },
+          catalogs: [],
+        },
+      },
+    }],
+  } as const;
+  const decoded = authoring.decodeSceneDocument({ sourceText: JSON.stringify(scene) });
+  assert.equal(decoded.accepted, true, JSON.stringify(decoded.diagnostics));
+  assert.notEqual(decoded.contentHash, null);
+
+  const preview = authoring.previewProceduralEnvironment({
+    expectedWorkspaceId: opened.identity.project.workspaceId,
+    expectedGeneration: opened.identity.generation,
+    expectedWorkingRevision: opened.workingRevision,
+    expectedSceneContentHash: decoded.contentHash ?? '',
+    providerId: 'asha.tunnel.enclosed.v2',
+    presetId: 'tiny-enclosed',
+    seed: 42,
+    target: {
+      sceneId: scene.id,
+      scenePath: 'scenes/generated-tunnel.scene.json',
+      assetId: 'voxel-volume/generated-tunnel',
+      assetPath: 'assets/generated-tunnel.avxl.json',
+      voxelNodeId: sceneNodeId(10),
+      voxelParentId: null,
+      voxelChildOrder: 1,
+      voxelLabel: 'Generated tunnel',
+      voxelTransform: {
+        translation: [-3.5, -1, -5.5],
+        rotation: [0, 0, 0, 1],
+        scale: [1, 1, 1],
+      },
+      markerTargets: [{
+        sourceMarkerId: 'player_start',
+        nodeId: sceneNodeId(11),
+        markerId: 'spawn/player',
+        childOrder: 0,
+      }, {
+        sourceMarkerId: 'exit_hint',
+        nodeId: sceneNodeId(12),
+        markerId: 'navigation/exit',
+        childOrder: 1,
+      }],
+    },
+    materialPalette: [1, 2, 3].map((material) => ({
+      voxelMaterial: material,
+      paletteEntryId: `voxel-material/tunnel-${material}`,
+      displayName: `Tunnel ${material}`,
+      materialAssetId: `material/tunnel-${material}`,
+      materialCatalogBindingId: null,
+    })),
+    authoring: {
+      label: 'Generated tunnel',
+      createdBy: 'runtime-bridge-test',
+      sourceTool: 'svc-environment-authoring',
+    },
+    limits: { maxVoxels: 10_000, maxSparseRuns: 10_000, maxMarkers: 8 },
+  });
+  assert.equal(preview.accepted, true, JSON.stringify(preview.diagnostics));
+  assert.ok((preview.previewFrame?.ops.length ?? 0) > 0);
+  assert.equal(authoring.readState().workingRevision, 0, 'preview is authority-pure');
+  const candidate = preview.candidate;
+  if (candidate === null) throw new Error('accepted preview omitted its candidate');
+
+  const applied = authoring.applyProceduralEnvironment({
+    expectedWorkspaceId: opened.identity.project.workspaceId,
+    expectedGeneration: opened.identity.generation,
+    expectedWorkingRevision: 0,
+    candidateHash: candidate.candidateHash,
+  });
+  assert.equal(applied.accepted, true, JSON.stringify(applied.diagnostics));
+  assert.equal(applied.workingRevision, 1);
+  assert.deepEqual(applied.candidate?.asset.contentHashes, candidate.asset.contentHashes);
+
+  const replay = authoring.applyProceduralEnvironment({
+    expectedWorkspaceId: opened.identity.project.workspaceId,
+    expectedGeneration: opened.identity.generation,
+    expectedWorkingRevision: 1,
+    candidateHash: candidate.candidateHash,
+  });
+  assert.equal(replay.accepted, false, 'an applied candidate is consumed');
+  if (applied.saveCandidateHash === null) throw new Error('accepted apply omitted save hash');
+  authoring.confirmStored({
+    expectedWorkspaceId: opened.identity.project.workspaceId,
+    expectedGeneration: opened.identity.generation,
+    hostPath: '.',
+    canonicalJsonHash: applied.saveCandidateHash,
+  });
+  authoring.close({
+    expectedWorkspaceId: opened.identity.project.workspaceId,
+    expectedGeneration: opened.identity.generation,
+  });
   assert.throws(
     () => bridge.readFpsRuntimeSession(),
     (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'not_initialized',

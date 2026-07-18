@@ -6,12 +6,17 @@
 
 #![forbid(unsafe_code)]
 
+use core_ids::{SceneId, SceneNodeId};
 use protocol_assets::StoredAssetCatalog;
 use protocol_entity_authoring::EntityDefinition;
 use protocol_game_extension::{
     GameplayContractRef, GameplayModuleBinding, GameplayModuleBindingOverride, GameplayModuleRef,
 };
 use protocol_project_bundle::{GameplayTriggerDefinition, PrefabRegistry};
+use protocol_scene::{FlatSceneDocumentDto, SceneTransformDto};
+use protocol_voxel_asset::{
+    VoxelAssetAuthoringMetadata, VoxelAssetMaterialBinding, VoxelVolumeAsset,
+};
 
 pub const PROJECT_CONTENT_SCHEMA_VERSION: u32 = 1;
 
@@ -319,4 +324,157 @@ pub struct ProjectContentAuthoringResultDto {
     pub provider_schemas: Vec<ProjectConfigurationSchemaDto>,
     pub field_metadata: Vec<ProjectContentFieldMetadataDto>,
     pub diagnostics: Vec<ProjectContentDiagnosticDto>,
+}
+
+/// Caller-selected bounds for one procedural materialization request. Rust
+/// applies stricter provider limits when they are lower than these values.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProceduralEnvironmentLimitsDto {
+    pub max_voxels: u64,
+    pub max_sparse_runs: u64,
+    pub max_markers: u64,
+}
+
+/// Deterministic mapping from one provider marker to one stored scene marker.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProceduralEnvironmentMarkerTargetDto {
+    pub source_marker_id: String,
+    pub node_id: SceneNodeId,
+    pub marker_id: String,
+    pub child_order: u32,
+}
+
+/// Explicit stored artifact identities and placement for materialization.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProceduralEnvironmentTargetDto {
+    pub scene_id: SceneId,
+    pub scene_path: String,
+    pub asset_id: String,
+    pub asset_path: String,
+    pub voxel_node_id: SceneNodeId,
+    pub voxel_parent_id: Option<SceneNodeId>,
+    pub voxel_child_order: u32,
+    pub voxel_label: Option<String>,
+    pub voxel_transform: SceneTransformDto,
+    pub marker_targets: Vec<ProceduralEnvironmentMarkerTargetDto>,
+}
+
+/// Pure preview request bound to one Rust workspace revision and one
+/// Engine-owned canonical scene.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProceduralEnvironmentPreviewRequestDto {
+    pub expected_workspace_id: String,
+    pub expected_generation: u64,
+    pub expected_working_revision: u64,
+    pub expected_scene_content_hash: String,
+    pub provider_id: String,
+    pub preset_id: String,
+    pub seed: u64,
+    pub target: ProceduralEnvironmentTargetDto,
+    pub material_palette: Vec<VoxelAssetMaterialBinding>,
+    pub authoring: VoxelAssetAuthoringMetadata,
+    pub limits: ProceduralEnvironmentLimitsDto,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProceduralEnvironmentDiagnosticCode {
+    MissingScene,
+    StaleScene,
+    UnknownProvider,
+    UnknownPreset,
+    RecipeMismatch,
+    InvalidTarget,
+    LimitExceeded,
+    InvalidGeneratedAsset,
+    InvalidGeneratedScene,
+    StaleCandidate,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProceduralEnvironmentDiagnosticDto {
+    pub code: ProceduralEnvironmentDiagnosticCode,
+    pub path: String,
+    pub message: String,
+}
+
+/// Durable recipe and generated-output identity retained with the artifacts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProceduralEnvironmentProvenanceDto {
+    pub provider_id: String,
+    pub provider_version: u32,
+    pub preset_id: String,
+    pub seed: u64,
+    pub config_hash: String,
+    pub output_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProceduralEnvironmentMarkerReadoutDto {
+    pub source_marker_id: String,
+    pub marker_id: String,
+    pub node_id: SceneNodeId,
+    pub local_position: [f32; 3],
+    pub yaw_degrees: i32,
+}
+
+/// Renderer-neutral and simulation-neutral derivation evidence. These hashes
+/// identify the exact saved voxel source used to build both consumers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProceduralEnvironmentSourceReadoutDto {
+    pub voxel_data_hash: String,
+    pub collision_source_hash: String,
+    pub navigation_source_hash: String,
+    pub solid_voxel_count: u64,
+    pub walkable_voxel_count: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProceduralEnvironmentCanonicalFileDto {
+    pub path: String,
+    pub media_type: String,
+    pub canonical_json: String,
+    pub content_hash: String,
+}
+
+/// Complete immutable candidate owned by Rust between preview and apply.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProceduralEnvironmentArtifactCandidateDto {
+    pub candidate_hash: String,
+    pub scene_file: ProceduralEnvironmentCanonicalFileDto,
+    pub voxel_file: ProceduralEnvironmentCanonicalFileDto,
+    pub artifact_set_hash: String,
+    pub scene: FlatSceneDocumentDto,
+    pub asset: VoxelVolumeAsset,
+    pub provenance: ProceduralEnvironmentProvenanceDto,
+    pub markers: Vec<ProceduralEnvironmentMarkerReadoutDto>,
+    pub sources: ProceduralEnvironmentSourceReadoutDto,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProceduralEnvironmentPreviewResultDto {
+    pub accepted: bool,
+    pub candidate: Option<ProceduralEnvironmentArtifactCandidateDto>,
+    pub preview_frame: Option<protocol_render::RenderFrameDiff>,
+    pub preview_projection_hash: Option<String>,
+    pub preview_diff_count: u64,
+    pub diagnostics: Vec<ProceduralEnvironmentDiagnosticDto>,
+}
+
+/// Apply consumes the Engine-owned candidate by identity. Artifact bytes are
+/// deliberately absent so callers cannot substitute a different valid set.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProceduralEnvironmentApplyRequestDto {
+    pub expected_workspace_id: String,
+    pub expected_generation: u64,
+    pub expected_working_revision: u64,
+    pub candidate_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProceduralEnvironmentApplyResultDto {
+    pub accepted: bool,
+    pub working_revision: u64,
+    pub save_candidate_hash: Option<String>,
+    pub candidate: Option<ProceduralEnvironmentArtifactCandidateDto>,
+    pub diagnostics: Vec<ProceduralEnvironmentDiagnosticDto>,
 }

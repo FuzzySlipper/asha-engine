@@ -29,7 +29,7 @@ export const sceneNodeId = (raw: number): SceneNodeId => raw as SceneNodeId;
 export type SceneNodeKindTag = 'emptyGroup' | 'staticMesh' | 'sprite' | 'voxelVolume' | 'light' | 'marker' | 'entityInstance' | 'bootstrap';
 
 // Stable classified scene-validation codes. Mirrors `core_scene::SceneValidationError::label`; the string form is a contract.
-export type SceneValidationCode = 'duplicate-node-id' | 'unknown-parent' | 'cycle' | 'invalid-transform' | 'asset-kind-mismatch' | 'invalid-light' | 'duplicate-marker-id' | 'invalid-marker' | 'duplicate-entity-instance-id' | 'invalid-entity-instance' | 'duplicate-bootstrap-node' | 'invalid-bootstrap' | 'duplicate-catalog-binding';
+export type SceneValidationCode = 'duplicate-node-id' | 'unknown-parent' | 'cycle' | 'invalid-transform' | 'invalid-voxel-volume-transform' | 'asset-kind-mismatch' | 'invalid-light' | 'duplicate-marker-id' | 'invalid-marker' | 'duplicate-entity-instance-id' | 'invalid-entity-instance' | 'duplicate-bootstrap-node' | 'invalid-bootstrap' | 'duplicate-catalog-binding';
 
 // Stable scene-object command rejection codes. Mirrors `core_scene::SceneObjectCommandRejection::label`; the string form is a contract.
 export type SceneObjectCommandRejectionCode = 'stale-scene-object-snapshot' | 'invalid-scene-before-command' | 'invalid-scene-after-command' | 'missing-scene-object' | 'duplicate-scene-object' | 'missing-scene-object-parent' | 'scene-object-self-parent' | 'blank-scene-object-label' | 'invalid-scene-object-kind' | 'invalid-scene-object-transform' | 'readonly-scene-object-transform';

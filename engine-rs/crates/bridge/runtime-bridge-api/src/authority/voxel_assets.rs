@@ -1,6 +1,56 @@
 use super::*;
 
 impl EngineBridge {
+    pub(super) fn voxel_asset_scene_instance(
+        &self,
+        asset_id: &str,
+    ) -> BridgeResult<Option<(SceneNodeId, core_scene::SceneTransform)>> {
+        let workspace_scene = self
+            .workspace_authoring
+            .as_ref()
+            .filter(|authority| authority.open)
+            .and_then(|authority| {
+                authority.project_content_scenes.values().find(|document| {
+                    document.nodes.iter().any(|record| {
+                        matches!(&record.kind, SceneNodeKindDto::VoxelVolume(asset) if asset.id == asset_id)
+                    })
+                })
+            })
+            .cloned()
+            .map(Self::scene_document_from_dto)
+            .transpose()?;
+        let scene = workspace_scene
+            .as_ref()
+            .or(self.scene.scene_document.as_ref());
+        let Some(scene) = scene else {
+            return Ok(None);
+        };
+        let validation = core_scene::validate(scene);
+        if !validation.is_ok() {
+            return Err(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                "voxel asset scene placement requires a valid canonical SceneDocument",
+            ));
+        }
+        let transforms = core_scene::composed_world_transforms(scene);
+        let instances = scene
+            .nodes
+            .iter()
+            .filter_map(|record| {
+                matches!(&record.kind, core_scene::SceneNodeKind::VoxelVolume(asset) if asset.id().as_str() == asset_id)
+                    .then_some((record.id, transforms[&record.id.raw()]))
+            })
+            .collect::<Vec<_>>();
+        match instances.as_slice() {
+            [] => Ok(None),
+            [instance] => Ok(Some(*instance)),
+            _ => Err(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                "collision-authoritative voxel asset load requires exactly one scene instance",
+            )),
+        }
+    }
+
     pub(super) fn update_voxel_volume_asset_palette_authority(
         &mut self,
         request: VoxelVolumeAssetPaletteUpdateRequest,
