@@ -44,7 +44,9 @@ export type {
 function runtimeSessionResetHash(identity: RuntimeSessionIdentity): string {
   return stableHash({
     seed: identity.seed,
-    projectBundle: projectBundleHashRecord(identity.projectBundle),
+    projectBundle: identity.projectBundle === null
+      ? null
+      : projectBundleHashRecord(identity.projectBundle),
     lifecycle: lifecycleStateHashRecord(initialRuntimeSessionLifecycleState()),
     encounter: encounterStateHashRecord(initialEncounterDirectorState()),
   });
@@ -208,9 +210,9 @@ export function lifecycleStatusReadout(input: {
     events: input.state.terminalEvent === null ? [] : [input.state.terminalEvent],
     fixture: {
       seed: input.identity.seed,
-      sceneId: input.identity.projectBundle.sceneId,
-      bundleSchemaVersion: input.identity.projectBundle.bundleSchemaVersion,
-      protocolVersion: input.identity.projectBundle.protocolVersion,
+      sceneId: input.identity.projectBundle?.sceneId ?? 0,
+      bundleSchemaVersion: input.identity.projectBundle?.bundleSchemaVersion ?? 0,
+      protocolVersion: input.identity.projectBundle?.protocolVersion ?? 0,
       resetHash,
     },
     hashes: {

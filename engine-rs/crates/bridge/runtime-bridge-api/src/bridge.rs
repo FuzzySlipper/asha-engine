@@ -427,6 +427,17 @@ pub trait RuntimeBridge {
         &mut self,
         request: RuntimeProjectSourceBatch,
     ) -> BridgeResult<ProjectSourceBatchValidationReceipt>;
+    /// Atomically compile/link and activate the previously admitted canonical
+    /// source closure against this bridge's immutable provider composition.
+    fn load_runtime_project(
+        &mut self,
+        request: RuntimeProjectLoadRequest,
+    ) -> BridgeResult<RuntimeProjectLoadReceipt>;
+    /// Explicitly close one lifecycle-bound active runtime project.
+    fn close_runtime_project(
+        &mut self,
+        request: RuntimeProjectCloseRequest,
+    ) -> BridgeResult<RuntimeProjectCloseReceipt>;
     /// Load a ProjectBundle into authority. Fails closed (and leaves any prior
     /// RuntimeSession untouched) on an unsupported version.
     fn load_project_bundle(

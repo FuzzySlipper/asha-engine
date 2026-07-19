@@ -244,6 +244,8 @@ function bridgeWith(overrides: Partial<RuntimeBridge>): RuntimeBridge {
     beginRuntimeProjectSourceResources: base.beginRuntimeProjectSourceResources.bind(base),
     stageRuntimeProjectSourceResource: base.stageRuntimeProjectSourceResource.bind(base),
     admitRuntimeProjectSourceBatch: base.admitRuntimeProjectSourceBatch.bind(base),
+    loadRuntimeProject: base.loadRuntimeProject.bind(base),
+    closeRuntimeProject: base.closeRuntimeProject.bind(base),
     loadProjectBundle: base.loadProjectBundle.bind(base),
     saveProjectBundle: base.saveProjectBundle.bind(base),
     getProjectBundleCompositionStatus: base.getProjectBundleCompositionStatus.bind(base),

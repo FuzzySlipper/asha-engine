@@ -44,6 +44,10 @@ import type {
   ProjectResourceBeginRequest,
   ProjectResourceTransactionReceipt,
   ProjectSourceBatchValidationReceipt,
+  RuntimeProjectCloseReceipt,
+  RuntimeProjectCloseRequest,
+  RuntimeProjectLoadReceipt,
+  RuntimeProjectLoadRequest,
   RuntimeProjectSourceBatch,
   StagedProjectResourceRef,
   ProceduralEnvironmentApplyRequest,
@@ -871,6 +875,30 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     return parseGeneratedOperationOutput<ProjectSourceBatchValidationReceipt>(
       'admit_runtime_project_source_batch',
       'projectBundle.ProjectSourceBatchValidationReceipt',
+      payload,
+    );
+  }
+
+  loadRuntimeProject(request: RuntimeProjectLoadRequest): RuntimeProjectLoadReceipt {
+    const handle = this.#requireHandle('loadRuntimeProject');
+    const payload = callNative(() =>
+      this.#addon.loadRuntimeProject(handle, JSON.stringify(request)),
+    );
+    return parseGeneratedOperationOutput<RuntimeProjectLoadReceipt>(
+      'load_runtime_project',
+      'projectBundle.RuntimeProjectLoadReceipt',
+      payload,
+    );
+  }
+
+  closeRuntimeProject(request: RuntimeProjectCloseRequest): RuntimeProjectCloseReceipt {
+    const handle = this.#requireHandle('closeRuntimeProject');
+    const payload = callNative(() =>
+      this.#addon.closeRuntimeProject(handle, JSON.stringify(request)),
+    );
+    return parseGeneratedOperationOutput<RuntimeProjectCloseReceipt>(
+      'close_runtime_project',
+      'projectBundle.RuntimeProjectCloseReceipt',
       payload,
     );
   }

@@ -25,6 +25,7 @@
     "dev:asha-gpu-perf": "tsc --build && node dist/gpu-perf-cli.js"
   },
   "dependencies": {
+    "@asha/browser-host": "workspace:*",
     "@asha/contracts": "workspace:*",
     "@asha/command-registry": "workspace:*",
     "@asha/catalog-core": "workspace:*",

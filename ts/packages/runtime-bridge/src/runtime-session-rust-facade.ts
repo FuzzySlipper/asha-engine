@@ -217,7 +217,11 @@ import type {
   RuntimeSessionTelemetrySummary,
   RuntimeSessionTickInput,
   RuntimeSessionTickResult,
+  RuntimeSessionProjectCloseReceipt,
+  RuntimeSessionProjectLoadInput,
+  RuntimeSessionProjectLoadReceipt,
 } from '@asha/runtime-session';
+import { loadRuntimeSessionProject } from './runtime-project-loader.js';
 
 export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   readonly #bridge: RuntimeBridge;
@@ -228,6 +232,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   #ecrpProjectState: RuntimeSessionEcrpProjectState | null = null;
   #runtimeTransforms = new Map<number, RuntimeSessionEcrpTransformState>();
   #replayRecords: RuntimeSessionReplayRecord[] = [];
+  #runtimeProjectLifecycle = { generation: 0, revision: 0 };
   constructor(bridge: RuntimeBridge) {
     this.#bridge = bridge;
   }
@@ -235,25 +240,61 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   initialize(input: RuntimeSessionInitializeInput): RuntimeSessionStateSummary {
     validateInitializeInput(input);
     const engine = this.#bridge.initializeEngine({ seed: input.seed });
-    const composition = this.#bridge.loadProjectBundle(input.projectBundle); // vocab-allow: RuntimeSession facade adapts the legacy bridge operation.
-    const defaultProject = defaultRuntimeSessionEcrpProjectLoadInput(input);
-    const snapshot = this.#bridge.loadFpsRuntimeSession(fpsLoadRequestFromEcrpProject(defaultProject));
+    const composition = input.projectBundle === undefined
+      ? this.#bridge.getProjectBundleCompositionStatus()
+      : this.#bridge.loadProjectBundle(input.projectBundle); // vocab-allow: compatibility initialization only.
+    const defaultProject = input.projectBundle === undefined
+      ? null
+      : defaultRuntimeSessionEcrpProjectLoadInput(input as RuntimeSessionInitializeInput & { readonly projectBundle: NonNullable<RuntimeSessionInitializeInput['projectBundle']> });
+    const snapshot = defaultProject === null
+      ? null
+      : this.#bridge.loadFpsRuntimeSession(fpsLoadRequestFromEcrpProject(defaultProject));
     this.#engine = engine;
     this.#identity = {
       sessionId: input.sessionId,
       mode: 'rust',
       seed: input.seed,
       project: input.project,
-      projectBundle: input.projectBundle,
+      projectBundle: input.projectBundle ?? null,
       nonClaims: rustRuntimeSessionNonClaims(),
     };
     this.#progress.initialize();
     this.#snapshot = snapshot;
-    this.#ecrpProjectState = buildEcrpProjectState(defaultProject);
+    this.#ecrpProjectState = defaultProject === null ? null : buildEcrpProjectState(defaultProject);
     this.#runtimeTransforms = new Map();
     this.#replayRecords = [];
-    this.#record('initialize', snapshot.replayHash);
+    this.#runtimeProjectLifecycle = { generation: 0, revision: 0 };
+    this.#record('initialize', snapshot?.replayHash);
     return this.#stateSummary(composition);
+  }
+
+  async loadProject(input: RuntimeSessionProjectLoadInput): Promise<RuntimeSessionProjectLoadReceipt> {
+    this.#requireInitialized('loadProject');
+    const receipt = await loadRuntimeSessionProject(
+      this.#bridge,
+      input,
+      this.#runtimeProjectLifecycle,
+    );
+    this.#runtimeProjectLifecycle = receipt.lifecycle;
+    this.#progress.advanceSequence();
+    this.#record('loadProject', receipt.activeProject?.admissionHash);
+    return receipt;
+  }
+
+  closeProject(): RuntimeSessionProjectCloseReceipt {
+    this.#requireInitialized('closeProject');
+    const receipt = this.#bridge.closeRuntimeProject({
+      expectedLifecycle: this.#runtimeProjectLifecycle,
+    });
+    this.#runtimeProjectLifecycle = receipt.lifecycle;
+    if (receipt.accepted) {
+      this.#snapshot = null;
+      this.#ecrpProjectState = null;
+      this.#runtimeTransforms = new Map();
+    }
+    this.#progress.advanceSequence();
+    this.#record('closeProject', receipt.closedManifestHash ?? undefined);
+    return receipt;
   }
 
   configureInputSession(request: InputSessionConfigureRequest): InputSessionSnapshot {

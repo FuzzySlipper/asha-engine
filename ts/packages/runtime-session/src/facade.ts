@@ -124,6 +124,11 @@ import type {
   RuntimeSessionRestartResult,
 } from './facade-lifecycle.js';
 import type {
+  RuntimeSessionProjectCloseReceipt,
+  RuntimeSessionProjectLoadInput,
+  RuntimeSessionProjectLoadReceipt,
+} from './facade-project.js';
+import type {
   GeneratedTunnelOperationRequest,
   GeneratedTunnelReadout,
   GeneratedTunnelReadoutRequest,
@@ -137,6 +142,8 @@ import type {
 
 export interface RuntimeSessionFacade {
   initialize(input: RuntimeSessionInitializeInput): RuntimeSessionStateSummary;
+  loadProject(input: RuntimeSessionProjectLoadInput): Promise<RuntimeSessionProjectLoadReceipt>;
+  closeProject(): RuntimeSessionProjectCloseReceipt;
   configureInputSession(request: InputSessionConfigureRequest): InputSessionSnapshot;
   applyInputContextCommand(command: InputContextCommand): InputContextChangeReceipt;
   submitRawInput(sample: RawInputSample): InputResolutionReceipt;
@@ -146,6 +153,8 @@ export interface RuntimeSessionFacade {
   readTimeControlState(): TimeControlState;
   decodeSceneDocument(request: SceneDocumentDecodeRequest): SceneDocumentCodecResult;
   encodeSceneDocument(request: SceneDocumentEncodeRequest): SceneDocumentCodecResult;
+  /** @deprecated Compatibility-only manual topology path. Initialize unloaded
+   * and use `loadProject({ source })`; Demo migration removes this surface. */
   loadEcrpProject(input: RuntimeSessionEcrpProjectLoadInput): RuntimeSessionEcrpProjectLoadReceipt;
   submitCommands(batch: CommandBatch): RuntimeSessionCommandReceipt;
   tick(input?: RuntimeSessionTickInput): RuntimeSessionTickResult;

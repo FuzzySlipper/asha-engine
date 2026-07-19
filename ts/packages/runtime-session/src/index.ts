@@ -10,6 +10,7 @@ export * from './facade-core.js';
 export * from './facade-ecrp.js';
 export * from './facade-gameplay.js';
 export * from './facade-lifecycle.js';
+export * from './facade-project.js';
 export * from './facade.js';
 export * from './generated-tunnel.js';
 export * from './nav-readout.js';

@@ -1,20 +1,7 @@
 use super::*;
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct RuntimeProjectLifecycleVersion {
-    pub generation: u64,
-    pub revision: u64,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RuntimeProjectActivationReceipt {
-    pub project_id: u64,
-    pub manifest_hash: String,
-    pub admission_hash: String,
-    pub entry_scene_id: u64,
-    pub voxel_asset_count: u32,
-    pub lifecycle: RuntimeProjectLifecycleVersion,
-}
+pub type RuntimeProjectLifecycleVersion = protocol_project_bundle::RuntimeProjectLifecycleVersion;
+pub type RuntimeProjectActivationReceipt = protocol_project_bundle::ActiveRuntimeProjectIdentity;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeProjectUnloadReceipt {
@@ -66,7 +53,11 @@ impl EngineBridge {
                 project_id: active.project_id,
                 manifest_hash: active.manifest_hash.clone(),
                 admission_hash: active.admission_hash.clone(),
+                content_set_hash: active.content_set_hash.clone(),
+                composition_hash: active.composition_hash.clone(),
                 entry_scene_id: active.entry_scene_id,
+                scene_count: active.scene_count,
+                entity_count: active.entity_count,
                 voxel_asset_count: active.voxel_asset_count,
                 lifecycle: self.runtime_project_lifecycle_version(),
             })
@@ -118,6 +109,9 @@ impl EngineBridge {
         let admission =
             gameplay_runtime_host::compile_runtime_project_admission(source, composition.clone())
                 .map_err(RuntimeProjectLoadError::Admission)?;
+        let content_set_hash = admission.project_content_set_hash().to_owned();
+        let composition_hash = admission.composition_registry_digest().to_owned();
+        let scene_count = admission.scene_count() as u32;
         let mut gameplay_host =
             gameplay_runtime_host::GameplayRuntimeHost::activate_validated_project(admission)
                 .map_err(RuntimeProjectLoadError::Activation)?;
@@ -145,6 +139,7 @@ impl EngineBridge {
         staged.scene.entities = gameplay_host
             .take_entity_authority()
             .map_err(RuntimeProjectLoadError::Activation)?;
+        let entity_count = staged.scene.entities.snapshot().records.len() as u32;
         staged.gameplay.static_gameplay_base_entities = Some(staged.scene.entities.clone());
         staged.gameplay.static_gameplay_reset_checkpoint = Some(reset_checkpoint);
         staged.gameplay.static_gameplay_host = Some(gameplay_host);
@@ -204,14 +199,22 @@ impl EngineBridge {
             project_id: identity.project_id(),
             manifest_hash: identity.manifest_hash().to_hex(),
             admission_hash: identity.admission_hash().to_owned(),
+            content_set_hash,
+            composition_hash,
             entry_scene_id: entry_scene.id.raw(),
+            scene_count,
+            entity_count,
             voxel_asset_count: referenced_voxel_assets.len() as u32,
         };
         let receipt = RuntimeProjectActivationReceipt {
             project_id: active.project_id,
             manifest_hash: active.manifest_hash.clone(),
             admission_hash: active.admission_hash.clone(),
+            content_set_hash: active.content_set_hash.clone(),
+            composition_hash: active.composition_hash.clone(),
             entry_scene_id: active.entry_scene_id,
+            scene_count: active.scene_count,
+            entity_count: active.entity_count,
             voxel_asset_count: active.voxel_asset_count,
             lifecycle,
         };

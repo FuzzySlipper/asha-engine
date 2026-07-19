@@ -188,6 +188,9 @@ importers:
       '@asha/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@asha/game-workspace':
+        specifier: workspace:*
+        version: link:../game-workspace
       '@asha/native-bridge':
         specifier: workspace:*
         version: link:../native-bridge
@@ -225,6 +228,9 @@ importers:
       '@asha/app':
         specifier: workspace:*
         version: link:../app
+      '@asha/browser-host':
+        specifier: workspace:*
+        version: link:../browser-host
       '@asha/catalog-core':
         specifier: workspace:*
         version: link:../catalog-core

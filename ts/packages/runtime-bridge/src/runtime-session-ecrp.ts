@@ -30,7 +30,9 @@ import type {
 } from '@asha/runtime-session';
 
 export function defaultRuntimeSessionEcrpProjectLoadInput(
-  input: RuntimeSessionInitializeInput,
+  input: RuntimeSessionInitializeInput & {
+    readonly projectBundle: NonNullable<RuntimeSessionInitializeInput['projectBundle']>;
+  },
 ): RuntimeSessionEcrpProjectLoadInput {
   return {
     kind: 'runtime_session.load_ecrp_project.v0',
@@ -829,6 +831,11 @@ export function buildEcrpRuntimeReadout(input: {
   readonly sessionHash: string;
   readonly authority?: RuntimeSessionEcrpReadout['authority'];
 }): RuntimeSessionEcrpReadout {
+  if (input.identity.projectBundle === null) {
+    throw new Error(
+      'legacy ECRP readout is unavailable for a project loaded through canonical runtime admission',
+    );
+  }
   const projectState =
     input.projectState ?? buildEcrpProjectState(defaultRuntimeSessionEcrpProjectLoadInput({
       sessionId: input.identity.sessionId,

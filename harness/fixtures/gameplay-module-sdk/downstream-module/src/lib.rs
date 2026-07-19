@@ -1,8 +1,8 @@
 //! Public-facade provider regression: this crate imports only approved surfaces.
 
 use asha_gameplay_module_sdk::*;
-use asha_runtime_session_composition::{
-    BootstrapResolutionContext, BundleArtifacts, EngineBridge, GameplayBindingEntityTargets,
+use asha_runtime_session_composition::compatibility::{
+    BootstrapResolutionContext, BundleArtifacts, GameplayBindingEntityTargets,
     GameplayRuntimePrefabBootstrap, GameplayRuntimePrefabCatalog, GameplayRuntimePrefabPlacement,
     GameplayRuntimePrefabPlacementOrigin, GameplayRuntimePrefabTransform,
     GameplayRuntimeProjectInput, GameplayRuntimeSchedulerDefinition, GameplayRuntimeSpatialEntity,
@@ -10,6 +10,7 @@ use asha_runtime_session_composition::{
     StaticRuntimeSessionBuilder, StaticRuntimeSessionCompositionError,
     GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION,
 };
+use asha_runtime_session_composition::EngineBridge;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1021,24 +1022,26 @@ mod tests {
         GameplayModuleConformanceReachableSurface,
     };
     use asha_gameplay_runtime_host::GameplayRuntimeHost;
-    use asha_runtime_session_composition::{
-        BundleArtifacts, ComposedGameplayOwner, ComposedGameplayOwnerCheckpoint,
-        ComposedGameplayOwnerOutput, EnemyDirectNavAuthoritySource, EnemyDirectNavMovementRequest,
-        EngineConfig, FlatSceneDocumentDto, FpsBootstrapResolutionRegistry,
-        FpsBridgeBoundsCapability, FpsBridgeHealth, FpsBridgePolicyBinding, FpsBridgeRole,
-        FpsBridgeStoredEntityDefinition, FpsBridgeTransformCapability, FpsBridgeWeaponMount,
-        FpsPrimaryFireRequest, FpsRuntimeSessionLoadRequest, FpsRuntimeSessionRestartRequest,
-        GameplayBindingEntityTargets, GameplayDecisionMoment, GameplayDecisionStatus,
-        GameplayModuleViewRequest, GameplayModuleViewScope, GameplayOperationWorkspace,
-        GameplayPrefabPartInteractionRequest, GameplayRuntimeDecisionOwner,
+    use asha_runtime_session_composition::compatibility::{
+        BundleArtifacts, GameplayBindingEntityTargets, GameplayDecisionMoment,
+        GameplayDecisionStatus, GameplayOperationWorkspace, GameplayRuntimeDecisionOwner,
         GameplayRuntimeDecisionOwnerOutput, GameplayRuntimeSchedulerCommand,
         GameplayRuntimeSchedulerDefinition, GameplayRuntimeSpatialEntity,
-        GameplayTriggerDefinition, LoadPlan, LoadStep, ProjectBundleLoadRequest, RuntimeBridge,
-        RuntimeSessionId, SceneEntityInstanceDto, SceneEntityReferenceDto, SceneId,
-        SceneMetadataDto, SceneNodeId, SceneNodeKindDto, SceneNodeRecordDto, SceneTransformDto,
+        GameplayTriggerDefinition, LoadPlan, LoadStep, RuntimeSessionId, SceneId,
         ScheduledActionId, ScheduledActionValidity, StaticRuntimeSessionBuilder,
-        TickScheduledActionDraft, TriggerReconcileCause, Vec3,
+        TickScheduledActionDraft, TriggerReconcileCause,
         GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION,
+    };
+    use asha_runtime_session_composition::{
+        ComposedGameplayOwner, ComposedGameplayOwnerCheckpoint, ComposedGameplayOwnerOutput,
+        EnemyDirectNavAuthoritySource, EnemyDirectNavMovementRequest, EngineConfig,
+        FlatSceneDocumentDto, FpsBootstrapResolutionRegistry, FpsBridgeBoundsCapability,
+        FpsBridgeHealth, FpsBridgePolicyBinding, FpsBridgeRole, FpsBridgeStoredEntityDefinition,
+        FpsBridgeTransformCapability, FpsBridgeWeaponMount, FpsPrimaryFireRequest,
+        FpsRuntimeSessionLoadRequest, FpsRuntimeSessionRestartRequest, GameplayModuleViewRequest,
+        GameplayModuleViewScope, GameplayPrefabPartInteractionRequest, ProjectBundleLoadRequest,
+        RuntimeBridge, SceneEntityInstanceDto, SceneEntityReferenceDto, SceneMetadataDto,
+        SceneNodeId, SceneNodeKindDto, SceneNodeRecordDto, SceneTransformDto, Vec3,
     };
     use std::sync::{
         atomic::{AtomicUsize, Ordering},

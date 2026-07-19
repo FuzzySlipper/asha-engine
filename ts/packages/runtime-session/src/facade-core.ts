@@ -24,7 +24,9 @@ export interface RuntimeSessionInitializeInput {
   readonly sessionId: string;
   readonly seed: number;
   readonly project: RuntimeSessionProjectIdentity;
-  readonly projectBundle: ProjectBundleLoadRequest;
+  /** Compatibility-only manual bootstrap descriptor. New project runtimes
+   * initialize unloaded and call `loadProject({ source })`. */
+  readonly projectBundle?: ProjectBundleLoadRequest;
 }
 
 export interface RuntimeSessionIdentity {
@@ -32,7 +34,7 @@ export interface RuntimeSessionIdentity {
   readonly mode: RuntimeSessionMode;
   readonly seed: number;
   readonly project: RuntimeSessionProjectIdentity;
-  readonly projectBundle: ProjectBundleLoadRequest;
+  readonly projectBundle: ProjectBundleLoadRequest | null;
   readonly nonClaims: readonly RuntimeSessionNonClaim[];
 }
 
@@ -98,6 +100,8 @@ export interface RuntimeSessionReplayRecord {
     | 'applyFirstPersonCameraInput'
     | 'applyCollisionConstrainedCameraInput'
     | 'loadEcrpProject'
+    | 'loadProject'
+    | 'closeProject'
     | 'submitRuntimeActionIntent'
     | 'submitGameExtensionWeaponEffect'
     | 'validateGameRuleCatalog'

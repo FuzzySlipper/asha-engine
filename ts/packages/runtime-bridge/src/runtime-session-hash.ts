@@ -37,7 +37,9 @@ export function identityHashRecord(identity: RuntimeSessionIdentity): RuntimeSes
       gameId: identity.project.gameId,
       workspaceId: identity.project.workspaceId,
     },
-    projectBundle: projectBundleHashRecord(identity.projectBundle),
+    projectBundle: identity.projectBundle === null
+      ? null
+      : projectBundleHashRecord(identity.projectBundle),
     nonClaims: identity.nonClaims,
   };
 }

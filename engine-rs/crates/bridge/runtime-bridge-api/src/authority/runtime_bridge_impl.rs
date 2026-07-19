@@ -1727,6 +1727,20 @@ impl RuntimeBridge for EngineBridge {
         EngineBridge::admit_runtime_project_source_batch(self, request)
     }
 
+    fn load_runtime_project(
+        &mut self,
+        request: RuntimeProjectLoadRequest,
+    ) -> BridgeResult<RuntimeProjectLoadReceipt> {
+        Ok(self.load_runtime_project_authority(request))
+    }
+
+    fn close_runtime_project(
+        &mut self,
+        request: RuntimeProjectCloseRequest,
+    ) -> BridgeResult<RuntimeProjectCloseReceipt> {
+        Ok(self.close_runtime_project_authority(request))
+    }
+
     fn save_project_bundle(&mut self) -> BridgeResult<ProjectBundleSaveSummary> {
         self.save_project_bundle_authority()
     }

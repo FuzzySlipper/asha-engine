@@ -10,7 +10,7 @@
   "nativeTransportRule": "Only @asha/runtime-bridge may import @asha/native-bridge; consumers must use the facade and fail closed on native_unavailable or operation_unimplemented.",
   "changelog": "docs/topics/consumer/consumer-compatibility.md#runtime-bridge-compatibility-log",
   "migrationNoteTemplate": "docs/topics/consumer/consumer-compatibility.md#migration-note-template",
-  "failClosedPolicy": "Consumers must stop on unknown runtime bridge compatibilityVersion, missing facade operation, or classified RuntimeBridgeError that reports native_unavailable/operation_unimplemented for a required operation; do not call raw native/WASM transports or dynamic JSON tunnels.",
+  "failClosedPolicy": "Consumers must stop on unknown runtime bridge compatibilityVersion, missing facade operation, or classified RuntimeBridgeError that reports native_unavailable/operation_unimplemented for a required operation. Ordinary consumers call RuntimeSession.loadProject({ source }); raw source-batch verbs are shared-adapter/test plumbing and loadProjectBundle/loadEcrpProject/manual topology are compatibility-only. Do not call raw native/WASM transports or dynamic JSON tunnels.",
   "pinningGuidance": "asha-testing should pin @asha/runtime-bridge by package path plus ASHA git commit for conformance artifacts until registry/version publishing exists; runtime evidence should record compatibilityVersion and stable operation count.",
   "breakingChangeRequires": [
     "bridge manifest or facade signature review",

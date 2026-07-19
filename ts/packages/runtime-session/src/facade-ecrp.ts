@@ -207,6 +207,8 @@ export interface RuntimeSessionEcrpEntityDefinition {
   readonly capabilities: readonly RuntimeSessionEcrpProjectCapabilityDefinition[];
 }
 
+/** @deprecated Compatibility-only compiled bootstrap input. Persist typed
+ * ProjectBundle content and use `RuntimeSessionFacade.loadProject` instead. */
 export interface RuntimeSessionEcrpProjectLoadInput {
   readonly kind: 'runtime_session.load_ecrp_project.v0';
   readonly projectBundle: {

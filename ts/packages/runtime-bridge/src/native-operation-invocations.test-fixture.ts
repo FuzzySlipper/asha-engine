@@ -332,6 +332,13 @@ export function createNativeOperationInvocations(
     ['beginRuntimeProjectSourceResources', (bridge) => bridge.beginRuntimeProjectSourceResources({ manifestJson: '{}' })],
     ['stageRuntimeProjectSourceResource', (bridge) => bridge.stageRuntimeProjectSourceResource({ generation: 1, path: 'voxel/probe.avox', bytes: Uint8Array.of(1, 2, 3) })],
     ['admitRuntimeProjectSourceBatch', (bridge) => bridge.admitRuntimeProjectSourceBatch({ manifestJson: '{}', resourceGeneration: null, bodies: [] })],
+    ['loadRuntimeProject', (bridge) => bridge.loadRuntimeProject({
+      source: { kind: 'inMemory', identity: 'fixture', materializationHash: 'fnv1a64:0000000000000000' },
+      expectedLifecycle: { generation: 0, revision: 0 },
+    })],
+    ['closeRuntimeProject', (bridge) => bridge.closeRuntimeProject({
+      expectedLifecycle: { generation: 0, revision: 0 },
+    })],
     ['loadProjectBundle', (bridge) => bridge.loadProjectBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1 })],
     ['saveProjectBundle', (bridge) => bridge.saveProjectBundle()],
     ['getProjectBundleCompositionStatus', (bridge) => bridge.getProjectBundleCompositionStatus()],

@@ -235,6 +235,73 @@ export interface ProjectSourceBatchValidationReceipt {
   readonly diagnostics: readonly ProjectSourceBatchDiagnostic[];
 }
 
+// Closed host adapter categories accepted by the ordinary RuntimeSession project loader. The adapter owns byte access only; the ProjectBundle manifest remains the sole owner of paths, roles, hashes, and topology.
+export type RuntimeProjectSourceAdapterKind = 'developmentDirectory' | 'packagedProject' | 'inMemory';
+
+// Inspectable identity supplied by the shared host adapter after it has read exactly the manifest-authorized closure. It carries no gameplay meaning.
+export interface RuntimeProjectSourceAdapterInput {
+  readonly kind: RuntimeProjectSourceAdapterKind;
+  readonly identity: string;
+  readonly materializationHash: string;
+}
+
+// Optimistic lifecycle version owned by the runtime facade, not downstream boot code. It prevents a stale load/close from replacing newer authority.
+export interface RuntimeProjectLifecycleVersion {
+  readonly generation: number;
+  readonly revision: number;
+}
+
+// Generated activation request used only after the shared source adapter has successfully admitted its manifest closure through the bounded transport.
+export interface RuntimeProjectLoadRequest {
+  readonly source: RuntimeProjectSourceAdapterInput;
+  readonly expectedLifecycle: RuntimeProjectLifecycleVersion;
+}
+
+// Stable diagnostic phases. `code` remains the more specific Rust-owned admission or lifecycle code and is not flattened into this small taxonomy.
+export type RuntimeProjectDiagnosticPhase = 'sourceAdapter' | 'sourceBatch' | 'runtimeAdmission' | 'runtimeActivation' | 'lifecycle';
+
+export interface RuntimeProjectDiagnostic {
+  readonly phase: RuntimeProjectDiagnosticPhase;
+  readonly code: string;
+  readonly documentId: string | null;
+  readonly path: string | null;
+  readonly message: string;
+}
+
+// Rust-owned identity of the authority graph committed by one successful load. No compiled bootstrap plan is exposed through this readout.
+export interface ActiveRuntimeProjectIdentity {
+  readonly projectId: number;
+  readonly manifestHash: string;
+  readonly admissionHash: string;
+  readonly contentSetHash: string;
+  readonly compositionHash: string;
+  readonly entrySceneId: number;
+  readonly sceneCount: number;
+  readonly entityCount: number;
+  readonly voxelAssetCount: number;
+  readonly lifecycle: RuntimeProjectLifecycleVersion;
+}
+
+export interface RuntimeProjectLoadReceipt {
+  readonly accepted: boolean;
+  readonly source: RuntimeProjectSourceAdapterInput;
+  readonly activeProject: ActiveRuntimeProjectIdentity | null;
+  readonly lifecycle: RuntimeProjectLifecycleVersion;
+  readonly diagnostics: readonly RuntimeProjectDiagnostic[];
+}
+
+export interface RuntimeProjectCloseRequest {
+  readonly expectedLifecycle: RuntimeProjectLifecycleVersion;
+}
+
+export interface RuntimeProjectCloseReceipt {
+  readonly accepted: boolean;
+  readonly closedProjectId: number | null;
+  readonly closedManifestHash: string | null;
+  readonly lifecycle: RuntimeProjectLifecycleVersion;
+  readonly diagnostics: readonly RuntimeProjectDiagnostic[];
+}
+
 // Exact stored state used on both sides of the host transaction handshake.
 export interface ProjectStoreIdentity {
   readonly revision: number;

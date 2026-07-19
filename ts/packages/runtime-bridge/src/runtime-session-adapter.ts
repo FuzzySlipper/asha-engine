@@ -171,6 +171,7 @@ import {
 } from './runtime-session-hash.js';
 import { RustBackedRuntimeSessionFacade } from './runtime-session-rust-facade.js';
 import { buildRuntimeSessionAnimationIntentReadout } from './runtime-session-animation.js';
+import { loadRuntimeSessionProject } from './runtime-project-loader.js';
 
 import type {
   RuntimeSessionActionIntentReceipt,
@@ -212,6 +213,9 @@ import type {
   RuntimeSessionTelemetrySummary,
   RuntimeSessionTickInput,
   RuntimeSessionTickResult,
+  RuntimeSessionProjectCloseReceipt,
+  RuntimeSessionProjectLoadInput,
+  RuntimeSessionProjectLoadReceipt,
 } from '@asha/runtime-session';
 
 export interface RuntimeSessionFacadeOptions {
@@ -239,6 +243,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
   #ecrpProjectState: RuntimeSessionEcrpProjectState | null = null;
   #runtimeTransforms = new Map<number, RuntimeSessionEcrpTransformState>();
   #replayRecords: RuntimeSessionReplayRecord[] = [];
+  #runtimeProjectLifecycle = { generation: 0, revision: 0 };
 
   constructor(bridge: RuntimeBridge) {
     this.#bridge = bridge;
@@ -252,27 +257,62 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
   initialize(input: RuntimeSessionInitializeInput): RuntimeSessionStateSummary {
     validateInitializeInput(input);
     const engine = this.#bridge.initializeEngine({ seed: input.seed });
-    const composition = this.#bridge.loadProjectBundle(input.projectBundle);
+    const composition = input.projectBundle === undefined
+      ? this.#bridge.getProjectBundleCompositionStatus()
+      : this.#bridge.loadProjectBundle(input.projectBundle);
     this.#engine = engine;
     this.#identity = {
       sessionId: input.sessionId,
       mode: 'reference',
       seed: input.seed,
       project: input.project,
-      projectBundle: input.projectBundle,
+      projectBundle: input.projectBundle ?? null,
       nonClaims: referenceRuntimeSessionNonClaims(),
     };
     this.#sequenceId = 0;
     this.#tick = 0;
     this.#acceptedCommandCount = 0;
     this.#rejectedCommandCount = 0;
-    this.#ecrpProjectState = buildEcrpProjectState(defaultRuntimeSessionEcrpProjectLoadInput(input));
-    this.#lifecycleState = lifecycleStateFromEcrpProject(this.#ecrpProjectState);
+    this.#ecrpProjectState = input.projectBundle === undefined
+      ? null
+      : buildEcrpProjectState(defaultRuntimeSessionEcrpProjectLoadInput(input as RuntimeSessionInitializeInput & { readonly projectBundle: NonNullable<RuntimeSessionInitializeInput['projectBundle']> }));
+    this.#lifecycleState = this.#ecrpProjectState === null
+      ? initialRuntimeSessionLifecycleState()
+      : lifecycleStateFromEcrpProject(this.#ecrpProjectState);
     this.#runtimeTransforms = new Map();
     this.#encounterState = initialEncounterDirectorState();
     this.#replayRecords = [];
+    this.#runtimeProjectLifecycle = { generation: 0, revision: 0 };
     this.#record('initialize');
     return this.#stateSummary(composition);
+  }
+
+  async loadProject(input: RuntimeSessionProjectLoadInput): Promise<RuntimeSessionProjectLoadReceipt> {
+    this.#requireInitialized('loadProject');
+    const receipt = await loadRuntimeSessionProject(
+      this.#bridge,
+      input,
+      this.#runtimeProjectLifecycle,
+    );
+    this.#runtimeProjectLifecycle = receipt.lifecycle;
+    this.#sequenceId += 1;
+    this.#record('loadProject');
+    return receipt;
+  }
+
+  closeProject(): RuntimeSessionProjectCloseReceipt {
+    this.#requireInitialized('closeProject');
+    const receipt = this.#bridge.closeRuntimeProject({
+      expectedLifecycle: this.#runtimeProjectLifecycle,
+    });
+    this.#runtimeProjectLifecycle = receipt.lifecycle;
+    if (receipt.accepted) {
+      this.#ecrpProjectState = null;
+      this.#runtimeTransforms = new Map();
+    }
+    this.#sequenceId += 1;
+    this.#record('closeProject');
+    return receipt;
   }
 
   configureInputSession(request: InputSessionConfigureRequest): InputSessionSnapshot {
@@ -1048,7 +1088,9 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     const identity = this.#requireInitialized('restart');
     this.#bridge.unloadProjectBundle();
     this.#bridge.initializeEngine({ seed: identity.seed });
-    const composition = this.#bridge.loadProjectBundle(identity.projectBundle);
+    const composition = identity.projectBundle === null
+      ? this.#bridge.getProjectBundleCompositionStatus()
+      : this.#bridge.loadProjectBundle(identity.projectBundle);
     this.#sequenceId += 1;
     this.#tick = 0;
     this.#acceptedCommandCount = 0;

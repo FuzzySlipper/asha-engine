@@ -131,7 +131,7 @@ initialization = "createsEngine"
 project_bundle = "ownsLoadUnload"
 snapshot_hash = "compositionStatus"
 resource_lifetime = "session"
-operations = ["initialize_engine", "begin_runtime_project_source_resources", "stage_runtime_project_source_resource", "admit_runtime_project_source_batch", "load_project_bundle", "save_project_bundle", "get_project_bundle_composition_status", "unload_project_bundle"]
+operations = ["initialize_engine", "begin_runtime_project_source_resources", "stage_runtime_project_source_resource", "admit_runtime_project_source_batch", "load_runtime_project", "close_runtime_project", "load_project_bundle", "save_project_bundle", "get_project_bundle_composition_status", "unload_project_bundle"]
 
 [[capability]]
 id = "replay_evidence"
@@ -888,6 +888,22 @@ output = "protocol_project_bundle::ProjectSourceBatchValidationReceipt"
 errors = "RuntimeBridgeError"
 summary = "Validate exact manifest closure membership, body hashes, quotas, and staged-resource bindings before any project compiler or runtime authority invocation."
 max_input_bytes = 16777216
+
+[[operation]]
+name = "load_runtime_project"
+surface = "stable"
+input = "protocol_project_bundle::RuntimeProjectLoadRequest"
+output = "protocol_project_bundle::RuntimeProjectLoadReceipt"
+errors = "RuntimeBridgeError"
+summary = "Atomically compile, link, and activate the admitted ProjectBundle source closure against the statically linked provider composition, returning generated authority identity and diagnostics."
+
+[[operation]]
+name = "close_runtime_project"
+surface = "stable"
+input = "protocol_project_bundle::RuntimeProjectCloseRequest"
+output = "protocol_project_bundle::RuntimeProjectCloseReceipt"
+errors = "RuntimeBridgeError"
+summary = "Close exactly the lifecycle-bound active runtime project without inferring replacement or accepting stale authority."
 
 [[operation]]
 name = "load_project_bundle"

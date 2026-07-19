@@ -84,3 +84,57 @@ pub fn admit_runtime_project_source_batch(
         })
     })
 }
+
+/// Compile/link and atomically activate the already admitted source closure.
+/// The complete request and nested source identity are strict-decoded through
+/// the shared generated-wire validator before Rust authority is invoked.
+#[napi]
+pub fn load_runtime_project(handle: i64, request_json: String) -> napi::Result<String> {
+    let request = wire::parse_wire_json::<runtime_bridge_api::RuntimeProjectLoadRequest>(
+        "load_runtime_project",
+        &request_json,
+    )?;
+    with_bridge(handle, |bridge| {
+        let receipt = bridge.load_runtime_project(request).map_err(to_napi)?;
+        serde_json::to_string(&receipt).map_err(|error| {
+            to_napi(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::Internal,
+                format!("failed to serialize runtime project load receipt: {error}"),
+            ))
+        })
+    })
+}
+
+/// Explicit lifecycle-bound close for the canonical project runtime path.
+#[napi]
+pub fn close_runtime_project(handle: i64, request_json: String) -> napi::Result<String> {
+    let request = wire::parse_wire_json::<runtime_bridge_api::RuntimeProjectCloseRequest>(
+        "close_runtime_project",
+        &request_json,
+    )?;
+    with_bridge(handle, |bridge| {
+        let receipt = bridge.close_runtime_project(request).map_err(to_napi)?;
+        serde_json::to_string(&receipt).map_err(|error| {
+            to_napi(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::Internal,
+                format!("failed to serialize runtime project close receipt: {error}"),
+            ))
+        })
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn runtime_project_load_request_rejects_unknown_nested_fields() {
+        let error = wire::parse_wire_json::<runtime_bridge_api::RuntimeProjectLoadRequest>(
+            "load_runtime_project",
+            r#"{"source":{"kind":"inMemory","identity":"fixture","materializationHash":"fnv1a64:1","topology":{}},"expectedLifecycle":{"generation":0,"revision":0}}"#,
+        )
+        .expect_err("unknown nested source fields must fail before authority invocation");
+        assert!(error.reason.contains("unknown field"), "{}", error.reason);
+        assert!(error.reason.contains("topology"), "{}", error.reason);
+    }
+}

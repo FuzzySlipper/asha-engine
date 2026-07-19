@@ -686,6 +686,7 @@ Initial root exports:
 Compatibility posture:
 
 - Consumers import all RuntimeSession contracts and semantic readout/proposal surfaces from `@asha/runtime-session` root.
+- #5996 adds the preferred `RuntimeSessionFacade.loadProject({ source })` and `closeProject()` lifecycle. Development-directory, packaged/archive, and bounded in-memory adapters share one manifest-driven loader; generated contracts own source identity, diagnostics, activation identity/hashes/counts, and lifecycle receipts. New initialization omits the legacy `projectBundle` bootstrap descriptor. `loadEcrpProject`, `loadProjectBundle`, raw source batches, `StaticRuntimeSessionBuilder`, `GameplayRuntimeProjectInput`, prefab bootstrap, bootstrap registries, and caller-authored spatial/trigger/scheduler plans are compatibility-only until Demo migration. Rust users find compiled-plan vocabulary only under `asha_runtime_session_composition::compatibility`.
 - `@asha/runtime-bridge` does not provide a compatibility semantic re-export.
 - Concrete bridge-backed `createRuntimeSessionFacade` construction, native transport access, reference helpers, launchers, render decode, and generated bridge operation conformance remain in `@asha/runtime-bridge`.
 - #5533 requires callers of `applyCollisionConstrainedCameraInput` to select generated `movementMode`; FPS callers migrate to `grounded`, while intentional vertical navigation selects `freeFlight`. The RuntimeSession method remains transport-neutral and does not permit downstream pose correction.

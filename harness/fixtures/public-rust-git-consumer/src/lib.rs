@@ -3,7 +3,7 @@
 #![forbid(unsafe_code)]
 
 use asha_gameplay_module_sdk::GameplayStaticCompositionBuilder;
-use asha_runtime_session_composition::StaticRuntimeSessionBuilder;
+use asha_runtime_session_composition::compatibility::StaticRuntimeSessionBuilder;
 
 pub fn gameplay_composition_builder() -> GameplayStaticCompositionBuilder {
     GameplayStaticCompositionBuilder::new()

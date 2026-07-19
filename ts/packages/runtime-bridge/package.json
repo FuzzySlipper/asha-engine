@@ -52,6 +52,7 @@
   },
   "dependencies": {
     "@asha/contracts": "workspace:*",
+    "@asha/game-workspace": "workspace:*",
     "@asha/native-bridge": "workspace:*",
     "@asha/runtime-session": "workspace:*"
   }

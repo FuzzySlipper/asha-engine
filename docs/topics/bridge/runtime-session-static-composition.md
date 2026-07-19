@@ -8,13 +8,15 @@ see-also: []
 
 # Static RuntimeSession Composition
 
-Status: preferred native provider shape after Wave 1 stabilization.
+Status: preferred deferred native provider shape after canonical project admission.
 
 `asha-runtime-session-composition` is the public Rust entrypoint for a game
 that links its own gameplay modules. A downstream native addon builds its
-closed `GameplayStaticComposition`, supplies its ProjectBundle bindings,
-prefabs, declared reads, triggers, and scheduler definition, and consumes a
-`StaticRuntimeSessionBuilder` to obtain one `EngineBridge` root.
+closed `GameplayStaticComposition` and installs it in a
+`DeferredRuntimeSessionBuilder`. Saved ProjectBundle content supplies bindings,
+prefabs, instances, triggers, scenes, and resources later through the generated
+runtime project loader. Downstream provider construction does not assemble a
+second runtime topology.
 
 ```toml
 [dependencies]
@@ -24,10 +26,10 @@ asha-runtime-session-composition = { path = "../asha-engine/public-rust/runtime-
 ```
 
 ```rust,no_run
-# use asha_runtime_session_composition::{GameplayRuntimeProjectInput, StaticRuntimeSessionBuilder};
-# fn project_input() -> GameplayRuntimeProjectInput { todo!() }
-let bridge = StaticRuntimeSessionBuilder::activate_project(project_input())?
-    .build()?;
+# use asha_runtime_session_composition::{DeferredRuntimeSessionBuilder, GameplayStaticComposition};
+# fn static_composition() -> GameplayStaticComposition { todo!() }
+let bridge = DeferredRuntimeSessionBuilder::from_static_composition(static_composition())
+    .build_unloaded();
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
@@ -37,6 +39,14 @@ constructor with `install_native_engine_bridge_factory`. That constructor
 returns the bridge built above. ASHA's generated N-API operation table remains
 the transport implementation; the downstream crate supplies only its closed
 RuntimeSession composition and never copies individual verbs.
+
+The explicit migration home for `StaticRuntimeSessionBuilder`,
+`GameplayRuntimeProjectInput`, prefab bootstrap, bootstrap resolution
+registries, spatial entity arrays, trigger geometry, and scheduler definitions
+is `asha_runtime_session_composition::compatibility`. Some root aliases remain
+during Demo migration; they are not approved for new use and will be removed
+with that consumer. New providers use deferred composition plus
+`RuntimeSession.loadProject({ source })`.
 
 The same addon installs a separate
 `install_native_project_authoring_bridge_factory` constructor. It uses

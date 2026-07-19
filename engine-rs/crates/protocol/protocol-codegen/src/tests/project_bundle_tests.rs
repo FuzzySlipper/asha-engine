@@ -30,6 +30,14 @@ pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
         interface_coverage_key("projectBundle", "RuntimeProjectSourceBatch"),
         interface_coverage_key("projectBundle", "ProjectSourceBatchDiagnostic"),
         interface_coverage_key("projectBundle", "ProjectSourceBatchValidationReceipt"),
+        interface_coverage_key("projectBundle", "RuntimeProjectSourceAdapterInput"),
+        interface_coverage_key("projectBundle", "RuntimeProjectLifecycleVersion"),
+        interface_coverage_key("projectBundle", "RuntimeProjectLoadRequest"),
+        interface_coverage_key("projectBundle", "RuntimeProjectDiagnostic"),
+        interface_coverage_key("projectBundle", "ActiveRuntimeProjectIdentity"),
+        interface_coverage_key("projectBundle", "RuntimeProjectLoadReceipt"),
+        interface_coverage_key("projectBundle", "RuntimeProjectCloseRequest"),
+        interface_coverage_key("projectBundle", "RuntimeProjectCloseReceipt"),
         interface_coverage_key("projectBundle", "ProjectStoreIdentity"),
         interface_coverage_key("projectBundle", "ProjectArtifactExpectation"),
         interface_coverage_key("projectBundle", "ProjectWriteResourceRef"),
@@ -229,6 +237,104 @@ fn project_source_batch_serialization_matches_ir_shape() {
         .unwrap(),
         receipt
     );
+}
+
+#[test]
+fn runtime_project_public_facade_serialization_matches_ir_shape() {
+    use protocol_project_bundle::{
+        ActiveRuntimeProjectIdentity, RuntimeProjectCloseReceipt, RuntimeProjectCloseRequest,
+        RuntimeProjectDiagnostic, RuntimeProjectDiagnosticPhase, RuntimeProjectLifecycleVersion,
+        RuntimeProjectLoadReceipt, RuntimeProjectLoadRequest, RuntimeProjectSourceAdapterInput,
+        RuntimeProjectSourceAdapterKind,
+    };
+
+    let project = module("projectBundle");
+    let lifecycle = RuntimeProjectLifecycleVersion {
+        generation: 3,
+        revision: 7,
+    };
+    let source = RuntimeProjectSourceAdapterInput {
+        kind: RuntimeProjectSourceAdapterKind::PackagedProject,
+        identity: "package:/game.asha".into(),
+        materialization_hash: "fnv1a64:0123456789abcdef".into(),
+    };
+    let diagnostic = RuntimeProjectDiagnostic {
+        phase: RuntimeProjectDiagnosticPhase::RuntimeAdmission,
+        code: "danglingReference".into(),
+        document_id: Some("content/player".into()),
+        path: Some("$.target".into()),
+        message: "target does not resolve".into(),
+    };
+    let active = ActiveRuntimeProjectIdentity {
+        project_id: 8,
+        manifest_hash: "manifest".into(),
+        admission_hash: "admission".into(),
+        content_set_hash: "content".into(),
+        composition_hash: "composition".into(),
+        entry_scene_id: 9,
+        scene_count: 2,
+        entity_count: 11,
+        voxel_asset_count: 1,
+        lifecycle,
+    };
+    let request = RuntimeProjectLoadRequest {
+        source: source.clone(),
+        expected_lifecycle: RuntimeProjectLifecycleVersion::default(),
+    };
+    let receipt = RuntimeProjectLoadReceipt {
+        accepted: true,
+        source,
+        active_project: Some(active),
+        lifecycle,
+        diagnostics: Vec::new(),
+    };
+    let close_request = RuntimeProjectCloseRequest {
+        expected_lifecycle: lifecycle,
+    };
+    let close_receipt = RuntimeProjectCloseReceipt {
+        accepted: false,
+        closed_project_id: None,
+        closed_manifest_hash: None,
+        lifecycle,
+        diagnostics: vec![diagnostic.clone()],
+    };
+
+    for (name, value) in [
+        (
+            "RuntimeProjectSourceAdapterInput",
+            serde_json::to_value(&request.source).unwrap(),
+        ),
+        (
+            "RuntimeProjectLifecycleVersion",
+            serde_json::to_value(lifecycle).unwrap(),
+        ),
+        (
+            "RuntimeProjectLoadRequest",
+            serde_json::to_value(&request).unwrap(),
+        ),
+        (
+            "RuntimeProjectDiagnostic",
+            serde_json::to_value(&diagnostic).unwrap(),
+        ),
+        (
+            "ActiveRuntimeProjectIdentity",
+            serde_json::to_value(receipt.active_project.as_ref().unwrap()).unwrap(),
+        ),
+        (
+            "RuntimeProjectLoadReceipt",
+            serde_json::to_value(&receipt).unwrap(),
+        ),
+        (
+            "RuntimeProjectCloseRequest",
+            serde_json::to_value(close_request).unwrap(),
+        ),
+        (
+            "RuntimeProjectCloseReceipt",
+            serde_json::to_value(close_receipt).unwrap(),
+        ),
+    ] {
+        compare_object_to_interface(&project, name, &value).unwrap();
+    }
 }
 
 #[test]

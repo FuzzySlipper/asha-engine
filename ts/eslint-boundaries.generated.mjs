@@ -4089,10 +4089,6 @@ const generatedBoundaryConfigs = [
               "message": "ts/packages/runtime-bridge (lane ts-shell) may not import @asha/electron-main (lane ts-shell) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
             },
             {
-              "name": "@asha/game-workspace",
-              "message": "ts/packages/runtime-bridge (lane ts-shell) may not import @asha/game-workspace (lane ts-game-workspace) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
-            },
-            {
               "name": "@asha/policy-core",
               "message": "ts/packages/runtime-bridge (lane ts-shell) may not import @asha/policy-core (lane ts-policy) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
             },
@@ -4198,7 +4194,7 @@ const generatedBoundaryConfigs = [
               "group": [
                 "@asha/game-workspace/*"
               ],
-              "message": "ts/packages/runtime-bridge (lane ts-shell) may not import @asha/game-workspace (lane ts-game-workspace) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
+              "message": "ts/packages/runtime-bridge must import @asha/game-workspace through its root barrel. Do not import @asha/game-workspace/src, @asha/game-workspace/dist, generated internals, or other package-private files."
             },
             {
               "group": [
@@ -5005,10 +5001,6 @@ const generatedBoundaryConfigs = [
         {
           "paths": [
             {
-              "name": "@asha/browser-host",
-              "message": "ts/packages/smoke (lane ts-shell) may not import @asha/browser-host (lane ts-shell) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
-            },
-            {
               "name": "@asha/catalog-examples",
               "message": "ts/packages/smoke (lane ts-shell) may not import @asha/catalog-examples (lane ts-catalog) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
             },
@@ -5068,7 +5060,7 @@ const generatedBoundaryConfigs = [
               "group": [
                 "@asha/browser-host/*"
               ],
-              "message": "ts/packages/smoke (lane ts-shell) may not import @asha/browser-host (lane ts-shell) unless governance/ownership.toml may_import allows it. Route through an approved public API or update ownership with reviewer context."
+              "message": "ts/packages/smoke must import @asha/browser-host through its root barrel. Do not import @asha/browser-host/src, @asha/browser-host/dist, generated internals, or other package-private files."
             },
             {
               "group": [

@@ -8,8 +8,8 @@ use asha_native_runtime_provider::{
 };
 use asha_runtime_session_composition::{
     EngineBridge, RuntimeBridgeError, RuntimeBridgeErrorKind, StaticProjectAuthoringBuilder,
-    StaticRuntimeSessionBuilder,
 };
+use asha_runtime_session_composition::compatibility::StaticRuntimeSessionBuilder;
 
 fn build_composed_bridge() -> Result<EngineBridge, RuntimeBridgeError> {
     StaticRuntimeSessionBuilder::activate_project_with_prefabs(

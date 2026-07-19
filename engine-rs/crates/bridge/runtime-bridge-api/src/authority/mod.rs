@@ -117,7 +117,11 @@ struct ActiveRuntimeProjectAuthority {
     project_id: u64,
     manifest_hash: String,
     admission_hash: String,
+    content_set_hash: String,
+    composition_hash: String,
     entry_scene_id: u64,
+    scene_count: u32,
+    entity_count: u32,
     voxel_asset_count: u32,
 }
 
@@ -627,6 +631,7 @@ mod fps_runtime_session;
 mod presentation_catalog;
 mod project_and_sources;
 mod runtime_bridge_impl;
+mod runtime_project_public;
 mod voxel_annotations;
 mod voxel_assets;
 mod voxel_authoring;

@@ -552,6 +552,123 @@ pub struct ProjectSourceBatchValidationReceipt {
     pub diagnostics: Vec<ProjectSourceBatchDiagnostic>,
 }
 
+// ── Public runtime project admission ───────────────────────────────────────
+
+/// Closed host adapter categories accepted by the ordinary RuntimeSession
+/// project loader. The adapter owns byte access only; the ProjectBundle
+/// manifest remains the sole owner of paths, roles, hashes, and topology.
+pub const RUNTIME_PROJECT_SOURCE_ADAPTER_KINDS: &[&str] =
+    &["developmentDirectory", "packagedProject", "inMemory"];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RuntimeProjectSourceAdapterKind {
+    DevelopmentDirectory,
+    PackagedProject,
+    InMemory,
+}
+
+/// Inspectable identity supplied by the shared host adapter after it has read
+/// exactly the manifest-authorized closure. It carries no gameplay meaning.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RuntimeProjectSourceAdapterInput {
+    pub kind: RuntimeProjectSourceAdapterKind,
+    pub identity: String,
+    pub materialization_hash: String,
+}
+
+/// Optimistic lifecycle version owned by the runtime facade, not downstream
+/// boot code. It prevents a stale load/close from replacing newer authority.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RuntimeProjectLifecycleVersion {
+    pub generation: u64,
+    pub revision: u64,
+}
+
+/// Generated activation request used only after the shared source adapter has
+/// successfully admitted its manifest closure through the bounded transport.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RuntimeProjectLoadRequest {
+    pub source: RuntimeProjectSourceAdapterInput,
+    pub expected_lifecycle: RuntimeProjectLifecycleVersion,
+}
+
+/// Stable diagnostic phases. `code` remains the more specific Rust-owned
+/// admission or lifecycle code and is not flattened into this small taxonomy.
+pub const RUNTIME_PROJECT_DIAGNOSTIC_PHASES: &[&str] = &[
+    "sourceAdapter",
+    "sourceBatch",
+    "runtimeAdmission",
+    "runtimeActivation",
+    "lifecycle",
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RuntimeProjectDiagnosticPhase {
+    SourceAdapter,
+    SourceBatch,
+    RuntimeAdmission,
+    RuntimeActivation,
+    Lifecycle,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RuntimeProjectDiagnostic {
+    pub phase: RuntimeProjectDiagnosticPhase,
+    pub code: String,
+    pub document_id: Option<String>,
+    pub path: Option<String>,
+    pub message: String,
+}
+
+/// Rust-owned identity of the authority graph committed by one successful
+/// load. No compiled bootstrap plan is exposed through this readout.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ActiveRuntimeProjectIdentity {
+    pub project_id: u64,
+    pub manifest_hash: String,
+    pub admission_hash: String,
+    pub content_set_hash: String,
+    pub composition_hash: String,
+    pub entry_scene_id: u64,
+    pub scene_count: u32,
+    pub entity_count: u32,
+    pub voxel_asset_count: u32,
+    pub lifecycle: RuntimeProjectLifecycleVersion,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RuntimeProjectLoadReceipt {
+    pub accepted: bool,
+    pub source: RuntimeProjectSourceAdapterInput,
+    pub active_project: Option<ActiveRuntimeProjectIdentity>,
+    pub lifecycle: RuntimeProjectLifecycleVersion,
+    pub diagnostics: Vec<RuntimeProjectDiagnostic>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RuntimeProjectCloseRequest {
+    pub expected_lifecycle: RuntimeProjectLifecycleVersion,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RuntimeProjectCloseReceipt {
+    pub accepted: bool,
+    pub closed_project_id: Option<u64>,
+    pub closed_manifest_hash: Option<String>,
+    pub lifecycle: RuntimeProjectLifecycleVersion,
+    pub diagnostics: Vec<RuntimeProjectDiagnostic>,
+}
+
 // ── Canonical project write candidate ──────────────────────────────────────
 
 /// Exact stored state used on both sides of the host transaction handshake.

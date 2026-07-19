@@ -461,6 +461,13 @@ pub(crate) const REQUIRED_NATIVE_EXPORTS: &[(&str, &str, usize, usize)] = &[
         16777216,
         8388608,
     ),
+    ("load_runtime_project", "loadRuntimeProject", 8388608, 8388608),
+    (
+        "close_runtime_project",
+        "closeRuntimeProject",
+        8388608,
+        8388608,
+    ),
     ("load_project_bundle", "loadProjectBundle", 8388608, 8388608),
     ("save_project_bundle", "saveProjectBundle", 8388608, 8388608),
     (

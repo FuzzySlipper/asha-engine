@@ -93,6 +93,8 @@ handwritten semantic exports. Quarantined compatibility wiring is explicit.
 | `begin_runtime_project_source_resources` | `bundle_lifecycle` | stable | `protocol_project_bundle::ProjectResourceBeginRequest` | `protocol_project_bundle::ProjectResourceTransactionReceipt` | `RuntimeBridgeError` |
 | `stage_runtime_project_source_resource` | `bundle_lifecycle` | stable | `protocol_project_bundle::ProjectResourceStageRequest` | `protocol_project_bundle::StagedProjectResourceRef` | `RuntimeBridgeError` |
 | `admit_runtime_project_source_batch` | `bundle_lifecycle` | stable | `protocol_project_bundle::RuntimeProjectSourceBatch` | `protocol_project_bundle::ProjectSourceBatchValidationReceipt` | `RuntimeBridgeError` |
+| `load_runtime_project` | `bundle_lifecycle` | stable | `protocol_project_bundle::RuntimeProjectLoadRequest` | `protocol_project_bundle::RuntimeProjectLoadReceipt` | `RuntimeBridgeError` |
+| `close_runtime_project` | `bundle_lifecycle` | stable | `protocol_project_bundle::RuntimeProjectCloseRequest` | `protocol_project_bundle::RuntimeProjectCloseReceipt` | `RuntimeBridgeError` |
 | `load_project_bundle` | `bundle_lifecycle` | stable | `protocol_project_bundle::ProjectBundleManifest` | `protocol_diagnostics::DiagnosticReportSet` | `RuntimeBridgeError` |
 | `save_project_bundle` | `bundle_lifecycle` | stable | `Unit` | `protocol_project_bundle::SaveSummary` | `RuntimeBridgeError` |
 | `get_project_bundle_composition_status` | `bundle_lifecycle` | stable | `Unit` | `protocol_diagnostics::DiagnosticReportSet` | `RuntimeBridgeError` |

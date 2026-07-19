@@ -379,3 +379,61 @@ fn fresh_activation_derives_voxel_collision_projection_and_gameplay_from_stored_
         "fixture.stored-project-tick"
     );
 }
+
+#[test]
+fn generated_public_facade_accepts_all_closed_source_adapter_kinds() {
+    use protocol_project_bundle::{
+        RuntimeProjectCloseRequest, RuntimeProjectLoadRequest, RuntimeProjectSourceAdapterInput,
+        RuntimeProjectSourceAdapterKind,
+    };
+
+    for (index, kind) in [
+        RuntimeProjectSourceAdapterKind::DevelopmentDirectory,
+        RuntimeProjectSourceAdapterKind::PackagedProject,
+        RuntimeProjectSourceAdapterKind::InMemory,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let composition = static_composition();
+        let mut bridge =
+            DeferredRuntimeSessionBuilder::from_static_composition(composition.clone())
+                .build_unloaded();
+        bridge
+            .initialize_engine(EngineConfig {
+                seed: 100 + index as u64,
+            })
+            .unwrap();
+        admit(&mut bridge, &composition, "voxel-volume/hand-authored-room");
+
+        let receipt = RuntimeBridge::load_runtime_project(
+            &mut bridge,
+            RuntimeProjectLoadRequest {
+                source: RuntimeProjectSourceAdapterInput {
+                    kind,
+                    identity: format!("fixture:{index}"),
+                    materialization_hash: format!("fnv1a64:{index:016x}"),
+                },
+                expected_lifecycle: RuntimeProjectLifecycleVersion::default(),
+            },
+        )
+        .expect("generated load operation returns a typed receipt");
+        assert!(receipt.accepted, "{:?}", receipt.diagnostics);
+        let active = receipt.active_project.expect("accepted load identity");
+        assert_eq!(active.project_id, PROJECT_ID);
+        assert!(!active.content_set_hash.is_empty());
+        assert!(!active.composition_hash.is_empty());
+        assert_eq!(active.scene_count, 1);
+        assert_eq!(active.entity_count, 0);
+
+        let closed = RuntimeBridge::close_runtime_project(
+            &mut bridge,
+            RuntimeProjectCloseRequest {
+                expected_lifecycle: receipt.lifecycle,
+            },
+        )
+        .expect("generated close operation returns a typed receipt");
+        assert!(closed.accepted, "{:?}", closed.diagnostics);
+        assert_eq!(closed.lifecycle.revision, 2);
+    }
+}

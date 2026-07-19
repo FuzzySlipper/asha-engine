@@ -103,8 +103,8 @@ pub use project_content::{
 };
 pub use project_source::{
     admit_runtime_project_source_batch, begin_runtime_project_source_resources,
-    stage_runtime_project_source_resource, NativeProjectResourceTransaction,
-    NativeStagedProjectResource,
+    close_runtime_project, load_runtime_project, stage_runtime_project_source_resource,
+    NativeProjectResourceTransaction, NativeStagedProjectResource,
 };
 pub use render_projection::read_render_diffs;
 pub use scene_preview::{

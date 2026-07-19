@@ -47,6 +47,10 @@ import type {
   ProjectResourceBeginRequest,
   ProjectResourceTransactionReceipt,
   ProjectSourceBatchValidationReceipt,
+  RuntimeProjectCloseReceipt,
+  RuntimeProjectCloseRequest,
+  RuntimeProjectLoadReceipt,
+  RuntimeProjectLoadRequest,
   RuntimeProjectSourceBatch,
   StagedProjectResourceRef,
   ProceduralEnvironmentApplyRequest,
@@ -171,6 +175,7 @@ import { MockGameRuleRuntime } from './mock-game-rules.js';
 import { MockCameraControllers } from './mock-camera-controller.js';
 import { MockInputSession } from './mock-input-session.js';
 import { MockTimeController } from './mock-time-control.js';
+import { MockRuntimeProjectLifecycle } from './mock-runtime-project.js';
 import {
   applyMockSceneObjectCommand,
   initialMockSceneDocument,
@@ -372,12 +377,7 @@ export class MockRuntimeBridge implements RuntimeBridge {
   #workspaceAuthoringGeneration = 0;
   #workspaceAuthoringState: WorkspaceAuthoringStateSummary | null = null;
   #workspaceAuthoringCursor = 0;
-  #projectResourceGeneration = 0;
-  #nextProjectResourceHandle = 0;
-  #projectResources = new Map<
-    number,
-    { readonly generation: number; readonly path: string; readonly bytes: Uint8Array }
-  >();
+  readonly #runtimeProjects = new MockRuntimeProjectLifecycle();
 
   #unsupportedAfterInit(method: string, message: string): never {
     if (this.#engine === null) {
@@ -404,9 +404,7 @@ export class MockRuntimeBridge implements RuntimeBridge {
     this.#cameraControllers.clear();
     this.#inputSession.initialize();
     this.#timeController.initialize();
-    this.#projectResourceGeneration = 0;
-    this.#nextProjectResourceHandle = 0;
-    this.#projectResources.clear();
+    this.#runtimeProjects.reset();
     return handle;
   }
 
@@ -1630,14 +1628,7 @@ export class MockRuntimeBridge implements RuntimeBridge {
     if (this.#engine === null) {
       throw new RuntimeBridgeError('not_initialized', 'beginRuntimeProjectSourceResources before initializeEngine');
     }
-    if (request.manifestJson.length === 0) {
-      throw new RuntimeBridgeError('invalid_input', 'project source manifest is empty');
-    }
-    this.#projectResourceGeneration += 1;
-    return {
-      generation: this.#projectResourceGeneration,
-      manifestHash: `mock-project-source:${request.manifestJson.length}`,
-    };
+    return this.#runtimeProjects.begin(request);
   }
 
   stageRuntimeProjectSourceResource(
@@ -1646,15 +1637,7 @@ export class MockRuntimeBridge implements RuntimeBridge {
     if (this.#engine === null) {
       throw new RuntimeBridgeError('not_initialized', 'stageRuntimeProjectSourceResource before initializeEngine');
     }
-    const generation = nonNegativeSafeInteger(request.generation, 'project resource generation');
-    if (generation !== this.#projectResourceGeneration) {
-      throw new RuntimeBridgeError('invalid_input', 'project resource generation is not active');
-    }
-    const handle = this.#nextProjectResourceHandle;
-    this.#nextProjectResourceHandle += 1;
-    const bytes = request.bytes.slice();
-    this.#projectResources.set(handle, { generation, path: request.path, bytes });
-    return { handle, generation, version: 1, byteLen: bytes.byteLength };
+    return this.#runtimeProjects.stage(request);
   }
 
   admitRuntimeProjectSourceBatch(
@@ -1663,34 +1646,21 @@ export class MockRuntimeBridge implements RuntimeBridge {
     if (this.#engine === null) {
       throw new RuntimeBridgeError('not_initialized', 'admitRuntimeProjectSourceBatch before initializeEngine');
     }
-    const paths = request.bodies.map((body) => body.path);
-    const resourceBodies = request.bodies.filter((body) => body.kind === 'resource');
-    for (const body of resourceBodies) {
-      const staged = this.#projectResources.get(body.resource.handle);
-      if (
-        staged === undefined ||
-        staged.generation !== body.resource.generation ||
-        staged.path !== body.path
-      ) {
-        return {
-          accepted: false,
-          manifestHash: null,
-          paths: [],
-          diagnostics: [{
-            code: 'unknownResourceHandle',
-            path: body.path,
-            message: 'mock transport has no matching staged project resource',
-          }],
-        };
-      }
+    return this.#runtimeProjects.admit(request);
+  }
+
+  loadRuntimeProject(request: RuntimeProjectLoadRequest): RuntimeProjectLoadReceipt {
+    if (this.#engine === null) {
+      throw new RuntimeBridgeError('not_initialized', 'loadRuntimeProject before initializeEngine');
     }
-    for (const body of resourceBodies) this.#projectResources.delete(body.resource.handle);
-    return {
-      accepted: true,
-      manifestHash: `mock-project-source:${request.manifestJson.length}`,
-      paths,
-      diagnostics: [],
-    };
+    return this.#runtimeProjects.load(request);
+  }
+
+  closeRuntimeProject(request: RuntimeProjectCloseRequest): RuntimeProjectCloseReceipt {
+    if (this.#engine === null) {
+      throw new RuntimeBridgeError('not_initialized', 'closeRuntimeProject before initializeEngine');
+    }
+    return this.#runtimeProjects.close(request);
   }
 
   saveProjectBundle(): ProjectBundleSaveSummary {
@@ -1706,7 +1676,7 @@ export class MockRuntimeBridge implements RuntimeBridge {
 
   unloadProjectBundle(): void {
     this.#loadedProjectBundle = null;
-    this.#projectResources.clear();
+    this.#runtimeProjects.clearResources();
   }
 
   loadReplayFixture(fixture: ReplayFixture): ReplaySessionHandle {

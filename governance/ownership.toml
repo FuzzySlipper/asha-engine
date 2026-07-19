@@ -762,7 +762,7 @@ may_not_import = ["@asha/electron-main", "@asha/native-bridge", "@asha/wasm-repl
 lane = "ts-shell"
 type = "testing"
 layer = "testing-fixtures"
-may_import = ["@asha/contracts", "@asha/catalog-core", "@asha/runtime-bridge", "@asha/runtime-session", "@asha/renderer-host", "@asha/renderer-three", "@asha/editor-tools", "@asha/ui-dom", "@asha/app", "@asha/command-registry"]
+may_import = ["@asha/browser-host", "@asha/contracts", "@asha/catalog-core", "@asha/runtime-bridge", "@asha/runtime-session", "@asha/renderer-host", "@asha/renderer-three", "@asha/editor-tools", "@asha/ui-dom", "@asha/app", "@asha/command-registry"]
 may_not_import = ["@asha/native-bridge", "@asha/electron-main", "@asha/wasm-replay-bridge"]
 
 # ─── Runtime bridge boundary (ADR 0006) ──────────────────────────────────────
@@ -775,7 +775,7 @@ may_not_import = ["@asha/native-bridge", "@asha/electron-main", "@asha/wasm-repl
 lane = "ts-shell"
 type = "lib"
 layer = "transport"
-may_import = ["@asha/contracts", "@asha/native-bridge", "@asha/runtime-session"]
+may_import = ["@asha/contracts", "@asha/game-workspace", "@asha/native-bridge", "@asha/runtime-session"]
 may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-host", "@asha/renderer-three", "@asha/ui-dom", "@asha/wasm-replay-bridge"]
 
 # Raw napi-rs addon wrapper. Imported only by runtime-bridge.

@@ -80,6 +80,19 @@ void test('generated native input contracts reject scalar and tagged-union drift
     'unknown_field',
   );
   assertWireRejection(
+    () => validateOperationInput('load_runtime_project', {
+      source: {
+        kind: 'inMemory',
+        identity: 'fixture',
+        materializationHash: 'fnv1a64:0000000000000001',
+        topology: {},
+      },
+      expectedLifecycle: { generation: 0, revision: 0 },
+    }),
+    'invalid_input',
+    'unknown_field',
+  );
+  assertWireRejection(
     () => validateOperationInput('decode_project_content', {
       sources: [],
       references: {
@@ -217,6 +230,21 @@ void test('operation limits and tampered native responses reject with typed evid
 });
 
 void test('custom native response contracts validate nested values recursively', () => {
+  assertWireRejection(
+    () => parseOperationOutput('load_runtime_project', JSON.stringify({
+      accepted: true,
+      source: {
+        kind: 'inMemory',
+        identity: 'fixture',
+        materializationHash: 'fnv1a64:0000000000000001',
+      },
+      activeProject: { garbage: true },
+      lifecycle: { generation: 1, revision: 1 },
+      diagnostics: [],
+    })),
+    'internal',
+    'unknown_field',
+  );
   assertWireRejection(
     () => parseOperationOutput('read_render_diffs', JSON.stringify({
       ops: [{ op: 'replaceMeshPayload', handle: 1, payload: { garbage: true } }],
