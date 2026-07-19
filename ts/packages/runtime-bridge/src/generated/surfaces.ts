@@ -110,6 +110,8 @@ export interface RuntimeWorkspaceAuthoringPort {
   previewProceduralEnvironment(input: Contracts.ProceduralEnvironmentPreviewRequest): Contracts.ProceduralEnvironmentPreviewResult;
   applyProceduralEnvironment(input: Contracts.ProceduralEnvironmentApplyRequest): Contracts.ProceduralEnvironmentApplyResult;
   confirmWorkspaceAuthoringStored(input: Contracts.WorkspaceAuthoringStoredConfirmationRequest): Contracts.WorkspaceAuthoringStoredConfirmationReceipt;
+  prepareProjectWrite(input: Contracts.ProjectWritePrepareRequest): Contracts.ProjectWritePrepareReceipt;
+  confirmProjectWrite(input: Contracts.ProjectWriteConfirmRequest): Contracts.ProjectWriteConfirmReceipt;
   closeWorkspaceAuthoring(input: Contracts.WorkspaceAuthoringCloseRequest): Contracts.WorkspaceAuthoringCloseReceipt;
 }
 

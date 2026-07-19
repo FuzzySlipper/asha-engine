@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 4,
+  "id": 701,
+  "metadata": { "name": "Entry plaza", "authoringFormatVersion": 4 },
+  "dependencies": [
+    { "id": "voxel-volume/demo-house", "version": { "req": "any" }, "hash": null }
+  ],
+  "nodes": [
+    { "id": 1, "parent": null, "childOrder": 0, "label": "Demo house", "tags": [], "transform": { "translation": [3, 0, -4], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] }, "kind": { "kind": "voxelVolume", "asset": { "id": "voxel-volume/demo-house", "version": { "req": "any" }, "hash": null } } },
+    { "id": 2, "parent": null, "childOrder": 1, "label": "Direct actor", "tags": [], "transform": { "translation": [0, 1, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] }, "kind": { "kind": "entityInstance", "instance": { "instanceId": "entry.direct-actor", "reference": { "kind": "entityDefinition", "stableId": "demo.actor" }, "spawnMarkerId": null } } },
+    { "id": 3, "parent": null, "childOrder": 2, "label": "Prefab actor", "tags": [], "transform": { "translation": [2, 1, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] }, "kind": { "kind": "entityInstance", "instance": { "instanceId": "entry.prefab-actor", "reference": { "kind": "prefab", "prefabId": 700, "variantId": null, "instantiationSeed": 5997 }, "spawnMarkerId": null } } },
+    { "id": 4, "parent": null, "childOrder": 3, "label": "Sun", "tags": [], "transform": { "translation": [0, 8, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] }, "kind": { "kind": "light", "sceneLight": { "kind": "directional", "color": [1, 0.95, 0.85], "intensity": 2, "enabled": true, "shadowIntent": "requested" } } }
+  ]
+}

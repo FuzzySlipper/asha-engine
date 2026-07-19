@@ -740,6 +740,8 @@ function createFakeRuntimeBridge(): RuntimeBridge {
     readWorkspaceAuthoringState: operation,
     readWorkspaceAuthoringProjection: operation,
     confirmWorkspaceAuthoringStored: operation,
+    prepareProjectWrite: operation,
+    confirmProjectWrite: operation,
     closeWorkspaceAuthoring: operation,
     loadFpsRuntimeSession: operation,
     readFpsRuntimeSession: operation,

@@ -1,5 +1,6 @@
 use super::*;
 
+use core_ids::ProjectId;
 use core_space::VoxelCoord;
 use core_voxel::VoxelValue;
 
@@ -521,6 +522,158 @@ fn project_content_authoring_is_revision_bound_and_promotes_only_the_rust_candid
     assert_eq!(stored.stored_revision, 1);
     assert!(stored.accepted);
     assert!(!bridge.read_workspace_authoring_state().unwrap().dirty);
+}
+
+#[test]
+fn project_write_is_rust_derived_revision_bound_and_single_use() {
+    let mut bridge = EngineBridge::new();
+    let opened = bridge
+        .open_workspace_authoring(open_request("workspace.project-write"))
+        .unwrap();
+    let scene_bytes = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../../harness/fixtures/scenes/sample-flat.json"
+    ));
+    let decoded_scene = bridge
+        .decode_scene_document(SceneDocumentDecodeRequestDto {
+            source_text: String::from_utf8(scene_bytes.to_vec()).unwrap(),
+        })
+        .unwrap();
+    assert!(decoded_scene.accepted, "{:?}", decoded_scene.diagnostics);
+    let content_source = r#"{
+        "kind":"EntityDefinition",
+        "stableId":"fixture.entity",
+        "displayName":"Fixture Entity",
+        "source":{"projectBundle":"fixture","relativePath":"entities/fixture.json"},
+        "tags":[],"metadata":[],"capabilities":[]
+    }"#;
+    let decoded_content = bridge
+        .decode_project_content(ProjectContentDecodeRequestDto {
+            sources: vec![ProjectContentSourceDto {
+                document_id: "entities/fixture.json".to_owned(),
+                kind: ProjectContentDocumentKind::EntityDefinition,
+                source_text: content_source.to_owned(),
+            }],
+        })
+        .unwrap();
+    assert!(
+        decoded_content.accepted,
+        "{:?}",
+        decoded_content.diagnostics
+    );
+
+    let asset_lock = br#"{"assets":[]}"#;
+    let prior = svc_serialization::ProjectBundleManifest {
+        bundle_schema_version: svc_serialization::BUNDLE_SCHEMA_VERSION,
+        protocol_version: svc_serialization::SUPPORTED_PROTOCOL_VERSION,
+        project: svc_serialization::ProjectSection {
+            id: ProjectId::new(9),
+            name: Some("Project write authority".to_owned()),
+        },
+        entry_scene: SceneId::new(100),
+        scenes: vec![svc_serialization::SceneSection {
+            id: SceneId::new(100),
+            schema_version: 1,
+            artifact: "scenes/sample-flat.json".to_owned(),
+        }],
+        asset_lock: svc_serialization::AssetLockSection {
+            artifact: "assets/lock.json".to_owned(),
+            asset_count: 0,
+        },
+        generation_provenance: None,
+        artifacts: vec![
+            svc_serialization::ArtifactEntry::durable(
+                "assets/lock.json",
+                svc_serialization::ArtifactRole::AssetLock,
+                asset_lock,
+            ),
+            svc_serialization::ArtifactEntry::durable(
+                "entities/fixture.json",
+                svc_serialization::ArtifactRole::ProjectContent,
+                content_source.as_bytes(),
+            ),
+            svc_serialization::ArtifactEntry::durable(
+                "scenes/sample-flat.json",
+                svc_serialization::ArtifactRole::SceneDocument,
+                scene_bytes,
+            ),
+        ],
+    }
+    .canonical();
+    let observed =
+        svc_serialization::ProjectStoreIdentity::from_manifest(12, &prior, None).unwrap();
+    let request = ProjectWritePrepareRequest {
+        expected_workspace_id: "workspace.project-write".to_owned(),
+        expected_generation: opened.identity.generation,
+        expected_working_revision: 0,
+        observed_prior: ProjectStoreIdentity {
+            revision: observed.revision,
+            manifest_hash: observed.manifest_hash.to_hex(),
+            content_set_hash: observed.content_set_hash.to_hex(),
+            index_hash: None,
+        },
+        prior_manifest_json: svc_serialization::encode(&prior),
+        relocations: vec![ProjectArtifactRelocation {
+            from: "scenes/sample-flat.json".to_owned(),
+            to: "scenes/archive/sample-flat.json".to_owned(),
+        }],
+    };
+    let prepared = bridge.prepare_project_write(request).unwrap();
+    assert!(prepared.accepted, "{:?}", prepared.diagnostics);
+    let candidate = prepared.candidate.unwrap();
+    assert_eq!(candidate.expected_prior.revision, 12);
+    assert!(candidate
+        .expected_next_artifacts
+        .iter()
+        .any(|artifact| artifact.path == "scenes/archive/sample-flat.json"));
+    assert!(
+        candidate.moves.iter().any(|movement| {
+            movement.from == "scenes/sample-flat.json"
+                && movement.to == "scenes/archive/sample-flat.json"
+        }) || candidate
+            .deletes
+            .iter()
+            .any(|artifact| artifact.path == "scenes/sample-flat.json")
+    );
+    for write in &candidate.writes {
+        let view = bridge
+            .get_buffer(RuntimeBufferHandle::new(write.resource.handle))
+            .unwrap();
+        assert_eq!(view.bytes.len() as u64, write.resource.byte_len);
+        assert!(!view.bytes.is_empty());
+    }
+
+    let wrong = bridge
+        .confirm_project_write(ProjectWriteConfirmRequest {
+            expected_workspace_id: "workspace.project-write".to_owned(),
+            expected_generation: opened.identity.generation,
+            expected_working_revision: 0,
+            publication: ProjectWritePublication {
+                candidate_hash: "0000000000000000".to_owned(),
+                published: candidate.expected_next.clone(),
+            },
+        })
+        .unwrap();
+    assert!(!wrong.accepted);
+    assert_eq!(wrong.diagnostics[0].code, "staleCandidate");
+
+    let confirmation = ProjectWriteConfirmRequest {
+        expected_workspace_id: "workspace.project-write".to_owned(),
+        expected_generation: opened.identity.generation,
+        expected_working_revision: 0,
+        publication: ProjectWritePublication {
+            candidate_hash: candidate.candidate_hash.clone(),
+            published: candidate.expected_next.clone(),
+        },
+    };
+    let stored = bridge.confirm_project_write(confirmation.clone()).unwrap();
+    assert!(stored.accepted, "{:?}", stored.diagnostics);
+    assert_eq!(stored.stored, Some(candidate.expected_next));
+    assert!(!bridge.read_workspace_authoring_state().unwrap().dirty);
+
+    let replay = bridge.confirm_project_write(confirmation).unwrap();
+    assert!(!replay.accepted);
+    assert_eq!(replay.diagnostics[0].code, "missingCandidate");
 }
 
 #[test]

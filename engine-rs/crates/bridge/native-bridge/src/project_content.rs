@@ -255,15 +255,36 @@ fn contract_json(contract: &GameplayContractRef) -> Value {
 }
 
 fn document_json(file: &ProjectContentCanonicalFileDto) -> napi::Result<Value> {
-    let mut payload: Value = serde_json::from_str(&file.canonical_json)
+    let artifact: Value = serde_json::from_str(&file.canonical_json)
         .map_err(|error| napi::Error::from_reason(error.to_string()))?;
+    let artifact = artifact.as_object().ok_or_else(|| {
+        napi::Error::from_reason("canonical ProjectContent artifact must be an object".to_owned())
+    })?;
+    let schema_version = artifact.get("schemaVersion").and_then(Value::as_u64);
+    if schema_version != Some(u64::from(PROJECT_CONTENT_SCHEMA_VERSION)) {
+        return Err(napi::Error::from_reason(format!(
+            "canonical ProjectContent artifact has invalid schemaVersion {schema_version:?}"
+        )));
+    }
+    let artifact_document_id = artifact.get("documentId").and_then(Value::as_str);
+    if artifact_document_id != Some(file.document_id.as_str()) {
+        return Err(napi::Error::from_reason(format!(
+            "canonical ProjectContent artifact documentId {artifact_document_id:?} does not match {}",
+            file.document_id
+        )));
+    }
+    let expected_kind = document_kind_tag(file.kind);
+    let artifact_kind = artifact.get("documentKind").and_then(Value::as_str);
+    if artifact_kind != Some(expected_kind) {
+        return Err(napi::Error::from_reason(format!(
+            "canonical ProjectContent artifact documentKind {artifact_kind:?} does not match {expected_kind}"
+        )));
+    }
+    let payload = artifact.get("document").cloned().ok_or_else(|| {
+        napi::Error::from_reason("canonical ProjectContent artifact is missing document".to_owned())
+    })?;
     let (kind, payload_key) = match file.kind {
-        ProjectContentDocumentKind::EntityDefinition => {
-            if let Some(object) = payload.as_object_mut() {
-                object.remove("kind");
-            }
-            ("entityDefinition", "definition")
-        }
+        ProjectContentDocumentKind::EntityDefinition => ("entityDefinition", "definition"),
         ProjectContentDocumentKind::AssetCatalog => ("assetCatalog", "catalog"),
         ProjectContentDocumentKind::PrefabRegistry => ("prefabRegistry", "registry"),
         ProjectContentDocumentKind::GameplayConfiguration => ("gameplayConfiguration", "document"),
@@ -413,4 +434,53 @@ pub fn apply_project_content_authoring(handle: i64, request_json: String) -> nap
             .map_err(to_napi)?;
         encode(authoring_result_json(&result)?, "project-content authoring")
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn canonical_file(canonical_json: String) -> ProjectContentCanonicalFileDto {
+        ProjectContentCanonicalFileDto {
+            document_id: "catalog/test".to_owned(),
+            kind: ProjectContentDocumentKind::AssetCatalog,
+            canonical_json,
+            content_hash: "fnv1a64:test".to_owned(),
+        }
+    }
+
+    #[test]
+    fn canonical_document_json_exposes_only_the_typed_document_body() {
+        let value = document_json(&canonical_file(
+            json!({
+                "schemaVersion": PROJECT_CONTENT_SCHEMA_VERSION,
+                "documentId": "catalog/test",
+                "documentKind": "assetCatalog",
+                "document": { "schemaVersion": 1, "catalogId": "test", "assets": [] },
+            })
+            .to_string(),
+        ))
+        .expect("canonical artifact should convert");
+
+        assert_eq!(value["kind"], "assetCatalog");
+        assert_eq!(value["documentId"], "catalog/test");
+        assert_eq!(value["catalog"]["catalogId"], "test");
+        assert!(value.get("schemaVersion").is_none());
+        assert!(value["catalog"].get("document").is_none());
+    }
+
+    #[test]
+    fn canonical_document_json_rejects_envelope_identity_drift() {
+        let result = document_json(&canonical_file(
+            json!({
+                "schemaVersion": PROJECT_CONTENT_SCHEMA_VERSION,
+                "documentId": "catalog/other",
+                "documentKind": "assetCatalog",
+                "document": {},
+            })
+            .to_string(),
+        ));
+
+        assert!(result.is_err());
+    }
 }

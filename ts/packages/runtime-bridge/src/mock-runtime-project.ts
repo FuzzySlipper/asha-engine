@@ -121,6 +121,7 @@ export class MockRuntimeProjectLifecycle {
       sceneCount: 1,
       entityCount: 1,
       voxelAssetCount: 0,
+      voxelBindings: [],
       lifecycle: this.#lifecycle,
     };
     this.#pendingManifestHash = null;

@@ -3,7 +3,7 @@ status: current
 audience: consumer
 tags: [runtime-session, project-bundle, loading, downstream]
 supersedes: []
-see-also: [../authority/runtime-session-facade.md, ../bridge/runtime-session-static-composition.md]
+see-also: [../authority/runtime-session-facade.md, ../authority/workspace-authoring-facade.md, ../bridge/runtime-session-static-composition.md]
 ---
 
 # Canonical project loading
@@ -41,6 +41,63 @@ entity/prefab/trigger/read/scheduler/resource plans, and commits once. The
 accepted receipt contains the Rust-owned project, manifest, admission,
 content-set, composition, scene/entity/voxel, generation, and revision
 identities. A rejected receipt leaves project authority unactivated.
+
+The development directory and packaged archive are two transports for the same
+ProjectBundle closure. They are not separate content pipelines. Given the same
+manifest and bodies, both produce the same project, content-set, composition,
+scene/entity/resource, provider, and active-authority identities. The active
+identity also publishes Rust-selected voxel asset/grid bindings so collision
+calls never depend on a downstream replica of the asset-to-grid map.
+
+## Workspace manifest versus ProjectBundle manifest
+
+An ASHA Game Project may also contain a workspace manifest such as
+`asha.game.toml`, read through `@asha/game-workspace`. That file describes the
+repository/tooling environment: compatibility pins, source roots, host commands,
+and Studio attach information. It is not runtime content and is not packaged as
+authority.
+
+`asha.project-bundle.json` is the canonical stored-content manifest. It closes
+over the scenes, ProjectContent, assets, and resource bodies admitted by Rust.
+Runtime and authoring project-source loading follows this manifest only. A game
+must not derive another list of source roles in boot code, and moving, adding,
+splitting, or deleting a manifest artifact must not require a boot-code edit.
+
+## Authoring and saving the same project
+
+Editors use the same project source with `WorkspaceAuthoringFacade.openProject`.
+That opens an independent Rust authoring cell, decodes all manifest scenes and
+ProjectContent, and loads stored voxel assets for authoring projection without
+starting a gameplay session. Typed commands update the Engine-owned working set.
+
+Saving is one revision-bound handshake:
+
+1. The trusted server host calls `observeAshaProjectStore(projectRoot)`.
+2. The authoring facade calls `prepareProjectWrite(...)` with that observation
+   and any requested path relocations.
+3. Rust derives the complete next manifest topology, canonical scene and
+   ProjectContent bodies, content hashes, writes, moves, and deletes. The host
+   cannot add an undeclared write or substitute a body.
+4. `applyAshaProjectWriteCandidate(...)` stages the returned bytes, verifies the
+   complete next store identity, atomically swaps the directory, and supplies
+   the publication to `confirmProjectWrite(...)`.
+5. Rust consumes the exact single-use candidate. A stale revision, changed host
+   store, wrong publication, or replay rejects; failed confirmation rolls the
+   host directory back.
+
+The host owns filesystem mechanics. Rust owns what the new ProjectBundle means.
+TypeScript owns typed edit expression, requested paths, and transport of opaque
+Rust buffers; it does not hand-maintain the manifest, content hashes, or role
+table. Asset-specific authoring transactions remain explicit where a working
+asset has not yet joined the whole-project working set.
+
+The committed walking consumer in
+`harness/fixtures/canonical-project-consumer` is the focused boundary check. It
+boots a multi-scene project with prefab/entity references, gameplay config, a
+stored voxel house, collision, and visible projection; opens those same files
+for authoring; performs add/move/split/delete; atomically saves; and fresh-loads
+matching development-directory and packaged sources. Its output is an ordinary
+consumer result, not a reusable proof-artifact format.
 
 The following are compatibility or adapter-internal surfaces, not ordinary
 consumer APIs:

@@ -3,9 +3,14 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 FIXTURE="$ROOT/harness/fixtures/composed-native-provider"
+CONSUMER="$ROOT/harness/fixtures/canonical-project-consumer"
 TARGET_DIR="${CARGO_TARGET_DIR:-$ROOT/target/composed-native-provider}"
 OUTPUT_DIR="$ROOT/harness/smoke-out/composed-native-provider"
 DESTINATION="$OUTPUT_DIR/asha-composed-native-provider.node"
+
+echo "==> Checking committed canonical project content"
+CARGO_TARGET_DIR="$TARGET_DIR" cargo run --locked \
+  --manifest-path "$CONSUMER/Cargo.toml" -- --check
 
 echo "==> Building downstream-shaped composed native provider"
 CARGO_TARGET_DIR="$TARGET_DIR" cargo build --locked --release \
@@ -24,7 +29,11 @@ fi
 mkdir -p "$OUTPUT_DIR"
 "$ROOT/harness/ci/install-native-addon.sh" "$ARTIFACT" "$DESTINATION"
 
-echo "==> Verifying generated exports and composed primary-fire authority"
+echo "==> Walking canonical project load, authoring save, and packaged reload"
+(
+  cd "$ROOT/ts"
+  pnpm --filter '@asha/browser-host...' build
+)
 node "$FIXTURE/smoke.mjs" "$DESTINATION" "$ROOT"
 
 echo "Composed native provider gate passed."

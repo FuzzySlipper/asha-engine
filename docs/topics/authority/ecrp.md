@@ -28,4 +28,8 @@ Stored capability defaults used when authority creates an Entity. See `topics/au
 
 ## ECRP RuntimeSession Readout
 
-`RuntimeSessionFacade.readEcrpRuntimeReadout()` exposes live Entity/CapabilityState/event readouts. `loadEcrpProject()` bootstraps ProjectBundle-shaped ECRP content. See `topics/authority/ecrp-runtime-session-readout.md`.
+`RuntimeSessionFacade.readEcrpRuntimeReadout()` exposes live
+Entity/CapabilityState/event readouts. `loadProject({ source })` performs
+canonical ProjectBundle admission; `loadEcrpProject()` is a compatibility-only
+handwritten bootstrap until Demo migration. See
+`topics/authority/ecrp-runtime-session-readout.md`.

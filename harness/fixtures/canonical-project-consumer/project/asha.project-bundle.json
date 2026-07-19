@@ -1,0 +1,25 @@
+{
+  "bundleSchemaVersion": 2,
+  "protocolVersion": 1,
+  "project": { "id": 5997, "name": "Canonical project consumer" },
+  "entryScene": 701,
+  "scenes": [
+    { "id": 701, "schemaVersion": 4, "artifact": "scenes/entry.scene.json" },
+    { "id": 702, "schemaVersion": 4, "artifact": "scenes/secondary.scene.json" }
+  ],
+  "assetLock": { "artifact": "assets/lock.json", "assetCount": 1 },
+  "generationProvenance": null,
+  "artifacts": [
+    { "path": "assets/demo-house.avxl.json", "class": "durable", "role": "voxelVolumeAsset", "contentHash": "70574c28a281334b" },
+    { "path": "assets/lock.json", "class": "durable", "role": "assetLock", "contentHash": "fa9b5193b4ce9eb4" },
+    { "path": "catalogs/demo-assets.json", "class": "durable", "role": "projectContent", "contentHash": "a1c3b505bbbda25c" },
+    { "path": "catalogs/split-source.json", "class": "durable", "role": "projectContent", "contentHash": "8c083fab7b72a69d" },
+    { "path": "entities/demo-actor.json", "class": "durable", "role": "projectContent", "contentHash": "f8b9afddde294f84" },
+    { "path": "gameplay/pulse.json", "class": "durable", "role": "projectContent", "contentHash": "e7e3a467aaaa3c58" },
+    { "path": "prefabs/demo-registry.json", "class": "durable", "role": "projectContent", "contentHash": "f2a6c3233300cbdb" },
+    { "path": "presentation/delete-me.json", "class": "durable", "role": "projectContent", "contentHash": "ac60f3eea7d5f356" },
+    { "path": "presentation/demo-cues.json", "class": "durable", "role": "projectContent", "contentHash": "d4e0af7c03f45388" },
+    { "path": "scenes/entry.scene.json", "class": "durable", "role": "sceneDocument", "contentHash": "37b28f506f236ee4" },
+    { "path": "scenes/secondary.scene.json", "class": "durable", "role": "sceneDocument", "contentHash": "99028ab11e990e27" }
+  ]
+}

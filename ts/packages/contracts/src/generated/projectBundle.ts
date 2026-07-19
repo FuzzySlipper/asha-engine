@@ -269,6 +269,11 @@ export interface RuntimeProjectDiagnostic {
 }
 
 // Rust-owned identity of the authority graph committed by one successful load. No compiled bootstrap plan is exposed through this readout.
+export interface RuntimeProjectVoxelBinding {
+  readonly assetId: string;
+  readonly grid: number;
+}
+
 export interface ActiveRuntimeProjectIdentity {
   readonly projectId: number;
   readonly manifestHash: string;
@@ -279,6 +284,7 @@ export interface ActiveRuntimeProjectIdentity {
   readonly sceneCount: number;
   readonly entityCount: number;
   readonly voxelAssetCount: number;
+  readonly voxelBindings: readonly RuntimeProjectVoxelBinding[];
   readonly lifecycle: RuntimeProjectLifecycleVersion;
 }
 
@@ -358,6 +364,48 @@ export interface ProjectWriteCandidate {
 export interface ProjectWritePublication {
   readonly candidateHash: string;
   readonly published: ProjectStoreIdentity;
+}
+
+// One host-selected path relocation. Rust resolves the referenced artifact, verifies that its canonical bytes are unchanged, updates every owning manifest section, and emits the concrete move in the write candidate.
+export interface ProjectArtifactRelocation {
+  readonly from: string;
+  readonly to: string;
+}
+
+// Prepare the complete next ProjectBundle from the Engine-owned authoring state. The caller supplies observed storage identity and optional path choices, but never supplies artifact hashes, manifest rows, or file bodies.
+export interface ProjectWritePrepareRequest {
+  readonly expectedWorkspaceId: string;
+  readonly expectedGeneration: number;
+  readonly expectedWorkingRevision: number;
+  readonly observedPrior: ProjectStoreIdentity;
+  readonly priorManifestJson: string;
+  readonly relocations: readonly ProjectArtifactRelocation[];
+}
+
+export interface ProjectWriteDiagnostic {
+  readonly code: string;
+  readonly path: string | null;
+  readonly message: string;
+}
+
+export interface ProjectWritePrepareReceipt {
+  readonly accepted: boolean;
+  readonly candidate: ProjectWriteCandidate | null;
+  readonly diagnostics: readonly ProjectWriteDiagnostic[];
+}
+
+// Confirm the exact publication produced by the currently authorized Rust candidate. Candidate authorization is single-use and revision bound.
+export interface ProjectWriteConfirmRequest {
+  readonly expectedWorkspaceId: string;
+  readonly expectedGeneration: number;
+  readonly expectedWorkingRevision: number;
+  readonly publication: ProjectWritePublication;
+}
+
+export interface ProjectWriteConfirmReceipt {
+  readonly accepted: boolean;
+  readonly stored: ProjectStoreIdentity | null;
+  readonly diagnostics: readonly ProjectWriteDiagnostic[];
 }
 
 // Durable schema for semantic trigger roles authored with a ProjectBundle.

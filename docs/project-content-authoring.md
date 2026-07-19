@@ -62,10 +62,20 @@ invoke the edit or create a save candidate. An accepted edit increments the
 Rust workspace revision and registers its returned set hash as the only hash a
 trusted host may confirm as stored.
 
-File selection and persistence are trusted-host responsibilities. The host
-writes the returned `canonicalFiles` only after Rust acceptance, then calls the
-ordinary workspace stored-confirmation operation with the accepted set hash.
-Browser code never accepts an edit or promotes a file itself.
+`openProject({ source })` is the ordinary project entrypoint. It discovers every
+ProjectContent artifact from the canonical ProjectBundle manifest and installs
+the complete accepted set; callers do not maintain a second path/role registry.
+
+File paths and persistence mechanics are trusted-host responsibilities, but the
+host does not independently write the per-edit `canonicalFiles`. For a project
+save it observes the current store and asks `prepareProjectWrite` for one
+revision-bound Rust candidate. Rust combines the current ProjectContent set with
+the Engine-owned scene set, retains the rest of the manifest closure, applies
+requested relocations, and derives the next manifest, canonical bodies, hashes,
+writes, moves, and deletes. The host stages that exact candidate, atomically
+publishes it, and calls `confirmProjectWrite`; Rust consumes a matching
+publication once. Browser code never accepts an edit, mints a manifest row, or
+promotes a file itself.
 
 Downstream native addons install separate runtime and project-authoring bridge
 constructors. `StaticProjectAuthoringBuilder` consumes the static gameplay

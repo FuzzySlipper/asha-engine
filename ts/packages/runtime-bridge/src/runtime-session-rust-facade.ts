@@ -1168,8 +1168,15 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   readProjection(): RuntimeSessionProjectionSummary {
     this.#requireInitialized('readProjection');
     const cursor = frameCursor(this.#progress.latestProjectionTick);
-    const runtimeFrame = this.#bridge.readProjectionFrame(cursor);
-    const frame = runtimeFrame.scene;
+    const projectedRuntimeFrame = this.#bridge.readProjectionFrame(cursor);
+    const retainedScene = this.#bridge.readRenderDiffs(cursor);
+    const frame = {
+      ops: [...projectedRuntimeFrame.scene.ops, ...retainedScene.ops],
+    };
+    const runtimeFrame = {
+      ...projectedRuntimeFrame,
+      scene: frame,
+    };
     const composition = this.#bridge.getProjectBundleCompositionStatus();
     return {
       sequenceId: this.#progress.sequenceId,

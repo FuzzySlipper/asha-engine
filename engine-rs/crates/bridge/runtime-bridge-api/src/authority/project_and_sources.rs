@@ -59,6 +59,7 @@ impl EngineBridge {
                 scene_count: active.scene_count,
                 entity_count: active.entity_count,
                 voxel_asset_count: active.voxel_asset_count,
+                voxel_bindings: active.voxel_bindings.clone(),
                 lifecycle: self.runtime_project_lifecycle_version(),
             })
     }
@@ -195,6 +196,15 @@ impl EngineBridge {
             generation: actual.generation.saturating_add(1),
             revision: actual.revision.saturating_add(1),
         };
+        let voxel_bindings = referenced_voxel_assets
+            .iter()
+            .map(
+                |asset_id| protocol_project_bundle::RuntimeProjectVoxelBinding {
+                    asset_id: asset_id.clone(),
+                    grid: runtime_project_grid_id(asset_id),
+                },
+            )
+            .collect::<Vec<_>>();
         let active = ActiveRuntimeProjectAuthority {
             project_id: identity.project_id(),
             manifest_hash: identity.manifest_hash().to_hex(),
@@ -205,6 +215,7 @@ impl EngineBridge {
             scene_count,
             entity_count,
             voxel_asset_count: referenced_voxel_assets.len() as u32,
+            voxel_bindings,
         };
         let receipt = RuntimeProjectActivationReceipt {
             project_id: active.project_id,
@@ -216,6 +227,7 @@ impl EngineBridge {
             scene_count: active.scene_count,
             entity_count: active.entity_count,
             voxel_asset_count: active.voxel_asset_count,
+            voxel_bindings: active.voxel_bindings.clone(),
             lifecycle,
         };
         staged.bundle.runtime_project_generation = lifecycle.generation;

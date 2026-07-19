@@ -44,6 +44,10 @@ import type {
   ProjectContentCodecResult,
   ProjectContentDecodeRequest,
   ProjectContentEncodeRequest,
+  ProjectWriteConfirmRequest,
+  ProjectWriteConfirmReceipt,
+  ProjectWritePrepareRequest,
+  ProjectWritePrepareReceipt,
   ProjectResourceBeginRequest,
   ProjectResourceTransactionReceipt,
   ProjectSourceBatchValidationReceipt,
@@ -484,6 +488,40 @@ export class MockRuntimeBridge implements RuntimeBridge {
   ): WorkspaceAuthoringStoredConfirmationReceipt {
     this.#validateMockWorkspaceBinding(input.expectedWorkspaceId, input.expectedGeneration);
     throw new RuntimeBridgeError('invalid_input', 'mock bridge has no current Rust save candidate');
+  }
+
+  prepareProjectWrite(input: ProjectWritePrepareRequest): ProjectWritePrepareReceipt {
+    const state = this.#requireMockWorkspaceAuthoring('prepareProjectWrite');
+    this.#validateMockWorkspaceBinding(input.expectedWorkspaceId, input.expectedGeneration);
+    if (input.expectedWorkingRevision !== state.workingRevision) {
+      throw new RuntimeBridgeError('stale_authority_snapshot', 'stale mock project write request');
+    }
+    return {
+      accepted: false,
+      candidate: null,
+      diagnostics: [{
+        code: 'mockHasNoCanonicalProjectSet',
+        path: null,
+        message: 'mock bridge does not own a canonical project write set',
+      }],
+    };
+  }
+
+  confirmProjectWrite(input: ProjectWriteConfirmRequest): ProjectWriteConfirmReceipt {
+    const state = this.#requireMockWorkspaceAuthoring('confirmProjectWrite');
+    this.#validateMockWorkspaceBinding(input.expectedWorkspaceId, input.expectedGeneration);
+    if (input.expectedWorkingRevision !== state.workingRevision) {
+      throw new RuntimeBridgeError('stale_authority_snapshot', 'stale mock project write confirmation');
+    }
+    return {
+      accepted: false,
+      stored: null,
+      diagnostics: [{
+        code: 'missingCandidate',
+        path: null,
+        message: 'mock bridge has no Rust-authorized project write candidate',
+      }],
+    };
   }
 
   closeWorkspaceAuthoring(input: WorkspaceAuthoringCloseInput): WorkspaceAuthoringCloseReceipt {

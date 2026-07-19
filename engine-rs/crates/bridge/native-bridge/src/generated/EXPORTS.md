@@ -11,6 +11,8 @@ handwritten semantic exports. Quarantined compatibility wiring is explicit.
 | `read_workspace_authoring_state` | `workspace_authoring` | stable | `Unit` | `protocol_project_bundle::WorkspaceAuthoringStateSummary` | `RuntimeBridgeError` |
 | `read_workspace_authoring_projection` | `workspace_authoring` | stable | `protocol_project_bundle::WorkspaceAuthoringProjectionRequest` | `protocol_project_bundle::WorkspaceAuthoringProjectionReceipt` | `RuntimeBridgeError` |
 | `confirm_workspace_authoring_stored` | `workspace_authoring` | stable | `protocol_project_bundle::WorkspaceAuthoringStoredConfirmationRequest` | `protocol_project_bundle::WorkspaceAuthoringStoredConfirmationReceipt` | `RuntimeBridgeError` |
+| `prepare_project_write` | `workspace_authoring` | stable | `protocol_project_bundle::ProjectWritePrepareRequest` | `protocol_project_bundle::ProjectWritePrepareReceipt` | `RuntimeBridgeError` |
+| `confirm_project_write` | `workspace_authoring` | stable | `protocol_project_bundle::ProjectWriteConfirmRequest` | `protocol_project_bundle::ProjectWriteConfirmReceipt` | `RuntimeBridgeError` |
 | `close_workspace_authoring` | `workspace_authoring` | stable | `protocol_project_bundle::WorkspaceAuthoringCloseRequest` | `protocol_project_bundle::WorkspaceAuthoringCloseReceipt` | `RuntimeBridgeError` |
 | `decode_project_content` | `workspace_authoring` | stable | `protocol_project_content::ProjectContentDecodeRequest` | `protocol_project_content::ProjectContentCodecResult` | `RuntimeBridgeError` |
 | `encode_project_content` | `workspace_authoring` | stable | `protocol_project_content::ProjectContentEncodeRequest` | `protocol_project_content::ProjectContentCodecResult` | `RuntimeBridgeError` |

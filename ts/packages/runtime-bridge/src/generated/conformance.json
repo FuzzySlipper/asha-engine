@@ -185,6 +185,8 @@
         "preview_procedural_environment",
         "apply_procedural_environment",
         "confirm_workspace_authoring_stored",
+        "prepare_project_write",
+        "confirm_project_write",
         "close_workspace_authoring"
       ]
     },
@@ -341,6 +343,54 @@
       "outputWire": {
         "owner": "generated",
         "name": "projectBundle.WorkspaceAuthoringStoredConfirmationReceipt",
+        "repeated": false
+      },
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "prepare_project_write",
+      "facadeMethod": "prepareProjectWrite",
+      "capability": "workspace_authoring",
+      "surface": "stable",
+      "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
+      "input": "protocol_project_bundle::ProjectWritePrepareRequest",
+      "output": "protocol_project_bundle::ProjectWritePrepareReceipt",
+      "facadeInput": "contracts::ProjectWritePrepareRequest",
+      "facadeOutput": "contracts::ProjectWritePrepareReceipt",
+      "inputWire": {
+        "owner": "generated",
+        "name": "projectBundle.ProjectWritePrepareRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "projectBundle.ProjectWritePrepareReceipt",
+        "repeated": false
+      },
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "confirm_project_write",
+      "facadeMethod": "confirmProjectWrite",
+      "capability": "workspace_authoring",
+      "surface": "stable",
+      "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
+      "input": "protocol_project_bundle::ProjectWriteConfirmRequest",
+      "output": "protocol_project_bundle::ProjectWriteConfirmReceipt",
+      "facadeInput": "contracts::ProjectWriteConfirmRequest",
+      "facadeOutput": "contracts::ProjectWriteConfirmReceipt",
+      "inputWire": {
+        "owner": "generated",
+        "name": "projectBundle.ProjectWriteConfirmRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "projectBundle.ProjectWriteConfirmReceipt",
         "repeated": false
       },
       "errors": "RuntimeBridgeError"

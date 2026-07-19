@@ -312,6 +312,33 @@ export function createNativeOperationInvocations(
         documentKind: 'entityDefinition',
       },
     })],
+    ['prepareProjectWrite', (bridge) => bridge.prepareProjectWrite({
+      expectedWorkspaceId: 'workspace/native-fixture',
+      expectedGeneration: 1,
+      expectedWorkingRevision: 0,
+      observedPrior: {
+        revision: 0,
+        manifestHash: input.hashA,
+        contentSetHash: input.hashA,
+        indexHash: null,
+      },
+      priorManifestJson: '{}',
+      relocations: [],
+    })],
+    ['confirmProjectWrite', (bridge) => bridge.confirmProjectWrite({
+      expectedWorkspaceId: 'workspace/native-fixture',
+      expectedGeneration: 1,
+      expectedWorkingRevision: 0,
+      publication: {
+        candidateHash: input.hashA,
+        published: {
+          revision: 1,
+          manifestHash: input.hashA,
+          contentSetHash: input.hashA,
+          indexHash: null,
+        },
+      },
+    })],
     ['readModelMaterialPreview', (bridge) => bridge.readModelMaterialPreview(input.materialPreview)],
     ['readSceneObjectSnapshot', (bridge) => bridge.readSceneObjectSnapshot()],
     ['applySceneObjectCommand', (bridge) => bridge.applySceneObjectCommand({ expectedDocumentHash: 1, command: { kind: 'select', id: null } })],

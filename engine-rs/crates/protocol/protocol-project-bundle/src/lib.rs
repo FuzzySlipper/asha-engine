@@ -630,6 +630,13 @@ pub struct RuntimeProjectDiagnostic {
 /// load. No compiled bootstrap plan is exposed through this readout.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RuntimeProjectVoxelBinding {
+    pub asset_id: String,
+    pub grid: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ActiveRuntimeProjectIdentity {
     pub project_id: u64,
     pub manifest_hash: String,
@@ -640,6 +647,7 @@ pub struct ActiveRuntimeProjectIdentity {
     pub scene_count: u32,
     pub entity_count: u32,
     pub voxel_asset_count: u32,
+    pub voxel_bindings: Vec<RuntimeProjectVoxelBinding>,
     pub lifecycle: RuntimeProjectLifecycleVersion,
 }
 
@@ -746,6 +754,65 @@ pub struct ProjectWriteCandidate {
 pub struct ProjectWritePublication {
     pub candidate_hash: String,
     pub published: ProjectStoreIdentity,
+}
+
+/// One host-selected path relocation. Rust resolves the referenced artifact,
+/// verifies that its canonical bytes are unchanged, updates every owning
+/// manifest section, and emits the concrete move in the write candidate.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectArtifactRelocation {
+    pub from: String,
+    pub to: String,
+}
+
+/// Prepare the complete next ProjectBundle from the Engine-owned authoring
+/// state. The caller supplies observed storage identity and optional path
+/// choices, but never supplies artifact hashes, manifest rows, or file bodies.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectWritePrepareRequest {
+    pub expected_workspace_id: String,
+    pub expected_generation: u64,
+    pub expected_working_revision: u64,
+    pub observed_prior: ProjectStoreIdentity,
+    pub prior_manifest_json: String,
+    pub relocations: Vec<ProjectArtifactRelocation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectWriteDiagnostic {
+    pub code: String,
+    pub path: Option<String>,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectWritePrepareReceipt {
+    pub accepted: bool,
+    pub candidate: Option<ProjectWriteCandidate>,
+    pub diagnostics: Vec<ProjectWriteDiagnostic>,
+}
+
+/// Confirm the exact publication produced by the currently authorized Rust
+/// candidate. Candidate authorization is single-use and revision bound.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectWriteConfirmRequest {
+    pub expected_workspace_id: String,
+    pub expected_generation: u64,
+    pub expected_working_revision: u64,
+    pub publication: ProjectWritePublication,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectWriteConfirmReceipt {
+    pub accepted: bool,
+    pub stored: Option<ProjectStoreIdentity>,
+    pub diagnostics: Vec<ProjectWriteDiagnostic>,
 }
 
 // ── Durable prefab registry ──────────────────────────────────────────────────

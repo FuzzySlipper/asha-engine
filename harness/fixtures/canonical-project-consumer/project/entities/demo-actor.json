@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "documentId": "entities/demo-actor.json",
+  "documentKind": "entityDefinition",
+  "document": {
+    "capabilities": [
+      {
+        "kind": "bounds",
+        "max": [
+          0.4,
+          1.8,
+          0.4
+        ],
+        "min": [
+          -0.4,
+          0.0,
+          -0.4
+        ]
+      },
+      {
+        "kind": "collision",
+        "staticCollider": false
+      },
+      {
+        "kind": "render",
+        "visible": true
+      },
+      {
+        "kind": "transform",
+        "transform": {
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      }
+    ],
+    "displayName": "Demo Actor",
+    "metadata": [],
+    "source": {
+      "projectBundle": "canonical-project-consumer",
+      "relativePath": "entities/demo-actor.json"
+    },
+    "stableId": "demo.actor",
+    "tags": []
+  }
+}

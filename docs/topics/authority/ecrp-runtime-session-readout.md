@@ -8,14 +8,21 @@ see-also: []
 
 # ECRP RuntimeSession Readout
 
-Status: public readout plus ProjectBundle-shaped load surface for #4163/#4189/#4224.
+Status: public readout over canonical ProjectBundle admission. The handwritten
+ECRP load input remains compatibility-only while `asha-demo` migrates.
 
 `@asha/runtime-bridge` exposes `RuntimeSessionFacade.readEcrpRuntimeReadout()`
 as the public, read-only ECRP inspection surface for consumers such as
 `asha-demo`, Studio live inspection, and compatibility tests.
 
-`RuntimeSessionFacade.loadEcrpProject()` is the public bootstrap/load surface
-for ProjectBundle-shaped ECRP content. It accepts:
+Ordinary consumers call `RuntimeSessionFacade.loadProject({ source })`. Rust
+discovers EntityDefinitions, scenes, prefab instances, gameplay configuration,
+and resources from the canonical manifest closure and returns the active
+authority identities. Consumers do not assign runtime entity ids or submit a
+parallel bootstrap registry.
+
+`RuntimeSessionFacade.loadEcrpProject()` is the compatibility bootstrap surface
+for the older handwritten ECRP input. It accepts:
 
 - `ProjectBundle` identity plus the current compatibility `runtimeRequest`;
 - `EntityDefinition[]`;
@@ -69,9 +76,9 @@ for changes.
 ## Current Behavior
 
 The reference RuntimeSession starts with a compatibility ECRP project so older
-consumers continue to boot. Consumers can then call `loadEcrpProject()` to load
-their ProjectBundle/EntityDefinition/SceneDocument content. After a successful
-load, `readEcrpRuntimeReadout()` derives Entity ids, stable ids, source paths,
+fixtures continue to boot. Product consumers load canonical project sources;
+compatibility fixtures may still call `loadEcrpProject()` until Demo migration.
+After a successful load, `readEcrpRuntimeReadout()` derives Entity ids, stable ids, source paths,
 CapabilityState, health, render visibility, recent events, and hashes from the
 loaded runtime project state.
 
@@ -108,10 +115,7 @@ This surface does not expose raw `EntityStore`, does not edit EntityDefinitions,
 and does not replace Studio Definition Authoring Mode. It is a live runtime
 inspection/control projection only.
 
-The reference TypeScript facade is still the browser/mock public RuntimeSession
-surface. For FPS primary-fire it now uses a Rust-semantic authority mirror named
-for `rule-lifecycle`, `svc-combat`, and the
-`runtime_session.fps.primary_fire.v0` replay unit rather than an independent
-TypeScript-only combat implementation. A future native/protocol integration can
-route this public load/action surface through the compiled runtime without
-changing downstream demo code.
+The reference TypeScript facade is a labelled fixture surface, not product
+authority. Product and downstream-composed sessions use the native Rust bridge;
+removing the remaining Demo compatibility load is a downstream migration, not a
+future engine integration requirement.

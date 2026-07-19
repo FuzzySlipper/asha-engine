@@ -125,9 +125,12 @@ pub struct CompositionStatus {
 }
 
 pub use protocol_project_bundle::{
-    ActiveRuntimeProjectIdentity, ProjectResourceBeginRequest, ProjectResourceStageRequest,
-    ProjectResourceTransactionReceipt, ProjectSourceBatchDiagnostic, ProjectSourceBatchErrorCode,
-    ProjectSourceBatchValidationReceipt, ProjectSourceBody, RuntimeProjectCloseReceipt,
+    ActiveRuntimeProjectIdentity, ProjectArtifactRelocation, ProjectResourceBeginRequest,
+    ProjectResourceStageRequest, ProjectResourceTransactionReceipt, ProjectSourceBatchDiagnostic,
+    ProjectSourceBatchErrorCode, ProjectSourceBatchValidationReceipt, ProjectSourceBody,
+    ProjectStoreIdentity, ProjectWriteCandidate, ProjectWriteConfirmReceipt,
+    ProjectWriteConfirmRequest, ProjectWriteDiagnostic, ProjectWritePrepareReceipt,
+    ProjectWritePrepareRequest, ProjectWritePublication, RuntimeProjectCloseReceipt,
     RuntimeProjectCloseRequest, RuntimeProjectDiagnostic, RuntimeProjectDiagnosticPhase,
     RuntimeProjectLoadReceipt, RuntimeProjectLoadRequest, RuntimeProjectSourceAdapterInput,
     RuntimeProjectSourceAdapterKind, RuntimeProjectSourceBatch, StagedProjectResourceRef,

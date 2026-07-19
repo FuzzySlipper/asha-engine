@@ -34,6 +34,7 @@ pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
         interface_coverage_key("projectBundle", "RuntimeProjectLifecycleVersion"),
         interface_coverage_key("projectBundle", "RuntimeProjectLoadRequest"),
         interface_coverage_key("projectBundle", "RuntimeProjectDiagnostic"),
+        interface_coverage_key("projectBundle", "RuntimeProjectVoxelBinding"),
         interface_coverage_key("projectBundle", "ActiveRuntimeProjectIdentity"),
         interface_coverage_key("projectBundle", "RuntimeProjectLoadReceipt"),
         interface_coverage_key("projectBundle", "RuntimeProjectCloseRequest"),
@@ -46,6 +47,12 @@ pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
         interface_coverage_key("projectBundle", "CanonicalProjectDelete"),
         interface_coverage_key("projectBundle", "ProjectWriteCandidate"),
         interface_coverage_key("projectBundle", "ProjectWritePublication"),
+        interface_coverage_key("projectBundle", "ProjectArtifactRelocation"),
+        interface_coverage_key("projectBundle", "ProjectWritePrepareRequest"),
+        interface_coverage_key("projectBundle", "ProjectWriteDiagnostic"),
+        interface_coverage_key("projectBundle", "ProjectWritePrepareReceipt"),
+        interface_coverage_key("projectBundle", "ProjectWriteConfirmRequest"),
+        interface_coverage_key("projectBundle", "ProjectWriteConfirmReceipt"),
     ]);
 }
 
@@ -245,7 +252,7 @@ fn runtime_project_public_facade_serialization_matches_ir_shape() {
         ActiveRuntimeProjectIdentity, RuntimeProjectCloseReceipt, RuntimeProjectCloseRequest,
         RuntimeProjectDiagnostic, RuntimeProjectDiagnosticPhase, RuntimeProjectLifecycleVersion,
         RuntimeProjectLoadReceipt, RuntimeProjectLoadRequest, RuntimeProjectSourceAdapterInput,
-        RuntimeProjectSourceAdapterKind,
+        RuntimeProjectSourceAdapterKind, RuntimeProjectVoxelBinding,
     };
 
     let project = module("projectBundle");
@@ -265,6 +272,10 @@ fn runtime_project_public_facade_serialization_matches_ir_shape() {
         path: Some("$.target".into()),
         message: "target does not resolve".into(),
     };
+    let voxel_binding = RuntimeProjectVoxelBinding {
+        asset_id: "voxel-volume/house".into(),
+        grid: 12,
+    };
     let active = ActiveRuntimeProjectIdentity {
         project_id: 8,
         manifest_hash: "manifest".into(),
@@ -275,6 +286,7 @@ fn runtime_project_public_facade_serialization_matches_ir_shape() {
         scene_count: 2,
         entity_count: 11,
         voxel_asset_count: 1,
+        voxel_bindings: vec![voxel_binding.clone()],
         lifecycle,
     };
     let request = RuntimeProjectLoadRequest {
@@ -317,6 +329,10 @@ fn runtime_project_public_facade_serialization_matches_ir_shape() {
             serde_json::to_value(&diagnostic).unwrap(),
         ),
         (
+            "RuntimeProjectVoxelBinding",
+            serde_json::to_value(&voxel_binding).unwrap(),
+        ),
+        (
             "ActiveRuntimeProjectIdentity",
             serde_json::to_value(receipt.active_project.as_ref().unwrap()).unwrap(),
         ),
@@ -341,7 +357,9 @@ fn runtime_project_public_facade_serialization_matches_ir_shape() {
 fn project_write_candidate_serialization_matches_ir_shape() {
     use protocol_project_bundle::{
         CanonicalProjectDelete, CanonicalProjectMove, CanonicalProjectWrite,
-        ProjectArtifactExpectation, ProjectStoreIdentity, ProjectWriteCandidate,
+        ProjectArtifactExpectation, ProjectArtifactRelocation, ProjectStoreIdentity,
+        ProjectWriteCandidate, ProjectWriteConfirmReceipt, ProjectWriteConfirmRequest,
+        ProjectWriteDiagnostic, ProjectWritePrepareReceipt, ProjectWritePrepareRequest,
         ProjectWritePublication, ProjectWriteResourceRef,
     };
 
@@ -399,7 +417,40 @@ fn project_write_candidate_serialization_matches_ir_shape() {
     };
     let publication = ProjectWritePublication {
         candidate_hash: candidate.candidate_hash.clone(),
-        published: next,
+        published: next.clone(),
+    };
+    let relocation = ProjectArtifactRelocation {
+        from: "scenes/main.json".into(),
+        to: "scenes/archive/main.json".into(),
+    };
+    let prepare_request = ProjectWritePrepareRequest {
+        expected_workspace_id: "workspace/test".into(),
+        expected_generation: 3,
+        expected_working_revision: 7,
+        observed_prior: prior.clone(),
+        prior_manifest_json: "{\"bundleSchemaVersion\":2}".into(),
+        relocations: vec![relocation.clone()],
+    };
+    let write_diagnostic = ProjectWriteDiagnostic {
+        code: "staleStore".into(),
+        path: Some("observedPrior".into()),
+        message: "stored project changed".into(),
+    };
+    let prepare_receipt = ProjectWritePrepareReceipt {
+        accepted: true,
+        candidate: Some(candidate.clone()),
+        diagnostics: Vec::new(),
+    };
+    let confirm_request = ProjectWriteConfirmRequest {
+        expected_workspace_id: "workspace/test".into(),
+        expected_generation: 3,
+        expected_working_revision: 7,
+        publication: publication.clone(),
+    };
+    let confirm_receipt = ProjectWriteConfirmReceipt {
+        accepted: true,
+        stored: Some(next),
+        diagnostics: Vec::new(),
     };
     for (name, value) in [
         (
@@ -433,6 +484,30 @@ fn project_write_candidate_serialization_matches_ir_shape() {
         (
             "ProjectWritePublication",
             serde_json::to_value(&publication).unwrap(),
+        ),
+        (
+            "ProjectArtifactRelocation",
+            serde_json::to_value(&relocation).unwrap(),
+        ),
+        (
+            "ProjectWritePrepareRequest",
+            serde_json::to_value(&prepare_request).unwrap(),
+        ),
+        (
+            "ProjectWriteDiagnostic",
+            serde_json::to_value(&write_diagnostic).unwrap(),
+        ),
+        (
+            "ProjectWritePrepareReceipt",
+            serde_json::to_value(&prepare_receipt).unwrap(),
+        ),
+        (
+            "ProjectWriteConfirmRequest",
+            serde_json::to_value(&confirm_request).unwrap(),
+        ),
+        (
+            "ProjectWriteConfirmReceipt",
+            serde_json::to_value(&confirm_receipt).unwrap(),
         ),
     ] {
         compare_object_to_interface(&project, name, &value).unwrap();

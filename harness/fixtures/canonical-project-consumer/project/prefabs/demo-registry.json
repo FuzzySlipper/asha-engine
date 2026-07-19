@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "documentId": "prefabs/demo-registry.json",
+  "documentKind": "prefabRegistry",
+  "document": {
+    "definitions": [
+      {
+        "displayName": "Demo Actor Prefab",
+        "id": 700,
+        "partRoles": [
+          {
+            "part": 1,
+            "role": "actor/body"
+          }
+        ],
+        "parts": [
+          {
+            "displayName": "Body",
+            "id": 1,
+            "namespace": "body",
+            "parent": null,
+            "source": {
+              "kind": "entityDefinition",
+              "stableId": "demo.actor"
+            },
+            "transform": {
+              "rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "scale": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "translation": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          }
+        ],
+        "schemaVersion": 1,
+        "variant": null
+      }
+    ],
+    "schemaVersion": 1
+  }
+}

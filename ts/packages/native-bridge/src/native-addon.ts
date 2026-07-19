@@ -260,6 +260,8 @@ interface NativeAddonBindings {
   readWorkspaceAuthoringState(handle: number): string;
   readWorkspaceAuthoringProjection(handle: number, requestJson: string): string;
   confirmWorkspaceAuthoringStored(handle: number, requestJson: string): string;
+  prepareProjectWrite(handle: number, requestJson: string): string;
+  confirmProjectWrite(handle: number, requestJson: string): string;
   closeWorkspaceAuthoring(handle: number, requestJson: string): string;
   beginRuntimeProjectSourceResources(
     handle: number,

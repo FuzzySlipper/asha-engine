@@ -21,6 +21,18 @@ pub trait RuntimeBridge {
         &mut self,
         request: WorkspaceAuthoringStoredConfirmationRequest,
     ) -> BridgeResult<WorkspaceAuthoringStoredConfirmationReceipt>;
+    /// Derive and authorize one complete project write candidate from the
+    /// Engine-owned workspace scenes and ProjectContent set.
+    fn prepare_project_write(
+        &mut self,
+        request: ProjectWritePrepareRequest,
+    ) -> BridgeResult<ProjectWritePrepareReceipt>;
+    /// Consume the exact Rust-authorized project write after atomic host
+    /// publication.
+    fn confirm_project_write(
+        &mut self,
+        request: ProjectWriteConfirmRequest,
+    ) -> BridgeResult<ProjectWriteConfirmReceipt>;
     fn close_workspace_authoring(
         &mut self,
         request: WorkspaceAuthoringCloseRequest,

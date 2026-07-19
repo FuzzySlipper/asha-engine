@@ -121,7 +121,7 @@ initialization = "createsEngine"
 project_bundle = "ownsLoadUnload"
 snapshot_hash = "workspaceAuthoringAuthority"
 resource_lifetime = "session"
-operations = ["open_workspace_authoring", "read_workspace_authoring_state", "read_workspace_authoring_projection", "decode_project_content", "encode_project_content", "apply_project_content_authoring", "preview_procedural_environment", "apply_procedural_environment", "confirm_workspace_authoring_stored", "close_workspace_authoring"]
+operations = ["open_workspace_authoring", "read_workspace_authoring_state", "read_workspace_authoring_projection", "decode_project_content", "encode_project_content", "apply_project_content_authoring", "preview_procedural_environment", "apply_procedural_environment", "confirm_workspace_authoring_stored", "prepare_project_write", "confirm_project_write", "close_workspace_authoring"]
 
 [[capability]]
 id = "bundle_lifecycle"
@@ -193,6 +193,26 @@ errors = "RuntimeBridgeError"
 summary = "Confirm a staged host write only when it matches the current Rust save candidate and workspace generation."
 facade_input = "contracts::WorkspaceAuthoringStoredConfirmationRequest"
 facade_output = "contracts::WorkspaceAuthoringStoredConfirmationReceipt"
+
+[[operation]]
+name = "prepare_project_write"
+surface = "stable"
+input = "protocol_project_bundle::ProjectWritePrepareRequest"
+output = "protocol_project_bundle::ProjectWritePrepareReceipt"
+errors = "RuntimeBridgeError"
+summary = "Derive and compare-and-swap authorize one complete ProjectBundle write candidate from the Engine-owned workspace scene and ProjectContent set."
+facade_input = "contracts::ProjectWritePrepareRequest"
+facade_output = "contracts::ProjectWritePrepareReceipt"
+
+[[operation]]
+name = "confirm_project_write"
+surface = "stable"
+input = "protocol_project_bundle::ProjectWriteConfirmRequest"
+output = "protocol_project_bundle::ProjectWriteConfirmReceipt"
+errors = "RuntimeBridgeError"
+summary = "Consume the exact revision-bound Rust project write candidate after atomic trusted-host publication."
+facade_input = "contracts::ProjectWriteConfirmRequest"
+facade_output = "contracts::ProjectWriteConfirmReceipt"
 
 [[operation]]
 name = "close_workspace_authoring"

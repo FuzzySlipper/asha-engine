@@ -19,8 +19,9 @@ use napi_derive::napi;
 use runtime_bridge_api::{
     parse_voxel_command_batch_json, EnemyDirectNavMovementRequest, EngineBridge, EngineConfig,
     GameRuleCatalog, GameRuleModuleManifest, GameRuleResolutionRequest, PresentationOpMeta,
-    PresentationOriginRef, ProjectBundleLoadRequest, RuntimeBridge, RuntimeBridgeError,
-    RuntimeBridgeErrorKind, RuntimeProjectionFrame, StepInputEnvelope, VoxelAnnotationEditRequest,
+    PresentationOriginRef, ProjectBundleLoadRequest, ProjectWriteConfirmRequest,
+    ProjectWritePrepareRequest, RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind,
+    RuntimeProjectionFrame, StepInputEnvelope, VoxelAnnotationEditRequest,
     VoxelAnnotationLayerExportRequest, VoxelAnnotationLayerLoadRequest,
     VoxelAnnotationLayerValidationRequest, VoxelAnnotationQueryRequest,
     VoxelConversionApplyRequest, VoxelConversionEvidenceRef,
@@ -817,6 +818,34 @@ pub fn confirm_workspace_authoring_stored(
     with_bridge(handle, |bridge| {
         bridge
             .confirm_workspace_authoring_stored(request)
+            .map_err(to_napi)
+            .and_then(|receipt| workspace_authoring_json(&receipt))
+    })
+}
+
+#[napi]
+pub fn prepare_project_write(handle: i64, request_json: String) -> napi::Result<String> {
+    let request = wire::parse_wire_json::<ProjectWritePrepareRequest>(
+        "prepare_project_write",
+        &request_json,
+    )?;
+    with_bridge(handle, |bridge| {
+        bridge
+            .prepare_project_write(request)
+            .map_err(to_napi)
+            .and_then(|receipt| workspace_authoring_json(&receipt))
+    })
+}
+
+#[napi]
+pub fn confirm_project_write(handle: i64, request_json: String) -> napi::Result<String> {
+    let request = wire::parse_wire_json::<ProjectWriteConfirmRequest>(
+        "confirm_project_write",
+        &request_json,
+    )?;
+    with_bridge(handle, |bridge| {
+        bridge
+            .confirm_project_write(request)
             .map_err(to_napi)
             .and_then(|receipt| workspace_authoring_json(&receipt))
     })

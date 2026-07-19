@@ -30,6 +30,20 @@ impl RuntimeBridge for EngineBridge {
         self.confirm_workspace_authoring_stored_authority(request)
     }
 
+    fn prepare_project_write(
+        &mut self,
+        request: ProjectWritePrepareRequest,
+    ) -> BridgeResult<ProjectWritePrepareReceipt> {
+        self.prepare_project_write_authority(request)
+    }
+
+    fn confirm_project_write(
+        &mut self,
+        request: ProjectWriteConfirmRequest,
+    ) -> BridgeResult<ProjectWriteConfirmReceipt> {
+        self.confirm_project_write_authority(request)
+    }
+
     fn close_workspace_authoring(
         &mut self,
         request: WorkspaceAuthoringCloseRequest,

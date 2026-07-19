@@ -2,10 +2,16 @@ import type {
   CommandBatch,
   CommandResult,
   ProjectContentAuthoringRequest,
+  ProjectContentAuthoringCommand,
   ProjectContentAuthoringResult,
   ProjectContentCodecResult,
   ProjectContentDecodeRequest,
   ProjectContentEncodeRequest,
+  ProjectArtifactRelocation,
+  ProjectStoreIdentity,
+  ProjectWriteConfirmReceipt,
+  ProjectWritePrepareReceipt,
+  ProjectWritePublication,
   ProceduralEnvironmentApplyRequest,
   ProceduralEnvironmentApplyResult,
   ProceduralEnvironmentPreviewRequest,
@@ -20,6 +26,7 @@ import type {
 } from '@asha/contracts';
 import type { RuntimeSessionFacade } from './facade.js';
 import type { RuntimeSessionProjectIdentity } from './facade-core.js';
+import type { RuntimeSessionProjectSource } from './facade-project.js';
 import type {
   CompositionStatus,
   FrameCursor,
@@ -31,6 +38,20 @@ export interface WorkspaceAuthoringOpenInput {
   readonly seed: number;
   readonly project: RuntimeSessionProjectIdentity;
   readonly projectBundle: ProjectBundleLoadRequest;
+}
+
+/** Ordinary project-source entrypoint for editor and content-pipeline hosts. */
+export interface WorkspaceAuthoringProjectOpenInput {
+  readonly authoringId: string;
+  readonly seed: number;
+  readonly workspaceId: string;
+  readonly source: RuntimeSessionProjectSource;
+}
+
+export interface WorkspaceAuthoringProjectOpenReceipt {
+  readonly state: WorkspaceAuthoringStateSummary;
+  readonly manifestJson: string;
+  readonly projectContent: ProjectContentCodecResult | null;
 }
 
 export interface WorkspaceAuthoringIdentity {
@@ -120,6 +141,16 @@ export interface WorkspaceVoxelProjectionBindingInput {
   readonly instances: readonly VoxelProjectionInstanceBinding[];
 }
 
+/**
+ * Host observations and path choices for a Rust-owned whole-project save.
+ * Workspace identity, generation, and revision are supplied by the facade.
+ */
+export interface WorkspaceProjectWritePrepareInput {
+  readonly observedPrior: ProjectStoreIdentity;
+  readonly priorManifestJson: string;
+  readonly relocations?: readonly ProjectArtifactRelocation[];
+}
+
 export type WorkspaceVoxelInstancePickInput = Omit<
   VoxelInstancePickRequest,
   | 'workspaceId'
@@ -168,6 +199,7 @@ type WorkspaceAuthoringVoxelOperations = Pick<
  */
 export interface WorkspaceAuthoringFacade extends WorkspaceAuthoringVoxelOperations {
   open(input: WorkspaceAuthoringOpenInput): WorkspaceAuthoringStateSummary;
+  openProject(input: WorkspaceAuthoringProjectOpenInput): Promise<WorkspaceAuthoringProjectOpenReceipt>;
   readState(): WorkspaceAuthoringStateSummary;
   readProjection(): WorkspaceAuthoringProjectionSummary;
   /** Decode and install one canonical scene into the Engine-owned workspace set. */
@@ -182,12 +214,16 @@ export interface WorkspaceAuthoringFacade extends WorkspaceAuthoringVoxelOperati
   applyProjectContentAuthoring(
     input: ProjectContentAuthoringRequest,
   ): ProjectContentAuthoringResult;
+  /** Apply one typed command against the facade's current Rust-owned set/revision. */
+  applyProjectContentCommand(command: ProjectContentAuthoringCommand): ProjectContentAuthoringResult;
   previewProceduralEnvironment(
     input: ProceduralEnvironmentPreviewRequest,
   ): ProceduralEnvironmentPreviewResult;
   applyProceduralEnvironment(
     input: ProceduralEnvironmentApplyRequest,
   ): ProceduralEnvironmentApplyResult;
+  prepareProjectWrite(input: WorkspaceProjectWritePrepareInput): ProjectWritePrepareReceipt;
+  confirmProjectWrite(publication: ProjectWritePublication): ProjectWriteConfirmReceipt;
   confirmStored(
     input: WorkspaceAuthoringStoredConfirmationInput,
   ): WorkspaceAuthoringStoredConfirmationReceipt;

@@ -14,7 +14,10 @@ import {
 } from '@asha/game-workspace';
 
 import { createAshaProjectDirectorySource } from './project-directory-source.js';
-import { applyAshaProjectWriteCandidate } from './project-write-transaction.js';
+import {
+  applyAshaProjectWriteCandidate,
+  observeAshaProjectStore,
+} from './project-write-transaction.js';
 
 const text = (value: string): Uint8Array => new TextEncoder().encode(value);
 
@@ -28,6 +31,9 @@ interface ProjectFixture {
 
 void test('one Rust candidate saves add move delete and index changes then reloads normally', async (context) => {
   const fixture = await createFixture(context);
+  const observed = await observeAshaProjectStore(fixture.root);
+  assert.deepEqual(observed.identity, fixture.candidate.expectedPrior);
+  assert.equal(observed.manifestJson, fixture.priorManifestJson);
   let confirmations = 0;
   const receipt = await applyAshaProjectWriteCandidate({
     projectRoot: fixture.root,

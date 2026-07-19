@@ -41,6 +41,10 @@ import type {
   ProjectContentCodecResult,
   ProjectContentDecodeRequest,
   ProjectContentEncodeRequest,
+  ProjectWriteConfirmRequest,
+  ProjectWriteConfirmReceipt,
+  ProjectWritePrepareRequest,
+  ProjectWritePrepareReceipt,
   ProjectResourceBeginRequest,
   ProjectResourceTransactionReceipt,
   ProjectSourceBatchValidationReceipt,
@@ -370,6 +374,11 @@ function normalizeComposedRuntimeSessionReadout(
     runtimeSessionHash: hashString(value.runtimeSessionHash, 'runtimeSessionHash'),
     gameplay: {
       ...value.gameplay,
+      compatibilityDiagnostics: value.gameplay.compatibilityDiagnostics.map((diagnostic) => ({
+        ...diagnostic,
+        expected: diagnostic.expected ?? null,
+        actual: diagnostic.actual ?? null,
+      })),
       gameplayRegistryDigest: hashString(
         value.gameplay.gameplayRegistryDigest,
         'gameplay.gameplayRegistryDigest',
@@ -748,6 +757,30 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     return parseNativeJson<WorkspaceAuthoringStoredConfirmationReceipt>(
       payload,
       'workspace authoring stored confirmation',
+    );
+  }
+
+  prepareProjectWrite(input: ProjectWritePrepareRequest): ProjectWritePrepareReceipt {
+    const handle = this.#requireHandle('prepareProjectWrite');
+    const payload = callNative(() =>
+      this.#addon.prepareProjectWrite(handle, JSON.stringify(input)),
+    );
+    return parseGeneratedOperationOutput<ProjectWritePrepareReceipt>(
+      'prepare_project_write',
+      'projectBundle.ProjectWritePrepareReceipt',
+      payload,
+    );
+  }
+
+  confirmProjectWrite(input: ProjectWriteConfirmRequest): ProjectWriteConfirmReceipt {
+    const handle = this.#requireHandle('confirmProjectWrite');
+    const payload = callNative(() =>
+      this.#addon.confirmProjectWrite(handle, JSON.stringify(input)),
+    );
+    return parseGeneratedOperationOutput<ProjectWriteConfirmReceipt>(
+      'confirm_project_write',
+      'projectBundle.ProjectWriteConfirmReceipt',
+      payload,
     );
   }
 

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 4,
+  "id": 702,
+  "metadata": { "name": "Secondary room", "authoringFormatVersion": 4 },
+  "dependencies": [],
+  "nodes": [
+    { "id": 20, "parent": null, "childOrder": 0, "label": "Secondary actor", "tags": [], "transform": { "translation": [-2, 1, 1], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] }, "kind": { "kind": "entityInstance", "instance": { "instanceId": "secondary.direct-actor", "reference": { "kind": "entityDefinition", "stableId": "demo.actor" }, "spawnMarkerId": null } } }
+  ]
+}

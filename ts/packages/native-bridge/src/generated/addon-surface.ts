@@ -9,6 +9,8 @@ const GENERATED_NATIVE_ADDON_EXPORT_NAMES = [
   'readWorkspaceAuthoringState',
   'readWorkspaceAuthoringProjection',
   'confirmWorkspaceAuthoringStored',
+  'prepareProjectWrite',
+  'confirmProjectWrite',
   'closeWorkspaceAuthoring',
   'decodeProjectContent',
   'encodeProjectContent',

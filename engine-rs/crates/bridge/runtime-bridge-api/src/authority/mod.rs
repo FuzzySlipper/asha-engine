@@ -6,6 +6,7 @@ mod fps_animation_catalog;
 mod initialization;
 mod input;
 mod procedural_environment;
+mod project_write;
 mod scene_and_preview;
 mod time_control;
 mod voxel_instances;
@@ -123,6 +124,7 @@ struct ActiveRuntimeProjectAuthority {
     scene_count: u32,
     entity_count: u32,
     voxel_asset_count: u32,
+    voxel_bindings: Vec<protocol_project_bundle::RuntimeProjectVoxelBinding>,
 }
 
 #[derive(Debug, Default)]
@@ -228,6 +230,12 @@ struct WorkspaceAuthoringSaveCandidate {
     working_revision: u64,
 }
 
+struct PendingProjectWriteCandidate {
+    candidate_hash: String,
+    working_revision: u64,
+    authorized: svc_serialization::AuthorizedProjectWriteCandidate,
+}
+
 #[derive(Debug, Clone)]
 struct PendingProceduralEnvironmentCandidate {
     candidate_hash: String,
@@ -247,6 +255,7 @@ struct WorkspaceAuthoringAuthority {
     stored_revision: u64,
     last_stored_canonical_json_hash: Option<String>,
     pending_save_candidate: Option<WorkspaceAuthoringSaveCandidate>,
+    pending_project_write: Option<PendingProjectWriteCandidate>,
     pending_procedural_environment: Option<PendingProceduralEnvironmentCandidate>,
     next_projection_cursor: u64,
     projection_initialized: bool,

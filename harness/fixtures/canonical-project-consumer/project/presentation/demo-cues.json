@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "documentId": "presentation/demo-cues.json",
+  "documentKind": "presentationCatalog",
+  "document": {
+    "cues": [],
+    "resources": [],
+    "schemaVersion": 1
+  }
+}

@@ -256,6 +256,10 @@ impl EngineBridge {
             ));
         }
 
+        let mutates_document = !matches!(
+            &request.command,
+            SceneDocumentAuthoringCommandDto::RefreshProjection { .. }
+        );
         let target = request.command.target();
         if target.project_id != request.current_project_id || target.scene_id != current.id {
             return Ok(Self::scene_authoring_rejection(
@@ -316,6 +320,9 @@ impl EngineBridge {
         };
         if let Some(document) = result.document.as_ref() {
             self.remember_project_content_scene_document(document);
+            if mutates_document {
+                self.record_workspace_authoring_mutation();
+            }
         }
         Ok(result)
     }
@@ -349,6 +356,7 @@ impl EngineBridge {
                 .project_content_reference_revision
                 .saturating_add(1);
             authority.pending_save_candidate = None;
+            authority.pending_project_write = None;
             authority.pending_procedural_environment = None;
         }
     }

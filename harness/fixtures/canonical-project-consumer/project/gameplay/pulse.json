@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "documentId": "gameplay/pulse.json",
+  "documentKind": "gameplayConfiguration",
+  "document": {
+    "bindings": [
+      {
+        "bindingId": "fixture.pulse.session",
+        "configurationId": "fixture.pulse.default",
+        "enabled": true,
+        "moduleId": "fixture.pulse.module",
+        "outputContracts": [
+          {
+            "name": "pulse-result",
+            "namespace": "fixture.pulse",
+            "schemaHash": "fnv1a64:9cf3ed4219ac2196",
+            "version": 1
+          }
+        ],
+        "requiredReads": [],
+        "stateSchema": {
+          "name": "pulse-state",
+          "namespace": "fixture.pulse",
+          "schemaHash": "fnv1a64:5ba7a97dbb53f951",
+          "version": 1
+        },
+        "target": {
+          "kind": "session"
+        }
+      }
+    ],
+    "configurations": [
+      {
+        "configurationId": "fixture.pulse.default",
+        "module": {
+          "artifactHash": "fnv1a64:290e3d2f150925cd",
+          "contractHash": "fnv1a64:787fe49e16da7682",
+          "moduleId": "fixture.pulse.module",
+          "namespace": "fixture.pulse",
+          "providerId": "provider.fixture-pulse",
+          "sdkHash": "fnv1a64:669691f614be751f",
+          "version": "1.0.0"
+        },
+        "schemaId": "fixture.pulse.configuration.v1",
+        "values": [
+          {
+            "fieldId": "multiplier",
+            "value": {
+              "kind": "integer",
+              "value": 4
+            }
+          }
+        ]
+      }
+    ],
+    "overrides": [],
+    "schemaVersion": 1,
+    "triggers": []
+  }
+}

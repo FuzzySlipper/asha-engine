@@ -8,7 +8,13 @@ see-also: [runtime-session-facade.md, gameplay-module-sdk.md, gameplay-runtime-h
 
 # Static RuntimeSession Composition
 
-`asha-runtime-session-composition` is the public Rust entrypoint for a game that links its own gameplay modules. A downstream native addon builds its closed `GameplayStaticComposition`, supplies ProjectBundle bindings, prefabs, declared reads, triggers, and scheduler definition, and consumes a `StaticRuntimeSessionBuilder` to obtain one `EngineBridge` root.
+`asha-runtime-session-composition` is the public Rust entrypoint for a game that
+links its own gameplay modules. A downstream native addon builds its closed
+`GameplayStaticComposition` and consumes a `DeferredRuntimeSessionBuilder` to
+obtain one unloaded `EngineBridge` root. Canonical ProjectBundle admission later
+supplies bindings, prefabs, declared reads, triggers, scheduler definitions,
+scenes, and resources. `StaticRuntimeSessionBuilder` and caller-assembled
+runtime topology are compatibility-only until Demo migration.
 
 ## Key Properties
 

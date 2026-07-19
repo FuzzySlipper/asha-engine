@@ -41,6 +41,33 @@ export interface AshaProjectWriteTransactionReceipt {
   readonly published: ProjectStoreIdentity;
 }
 
+export interface AshaProjectStoreObservation {
+  readonly identity: ProjectStoreIdentity;
+  readonly manifestJson: string;
+}
+
+/** Observe the current host store before asking Rust to prepare a write candidate. */
+export async function observeAshaProjectStore(
+  projectRoot: string,
+): Promise<AshaProjectStoreObservation> {
+  const root = resolve(projectRoot);
+  const source = await loadAshaProjectSource(await createAshaProjectDirectorySource(root));
+  const expectations = source.manifest.artifacts.map((artifact) => ({
+    path: artifact.path,
+    contentHash: artifact.contentHash,
+  }));
+  verifyArtifactHashes(source, expectations);
+  return {
+    identity: {
+      revision: await readStoredRevision(root),
+      manifestHash: fnv1a64Hex(new TextEncoder().encode(source.manifestJson)),
+      contentSetHash: contentSetHash(source),
+      indexHash: await readOptionalHash(projectPath(root, ASHA_PROJECT_INDEX_PATH)),
+    },
+    manifestJson: source.manifestJson,
+  };
+}
+
 /**
  * Apply one Rust candidate through copy-on-write staging and a reversible
  * directory swap. Confirmation happens only after the staged tree matches the

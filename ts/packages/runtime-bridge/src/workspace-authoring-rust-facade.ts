@@ -4,15 +4,25 @@ import type {
   WorkspaceAuthoringFacade,
   WorkspaceAuthoringIdentity,
   WorkspaceAuthoringOpenInput,
+  WorkspaceAuthoringProjectOpenInput,
+  WorkspaceAuthoringProjectOpenReceipt,
   WorkspaceAuthoringProjectionSummary,
+  WorkspaceProjectWritePrepareInput,
   WorkspaceAuthoringStateSummary,
   WorkspaceAuthoringStoredConfirmationInput,
   WorkspaceAuthoringStoredConfirmationReceipt,
   WorkspaceVoxelInstancePickInput,
   WorkspaceVoxelProjectionBindingInput,
 } from '@asha/runtime-session';
-import type { VoxelProjectionBindingReceipt } from '@asha/contracts';
+import {
+  validateGeneratedWireValue,
+  type GeneratedWireValue,
+  type VoxelProjectionBindingReceipt,
+  type VoxelVolumeAsset,
+} from '@asha/contracts';
 import type {
+  ProjectContentDocumentKind,
+  ProjectContentAuthoringCommand,
   ProjectContentAuthoringRequest,
   ProjectContentAuthoringResult,
   ProjectContentCodecResult,
@@ -22,9 +32,13 @@ import type {
   ProceduralEnvironmentApplyResult,
   ProceduralEnvironmentPreviewRequest,
   ProceduralEnvironmentPreviewResult,
+  ProjectWriteConfirmReceipt,
+  ProjectWritePrepareReceipt,
+  ProjectWritePublication,
   SceneDocumentCodecResult,
   SceneDocumentDecodeRequest,
 } from '@asha/contracts';
+import { loadAshaProjectSource } from '@asha/game-workspace';
 import {
   RuntimeBridgeError,
   frameCursor,
@@ -84,6 +98,7 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
   #state: WorkspaceAuthoringStateSummary | null = null;
   #nextProjectionCursor = frameCursor(0);
   #voxelProjectionBinding: VoxelProjectionBindingReceipt | null = null;
+  #projectContent: ProjectContentCodecResult | null = null;
 
   constructor(bridge: RuntimeBridge) {
     this.#bridge = bridge;
@@ -96,7 +111,84 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
     this.#state = state;
     this.#nextProjectionCursor = frameCursor(0);
     this.#voxelProjectionBinding = null;
+    this.#projectContent = null;
     return state;
+  }
+
+  async openProject(
+    input: WorkspaceAuthoringProjectOpenInput,
+  ): Promise<WorkspaceAuthoringProjectOpenReceipt> {
+    const loaded = await loadAshaProjectSource(input.source);
+    this.open({
+      authoringId: input.authoringId,
+      seed: input.seed,
+      project: {
+        gameId: String(loaded.manifest.project.id),
+        workspaceId: input.workspaceId,
+      },
+      projectBundle: {
+        bundleSchemaVersion: loaded.manifest.bundleSchemaVersion,
+        protocolVersion: loaded.manifest.protocolVersion,
+        sceneId: loaded.manifest.entryScene,
+      },
+    });
+    const files = new Map(loaded.files.map((file) => [file.path, file.bytes]));
+    for (const scene of loaded.manifest.scenes) {
+      const source = requiredProjectText(files, scene.artifact);
+      const decoded = this.decodeSceneDocument({ sourceText: source });
+      if (!decoded.accepted) {
+        throw new RuntimeBridgeError(
+          'invalid_input',
+          `Rust rejected scene "${scene.artifact}": ${formatDiagnostics(decoded.diagnostics)}`,
+        );
+      }
+    }
+    const projectContentSources = loaded.manifest.artifacts
+      .filter((artifact) => isProjectContentRole(artifact.role))
+      .map((artifact) => {
+        const sourceText = requiredProjectText(files, artifact.path);
+        return {
+          documentId: artifact.path,
+          kind: projectContentKind(sourceText, artifact.path),
+          sourceText,
+        };
+      });
+    let projectContent: ProjectContentCodecResult | null = null;
+    if (projectContentSources.length > 0) {
+      const decoded = this.decodeProjectContent({ sources: projectContentSources });
+      if (!decoded.accepted) {
+        throw new RuntimeBridgeError(
+          'invalid_input',
+          `Rust rejected ProjectContent: ${formatDiagnostics(decoded.diagnostics)}`,
+        );
+      }
+      projectContent = decoded;
+    }
+    const voxelArtifacts = loaded.manifest.artifacts.filter(
+      (artifact) => artifact.role === 'voxelVolumeAsset',
+    );
+    for (const [index, artifact] of voxelArtifacts.entries()) {
+      const sourceText = requiredProjectText(files, artifact.path);
+      const asset = parseVoxelVolumeAsset(sourceText, artifact.path);
+      const loadedAsset = this.loadVoxelVolumeAsset({
+        asset,
+        targetGrid: index + 1,
+        targetVolumeAssetId: asset.assetId,
+        replaceExisting: true,
+        includeMaterialCounts: true,
+      });
+      if (!loadedAsset.loaded) {
+        throw new RuntimeBridgeError(
+          'invalid_input',
+          `Rust rejected voxel asset "${artifact.path}": ${formatDiagnostics(loadedAsset.diagnostics)}`,
+        );
+      }
+    }
+    return {
+      state: this.readState(),
+      manifestJson: loaded.manifestJson,
+      projectContent,
+    };
   }
 
   readState(): WorkspaceAuthoringStateSummary {
@@ -126,7 +218,9 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
 
   decodeProjectContent(input: ProjectContentDecodeRequest): ProjectContentCodecResult {
     this.#requireOpen('decodeProjectContent');
-    return this.#bridge.decodeProjectContent(input);
+    const result = this.#bridge.decodeProjectContent(input);
+    if (result.accepted) this.#projectContent = result;
+    return result;
   }
 
   encodeProjectContent(input: ProjectContentEncodeRequest): ProjectContentCodecResult {
@@ -140,9 +234,30 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
     this.#requireOpen('applyProjectContentAuthoring');
     const result = this.#bridge.applyProjectContentAuthoring(input);
     if (result.accepted) {
+      this.#projectContent = result;
       this.#refreshAfterMutation();
     }
     return result;
+  }
+
+  applyProjectContentCommand(
+    command: ProjectContentAuthoringCommand,
+  ): ProjectContentAuthoringResult {
+    const state = this.#requireOpenState('applyProjectContentCommand');
+    const current = this.#projectContent;
+    if (!current?.accepted || current.setHash === null) {
+      throw new RuntimeBridgeError(
+        'invalid_input',
+        'applyProjectContentCommand requires an accepted current ProjectContent set',
+      );
+    }
+    return this.applyProjectContentAuthoring({
+      expectedWorkspaceId: state.identity.project.workspaceId,
+      expectedGeneration: state.identity.generation,
+      expectedWorkingRevision: state.workingRevision,
+      expectedSetHash: current.setHash,
+      command,
+    });
   }
 
   previewProceduralEnvironment(
@@ -161,6 +276,30 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
       this.#refreshAfterMutation();
     }
     return result;
+  }
+
+  prepareProjectWrite(input: WorkspaceProjectWritePrepareInput): ProjectWritePrepareReceipt {
+    const state = this.#requireOpenState('prepareProjectWrite');
+    return this.#bridge.prepareProjectWrite({
+      expectedWorkspaceId: state.identity.project.workspaceId,
+      expectedGeneration: state.identity.generation,
+      expectedWorkingRevision: state.workingRevision,
+      observedPrior: input.observedPrior,
+      priorManifestJson: input.priorManifestJson,
+      relocations: [...(input.relocations ?? [])],
+    });
+  }
+
+  confirmProjectWrite(publication: ProjectWritePublication): ProjectWriteConfirmReceipt {
+    const state = this.#requireOpenState('confirmProjectWrite');
+    const receipt = this.#bridge.confirmProjectWrite({
+      expectedWorkspaceId: state.identity.project.workspaceId,
+      expectedGeneration: state.identity.generation,
+      expectedWorkingRevision: state.workingRevision,
+      publication,
+    });
+    if (receipt.accepted) this.#refreshAfterMutation();
+    return receipt;
   }
 
   configureVoxelProjectionInstances(
@@ -379,6 +518,7 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
     );
     this.#nextProjectionCursor = frameCursor(0);
     this.#voxelProjectionBinding = null;
+    this.#projectContent = null;
     return receipt;
   }
 
@@ -401,6 +541,78 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
     }
     return state;
   }
+}
+
+const PROJECT_CONTENT_KINDS: readonly ProjectContentDocumentKind[] = [
+  'entityDefinition',
+  'assetCatalog',
+  'prefabRegistry',
+  'gameplayConfiguration',
+  'presentationCatalog',
+];
+
+function isProjectContentRole(role: string): boolean {
+  return role === 'projectContent'
+    || role === 'prefabRegistry'
+    || role === 'entityDefinitionCatalog'
+    || role === 'materialCatalog';
+}
+
+function requiredProjectText(files: ReadonlyMap<string, Uint8Array>, path: string): string {
+  const bytes = files.get(path);
+  if (bytes === undefined) throw new RuntimeBridgeError('invalid_input', `project source is missing "${path}"`);
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    throw new RuntimeBridgeError('invalid_input', `project source "${path}" is not UTF-8 text`);
+  }
+}
+
+function projectContentKind(sourceText: string, path: string): ProjectContentDocumentKind {
+  let value: GeneratedWireValue;
+  try {
+    value = JSON.parse(sourceText) as GeneratedWireValue;
+  } catch {
+    throw new RuntimeBridgeError('invalid_input', `ProjectContent "${path}" is not JSON`);
+  }
+  if (typeof value !== 'object' || value === null || !('documentKind' in value)) {
+    throw new RuntimeBridgeError(
+      'invalid_input',
+      `ProjectContent "${path}" has no canonical documentKind`,
+    );
+  }
+  const kind = value['documentKind'];
+  if (typeof kind !== 'string' || !PROJECT_CONTENT_KINDS.includes(kind as ProjectContentDocumentKind)) {
+    throw new RuntimeBridgeError(
+      'invalid_input',
+      `ProjectContent "${path}" has an unsupported canonical documentKind`,
+    );
+  }
+  return kind as ProjectContentDocumentKind;
+}
+
+function parseVoxelVolumeAsset(sourceText: string, path: string): VoxelVolumeAsset {
+  let value: GeneratedWireValue;
+  try {
+    value = JSON.parse(sourceText) as GeneratedWireValue;
+  } catch {
+    throw new RuntimeBridgeError('invalid_input', `voxel asset "${path}" is not JSON`);
+  }
+  const validation = validateGeneratedWireValue(
+    'voxelAsset.VoxelVolumeAsset',
+    value as GeneratedWireValue,
+  );
+  if (!validation.valid) {
+    throw new RuntimeBridgeError(
+      'invalid_input',
+      `voxel asset "${path}" is malformed at ${validation.issue.path}: ${validation.issue.message}`,
+    );
+  }
+  return value as GeneratedWireValue & VoxelVolumeAsset;
+}
+
+function formatDiagnostics(diagnostics: readonly { readonly message: string }[]): string {
+  return diagnostics.map((diagnostic) => diagnostic.message).join('; ');
 }
 
 export interface WorkspaceAuthoringFacadeOptions {

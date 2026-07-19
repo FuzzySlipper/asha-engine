@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "documentId": "catalogs/demo-assets.json",
+  "documentKind": "assetCatalog",
+  "document": {
+    "entries": [
+      {
+        "dependencies": [],
+        "hash": null,
+        "id": "voxel-volume/demo-house",
+        "label": "Demo House",
+        "material": null,
+        "sourcePath": "assets/demo-house.avxl.json",
+        "version": 1
+      }
+    ]
+  }
+}

@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cameraHandle, entityId } from '@asha/contracts';
+import { cameraHandle, entityId, renderHandle } from '@asha/contracts';
 import type {
   CameraCreateRequest,
   CollisionConstrainedCameraInputEnvelope,
+  RenderFrameDiff,
+  RuntimeProjectionFrame,
   VoxelCommand,
 } from '@asha/contracts';
 import {
@@ -27,7 +29,7 @@ import {
   type RuntimeBridge,
   type ProjectBundleLoadRequest,
 } from './index.js';
-import { createMockRuntimeBridge } from './mock.js';
+import { createMockRuntimeBridge, MockRuntimeBridge } from './mock.js';
 import { entitySceneDocument } from './native-fps-fixtures.test-fixture.js';
 import { createMockRuntimeSession } from './reference.js';
 import { REFERENCE_FPS_COMBAT_FIXTURE_PROVENANCE } from './runtime-session-reference-fps-combat.js';
@@ -42,6 +44,39 @@ function testHash(value: unknown): string {
 void test('RuntimeSession fixture helpers do not expose TS Rust authority module names', () => {
   assert.equal(existsSync(resolve(runtimeBridgeSourceDir, 'runtime-session-rust-fps-authority.ts')), false);
   assert.equal(existsSync(resolve(runtimeBridgeSourceDir, 'runtime-session-reference-fps-combat.ts')), true);
+});
+
+void test('Rust RuntimeSession projection includes retained project scene diffs', () => {
+  class RetainedProjectProjectionBridge extends MockRuntimeBridge {
+    override readProjectionFrame(
+      cursor: Parameters<MockRuntimeBridge['readProjectionFrame']>[0],
+    ): RuntimeProjectionFrame {
+      return {
+        schemaVersion: 1,
+        authorityTick: cursor as number,
+        scene: { ops: [{ op: 'destroy', handle: renderHandle(11) }] },
+        presentation: { replayScope: 'excludedFromReplayTruth', ops: [] },
+      };
+    }
+
+    override readRenderDiffs(
+      cursor: Parameters<MockRuntimeBridge['readRenderDiffs']>[0],
+    ): RenderFrameDiff {
+      void cursor;
+      return { ops: [{ op: 'destroy', handle: renderHandle(12) }] };
+    }
+  }
+
+  const session = createRuntimeSessionFacade({
+    bridge: new RetainedProjectProjectionBridge(),
+    mode: 'rust',
+  });
+  session.initialize(sessionInput());
+
+  assert.deepEqual(session.readProjection().frame.ops, [
+    { op: 'destroy', handle: renderHandle(11) },
+    { op: 'destroy', handle: renderHandle(12) },
+  ]);
 });
 
 function sessionInput() {

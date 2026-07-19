@@ -130,7 +130,8 @@ Rust-capable bridge and `mode: 'rust'`; reference fixtures use
   the composed public-path proof and disposal boundary.
 - `readEcrpRuntimeReadout()`: returns live Entity/CapabilityState/event readouts derived from the selected backend. Rust-backed readouts identify `mode: 'rust'`, `source: 'rust_bridge'`, authority surface, and declared read sets.
 - Statically linked gameplay modules are installed by the downstream native
-  provider's `StaticRuntimeSessionBuilder`. They participate in combat,
+  provider's `DeferredRuntimeSessionBuilder`; saved project bindings and
+  topology arrive later through `loadProject({ source })`. They participate in combat,
   movement, triggers, decisions, scheduling, replay, and checkpointing inside
   the same Rust bridge cell. The facade has no separate gameplay-host load,
   advance, read, save, or restore lifecycle.

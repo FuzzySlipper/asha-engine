@@ -30,6 +30,18 @@ pub(crate) const REQUIRED_NATIVE_EXPORTS: &[(&str, &str, usize, usize)] = &[
         8388608,
     ),
     (
+        "prepare_project_write",
+        "prepareProjectWrite",
+        8388608,
+        8388608,
+    ),
+    (
+        "confirm_project_write",
+        "confirmProjectWrite",
+        8388608,
+        8388608,
+    ),
+    (
         "close_workspace_authoring",
         "closeWorkspaceAuthoring",
         8388608,

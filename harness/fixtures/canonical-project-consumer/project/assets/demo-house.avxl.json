@@ -1,0 +1,388 @@
+{
+  "assetId": "voxel-volume/demo-house",
+  "authoring": {
+    "createdBy": "generate-canonical-project",
+    "label": "Demo house",
+    "sourceTool": "asha canonical project consumer"
+  },
+  "bounds": {
+    "max": {
+      "x": 4,
+      "y": 4,
+      "z": 4
+    },
+    "min": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    }
+  },
+  "contentHashes": {
+    "canonicalJson": "fnv1a64:debf27232f6a1868",
+    "voxelData": "fnv1a64:40644cd2fc390d51"
+  },
+  "grid": {
+    "cellSize": 1.0,
+    "coordinateSystem": "y_up_right_handed",
+    "origin": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "materialPalette": [
+    {
+      "displayName": "Brick",
+      "materialAssetId": "material/brick",
+      "materialCatalogBindingId": "catalog-binding/brick",
+      "paletteEntryId": "voxel-material/brick",
+      "voxelMaterial": 1
+    },
+    {
+      "displayName": "Roof",
+      "materialAssetId": "material/roof",
+      "materialCatalogBindingId": "catalog-binding/roof",
+      "paletteEntryId": "voxel-material/roof",
+      "voxelMaterial": 2
+    }
+  ],
+  "mediaType": "application/vnd.asha.voxel-volume+json;version=1",
+  "provenance": [
+    {
+      "contentHash": "fnv1a64:canonical-consumer-house",
+      "kind": "authored",
+      "uri": "asha://canonical-project-consumer/assets/demo-house"
+    }
+  ],
+  "representation": {
+    "kind": "sparse_runs",
+    "sparseRuns": [
+      {
+        "length": 5,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        }
+      },
+      {
+        "length": 5,
+        "material": 2,
+        "start": {
+          "x": 0,
+          "y": 4,
+          "z": 0
+        }
+      },
+      {
+        "length": 5,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        }
+      },
+      {
+        "length": 5,
+        "material": 2,
+        "start": {
+          "x": 0,
+          "y": 4,
+          "z": 1
+        }
+      },
+      {
+        "length": 5,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 2
+        }
+      },
+      {
+        "length": 5,
+        "material": 2,
+        "start": {
+          "x": 0,
+          "y": 4,
+          "z": 2
+        }
+      },
+      {
+        "length": 5,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 3
+        }
+      },
+      {
+        "length": 5,
+        "material": 2,
+        "start": {
+          "x": 0,
+          "y": 4,
+          "z": 3
+        }
+      },
+      {
+        "length": 5,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 4
+        }
+      },
+      {
+        "length": 5,
+        "material": 2,
+        "start": {
+          "x": 0,
+          "y": 4,
+          "z": 4
+        }
+      },
+      {
+        "length": 2,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        }
+      },
+      {
+        "length": 2,
+        "material": 1,
+        "start": {
+          "x": 3,
+          "y": 1,
+          "z": 0
+        }
+      },
+      {
+        "length": 1,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 1,
+          "z": 1
+        }
+      },
+      {
+        "length": 1,
+        "material": 1,
+        "start": {
+          "x": 4,
+          "y": 1,
+          "z": 1
+        }
+      },
+      {
+        "length": 1,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 1,
+          "z": 2
+        }
+      },
+      {
+        "length": 1,
+        "material": 1,
+        "start": {
+          "x": 4,
+          "y": 1,
+          "z": 2
+        }
+      },
+      {
+        "length": 1,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 1,
+          "z": 3
+        }
+      },
+      {
+        "length": 1,
+        "material": 1,
+        "start": {
+          "x": 4,
+          "y": 1,
+          "z": 3
+        }
+      },
+      {
+        "length": 5,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 1,
+          "z": 4
+        }
+      },
+      {
+        "length": 2,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 2,
+          "z": 0
+        }
+      },
+      {
+        "length": 2,
+        "material": 1,
+        "start": {
+          "x": 3,
+          "y": 2,
+          "z": 0
+        }
+      },
+      {
+        "length": 1,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 2,
+          "z": 1
+        }
+      },
+      {
+        "length": 1,
+        "material": 1,
+        "start": {
+          "x": 4,
+          "y": 2,
+          "z": 1
+        }
+      },
+      {
+        "length": 1,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 2,
+          "z": 2
+        }
+      },
+      {
+        "length": 1,
+        "material": 1,
+        "start": {
+          "x": 4,
+          "y": 2,
+          "z": 2
+        }
+      },
+      {
+        "length": 1,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 2,
+          "z": 3
+        }
+      },
+      {
+        "length": 1,
+        "material": 1,
+        "start": {
+          "x": 4,
+          "y": 2,
+          "z": 3
+        }
+      },
+      {
+        "length": 5,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 2,
+          "z": 4
+        }
+      },
+      {
+        "length": 5,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 3,
+          "z": 0
+        }
+      },
+      {
+        "length": 1,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 3,
+          "z": 1
+        }
+      },
+      {
+        "length": 1,
+        "material": 1,
+        "start": {
+          "x": 4,
+          "y": 3,
+          "z": 1
+        }
+      },
+      {
+        "length": 1,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 3,
+          "z": 2
+        }
+      },
+      {
+        "length": 1,
+        "material": 1,
+        "start": {
+          "x": 4,
+          "y": 3,
+          "z": 2
+        }
+      },
+      {
+        "length": 1,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 3,
+          "z": 3
+        }
+      },
+      {
+        "length": 1,
+        "material": 1,
+        "start": {
+          "x": 4,
+          "y": 3,
+          "z": 3
+        }
+      },
+      {
+        "length": 5,
+        "material": 1,
+        "start": {
+          "x": 0,
+          "y": 3,
+          "z": 4
+        }
+      }
+    ]
+  },
+  "schemaVersion": 1,
+  "validationDiagnostics": []
+}

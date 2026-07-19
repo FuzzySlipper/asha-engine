@@ -7,22 +7,14 @@ use asha_native_runtime_provider::{
     install_native_engine_bridge_factory, install_native_project_authoring_bridge_factory,
 };
 use asha_runtime_session_composition::{
-    EngineBridge, RuntimeBridgeError, RuntimeBridgeErrorKind, StaticProjectAuthoringBuilder,
+    DeferredRuntimeSessionBuilder, EngineBridge, RuntimeBridgeError, StaticProjectAuthoringBuilder,
 };
-use asha_runtime_session_composition::compatibility::StaticRuntimeSessionBuilder;
 
 fn build_composed_bridge() -> Result<EngineBridge, RuntimeBridgeError> {
-    StaticRuntimeSessionBuilder::activate_project_with_prefabs(
-        asha_gameplay_module_fixture::composed_runtime_host_project_input(4),
-        asha_gameplay_module_fixture::composed_runtime_prefab_bootstrap(),
+    Ok(DeferredRuntimeSessionBuilder::from_static_composition(
+        asha_gameplay_module_fixture::composed_static_composition(4),
     )
-    .and_then(StaticRuntimeSessionBuilder::build)
-    .map_err(|error| {
-        RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::Internal,
-            format!("composed native provider activation failed: {error}"),
-        )
-    })
+    .build_unloaded())
 }
 
 fn build_authoring_bridge() -> Result<EngineBridge, RuntimeBridgeError> {
