@@ -41,6 +41,7 @@ pub mod manifest;
 pub mod prefab;
 pub mod prefab_json;
 pub mod save_plan;
+pub mod source_batch;
 
 pub use artifact::{ArtifactClass, ArtifactEntry, ArtifactRole};
 pub use hash::BundleHash;
@@ -62,6 +63,15 @@ pub use prefab_json::{
     PrefabRegistryLoadError,
 };
 pub use save_plan::{CompactionPlan, SavePlan};
+pub use source_batch::{
+    validate_runtime_project_source_batch, AdmittedRuntimeProjectSourceBatch,
+    ProjectResourceHandle, ProjectResourceStaging, ProjectResourceTransaction,
+    ProjectSourceBatchError, ProjectSourceBatchErrorCode, ProjectSourceBody,
+    RuntimeProjectSourceBatch, StagedProjectResource, ValidatedRuntimeProjectSourceBatch,
+    PROJECT_SOURCE_INLINE_BODY_MAX_BYTES, PROJECT_SOURCE_INLINE_TOTAL_MAX_BYTES,
+    PROJECT_SOURCE_MANIFEST_MAX_BYTES, PROJECT_SOURCE_MAX_BODIES,
+    PROJECT_SOURCE_RESOURCE_MAX_BYTES, PROJECT_SOURCE_RESOURCE_TOTAL_MAX_BYTES,
+};
 
 #[cfg(test)]
 mod tests {

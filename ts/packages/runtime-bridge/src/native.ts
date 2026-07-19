@@ -41,6 +41,11 @@ import type {
   ProjectContentCodecResult,
   ProjectContentDecodeRequest,
   ProjectContentEncodeRequest,
+  ProjectResourceBeginRequest,
+  ProjectResourceTransactionReceipt,
+  ProjectSourceBatchValidationReceipt,
+  RuntimeProjectSourceBatch,
+  StagedProjectResourceRef,
   ProceduralEnvironmentApplyRequest,
   ProceduralEnvironmentApplyResult,
   ProceduralEnvironmentPreviewRequest,
@@ -157,6 +162,7 @@ import {
   type VoxelMeshEvidenceSnapshot,
   type VoxelMeshEvidenceRequest,
   type ProjectBundleLoadRequest,
+  type ProjectResourceStageInput,
   type ProjectBundleSaveSummary,
   type WorkspaceAuthoringCloseInput,
   type WorkspaceAuthoringCloseReceipt,
@@ -824,6 +830,49 @@ export class NativeRuntimeBridge implements RuntimeBridge {
       this.#addon.loadProjectBundle(handle, bundleSchemaVersion, protocolVersion, sceneId),
     );
     return projectBundleCompositionStatusFromNative(status);
+  }
+
+  beginRuntimeProjectSourceResources(
+    request: ProjectResourceBeginRequest,
+  ): ProjectResourceTransactionReceipt {
+    const handle = this.#requireHandle('beginRuntimeProjectSourceResources');
+    const receipt = callNative(() =>
+      this.#addon.beginRuntimeProjectSourceResources(handle, JSON.stringify(request)),
+    );
+    return {
+      generation: nonNegativeSafeInteger(receipt.generation, 'project resource generation'),
+      manifestHash: String(receipt.manifestHash),
+    };
+  }
+
+  stageRuntimeProjectSourceResource(
+    request: ProjectResourceStageInput,
+  ): StagedProjectResourceRef {
+    const handle = this.#requireHandle('stageRuntimeProjectSourceResource');
+    const generation = nonNegativeSafeInteger(request.generation, 'project resource generation');
+    const receipt = callNative(() =>
+      this.#addon.stageRuntimeProjectSourceResource(handle, generation, request.path, request.bytes),
+    );
+    return {
+      handle: nonNegativeSafeInteger(receipt.handle, 'project resource handle'),
+      generation: nonNegativeSafeInteger(receipt.generation, 'project resource generation'),
+      version: u32(receipt.version, 'project resource version'),
+      byteLen: nonNegativeSafeInteger(receipt.byteLen, 'project resource byte length'),
+    };
+  }
+
+  admitRuntimeProjectSourceBatch(
+    request: RuntimeProjectSourceBatch,
+  ): ProjectSourceBatchValidationReceipt {
+    const handle = this.#requireHandle('admitRuntimeProjectSourceBatch');
+    const payload = callNative(() =>
+      this.#addon.admitRuntimeProjectSourceBatch(handle, JSON.stringify(request)),
+    );
+    return parseGeneratedOperationOutput<ProjectSourceBatchValidationReceipt>(
+      'admit_runtime_project_source_batch',
+      'projectBundle.ProjectSourceBatchValidationReceipt',
+      payload,
+    );
   }
 
   submitCommands(batch: CommandBatch): CommandResult {

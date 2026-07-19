@@ -429,6 +429,129 @@ pub struct ProjectBundleManifest {
     pub artifacts: Vec<ArtifactEntry>,
 }
 
+// ── Canonical project source batch ─────────────────────────────────────────
+
+/// Stable classified errors for manifest-owned source batch admission.
+pub const PROJECT_SOURCE_BATCH_ERROR_CODES: &[&str] = &[
+    "manifestTooLarge",
+    "manifestDecodeFailed",
+    "manifestInvalid",
+    "tooManyBodies",
+    "duplicateBody",
+    "duplicateResourceHandle",
+    "missingBody",
+    "extraBody",
+    "inlineBodyTooLarge",
+    "inlineBodyForbidden",
+    "inlineQuotaExceeded",
+    "resourceBodyTooLarge",
+    "resourceQuotaExceeded",
+    "unknownResourceHandle",
+    "resourceGenerationMismatch",
+    "resourceVersionMismatch",
+    "resourceLengthMismatch",
+    "resourceManifestMismatch",
+    "resourcePathMismatch",
+    "contentHashMismatch",
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ProjectSourceBatchErrorCode {
+    ManifestTooLarge,
+    ManifestDecodeFailed,
+    ManifestInvalid,
+    TooManyBodies,
+    DuplicateBody,
+    DuplicateResourceHandle,
+    MissingBody,
+    ExtraBody,
+    InlineBodyTooLarge,
+    InlineBodyForbidden,
+    InlineQuotaExceeded,
+    ResourceBodyTooLarge,
+    ResourceQuotaExceeded,
+    UnknownResourceHandle,
+    ResourceGenerationMismatch,
+    ResourceVersionMismatch,
+    ResourceLengthMismatch,
+    ResourceManifestMismatch,
+    ResourcePathMismatch,
+    ContentHashMismatch,
+}
+
+/// Opaque staged-resource identity. It deliberately carries no role, kind, or
+/// content hash; the manifest remains the only owner of those facts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StagedProjectResourceRef {
+    pub handle: u64,
+    pub generation: u64,
+    pub version: u32,
+    pub byte_len: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectResourceBeginRequest {
+    pub manifest_json: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectResourceTransactionReceipt {
+    pub generation: u64,
+    pub manifest_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectResourceStageRequest {
+    pub generation: u64,
+    pub path: String,
+    pub bytes: Vec<u8>,
+}
+
+/// One manifest-relative body supplied by a host adapter.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
+pub enum ProjectSourceBody {
+    Inline {
+        path: String,
+        bytes: Vec<u8>,
+    },
+    Resource {
+        path: String,
+        resource: StagedProjectResourceRef,
+    },
+}
+
+/// Host-neutral raw batch consumed by Rust source-closure validation.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RuntimeProjectSourceBatch {
+    pub manifest_json: String,
+    pub resource_generation: Option<u64>,
+    pub bodies: Vec<ProjectSourceBody>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectSourceBatchDiagnostic {
+    pub code: ProjectSourceBatchErrorCode,
+    pub path: Option<String>,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectSourceBatchValidationReceipt {
+    pub accepted: bool,
+    pub manifest_hash: Option<String>,
+    pub paths: Vec<String>,
+    pub diagnostics: Vec<ProjectSourceBatchDiagnostic>,
+}
+
 // ── Durable prefab registry ──────────────────────────────────────────────────
 
 /// Schema version for the prefab registry artifact carried by a ProjectBundle.

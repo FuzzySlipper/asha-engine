@@ -115,6 +115,9 @@ export interface RuntimeWorkspaceAuthoringPort {
 
 export interface RuntimeBundleLifecyclePort {
   initializeEngine(input: Bridge.EngineConfig): Session.EngineHandle;
+  beginRuntimeProjectSourceResources(input: Contracts.ProjectResourceBeginRequest): Contracts.ProjectResourceTransactionReceipt;
+  stageRuntimeProjectSourceResource(input: Bridge.ProjectResourceStageInput): Contracts.StagedProjectResourceRef;
+  admitRuntimeProjectSourceBatch(input: Contracts.RuntimeProjectSourceBatch): Contracts.ProjectSourceBatchValidationReceipt;
   loadProjectBundle(input: Bridge.ProjectBundleLoadRequest): Bridge.CompositionStatus;
   saveProjectBundle(): Bridge.ProjectBundleSaveSummary;
   getProjectBundleCompositionStatus(): Bridge.CompositionStatus;

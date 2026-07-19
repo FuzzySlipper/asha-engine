@@ -79,6 +79,7 @@ import {
   type NativeRustRuntimeBridgeProviderGlobalName,
   type RuntimeBufferHandle,
 } from './index.js';
+import { fnv1a64 } from './mock-primitives.js';
 import {
   MockRuntimeBridge,
   REFERENCE_RUNTIME_BACKEND_PROFILE,
@@ -928,6 +929,81 @@ void test('native factory rejects stale addons missing encounter authority expor
   } finally {
     rmSync(dirname(modulePath), { recursive: true, force: true });
   }
+});
+
+void test('native project source staging keeps binary bytes out of JSON and consumes handles once', (t) => {
+  let bridge;
+  try {
+    bridge = createNativeRuntimeBridge();
+  } catch (error) {
+    if (error instanceof RuntimeBridgeError && error.kind === 'native_unavailable') {
+      t.skip('native addon not built (run harness/ci/check-native.sh)');
+      return;
+    }
+    throw error;
+  }
+
+  bridge.initializeEngine({ seed: 19 });
+  const lockBytes = new TextEncoder().encode('asset-lock');
+  const sceneBytes = new TextEncoder().encode('entry-scene');
+  const voxelBytes = new TextEncoder().encode('voxel-house');
+  const manifestJson = JSON.stringify({
+    bundleSchemaVersion: 2,
+    protocolVersion: 1,
+    project: { id: 7, name: 'native-source-batch' },
+    entryScene: 10,
+    scenes: [{ id: 10, schemaVersion: 1, artifact: 'scene/entry.json' }],
+    assetLock: { artifact: 'assets/lock.json', assetCount: 0 },
+    generationProvenance: null,
+    artifacts: [
+      {
+        path: 'assets/lock.json',
+        class: 'durable',
+        role: 'assetLock',
+        contentHash: fnv1a64('asset-lock'),
+      },
+      {
+        path: 'scene/entry.json',
+        class: 'durable',
+        role: 'sceneDocument',
+        contentHash: fnv1a64('entry-scene'),
+      },
+      {
+        path: 'voxel/house.avox',
+        class: 'durable',
+        role: 'voxelVolumeAsset',
+        contentHash: fnv1a64('voxel-house'),
+      },
+    ],
+  });
+  const transaction = bridge.beginRuntimeProjectSourceResources({ manifestJson });
+  const resource = bridge.stageRuntimeProjectSourceResource({
+    generation: transaction.generation,
+    path: 'voxel/house.avox',
+    bytes: voxelBytes,
+  });
+  const batch = {
+    manifestJson,
+    resourceGeneration: transaction.generation,
+    bodies: [
+      { kind: 'inline' as const, path: 'assets/lock.json', bytes: [...lockBytes] },
+      { kind: 'inline' as const, path: 'scene/entry.json', bytes: [...sceneBytes] },
+      { kind: 'resource' as const, path: 'voxel/house.avox', resource },
+    ],
+  };
+
+  const accepted = bridge.admitRuntimeProjectSourceBatch(batch);
+  assert.equal(accepted.accepted, true);
+  assert.deepEqual(accepted.paths, [
+    'assets/lock.json',
+    'scene/entry.json',
+    'voxel/house.avox',
+  ]);
+  assert.equal(accepted.manifestHash, transaction.manifestHash);
+
+  const replayed = bridge.admitRuntimeProjectSourceBatch(batch);
+  assert.equal(replayed.accepted, false);
+  assert.equal(replayed.diagnostics[0]?.code, 'unknownResourceHandle');
 });
 
 void test('native bridge matches the mock when the addon is built (else skip)', (t) => {

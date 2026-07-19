@@ -261,6 +261,17 @@ interface NativeAddonBindings {
   readWorkspaceAuthoringProjection(handle: number, requestJson: string): string;
   confirmWorkspaceAuthoringStored(handle: number, requestJson: string): string;
   closeWorkspaceAuthoring(handle: number, requestJson: string): string;
+  beginRuntimeProjectSourceResources(
+    handle: number,
+    requestJson: string,
+  ): { readonly generation: number; readonly manifestHash: string };
+  stageRuntimeProjectSourceResource(
+    handle: number,
+    generation: number,
+    path: string,
+    bytes: Uint8Array,
+  ): { readonly handle: number; readonly generation: number; readonly version: number; readonly byteLen: number };
+  admitRuntimeProjectSourceBatch(handle: number, requestJson: string): string;
   loadProjectBundle(
     handle: number,
     bundleSchemaVersion: number,

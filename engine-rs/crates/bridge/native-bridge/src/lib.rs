@@ -52,6 +52,7 @@ mod particle_projection;
 mod presentation_operation;
 mod procedural_environment;
 mod project_content;
+mod project_source;
 mod render_projection;
 #[cfg(test)]
 mod resource_limit_tests;
@@ -99,6 +100,11 @@ use presentation_operation::NativePresentationOp;
 pub use procedural_environment::{apply_procedural_environment, preview_procedural_environment};
 pub use project_content::{
     apply_project_content_authoring, decode_project_content, encode_project_content,
+};
+pub use project_source::{
+    admit_runtime_project_source_batch, begin_runtime_project_source_resources,
+    stage_runtime_project_source_resource, NativeProjectResourceTransaction,
+    NativeStagedProjectResource,
 };
 pub use render_projection::read_render_diffs;
 pub use scene_preview::{

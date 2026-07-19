@@ -145,7 +145,7 @@ export interface ArtifactEntry {
   readonly contentHash: string | null;
 }
 
-// Terrain generator provenance.
+// Optional authoring-only procedural generation provenance. Runtime admission consumes the materialized scene and resource artifacts, never this provider.
 export interface GeneratorMetadata {
   readonly provider: string;
   readonly seed: number;
@@ -182,6 +182,57 @@ export interface ProjectBundleManifest {
   readonly assetLock: AssetLockSection;
   readonly generationProvenance: GeneratorMetadata | null;
   readonly artifacts: readonly ArtifactEntry[];
+}
+
+// Stable classified errors for manifest-owned source batch admission.
+export type ProjectSourceBatchErrorCode = 'manifestTooLarge' | 'manifestDecodeFailed' | 'manifestInvalid' | 'tooManyBodies' | 'duplicateBody' | 'duplicateResourceHandle' | 'missingBody' | 'extraBody' | 'inlineBodyTooLarge' | 'inlineBodyForbidden' | 'inlineQuotaExceeded' | 'resourceBodyTooLarge' | 'resourceQuotaExceeded' | 'unknownResourceHandle' | 'resourceGenerationMismatch' | 'resourceVersionMismatch' | 'resourceLengthMismatch' | 'resourceManifestMismatch' | 'resourcePathMismatch' | 'contentHashMismatch';
+
+// Opaque staged-resource identity. It deliberately carries no role, kind, or content hash; the manifest remains the only owner of those facts.
+export interface StagedProjectResourceRef {
+  readonly handle: number;
+  readonly generation: number;
+  readonly version: number;
+  readonly byteLen: number;
+}
+
+export interface ProjectResourceBeginRequest {
+  readonly manifestJson: string;
+}
+
+export interface ProjectResourceTransactionReceipt {
+  readonly generation: number;
+  readonly manifestHash: string;
+}
+
+export interface ProjectResourceStageRequest {
+  readonly generation: number;
+  readonly path: string;
+  readonly bytes: readonly number[];
+}
+
+// One manifest-relative body supplied by a host adapter.
+export type ProjectSourceBody =
+  | { readonly kind: 'inline'; readonly path: string; readonly bytes: readonly number[] }
+  | { readonly kind: 'resource'; readonly path: string; readonly resource: StagedProjectResourceRef };
+
+// Host-neutral raw batch consumed by Rust source-closure validation.
+export interface RuntimeProjectSourceBatch {
+  readonly manifestJson: string;
+  readonly resourceGeneration: number | null;
+  readonly bodies: readonly ProjectSourceBody[];
+}
+
+export interface ProjectSourceBatchDiagnostic {
+  readonly code: ProjectSourceBatchErrorCode;
+  readonly path: string | null;
+  readonly message: string;
+}
+
+export interface ProjectSourceBatchValidationReceipt {
+  readonly accepted: boolean;
+  readonly manifestHash: string | null;
+  readonly paths: readonly string[];
+  readonly diagnostics: readonly ProjectSourceBatchDiagnostic[];
 }
 
 // Durable schema for semantic trigger roles authored with a ProjectBundle.

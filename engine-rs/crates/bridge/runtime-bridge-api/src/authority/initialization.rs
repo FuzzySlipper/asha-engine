@@ -6,6 +6,8 @@ pub(super) fn initialize(
 ) -> BridgeResult<EngineHandle> {
     let handle = EngineHandle::new(config.seed);
     bridge.bundle.engine = Some(handle);
+    bridge.bundle.project_resource_staging.reset();
+    bridge.bundle.pending_project_source = None;
     bridge.reset_developer_console();
     bridge.voxel.buffers.reset();
     bridge.scene.scene_document = Some(EngineBridge::initial_scene_document());

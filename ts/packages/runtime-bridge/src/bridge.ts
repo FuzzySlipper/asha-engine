@@ -169,6 +169,17 @@ export interface ProjectBundleSaveSummary {
   readonly compactedEdits: number;
   readonly retainedEdits: number;
 }
+
+/**
+ * Native-buffer input for one staged ProjectBundle resource. This intentionally
+ * differs from the generated Rust wire DTO: public hosts lend a Uint8Array to
+ * the bridge and never expand binary content into a JSON-compatible number[].
+ */
+export interface ProjectResourceStageInput {
+  readonly generation: number;
+  readonly path: string;
+  readonly bytes: Uint8Array;
+}
 // Compact voxel mesh/remesh evidence (#2646). Prototype DTOs until generated
 // protocol_render contracts grow the same shapes.
 export interface VoxelMeshEvidenceRequest {

@@ -415,6 +415,18 @@ pub trait RuntimeBridge {
     fn release_buffer(&mut self, handle: RuntimeBufferHandle) -> BridgeResult<()>;
 
     // ── ProjectBundle load/save composition (#2363) ──
+    fn begin_runtime_project_source_resources(
+        &mut self,
+        request: ProjectResourceBeginRequest,
+    ) -> BridgeResult<ProjectResourceTransactionReceipt>;
+    fn stage_runtime_project_source_resource(
+        &mut self,
+        request: ProjectResourceStageRequest,
+    ) -> BridgeResult<StagedProjectResourceRef>;
+    fn admit_runtime_project_source_batch(
+        &mut self,
+        request: RuntimeProjectSourceBatch,
+    ) -> BridgeResult<ProjectSourceBatchValidationReceipt>;
     /// Load a ProjectBundle into authority. Fails closed (and leaves any prior
     /// RuntimeSession untouched) on an unsupported version.
     fn load_project_bundle(

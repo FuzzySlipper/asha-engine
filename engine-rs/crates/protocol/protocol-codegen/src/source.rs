@@ -921,7 +921,7 @@ const MODULE_PLANS: &[ModulePlan] = &[
             ("./scene.js", "ProjectId RuntimeSessionId SceneId"),
             ("./voxel.js", "VoxelCoord VoxelValue"),
         ],
-        declarations: "brand:PrefabId brand:PrefabPartId brand:PrefabInstanceId type:ArtifactClass enumconst:KnownArtifactRole:KNOWN_ARTIFACT_ROLES type:LoadStage type:SuggestedAction type:WorkspaceAuthoringProjectIdentity type:WorkspaceAuthoringProjectBundleRef type:WorkspaceAuthoringCompositionStatus type:WorkspaceAuthoringOpenRequest type:WorkspaceAuthoringIdentity type:WorkspaceAuthoringStateSummary type:WorkspaceAuthoringProjectionRequest type:WorkspaceAuthoringProjectionReceipt type:WorkspaceAuthoringStoredConfirmationRequest type:WorkspaceAuthoringStoredConfirmationReceipt type:WorkspaceAuthoringCloseRequest type:WorkspaceAuthoringCloseReceipt type:ArtifactEntry type:GeneratorMetadata type:ProjectSection type:SceneSection type:AssetLockSection type:ProjectBundleManifest const:GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION type:GameplayTriggerDefinition const:PREFAB_REGISTRY_SCHEMA_VERSION const:PREFAB_DEFINITION_SCHEMA_VERSION enumconst:PrefabDiagnosticCode:PREFAB_DIAGNOSTIC_CODES type:PrefabTransform type:PrefabPartSource:PrefabPartSource:kind type:PrefabPart type:PrefabPartRoleBinding type:PrefabOverrideValue:PrefabOverrideValue:field type:PrefabOverride type:PrefabVariantDelta type:PrefabDefinition type:PrefabRegistry type:PrefabInstanceRecord type:PrefabPartReference type:PrefabDiagnostic type:PrefabValidationOutcome:PrefabValidationOutcome:status type:ManifestError:ManifestError:code type:ManifestValidationReport type:LoadStep:LoadStep:step type:LoadPlan type:LoadPlanError:LoadPlanError:code type:CompactionSummary type:SaveSummary type:GeneratorMismatch type:EditConflict type:RegenConflictReport",
+        declarations: "brand:PrefabId brand:PrefabPartId brand:PrefabInstanceId type:ArtifactClass enumconst:KnownArtifactRole:KNOWN_ARTIFACT_ROLES type:LoadStage type:SuggestedAction type:WorkspaceAuthoringProjectIdentity type:WorkspaceAuthoringProjectBundleRef type:WorkspaceAuthoringCompositionStatus type:WorkspaceAuthoringOpenRequest type:WorkspaceAuthoringIdentity type:WorkspaceAuthoringStateSummary type:WorkspaceAuthoringProjectionRequest type:WorkspaceAuthoringProjectionReceipt type:WorkspaceAuthoringStoredConfirmationRequest type:WorkspaceAuthoringStoredConfirmationReceipt type:WorkspaceAuthoringCloseRequest type:WorkspaceAuthoringCloseReceipt type:ArtifactEntry type:GeneratorMetadata type:ProjectSection type:SceneSection type:AssetLockSection type:ProjectBundleManifest enumconst:ProjectSourceBatchErrorCode:PROJECT_SOURCE_BATCH_ERROR_CODES type:StagedProjectResourceRef type:ProjectResourceBeginRequest type:ProjectResourceTransactionReceipt type:ProjectResourceStageRequest type:ProjectSourceBody:ProjectSourceBody:kind type:RuntimeProjectSourceBatch type:ProjectSourceBatchDiagnostic type:ProjectSourceBatchValidationReceipt const:GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION type:GameplayTriggerDefinition const:PREFAB_REGISTRY_SCHEMA_VERSION const:PREFAB_DEFINITION_SCHEMA_VERSION enumconst:PrefabDiagnosticCode:PREFAB_DIAGNOSTIC_CODES type:PrefabTransform type:PrefabPartSource:PrefabPartSource:kind type:PrefabPart type:PrefabPartRoleBinding type:PrefabOverrideValue:PrefabOverrideValue:field type:PrefabOverride type:PrefabVariantDelta type:PrefabDefinition type:PrefabRegistry type:PrefabInstanceRecord type:PrefabPartReference type:PrefabDiagnostic type:PrefabValidationOutcome:PrefabValidationOutcome:status type:ManifestError:ManifestError:code type:ManifestValidationReport type:LoadStep:LoadStep:step type:LoadPlan type:LoadPlanError:LoadPlanError:code type:CompactionSummary type:SaveSummary type:GeneratorMismatch type:EditConflict type:RegenConflictReport",
     },
     ModulePlan {
         name: "assets",
@@ -1522,8 +1522,13 @@ mod tests {
             .flat_map(|plan| plan.declarations.split_whitespace())
             .filter_map(|declaration| {
                 let parts = declaration.split(':').collect::<Vec<_>>();
-                matches!(parts.first(), Some(&"type") | Some(&"brand"))
-                    .then(|| parts.get(2).copied().unwrap_or(parts[1]).to_string())
+                match parts.first() {
+                    Some(&"type") | Some(&"brand") => {
+                        Some(parts.get(2).copied().unwrap_or(parts[1]).to_string())
+                    }
+                    Some(&"enumconst") => Some(parts[1].to_string()),
+                    _ => None,
+                }
             })
             .collect::<BTreeSet<_>>();
         let exempted = EXEMPTIONS

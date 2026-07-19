@@ -105,6 +105,8 @@ pub(crate) const ENGINE_BRIDGE_CAPABILITY_PORTS: &[BridgeCapabilityPortContract]
 struct BridgeBundleLifecycleState {
     engine: Option<EngineHandle>,
     loaded_project_bundle: Option<u64>,
+    project_resource_staging: svc_serialization::ProjectResourceStaging,
+    pending_project_source: Option<svc_serialization::AdmittedRuntimeProjectSourceBatch>,
 }
 
 #[derive(Debug, Default)]

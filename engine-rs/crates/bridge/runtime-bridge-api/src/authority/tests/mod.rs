@@ -414,6 +414,7 @@ mod developer_console;
 mod fps;
 mod input;
 mod mesh_import;
+mod project_source;
 mod runtime;
 mod scene_preview;
 mod time_control;

@@ -21,6 +21,15 @@ pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
         ),
         interface_coverage_key("projectBundle", "WorkspaceAuthoringCloseRequest"),
         interface_coverage_key("projectBundle", "WorkspaceAuthoringCloseReceipt"),
+        interface_coverage_key("projectBundle", "StagedProjectResourceRef"),
+        interface_coverage_key("projectBundle", "ProjectResourceBeginRequest"),
+        interface_coverage_key("projectBundle", "ProjectResourceTransactionReceipt"),
+        interface_coverage_key("projectBundle", "ProjectResourceStageRequest"),
+        variant_coverage_key("projectBundle", "ProjectSourceBody", "inline"),
+        variant_coverage_key("projectBundle", "ProjectSourceBody", "resource"),
+        interface_coverage_key("projectBundle", "RuntimeProjectSourceBatch"),
+        interface_coverage_key("projectBundle", "ProjectSourceBatchDiagnostic"),
+        interface_coverage_key("projectBundle", "ProjectSourceBatchValidationReceipt"),
     ]);
 }
 
@@ -99,5 +108,117 @@ fn gameplay_trigger_definition_serialization_matches_ir_shape() {
         serde_json::from_value::<protocol_project_bundle::GameplayTriggerDefinition>(value)
             .unwrap(),
         trigger
+    );
+}
+
+#[test]
+fn project_source_batch_serialization_matches_ir_shape() {
+    use protocol_project_bundle::{
+        ProjectResourceBeginRequest, ProjectResourceStageRequest,
+        ProjectResourceTransactionReceipt, ProjectSourceBatchDiagnostic,
+        ProjectSourceBatchErrorCode, ProjectSourceBatchValidationReceipt, ProjectSourceBody,
+        RuntimeProjectSourceBatch, StagedProjectResourceRef,
+    };
+
+    let project = module("projectBundle");
+    let resource = StagedProjectResourceRef {
+        handle: 4,
+        generation: 2,
+        version: 1,
+        byte_len: 11,
+    };
+    let begin = ProjectResourceBeginRequest {
+        manifest_json: "{\"bundleSchemaVersion\":2}".into(),
+    };
+    let transaction = ProjectResourceTransactionReceipt {
+        generation: 2,
+        manifest_hash: "0123456789abcdef".into(),
+    };
+    let stage = ProjectResourceStageRequest {
+        generation: 2,
+        path: "voxel/house.avox".into(),
+        bytes: vec![1, 2, 3],
+    };
+    let inline = ProjectSourceBody::Inline {
+        path: "scene/entry.json".into(),
+        bytes: vec![123, 125],
+    };
+    let resource_body = ProjectSourceBody::Resource {
+        path: "voxel/house.avox".into(),
+        resource,
+    };
+    let batch = RuntimeProjectSourceBatch {
+        manifest_json: begin.manifest_json.clone(),
+        resource_generation: Some(2),
+        bodies: vec![inline.clone(), resource_body.clone()],
+    };
+    let diagnostic = ProjectSourceBatchDiagnostic {
+        code: ProjectSourceBatchErrorCode::ResourcePathMismatch,
+        path: Some("voxel/house.avox".into()),
+        message: "staged path mismatch".into(),
+    };
+    let receipt = ProjectSourceBatchValidationReceipt {
+        accepted: false,
+        manifest_hash: None,
+        paths: Vec::new(),
+        diagnostics: vec![diagnostic.clone()],
+    };
+
+    let samples = [
+        (
+            "StagedProjectResourceRef",
+            serde_json::to_value(resource).unwrap(),
+        ),
+        (
+            "ProjectResourceBeginRequest",
+            serde_json::to_value(&begin).unwrap(),
+        ),
+        (
+            "ProjectResourceTransactionReceipt",
+            serde_json::to_value(&transaction).unwrap(),
+        ),
+        (
+            "ProjectResourceStageRequest",
+            serde_json::to_value(&stage).unwrap(),
+        ),
+        (
+            "RuntimeProjectSourceBatch",
+            serde_json::to_value(&batch).unwrap(),
+        ),
+        (
+            "ProjectSourceBatchDiagnostic",
+            serde_json::to_value(&diagnostic).unwrap(),
+        ),
+        (
+            "ProjectSourceBatchValidationReceipt",
+            serde_json::to_value(&receipt).unwrap(),
+        ),
+    ];
+    for (name, value) in samples {
+        compare_object_to_interface(&project, name, &value).unwrap();
+    }
+    for (tag, body) in [("inline", &inline), ("resource", &resource_body)] {
+        let value = serde_json::to_value(body).unwrap();
+        compare_object_to_variant(&project, "ProjectSourceBody", tag, &value).unwrap();
+    }
+
+    assert_eq!(
+        serde_json::from_value::<ProjectResourceStageRequest>(
+            serde_json::to_value(&stage).unwrap()
+        )
+        .unwrap(),
+        stage
+    );
+    assert_eq!(
+        serde_json::from_value::<RuntimeProjectSourceBatch>(serde_json::to_value(&batch).unwrap())
+            .unwrap(),
+        batch
+    );
+    assert_eq!(
+        serde_json::from_value::<ProjectSourceBatchValidationReceipt>(
+            serde_json::to_value(&receipt).unwrap(),
+        )
+        .unwrap(),
+        receipt
     );
 }

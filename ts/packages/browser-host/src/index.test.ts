@@ -701,6 +701,9 @@ function createFakeRuntimeBridge(): RuntimeBridge {
     readInputContextState: operation,
     applyTimeControlCommand: operation,
     readTimeControlState: operation,
+    beginRuntimeProjectSourceResources: operation,
+    stageRuntimeProjectSourceResource: operation,
+    admitRuntimeProjectSourceBatch: operation,
     loadProjectBundle: operation, // vocab-allow: fake bridge must satisfy the legacy RuntimeBridge method name.
     getProjectBundleCompositionStatus: operation,
     submitCommands: operation,

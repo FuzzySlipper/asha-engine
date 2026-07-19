@@ -58,6 +58,69 @@ function stringifyWireValue(value: WireCandidate): string | undefined {
   );
 }
 
+function validateProjectResourceStageInput(
+  operation: string,
+  value: WireCandidate,
+  maxInputBytes: number,
+): void {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw wireError(operation, 'input', 'invalid_input', '$', 'expected object', 'wrong_type');
+  }
+  const input = value as Readonly<Record<string, unknown>>;
+  const allowedFields = new Set(['generation', 'path', 'bytes']);
+  const unknownField = Object.keys(input).find((field) => !allowedFields.has(field));
+  if (unknownField !== undefined) {
+    throw wireError(
+      operation,
+      'input',
+      'invalid_input',
+      `$.${unknownField}`,
+      'unknown field',
+      'unknown_field',
+    );
+  }
+  if (!Number.isSafeInteger(input['generation']) || (input['generation'] as number) < 0) {
+    throw wireError(
+      operation,
+      'input',
+      'invalid_input',
+      '$.generation',
+      'expected non-negative safe integer',
+      'noncanonical_identifier',
+    );
+  }
+  if (typeof input['path'] !== 'string' || input['path'].length === 0) {
+    throw wireError(operation, 'input', 'invalid_input', '$.path', 'expected nonempty string', 'wrong_type');
+  }
+  if (!(input['bytes'] instanceof Uint8Array)) {
+    throw wireError(
+      operation,
+      'input',
+      'invalid_input',
+      '$.bytes',
+      'expected Uint8Array',
+      'wrong_type',
+    );
+  }
+  // Count a compact metadata envelope plus the raw buffer length. Deliberately
+  // do not stringify the byte array: this operation exists to keep large and
+  // binary project resources out of JSON/base64 paths.
+  const metadataBytes = byteLength(
+    JSON.stringify({ generation: input['generation'], path: input['path'] }),
+  );
+  const actualBytes = metadataBytes + input['bytes'].byteLength;
+  if (actualBytes > maxInputBytes) {
+    throw wireError(
+      operation,
+      'input',
+      'invalid_input',
+      '$.bytes',
+      `payload has ${actualBytes} bytes; limit is ${maxInputBytes}`,
+      'payload_too_large',
+    );
+  }
+}
+
 function parseJson(
   operation: string,
   direction: WireDirection,
@@ -394,6 +457,14 @@ export function serializeOperationInput(operation: string, value: WireCandidate)
 }
 
 export function validateOperationInput(operation: string, value: WireCandidate): void {
+  const contract = operationContract(operation);
+  if (
+    contract.inputWire.owner === 'custom' &&
+    contract.inputWire.name === 'ProjectResourceStageInput'
+  ) {
+    validateProjectResourceStageInput(operation, value, contract.maxInputBytes);
+    return;
+  }
   serializeOperationInput(operation, value);
 }
 

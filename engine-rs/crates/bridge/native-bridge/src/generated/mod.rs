@@ -443,6 +443,24 @@ pub(crate) const REQUIRED_NATIVE_EXPORTS: &[(&str, &str, usize, usize)] = &[
     ),
     ("get_buffer", "getBuffer", 8388608, 8388608),
     ("release_buffer", "releaseBuffer", 8388608, 8388608),
+    (
+        "begin_runtime_project_source_resources",
+        "beginRuntimeProjectSourceResources",
+        8388608,
+        8388608,
+    ),
+    (
+        "stage_runtime_project_source_resource",
+        "stageRuntimeProjectSourceResource",
+        268500992,
+        8388608,
+    ),
+    (
+        "admit_runtime_project_source_batch",
+        "admitRuntimeProjectSourceBatch",
+        16777216,
+        8388608,
+    ),
     ("load_project_bundle", "loadProjectBundle", 8388608, 8388608),
     ("save_project_bundle", "saveProjectBundle", 8388608, 8388608),
     (

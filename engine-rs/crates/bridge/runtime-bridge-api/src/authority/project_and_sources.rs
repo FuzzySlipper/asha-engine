@@ -1,6 +1,112 @@
 use super::*;
 
 impl EngineBridge {
+    /// Begin one manifest-bound input-resource transaction. Hosts use this for
+    /// large/binary bodies before submitting the compact source batch. No
+    /// project authority is activated here.
+    #[doc(hidden)]
+    pub fn begin_runtime_project_source_resources(
+        &mut self,
+        manifest_json: &str,
+    ) -> BridgeResult<svc_serialization::ProjectResourceTransaction> {
+        self.require_initialized("begin_runtime_project_source_resources")?;
+        self.bundle
+            .project_resource_staging
+            .begin_for_manifest(manifest_json)
+            .map_err(project_source_bridge_error)
+    }
+
+    /// Stage one raw resource body through the non-JSON transport owner.
+    #[doc(hidden)]
+    pub fn stage_runtime_project_source_resource(
+        &mut self,
+        transaction: svc_serialization::ProjectResourceTransaction,
+        path: &str,
+        bytes: Vec<u8>,
+    ) -> BridgeResult<svc_serialization::StagedProjectResource> {
+        self.require_initialized("stage_runtime_project_source_resource")?;
+        self.bundle
+            .project_resource_staging
+            .stage(transaction, path, bytes)
+            .map_err(project_source_bridge_error)
+    }
+
+    /// Transport helper for staging by the opaque generation returned from
+    /// `begin_runtime_project_source_resources` without reconstructing the
+    /// manifest-bound transaction in TypeScript.
+    #[doc(hidden)]
+    pub fn stage_runtime_project_source_resource_generation(
+        &mut self,
+        generation: u64,
+        path: &str,
+        bytes: Vec<u8>,
+    ) -> BridgeResult<svc_serialization::StagedProjectResource> {
+        self.require_initialized("stage_runtime_project_source_resource_generation")?;
+        self.bundle
+            .project_resource_staging
+            .stage_generation(generation, path, bytes)
+            .map_err(project_source_bridge_error)
+    }
+
+    /// Decode, validate, hash, and fully stage one manifest-owned raw batch.
+    /// The accepted opaque source remains pre-activation until the runtime
+    /// compiler/linker transaction consumes it.
+    #[doc(hidden)]
+    pub fn admit_runtime_project_source_batch(
+        &mut self,
+        batch: protocol_project_bundle::RuntimeProjectSourceBatch,
+    ) -> BridgeResult<protocol_project_bundle::ProjectSourceBatchValidationReceipt> {
+        self.require_initialized("admit_runtime_project_source_batch")?;
+        let service_batch = service_project_source_batch(batch);
+        let validated = match svc_serialization::validate_runtime_project_source_batch(
+            &service_batch,
+            &mut self.bundle.project_resource_staging,
+        ) {
+            Ok(validated) => validated,
+            Err(error) => {
+                return Ok(
+                    protocol_project_bundle::ProjectSourceBatchValidationReceipt {
+                        accepted: false,
+                        manifest_hash: None,
+                        paths: Vec::new(),
+                        diagnostics: vec![project_source_diagnostic(error)],
+                    },
+                );
+            }
+        };
+        let manifest_hash = validated.manifest_hash().to_hex();
+        let paths = validated.paths().map(str::to_string).collect();
+        let admitted = match validated.commit(&mut self.bundle.project_resource_staging) {
+            Ok(admitted) => admitted,
+            Err(error) => {
+                return Ok(
+                    protocol_project_bundle::ProjectSourceBatchValidationReceipt {
+                        accepted: false,
+                        manifest_hash: None,
+                        paths: Vec::new(),
+                        diagnostics: vec![project_source_diagnostic(error)],
+                    },
+                );
+            }
+        };
+        self.bundle.pending_project_source = Some(admitted);
+        Ok(
+            protocol_project_bundle::ProjectSourceBatchValidationReceipt {
+                accepted: true,
+                manifest_hash: Some(manifest_hash),
+                paths,
+                diagnostics: Vec::new(),
+            },
+        )
+    }
+
+    #[cfg(test)]
+    pub(super) fn pending_project_source(
+        &self,
+    ) -> Option<&svc_serialization::AdmittedRuntimeProjectSourceBatch> {
+        self.bundle.pending_project_source.as_ref()
+    }
+
     pub(super) fn load_project_bundle_authority(
         &mut self,
         request: ProjectBundleLoadRequest,
@@ -59,6 +165,8 @@ impl EngineBridge {
         self.projection.pending_voxel_frame.ops.extend(teardown.ops);
         self.projection.voxel_instance_binding = None;
         self.bundle.loaded_project_bundle = None;
+        self.bundle.project_resource_staging.reset();
+        self.bundle.pending_project_source = None;
         self.input.input_session = None;
         self.scene.entities = EntityStore::new();
         self.gameplay.fps_session = None;
@@ -1010,4 +1118,110 @@ impl EngineBridge {
     pub(super) fn saturating_u32(value: usize) -> u32 {
         u32::try_from(value).unwrap_or(u32::MAX)
     }
+}
+
+fn service_project_source_batch(
+    batch: protocol_project_bundle::RuntimeProjectSourceBatch,
+) -> svc_serialization::RuntimeProjectSourceBatch {
+    svc_serialization::RuntimeProjectSourceBatch {
+        manifest_json: batch.manifest_json,
+        resource_generation: batch.resource_generation,
+        bodies: batch
+            .bodies
+            .into_iter()
+            .map(|body| match body {
+                protocol_project_bundle::ProjectSourceBody::Inline { path, bytes } => {
+                    svc_serialization::ProjectSourceBody::Inline { path, bytes }
+                }
+                protocol_project_bundle::ProjectSourceBody::Resource { path, resource } => {
+                    svc_serialization::ProjectSourceBody::Resource {
+                        path,
+                        resource: svc_serialization::StagedProjectResource {
+                            handle: svc_serialization::ProjectResourceHandle::new(resource.handle),
+                            generation: resource.generation,
+                            version: resource.version,
+                            byte_len: resource.byte_len,
+                        },
+                    }
+                }
+            })
+            .collect(),
+    }
+}
+
+fn project_source_diagnostic(
+    error: svc_serialization::ProjectSourceBatchError,
+) -> protocol_project_bundle::ProjectSourceBatchDiagnostic {
+    protocol_project_bundle::ProjectSourceBatchDiagnostic {
+        code: match error.code {
+            svc_serialization::ProjectSourceBatchErrorCode::ManifestTooLarge => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::ManifestTooLarge
+            }
+            svc_serialization::ProjectSourceBatchErrorCode::ManifestDecodeFailed => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::ManifestDecodeFailed
+            }
+            svc_serialization::ProjectSourceBatchErrorCode::ManifestInvalid => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::ManifestInvalid
+            }
+            svc_serialization::ProjectSourceBatchErrorCode::TooManyBodies => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::TooManyBodies
+            }
+            svc_serialization::ProjectSourceBatchErrorCode::DuplicateBody => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::DuplicateBody
+            }
+            svc_serialization::ProjectSourceBatchErrorCode::DuplicateResourceHandle => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::DuplicateResourceHandle
+            }
+            svc_serialization::ProjectSourceBatchErrorCode::MissingBody => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::MissingBody
+            }
+            svc_serialization::ProjectSourceBatchErrorCode::ExtraBody => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::ExtraBody
+            }
+            svc_serialization::ProjectSourceBatchErrorCode::InlineBodyTooLarge => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::InlineBodyTooLarge
+            }
+            svc_serialization::ProjectSourceBatchErrorCode::InlineBodyForbidden => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::InlineBodyForbidden
+            }
+            svc_serialization::ProjectSourceBatchErrorCode::InlineQuotaExceeded => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::InlineQuotaExceeded
+            }
+            svc_serialization::ProjectSourceBatchErrorCode::ResourceBodyTooLarge => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::ResourceBodyTooLarge
+            }
+            svc_serialization::ProjectSourceBatchErrorCode::ResourceQuotaExceeded => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::ResourceQuotaExceeded
+            }
+            svc_serialization::ProjectSourceBatchErrorCode::UnknownResourceHandle => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::UnknownResourceHandle
+            }
+            svc_serialization::ProjectSourceBatchErrorCode::ResourceGenerationMismatch => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::ResourceGenerationMismatch
+            }
+            svc_serialization::ProjectSourceBatchErrorCode::ResourceVersionMismatch => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::ResourceVersionMismatch
+            }
+            svc_serialization::ProjectSourceBatchErrorCode::ResourceLengthMismatch => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::ResourceLengthMismatch
+            }
+            svc_serialization::ProjectSourceBatchErrorCode::ResourceManifestMismatch => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::ResourceManifestMismatch
+            }
+            svc_serialization::ProjectSourceBatchErrorCode::ResourcePathMismatch => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::ResourcePathMismatch
+            }
+            svc_serialization::ProjectSourceBatchErrorCode::ContentHashMismatch => {
+                protocol_project_bundle::ProjectSourceBatchErrorCode::ContentHashMismatch
+            }
+        },
+        path: error.path,
+        message: error.message,
+    }
+}
+
+fn project_source_bridge_error(
+    error: svc_serialization::ProjectSourceBatchError,
+) -> RuntimeBridgeError {
+    RuntimeBridgeError::new(RuntimeBridgeErrorKind::InvalidInput, error.to_string())
 }

@@ -1691,6 +1691,42 @@ impl RuntimeBridge for EngineBridge {
         self.load_project_bundle_authority(request)
     }
 
+    fn begin_runtime_project_source_resources(
+        &mut self,
+        request: ProjectResourceBeginRequest,
+    ) -> BridgeResult<ProjectResourceTransactionReceipt> {
+        let transaction =
+            EngineBridge::begin_runtime_project_source_resources(self, &request.manifest_json)?;
+        Ok(ProjectResourceTransactionReceipt {
+            generation: transaction.generation(),
+            manifest_hash: transaction.manifest_hash().to_hex(),
+        })
+    }
+
+    fn stage_runtime_project_source_resource(
+        &mut self,
+        request: ProjectResourceStageRequest,
+    ) -> BridgeResult<StagedProjectResourceRef> {
+        let staged = self.stage_runtime_project_source_resource_generation(
+            request.generation,
+            &request.path,
+            request.bytes,
+        )?;
+        Ok(StagedProjectResourceRef {
+            handle: staged.handle.raw(),
+            generation: staged.generation,
+            version: staged.version,
+            byte_len: staged.byte_len,
+        })
+    }
+
+    fn admit_runtime_project_source_batch(
+        &mut self,
+        request: RuntimeProjectSourceBatch,
+    ) -> BridgeResult<ProjectSourceBatchValidationReceipt> {
+        EngineBridge::admit_runtime_project_source_batch(self, request)
+    }
+
     fn save_project_bundle(&mut self) -> BridgeResult<ProjectBundleSaveSummary> {
         self.save_project_bundle_authority()
     }

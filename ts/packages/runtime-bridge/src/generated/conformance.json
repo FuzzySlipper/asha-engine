@@ -198,6 +198,9 @@
       "resource_lifetime": "session",
       "operations": [
         "initialize_engine",
+        "begin_runtime_project_source_resources",
+        "stage_runtime_project_source_resource",
+        "admit_runtime_project_source_batch",
         "load_project_bundle",
         "save_project_bundle",
         "get_project_bundle_composition_status",
@@ -2232,6 +2235,78 @@
       "outputWire": {
         "owner": "unit",
         "name": "Unit",
+        "repeated": false
+      },
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "begin_runtime_project_source_resources",
+      "facadeMethod": "beginRuntimeProjectSourceResources",
+      "capability": "bundle_lifecycle",
+      "surface": "stable",
+      "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
+      "input": "protocol_project_bundle::ProjectResourceBeginRequest",
+      "output": "protocol_project_bundle::ProjectResourceTransactionReceipt",
+      "facadeInput": null,
+      "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "projectBundle.ProjectResourceBeginRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "projectBundle.ProjectResourceTransactionReceipt",
+        "repeated": false
+      },
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "stage_runtime_project_source_resource",
+      "facadeMethod": "stageRuntimeProjectSourceResource",
+      "capability": "bundle_lifecycle",
+      "surface": "stable",
+      "nativeWired": true,
+      "maxInputBytes": 268500992,
+      "maxOutputBytes": 8388608,
+      "input": "protocol_project_bundle::ProjectResourceStageRequest",
+      "output": "protocol_project_bundle::StagedProjectResourceRef",
+      "facadeInput": "bridge::ProjectResourceStageInput",
+      "facadeOutput": null,
+      "inputWire": {
+        "owner": "custom",
+        "name": "ProjectResourceStageInput",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "projectBundle.StagedProjectResourceRef",
+        "repeated": false
+      },
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "admit_runtime_project_source_batch",
+      "facadeMethod": "admitRuntimeProjectSourceBatch",
+      "capability": "bundle_lifecycle",
+      "surface": "stable",
+      "nativeWired": true,
+      "maxInputBytes": 16777216,
+      "maxOutputBytes": 8388608,
+      "input": "protocol_project_bundle::RuntimeProjectSourceBatch",
+      "output": "protocol_project_bundle::ProjectSourceBatchValidationReceipt",
+      "facadeInput": null,
+      "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "projectBundle.RuntimeProjectSourceBatch",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "projectBundle.ProjectSourceBatchValidationReceipt",
         "repeated": false
       },
       "errors": "RuntimeBridgeError"

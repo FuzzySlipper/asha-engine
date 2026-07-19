@@ -90,6 +90,9 @@ handwritten semantic exports. Quarantined compatibility wiring is explicit.
 | `read_camera_projection` | `camera` | stable | `protocol_view::CameraProjectionRequest` | `protocol_view::CameraProjectionSnapshot` | `RuntimeBridgeError` |
 | `get_buffer` | `voxel_assets_buffers` | stable | `RuntimeBufferHandle` | `RuntimeBufferView` | `RuntimeBridgeError` |
 | `release_buffer` | `voxel_assets_buffers` | stable | `RuntimeBufferHandle` | `Unit` | `RuntimeBridgeError` |
+| `begin_runtime_project_source_resources` | `bundle_lifecycle` | stable | `protocol_project_bundle::ProjectResourceBeginRequest` | `protocol_project_bundle::ProjectResourceTransactionReceipt` | `RuntimeBridgeError` |
+| `stage_runtime_project_source_resource` | `bundle_lifecycle` | stable | `protocol_project_bundle::ProjectResourceStageRequest` | `protocol_project_bundle::StagedProjectResourceRef` | `RuntimeBridgeError` |
+| `admit_runtime_project_source_batch` | `bundle_lifecycle` | stable | `protocol_project_bundle::RuntimeProjectSourceBatch` | `protocol_project_bundle::ProjectSourceBatchValidationReceipt` | `RuntimeBridgeError` |
 | `load_project_bundle` | `bundle_lifecycle` | stable | `protocol_project_bundle::ProjectBundleManifest` | `protocol_diagnostics::DiagnosticReportSet` | `RuntimeBridgeError` |
 | `save_project_bundle` | `bundle_lifecycle` | stable | `Unit` | `protocol_project_bundle::SaveSummary` | `RuntimeBridgeError` |
 | `get_project_bundle_composition_status` | `bundle_lifecycle` | stable | `Unit` | `protocol_diagnostics::DiagnosticReportSet` | `RuntimeBridgeError` |
