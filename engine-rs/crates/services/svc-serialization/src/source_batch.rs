@@ -198,6 +198,8 @@ struct ProjectResourceEntry {
 struct ProjectResourceTransactionState {
     manifest: ProjectBundleManifest,
     manifest_hash: BundleHash,
+    staged_bytes: usize,
+    staged_paths: BTreeSet<String>,
 }
 
 /// Stages binary/large project inputs before domain invocation. Transactions
@@ -207,6 +209,7 @@ struct ProjectResourceTransactionState {
 pub struct ProjectResourceStaging {
     next_handle: u64,
     next_generation: u64,
+    staged_bytes: usize,
     active_transactions: BTreeMap<u64, ProjectResourceTransactionState>,
     entries: BTreeMap<ProjectResourceHandle, ProjectResourceEntry>,
 }
@@ -219,6 +222,7 @@ impl ProjectResourceStaging {
     pub fn reset(&mut self) {
         self.next_handle = 0;
         self.next_generation = 0;
+        self.staged_bytes = 0;
         self.active_transactions.clear();
         self.entries.clear();
     }
@@ -228,6 +232,17 @@ impl ProjectResourceStaging {
         manifest_json: &str,
     ) -> Result<ProjectResourceTransaction, ProjectSourceBatchError> {
         let manifest = decode_and_validate_manifest(manifest_json)?;
+        if self.active_transactions.len() >= PROJECT_SOURCE_MAX_BODIES {
+            return Err(ProjectSourceBatchError::new(
+                ProjectSourceBatchErrorCode::TooManyBodies,
+                None,
+                format!(
+                    "resource staging already has {} active transactions; limit is {}",
+                    self.active_transactions.len(),
+                    PROJECT_SOURCE_MAX_BODIES
+                ),
+            ));
+        }
         self.next_generation = self
             .next_generation
             .checked_add(1)
@@ -241,6 +256,8 @@ impl ProjectResourceStaging {
             ProjectResourceTransactionState {
                 manifest,
                 manifest_hash: transaction.manifest_hash,
+                staged_bytes: 0,
+                staged_paths: BTreeSet::new(),
             },
         );
         Ok(transaction)
@@ -252,34 +269,47 @@ impl ProjectResourceStaging {
         path: &str,
         bytes: Vec<u8>,
     ) -> Result<StagedProjectResource, ProjectSourceBatchError> {
-        let transaction_state = self
-            .active_transactions
-            .get(&transaction.generation)
-            .filter(|state| state.manifest_hash == transaction.manifest_hash)
-            .ok_or_else(|| {
+        let next_transaction_bytes = {
+            let transaction_state = self
+                .active_transactions
+                .get(&transaction.generation)
+                .filter(|state| state.manifest_hash == transaction.manifest_hash)
+                .ok_or_else(|| {
+                    ProjectSourceBatchError::new(
+                        ProjectSourceBatchErrorCode::ResourceGenerationMismatch,
+                        Some(path),
+                        format!(
+                            "resource transaction generation {} is not active",
+                            transaction.generation
+                        ),
+                    )
+                })?;
+            let artifact = transaction_state.manifest.artifact(path).ok_or_else(|| {
                 ProjectSourceBatchError::new(
-                    ProjectSourceBatchErrorCode::ResourceGenerationMismatch,
+                    ProjectSourceBatchErrorCode::ResourcePathMismatch,
                     Some(path),
-                    format!(
-                        "resource transaction generation {} is not active",
-                        transaction.generation
-                    ),
+                    "resource path is not declared by the transaction manifest",
                 )
             })?;
-        let artifact = transaction_state.manifest.artifact(path).ok_or_else(|| {
-            ProjectSourceBatchError::new(
-                ProjectSourceBatchErrorCode::ResourcePathMismatch,
-                Some(path),
-                "resource path is not declared by the transaction manifest",
-            )
-        })?;
-        if !artifact.class.is_load_required() {
-            return Err(ProjectSourceBatchError::new(
-                ProjectSourceBatchErrorCode::ResourcePathMismatch,
-                Some(path),
-                "cache-only artifact is not part of the runtime source closure",
-            ));
-        }
+            if !artifact.class.is_load_required() {
+                return Err(ProjectSourceBatchError::new(
+                    ProjectSourceBatchErrorCode::ResourcePathMismatch,
+                    Some(path),
+                    "cache-only artifact is not part of the runtime source closure",
+                ));
+            }
+            if transaction_state.staged_paths.contains(path) {
+                return Err(ProjectSourceBatchError::new(
+                    ProjectSourceBatchErrorCode::DuplicateBody,
+                    Some(path),
+                    "resource path is already staged in this transaction",
+                ));
+            }
+            transaction_state
+                .staged_bytes
+                .checked_add(bytes.len())
+                .ok_or_else(|| resource_quota_error(path, "transaction byte count overflow"))?
+        };
         if bytes.len() > PROJECT_SOURCE_RESOURCE_MAX_BYTES {
             return Err(ProjectSourceBatchError::new(
                 ProjectSourceBatchErrorCode::ResourceBodyTooLarge,
@@ -291,12 +321,52 @@ impl ProjectResourceStaging {
                 ),
             ));
         }
+        if self.entries.len() >= PROJECT_SOURCE_MAX_BODIES {
+            return Err(ProjectSourceBatchError::new(
+                ProjectSourceBatchErrorCode::TooManyBodies,
+                Some(path),
+                format!(
+                    "resource staging already retains {} handles; limit is {}",
+                    self.entries.len(),
+                    PROJECT_SOURCE_MAX_BODIES
+                ),
+            ));
+        }
+        if next_transaction_bytes > PROJECT_SOURCE_RESOURCE_TOTAL_MAX_BYTES {
+            return Err(resource_quota_error(
+                path,
+                format!(
+                    "transaction resource total would be {next_transaction_bytes} bytes; limit is {}",
+                    PROJECT_SOURCE_RESOURCE_TOTAL_MAX_BYTES
+                ),
+            ));
+        }
+        let next_staged_bytes = self
+            .staged_bytes
+            .checked_add(bytes.len())
+            .ok_or_else(|| resource_quota_error(path, "global staged byte count overflow"))?;
+        if next_staged_bytes > PROJECT_SOURCE_RESOURCE_TOTAL_MAX_BYTES {
+            return Err(resource_quota_error(
+                path,
+                format!(
+                    "global staged resource total would be {next_staged_bytes} bytes; limit is {}",
+                    PROJECT_SOURCE_RESOURCE_TOTAL_MAX_BYTES
+                ),
+            ));
+        }
         let handle = ProjectResourceHandle(self.next_handle);
         self.next_handle = self
             .next_handle
             .checked_add(1)
             .expect("project-resource handle overflow is unreachable");
         let byte_len = bytes.len() as u64;
+        let transaction_state = self
+            .active_transactions
+            .get_mut(&transaction.generation)
+            .expect("transaction checked immediately above");
+        transaction_state.staged_bytes = next_transaction_bytes;
+        transaction_state.staged_paths.insert(path.to_string());
+        self.staged_bytes = next_staged_bytes;
         self.entries.insert(
             handle,
             ProjectResourceEntry {
@@ -318,15 +388,28 @@ impl ProjectResourceStaging {
     pub fn abort(&mut self, transaction: ProjectResourceTransaction) -> usize {
         self.active_transactions.remove(&transaction.generation);
         let before = self.entries.len();
+        let mut removed_bytes = 0usize;
         self.entries.retain(|_, entry| {
-            entry.generation != transaction.generation
-                || entry.manifest_hash != transaction.manifest_hash
+            let keep = entry.generation != transaction.generation
+                || entry.manifest_hash != transaction.manifest_hash;
+            if !keep {
+                removed_bytes += entry.bytes.len();
+            }
+            keep
         });
+        self.staged_bytes = self
+            .staged_bytes
+            .checked_sub(removed_bytes)
+            .expect("staged byte accounting matches retained entries");
         before - self.entries.len()
     }
 
     pub fn staged_count(&self) -> usize {
         self.entries.len()
+    }
+
+    pub fn staged_byte_count(&self) -> usize {
+        self.staged_bytes
     }
 
     pub fn stage_generation(
@@ -411,11 +494,22 @@ impl ProjectResourceStaging {
         resource: StagedProjectResource,
     ) -> Result<Vec<u8>, ProjectSourceBatchError> {
         self.entry(resource)?;
-        Ok(self
+        let entry = self
             .entries
             .remove(&resource.handle)
-            .expect("entry checked immediately above")
-            .bytes)
+            .expect("entry checked immediately above");
+        self.staged_bytes = self
+            .staged_bytes
+            .checked_sub(entry.bytes.len())
+            .expect("staged byte accounting matches retained entries");
+        if let Some(transaction) = self.active_transactions.get_mut(&entry.generation) {
+            transaction.staged_bytes = transaction
+                .staged_bytes
+                .checked_sub(entry.bytes.len())
+                .expect("transaction byte accounting matches retained entries");
+            transaction.staged_paths.remove(&entry.path);
+        }
+        Ok(entry.bytes)
     }
 
     fn abort_referenced(&mut self, batch: &RuntimeProjectSourceBatch) {
@@ -438,17 +532,37 @@ impl ProjectResourceStaging {
                 }
             }
         }
-        self.entries
-            .retain(|_, entry| !generations.contains(&entry.generation));
-        self.active_transactions
-            .retain(|generation, _| !generations.contains(generation));
+        self.discard_generations(&generations);
     }
 
     fn abort_generation(&mut self, generation: u64) {
-        self.active_transactions.remove(&generation);
-        self.entries
-            .retain(|_, entry| entry.generation != generation);
+        self.discard_generations(&BTreeSet::from([generation]));
     }
+
+    fn discard_generations(&mut self, generations: &BTreeSet<u64>) {
+        let mut removed_bytes = 0usize;
+        self.entries.retain(|_, entry| {
+            let keep = !generations.contains(&entry.generation);
+            if !keep {
+                removed_bytes += entry.bytes.len();
+            }
+            keep
+        });
+        self.staged_bytes = self
+            .staged_bytes
+            .checked_sub(removed_bytes)
+            .expect("staged byte accounting matches retained entries");
+        self.active_transactions
+            .retain(|generation, _| !generations.contains(generation));
+    }
+}
+
+fn resource_quota_error(path: &str, message: impl Into<String>) -> ProjectSourceBatchError {
+    ProjectSourceBatchError::new(
+        ProjectSourceBatchErrorCode::ResourceQuotaExceeded,
+        Some(path),
+        message,
+    )
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1099,10 +1213,67 @@ mod tests {
             .stage(transaction, "voxel/house.avox", vec![1, 2, 3])
             .expect("first resource");
         staging
-            .stage(transaction, "voxel/house.avox", vec![4, 5, 6])
+            .stage(transaction, "scene/entry.json", vec![4, 5, 6])
             .expect("second resource");
         assert_eq!(staging.abort(transaction), 2);
         assert_eq!(staging.staged_count(), 0);
+        assert_eq!(staging.staged_byte_count(), 0);
+    }
+
+    #[test]
+    fn staging_rejects_duplicate_paths_without_retaining_more_bytes() {
+        let (manifest, _) = source_fixture();
+        let mut staging = ProjectResourceStaging::new();
+        let transaction = staging
+            .begin_for_manifest(&encode(&manifest))
+            .expect("transaction");
+        staging
+            .stage(transaction, "voxel/house.avox", vec![1, 2, 3])
+            .expect("first resource");
+        let handle_cursor = staging.next_handle;
+
+        let error = staging
+            .stage(transaction, "voxel/house.avox", vec![4, 5, 6])
+            .expect_err("duplicate staged path rejected");
+        assert_eq!(error.code, ProjectSourceBatchErrorCode::DuplicateBody);
+        assert_eq!(staging.staged_count(), 1);
+        assert_eq!(staging.staged_byte_count(), 3);
+        assert_eq!(staging.next_handle, handle_cursor);
+    }
+
+    #[test]
+    fn aggregate_quota_rejects_before_mutating_staging() {
+        let (manifest, _) = source_fixture();
+        let mut staging = ProjectResourceStaging::new();
+        let transaction = staging
+            .begin_for_manifest(&encode(&manifest))
+            .expect("transaction");
+
+        // Model bytes retained by other active transactions without allocating
+        // a 512 MiB test fixture. The stage path must check the global counter
+        // before assigning a handle or retaining the incoming Vec.
+        staging.staged_bytes = PROJECT_SOURCE_RESOURCE_TOTAL_MAX_BYTES;
+        let handle_cursor = staging.next_handle;
+        let error = staging
+            .stage(transaction, "voxel/house.avox", vec![1])
+            .expect_err("aggregate quota rejected at stage time");
+
+        assert_eq!(
+            error.code,
+            ProjectSourceBatchErrorCode::ResourceQuotaExceeded
+        );
+        assert_eq!(staging.staged_count(), 0);
+        assert_eq!(
+            staging.staged_byte_count(),
+            PROJECT_SOURCE_RESOURCE_TOTAL_MAX_BYTES
+        );
+        assert_eq!(staging.next_handle, handle_cursor);
+        let transaction_state = staging
+            .active_transactions
+            .get(&transaction.generation())
+            .expect("transaction remains active");
+        assert_eq!(transaction_state.staged_bytes, 0);
+        assert!(transaction_state.staged_paths.is_empty());
     }
 
     #[test]
