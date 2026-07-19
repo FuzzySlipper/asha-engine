@@ -506,7 +506,7 @@ impl GameplayStaticCompositionBuilder {
         for provider in self.providers {
             let module_id = provider.manifest.module_ref.module_id.clone();
             if behaviors
-                .insert(module_id.clone(), provider.behavior)
+                .insert(module_id.clone(), Arc::from(provider.behavior))
                 .is_some()
             {
                 return Err(GameplayStaticCompositionError::DuplicateBehavior(module_id));
@@ -578,6 +578,7 @@ impl GameplayStaticCompositionBuilder {
     }
 }
 
+#[derive(Clone)]
 pub struct GameplayStaticComposition {
     registry: Arc<GameplayFabricRegistry>,
     host: GameplayStaticInvocationHost,
@@ -718,8 +719,9 @@ pub struct GameplayStaticConfigurationBinding {
     pub config_hash: String,
 }
 
+#[derive(Clone)]
 pub struct GameplayStaticInvocationHost {
-    behaviors: BTreeMap<String, Box<dyn GameplayModuleBehavior>>,
+    behaviors: BTreeMap<String, Arc<dyn GameplayModuleBehavior>>,
     configuration_bindings: Vec<GameplayStaticConfigurationBinding>,
 }
 

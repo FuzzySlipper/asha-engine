@@ -416,6 +416,7 @@ mod input;
 mod mesh_import;
 mod project_source;
 mod runtime;
+mod runtime_project_activation;
 mod scene_preview;
 mod time_control;
 mod voxel;

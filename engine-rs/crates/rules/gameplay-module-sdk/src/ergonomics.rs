@@ -101,7 +101,7 @@ where
 /// Serde-backed state adapter contract for the normal downstream path.
 /// Schemas and owner identity are returned as owned values, avoiding static
 /// caches and panic-based contract lookup in module code.
-pub trait GameplaySerdeModuleStateAdapter: Send {
+pub trait GameplaySerdeModuleStateAdapter: Send + Sync {
     type Config: DeserializeOwned;
     type State: Serialize + DeserializeOwned;
     type Fact: DeserializeOwned;

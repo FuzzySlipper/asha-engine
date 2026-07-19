@@ -9,6 +9,7 @@
 mod interaction;
 mod owner_router;
 mod prefab;
+mod project_activation;
 mod project_admission;
 #[cfg(test)]
 mod reset_tests;
@@ -17,6 +18,7 @@ mod transaction;
 
 pub use interaction::*;
 pub use prefab::*;
+pub use project_activation::GameplayRuntimeActivatedProjectIdentity;
 pub use project_admission::*;
 pub use scheduler::*;
 use transaction::activation_hash;
@@ -251,6 +253,7 @@ pub struct GameplayRuntimeHost {
     scheduler: GameplayActionScheduler,
     composition_load_mode: GameplayCompositionLoadMode,
     compatibility_diagnostics: Vec<GameplayCompositionDiagnostic>,
+    activated_project: Option<project_activation::ValidatedRuntimeProjectState>,
 }
 
 impl GameplayRuntimeHost {
@@ -455,6 +458,7 @@ impl GameplayRuntimeHost {
             scheduler,
             composition_load_mode,
             compatibility_diagnostics,
+            activated_project: None,
         })
     }
 
@@ -551,6 +555,7 @@ impl GameplayRuntimeHost {
             scheduler,
             composition_load_mode,
             compatibility_diagnostics,
+            activated_project: None,
         })
     }
 

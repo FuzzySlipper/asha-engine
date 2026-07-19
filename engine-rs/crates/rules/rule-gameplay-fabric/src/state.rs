@@ -313,7 +313,7 @@ pub trait GameplayTypedModuleStateAdapter {
     }
 }
 
-trait ErasedGameplayModuleStateAdapter: Send {
+trait ErasedGameplayModuleStateAdapter: Send + Sync {
     fn module_id(&self) -> &str;
     fn state_schema(&self) -> &GameplayContractRef;
     fn fact_schema(&self) -> &GameplayContractRef;
@@ -329,7 +329,7 @@ struct TypedAdapter<T>(T);
 
 impl<T> ErasedGameplayModuleStateAdapter for TypedAdapter<T>
 where
-    T: GameplayTypedModuleStateAdapter + Send,
+    T: GameplayTypedModuleStateAdapter + Send + Sync,
 {
     fn module_id(&self) -> &str {
         self.0.module_id()
@@ -379,17 +379,18 @@ where
 
 /// Opaque registration token accepted by the Session state coordinator.
 /// Callers cannot construct an erased adapter or inspect its byte-level state.
+#[derive(Clone)]
 pub struct GameplayModuleStateRegistration {
-    adapter: Box<dyn ErasedGameplayModuleStateAdapter>,
+    adapter: Arc<dyn ErasedGameplayModuleStateAdapter>,
 }
 
 impl GameplayModuleStateRegistration {
     pub fn typed<T>(adapter: T) -> Self
     where
-        T: GameplayTypedModuleStateAdapter + Send + 'static,
+        T: GameplayTypedModuleStateAdapter + Send + Sync + 'static,
     {
         Self {
-            adapter: Box::new(TypedAdapter(adapter)),
+            adapter: Arc::new(TypedAdapter(adapter)),
         }
     }
 
@@ -486,7 +487,7 @@ impl From<StoredGameplayModuleStateRecord> for GameplayModuleStateRecord {
 
 pub struct GameplayModuleStateStore {
     registry: Arc<GameplayFabricRegistry>,
-    adapters: BTreeMap<String, Box<dyn ErasedGameplayModuleStateAdapter>>,
+    adapters: BTreeMap<String, Arc<dyn ErasedGameplayModuleStateAdapter>>,
     records: BTreeMap<RecordKey, GameplayModuleStateRecord>,
     applied_fact_ids: BTreeSet<String>,
     accepted_facts: Vec<GameplayModuleFact>,
@@ -1016,7 +1017,7 @@ impl GameplayModuleStateStore {
     ) -> Result<&dyn ErasedGameplayModuleStateAdapter, GameplayModuleStateError> {
         self.adapters
             .get(&schema.key())
-            .map(Box::as_ref)
+            .map(Arc::as_ref)
             .ok_or(GameplayModuleStateError::MissingAdapter)
     }
 

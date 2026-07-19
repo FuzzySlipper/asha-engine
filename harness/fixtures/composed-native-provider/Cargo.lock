@@ -353,6 +353,7 @@ dependencies = [
  "protocol-game-extension",
  "protocol-project-bundle",
  "protocol-project-content",
+ "protocol-voxel-asset",
  "rule-gameplay-fabric",
  "rule-project-bundle",
  "rule-scheduler",
@@ -363,6 +364,7 @@ dependencies = [
  "svc-gameplay-fabric",
  "svc-project-content",
  "svc-serialization",
+ "svc-voxel-asset",
 ]
 
 [[package]]

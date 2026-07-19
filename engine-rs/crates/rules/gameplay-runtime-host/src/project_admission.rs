@@ -17,7 +17,10 @@ use protocol_game_extension::{
 use protocol_project_content::{
     ProjectContentDiagnosticCode, ProjectContentDiagnosticDto, ProjectContentDocumentDto,
 };
-use rule_project_bundle::{GameplayBindingEntityTargets, GameplayProjectContentAdmission};
+use protocol_voxel_asset::VoxelVolumeAsset;
+use rule_project_bundle::{
+    BundleArtifacts, GameplayBindingEntityTargets, GameplayProjectContentAdmission,
+};
 use svc_project_content::{
     decode_project_content_artifact, project_scene_document_dto,
     validate_project_content_documents, ProjectContentValidationContext,
@@ -32,6 +35,11 @@ use crate::{
     GameplayRuntimePrefabPlacementOrigin, GameplayRuntimePrefabTransform,
     GameplayRuntimeSchedulerDefinition, GameplayRuntimeSpatialEntity,
 };
+
+#[path = "project_admission_read_identity.rs"]
+mod read_identity;
+#[path = "project_admission_voxel.rs"]
+mod voxel;
 
 /// Stable diagnostic categories for failures at the project linker boundary.
 /// Paths and messages remain detailed, but callers never need to parse them to
@@ -50,6 +58,7 @@ pub enum RuntimeProjectAdmissionDiagnosticCode {
     DuplicateTrigger,
     ProviderSchemaMismatch,
     ResourceNotStaged,
+    ResourceDecode,
     RuntimeGeneratorDependency,
     BootstrapLink,
 }
@@ -69,6 +78,7 @@ impl RuntimeProjectAdmissionDiagnosticCode {
             Self::DuplicateTrigger => "duplicateTrigger",
             Self::ProviderSchemaMismatch => "providerSchemaMismatch",
             Self::ResourceNotStaged => "resourceNotStaged",
+            Self::ResourceDecode => "resourceDecode",
             Self::RuntimeGeneratorDependency => "runtimeGeneratorDependency",
             Self::BootstrapLink => "bootstrapLink",
         }
@@ -142,7 +152,28 @@ pub struct ValidatedRuntimeProjectAdmission {
     triggers: Vec<protocol_project_bundle::GameplayTriggerDefinition>,
     scheduler: GameplayRuntimeSchedulerDefinition,
     prefabs: GameplayRuntimePrefabBootstrap,
+    artifacts: BundleArtifacts,
+    voxel_assets: BTreeMap<String, VoxelVolumeAsset>,
     admission_hash: String,
+}
+
+pub(crate) struct RuntimeProjectActivationParts {
+    pub manifest_hash: BundleHash,
+    pub project_id: u64,
+    pub entry_scene: FlatSceneDocument,
+    pub load_plan: LoadPlan,
+    pub artifacts: BundleArtifacts,
+    pub bootstrap_resolution: core_scene::BootstrapResolutionContext,
+    pub composition: GameplayStaticComposition,
+    pub bindings: GameplayModuleBindingRegistry,
+    pub entity_targets: GameplayBindingEntityTargets,
+    pub spatial_entities: Vec<GameplayRuntimeSpatialEntity>,
+    pub declared_reads: Vec<GameplayRuntimeDeclaredReadPlan>,
+    pub triggers: Vec<protocol_project_bundle::GameplayTriggerDefinition>,
+    pub scheduler: GameplayRuntimeSchedulerDefinition,
+    pub prefabs: GameplayRuntimePrefabBootstrap,
+    pub voxel_assets: BTreeMap<String, VoxelVolumeAsset>,
+    pub admission_hash: String,
 }
 
 impl ValidatedRuntimeProjectAdmission {
@@ -190,6 +221,33 @@ impl ValidatedRuntimeProjectAdmission {
             .as_bytes(),
         )
     }
+
+    pub(crate) fn into_activation_parts(self) -> RuntimeProjectActivationParts {
+        let entry_scene_id = self.source.manifest().entry_scene.raw();
+        let entry_scene = self
+            .scenes
+            .get(&entry_scene_id)
+            .expect("validated admission retains its entry scene")
+            .clone();
+        RuntimeProjectActivationParts {
+            manifest_hash: self.source.manifest_hash(),
+            project_id: self.source.manifest().project.id.raw(),
+            entry_scene,
+            load_plan: self.load_plan,
+            artifacts: self.artifacts,
+            bootstrap_resolution: self.bootstrap_resolution,
+            composition: self.composition,
+            bindings: self.bindings,
+            entity_targets: self.entity_targets,
+            spatial_entities: self.spatial_entities,
+            declared_reads: self.declared_reads,
+            triggers: self.triggers,
+            scheduler: self.scheduler,
+            prefabs: self.prefabs,
+            voxel_assets: self.voxel_assets,
+            admission_hash: self.admission_hash,
+        }
+    }
 }
 
 /// Strictly decode and link one already hash/closure-admitted source batch
@@ -202,6 +260,7 @@ pub fn compile_runtime_project_admission(
     check_declared_read_topology(&composition, &mut report);
     let scenes = decode_scenes(&source, &mut report);
     check_cross_scene_markers(&scenes, &mut report);
+    let voxel_assets = voxel::decode_voxel_assets(&source, &mut report);
 
     let mut documents = Vec::new();
     for artifact in source.manifest().artifacts.iter().filter(|artifact| {
@@ -241,6 +300,7 @@ pub fn compile_runtime_project_admission(
     }
 
     check_runtime_resource_closure(&source, &scenes, &documents, &mut report);
+    voxel::check_voxel_asset_links(&source, &scenes, &documents, &voxel_assets, &mut report);
     check_scene_references(&scenes, &documents, &mut report);
     check_entry_scene_targets(&source, &scenes, &documents, &mut report);
     if !report.is_valid() {
@@ -332,6 +392,11 @@ pub fn compile_runtime_project_admission(
             return Err(report);
         }
     };
+    let artifacts = voxel::bundle_artifacts(&source, &mut report);
+    if !report.is_valid() {
+        report.canonicalize();
+        return Err(report);
+    }
     let admission_hash = runtime_admission_hash(
         &source,
         &scenes,
@@ -355,6 +420,8 @@ pub fn compile_runtime_project_admission(
         triggers,
         scheduler,
         prefabs,
+        artifacts,
+        voxel_assets,
         admission_hash,
     })
 }
@@ -1043,76 +1110,7 @@ fn append_read_request_identity(bytes: &mut Vec<u8>, request: &GameplayReadReque
     for field in &request.fields {
         append_identity_text(bytes, field);
     }
-    append_read_selector_identity(bytes, &request.selector);
-}
-
-fn append_read_selector_identity(bytes: &mut Vec<u8>, selector: &GameplayReadSelector) {
-    match selector {
-        GameplayReadSelector::EventIdentity { binding } => {
-            append_identity_text(bytes, "eventIdentity");
-            append_event_binding_identity(bytes, binding);
-        }
-        GameplayReadSelector::Capability {
-            binding,
-            capability,
-        } => {
-            append_identity_text(bytes, "capability");
-            append_event_binding_identity(bytes, binding);
-            let kind = match capability {
-                GameplayCapabilityReadKind::Lifecycle => "lifecycle",
-                GameplayCapabilityReadKind::Transform => "transform",
-                GameplayCapabilityReadKind::Collision => "collision",
-                GameplayCapabilityReadKind::Controller => "controller",
-            };
-            append_identity_text(bytes, kind);
-        }
-        GameplayReadSelector::Related {
-            binding,
-            relationship,
-        } => {
-            append_identity_text(bytes, "related");
-            append_event_binding_identity(bytes, binding);
-            let kind = match relationship {
-                GameplayRelationshipReadKind::TransformParent => "transformParent",
-                GameplayRelationshipReadKind::Containment => "containment",
-                GameplayRelationshipReadKind::SourceAncestry => "sourceAncestry",
-            };
-            append_identity_text(bytes, kind);
-        }
-        GameplayReadSelector::PrefabPart {
-            instance,
-            reference,
-        } => {
-            append_identity_text(bytes, "prefabPart");
-            append_identity_u64(bytes, instance.raw());
-            append_identity_u64(bytes, reference.prefab.raw());
-            append_identity_text(bytes, &reference.role);
-        }
-        GameplayReadSelector::Tags {
-            required_tags,
-            max_items,
-        } => {
-            append_identity_text(bytes, "tags");
-            append_identity_u64(bytes, required_tags.len() as u64);
-            for tag in required_tags {
-                append_identity_u64(bytes, tag.raw());
-            }
-            append_identity_u64(bytes, u64::from(*max_items));
-        }
-        GameplayReadSelector::Scope { scope, max_items } => {
-            append_identity_text(bytes, "scope");
-            append_identity_text(bytes, scope);
-            append_identity_u64(bytes, u64::from(*max_items));
-        }
-        GameplayReadSelector::ModuleNamed { scope } => {
-            append_identity_text(bytes, "moduleNamed");
-            append_module_scope_identity(bytes, scope);
-        }
-        GameplayReadSelector::OwnerQuery { query } => {
-            append_identity_text(bytes, "ownerQuery");
-            append_owner_query_identity(bytes, query);
-        }
-    }
+    read_identity::append_read_selector_identity(bytes, &request.selector);
 }
 
 fn append_event_binding_identity(bytes: &mut Vec<u8>, binding: &GameplayEventEntityBinding) {

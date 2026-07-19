@@ -2,9 +2,11 @@
 //! pre-runtime project-authoring cells.
 //!
 //! Downstream addons register concrete gameplay modules through the gameplay
-//! SDK, then choose `StaticRuntimeSessionBuilder` for live authority or
-//! `StaticProjectAuthoringBuilder` for immutable provider schema/codec
-//! authority without ProjectBundle activation.
+//! SDK, then choose `DeferredRuntimeSessionBuilder` for manifest-driven atomic
+//! runtime activation, or `StaticProjectAuthoringBuilder` for immutable
+//! provider schema/codec authority without ProjectBundle activation. The older
+//! `StaticRuntimeSessionBuilder` remains a compatibility surface while direct
+//! consumer assembly is retired.
 
 #![forbid(unsafe_code)]
 

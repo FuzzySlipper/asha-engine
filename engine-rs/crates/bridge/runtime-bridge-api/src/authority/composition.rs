@@ -176,6 +176,29 @@ impl StaticProjectAuthoringBuilder {
     }
 }
 
+/// Static provider composition installed before any project is admitted.
+/// Project source changes therefore require no native-provider rebuild, while
+/// the immutable Rust schemas/codecs/behaviors remain fixed for this bridge.
+pub struct DeferredRuntimeSessionBuilder {
+    composition: GameplayStaticComposition,
+}
+
+impl DeferredRuntimeSessionBuilder {
+    pub fn from_static_composition(composition: GameplayStaticComposition) -> Self {
+        Self { composition }
+    }
+
+    pub fn build_unloaded(self) -> EngineBridge {
+        let project_content_admission = rule_project_bundle::GameplayProjectContentAdmission::new(
+            self.composition.project_configuration_authority(),
+        );
+        let mut bridge = EngineBridge::new();
+        bridge.gameplay.static_project_content_admission = Some(project_content_admission);
+        bridge.gameplay.static_gameplay_composition = Some(self.composition);
+        bridge
+    }
+}
+
 /// Narrow consumer entrypoint for one native authority cell.
 ///
 /// A downstream addon links its concrete gameplay modules into a

@@ -1,6 +1,282 @@
 use super::*;
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RuntimeProjectLifecycleVersion {
+    pub generation: u64,
+    pub revision: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuntimeProjectActivationReceipt {
+    pub project_id: u64,
+    pub manifest_hash: String,
+    pub admission_hash: String,
+    pub entry_scene_id: u64,
+    pub voxel_asset_count: u32,
+    pub lifecycle: RuntimeProjectLifecycleVersion,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuntimeProjectUnloadReceipt {
+    pub project_id: u64,
+    pub manifest_hash: String,
+    pub lifecycle: RuntimeProjectLifecycleVersion,
+}
+
+#[derive(Debug)]
+pub enum RuntimeProjectLoadError {
+    NotInitialized,
+    MissingStaticComposition,
+    MissingAdmittedSource,
+    AlreadyActive {
+        project_id: u64,
+        lifecycle: RuntimeProjectLifecycleVersion,
+    },
+    NoActiveProject,
+    StaleLifecycle {
+        expected: RuntimeProjectLifecycleVersion,
+        actual: RuntimeProjectLifecycleVersion,
+    },
+    Admission(gameplay_runtime_host::RuntimeProjectAdmissionReport),
+    Activation(gameplay_runtime_host::GameplayRuntimeHostError),
+    Resource(String),
+}
+
+impl core::fmt::Display for RuntimeProjectLoadError {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(formatter, "{self:?}")
+    }
+}
+
+impl std::error::Error for RuntimeProjectLoadError {}
+
 impl EngineBridge {
+    pub fn runtime_project_lifecycle_version(&self) -> RuntimeProjectLifecycleVersion {
+        RuntimeProjectLifecycleVersion {
+            generation: self.bundle.runtime_project_generation,
+            revision: self.bundle.runtime_project_revision,
+        }
+    }
+
+    pub fn active_runtime_project(&self) -> Option<RuntimeProjectActivationReceipt> {
+        self.bundle
+            .active_runtime_project
+            .as_ref()
+            .map(|active| RuntimeProjectActivationReceipt {
+                project_id: active.project_id,
+                manifest_hash: active.manifest_hash.clone(),
+                admission_hash: active.admission_hash.clone(),
+                entry_scene_id: active.entry_scene_id,
+                voxel_asset_count: active.voxel_asset_count,
+                lifecycle: self.runtime_project_lifecycle_version(),
+            })
+    }
+
+    /// Consume the complete admitted source closure and publish a new runtime
+    /// authority graph only after linking, scene/bootstrap, gameplay, stored
+    /// voxel collision, and initial projection all succeed in staging.
+    pub fn activate_pending_runtime_project(
+        &mut self,
+        expected: RuntimeProjectLifecycleVersion,
+    ) -> Result<RuntimeProjectActivationReceipt, RuntimeProjectLoadError> {
+        let actual = self.runtime_project_lifecycle_version();
+        if expected != actual {
+            return self.reject_pending_runtime_project(RuntimeProjectLoadError::StaleLifecycle {
+                expected,
+                actual,
+            });
+        }
+        if let Some(active) = &self.bundle.active_runtime_project {
+            return self.reject_pending_runtime_project(RuntimeProjectLoadError::AlreadyActive {
+                project_id: active.project_id,
+                lifecycle: actual,
+            });
+        }
+        let engine = match self.bundle.engine {
+            Some(engine) => engine,
+            None => {
+                return self.reject_pending_runtime_project(RuntimeProjectLoadError::NotInitialized)
+            }
+        };
+        let composition = match self.gameplay.static_gameplay_composition.clone() {
+            Some(composition) => composition,
+            None => {
+                return self.reject_pending_runtime_project(
+                    RuntimeProjectLoadError::MissingStaticComposition,
+                )
+            }
+        };
+        let source = match self.bundle.pending_project_source.take() {
+            Some(source) => source,
+            None => {
+                return self
+                    .reject_pending_runtime_project(RuntimeProjectLoadError::MissingAdmittedSource)
+            }
+        };
+        self.bundle.project_resource_staging.reset();
+
+        let admission =
+            gameplay_runtime_host::compile_runtime_project_admission(source, composition.clone())
+                .map_err(RuntimeProjectLoadError::Admission)?;
+        let mut gameplay_host =
+            gameplay_runtime_host::GameplayRuntimeHost::activate_validated_project(admission)
+                .map_err(RuntimeProjectLoadError::Activation)?;
+        let identity = gameplay_host
+            .activated_project_identity()
+            .expect("validated activation retains project identity")
+            .clone();
+        let entry_scene = gameplay_host
+            .activated_entry_scene()
+            .expect("validated activation retains entry scene")
+            .clone();
+        let voxel_assets = gameplay_host.take_activated_voxel_assets();
+
+        let mut staged = EngineBridge::new();
+        initialization::initialize(&mut staged, EngineConfig { seed: engine.raw() })
+            .map_err(|error| RuntimeProjectLoadError::Resource(error.to_string()))?;
+        staged.gameplay.static_gameplay_composition = Some(composition.clone());
+        staged.gameplay.static_project_content_admission =
+            Some(rule_project_bundle::GameplayProjectContentAdmission::new(
+                composition.project_configuration_authority(),
+            ));
+        staged.scene.scene_document = Some(entry_scene.clone());
+
+        let reset_checkpoint = gameplay_host.checkpoint_reset_state();
+        staged.scene.entities = gameplay_host
+            .take_entity_authority()
+            .map_err(RuntimeProjectLoadError::Activation)?;
+        staged.gameplay.static_gameplay_base_entities = Some(staged.scene.entities.clone());
+        staged.gameplay.static_gameplay_reset_checkpoint = Some(reset_checkpoint);
+        staged.gameplay.static_gameplay_host = Some(gameplay_host);
+
+        let referenced_voxel_assets = entry_scene
+            .nodes
+            .iter()
+            .filter_map(|node| match &node.kind {
+                core_scene::SceneNodeKind::VoxelVolume(reference) => {
+                    Some(reference.id().as_str().to_owned())
+                }
+                _ => None,
+            })
+            .collect::<BTreeSet<_>>();
+        if referenced_voxel_assets.len() > 1 {
+            return Err(RuntimeProjectLoadError::Resource(
+                "the current RuntimeSession supports one collision-authoritative voxel asset in the entry scene"
+                    .to_owned(),
+            ));
+        }
+        if let Some(asset_id) = referenced_voxel_assets.first() {
+            let asset = voxel_assets.get(asset_id).cloned().ok_or_else(|| {
+                RuntimeProjectLoadError::Resource(format!(
+                    "entry scene voxel asset `{asset_id}` was not retained by admission"
+                ))
+            })?;
+            staged.voxel.materials = MaterialCatalog::new(
+                asset
+                    .material_palette
+                    .iter()
+                    .map(|binding| VoxelMaterialId::new(binding.voxel_material)),
+            );
+            let receipt = RuntimeBridge::load_voxel_volume_asset(
+                &mut staged,
+                VoxelVolumeAssetLoadRequest {
+                    target_grid: runtime_project_grid_id(asset_id),
+                    target_volume_asset_id: Some(asset_id.clone()),
+                    asset,
+                    replace_existing: true,
+                    include_material_counts: true,
+                },
+            )
+            .map_err(|error| RuntimeProjectLoadError::Resource(error.to_string()))?;
+            if !receipt.loaded {
+                return Err(RuntimeProjectLoadError::Resource(format!(
+                    "stored voxel asset `{asset_id}` was rejected during staged activation: {:?}",
+                    receipt.diagnostics
+                )));
+            }
+        }
+
+        let lifecycle = RuntimeProjectLifecycleVersion {
+            generation: actual.generation.saturating_add(1),
+            revision: actual.revision.saturating_add(1),
+        };
+        let active = ActiveRuntimeProjectAuthority {
+            project_id: identity.project_id(),
+            manifest_hash: identity.manifest_hash().to_hex(),
+            admission_hash: identity.admission_hash().to_owned(),
+            entry_scene_id: entry_scene.id.raw(),
+            voxel_asset_count: referenced_voxel_assets.len() as u32,
+        };
+        let receipt = RuntimeProjectActivationReceipt {
+            project_id: active.project_id,
+            manifest_hash: active.manifest_hash.clone(),
+            admission_hash: active.admission_hash.clone(),
+            entry_scene_id: active.entry_scene_id,
+            voxel_asset_count: active.voxel_asset_count,
+            lifecycle,
+        };
+        staged.bundle.runtime_project_generation = lifecycle.generation;
+        staged.bundle.runtime_project_revision = lifecycle.revision;
+        staged.bundle.loaded_project_bundle = Some(entry_scene.id.raw());
+        staged.bundle.active_runtime_project = Some(active);
+        *self = staged;
+        Ok(receipt)
+    }
+
+    pub fn unload_runtime_project(
+        &mut self,
+        expected: RuntimeProjectLifecycleVersion,
+    ) -> Result<RuntimeProjectUnloadReceipt, RuntimeProjectLoadError> {
+        let actual = self.runtime_project_lifecycle_version();
+        if expected != actual {
+            return Err(RuntimeProjectLoadError::StaleLifecycle { expected, actual });
+        }
+        let active = self
+            .bundle
+            .active_runtime_project
+            .clone()
+            .ok_or(RuntimeProjectLoadError::NoActiveProject)?;
+        let engine = self
+            .bundle
+            .engine
+            .ok_or(RuntimeProjectLoadError::NotInitialized)?;
+        let composition = self
+            .gameplay
+            .static_gameplay_composition
+            .clone()
+            .ok_or(RuntimeProjectLoadError::MissingStaticComposition)?;
+        let mut unloaded = EngineBridge::new();
+        initialization::initialize(&mut unloaded, EngineConfig { seed: engine.raw() })
+            .map_err(|error| RuntimeProjectLoadError::Resource(error.to_string()))?;
+        unloaded.gameplay.static_project_content_admission =
+            Some(rule_project_bundle::GameplayProjectContentAdmission::new(
+                composition.project_configuration_authority(),
+            ));
+        unloaded.gameplay.static_gameplay_composition = Some(composition);
+        let lifecycle = RuntimeProjectLifecycleVersion {
+            generation: actual.generation,
+            revision: actual.revision.saturating_add(1),
+        };
+        unloaded.bundle.runtime_project_generation = lifecycle.generation;
+        unloaded.bundle.runtime_project_revision = lifecycle.revision;
+        let receipt = RuntimeProjectUnloadReceipt {
+            project_id: active.project_id,
+            manifest_hash: active.manifest_hash,
+            lifecycle,
+        };
+        *self = unloaded;
+        Ok(receipt)
+    }
+
+    fn reject_pending_runtime_project<T>(
+        &mut self,
+        error: RuntimeProjectLoadError,
+    ) -> Result<T, RuntimeProjectLoadError> {
+        self.bundle.pending_project_source = None;
+        self.bundle.project_resource_staging.reset();
+        Err(error)
+    }
+
     /// Begin one manifest-bound input-resource transaction. Hosts use this for
     /// large/binary bodies before submitting the compact source batch. No
     /// project authority is activated here.
@@ -111,6 +387,12 @@ impl EngineBridge {
         &mut self,
         request: ProjectBundleLoadRequest,
     ) -> BridgeResult<CompositionStatus> {
+        if self.bundle.active_runtime_project.is_some() {
+            return Err(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                "legacy project-bundle loading cannot replace an active admitted project; use explicit unload/switch",
+            ));
+        }
         // Fail closed on a newer bundle; the prior loaded ProjectBundle is left untouched.
         if request.bundle_schema_version > ENGINE_SUPPORTED_BUNDLE_VERSION
             || request.protocol_version > ENGINE_SUPPORTED_PROTOCOL_VERSION
@@ -161,6 +443,16 @@ impl EngineBridge {
     }
 
     pub(super) fn unload_project_bundle_authority(&mut self) -> BridgeResult<()> {
+        if self.bundle.active_runtime_project.is_some() {
+            let expected = self.runtime_project_lifecycle_version();
+            self.unload_runtime_project(expected).map_err(|error| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::InvalidInput,
+                    format!("active admitted project unload was rejected: {error}"),
+                )
+            })?;
+            return Ok(());
+        }
         let teardown = self.projection.voxel_projector.clear();
         self.projection.pending_voxel_frame.ops.extend(teardown.ops);
         self.projection.voxel_instance_binding = None;
@@ -1118,6 +1410,11 @@ impl EngineBridge {
     pub(super) fn saturating_u32(value: usize) -> u32 {
         u32::try_from(value).unwrap_or(u32::MAX)
     }
+}
+
+fn runtime_project_grid_id(asset_id: &str) -> u64 {
+    let raw = svc_serialization::BundleHash::of(asset_id.as_bytes()).0 as u32;
+    u64::from(raw.max(1))
 }
 
 fn service_project_source_batch(

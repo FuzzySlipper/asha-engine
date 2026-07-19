@@ -105,8 +105,20 @@ pub(crate) const ENGINE_BRIDGE_CAPABILITY_PORTS: &[BridgeCapabilityPortContract]
 struct BridgeBundleLifecycleState {
     engine: Option<EngineHandle>,
     loaded_project_bundle: Option<u64>,
+    runtime_project_generation: u64,
+    runtime_project_revision: u64,
+    active_runtime_project: Option<ActiveRuntimeProjectAuthority>,
     project_resource_staging: svc_serialization::ProjectResourceStaging,
     pending_project_source: Option<svc_serialization::AdmittedRuntimeProjectSourceBatch>,
+}
+
+#[derive(Debug, Clone)]
+struct ActiveRuntimeProjectAuthority {
+    project_id: u64,
+    manifest_hash: String,
+    admission_hash: String,
+    entry_scene_id: u64,
+    voxel_asset_count: u32,
 }
 
 #[derive(Debug, Default)]
@@ -156,6 +168,7 @@ struct BridgeGameplayState {
     fps_seed: Option<FpsRuntimeSessionLoadRequest>,
     fps_epoch: u64,
     static_gameplay_host: Option<gameplay_runtime_host::GameplayRuntimeHost>,
+    static_gameplay_composition: Option<gameplay_runtime_host::GameplayStaticComposition>,
     static_project_content_admission: Option<rule_project_bundle::GameplayProjectContentAdmission>,
     static_gameplay_reset_checkpoint: Option<gameplay_runtime_host::GameplayRuntimeResetCheckpoint>,
     static_gameplay_base_entities: Option<EntityStore>,
@@ -624,8 +637,12 @@ pub use composition::{
     ComposedGameplayOwner, ComposedGameplayOwnerCheckpoint, ComposedGameplayOwnerOutput,
     ComposedGameplayOwnerReadout, ComposedGameplayOwnerTransactionReceipt, ComposedGameplayRuntime,
     ComposedGameplayRuntimeBuilder, ComposedRuntimeSessionCheckpoint,
-    ComposedRuntimeSessionReadout, StaticProjectAuthoringBuilder, StaticRuntimeSessionBuilder,
-    StaticRuntimeSessionCompositionError,
+    ComposedRuntimeSessionReadout, DeferredRuntimeSessionBuilder, StaticProjectAuthoringBuilder,
+    StaticRuntimeSessionBuilder, StaticRuntimeSessionCompositionError,
+};
+pub use project_and_sources::{
+    RuntimeProjectActivationReceipt, RuntimeProjectLifecycleVersion, RuntimeProjectLoadError,
+    RuntimeProjectUnloadReceipt,
 };
 
 #[cfg(test)]

@@ -49,7 +49,7 @@ use crate::session_state::{compose_session_state_snapshot_with_prefabs, SessionS
 
 /// The current bundle schema / protocol versions this executor understands.
 /// A bundle newer than these fails closed at the `ValidateVersions` stage.
-pub const SUPPORTED_BUNDLE_SCHEMA_VERSION: u32 = 1;
+pub const SUPPORTED_BUNDLE_SCHEMA_VERSION: u32 = svc_serialization::BUNDLE_SCHEMA_VERSION;
 /// The protocol version this executor understands.
 pub const SUPPORTED_PROTOCOL_VERSION: u32 = 1;
 

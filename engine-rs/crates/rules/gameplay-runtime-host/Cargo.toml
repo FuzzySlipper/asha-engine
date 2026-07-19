@@ -17,6 +17,7 @@ protocol-diagnostics = { path = "../../protocol/protocol-diagnostics" }
 protocol-entity-authoring = { path = "../../protocol/protocol-entity-authoring" }
 protocol-project-bundle = { path = "../../protocol/protocol-project-bundle" }
 protocol-project-content = { path = "../../protocol/protocol-project-content" }
+protocol-voxel-asset = { path = "../../protocol/protocol-voxel-asset" }
 rule-gameplay-fabric = { path = "../rule-gameplay-fabric" }
 rule-project-bundle = { path = "../rule-project-bundle" }
 rule-scheduler = { path = "../rule-scheduler" }
@@ -27,5 +28,6 @@ svc-serialization = { path = "../../services/svc-serialization" }
 svc-gameplay-fabric = { path = "../../services/svc-gameplay-fabric" }
 svc-entity-authoring = { path = "../../services/svc-entity-authoring" }
 svc-project-content = { path = "../../services/svc-project-content" }
+svc-voxel-asset = { path = "../../services/svc-voxel-asset" }
 
 [dev-dependencies]

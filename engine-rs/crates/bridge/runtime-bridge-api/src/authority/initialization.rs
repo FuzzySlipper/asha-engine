@@ -4,6 +4,12 @@ pub(super) fn initialize(
     bridge: &mut EngineBridge,
     config: EngineConfig,
 ) -> BridgeResult<EngineHandle> {
+    if bridge.bundle.active_runtime_project.is_some() {
+        return Err(RuntimeBridgeError::new(
+            RuntimeBridgeErrorKind::InvalidInput,
+            "initialize_engine cannot replace an active admitted project; unload it with its lifecycle version first",
+        ));
+    }
     let handle = EngineHandle::new(config.seed);
     bridge.bundle.engine = Some(handle);
     bridge.bundle.project_resource_staging.reset();

@@ -229,7 +229,9 @@ pub use authority::{
     ComposedGameplayOwner, ComposedGameplayOwnerCheckpoint, ComposedGameplayOwnerOutput,
     ComposedGameplayOwnerReadout, ComposedGameplayOwnerTransactionReceipt, ComposedGameplayRuntime,
     ComposedGameplayRuntimeBuilder, ComposedRuntimeSessionCheckpoint,
-    ComposedRuntimeSessionReadout, StaticProjectAuthoringBuilder, StaticRuntimeSessionBuilder,
+    ComposedRuntimeSessionReadout, DeferredRuntimeSessionBuilder, RuntimeProjectActivationReceipt,
+    RuntimeProjectLifecycleVersion, RuntimeProjectLoadError, RuntimeProjectUnloadReceipt,
+    StaticProjectAuthoringBuilder, StaticRuntimeSessionBuilder,
     StaticRuntimeSessionCompositionError,
 };
 pub use bridge::RuntimeBridge;
