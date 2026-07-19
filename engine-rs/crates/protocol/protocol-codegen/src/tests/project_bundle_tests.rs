@@ -30,6 +30,14 @@ pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
         interface_coverage_key("projectBundle", "RuntimeProjectSourceBatch"),
         interface_coverage_key("projectBundle", "ProjectSourceBatchDiagnostic"),
         interface_coverage_key("projectBundle", "ProjectSourceBatchValidationReceipt"),
+        interface_coverage_key("projectBundle", "ProjectStoreIdentity"),
+        interface_coverage_key("projectBundle", "ProjectArtifactExpectation"),
+        interface_coverage_key("projectBundle", "ProjectWriteResourceRef"),
+        interface_coverage_key("projectBundle", "CanonicalProjectWrite"),
+        interface_coverage_key("projectBundle", "CanonicalProjectMove"),
+        interface_coverage_key("projectBundle", "CanonicalProjectDelete"),
+        interface_coverage_key("projectBundle", "ProjectWriteCandidate"),
+        interface_coverage_key("projectBundle", "ProjectWritePublication"),
     ]);
 }
 
@@ -220,5 +228,112 @@ fn project_source_batch_serialization_matches_ir_shape() {
         )
         .unwrap(),
         receipt
+    );
+}
+
+#[test]
+fn project_write_candidate_serialization_matches_ir_shape() {
+    use protocol_project_bundle::{
+        CanonicalProjectDelete, CanonicalProjectMove, CanonicalProjectWrite,
+        ProjectArtifactExpectation, ProjectStoreIdentity, ProjectWriteCandidate,
+        ProjectWritePublication, ProjectWriteResourceRef,
+    };
+
+    let project = module("projectBundle");
+    let prior = ProjectStoreIdentity {
+        revision: 7,
+        manifest_hash: "1111111111111111".into(),
+        content_set_hash: "2222222222222222".into(),
+        index_hash: None,
+    };
+    let next = ProjectStoreIdentity {
+        revision: 8,
+        manifest_hash: "3333333333333333".into(),
+        content_set_hash: "4444444444444444".into(),
+        index_hash: Some("5555555555555555".into()),
+    };
+    let expectation = ProjectArtifactExpectation {
+        path: "scenes/main.json".into(),
+        content_hash: Some("6666666666666666".into()),
+    };
+    let resource = ProjectWriteResourceRef {
+        handle: 9,
+        version: 1,
+        byte_len: 12,
+    };
+    let write = CanonicalProjectWrite {
+        path: "scenes/main.json".into(),
+        content_hash: "7777777777777777".into(),
+        resource,
+    };
+    let movement = CanonicalProjectMove {
+        from: "scenes/old.json".into(),
+        to: "scenes/archive/old.json".into(),
+        expected_content_hash: Some("8888888888888888".into()),
+    };
+    let deletion = CanonicalProjectDelete {
+        path: "scenes/removed.json".into(),
+        expected_content_hash: Some("9999999999999999".into()),
+    };
+    let candidate = ProjectWriteCandidate {
+        candidate_hash: "aaaaaaaaaaaaaaaa".into(),
+        expected_prior: prior.clone(),
+        expected_next: next.clone(),
+        expected_prior_artifacts: vec![expectation.clone()],
+        expected_next_artifacts: vec![expectation.clone()],
+        manifest_json: "{\"bundleSchemaVersion\":2}".into(),
+        writes: vec![write.clone()],
+        moves: vec![movement.clone()],
+        deletes: vec![deletion.clone()],
+        index_replacement: Some(CanonicalProjectWrite {
+            path: ".asha/project-index.json".into(),
+            content_hash: "bbbbbbbbbbbbbbbb".into(),
+            resource,
+        }),
+    };
+    let publication = ProjectWritePublication {
+        candidate_hash: candidate.candidate_hash.clone(),
+        published: next,
+    };
+    for (name, value) in [
+        (
+            "ProjectStoreIdentity",
+            serde_json::to_value(&prior).unwrap(),
+        ),
+        (
+            "ProjectArtifactExpectation",
+            serde_json::to_value(&expectation).unwrap(),
+        ),
+        (
+            "ProjectWriteResourceRef",
+            serde_json::to_value(resource).unwrap(),
+        ),
+        (
+            "CanonicalProjectWrite",
+            serde_json::to_value(&write).unwrap(),
+        ),
+        (
+            "CanonicalProjectMove",
+            serde_json::to_value(&movement).unwrap(),
+        ),
+        (
+            "CanonicalProjectDelete",
+            serde_json::to_value(&deletion).unwrap(),
+        ),
+        (
+            "ProjectWriteCandidate",
+            serde_json::to_value(&candidate).unwrap(),
+        ),
+        (
+            "ProjectWritePublication",
+            serde_json::to_value(&publication).unwrap(),
+        ),
+    ] {
+        compare_object_to_interface(&project, name, &value).unwrap();
+    }
+    assert_eq!(
+        serde_json::from_value::<ProjectWriteCandidate>(serde_json::to_value(&candidate).unwrap())
+            .unwrap(),
+        candidate
     );
 }

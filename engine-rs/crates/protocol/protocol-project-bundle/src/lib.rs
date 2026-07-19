@@ -552,6 +552,85 @@ pub struct ProjectSourceBatchValidationReceipt {
     pub diagnostics: Vec<ProjectSourceBatchDiagnostic>,
 }
 
+// ── Canonical project write candidate ──────────────────────────────────────
+
+/// Exact stored state used on both sides of the host transaction handshake.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectStoreIdentity {
+    pub revision: u64,
+    pub manifest_hash: String,
+    pub content_set_hash: String,
+    pub index_hash: Option<String>,
+}
+
+/// One manifest-declared file hash the trusted host must observe.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectArtifactExpectation {
+    pub path: String,
+    pub content_hash: Option<String>,
+}
+
+/// Bridge-owned bytes for one canonical write. Hosts borrow/copy the bytes
+/// through the existing buffer API; they are never JSON/base64 encoded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectWriteResourceRef {
+    pub handle: u64,
+    pub version: u32,
+    pub byte_len: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CanonicalProjectWrite {
+    pub path: String,
+    pub content_hash: String,
+    pub resource: ProjectWriteResourceRef,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CanonicalProjectMove {
+    pub from: String,
+    pub to: String,
+    pub expected_content_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CanonicalProjectDelete {
+    pub path: String,
+    pub expected_content_hash: Option<String>,
+}
+
+/// Generated read-only projection of the opaque Rust candidate. A host may
+/// execute it but may not add paths, roles, or topology.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectWriteCandidate {
+    pub candidate_hash: String,
+    pub expected_prior: ProjectStoreIdentity,
+    pub expected_next: ProjectStoreIdentity,
+    pub expected_prior_artifacts: Vec<ProjectArtifactExpectation>,
+    pub expected_next_artifacts: Vec<ProjectArtifactExpectation>,
+    pub manifest_json: String,
+    pub writes: Vec<CanonicalProjectWrite>,
+    pub moves: Vec<CanonicalProjectMove>,
+    pub deletes: Vec<CanonicalProjectDelete>,
+    pub index_replacement: Option<CanonicalProjectWrite>,
+}
+
+/// Exact publication result sent back to Rust after host staging and atomic
+/// publish. Rust consumes the matching candidate once.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectWritePublication {
+    pub candidate_hash: String,
+    pub published: ProjectStoreIdentity,
+}
+
 // ── Durable prefab registry ──────────────────────────────────────────────────
 
 /// Schema version for the prefab registry artifact carried by a ProjectBundle.

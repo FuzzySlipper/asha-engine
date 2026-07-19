@@ -42,6 +42,7 @@ pub mod prefab;
 pub mod prefab_json;
 pub mod save_plan;
 pub mod source_batch;
+pub mod write_set;
 
 pub use artifact::{ArtifactClass, ArtifactEntry, ArtifactRole};
 pub use hash::BundleHash;
@@ -71,6 +72,12 @@ pub use source_batch::{
     PROJECT_SOURCE_INLINE_BODY_MAX_BYTES, PROJECT_SOURCE_INLINE_TOTAL_MAX_BYTES,
     PROJECT_SOURCE_MANIFEST_MAX_BYTES, PROJECT_SOURCE_MAX_BODIES,
     PROJECT_SOURCE_RESOURCE_MAX_BYTES, PROJECT_SOURCE_RESOURCE_TOTAL_MAX_BYTES,
+};
+pub use write_set::{
+    AuthorizedProjectWriteCandidate, CanonicalProjectDelete, CanonicalProjectMove,
+    CanonicalProjectWrite, ProjectArtifactExpectation, ProjectStoreIdentity, ProjectWriteCandidate,
+    ProjectWriteConfirmation, ProjectWriteSetDraft, ProjectWriteSetError,
+    PROJECT_BUNDLE_MANIFEST_PATH,
 };
 
 #[cfg(test)]

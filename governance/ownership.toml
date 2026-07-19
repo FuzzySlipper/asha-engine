@@ -802,7 +802,7 @@ lane = "ts-shell"
 type = "shell"
 layer = "shell"
 implementation_status = "active"
-may_import = ["@asha/runtime-bridge"]
+may_import = ["@asha/game-workspace", "@asha/runtime-bridge"]
 may_not_import = ["@asha/native-bridge", "@asha/renderer-three", "@asha/ui-dom", "@asha/policy-core", "@asha/policy-examples", "@asha/script-host", "@asha/wasm-replay-bridge", "@asha/electron-main", "@asha/app"]
 
 # Rust: bridge layer (between wasm and tools).

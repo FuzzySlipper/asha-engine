@@ -291,12 +291,11 @@ fn presentation_rust_serialization_matches_ir_shape() {
     )
     .unwrap();
 
-    for anchor in [BillboardAnchor::World {
+    let anchor = BillboardAnchor::World {
         position: [1.0, 2.0, 3.0],
-    }] {
-        let value = serde_json::to_value(&anchor).unwrap();
-        compare_object_to_variant(&presentation, "BillboardAnchor", "world", &value).unwrap();
-    }
+    };
+    let value = serde_json::to_value(&anchor).unwrap();
+    compare_object_to_variant(&presentation, "BillboardAnchor", "world", &value).unwrap();
     for content in [
         BillboardContent::Value {
             label_key: "actor.health".into(),

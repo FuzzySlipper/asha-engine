@@ -235,6 +235,64 @@ export interface ProjectSourceBatchValidationReceipt {
   readonly diagnostics: readonly ProjectSourceBatchDiagnostic[];
 }
 
+// Exact stored state used on both sides of the host transaction handshake.
+export interface ProjectStoreIdentity {
+  readonly revision: number;
+  readonly manifestHash: string;
+  readonly contentSetHash: string;
+  readonly indexHash: string | null;
+}
+
+// One manifest-declared file hash the trusted host must observe.
+export interface ProjectArtifactExpectation {
+  readonly path: string;
+  readonly contentHash: string | null;
+}
+
+// Bridge-owned bytes for one canonical write. Hosts borrow/copy the bytes through the existing buffer API; they are never JSON/base64 encoded.
+export interface ProjectWriteResourceRef {
+  readonly handle: number;
+  readonly version: number;
+  readonly byteLen: number;
+}
+
+export interface CanonicalProjectWrite {
+  readonly path: string;
+  readonly contentHash: string;
+  readonly resource: ProjectWriteResourceRef;
+}
+
+export interface CanonicalProjectMove {
+  readonly from: string;
+  readonly to: string;
+  readonly expectedContentHash: string | null;
+}
+
+export interface CanonicalProjectDelete {
+  readonly path: string;
+  readonly expectedContentHash: string | null;
+}
+
+// Generated read-only projection of the opaque Rust candidate. A host may execute it but may not add paths, roles, or topology.
+export interface ProjectWriteCandidate {
+  readonly candidateHash: string;
+  readonly expectedPrior: ProjectStoreIdentity;
+  readonly expectedNext: ProjectStoreIdentity;
+  readonly expectedPriorArtifacts: readonly ProjectArtifactExpectation[];
+  readonly expectedNextArtifacts: readonly ProjectArtifactExpectation[];
+  readonly manifestJson: string;
+  readonly writes: readonly CanonicalProjectWrite[];
+  readonly moves: readonly CanonicalProjectMove[];
+  readonly deletes: readonly CanonicalProjectDelete[];
+  readonly indexReplacement: CanonicalProjectWrite | null;
+}
+
+// Exact publication result sent back to Rust after host staging and atomic publish. Rust consumes the matching candidate once.
+export interface ProjectWritePublication {
+  readonly candidateHash: string;
+  readonly published: ProjectStoreIdentity;
+}
+
 // Durable schema for semantic trigger roles authored with a ProjectBundle.
 export const GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION = 2;
 

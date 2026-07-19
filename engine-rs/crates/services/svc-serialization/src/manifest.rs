@@ -459,7 +459,7 @@ impl ProjectBundleManifest {
     }
 }
 
-fn is_canonical_relative_path(path: &str) -> bool {
+pub(crate) fn is_canonical_relative_path(path: &str) -> bool {
     !path.is_empty()
         && !path.starts_with('/')
         && !path.ends_with('/')
