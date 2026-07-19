@@ -10,6 +10,7 @@ workspace = true
 core-catalog = { path = "../../state/core-catalog" }
 core-assets = { path = "../../foundation/core-assets" }
 core-ids = { path = "../../foundation/core-ids" }
+core-scene = { path = "../../state/core-scene" }
 protocol-assets = { path = "../../protocol/protocol-assets" }
 protocol-entity-authoring = { path = "../../protocol/protocol-entity-authoring" }
 protocol-game-extension = { path = "../../protocol/protocol-game-extension" }

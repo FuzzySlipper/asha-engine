@@ -16,6 +16,7 @@ protocol-game-extension = { path = "../../protocol/protocol-game-extension" }
 protocol-diagnostics = { path = "../../protocol/protocol-diagnostics" }
 protocol-entity-authoring = { path = "../../protocol/protocol-entity-authoring" }
 protocol-project-bundle = { path = "../../protocol/protocol-project-bundle" }
+protocol-project-content = { path = "../../protocol/protocol-project-content" }
 rule-gameplay-fabric = { path = "../rule-gameplay-fabric" }
 rule-project-bundle = { path = "../rule-project-bundle" }
 rule-scheduler = { path = "../rule-scheduler" }
@@ -25,5 +26,6 @@ serde_json = "1"
 svc-serialization = { path = "../../services/svc-serialization" }
 svc-gameplay-fabric = { path = "../../services/svc-gameplay-fabric" }
 svc-entity-authoring = { path = "../../services/svc-entity-authoring" }
+svc-project-content = { path = "../../services/svc-project-content" }
 
 [dev-dependencies]

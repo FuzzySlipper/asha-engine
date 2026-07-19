@@ -319,6 +319,17 @@ mod tests {
     }
 
     #[test]
+    fn v2_generation_provenance_is_inspectable_but_not_a_runtime_step() {
+        let manifest = sample_manifest();
+        assert!(manifest.generation_provenance.is_some());
+        let plan = LoadPlan::build(&manifest).expect("v2 load plan");
+        assert!(!plan
+            .steps
+            .iter()
+            .any(|step| matches!(step, LoadStep::GenerateTerrain { .. })));
+    }
+
+    #[test]
     fn manifest_scene_table_and_paths_fail_closed() {
         let mut missing_entry = sample_manifest();
         missing_entry.entry_scene = SceneId::new(999);

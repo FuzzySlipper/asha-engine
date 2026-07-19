@@ -338,6 +338,7 @@ dependencies = [
  "protocol-entity-authoring",
  "protocol-game-extension",
  "protocol-project-bundle",
+ "protocol-project-content",
  "rule-gameplay-fabric",
  "rule-project-bundle",
  "rule-scheduler",
@@ -346,6 +347,7 @@ dependencies = [
  "serde_json",
  "svc-entity-authoring",
  "svc-gameplay-fabric",
+ "svc-project-content",
  "svc-serialization",
 ]
 
@@ -1416,6 +1418,7 @@ dependencies = [
  "core-assets",
  "core-catalog",
  "core-ids",
+ "core-scene",
  "protocol-assets",
  "protocol-entity-authoring",
  "protocol-game-extension",

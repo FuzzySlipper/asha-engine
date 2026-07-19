@@ -325,7 +325,10 @@ may_not_depend_on = ["protocol-render", "wasm-api", "render-bridge"]
 
 [crate."engine-rs/crates/services/svc-project-content"]
 lane = "rust-service"
-may_depend_on = ["core-assets", "core-catalog", "core-ids", "protocol-assets", "protocol-entity-authoring", "protocol-game-extension", "protocol-project-bundle", "protocol-project-content", "protocol-scene", "svc-entity-authoring", "svc-serialization"]
+# Runtime admission feeds canonical core SceneDocuments through the same
+# cross-document reference validator used by authoring; the service projects
+# them to the existing scene DTO without giving protocol or bridge code authority.
+may_depend_on = ["core-assets", "core-catalog", "core-ids", "core-scene", "protocol-assets", "protocol-entity-authoring", "protocol-game-extension", "protocol-project-bundle", "protocol-project-content", "protocol-scene", "svc-entity-authoring", "svc-serialization"]
 may_not_depend_on = ["core-state", "runtime-bridge-api", "protocol-render", "render-bridge", "wasm-api"]
 
 [crate."engine-rs/crates/services/svc-environment-authoring"]
@@ -435,7 +438,10 @@ may_not_depend_on = ["core-state", "core-entity", "protocol-render", "render-bri
 
 [crate."engine-rs/crates/rules/gameplay-runtime-host"]
 lane = "rust-rule"
-may_depend_on = ["core-entity", "core-ids", "core-math", "core-scene", "gameplay-module-sdk", "protocol-diagnostics", "protocol-entity-authoring", "protocol-game-extension", "protocol-project-bundle", "rule-gameplay-fabric", "rule-project-bundle", "rule-scheduler", "rule-trigger-volume", "serde", "serde_json", "svc-entity-authoring", "svc-gameplay-fabric", "svc-serialization"]
+# Owns the ProjectBundle runtime linker: it consumes the stored-content border
+# through svc-project-content and converts the validated result into private
+# activation plans. No bridge, renderer, filesystem, or TS authority enters.
+may_depend_on = ["core-entity", "core-ids", "core-math", "core-scene", "gameplay-module-sdk", "protocol-diagnostics", "protocol-entity-authoring", "protocol-game-extension", "protocol-project-bundle", "protocol-project-content", "rule-gameplay-fabric", "rule-project-bundle", "rule-scheduler", "rule-trigger-volume", "serde", "serde_json", "svc-entity-authoring", "svc-gameplay-fabric", "svc-project-content", "svc-serialization"]
 may_not_depend_on = ["protocol-render", "render-bridge", "wasm-api"]
 
 [crate."engine-rs/crates/rules/rule-process"]

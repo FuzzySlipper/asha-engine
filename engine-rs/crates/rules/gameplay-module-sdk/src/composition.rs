@@ -1,6 +1,6 @@
 use crate::{
     GameplayDerivedModuleTopology, GameplayModuleBehavior, GameplayModuleContext,
-    GameplaySerdeConfiguration,
+    GameplayRuntimeDeclaredReadPlan, GameplaySerdeConfiguration,
 };
 use protocol_game_extension::{GameplayContractRef, GameplayModuleManifest};
 use rule_gameplay_fabric::{
@@ -333,6 +333,7 @@ pub struct GameplayStaticModuleProvider {
     event_codecs: Vec<GameplayEventCodecRegistration>,
     proposal_owners: Vec<GameplayProposalOwnerRegistration>,
     read_view_providers: Vec<GameplayReadViewProviderRegistration>,
+    declared_reads: Vec<GameplayRuntimeDeclaredReadPlan>,
     state_owners: Vec<GameplayStateOwnerRegistration>,
     state_adapters: Vec<GameplayModuleStateRegistration>,
     behavior: Box<dyn GameplayModuleBehavior>,
@@ -352,6 +353,7 @@ impl GameplayStaticModuleProvider {
             event_codecs: Vec::new(),
             proposal_owners: Vec::new(),
             read_view_providers: Vec::new(),
+            declared_reads: Vec::new(),
             state_owners: Vec::new(),
             state_adapters: Vec::new(),
             behavior: Box::new(behavior),
@@ -441,6 +443,8 @@ impl GameplayStaticModuleProvider {
     pub fn derived_topology(mut self, topology: &GameplayDerivedModuleTopology) -> Self {
         self.read_view_providers
             .extend(topology.read_view_providers().iter().cloned());
+        self.declared_reads
+            .extend(topology.declared_reads().iter().cloned());
         self
     }
 }
@@ -448,6 +452,10 @@ impl GameplayStaticModuleProvider {
 #[derive(Debug)]
 pub enum GameplayStaticCompositionError {
     DuplicateBehavior(String),
+    DuplicateDeclaredReadPlan {
+        module_id: String,
+        invocation_id: String,
+    },
     InvalidConfigurationSchema(String),
     Registry(GameplayRegistryBuildError),
     StateAdapter(GameplayModuleStateError),
@@ -494,6 +502,7 @@ impl GameplayStaticCompositionBuilder {
         let mut state_adapters = Vec::new();
         let mut configuration_schemas = Vec::new();
         let mut configuration_codecs = Vec::new();
+        let mut declared_reads = Vec::new();
         for provider in self.providers {
             let module_id = provider.manifest.module_ref.module_id.clone();
             if behaviors
@@ -509,6 +518,7 @@ impl GameplayStaticCompositionBuilder {
             )?;
             configuration_schemas.extend(provider.configuration_schemas);
             configuration_codecs.extend(provider.configuration_codecs);
+            declared_reads.extend(provider.declared_reads);
             state_adapters.extend(provider.state_adapters);
             registry_builder
                 .register_module(provider.manifest)
@@ -540,6 +550,20 @@ impl GameplayStaticCompositionBuilder {
             (left.module_id.as_str(), left.configuration.key())
                 .cmp(&(right.module_id.as_str(), right.configuration.key()))
         });
+        declared_reads.sort_by(|left, right| {
+            (left.module_id.as_str(), left.invocation_id.as_str())
+                .cmp(&(right.module_id.as_str(), right.invocation_id.as_str()))
+        });
+        for adjacent in declared_reads.windows(2) {
+            if adjacent[0].module_id == adjacent[1].module_id
+                && adjacent[0].invocation_id == adjacent[1].invocation_id
+            {
+                return Err(GameplayStaticCompositionError::DuplicateDeclaredReadPlan {
+                    module_id: adjacent[0].module_id.clone(),
+                    invocation_id: adjacent[0].invocation_id.clone(),
+                });
+            }
+        }
         Ok(GameplayStaticComposition {
             registry,
             host: GameplayStaticInvocationHost {
@@ -549,6 +573,7 @@ impl GameplayStaticCompositionBuilder {
             state_adapters,
             configuration_schemas,
             configuration_codecs,
+            declared_reads,
         })
     }
 }
@@ -559,6 +584,7 @@ pub struct GameplayStaticComposition {
     state_adapters: Vec<GameplayModuleStateRegistration>,
     configuration_schemas: Vec<GameplayConfigurationSchemaMetadata>,
     configuration_codecs: Vec<GameplayConfigurationCodecRegistration>,
+    declared_reads: Vec<GameplayRuntimeDeclaredReadPlan>,
 }
 
 impl GameplayStaticComposition {
@@ -580,6 +606,10 @@ impl GameplayStaticComposition {
             schemas: self.configuration_schemas.clone(),
             codecs: self.configuration_codecs.clone(),
         }
+    }
+
+    pub fn declared_reads(&self) -> &[GameplayRuntimeDeclaredReadPlan] {
+        &self.declared_reads
     }
 
     /// Executes one static Session Observe root for modules that emit only
@@ -607,6 +637,7 @@ impl GameplayStaticComposition {
             state_adapters: self.state_adapters,
             configuration_schemas: self.configuration_schemas,
             configuration_codecs: self.configuration_codecs,
+            declared_reads: self.declared_reads,
         }
     }
 }
@@ -673,6 +704,7 @@ pub struct GameplayStaticCompositionParts {
     pub state_adapters: Vec<GameplayModuleStateRegistration>,
     pub configuration_schemas: Vec<GameplayConfigurationSchemaMetadata>,
     pub configuration_codecs: Vec<GameplayConfigurationCodecRegistration>,
+    pub declared_reads: Vec<GameplayRuntimeDeclaredReadPlan>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

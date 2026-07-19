@@ -17,10 +17,31 @@ use protocol_project_bundle::{
 };
 use protocol_project_content::*;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 use svc_serialization::{
     PrefabDefinition, PrefabOverride, PrefabOverrideValue, PrefabPart, PrefabPartRoleBinding,
-    PrefabPartSource, PrefabRegistry, PrefabTransform, PrefabVariantDelta,
+    PrefabPartSource, PrefabRegistry, PrefabRegistryValidationContext, PrefabTransform,
+    PrefabVariantDelta, ValidatedPrefabRegistry, PREFAB_REGISTRY_SCHEMA_VERSION,
 };
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum ProjectContentDocumentKindWire {
+    EntityDefinition,
+    AssetCatalog,
+    PrefabRegistry,
+    GameplayConfiguration,
+    PresentationCatalog,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ProjectContentArtifactWire {
+    schema_version: u32,
+    document_id: String,
+    document_kind: ProjectContentDocumentKindWire,
+    document: serde_json::Value,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -292,6 +313,27 @@ pub(super) fn decode_sources(
 }
 
 fn decode_source(source: &ProjectContentSourceDto) -> Result<ProjectContentDocumentDto, String> {
+    if let Ok(artifact) = strict_json::<ProjectContentArtifactWire>(&source.source_text) {
+        if artifact.schema_version != PROJECT_CONTENT_SCHEMA_VERSION {
+            return Err(format!(
+                "unsupported project-content artifact schema version {}",
+                artifact.schema_version
+            ));
+        }
+        let artifact_kind: ProjectContentDocumentKind = artifact.document_kind.into();
+        if artifact.document_id != source.document_id || artifact_kind != source.kind {
+            return Err(
+                "project-content artifact identity does not match the requested source identity"
+                    .to_owned(),
+            );
+        }
+        let inner = artifact_document_source(artifact_kind, artifact.document)?;
+        return decode_source(&ProjectContentSourceDto {
+            document_id: artifact.document_id,
+            kind: artifact_kind,
+            source_text: inner,
+        });
+    }
     match source.kind {
         ProjectContentDocumentKind::EntityDefinition => {
             let wire: EntityDefinitionWire = strict_json(&source.source_text)?;
@@ -334,6 +376,65 @@ fn decode_source(source: &ProjectContentSourceDto) -> Result<ProjectContentDocum
     }
 }
 
+pub(super) fn decode_artifact(
+    source_path: &str,
+    body: &[u8],
+) -> Result<ProjectContentDocumentDto, ProjectContentDiagnosticDto> {
+    let source_text = std::str::from_utf8(body).map_err(|error| ProjectContentDiagnosticDto {
+        code: ProjectContentDiagnosticCode::InvalidJson,
+        document_id: None,
+        path: source_path.to_owned(),
+        message: format!("project-content artifact is not UTF-8: {error}"),
+    })?;
+    let artifact = strict_json::<ProjectContentArtifactWire>(source_text).map_err(|message| {
+        ProjectContentDiagnosticDto {
+            code: if message.contains("unknown field") {
+                ProjectContentDiagnosticCode::UnknownField
+            } else {
+                ProjectContentDiagnosticCode::InvalidJson
+            },
+            document_id: None,
+            path: source_path.to_owned(),
+            message,
+        }
+    })?;
+    if artifact.schema_version != PROJECT_CONTENT_SCHEMA_VERSION {
+        return Err(ProjectContentDiagnosticDto {
+            code: ProjectContentDiagnosticCode::InvalidField,
+            document_id: Some(artifact.document_id),
+            path: format!("{source_path}.schemaVersion"),
+            message: format!(
+                "unsupported project-content artifact schema version {}; expected {}",
+                artifact.schema_version, PROJECT_CONTENT_SCHEMA_VERSION
+            ),
+        });
+    }
+    let document_id = artifact.document_id;
+    let document_kind = ProjectContentDocumentKind::from(artifact.document_kind);
+    let source = ProjectContentSourceDto {
+        document_id: document_id.clone(),
+        kind: document_kind,
+        source_text: artifact_document_source(document_kind, artifact.document).map_err(
+            |message| ProjectContentDiagnosticDto {
+                code: ProjectContentDiagnosticCode::InvalidJson,
+                document_id: Some(document_id.clone()),
+                path: format!("{source_path}.document"),
+                message,
+            },
+        )?,
+    };
+    decode_source(&source).map_err(|message| ProjectContentDiagnosticDto {
+        code: if message.contains("unknown field") {
+            ProjectContentDiagnosticCode::UnknownField
+        } else {
+            ProjectContentDiagnosticCode::InvalidDocument
+        },
+        document_id: Some(document_id),
+        path: format!("{source_path}.document"),
+        message,
+    })
+}
+
 fn strict_json<T: for<'de> Deserialize<'de>>(source: &str) -> Result<T, String> {
     let mut deserializer = serde_json::Deserializer::from_str(source);
     let value = T::deserialize(&mut deserializer).map_err(|error| error.to_string())?;
@@ -363,7 +464,7 @@ pub(super) fn canonical_files(
     let mut files = Vec::with_capacity(documents.len());
     let mut diagnostics = Vec::new();
     for document in documents {
-        match canonical_document(document) {
+        match canonical_artifact(document) {
             Ok(canonical_json) => files.push(ProjectContentCanonicalFileDto {
                 document_id: document.document_id().to_owned(),
                 kind: document.kind(),
@@ -384,6 +485,79 @@ pub(super) fn canonical_files(
     } else {
         Err(diagnostics)
     }
+}
+
+pub(super) fn compiled_prefab_registry(
+    documents: &[ProjectContentDocumentDto],
+) -> Result<ValidatedPrefabRegistry, svc_serialization::PrefabValidationReport> {
+    let mut definitions = Vec::new();
+    let mut asset_ids = BTreeSet::new();
+    let mut entity_definition_ids = BTreeSet::new();
+    for document in documents {
+        match document {
+            ProjectContentDocumentDto::PrefabRegistry { registry, .. } => {
+                definitions.extend(serialization_prefab_registry(registry).definitions);
+            }
+            ProjectContentDocumentDto::AssetCatalog { catalog, .. } => {
+                asset_ids.extend(catalog.entries.iter().map(|entry| entry.id.clone()));
+            }
+            ProjectContentDocumentDto::EntityDefinition { definition, .. } => {
+                entity_definition_ids.insert(definition.stable_id.clone());
+            }
+            _ => {}
+        }
+    }
+    ValidatedPrefabRegistry::new(
+        PrefabRegistry {
+            schema_version: PREFAB_REGISTRY_SCHEMA_VERSION,
+            definitions,
+        },
+        &PrefabRegistryValidationContext {
+            asset_ids,
+            entity_definition_ids,
+        },
+    )
+}
+
+fn canonical_artifact(document: &ProjectContentDocumentDto) -> Result<String, String> {
+    let canonical_document = canonical_document(document)?;
+    let mut document_value: serde_json::Value = serde_json::from_str(&canonical_document)
+        .map_err(|error| format!("canonical document could not be enveloped: {error}"))?;
+    if document.kind() == ProjectContentDocumentKind::EntityDefinition {
+        document_value
+            .as_object_mut()
+            .ok_or_else(|| "entity definition canonical body is not an object".to_owned())?
+            .remove("kind");
+    }
+    pretty(&ProjectContentArtifactWire {
+        schema_version: PROJECT_CONTENT_SCHEMA_VERSION,
+        document_id: document.document_id().to_owned(),
+        document_kind: document.kind().into(),
+        document: document_value,
+    })
+}
+
+fn artifact_document_source(
+    kind: ProjectContentDocumentKind,
+    mut document: serde_json::Value,
+) -> Result<String, String> {
+    if kind == ProjectContentDocumentKind::EntityDefinition {
+        let object = document
+            .as_object_mut()
+            .ok_or_else(|| "entity definition artifact body must be an object".to_owned())?;
+        if object
+            .insert(
+                "kind".to_owned(),
+                serde_json::Value::String("EntityDefinition".to_owned()),
+            )
+            .is_some()
+        {
+            return Err(
+                "entity definition artifact body repeats the envelope document kind".to_owned(),
+            );
+        }
+    }
+    serde_json::to_string(&document).map_err(|error| error.to_string())
 }
 
 fn canonical_document(document: &ProjectContentDocumentDto) -> Result<String, String> {
@@ -465,6 +639,30 @@ fn content_hash(value: &str) -> String {
         hash = hash.wrapping_mul(0x100000001b3);
     }
     format!("fnv1a64:{hash:016x}")
+}
+
+impl From<ProjectContentDocumentKind> for ProjectContentDocumentKindWire {
+    fn from(value: ProjectContentDocumentKind) -> Self {
+        match value {
+            ProjectContentDocumentKind::EntityDefinition => Self::EntityDefinition,
+            ProjectContentDocumentKind::AssetCatalog => Self::AssetCatalog,
+            ProjectContentDocumentKind::PrefabRegistry => Self::PrefabRegistry,
+            ProjectContentDocumentKind::GameplayConfiguration => Self::GameplayConfiguration,
+            ProjectContentDocumentKind::PresentationCatalog => Self::PresentationCatalog,
+        }
+    }
+}
+
+impl From<ProjectContentDocumentKindWire> for ProjectContentDocumentKind {
+    fn from(value: ProjectContentDocumentKindWire) -> Self {
+        match value {
+            ProjectContentDocumentKindWire::EntityDefinition => Self::EntityDefinition,
+            ProjectContentDocumentKindWire::AssetCatalog => Self::AssetCatalog,
+            ProjectContentDocumentKindWire::PrefabRegistry => Self::PrefabRegistry,
+            ProjectContentDocumentKindWire::GameplayConfiguration => Self::GameplayConfiguration,
+            ProjectContentDocumentKindWire::PresentationCatalog => Self::PresentationCatalog,
+        }
+    }
 }
 
 impl From<EntityDefinitionWire> for EntityDefinition {

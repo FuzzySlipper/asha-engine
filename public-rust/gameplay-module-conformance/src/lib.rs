@@ -1499,6 +1499,16 @@ fn composition_failure(
             "composition",
             &format!("duplicate behavior for module {module_id}"),
         )],
+        GameplayStaticCompositionError::DuplicateDeclaredReadPlan {
+            module_id,
+            invocation_id,
+        } => vec![gap(
+            "duplicateDeclaredReadPlan",
+            "composition.declaredReads",
+            &format!(
+                "duplicate declared-read plan for module {module_id} invocation {invocation_id}"
+            ),
+        )],
         GameplayStaticCompositionError::InvalidConfigurationSchema(schema) => vec![gap(
             "invalidConfigurationSchema",
             "composition",

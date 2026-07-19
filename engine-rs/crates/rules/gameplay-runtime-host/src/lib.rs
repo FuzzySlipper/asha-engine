@@ -9,6 +9,7 @@
 mod interaction;
 mod owner_router;
 mod prefab;
+mod project_admission;
 #[cfg(test)]
 mod reset_tests;
 mod scheduler;
@@ -16,6 +17,7 @@ mod transaction;
 
 pub use interaction::*;
 pub use prefab::*;
+pub use project_admission::*;
 pub use scheduler::*;
 use transaction::activation_hash;
 pub use transaction::{GameplayRuntimeResetCheckpoint, GameplayRuntimeTransactionCheckpoint};

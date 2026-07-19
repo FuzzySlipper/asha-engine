@@ -18,7 +18,7 @@ use protocol_project_content::{
 };
 use rule_trigger_volume::{validate_kinematic_trigger_definition, KinematicTriggerDefinition};
 use serde_json::{Map, Number, Value};
-use svc_project_content::ProjectContentGameplayAdmission;
+use svc_project_content::{CompiledProjectGameplayContent, ProjectContentGameplayAdmission};
 
 use crate::gameplay_binding::{
     validate_binding, validate_configuration, validate_override_contracts,
@@ -82,7 +82,7 @@ impl GameplayProjectContentAdmission {
         &self,
         document_id: &str,
         document: &protocol_project_content::ProjectGameplayConfigurationDocumentDto,
-    ) -> Vec<ProjectContentDiagnosticDto> {
+    ) -> Result<CompiledProjectGameplayContent, Vec<ProjectContentDiagnosticDto>> {
         let mut diagnostics = Vec::new();
         let mut runtime_configurations = Vec::new();
 
@@ -237,7 +237,16 @@ impl GameplayProjectContentAdmission {
                 ));
             }
         }
-        diagnostics
+        if diagnostics.is_empty() {
+            Ok(CompiledProjectGameplayContent::new(
+                runtime_configurations,
+                document.bindings.clone(),
+                document.overrides.clone(),
+                document.triggers.clone(),
+            ))
+        } else {
+            Err(diagnostics)
+        }
     }
 }
 
@@ -246,20 +255,51 @@ impl ProjectContentGameplayAdmission for GameplayProjectContentAdmission {
         &self.schemas
     }
 
-    fn validate_gameplay(
+    fn compile_gameplay(
         &self,
         documents: &[ProjectContentDocumentDto],
-    ) -> Vec<ProjectContentDiagnosticDto> {
-        documents
-            .iter()
-            .flat_map(|content| match content {
+    ) -> Result<CompiledProjectGameplayContent, Vec<ProjectContentDiagnosticDto>> {
+        let mut configurations = Vec::new();
+        let mut bindings = Vec::new();
+        let mut overrides = Vec::new();
+        let mut triggers = Vec::new();
+        let mut diagnostics = Vec::new();
+        for content in documents {
+            let compiled = match content {
                 ProjectContentDocumentDto::GameplayConfiguration {
                     document_id,
                     document,
                 } => self.validate_document(document_id, document),
-                _ => Vec::new(),
-            })
-            .collect()
+                _ => continue,
+            };
+            match compiled {
+                Ok(compiled) => {
+                    configurations.extend_from_slice(compiled.configurations());
+                    bindings.extend_from_slice(compiled.bindings());
+                    overrides.extend_from_slice(compiled.overrides());
+                    triggers.extend_from_slice(compiled.triggers());
+                }
+                Err(mut document_diagnostics) => diagnostics.append(&mut document_diagnostics),
+            }
+        }
+        if diagnostics.is_empty() {
+            configurations
+                .sort_by(|left, right| left.configuration_id.cmp(&right.configuration_id));
+            bindings.sort_by(|left, right| left.binding_id.cmp(&right.binding_id));
+            overrides.sort_by(|left, right| {
+                (left.binding_id.as_str(), left.scene_instance_id.as_str())
+                    .cmp(&(right.binding_id.as_str(), right.scene_instance_id.as_str()))
+            });
+            triggers.sort_by(|left, right| left.scene_instance_id.cmp(&right.scene_instance_id));
+            Ok(CompiledProjectGameplayContent::new(
+                configurations,
+                bindings,
+                overrides,
+                triggers,
+            ))
+        } else {
+            Err(diagnostics)
+        }
     }
 }
 

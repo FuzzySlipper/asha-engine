@@ -6,9 +6,8 @@ use protocol_entity_authoring::{
 use protocol_game_extension::GameplayModuleBindingTarget;
 use protocol_project_content::*;
 use protocol_scene::{FlatSceneDocumentDto, SceneEntityReferenceDto, SceneNodeKindDto};
-use svc_serialization::{PrefabRegistryValidationContext, ValidatedPrefabRegistry};
 
-use crate::codec::{core_catalog_from_stored, serialization_prefab_registry};
+use crate::codec::{compiled_prefab_registry, core_catalog_from_stored};
 
 #[derive(Default)]
 struct ReferenceIndex<'a> {
@@ -360,32 +359,18 @@ fn validate_entities(
 
 fn validate_prefabs(
     documents: &[ProjectContentDocumentDto],
-    index: &ReferenceIndex<'_>,
+    _index: &ReferenceIndex<'_>,
     diagnostics: &mut Vec<ProjectContentDiagnosticDto>,
 ) {
-    let context = PrefabRegistryValidationContext {
-        asset_ids: index.assets.clone(),
-        entity_definition_ids: index.entities.keys().cloned().collect(),
-    };
-    for document in documents {
-        if let ProjectContentDocumentDto::PrefabRegistry {
-            document_id,
-            registry,
-        } = document
-        {
-            if let Err(report) =
-                ValidatedPrefabRegistry::new(serialization_prefab_registry(registry), &context)
-            {
-                for failure in report.diagnostics {
-                    push(
-                        diagnostics,
-                        ProjectContentDiagnosticCode::InvalidDocument,
-                        Some(document_id),
-                        &failure.path,
-                        &failure.message,
-                    );
-                }
-            }
+    if let Err(report) = compiled_prefab_registry(documents) {
+        for failure in report.diagnostics {
+            push(
+                diagnostics,
+                ProjectContentDiagnosticCode::InvalidDocument,
+                None,
+                &format!("workspace.prefabRegistry.{}", failure.path),
+                &failure.message,
+            );
         }
     }
 }
@@ -397,6 +382,9 @@ fn validate_gameplay(
     diagnostics: &mut Vec<ProjectContentDiagnosticDto>,
 ) {
     let mut trigger_targets = BTreeSet::new();
+    let mut project_configuration_ids = BTreeSet::new();
+    let mut project_binding_ids = BTreeSet::new();
+    let mut project_override_identities = BTreeSet::new();
     for content in documents {
         let ProjectContentDocumentDto::GameplayConfiguration {
             document_id,
@@ -427,6 +415,15 @@ fn validate_gameplay(
                     Some(document_id),
                     &format!("document.configurations[{configuration_index}].configurationId"),
                     "configuration ids must be non-empty and unique",
+                );
+            }
+            if !project_configuration_ids.insert(configuration.configuration_id.as_str()) {
+                push(
+                    diagnostics,
+                    ProjectContentDiagnosticCode::InvalidDocument,
+                    Some(document_id),
+                    &format!("document.configurations[{configuration_index}].configurationId"),
+                    "configuration ids must be unique across the project",
                 );
             }
             match schemas.get(configuration.schema_id.as_str()).copied() {
@@ -461,6 +458,15 @@ fn validate_gameplay(
                     Some(document_id),
                     &format!("document.bindings[{binding_index}].bindingId"),
                     "binding ids must be non-empty and unique",
+                );
+            }
+            if !project_binding_ids.insert(binding.binding_id.as_str()) {
+                push(
+                    diagnostics,
+                    ProjectContentDiagnosticCode::InvalidDocument,
+                    Some(document_id),
+                    &format!("document.bindings[{binding_index}].bindingId"),
+                    "binding ids must be unique across the project",
                 );
             }
             match configurations
@@ -504,6 +510,17 @@ fn validate_gameplay(
                     Some(document_id),
                     &format!("document.overrides[{override_index}]"),
                     "only one override is allowed per binding and scene instance",
+                );
+            }
+            if !project_override_identities
+                .insert((layer.binding_id.as_str(), layer.scene_instance_id.as_str()))
+            {
+                push(
+                    diagnostics,
+                    ProjectContentDiagnosticCode::InvalidDocument,
+                    Some(document_id),
+                    &format!("document.overrides[{override_index}]"),
+                    "override identity must be unique across the project",
                 );
             }
             let Some(binding) = bindings.get(layer.binding_id.as_str()).copied() else {

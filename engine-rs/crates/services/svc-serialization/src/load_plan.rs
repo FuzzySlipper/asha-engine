@@ -21,7 +21,7 @@
 use core_ids::{RuntimeSessionId, SceneId};
 
 use crate::artifact::ArtifactRole;
-use crate::manifest::{ManifestError, ProjectBundleManifest};
+use crate::manifest::{ManifestError, ProjectBundleManifest, BUNDLE_SCHEMA_VERSION};
 
 /// The ordered authority-application stages. A load plan's steps must appear in
 /// non-decreasing stage order; the numeric index defines that order.
@@ -221,12 +221,14 @@ impl LoadPlan {
         // Generation is optional authoring provenance. Legacy v1 loads retain
         // the diagnostic/replay step, while ordinary materialized v2 projects
         // proceed directly from stored scene/resource artifacts.
-        if let Some(provenance) = &manifest.generation_provenance {
-            steps.push(LoadStep::GenerateTerrain {
-                seed: provenance.seed,
-                version: provenance.version,
-                params: provenance.params.clone(),
-            });
+        if manifest.bundle_schema_version < BUNDLE_SCHEMA_VERSION {
+            if let Some(provenance) = &manifest.generation_provenance {
+                steps.push(LoadStep::GenerateTerrain {
+                    seed: provenance.seed,
+                    version: provenance.version,
+                    params: provenance.params.clone(),
+                });
+            }
         }
         steps.extend([
             LoadStep::ApplyVoxelEdits {

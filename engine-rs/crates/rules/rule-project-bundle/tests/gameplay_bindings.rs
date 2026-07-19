@@ -18,7 +18,9 @@ use protocol_project_content::{
     ProjectGameplayConfigurationDto, PROJECT_CONTENT_SCHEMA_VERSION,
 };
 use rule_project_bundle::*;
-use svc_project_content::{encode_project_content, ProjectContentValidationContext};
+use svc_project_content::{
+    encode_project_content, validate_project_content_documents, ProjectContentValidationContext,
+};
 use svc_serialization::{
     LoadPlan, LoadStep, PrefabDefinition, PrefabInstanceRecord, PrefabPart, PrefabPartReference,
     PrefabPartRoleBinding, PrefabPartSource, PrefabRegistry, PrefabRegistryValidationContext,
@@ -313,6 +315,23 @@ fn project_content_uses_composed_provider_codec_and_runtime_contract_admission()
     assert!(accepted.field_metadata.iter().any(|field| field.path
         == "document.configurations[0].values.multiplier"
         && field.configuration_id.as_deref() == Some("binding-fixture.default")));
+
+    let compiled = validate_project_content_documents(
+        vec![authored_gameplay_document(4)],
+        ProjectContentValidationContext {
+            scenes: &[],
+            gameplay: &admission,
+            reference_revision: 0,
+        },
+    )
+    .validated
+    .expect("accepted content retains its compiled provider result");
+    let configuration = &compiled.compiled_gameplay().configurations()[0];
+    assert_eq!(configuration.canonical_config, br#"{"multiplier":4}"#);
+    assert_eq!(
+        configuration.config_hash,
+        gameplay_module_payload_hash(&configuration.canonical_config)
+    );
 
     let typed_codec_rejection = encode_project_content(
         ProjectContentEncodeRequestDto {

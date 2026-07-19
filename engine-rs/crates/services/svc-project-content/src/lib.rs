@@ -4,10 +4,15 @@
 #![forbid(unsafe_code)]
 
 mod codec;
+mod scene;
 mod validate;
 
 use std::collections::BTreeMap;
 
+use protocol_game_extension::{
+    GameplayModuleBinding, GameplayModuleBindingOverride, GameplayModuleConfiguration,
+};
+use protocol_project_bundle::GameplayTriggerDefinition;
 use protocol_project_content::{
     ProjectContentAuthoringCommandDto, ProjectContentAuthoringRequestDto,
     ProjectContentAuthoringResultDto, ProjectContentCodecResultDto, ProjectContentDecodeRequestDto,
@@ -15,16 +20,62 @@ use protocol_project_content::{
     ProjectContentEncodeRequestDto,
 };
 use protocol_scene::FlatSceneDocumentDto;
+use svc_serialization::ValidatedPrefabRegistry;
+
+pub use scene::project_scene_document_dto;
+
+/// Provider-normalized gameplay content retained by project admission. The
+/// canonical configuration bytes are produced by statically composed Rust
+/// codecs; authored JSON can never supply them directly.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CompiledProjectGameplayContent {
+    configurations: Vec<GameplayModuleConfiguration>,
+    bindings: Vec<GameplayModuleBinding>,
+    overrides: Vec<GameplayModuleBindingOverride>,
+    triggers: Vec<GameplayTriggerDefinition>,
+}
+
+impl CompiledProjectGameplayContent {
+    pub fn new(
+        configurations: Vec<GameplayModuleConfiguration>,
+        bindings: Vec<GameplayModuleBinding>,
+        overrides: Vec<GameplayModuleBindingOverride>,
+        triggers: Vec<GameplayTriggerDefinition>,
+    ) -> Self {
+        Self {
+            configurations,
+            bindings,
+            overrides,
+            triggers,
+        }
+    }
+
+    pub fn configurations(&self) -> &[GameplayModuleConfiguration] {
+        &self.configurations
+    }
+
+    pub fn bindings(&self) -> &[GameplayModuleBinding] {
+        &self.bindings
+    }
+
+    pub fn overrides(&self) -> &[GameplayModuleBindingOverride] {
+        &self.overrides
+    }
+
+    pub fn triggers(&self) -> &[GameplayTriggerDefinition] {
+        &self.triggers
+    }
+}
 
 /// Statically composed provider authority used during project-content
 /// admission. Public wire requests never implement or populate this port.
 pub trait ProjectContentGameplayAdmission: Send + Sync {
     fn configuration_schemas(&self) -> &[protocol_project_content::ProjectConfigurationSchemaDto];
 
-    fn validate_gameplay(
+    fn compile_gameplay(
         &self,
         documents: &[ProjectContentDocumentDto],
-    ) -> Vec<ProjectContentDiagnosticDto>;
+    ) -> Result<CompiledProjectGameplayContent, Vec<ProjectContentDiagnosticDto>>;
 }
 
 #[derive(Debug, Default)]
@@ -37,11 +88,11 @@ impl ProjectContentGameplayAdmission for EmptyProjectContentGameplayAdmission {
         &self.schemas
     }
 
-    fn validate_gameplay(
+    fn compile_gameplay(
         &self,
         documents: &[ProjectContentDocumentDto],
-    ) -> Vec<ProjectContentDiagnosticDto> {
-        documents
+    ) -> Result<CompiledProjectGameplayContent, Vec<ProjectContentDiagnosticDto>> {
+        let diagnostics = documents
             .iter()
             .filter_map(|document| match document {
                 ProjectContentDocumentDto::GameplayConfiguration { document_id, .. } => {
@@ -56,7 +107,12 @@ impl ProjectContentGameplayAdmission for EmptyProjectContentGameplayAdmission {
                 }
                 _ => None,
             })
-            .collect()
+            .collect::<Vec<_>>();
+        if diagnostics.is_empty() {
+            Ok(CompiledProjectGameplayContent::default())
+        } else {
+            Err(diagnostics)
+        }
     }
 }
 
@@ -71,6 +127,8 @@ pub struct ProjectContentValidationContext<'a> {
 #[derive(Debug, Clone)]
 pub struct ValidatedProjectContentSet {
     result: ProjectContentCodecResultDto,
+    compiled_gameplay: CompiledProjectGameplayContent,
+    prefab_registry: ValidatedPrefabRegistry,
     reference_revision: u64,
 }
 
@@ -85,6 +143,14 @@ impl ValidatedProjectContentSet {
             .as_deref()
             .expect("validated project-content set has an identity")
     }
+
+    pub fn compiled_gameplay(&self) -> &CompiledProjectGameplayContent {
+        &self.compiled_gameplay
+    }
+
+    pub fn prefab_registry(&self) -> &ValidatedPrefabRegistry {
+        &self.prefab_registry
+    }
 }
 
 pub struct ProjectContentValidationOutcome {
@@ -96,6 +162,16 @@ pub fn decode_project_content_sources(
     sources: &[protocol_project_content::ProjectContentSourceDto],
 ) -> Result<Vec<ProjectContentDocumentDto>, Vec<ProjectContentDiagnosticDto>> {
     codec::decode_sources(sources)
+}
+
+/// Decode one manifest `projectContent` body. Unlike the authoring DTO seam,
+/// the artifact is self-identifying so runtime admission never infers a
+/// document kind or stable id from its path.
+pub fn decode_project_content_artifact(
+    source_path: &str,
+    body: &[u8],
+) -> Result<ProjectContentDocumentDto, ProjectContentDiagnosticDto> {
+    codec::decode_artifact(source_path, body)
 }
 
 pub fn reject_project_content_parse(
@@ -116,6 +192,15 @@ pub fn decode_project_content(
             context.gameplay.configuration_schemas(),
         )),
     }
+}
+
+/// Compile already-decoded, manifest-discovered documents against the same
+/// closed validation and provider authority used by authoring operations.
+pub fn validate_project_content_documents(
+    documents: Vec<ProjectContentDocumentDto>,
+    context: ProjectContentValidationContext<'_>,
+) -> ProjectContentValidationOutcome {
+    encode_documents(documents, context)
 }
 
 pub fn encode_project_content(
@@ -224,7 +309,13 @@ fn encode_documents(
         context.scenes,
         context.gameplay.configuration_schemas(),
     );
-    diagnostics.extend(context.gameplay.validate_gameplay(&documents));
+    let compiled_gameplay = match context.gameplay.compile_gameplay(&documents) {
+        Ok(compiled) => compiled,
+        Err(gameplay_diagnostics) => {
+            diagnostics.extend(gameplay_diagnostics);
+            CompiledProjectGameplayContent::default()
+        }
+    };
     if !diagnostics.is_empty() {
         return outcome(rejected_codec(
             diagnostics,
@@ -233,6 +324,29 @@ fn encode_documents(
     }
     match codec::canonical_files(&documents) {
         Ok(canonical_files) => {
+            let prefab_registry = match codec::compiled_prefab_registry(&documents) {
+                Ok(registry) => registry,
+                Err(prefab_report) => {
+                    let diagnostics = prefab_report
+                        .diagnostics
+                        .into_iter()
+                        .map(|diagnostic| ProjectContentDiagnosticDto {
+                            code: ProjectContentDiagnosticCode::InvalidDocument,
+                            document_id: None,
+                            path: diagnostic.path,
+                            message: format!(
+                                "prefab compilation rejected {}: {}",
+                                diagnostic.code.as_str(),
+                                diagnostic.message
+                            ),
+                        })
+                        .collect();
+                    return outcome(rejected_codec(
+                        diagnostics,
+                        context.gameplay.configuration_schemas(),
+                    ));
+                }
+            };
             let set_hash = Some(codec::document_set_hash(&canonical_files));
             let field_metadata =
                 validate::field_metadata(&documents, context.gameplay.configuration_schemas());
@@ -248,6 +362,8 @@ fn encode_documents(
             ProjectContentValidationOutcome {
                 validated: Some(ValidatedProjectContentSet {
                     result: result.clone(),
+                    compiled_gameplay,
+                    prefab_registry,
                     reference_revision: context.reference_revision,
                 }),
                 result,
@@ -297,8 +413,9 @@ fn authoring_from_codec(result: ProjectContentCodecResultDto) -> ProjectContentA
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_project_content_authoring, decode_project_content, ProjectContentGameplayAdmission,
-        ProjectContentValidationContext, ProjectContentValidationOutcome,
+        apply_project_content_authoring, decode_project_content, CompiledProjectGameplayContent,
+        ProjectContentGameplayAdmission, ProjectContentValidationContext,
+        ProjectContentValidationOutcome,
     };
     use core_ids::{SceneId, SceneNodeId};
     use protocol_project_content::*;
@@ -435,11 +552,11 @@ mod tests {
             &self.schemas
         }
 
-        fn validate_gameplay(
+        fn compile_gameplay(
             &self,
             _documents: &[ProjectContentDocumentDto],
-        ) -> Vec<ProjectContentDiagnosticDto> {
-            Vec::new()
+        ) -> Result<CompiledProjectGameplayContent, Vec<ProjectContentDiagnosticDto>> {
+            Ok(CompiledProjectGameplayContent::default())
         }
     }
 
