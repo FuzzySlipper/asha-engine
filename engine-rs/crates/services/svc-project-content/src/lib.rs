@@ -7,7 +7,7 @@ mod codec;
 mod scene;
 mod validate;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use protocol_game_extension::{
     GameplayModuleBinding, GameplayModuleBindingOverride, GameplayModuleConfiguration,
@@ -17,7 +17,7 @@ use protocol_project_content::{
     ProjectContentAuthoringCommandDto, ProjectContentAuthoringRequestDto,
     ProjectContentAuthoringResultDto, ProjectContentCodecResultDto, ProjectContentDecodeRequestDto,
     ProjectContentDiagnosticCode, ProjectContentDiagnosticDto, ProjectContentDocumentDto,
-    ProjectContentEncodeRequestDto,
+    ProjectContentDocumentKind, ProjectContentEncodeRequestDto,
 };
 use protocol_scene::FlatSceneDocumentDto;
 use svc_serialization::ValidatedPrefabRegistry;
@@ -185,8 +185,17 @@ pub fn decode_project_content(
     request: ProjectContentDecodeRequestDto,
     context: ProjectContentValidationContext<'_>,
 ) -> ProjectContentValidationOutcome {
+    let source_paths = match source_path_map(&request.sources) {
+        Ok(paths) => paths,
+        Err(diagnostics) => {
+            return outcome(rejected_codec(
+                diagnostics,
+                context.gameplay.configuration_schemas(),
+            ))
+        }
+    };
     match codec::decode_sources(&request.sources) {
-        Ok(documents) => encode_documents(documents, context),
+        Ok(documents) => encode_documents(documents, Some(&source_paths), context),
         Err(diagnostics) => outcome(rejected_codec(
             diagnostics,
             context.gameplay.configuration_schemas(),
@@ -200,14 +209,14 @@ pub fn validate_project_content_documents(
     documents: Vec<ProjectContentDocumentDto>,
     context: ProjectContentValidationContext<'_>,
 ) -> ProjectContentValidationOutcome {
-    encode_documents(documents, context)
+    encode_documents(documents, None, context)
 }
 
 pub fn encode_project_content(
     request: ProjectContentEncodeRequestDto,
     context: ProjectContentValidationContext<'_>,
 ) -> ProjectContentCodecResultDto {
-    encode_documents(request.documents, context).result
+    encode_documents(request.documents, None, context).result
 }
 
 pub fn apply_project_content_authoring(
@@ -239,10 +248,39 @@ pub fn apply_project_content_authoring(
     }
 
     let mut documents = current.result.documents.clone();
+    let mut source_paths = current
+        .result
+        .canonical_files
+        .iter()
+        .filter_map(|file| {
+            file.source_path
+                .as_ref()
+                .map(|path| (document_key(file.kind, &file.document_id), path.clone()))
+        })
+        .collect::<BTreeMap<_, _>>();
     match request.command {
-        ProjectContentAuthoringCommandDto::Upsert { document } => {
+        ProjectContentAuthoringCommandDto::Upsert {
+            source_path,
+            document,
+        } => {
+            if let Err(message) = validate_source_path(&source_path) {
+                return authoring_rejection(
+                    current,
+                    context.gameplay.configuration_schemas(),
+                    ProjectContentDiagnosticDto {
+                        code: ProjectContentDiagnosticCode::InvalidField,
+                        document_id: Some(document.document_id().to_owned()),
+                        path: "command.sourcePath".to_owned(),
+                        message,
+                    },
+                );
+            }
             let key = (document.kind(), document.document_id().to_owned());
             documents.retain(|current| (current.kind(), current.document_id().to_owned()) != key);
+            source_paths.insert(
+                document_key(document.kind(), document.document_id()),
+                source_path,
+            );
             documents.push(document);
         }
         ProjectContentAuthoringCommandDto::Delete {
@@ -270,15 +308,17 @@ pub fn apply_project_content_authoring(
                 };
                 return (result, None);
             }
+            source_paths.remove(&document_key(document_kind, &document_id));
         }
     }
-    let encoded = encode_documents(documents, context);
+    let encoded = encode_documents(documents, Some(&source_paths), context);
     let result = authoring_from_codec(encoded.result.clone());
     (result, encoded.validated)
 }
 
 fn encode_documents(
     mut documents: Vec<ProjectContentDocumentDto>,
+    source_paths: Option<&BTreeMap<(u8, String), String>>,
     context: ProjectContentValidationContext<'_>,
 ) -> ProjectContentValidationOutcome {
     documents.sort_by(|left, right| {
@@ -323,7 +363,29 @@ fn encode_documents(
         ));
     }
     match codec::canonical_files(&documents) {
-        Ok(canonical_files) => {
+        Ok(mut canonical_files) => {
+            if let Some(source_paths) = source_paths {
+                let mut path_diagnostics = Vec::new();
+                for file in &mut canonical_files {
+                    let key = document_key(file.kind, &file.document_id);
+                    match source_paths.get(&key) {
+                        Some(path) => file.source_path = Some(path.clone()),
+                        None => path_diagnostics.push(ProjectContentDiagnosticDto {
+                            code: ProjectContentDiagnosticCode::InvalidDocument,
+                            document_id: Some(file.document_id.clone()),
+                            path: "sourcePath".to_owned(),
+                            message: "opened authoring content has no retained manifest path"
+                                .to_owned(),
+                        }),
+                    }
+                }
+                if !path_diagnostics.is_empty() {
+                    return outcome(rejected_codec(
+                        path_diagnostics,
+                        context.gameplay.configuration_schemas(),
+                    ));
+                }
+            }
             let prefab_registry = match codec::compiled_prefab_registry(&documents) {
                 Ok(registry) => registry,
                 Err(prefab_report) => {
@@ -374,6 +436,83 @@ fn encode_documents(
             context.gameplay.configuration_schemas(),
         )),
     }
+}
+
+fn document_key(kind: ProjectContentDocumentKind, document_id: &str) -> (u8, String) {
+    (kind as u8, document_id.to_owned())
+}
+
+fn source_path_map(
+    sources: &[protocol_project_content::ProjectContentSourceDto],
+) -> Result<BTreeMap<(u8, String), String>, Vec<ProjectContentDiagnosticDto>> {
+    let mut paths = BTreeMap::new();
+    let mut seen_paths = BTreeSet::new();
+    let mut diagnostics = Vec::new();
+    for (index, source) in sources.iter().enumerate() {
+        if let Err(message) = validate_source_path(&source.source_path) {
+            diagnostics.push(ProjectContentDiagnosticDto {
+                code: ProjectContentDiagnosticCode::InvalidField,
+                document_id: Some(source.document_id.clone()),
+                path: format!("sources[{index}].sourcePath"),
+                message,
+            });
+            continue;
+        }
+        if !seen_paths.insert(source.source_path.clone()) {
+            diagnostics.push(ProjectContentDiagnosticDto {
+                code: ProjectContentDiagnosticCode::DuplicateDocument,
+                document_id: Some(source.document_id.clone()),
+                path: format!("sources[{index}].sourcePath"),
+                message: "manifest source path is assigned to more than one document".to_owned(),
+            });
+            continue;
+        }
+        paths.insert(
+            document_key(source.kind, &source.document_id),
+            source.source_path.clone(),
+        );
+    }
+    if diagnostics.is_empty() {
+        Ok(paths)
+    } else {
+        Err(diagnostics)
+    }
+}
+
+fn validate_source_path(path: &str) -> Result<(), String> {
+    if path.is_empty()
+        || path.starts_with('/')
+        || path.contains('\\')
+        || path
+            .split('/')
+            .any(|component| component.is_empty() || component == "." || component == "..")
+    {
+        Err("project-content sourcePath must be a normalized project-relative path".to_owned())
+    } else {
+        Ok(())
+    }
+}
+
+fn authoring_rejection(
+    current: &ValidatedProjectContentSet,
+    provider_schemas: &[protocol_project_content::ProjectConfigurationSchemaDto],
+    diagnostic: ProjectContentDiagnosticDto,
+) -> (
+    ProjectContentAuthoringResultDto,
+    Option<ValidatedProjectContentSet>,
+) {
+    (
+        ProjectContentAuthoringResultDto {
+            accepted: false,
+            documents: Vec::new(),
+            canonical_files: Vec::new(),
+            set_hash: Some(current.set_hash().to_owned()),
+            provider_schemas: provider_schemas.to_vec(),
+            field_metadata: Vec::new(),
+            diagnostics: vec![diagnostic],
+        },
+        None,
+    )
 }
 
 fn outcome(result: ProjectContentCodecResultDto) -> ProjectContentValidationOutcome {
@@ -430,6 +569,7 @@ mod tests {
         source_text: &str,
     ) -> ProjectContentSourceDto {
         ProjectContentSourceDto {
+            source_path: format!("content/{document_id}.json"),
             document_id: document_id.to_owned(),
             kind,
             source_text: source_text.to_owned(),
@@ -713,6 +853,7 @@ mod tests {
                 .canonical_files
                 .iter()
                 .map(|file| ProjectContentSourceDto {
+                    source_path: file.source_path.clone().expect("opened source path"),
                     document_id: file.document_id.clone(),
                     kind: file.kind,
                     source_text: file.canonical_json.clone(),
@@ -725,6 +866,18 @@ mod tests {
             reopened.result.diagnostics
         );
         assert_eq!(reopened.result.set_hash, decoded.result.set_hash);
+
+        let mut moved_request = request();
+        let stable_document_id = moved_request.sources[0].document_id.clone();
+        moved_request.sources[0].source_path = "content/relocated-entity.json".to_owned();
+        let moved = decode(moved_request);
+        assert!(moved.result.accepted, "{:?}", moved.result.diagnostics);
+        assert!(moved
+            .result
+            .documents
+            .iter()
+            .any(|document| document.document_id() == stable_document_id));
+        assert_ne!(moved.result.set_hash, decoded.result.set_hash);
     }
 
     #[test]
@@ -889,6 +1042,7 @@ mod tests {
                 expected_working_revision: 0,
                 expected_set_hash,
                 command: ProjectContentAuthoringCommandDto::Upsert {
+                    source_path: format!("content/{}.json", gameplay.0),
                     document: ProjectContentDocumentDto::GameplayConfiguration {
                         document_id: gameplay.0,
                         document: gameplay.1,
@@ -943,6 +1097,7 @@ mod tests {
                 expected_working_revision: 0,
                 expected_set_hash,
                 command: ProjectContentAuthoringCommandDto::Upsert {
+                    source_path: format!("content/{}.json", changed.0),
                     document: ProjectContentDocumentDto::PresentationCatalog {
                         document_id: changed.0,
                         catalog: changed.1,
@@ -964,6 +1119,7 @@ mod tests {
                 .canonical_files
                 .iter()
                 .map(|file| ProjectContentSourceDto {
+                    source_path: file.source_path.clone().expect("authored source path"),
                     document_id: file.document_id.clone(),
                     kind: file.kind,
                     source_text: file.canonical_json.clone(),

@@ -12,13 +12,13 @@
   "artifacts": [
     { "path": "assets/demo-house.avxl.json", "class": "durable", "role": "voxelVolumeAsset", "contentHash": "70574c28a281334b" },
     { "path": "assets/lock.json", "class": "durable", "role": "assetLock", "contentHash": "fa9b5193b4ce9eb4" },
-    { "path": "catalogs/demo-assets.json", "class": "durable", "role": "projectContent", "contentHash": "a1c3b505bbbda25c" },
-    { "path": "catalogs/split-source.json", "class": "durable", "role": "projectContent", "contentHash": "8c083fab7b72a69d" },
-    { "path": "entities/demo-actor.json", "class": "durable", "role": "projectContent", "contentHash": "f8b9afddde294f84" },
-    { "path": "gameplay/pulse.json", "class": "durable", "role": "projectContent", "contentHash": "e7e3a467aaaa3c58" },
-    { "path": "prefabs/demo-registry.json", "class": "durable", "role": "projectContent", "contentHash": "f2a6c3233300cbdb" },
-    { "path": "presentation/delete-me.json", "class": "durable", "role": "projectContent", "contentHash": "ac60f3eea7d5f356" },
-    { "path": "presentation/demo-cues.json", "class": "durable", "role": "projectContent", "contentHash": "d4e0af7c03f45388" },
+    { "path": "catalogs/demo-assets.json", "class": "durable", "role": "projectContent", "contentHash": "9b964a369093f4ca" },
+    { "path": "catalogs/split-source.json", "class": "durable", "role": "projectContent", "contentHash": "8c9a73a1d173b4e5" },
+    { "path": "entities/demo-actor.json", "class": "durable", "role": "projectContent", "contentHash": "349a5fecca756987" },
+    { "path": "gameplay/pulse.json", "class": "durable", "role": "projectContent", "contentHash": "fae7664d6d2d0eb1" },
+    { "path": "prefabs/demo-registry.json", "class": "durable", "role": "projectContent", "contentHash": "b89fa50ccfcbca20" },
+    { "path": "presentation/delete-me.json", "class": "durable", "role": "projectContent", "contentHash": "dbcbfd2cacb9d4b9" },
+    { "path": "presentation/demo-cues.json", "class": "durable", "role": "projectContent", "contentHash": "79acf5e7d421ec1f" },
     { "path": "scenes/entry.scene.json", "class": "durable", "role": "sceneDocument", "contentHash": "37b28f506f236ee4" },
     { "path": "scenes/secondary.scene.json", "class": "durable", "role": "sceneDocument", "contentHash": "99028ab11e990e27" }
   ]

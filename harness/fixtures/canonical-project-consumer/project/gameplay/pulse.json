@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "documentId": "gameplay/pulse.json",
+  "documentId": "canonical.gameplay.pulse",
   "documentKind": "gameplayConfiguration",
   "document": {
     "bindings": [

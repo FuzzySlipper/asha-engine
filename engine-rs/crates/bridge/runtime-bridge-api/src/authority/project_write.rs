@@ -277,10 +277,17 @@ fn project_write_draft(
     let mut generated_bodies = BTreeMap::<String, Vec<u8>>::new();
 
     for file in canonical_files {
-        let path = file.document_id.clone();
+        let Some(source_path) = file.source_path.as_ref() else {
+            return Err(write_diagnostic(
+                "missingProjectContentSourcePath",
+                Some(file.document_id.as_str()),
+                "opened ProjectContent has no Engine-owned manifest path",
+            ));
+        };
+        let path = source_path.clone();
         let bytes = file.canonical_json.as_bytes().to_vec();
         let role = prior_by_path
-            .get(&path)
+            .get(source_path)
             .filter(|artifact| is_project_content_role(&artifact.role))
             .map(|artifact| artifact.role.clone())
             .unwrap_or(svc_serialization::ArtifactRole::ProjectContent);
@@ -290,7 +297,13 @@ fn project_write_draft(
                 role,
                 &bytes,
             ));
-        generated_bodies.insert(path, bytes);
+        if generated_bodies.insert(path.clone(), bytes).is_some() {
+            return Err(write_diagnostic(
+                "duplicateProjectContentSourcePath",
+                Some(path),
+                "more than one stable ProjectContent document targets this manifest path",
+            ));
+        }
     }
 
     if scenes.len() != next.scenes.len() {
@@ -459,9 +472,9 @@ fn relocation_map(
         };
         if is_project_content_role(&artifact.role) {
             return Err(write_diagnostic(
-                "projectContentPathOwnedByDocument",
+                "projectContentPathOwnedByAuthoring",
                 Some(relocation.from.as_str()),
-                "ProjectContent paths are changed through their typed document id, not a second relocation list",
+                "ProjectContent paths are changed through typed authoring sourcePath, not a write-time relocation",
             ));
         }
         if values

@@ -119,7 +119,7 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
     input: WorkspaceAuthoringProjectOpenInput,
   ): Promise<WorkspaceAuthoringProjectOpenReceipt> {
     const loaded = await loadAshaProjectSource(input.source);
-    this.open({
+    const opened = this.open({
       authoringId: input.authoringId,
       seed: input.seed,
       project: {
@@ -132,63 +132,85 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
         sceneId: loaded.manifest.entryScene,
       },
     });
-    const files = new Map(loaded.files.map((file) => [file.path, file.bytes]));
-    for (const scene of loaded.manifest.scenes) {
-      const source = requiredProjectText(files, scene.artifact);
-      const decoded = this.decodeSceneDocument({ sourceText: source });
-      if (!decoded.accepted) {
-        throw new RuntimeBridgeError(
-          'invalid_input',
-          `Rust rejected scene "${scene.artifact}": ${formatDiagnostics(decoded.diagnostics)}`,
-        );
+    try {
+      const files = new Map(loaded.files.map((file) => [file.path, file.bytes]));
+      for (const scene of loaded.manifest.scenes) {
+        const source = requiredProjectText(files, scene.artifact);
+        const decoded = this.decodeSceneDocument({ sourceText: source });
+        if (!decoded.accepted) {
+          throw new RuntimeBridgeError(
+            'invalid_input',
+            `Rust rejected scene "${scene.artifact}": ${formatDiagnostics(decoded.diagnostics)}`,
+          );
+        }
       }
-    }
-    const projectContentSources = loaded.manifest.artifacts
-      .filter((artifact) => isProjectContentRole(artifact.role))
-      .map((artifact) => {
+      const projectContentSources = loaded.manifest.artifacts
+        .filter((artifact) => isProjectContentRole(artifact.role))
+        .map((artifact) => {
+          const sourceText = requiredProjectText(files, artifact.path);
+          const identity = projectContentIdentity(sourceText, artifact.path);
+          return {
+            sourcePath: artifact.path,
+            documentId: identity.documentId,
+            kind: identity.kind,
+            sourceText,
+          };
+        });
+      let projectContent: ProjectContentCodecResult | null = null;
+      if (projectContentSources.length > 0) {
+        const decoded = this.decodeProjectContent({ sources: projectContentSources });
+        if (!decoded.accepted) {
+          throw new RuntimeBridgeError(
+            'invalid_input',
+            `Rust rejected ProjectContent: ${formatDiagnostics(decoded.diagnostics)}`,
+          );
+        }
+        projectContent = decoded;
+      }
+      const voxelArtifacts = loaded.manifest.artifacts.filter(
+        (artifact) => artifact.role === 'voxelVolumeAsset',
+      );
+      for (const [index, artifact] of voxelArtifacts.entries()) {
         const sourceText = requiredProjectText(files, artifact.path);
-        return {
-          documentId: artifact.path,
-          kind: projectContentKind(sourceText, artifact.path),
-          sourceText,
-        };
-      });
-    let projectContent: ProjectContentCodecResult | null = null;
-    if (projectContentSources.length > 0) {
-      const decoded = this.decodeProjectContent({ sources: projectContentSources });
-      if (!decoded.accepted) {
+        const asset = parseVoxelVolumeAsset(sourceText, artifact.path);
+        const loadedAsset = this.loadVoxelVolumeAsset({
+          asset,
+          targetGrid: index + 1,
+          targetVolumeAssetId: asset.assetId,
+          replaceExisting: true,
+          includeMaterialCounts: true,
+        });
+        if (!loadedAsset.loaded) {
+          throw new RuntimeBridgeError(
+            'invalid_input',
+            `Rust rejected voxel asset "${artifact.path}": ${formatDiagnostics(loadedAsset.diagnostics)}`,
+          );
+        }
+      }
+      return {
+        state: this.readState(),
+        manifestJson: loaded.manifestJson,
+        projectContent,
+      };
+    } catch (error) {
+      const openErrorMessage = error instanceof Error ? error.message : String(error);
+      try {
+        this.close({
+          expectedWorkspaceId: opened.identity.project.workspaceId,
+          expectedGeneration: opened.identity.generation,
+          discardUnsavedWorkingState: true,
+        });
+      } catch (cleanupError) {
+        const cleanupErrorMessage = cleanupError instanceof Error
+          ? cleanupError.message
+          : String(cleanupError);
         throw new RuntimeBridgeError(
-          'invalid_input',
-          `Rust rejected ProjectContent: ${formatDiagnostics(decoded.diagnostics)}`,
+          'internal',
+          `openProject rejected (${openErrorMessage}) and workspace cleanup also failed: ${cleanupErrorMessage}`,
         );
       }
-      projectContent = decoded;
+      throw error;
     }
-    const voxelArtifacts = loaded.manifest.artifacts.filter(
-      (artifact) => artifact.role === 'voxelVolumeAsset',
-    );
-    for (const [index, artifact] of voxelArtifacts.entries()) {
-      const sourceText = requiredProjectText(files, artifact.path);
-      const asset = parseVoxelVolumeAsset(sourceText, artifact.path);
-      const loadedAsset = this.loadVoxelVolumeAsset({
-        asset,
-        targetGrid: index + 1,
-        targetVolumeAssetId: asset.assetId,
-        replaceExisting: true,
-        includeMaterialCounts: true,
-      });
-      if (!loadedAsset.loaded) {
-        throw new RuntimeBridgeError(
-          'invalid_input',
-          `Rust rejected voxel asset "${artifact.path}": ${formatDiagnostics(loadedAsset.diagnostics)}`,
-        );
-      }
-    }
-    return {
-      state: this.readState(),
-      manifestJson: loaded.manifestJson,
-      projectContent,
-    };
   }
 
   readState(): WorkspaceAuthoringStateSummary {
@@ -568,27 +590,45 @@ function requiredProjectText(files: ReadonlyMap<string, Uint8Array>, path: strin
   }
 }
 
-function projectContentKind(sourceText: string, path: string): ProjectContentDocumentKind {
+function projectContentIdentity(
+  sourceText: string,
+  path: string,
+): { readonly documentId: string; readonly kind: ProjectContentDocumentKind } {
   let value: GeneratedWireValue;
   try {
     value = JSON.parse(sourceText) as GeneratedWireValue;
   } catch {
     throw new RuntimeBridgeError('invalid_input', `ProjectContent "${path}" is not JSON`);
   }
-  if (typeof value !== 'object' || value === null || !('documentKind' in value)) {
+  if (
+    typeof value !== 'object'
+    || value === null
+    || !('documentId' in value)
+    || !('documentKind' in value)
+  ) {
     throw new RuntimeBridgeError(
       'invalid_input',
-      `ProjectContent "${path}" has no canonical documentKind`,
+      `ProjectContent "${path}" has no canonical document identity`,
     );
   }
+  const documentId = value['documentId'];
   const kind = value['documentKind'];
-  if (typeof kind !== 'string' || !PROJECT_CONTENT_KINDS.includes(kind as ProjectContentDocumentKind)) {
+  if (typeof documentId !== 'string' || documentId.trim().length === 0) {
+    throw new RuntimeBridgeError(
+      'invalid_input',
+      `ProjectContent "${path}" has an invalid canonical documentId`,
+    );
+  }
+  if (
+    typeof kind !== 'string'
+    || !PROJECT_CONTENT_KINDS.includes(kind as ProjectContentDocumentKind)
+  ) {
     throw new RuntimeBridgeError(
       'invalid_input',
       `ProjectContent "${path}" has an unsupported canonical documentKind`,
     );
   }
-  return kind as ProjectContentDocumentKind;
+  return { documentId, kind: kind as ProjectContentDocumentKind };
 }
 
 function parseVoxelVolumeAsset(sourceText: string, path: string): VoxelVolumeAsset {

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "documentId": "entities/demo-actor.json",
+  "documentId": "canonical.entity.demo-actor",
   "documentKind": "entityDefinition",
   "document": {
     "capabilities": [

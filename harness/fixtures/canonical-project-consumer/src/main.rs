@@ -147,9 +147,13 @@ fn generate_project() -> BTreeMap<String, Vec<u8>> {
         project_content.diagnostics
     );
     for file in project_content.canonical_files {
+        let source_path = file
+            .source_path
+            .as_deref()
+            .expect("opened ProjectContent retains its manifest source path");
         insert_artifact(
             &mut files,
-            &file.document_id,
+            source_path,
             ArtifactRole::ProjectContent,
             file.canonical_json.into_bytes(),
         );
@@ -244,6 +248,7 @@ fn project_content_sources() -> Vec<ProjectContentSourceDto> {
     vec![
         source(
             "entities/demo-actor.json",
+            "canonical.entity.demo-actor",
             ProjectContentDocumentKind::EntityDefinition,
             serde_json::json!({
                 "kind": "EntityDefinition",
@@ -262,6 +267,7 @@ fn project_content_sources() -> Vec<ProjectContentSourceDto> {
         ),
         source(
             "catalogs/demo-assets.json",
+            "canonical.catalog.demo-assets",
             ProjectContentDocumentKind::AssetCatalog,
             serde_json::json!({
                 "entries": [{
@@ -277,6 +283,7 @@ fn project_content_sources() -> Vec<ProjectContentSourceDto> {
         ),
         source(
             "prefabs/demo-registry.json",
+            "canonical.prefabs.demo-registry",
             ProjectContentDocumentKind::PrefabRegistry,
             serde_json::json!({
                 "schemaVersion": 1,
@@ -299,6 +306,7 @@ fn project_content_sources() -> Vec<ProjectContentSourceDto> {
         ),
         source(
             "gameplay/pulse.json",
+            "canonical.gameplay.pulse",
             ProjectContentDocumentKind::GameplayConfiguration,
             serde_json::json!({
                 "schemaVersion": 1,
@@ -315,16 +323,19 @@ fn project_content_sources() -> Vec<ProjectContentSourceDto> {
         ),
         source(
             "presentation/demo-cues.json",
+            "canonical.presentation.demo-cues",
             ProjectContentDocumentKind::PresentationCatalog,
             serde_json::json!({"schemaVersion": 1, "resources": [], "cues": []}),
         ),
         source(
             "presentation/delete-me.json",
+            "canonical.presentation.delete-me",
             ProjectContentDocumentKind::PresentationCatalog,
             serde_json::json!({"schemaVersion": 1, "resources": [], "cues": []}),
         ),
         source(
             "catalogs/split-source.json",
+            "canonical.catalog.split-source",
             ProjectContentDocumentKind::AssetCatalog,
             serde_json::json!({"entries": []}),
         ),
@@ -332,11 +343,13 @@ fn project_content_sources() -> Vec<ProjectContentSourceDto> {
 }
 
 fn source(
+    source_path: &str,
     document_id: &str,
     kind: ProjectContentDocumentKind,
     value: serde_json::Value,
 ) -> ProjectContentSourceDto {
     ProjectContentSourceDto {
+        source_path: source_path.to_owned(),
         document_id: document_id.to_owned(),
         kind,
         source_text: serde_json::to_string(&value).expect("ProjectContent source serializes"),

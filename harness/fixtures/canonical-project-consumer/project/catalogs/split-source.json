@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "documentId": "catalogs/split-source.json",
+  "documentId": "canonical.catalog.split-source",
   "documentKind": "assetCatalog",
   "document": {
     "entries": []

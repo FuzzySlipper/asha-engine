@@ -31,6 +31,9 @@ pub enum ProjectContentDocumentKind {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProjectContentSourceDto {
+    /// Manifest-owned storage location. This is deliberately independent from
+    /// the stable document identity declared by the artifact envelope.
+    pub source_path: String,
     pub document_id: String,
     pub kind: ProjectContentDocumentKind,
     pub source_text: String,
@@ -254,6 +257,10 @@ pub struct ProjectContentDiagnosticDto {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProjectContentCanonicalFileDto {
+    /// Retained manifest path when the file belongs to an opened authoring
+    /// project. Pure document encoding has no storage ownership and returns
+    /// `None` here.
+    pub source_path: Option<String>,
     pub document_id: String,
     pub kind: ProjectContentDocumentKind,
     pub canonical_json: String,
@@ -297,6 +304,9 @@ pub struct ProjectContentCodecResultDto {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ProjectContentAuthoringCommandDto {
     Upsert {
+        /// Explicit storage location for a newly inserted document or a typed
+        /// relocation of an existing document. Never inferred from document id.
+        source_path: String,
         document: ProjectContentDocumentDto,
     },
     Delete {

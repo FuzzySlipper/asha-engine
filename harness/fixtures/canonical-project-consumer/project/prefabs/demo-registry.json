@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "documentId": "prefabs/demo-registry.json",
+  "documentId": "canonical.prefabs.demo-registry",
   "documentKind": "prefabRegistry",
   "document": {
     "definitions": [

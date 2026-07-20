@@ -378,7 +378,8 @@ fn project_content_authoring_is_revision_bound_and_promotes_only_the_rust_candid
         .open_workspace_authoring(open_request("workspace.project-content"))
         .unwrap();
     let source = ProjectContentSourceDto {
-        document_id: "entities/fixture.json".to_owned(),
+        source_path: "entities/fixture.json".to_owned(),
+        document_id: "fixture.entity.document".to_owned(),
         kind: ProjectContentDocumentKind::EntityDefinition,
         source_text: r#"{
             "kind":"EntityDefinition",
@@ -416,6 +417,7 @@ fn project_content_authoring_is_revision_bound_and_promotes_only_the_rust_candid
             expected_working_revision: 0,
             expected_set_hash: subset_hash,
             command: ProjectContentAuthoringCommandDto::Upsert {
+                source_path: "entities/fixture.json".to_owned(),
                 document: changed.clone(),
             },
         })
@@ -450,6 +452,7 @@ fn project_content_authoring_is_revision_bound_and_promotes_only_the_rust_candid
             expected_working_revision: 0,
             expected_set_hash: expected_set_hash.clone(),
             command: ProjectContentAuthoringCommandDto::Upsert {
+                source_path: "entities/fixture.json".to_owned(),
                 document: changed.clone(),
             },
         })
@@ -477,7 +480,10 @@ fn project_content_authoring_is_revision_bound_and_promotes_only_the_rust_candid
             expected_generation: opened.identity.generation,
             expected_working_revision: 0,
             expected_set_hash,
-            command: ProjectContentAuthoringCommandDto::Upsert { document: changed },
+            command: ProjectContentAuthoringCommandDto::Upsert {
+                source_path: "entities/fixture.json".to_owned(),
+                document: changed,
+            },
         })
         .unwrap();
     assert!(accepted.accepted, "{:?}", accepted.diagnostics);
@@ -550,7 +556,8 @@ fn project_write_is_rust_derived_revision_bound_and_single_use() {
     let decoded_content = bridge
         .decode_project_content(ProjectContentDecodeRequestDto {
             sources: vec![ProjectContentSourceDto {
-                document_id: "entities/fixture.json".to_owned(),
+                source_path: "entities/fixture.json".to_owned(),
+                document_id: "fixture.entity.document".to_owned(),
                 kind: ProjectContentDocumentKind::EntityDefinition,
                 source_text: content_source.to_owned(),
             }],
@@ -560,6 +567,28 @@ fn project_write_is_rust_derived_revision_bound_and_single_use() {
         decoded_content.accepted,
         "{:?}",
         decoded_content.diagnostics
+    );
+    let canonical_content = decoded_content.canonical_files[0].canonical_json.clone();
+    let authored_content = bridge
+        .apply_project_content_authoring(ProjectContentAuthoringRequestDto {
+            expected_workspace_id: "workspace.project-write".to_owned(),
+            expected_generation: opened.identity.generation,
+            expected_working_revision: 0,
+            expected_set_hash: decoded_content.set_hash.clone().expect("content set hash"),
+            command: ProjectContentAuthoringCommandDto::Upsert {
+                source_path: "content/moved-fixture.json".to_owned(),
+                document: decoded_content.documents[0].clone(),
+            },
+        })
+        .unwrap();
+    assert!(
+        authored_content.accepted,
+        "{:?}",
+        authored_content.diagnostics
+    );
+    assert_eq!(
+        authored_content.canonical_files[0].source_path.as_deref(),
+        Some("content/moved-fixture.json")
     );
 
     let asset_lock = br#"{"assets":[]}"#;
@@ -590,7 +619,7 @@ fn project_write_is_rust_derived_revision_bound_and_single_use() {
             svc_serialization::ArtifactEntry::durable(
                 "entities/fixture.json",
                 svc_serialization::ArtifactRole::ProjectContent,
-                content_source.as_bytes(),
+                canonical_content.as_bytes(),
             ),
             svc_serialization::ArtifactEntry::durable(
                 "scenes/sample-flat.json",
@@ -605,7 +634,7 @@ fn project_write_is_rust_derived_revision_bound_and_single_use() {
     let request = ProjectWritePrepareRequest {
         expected_workspace_id: "workspace.project-write".to_owned(),
         expected_generation: opened.identity.generation,
-        expected_working_revision: 0,
+        expected_working_revision: 1,
         observed_prior: ProjectStoreIdentity {
             revision: observed.revision,
             manifest_hash: observed.manifest_hash.to_hex(),
@@ -626,6 +655,18 @@ fn project_write_is_rust_derived_revision_bound_and_single_use() {
         .expected_next_artifacts
         .iter()
         .any(|artifact| artifact.path == "scenes/archive/sample-flat.json"));
+    assert!(candidate
+        .expected_next_artifacts
+        .iter()
+        .any(|artifact| artifact.path == "content/moved-fixture.json"));
+    assert!(candidate
+        .writes
+        .iter()
+        .any(|write| write.path == "content/moved-fixture.json"));
+    assert!(candidate
+        .deletes
+        .iter()
+        .any(|deletion| deletion.path == "entities/fixture.json"));
     assert!(
         candidate.moves.iter().any(|movement| {
             movement.from == "scenes/sample-flat.json"
@@ -647,7 +688,7 @@ fn project_write_is_rust_derived_revision_bound_and_single_use() {
         .confirm_project_write(ProjectWriteConfirmRequest {
             expected_workspace_id: "workspace.project-write".to_owned(),
             expected_generation: opened.identity.generation,
-            expected_working_revision: 0,
+            expected_working_revision: 1,
             publication: ProjectWritePublication {
                 candidate_hash: "0000000000000000".to_owned(),
                 published: candidate.expected_next.clone(),
@@ -660,7 +701,7 @@ fn project_write_is_rust_derived_revision_bound_and_single_use() {
     let confirmation = ProjectWriteConfirmRequest {
         expected_workspace_id: "workspace.project-write".to_owned(),
         expected_generation: opened.identity.generation,
-        expected_working_revision: 0,
+        expected_working_revision: 1,
         publication: ProjectWritePublication {
             candidate_hash: candidate.candidate_hash.clone(),
             published: candidate.expected_next.clone(),

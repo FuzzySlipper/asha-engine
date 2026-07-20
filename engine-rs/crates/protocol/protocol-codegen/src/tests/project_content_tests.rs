@@ -66,6 +66,7 @@ pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
 fn project_content_samples_match_closed_generated_ir_shapes() {
     let project = module("projectContent");
     let source = json!({
+        "sourcePath": "content/gameplay.json",
         "documentId": "gameplay/demo",
         "kind": "gameplayConfiguration",
         "sourceText": "{}"
@@ -186,7 +187,7 @@ fn project_content_samples_match_closed_generated_ir_shapes() {
     let decode = json!({ "sources": [source] });
     let encode = json!({ "documents": [documents[3].1] });
     let diagnostic = json!({ "code": "invalidField", "documentId": "gameplay/demo", "path": "configurations[0]", "message": "invalid" });
-    let canonical = json!({ "documentId": "gameplay/demo", "kind": "gameplayConfiguration", "canonicalJson": "{}\n", "contentHash": "fnv1a64:1" });
+    let canonical = json!({ "sourcePath": "content/gameplay.json", "documentId": "gameplay/demo", "kind": "gameplayConfiguration", "canonicalJson": "{}\n", "contentHash": "fnv1a64:1" });
     let metadata = json!({
         "documentId": "gameplay/demo",
         "path": "document.configurations[0].values.damage",
@@ -207,7 +208,7 @@ fn project_content_samples_match_closed_generated_ir_shapes() {
         "numberMax": null
     });
     let result = json!({ "accepted": true, "documents": [documents[3].1], "canonicalFiles": [canonical], "setHash": "fnv1a64:set", "providerSchemas": [schema], "fieldMetadata": [metadata], "diagnostics": [] });
-    let upsert = json!({ "kind": "upsert", "document": documents[3].1 });
+    let upsert = json!({ "kind": "upsert", "sourcePath": "content/gameplay.json", "document": documents[3].1 });
     let delete = json!({ "kind": "delete", "documentId": "gameplay/demo", "documentKind": "gameplayConfiguration" });
     let authoring = json!({ "expectedWorkspaceId": "workspace-1", "expectedGeneration": 2, "expectedWorkingRevision": 3, "expectedSetHash": "fnv1a64:set", "command": upsert });
 

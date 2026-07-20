@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "documentId": "presentation/delete-me.json",
+  "documentId": "canonical.presentation.delete-me",
   "documentKind": "presentationCatalog",
   "document": {
     "cues": [],

@@ -3,12 +3,18 @@ import { test } from 'node:test';
 
 import type { FpsRuntimeSessionLoadRequest } from '@asha/runtime-session';
 import type {
+  SceneDocumentCodecResult,
+  SceneDocumentDecodeRequest,
   VoxelInstancePickRequest,
   VoxelInstancePickResult,
   VoxelProjectionBindingReceipt,
   VoxelProjectionBindingRequest,
 } from '@asha/contracts';
 import { sceneId, sceneNodeId } from '@asha/contracts';
+import {
+  ASHA_PROJECT_BUNDLE_MANIFEST_PATH,
+  createMemoryAshaProjectSource,
+} from '@asha/game-workspace';
 import {
   RuntimeBridgeError,
   createNativeRuntimeBridge,
@@ -72,6 +78,34 @@ class ProjectionCapturingBridge extends GameplayRejectingBridge {
   }
 }
 
+class SecondSceneRejectingBridge extends GameplayRejectingBridge {
+  decodeCount = 0;
+
+  override decodeSceneDocument(
+    request: SceneDocumentDecodeRequest,
+  ): SceneDocumentCodecResult {
+    this.decodeCount += 1;
+    if (this.decodeCount === 1) {
+      return {
+        accepted: true,
+        document: JSON.parse(request.sourceText) as SceneDocumentCodecResult['document'],
+        canonicalJson: request.sourceText,
+        contentHash: 'fnv1a64:first-scene',
+        diagnostics: [],
+        validation: { errors: [] },
+      };
+    }
+    return {
+      accepted: false,
+      document: null,
+      canonicalJson: null,
+      contentHash: null,
+      diagnostics: [{ code: 'invalid-document', message: 'second scene rejected' }],
+      validation: { errors: [] },
+    };
+  }
+}
+
 void test('workspace authoring has a distinct generation-bound lifecycle and never loads gameplay', () => {
   const bridge = new GameplayRejectingBridge();
   const authoring = createWorkspaceAuthoringFacade({ bridge });
@@ -121,6 +155,60 @@ void test('workspace authoring has a distinct generation-bound lifecycle and nev
   });
   assert.equal(reopened.identity.generation, 2);
   assert.equal(bridge.gameplayLoadCount, 0);
+});
+
+void test('openProject closes partial Rust authoring state after a late artifact rejection', async () => {
+  const bridge = new SecondSceneRejectingBridge();
+  const authoring = createWorkspaceAuthoringFacade({ bridge });
+  const scene = (id: number) => JSON.stringify({
+    schemaVersion: 4,
+    id,
+    metadata: { name: `Scene ${id}`, authoringFormatVersion: 4 },
+    dependencies: [],
+    nodes: [],
+  });
+  const manifestJson = JSON.stringify({
+    bundleSchemaVersion: 2,
+    protocolVersion: 1,
+    project: { id: 7, name: 'Partial open cleanup' },
+    entryScene: 42,
+    scenes: [
+      { id: 42, schemaVersion: 4, artifact: 'scenes/first.json' },
+      { id: 43, schemaVersion: 4, artifact: 'scenes/second.json' },
+    ],
+    assetLock: { artifact: 'assets/lock.json', assetCount: 0 },
+    generationProvenance: null,
+    artifacts: [
+      { path: 'assets/lock.json', class: 'durable', role: 'assetLock', contentHash: '0000000000000001' },
+      { path: 'scenes/first.json', class: 'durable', role: 'sceneDocument', contentHash: '0000000000000002' },
+      { path: 'scenes/second.json', class: 'durable', role: 'sceneDocument', contentHash: '0000000000000003' },
+    ],
+  });
+  const source = createMemoryAshaProjectSource('memory:partial-open', new Map([
+    [ASHA_PROJECT_BUNDLE_MANIFEST_PATH, new TextEncoder().encode(manifestJson)],
+    ['assets/lock.json', new TextEncoder().encode('{"assets":[]}')],
+    ['scenes/first.json', new TextEncoder().encode(scene(42))],
+    ['scenes/second.json', new TextEncoder().encode(scene(43))],
+  ]));
+
+  await assert.rejects(
+    authoring.openProject({
+      authoringId: 'workspace-authoring.partial-open',
+      seed: 29,
+      workspaceId: 'workspace.partial-open',
+      source,
+    }),
+    /second scene rejected/,
+  );
+  assert.equal(bridge.decodeCount, 2, 'the rejection occurs after a valid first scene');
+  assert.equal(bridge.readWorkspaceAuthoringState().status, 'closed');
+  assert.equal(authoring.readState().status, 'closed');
+
+  const reopened = authoring.open({
+    ...OPEN_INPUT,
+    authoringId: 'workspace-authoring.after-partial-open',
+  });
+  assert.equal(reopened.identity.generation, 2, 'failed project open leaves no hidden open cell');
 });
 
 void test('workspace facade supplies generation and revision binding for voxel instances and picks', () => {

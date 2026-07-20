@@ -25,6 +25,7 @@ enum DocumentKindJson {
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SourceJson {
+    source_path: String,
     document_id: String,
     kind: DocumentKindJson,
     source_text: String,
@@ -61,6 +62,7 @@ struct AuthoringRequestJson {
 )]
 enum AuthoringCommandJson {
     Upsert {
+        source_path: String,
         document: Value,
     },
     Delete {
@@ -135,6 +137,7 @@ fn source_from_document(value: &Value) -> napi::Result<ProjectContentSourceDto> 
     let source_text = serde_json::to_string(&payload)
         .map_err(|error| napi::Error::from_reason(error.to_string()))?;
     Ok(ProjectContentSourceDto {
+        source_path: document_id.clone(),
         document_id,
         kind: document_kind,
         source_text,
@@ -167,6 +170,7 @@ fn result_json(
         "accepted": accepted,
         "documents": documents,
         "canonicalFiles": canonical_files.iter().map(|file| json!({
+            "sourcePath": file.source_path,
             "documentId": file.document_id,
             "kind": document_kind_tag(file.kind),
             "canonicalJson": file.canonical_json,
@@ -354,6 +358,7 @@ pub fn decode_project_content(handle: i64, request_json: String) -> napi::Result
                     .sources
                     .into_iter()
                     .map(|source| ProjectContentSourceDto {
+                        source_path: source.source_path,
                         document_id: source.document_id,
                         kind: source.kind.into(),
                         source_text: source.source_text,
@@ -398,7 +403,10 @@ pub fn apply_project_content_authoring(handle: i64, request_json: String) -> nap
                 document_id,
                 document_kind: document_kind.into(),
             },
-            AuthoringCommandJson::Upsert { document } => {
+            AuthoringCommandJson::Upsert {
+                source_path,
+                document,
+            } => {
                 let source = source_from_document(&document)?;
                 let parsed =
                     EngineBridge::decode_project_content_sources(std::slice::from_ref(&source));
@@ -420,7 +428,10 @@ pub fn apply_project_content_authoring(handle: i64, request_json: String) -> nap
                         "accepted upsert document was not returned by Rust".to_owned(),
                     )
                 })?;
-                ProjectContentAuthoringCommandDto::Upsert { document }
+                ProjectContentAuthoringCommandDto::Upsert {
+                    source_path,
+                    document,
+                }
             }
         };
         let result = bridge
@@ -442,6 +453,7 @@ mod tests {
 
     fn canonical_file(canonical_json: String) -> ProjectContentCanonicalFileDto {
         ProjectContentCanonicalFileDto {
+            source_path: Some("content/catalog.json".to_owned()),
             document_id: "catalog/test".to_owned(),
             kind: ProjectContentDocumentKind::AssetCatalog,
             canonical_json,

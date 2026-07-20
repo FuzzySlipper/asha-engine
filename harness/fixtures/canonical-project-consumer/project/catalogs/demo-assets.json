@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "documentId": "catalogs/demo-assets.json",
+  "documentId": "canonical.catalog.demo-assets",
   "documentKind": "assetCatalog",
   "document": {
     "entries": [

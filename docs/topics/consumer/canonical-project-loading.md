@@ -69,12 +69,18 @@ Editors use the same project source with `WorkspaceAuthoringFacade.openProject`.
 That opens an independent Rust authoring cell, decodes all manifest scenes and
 ProjectContent, and loads stored voxel assets for authoring projection without
 starting a gameplay session. Typed commands update the Engine-owned working set.
+Each ProjectContent envelope declares a stable `documentId`; the manifest path
+is supplied separately as `sourcePath` and is retained in the validated working
+set. Renaming a ProjectContent file therefore updates `sourcePath` through a
+typed upsert without changing references to its stable identity. A document id
+must never be inferred from, or rewritten to match, its filesystem path.
 
 Saving is one revision-bound handshake:
 
 1. The trusted server host calls `observeAshaProjectStore(projectRoot)`.
 2. The authoring facade calls `prepareProjectWrite(...)` with that observation
-   and any requested path relocations.
+   and any requested non-ProjectContent path relocations. ProjectContent paths
+   already belong to the typed working set through `upsert.sourcePath`.
 3. Rust derives the complete next manifest topology, canonical scene and
    ProjectContent bodies, content hashes, writes, moves, and deletes. The host
    cannot add an undeclared write or substitute a body.

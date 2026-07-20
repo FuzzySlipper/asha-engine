@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "documentId": "presentation/demo-cues.json",
+  "documentId": "canonical.presentation.demo-cues",
   "documentKind": "presentationCatalog",
   "document": {
     "cues": [],

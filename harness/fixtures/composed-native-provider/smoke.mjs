@@ -52,34 +52,45 @@ try {
   assert.equal(opened.state.status, 'open');
   assert.equal(opened.projectContent?.accepted, true);
   assert.ok(opened.projectContent?.documents.some(
-    (document) => document.documentId === 'prefabs/demo-registry.json',
+    (document) => document.documentId === 'canonical.prefabs.demo-registry',
   ));
   assertProjectedHouse(authoring.readProjection());
 
+  const movedPresentation = opened.projectContent?.documents.find(
+    (document) => document.documentId === 'canonical.presentation.demo-cues',
+  );
+  assert.ok(movedPresentation);
   applyContentCommand(authoring, {
     kind: 'upsert',
+    sourcePath: 'presentation/cues/demo-cues.json',
+    document: movedPresentation,
+  });
+  applyContentCommand(authoring, {
+    kind: 'upsert',
+    sourcePath: 'catalogs/split-a.json',
     document: {
       kind: 'assetCatalog',
-      documentId: 'catalogs/split-a.json',
+      documentId: 'canonical.catalog.split-a',
       catalog: { entries: [] },
     },
   });
   applyContentCommand(authoring, {
     kind: 'upsert',
+    sourcePath: 'catalogs/split-b.json',
     document: {
       kind: 'assetCatalog',
-      documentId: 'catalogs/split-b.json',
+      documentId: 'canonical.catalog.split-b',
       catalog: { entries: [] },
     },
   });
   applyContentCommand(authoring, {
     kind: 'delete',
-    documentId: 'catalogs/split-source.json',
+    documentId: 'canonical.catalog.split-source',
     documentKind: 'assetCatalog',
   });
   applyContentCommand(authoring, {
     kind: 'delete',
-    documentId: 'presentation/delete-me.json',
+    documentId: 'canonical.presentation.delete-me',
     documentKind: 'presentationCatalog',
   });
 
@@ -95,11 +106,17 @@ try {
   assert.ok(prepared.candidate);
   assert.ok(prepared.candidate.writes.some((write) => write.path === 'catalogs/split-a.json'));
   assert.ok(prepared.candidate.writes.some((write) => write.path === 'catalogs/split-b.json'));
+  assert.ok(prepared.candidate.writes.some(
+    (write) => write.path === 'presentation/cues/demo-cues.json',
+  ));
   assert.ok(prepared.candidate.deletes.some(
     (entry) => entry.path === 'catalogs/split-source.json',
   ));
   assert.ok(prepared.candidate.deletes.some(
     (entry) => entry.path === 'presentation/delete-me.json',
+  ));
+  assert.ok(prepared.candidate.deletes.some(
+    (entry) => entry.path === 'presentation/demo-cues.json',
   ));
   assert.ok(
     prepared.candidate.moves.some(
@@ -131,6 +148,15 @@ try {
   ));
   assert.ok(saved.files.some((file) => file.path === 'catalogs/split-a.json'));
   assert.ok(!saved.files.some((file) => file.path === 'catalogs/split-source.json'));
+  const movedPresentationFile = saved.files.find(
+    (file) => file.path === 'presentation/cues/demo-cues.json',
+  );
+  assert.ok(movedPresentationFile);
+  assert.equal(
+    JSON.parse(new TextDecoder().decode(movedPresentationFile.bytes)).documentId,
+    'canonical.presentation.demo-cues',
+  );
+  assert.ok(!saved.files.some((file) => file.path === 'presentation/demo-cues.json'));
 
   const freshDevelopment = await bootProject(
     await browserHost.createAshaProjectDirectorySource(projectRoot),

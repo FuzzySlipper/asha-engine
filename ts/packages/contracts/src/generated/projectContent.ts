@@ -19,6 +19,7 @@ export const PROJECT_CONTENT_SCHEMA_VERSION = 1;
 export type ProjectContentDocumentKind = 'entityDefinition' | 'assetCatalog' | 'prefabRegistry' | 'gameplayConfiguration' | 'presentationCatalog';
 
 export interface ProjectContentSource {
+  readonly sourcePath: string;
   readonly documentId: string;
   readonly kind: ProjectContentDocumentKind;
   readonly sourceText: string;
@@ -127,6 +128,7 @@ export interface ProjectContentDiagnostic {
 }
 
 export interface ProjectContentCanonicalFile {
+  readonly sourcePath: string | null;
   readonly documentId: string;
   readonly kind: ProjectContentDocumentKind;
   readonly canonicalJson: string;
@@ -164,7 +166,7 @@ export interface ProjectContentCodecResult {
 }
 
 export type ProjectContentAuthoringCommand =
-  | { readonly kind: 'upsert'; readonly document: ProjectContentDocument }
+  | { readonly kind: 'upsert'; readonly sourcePath: string; readonly document: ProjectContentDocument }
   | { readonly kind: 'delete'; readonly documentId: string; readonly documentKind: ProjectContentDocumentKind };
 
 export interface ProjectContentAuthoringRequest {

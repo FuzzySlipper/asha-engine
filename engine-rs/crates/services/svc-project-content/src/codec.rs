@@ -329,6 +329,7 @@ fn decode_source(source: &ProjectContentSourceDto) -> Result<ProjectContentDocum
         }
         let inner = artifact_document_source(artifact_kind, artifact.document)?;
         return decode_source(&ProjectContentSourceDto {
+            source_path: source.source_path.clone(),
             document_id: artifact.document_id,
             kind: artifact_kind,
             source_text: inner,
@@ -412,6 +413,7 @@ pub(super) fn decode_artifact(
     let document_id = artifact.document_id;
     let document_kind = ProjectContentDocumentKind::from(artifact.document_kind);
     let source = ProjectContentSourceDto {
+        source_path: source_path.to_owned(),
         document_id: document_id.clone(),
         kind: document_kind,
         source_text: artifact_document_source(document_kind, artifact.document).map_err(
@@ -466,6 +468,7 @@ pub(super) fn canonical_files(
     for document in documents {
         match canonical_artifact(document) {
             Ok(canonical_json) => files.push(ProjectContentCanonicalFileDto {
+                source_path: None,
                 document_id: document.document_id().to_owned(),
                 kind: document.kind(),
                 content_hash: content_hash(&canonical_json),
@@ -624,6 +627,8 @@ fn cue_id(cue: &ProjectPresentationCueDto) -> &str {
 pub(super) fn document_set_hash(files: &[ProjectContentCanonicalFileDto]) -> String {
     let mut key = String::from("project-content-set-v1");
     for file in files {
+        key.push('|');
+        key.push_str(file.source_path.as_deref().unwrap_or("-"));
         key.push('|');
         key.push_str(&file.document_id);
         key.push('|');

@@ -217,6 +217,7 @@ void test('operation limits and tampered native responses reject with typed evid
       accepted: true,
       documents: [],
       canonicalFiles: [{
+        sourcePath: 'content/fixture.json',
         documentId: 'fixture.json', kind: 'entityDefinition', canonicalJson: '{}',
         contentHash: 'fnv1a64:fixture', browserAccepted: true,
       }],
