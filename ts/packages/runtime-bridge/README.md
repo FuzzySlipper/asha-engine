@@ -26,9 +26,9 @@ import {
 Allowed through this facade:
 
 - initialize an engine/runtime session;
-- initialize a semantic `RuntimeSession` from a validated ProjectBundle-shaped request;
-- load ProjectBundle-shaped ECRP content (`ProjectBundle`, `EntityDefinition[]`, `SceneDocument`) into the reference RuntimeSession state;
-- load a world bundle-shaped DTO;
+- open a canonical project source through `RuntimeSession.loadProject({ source })` or `WorkspaceAuthoring.openProject({ source })`;
+- let Rust decode, validate, link, and atomically publish the ProjectBundle manifest closure;
+- close the facade-tracked active project lifecycle;
 - submit generated contract command batches;
 - step deterministic authority ticks;
 - read render/projection diffs;
@@ -37,7 +37,7 @@ Allowed through this facade:
 - submit typed primary-fire runtime action intents whose reference receipts and ECRP health/lifecycle/render readouts agree with the loaded ProjectBundle state;
 - restart/reset a semantic session without exposing authority state;
 - get/release opaque runtime buffer handles;
-- save or inspect current world/composition state;
+- inspect bounded runtime or workspace-authoring projections and use receipt-driven project writes;
 - use classified `RuntimeBridgeError` failures.
 
 Forbidden for downstream consumers:
@@ -65,11 +65,11 @@ for diagnostics; they must not parse error prose.
 
 ## Internal layout
 
-The package root is the production-safe transport surface. `@asha/runtime-bridge/reference` is the only approved public subpath, and it is for deterministic reference/mock helpers used by demos, tests, and compatibility smokes that intentionally opt into the fixture backend. Internally, `src/index.ts` is an exports-only barrel: `bridge.ts` owns transport errors and the bounded bridge interface, `mock.ts` owns the reference bridge, `native.ts` is the only raw `@asha/native-bridge` importer, `runtime-session-adapter.ts` constructs concrete transport-backed sessions against neutral `@asha/runtime-session` contracts, and `launcher.ts` owns the `GameRuntimeLauncher` composition facade.
+The package root is the production-safe transport surface. `@asha/runtime-bridge/reference` is the only approved public subpath, and it is for deterministic reference/mock helpers used by tests and explicit fixture consumers. Internally, `src/index.ts` is an exports-only barrel: `bridge.ts` owns transport errors and the bounded bridge interface, `mock.ts` owns the reference bridge, `native.ts` is the only raw `@asha/native-bridge` importer, `runtime-session-adapter.ts` constructs concrete transport-backed sessions against neutral `@asha/runtime-session` contracts, `runtime-project-loader.ts` owns canonical project-source staging, and `workspace-authoring-rust-facade.ts` owns non-running authoring authority.
 
 `RuntimeSession` is the narrow semantic facade for game repos and Studio. It exposes initialized session state, ProjectBundle-shaped ECRP load/readout, generated command submission, deterministic ticks, camera/collision inputs, typed runtime action intents, lifecycle/restart receipts, generated-tunnel/combat/nav readouts, render projection summaries, telemetry, and restart. `createRuntimeSessionFacade` accepts an explicit `RuntimeBridge`; `createMockRuntimeSession` lives under `@asha/runtime-bridge/reference` for consumers that intentionally want the reference backend. The current reference implementation wraps the mock bridge where native runtime attach is not yet available, but its ECRP/action/lifecycle readouts are no longer demo-local counters: primary-fire receipts and CapabilityState readouts are derived from the loaded runtime project state. It keeps explicit non-claims for native runtime, raw StateStore access, arbitrary JSON bridge calls, and renderer ownership.
 
-`GameRuntimeLauncher` stays in this package for now because it is a thin public orchestration facade over `RuntimeBridge` and must preserve the same fail-closed backend/profile rules as the transport facade. If launcher policy grows beyond bridge-backed launch/session read models, split it into a future domain package that depends on `@asha/runtime-bridge` instead of moving raw transport access upward.
+Consumers do not construct world/composition DTOs or select a manual launcher path. Both gameplay and authoring enter through a canonical `AshaProjectSource`; the appropriate facade owns lifecycle tracking and Rust owns admission.
 
 ## Metadata and checks
 

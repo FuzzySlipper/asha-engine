@@ -88,7 +88,7 @@ function developmentDirectorySource(
   };
 }
 
-void test('loadProject uses one source-only call for development, packaged, and memory projects', async () => {
+void test('[reference provider] loadProject uses one source-only call for development, packaged, and memory projects', async () => {
   const files = projectFiles();
   const sources: readonly RuntimeSessionProjectSource[] = [
     developmentDirectorySource(files),
@@ -243,7 +243,7 @@ class CanonicalFpsProjectBridge extends MockRuntimeBridge {
   }
 }
 
-void test('loadProject derives FPS readouts from Rust active content without legacy load calls', async () => {
+void test('[rust provider] loadProject derives FPS readouts from Rust active content without legacy load calls', async () => {
   const session = createRuntimeSessionFacade({
     bridge: new CanonicalFpsProjectBridge(),
     mode: 'rust',

@@ -118,7 +118,7 @@ fn material_with_texture(texture: Option<&str>) -> MaterialDef {
 
 fn manifest() -> ProjectBundleManifest {
     ProjectBundleManifest {
-        bundle_schema_version: 1,
+        bundle_schema_version: 2,
         protocol_version: 1,
         project: ProjectSection {
             id: ProjectId::new(1),

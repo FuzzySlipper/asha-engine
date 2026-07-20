@@ -311,7 +311,7 @@ mod tests {
                 "authoringId": "native.procedural-environment-test",
                 "seed": 42,
                 "project": { "gameId": "native-test", "workspaceId": "native.procedural" },
-                "projectBundle": { "bundleSchemaVersion": 1, "protocolVersion": 1, "sceneId": 42 }
+                "projectBundle": { "bundleSchemaVersion": 2, "protocolVersion": 1, "sceneId": 42 }
             })
             .to_string(),
         )

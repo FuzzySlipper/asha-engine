@@ -16,6 +16,7 @@ import type {
   ProceduralEnvironmentApplyResult,
   ProceduralEnvironmentPreviewRequest,
   ProceduralEnvironmentPreviewResult,
+  FlatSceneDocument,
   RenderFrameDiff,
   SceneDocumentCodecResult,
   SceneDocumentDecodeRequest,
@@ -24,19 +25,11 @@ import type {
   VoxelProjectionBindingReceipt,
   VoxelProjectionInstanceBinding,
   WorkspaceAuthoringCompositionStatus,
-  WorkspaceAuthoringProjectBundleRef,
 } from '@asha/contracts';
 import type { RuntimeSessionFacade } from './facade.js';
 import type { RuntimeSessionProjectIdentity } from './facade-core.js';
 import type { RuntimeSessionProjectSource } from './facade-project.js';
 import type { FrameCursor } from './transport-contracts.js';
-
-export interface WorkspaceAuthoringOpenInput {
-  readonly authoringId: string;
-  readonly seed: number;
-  readonly project: RuntimeSessionProjectIdentity;
-  readonly projectBundle: WorkspaceAuthoringProjectBundleRef;
-}
 
 /** Ordinary project-source entrypoint for editor and content-pipeline hosts. */
 export interface WorkspaceAuthoringProjectOpenInput {
@@ -49,6 +42,7 @@ export interface WorkspaceAuthoringProjectOpenInput {
 export interface WorkspaceAuthoringProjectOpenReceipt {
   readonly state: WorkspaceAuthoringStateSummary;
   readonly manifestJson: string;
+  readonly sceneDocuments: readonly FlatSceneDocument[];
   readonly projectContent: ProjectContentCodecResult | null;
 }
 
@@ -59,7 +53,6 @@ export interface WorkspaceAuthoringIdentity {
   readonly generation: number;
   readonly seed: number;
   readonly project: RuntimeSessionProjectIdentity;
-  readonly projectBundle: WorkspaceAuthoringProjectBundleRef;
   readonly nonClaims: readonly [
     'not_gameplay_runtime_session',
     'not_simulation_loop',
@@ -196,7 +189,6 @@ type WorkspaceAuthoringVoxelOperations = Pick<
  * a separate consumer-owned load transaction.
  */
 export interface WorkspaceAuthoringFacade extends WorkspaceAuthoringVoxelOperations {
-  open(input: WorkspaceAuthoringOpenInput): WorkspaceAuthoringStateSummary;
   openProject(input: WorkspaceAuthoringProjectOpenInput): Promise<WorkspaceAuthoringProjectOpenReceipt>;
   readState(): WorkspaceAuthoringStateSummary;
   readProjection(): WorkspaceAuthoringProjectionSummary;

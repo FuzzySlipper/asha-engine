@@ -75,7 +75,7 @@ export function createNativeOperationInvocations(
       authoringId: 'workspace-authoring.native-fixture',
       seed: 7,
       project: { gameId: 'native-fixture', workspaceId: 'workspace/native-fixture' },
-      projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1 },
+      projectBundle: { bundleSchemaVersion: 2, protocolVersion: 1, sceneId: 1 },
     })],
     ['readWorkspaceAuthoringState', (bridge) => bridge.readWorkspaceAuthoringState()],
     ['readWorkspaceAuthoringProjection', (bridge) => bridge.readWorkspaceAuthoringProjection({

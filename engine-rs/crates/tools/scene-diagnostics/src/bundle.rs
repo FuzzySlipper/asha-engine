@@ -217,7 +217,7 @@ mod tests {
         let scene_bytes = b"scene-doc";
         let lock_bytes = b"asset-lock";
         ProjectBundleManifest {
-            bundle_schema_version: 1,
+            bundle_schema_version: 2,
             protocol_version: 1,
             project: ProjectSection {
                 id: ProjectId::new(1),

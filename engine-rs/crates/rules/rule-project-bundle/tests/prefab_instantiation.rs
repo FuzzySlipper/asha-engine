@@ -173,7 +173,7 @@ fn loaded_stage() -> ProjectBundleStage {
     let plan = LoadPlan {
         steps: vec![
             LoadStep::ValidateVersions {
-                bundle_schema_version: 1,
+                bundle_schema_version: 2,
                 protocol_version: 1,
             },
             LoadStep::LoadAssetLock {
@@ -622,7 +622,7 @@ fn project_bundle_session_save_reload_preserves_roles_overrides_and_provenance()
     let plan = LoadPlan {
         steps: vec![
             LoadStep::ValidateVersions {
-                bundle_schema_version: 1,
+                bundle_schema_version: 2,
                 protocol_version: 1,
             },
             LoadStep::LoadAssetLock {

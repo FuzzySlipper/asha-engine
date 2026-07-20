@@ -45,7 +45,6 @@ export type {
   StepResult,
   WorkspaceAuthoringCloseInput,
   WorkspaceAuthoringCloseReceipt,
-  WorkspaceAuthoringOpenInput,
   WorkspaceAuthoringProjectionRequest,
   WorkspaceAuthoringProjectionSummary,
   WorkspaceAuthoringStateSummary,

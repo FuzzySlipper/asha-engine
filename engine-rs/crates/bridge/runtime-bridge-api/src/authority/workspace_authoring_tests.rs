@@ -13,7 +13,7 @@ fn open_request(workspace_id: &str) -> WorkspaceAuthoringOpenRequest {
             workspace_id: workspace_id.to_owned(),
         },
         project_bundle: WorkspaceAuthoringProjectBundleRef {
-            bundle_schema_version: 1,
+            bundle_schema_version: 2,
             protocol_version: 1,
             scene_id: 42,
         },

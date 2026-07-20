@@ -3,7 +3,6 @@ import type {
   WorkspaceAuthoringCloseReceipt,
   WorkspaceAuthoringFacade,
   WorkspaceAuthoringIdentity,
-  WorkspaceAuthoringOpenInput,
   WorkspaceAuthoringProjectOpenInput,
   WorkspaceAuthoringProjectOpenReceipt,
   WorkspaceAuthoringProjectionSummary,
@@ -37,6 +36,7 @@ import type {
   ProjectWritePublication,
   SceneDocumentCodecResult,
   SceneDocumentDecodeRequest,
+  WorkspaceAuthoringOpenRequest,
 } from '@asha/contracts';
 import { loadAshaProjectSource } from '@asha/game-workspace';
 import {
@@ -72,7 +72,26 @@ function workspaceAuthoringStateFromContract(
   ) {
     throw new RuntimeBridgeError('internal', 'Rust returned an invalid workspace-authoring state');
   }
-  return value as WorkspaceAuthoringStateSummary;
+  return {
+    kind: value.kind,
+    status: value.status,
+    identity: {
+      kind: value.identity.kind,
+      authoringId: value.identity.authoringId,
+      mode: value.identity.mode,
+      generation: value.identity.generation,
+      seed: value.identity.seed,
+      project: value.identity.project,
+      nonClaims: value.identity.nonClaims,
+    },
+    composition: value.composition,
+    workingRevision: value.workingRevision,
+    storedRevision: value.storedRevision,
+    dirty: value.dirty,
+    lastStoredCanonicalJsonHash: value.lastStoredCanonicalJsonHash,
+    authoritySnapshotHash: value.authoritySnapshotHash,
+    lifecycleHash: value.lifecycleHash,
+  } as WorkspaceAuthoringStateSummary;
 }
 
 function storedConfirmationFromContract(
@@ -104,7 +123,7 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
     this.#bridge = bridge;
   }
 
-  open(input: WorkspaceAuthoringOpenInput): WorkspaceAuthoringStateSummary {
+  #openTransport(input: WorkspaceAuthoringOpenRequest): WorkspaceAuthoringStateSummary {
     const state = workspaceAuthoringStateFromContract(
       this.#bridge.openWorkspaceAuthoring(input),
     );
@@ -119,7 +138,7 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
     input: WorkspaceAuthoringProjectOpenInput,
   ): Promise<WorkspaceAuthoringProjectOpenReceipt> {
     const loaded = await loadAshaProjectSource(input.source);
-    const opened = this.open({
+    const opened = this.#openTransport({
       authoringId: input.authoringId,
       seed: input.seed,
       project: {
@@ -134,6 +153,7 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
     });
     try {
       const files = new Map(loaded.files.map((file) => [file.path, file.bytes]));
+      const sceneDocuments = [];
       for (const scene of loaded.manifest.scenes) {
         const source = requiredProjectText(files, scene.artifact);
         const decoded = this.decodeSceneDocument({ sourceText: source });
@@ -143,6 +163,13 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
             `Rust rejected scene "${scene.artifact}": ${formatDiagnostics(decoded.diagnostics)}`,
           );
         }
+        if (decoded.document === null) {
+          throw new RuntimeBridgeError(
+            'internal',
+            `Rust accepted scene "${scene.artifact}" without returning its canonical document.`,
+          );
+        }
+        sceneDocuments.push(decoded.document);
       }
       const projectContentSources = loaded.manifest.artifacts
         .filter((artifact) => isProjectContentRole(artifact.role))
@@ -190,6 +217,7 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
       return {
         state: this.readState(),
         manifestJson: loaded.manifestJson,
+        sceneDocuments,
         projectContent,
       };
     } catch (error) {

@@ -38,7 +38,7 @@ fn sample_plan() -> LoadPlan {
     LoadPlan {
         steps: vec![
             LoadStep::ValidateVersions {
-                bundle_schema_version: 1,
+                bundle_schema_version: 2,
                 protocol_version: 1,
             },
             LoadStep::LoadAssetLock {
@@ -95,7 +95,7 @@ fn stage_summary_matches_golden() {
     let summary = result.render_summary();
     let spatial_session_hash = result.spatial_session_hash.0;
     let expected = format!(
-        "stage versions schema=1 protocol=1\n\
+        "stage versions schema=2 protocol=1\n\
          stage assetLock artifact=assets/lock.json expectedAssets=1\n\
          stage sceneDocument artifact=scene/scene.json nodes=2\n\
          stage bootstrap runtimeSession=7 entities=2\n\
@@ -182,7 +182,7 @@ fn out_of_order_plan_is_rejected_before_execution() {
     let plan = LoadPlan {
         steps: vec![
             LoadStep::ValidateVersions {
-                bundle_schema_version: 1,
+                bundle_schema_version: 2,
                 protocol_version: 1,
             },
             LoadStep::LoadAssetLock {

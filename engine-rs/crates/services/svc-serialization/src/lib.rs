@@ -50,7 +50,7 @@ pub use json::{decode, encode, ManifestDecodeError};
 pub use load_plan::{LoadPlan, LoadPlanError, LoadStage, LoadStep};
 pub use manifest::{
     AssetLockSection, GeneratorMetadata, ManifestError, ProjectBundleManifest, ProjectSection,
-    SceneSection, BUNDLE_SCHEMA_VERSION, LEGACY_BUNDLE_SCHEMA_VERSION, SUPPORTED_PROTOCOL_VERSION,
+    SceneSection, BUNDLE_SCHEMA_VERSION, SUPPORTED_PROTOCOL_VERSION,
 };
 pub use prefab::{
     validate_prefab_registry, PrefabDefinition, PrefabDiagnostic, PrefabDiagnosticCode,
@@ -405,7 +405,7 @@ mod tests {
     }
 
     #[test]
-    fn legacy_v1_manifest_migrates_to_v2_and_strict_decode_rejects_unknown_fields() {
+    fn strict_decode_rejects_v1_unknown_fields_and_future_schemas() {
         let legacy = r#"{
   "bundleSchemaVersion": 1,
   "protocolVersion": 1,
@@ -418,21 +418,16 @@ mod tests {
     { "path": "assets/lock.json", "class": "durable", "role": "assetLock", "contentHash": "422f72d827e3137c" }
   ]
 }"#;
-        let migrated = decode(legacy).expect("v1 compatibility decode");
-        assert_eq!(migrated.bundle_schema_version, BUNDLE_SCHEMA_VERSION);
-        assert_eq!(migrated.entry_scene, SceneId::new(100));
-        assert_eq!(migrated.scenes.len(), 1);
-        assert_eq!(
-            migrated
-                .generation_provenance
-                .as_ref()
-                .expect("legacy provenance")
-                .provider,
-            "legacy.terrain-generator"
-        );
-        assert!(encode(&migrated).contains("\"bundleSchemaVersion\": 2"));
+        assert!(matches!(
+            decode(legacy),
+            Err(ManifestDecodeError::UnsupportedSchema {
+                found: 1,
+                supported: BUNDLE_SCHEMA_VERSION
+            })
+        ));
 
-        let with_unknown = legacy.replace(
+        let current = encode(&sample_manifest());
+        let with_unknown = current.replace(
             "\"protocolVersion\": 1,",
             "\"protocolVersion\": 1, \"hostRoleMirror\": {},",
         );
@@ -441,7 +436,7 @@ mod tests {
             Err(ManifestDecodeError::Field(message)) if message.contains("hostRoleMirror")
         ));
 
-        let future = legacy.replace("\"bundleSchemaVersion\": 1", "\"bundleSchemaVersion\": 99");
+        let future = current.replace("\"bundleSchemaVersion\": 2", "\"bundleSchemaVersion\": 99");
         assert!(matches!(
             decode(&future),
             Err(ManifestDecodeError::UnsupportedSchema {

@@ -122,6 +122,8 @@ import type {
   RawInputSample,
   RecordedInputAction,
   ScreenPointToPickRayRequest,
+  WorkspaceAuthoringOpenRequest,
+  WorkspaceAuthoringStateSummary as WorkspaceAuthoringContractStateSummary,
 } from '@asha/contracts';
 import { loadNativeAddon, NativeAddonUnavailable, type NativeAddon } from '@asha/native-bridge';
 import { MANIFEST_OPERATIONS } from './generated/operations.js';
@@ -169,10 +171,8 @@ import {
   type ProjectResourceStageInput,
   type WorkspaceAuthoringCloseInput,
   type WorkspaceAuthoringCloseReceipt,
-  type WorkspaceAuthoringOpenInput,
   type WorkspaceAuthoringProjectionRequest,
   type WorkspaceAuthoringProjectionSummary,
-  type WorkspaceAuthoringStateSummary,
   type WorkspaceAuthoringStoredConfirmationInput,
   type WorkspaceAuthoringStoredConfirmationReceipt,
 } from './bridge.js';
@@ -491,7 +491,7 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     return handle;
   }
 
-  openWorkspaceAuthoring(input: WorkspaceAuthoringOpenInput): WorkspaceAuthoringStateSummary {
+  openWorkspaceAuthoring(input: WorkspaceAuthoringOpenRequest): WorkspaceAuthoringContractStateSummary {
     const existingHandle = this.#engineHandle ?? -1;
     const handle = callNative(() =>
       this.#addon.openWorkspaceAuthoring(existingHandle, JSON.stringify(input)),
@@ -502,16 +502,16 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     const statePayload = callNative(() =>
       this.#addon.readWorkspaceAuthoringState(this.#engineHandle as EngineHandle),
     );
-    return parseNativeJson<WorkspaceAuthoringStateSummary>(
+    return parseNativeJson<WorkspaceAuthoringContractStateSummary>(
       statePayload,
       'workspace authoring open state',
     );
   }
 
-  readWorkspaceAuthoringState(): WorkspaceAuthoringStateSummary {
+  readWorkspaceAuthoringState(): WorkspaceAuthoringContractStateSummary {
     const handle = this.#requireHandle('readWorkspaceAuthoringState');
     const payload = callNative(() => this.#addon.readWorkspaceAuthoringState(handle));
-    return parseNativeJson<WorkspaceAuthoringStateSummary>(
+    return parseNativeJson<WorkspaceAuthoringContractStateSummary>(
       payload,
       'workspace authoring state',
     );

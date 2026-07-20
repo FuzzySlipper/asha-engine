@@ -12,7 +12,7 @@ use crate::artifact::{ArtifactClass, ArtifactEntry, ArtifactRole};
 use crate::hash::BundleHash;
 use crate::manifest::{
     AssetLockSection, GeneratorMetadata, ProjectBundleManifest, ProjectSection, SceneSection,
-    BUNDLE_SCHEMA_VERSION, LEGACY_BUNDLE_SCHEMA_VERSION,
+    BUNDLE_SCHEMA_VERSION,
 };
 
 // ── Encode ──────────────────────────────────────────────────────────────────
@@ -177,13 +177,10 @@ impl core::fmt::Display for ManifestDecodeError {
                 field,
                 found,
                 maximum,
-            } => write!(
-                f,
-                "field `{field}` value {found} exceeds maximum {maximum}"
-            ),
+            } => write!(f, "field `{field}` value {found} exceeds maximum {maximum}"),
             ManifestDecodeError::UnsupportedSchema { found, supported } => write!(
                 f,
-                "unsupported bundle schema version {found}; supported read versions are {LEGACY_BUNDLE_SCHEMA_VERSION}..={supported}"
+                "unsupported bundle schema version {found}; supported version is {supported}"
             ),
         }
     }
@@ -196,43 +193,26 @@ impl std::error::Error for ManifestDecodeError {}
 pub fn decode(input: &str) -> Result<ProjectBundleManifest, ManifestDecodeError> {
     let json = Json::parse(input).map_err(ManifestDecodeError::Json)?;
     let bundle_schema_version = field_u32(&json, "bundleSchemaVersion")?;
-    match bundle_schema_version {
-        LEGACY_BUNDLE_SCHEMA_VERSION => require_object_fields(
-            &json,
-            &[
-                "bundleSchemaVersion",
-                "protocolVersion",
-                "project",
-                "scene",
-                "assetLock",
-                "generator",
-                "artifacts",
-            ],
-            "manifest",
-        )?,
-        BUNDLE_SCHEMA_VERSION => require_object_fields(
-            &json,
-            &[
-                "bundleSchemaVersion",
-                "protocolVersion",
-                "project",
-                "entryScene",
-                "scenes",
-                "assetLock",
-                "generationProvenance",
-                "artifacts",
-            ],
-            "manifest",
-        )?,
-        _ => {
-            // The strict codec has no closed field set for this version, so it
-            // rejects before attempting to reinterpret any body.
-            return Err(ManifestDecodeError::UnsupportedSchema {
-                found: bundle_schema_version,
-                supported: BUNDLE_SCHEMA_VERSION,
-            });
-        }
+    if bundle_schema_version != BUNDLE_SCHEMA_VERSION {
+        return Err(ManifestDecodeError::UnsupportedSchema {
+            found: bundle_schema_version,
+            supported: BUNDLE_SCHEMA_VERSION,
+        });
     }
+    require_object_fields(
+        &json,
+        &[
+            "bundleSchemaVersion",
+            "protocolVersion",
+            "project",
+            "entryScene",
+            "scenes",
+            "assetLock",
+            "generationProvenance",
+            "artifacts",
+        ],
+        "manifest",
+    )?;
     let protocol_version = field_u32(&json, "protocolVersion")?;
 
     let project_j = field(&json, "project")?;
@@ -242,27 +222,18 @@ pub fn decode(input: &str) -> Result<ProjectBundleManifest, ManifestDecodeError>
         name: opt_str(project_j, "name")?,
     };
 
-    let (entry_scene, scenes, generation_provenance) =
-        if bundle_schema_version == LEGACY_BUNDLE_SCHEMA_VERSION {
-            let scene_j = field(&json, "scene")?;
-            let scene = decode_scene(scene_j)?;
-            let generator = decode_legacy_generator(field(&json, "generator")?)?;
-            (scene.id, vec![scene], Some(generator))
-        } else {
-            let entry_scene = SceneId::new(field_u64(&json, "entryScene")?);
-            let scene_values = field(&json, "scenes")?
-                .as_array()
-                .ok_or_else(|| ManifestDecodeError::Field("scenes must be an array".into()))?;
-            let scenes = scene_values
-                .iter()
-                .map(decode_scene)
-                .collect::<Result<Vec<_>, _>>()?;
-            let generation_provenance = match field(&json, "generationProvenance")? {
-                Json::Null => None,
-                value => Some(decode_generation_provenance(value)?),
-            };
-            (entry_scene, scenes, generation_provenance)
-        };
+    let entry_scene = SceneId::new(field_u64(&json, "entryScene")?);
+    let scene_values = field(&json, "scenes")?
+        .as_array()
+        .ok_or_else(|| ManifestDecodeError::Field("scenes must be an array".into()))?;
+    let scenes = scene_values
+        .iter()
+        .map(decode_scene)
+        .collect::<Result<Vec<_>, _>>()?;
+    let generation_provenance = match field(&json, "generationProvenance")? {
+        Json::Null => None,
+        value => Some(decode_generation_provenance(value)?),
+    };
 
     let lock_j = field(&json, "assetLock")?;
     require_object_fields(lock_j, &["artifact", "assetCount"], "assetLock")?;
@@ -280,9 +251,7 @@ pub fn decode(input: &str) -> Result<ProjectBundleManifest, ManifestDecodeError>
     }
 
     Ok(ProjectBundleManifest {
-        // v1 is a read compatibility format; in memory it is migrated and any
-        // subsequent canonical write is v2.
-        bundle_schema_version: BUNDLE_SCHEMA_VERSION,
+        bundle_schema_version,
         protocol_version,
         project,
         entry_scene,
@@ -299,16 +268,6 @@ fn decode_scene(j: &Json) -> Result<SceneSection, ManifestDecodeError> {
         id: SceneId::new(field_u64(j, "id")?),
         schema_version: field_u32(j, "schemaVersion")?,
         artifact: req_str(j, "artifact")?,
-    })
-}
-
-fn decode_legacy_generator(j: &Json) -> Result<GeneratorMetadata, ManifestDecodeError> {
-    require_object_fields(j, &["seed", "version", "params"], "generator")?;
-    Ok(GeneratorMetadata {
-        provider: "legacy.terrain-generator".to_string(),
-        seed: field_u64(j, "seed")?,
-        version: field_u32(j, "version")?,
-        params: req_str(j, "params")?,
     })
 }
 

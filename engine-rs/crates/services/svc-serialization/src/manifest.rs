@@ -17,11 +17,6 @@ use crate::hash::BundleHash;
 /// The bundle-manifest schema version this build writes/understands.
 pub const BUNDLE_SCHEMA_VERSION: u32 = 2;
 
-/// Old single-scene manifests remain a deliberately bounded read compatibility
-/// surface. Decoding migrates them into the v2 in-memory shape; canonical writes
-/// always use [`BUNDLE_SCHEMA_VERSION`].
-pub const LEGACY_BUNDLE_SCHEMA_VERSION: u32 = 1;
-
 /// The generated-contract protocol version this build is compatible with. A real
 /// `protocol-codegen`-sourced value (scene-capability-02, "Decisions to make") is
 /// future work; pinned here so manifests already carry the field.

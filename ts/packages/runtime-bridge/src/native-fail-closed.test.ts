@@ -460,7 +460,7 @@ function fakeAddon(calls: string[] = []): NativeAddon {
         authoringId: 'workspace-authoring.native-fixture',
         seed: 7,
         project: { gameId: 'native-fixture', workspaceId: 'workspace/native-fixture' },
-        projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1 },
+        projectBundle: { bundleSchemaVersion: 2, protocolVersion: 1, sceneId: 1 },
       }));
     },
     readWorkspaceAuthoringProjection: (_handle: number, requestJson: string) => {
@@ -1333,7 +1333,7 @@ void test('every manifest op has a native invocation in this test', () => {
   }
 });
 
-void test('unwired native ops fail closed with operation_unimplemented (no mock fallback)', () => {
+void test('[rust provider] unwired native ops fail closed with operation_unimplemented (no mock fallback)', () => {
   for (const op of MANIFEST_OPERATIONS) {
     if (NATIVE_WIRED_OPERATIONS.has(op.manifestName)) continue;
     const invoke = INVOKE.get(op.facadeMethod);
@@ -1359,7 +1359,7 @@ void test('required native conformance operations are declared wired', () => {
   }
 });
 
-void test('native conformance sequence routes through the addon without mock fallback', () => {
+void test('[rust provider] native conformance sequence routes through the addon without mock fallback', () => {
   const calls: string[] = [];
   const bridge: RuntimeBridge = new NativeRuntimeBridge(fakeAddon(calls));
 

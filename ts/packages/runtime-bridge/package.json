@@ -47,8 +47,8 @@
     "build": "tsc --build",
     "typecheck": "tsc --build",
     "test": "tsc --build && node --test 'dist/**/*.test.js'",
-    "test:reference-provider": "tsc --build && node --test --test-name-pattern '\\[reference provider\\]' dist/runtime-session-provider.test.js",
-    "test:rust-provider": "tsc --build && node --test --test-name-pattern '\\[rust provider\\]' dist/runtime-session-provider.test.js dist/native-fail-closed.test.js"
+    "test:reference-provider": "tsc --build && node --test --test-name-pattern '\\[reference provider\\]' dist/runtime-project-loader.test.js",
+    "test:rust-provider": "tsc --build && node --test --test-name-pattern '\\[rust provider\\]' dist/runtime-project-loader.test.js dist/native-fail-closed.test.js"
   },
   "dependencies": {
     "@asha/contracts": "workspace:*",

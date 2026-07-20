@@ -119,6 +119,8 @@ import type {
   InputSessionSnapshot,
   RawInputSample,
   RecordedInputAction,
+  WorkspaceAuthoringOpenRequest,
+  WorkspaceAuthoringStateSummary as WorkspaceAuthoringContractStateSummary,
 } from '@asha/contracts';
 import {
   RuntimeBridgeError,
@@ -158,10 +160,8 @@ import {
   type ProjectResourceStageInput,
   type WorkspaceAuthoringCloseInput,
   type WorkspaceAuthoringCloseReceipt,
-  type WorkspaceAuthoringOpenInput,
   type WorkspaceAuthoringProjectionRequest,
   type WorkspaceAuthoringProjectionSummary,
-  type WorkspaceAuthoringStateSummary,
   type WorkspaceAuthoringStoredConfirmationInput,
   type WorkspaceAuthoringStoredConfirmationReceipt,
 } from './bridge.js';
@@ -368,7 +368,7 @@ export class MockRuntimeBridge implements RuntimeBridge {
   #inputSession = new MockInputSession();
   #timeController = new MockTimeController();
   #workspaceAuthoringGeneration = 0;
-  #workspaceAuthoringState: WorkspaceAuthoringStateSummary | null = null;
+  #workspaceAuthoringState: WorkspaceAuthoringContractStateSummary | null = null;
   #workspaceAuthoringCursor = 0;
   readonly #runtimeProjects = new MockRuntimeProjectLifecycle();
 
@@ -399,7 +399,7 @@ export class MockRuntimeBridge implements RuntimeBridge {
     return handle;
   }
 
-  openWorkspaceAuthoring(input: WorkspaceAuthoringOpenInput): WorkspaceAuthoringStateSummary {
+  openWorkspaceAuthoring(input: WorkspaceAuthoringOpenRequest): WorkspaceAuthoringContractStateSummary {
     if (this.#workspaceAuthoringState?.status === 'open') {
       throw new RuntimeBridgeError('invalid_input', 'workspace authoring is already open');
     }
@@ -439,7 +439,7 @@ export class MockRuntimeBridge implements RuntimeBridge {
     return this.#workspaceAuthoringState;
   }
 
-  readWorkspaceAuthoringState(): WorkspaceAuthoringStateSummary {
+  readWorkspaceAuthoringState(): WorkspaceAuthoringContractStateSummary {
     if (this.#workspaceAuthoringState === null) {
       throw new RuntimeBridgeError('not_initialized', 'workspace authoring state before open');
     }
@@ -528,7 +528,7 @@ export class MockRuntimeBridge implements RuntimeBridge {
     };
   }
 
-  #requireMockWorkspaceAuthoring(operation: string): WorkspaceAuthoringStateSummary {
+  #requireMockWorkspaceAuthoring(operation: string): WorkspaceAuthoringContractStateSummary {
     const state = this.#workspaceAuthoringState;
     if (state === null || state.status !== 'open') {
       throw new RuntimeBridgeError('not_initialized', `${operation} requires workspace authoring`);

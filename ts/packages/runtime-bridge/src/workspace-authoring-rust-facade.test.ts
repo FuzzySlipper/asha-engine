@@ -21,21 +21,53 @@ import {
 } from './index.js';
 import { MockRuntimeBridge } from './mock.js';
 
-const OPEN_INPUT = {
-  authoringId: 'workspace-authoring.test',
-  seed: 29,
-  project: {
-    gameId: 'authoring-consumer',
-    workspaceId: 'workspace.local',
-  },
-  projectBundle: {
-    bundleSchemaVersion: 1,
+function authoringProjectOpenInput(authoringId: string) {
+  const sceneJson = JSON.stringify({
+    schemaVersion: 4,
+    id: 42,
+    metadata: { name: 'Workspace authoring fixture', authoringFormatVersion: 4 },
+    dependencies: [],
+    nodes: [],
+  });
+  const manifestJson = JSON.stringify({
+    bundleSchemaVersion: 2,
     protocolVersion: 1,
-    sceneId: 42,
-  },
-} as const;
+    project: { id: 7, name: 'Workspace authoring fixture' },
+    entryScene: 42,
+    scenes: [{ id: 42, schemaVersion: 4, artifact: 'scenes/entry.scene.json' }],
+    assetLock: { artifact: 'assets/lock.json', assetCount: 0 },
+    generationProvenance: null,
+    artifacts: [
+      { path: 'assets/lock.json', class: 'durable', role: 'assetLock', contentHash: '0000000000000001' },
+      { path: 'scenes/entry.scene.json', class: 'durable', role: 'sceneDocument', contentHash: '0000000000000002' },
+    ],
+  });
+  return {
+    authoringId,
+    seed: 29,
+    workspaceId: 'workspace.local',
+    source: createMemoryAshaProjectSource(`memory:${authoringId}`, new Map([
+      [ASHA_PROJECT_BUNDLE_MANIFEST_PATH, new TextEncoder().encode(manifestJson)],
+      ['assets/lock.json', new TextEncoder().encode('{"assets":[]}')],
+      ['scenes/entry.scene.json', new TextEncoder().encode(sceneJson)],
+    ])),
+  };
+}
 
-class AuthoringTestBridge extends MockRuntimeBridge {}
+class AuthoringTestBridge extends MockRuntimeBridge {
+  override decodeSceneDocument(
+    request: SceneDocumentDecodeRequest,
+  ): SceneDocumentCodecResult {
+    return {
+      accepted: true,
+      document: JSON.parse(request.sourceText) as SceneDocumentCodecResult['document'],
+      canonicalJson: request.sourceText,
+      contentHash: 'fnv1a64:authoring-scene',
+      diagnostics: [],
+      validation: { errors: [] },
+    };
+  }
+}
 
 class ProjectionCapturingBridge extends AuthoringTestBridge {
   bindingRequest: VoxelProjectionBindingRequest | null = null;
@@ -76,32 +108,25 @@ class SecondSceneRejectingBridge extends AuthoringTestBridge {
     request: SceneDocumentDecodeRequest,
   ): SceneDocumentCodecResult {
     this.decodeCount += 1;
-    if (this.decodeCount === 1) {
+    if (this.decodeCount === 2) {
       return {
-        accepted: true,
-        document: JSON.parse(request.sourceText) as SceneDocumentCodecResult['document'],
-        canonicalJson: request.sourceText,
-        contentHash: 'fnv1a64:first-scene',
-        diagnostics: [],
+        accepted: false,
+        document: null,
+        canonicalJson: null,
+        contentHash: null,
+        diagnostics: [{ code: 'invalid-document', message: 'second scene rejected' }],
         validation: { errors: [] },
       };
     }
-    return {
-      accepted: false,
-      document: null,
-      canonicalJson: null,
-      contentHash: null,
-      diagnostics: [{ code: 'invalid-document', message: 'second scene rejected' }],
-      validation: { errors: [] },
-    };
+    return super.decodeSceneDocument(request);
   }
 }
 
-void test('workspace authoring has a distinct generation-bound lifecycle and never loads gameplay', () => {
+void test('workspace authoring has a distinct generation-bound lifecycle and never loads gameplay', async () => {
   const bridge = new AuthoringTestBridge();
   const authoring = createWorkspaceAuthoringFacade({ bridge });
 
-  const opened = authoring.open(OPEN_INPUT);
+  const opened = (await authoring.openProject(authoringProjectOpenInput('workspace-authoring.test'))).state;
   assert.equal(opened.status, 'open');
   assert.equal(opened.identity.generation, 1);
   assert.equal(opened.identity.project.workspaceId, 'workspace.local');
@@ -138,10 +163,9 @@ void test('workspace authoring has a distinct generation-bound lifecycle and nev
       && error.kind === 'not_initialized',
   );
 
-  const reopened = authoring.open({
-    ...OPEN_INPUT,
-    authoringId: 'workspace-authoring.test.reopened',
-  });
+  const reopened = (await authoring.openProject(
+    authoringProjectOpenInput('workspace-authoring.test.reopened'),
+  )).state;
   assert.equal(reopened.identity.generation, 2);
 });
 
@@ -192,17 +216,16 @@ void test('openProject closes partial Rust authoring state after a late artifact
   assert.equal(bridge.readWorkspaceAuthoringState().status, 'closed');
   assert.equal(authoring.readState().status, 'closed');
 
-  const reopened = authoring.open({
-    ...OPEN_INPUT,
-    authoringId: 'workspace-authoring.after-partial-open',
-  });
+  const reopened = (await authoring.openProject(
+    authoringProjectOpenInput('workspace-authoring.after-partial-open'),
+  )).state;
   assert.equal(reopened.identity.generation, 2, 'failed project open leaves no hidden open cell');
 });
 
-void test('workspace facade supplies generation and revision binding for voxel instances and picks', () => {
+void test('workspace facade supplies generation and revision binding for voxel instances and picks', async () => {
   const bridge = new ProjectionCapturingBridge();
   const authoring = createWorkspaceAuthoringFacade({ bridge });
-  authoring.open(OPEN_INPUT);
+  await authoring.openProject(authoringProjectOpenInput('workspace-authoring.projection'));
   const receipt = authoring.configureVoxelProjectionInstances({
     registryDigest: 'sha256:scene-registry',
     instances: [{
@@ -249,7 +272,7 @@ void test('workspace facade supplies generation and revision binding for voxel i
   );
 });
 
-void test('native workspace authoring creates, stores, closes, and reopens voxel state without gameplay RuntimeSession', (t) => {
+void test('native workspace authoring creates, stores, closes, and reopens voxel state without gameplay RuntimeSession', async (t) => {
   let bridge;
   try {
     bridge = createNativeRuntimeBridge();
@@ -261,7 +284,9 @@ void test('native workspace authoring creates, stores, closes, and reopens voxel
     throw error;
   }
   const authoring = createWorkspaceAuthoringFacade({ bridge });
-  const opened = authoring.open(OPEN_INPUT);
+  const opened = (await authoring.openProject(
+    authoringProjectOpenInput('workspace-authoring.native'),
+  )).state;
   assert.equal(opened.identity.nonClaims.includes('not_gameplay_runtime_session'), true);
   assert.throws(
     () => bridge.readFpsRuntimeSession(),
@@ -429,7 +454,9 @@ void test('native workspace authoring creates, stores, closes, and reopens voxel
   assert.equal(authoring.readState().dirty, false);
   authoring.close({ expectedWorkspaceId: 'workspace.local', expectedGeneration: 1 });
 
-  const reopened = authoring.open({ ...OPEN_INPUT, authoringId: 'workspace-authoring.test.reopen' });
+  const reopened = (await authoring.openProject(
+    authoringProjectOpenInput('workspace-authoring.test.reopen'),
+  )).state;
   assert.equal(reopened.identity.generation, 2);
   const loaded = authoring.loadVoxelVolumeAsset({
     asset,
@@ -482,7 +509,7 @@ void test('native workspace authoring creates, stores, closes, and reopens voxel
   );
 });
 
-void test('native public workspace facade materializes a typed procedural preview and consumes its candidate once', (t) => {
+void test('native public workspace facade materializes a typed procedural preview and consumes its candidate once', async (t) => {
   let bridge;
   try {
     bridge = createNativeRuntimeBridge();
@@ -494,10 +521,9 @@ void test('native public workspace facade materializes a typed procedural previe
     throw error;
   }
   const authoring = createWorkspaceAuthoringFacade({ bridge });
-  const opened = authoring.open({
-    ...OPEN_INPUT,
-    authoringId: 'workspace-authoring.procedural-environment',
-  });
+  const opened = (await authoring.openProject(
+    authoringProjectOpenInput('workspace-authoring.procedural-environment'),
+  )).state;
   const scene = {
     schemaVersion: 4,
     id: sceneId(42),

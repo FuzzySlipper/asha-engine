@@ -428,7 +428,10 @@ async function handleRuntimeBridgeInvocation(
     const method = bridge[methodName] as (...args: readonly unknown[]) => unknown;
     const result = Reflect.apply(method, bridge, invocation.args ?? []);
     if (methodName === 'loadRuntimeProject') {
-      entry.runtimeProjectLifecycle = acceptedRuntimeProjectLifecycle(result);
+      const acceptedLifecycle = acceptedRuntimeProjectLifecycle(result);
+      if (acceptedLifecycle !== null) {
+        entry.runtimeProjectLifecycle = acceptedLifecycle;
+      }
     } else if (methodName === 'closeRuntimeProject' && didRuntimeProjectClose(result)) {
       entry.runtimeProjectLifecycle = null;
     }

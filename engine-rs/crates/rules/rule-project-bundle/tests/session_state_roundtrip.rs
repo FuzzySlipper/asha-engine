@@ -153,7 +153,7 @@ fn plan_with_spatial_session_state() -> LoadPlan {
     LoadPlan {
         steps: vec![
             LoadStep::ValidateVersions {
-                bundle_schema_version: 1,
+                bundle_schema_version: 2,
                 protocol_version: 1,
             },
             LoadStep::LoadAssetLock {
@@ -280,7 +280,7 @@ fn voxel_edit_and_entity_change_survive_the_same_save() {
     let plan = LoadPlan {
         steps: vec![
             LoadStep::ValidateVersions {
-                bundle_schema_version: 1,
+                bundle_schema_version: 2,
                 protocol_version: 1,
             },
             LoadStep::LoadAssetLock {

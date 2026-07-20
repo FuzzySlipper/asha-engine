@@ -68,7 +68,7 @@ void test('buildManifestModel flags a durable artifact missing its content hash'
 void test('buildLoadPlanModel renders an ordered, human-readable plan', () => {
   const plan: LoadPlan = {
     steps: [
-      { step: 'validateVersions', bundleSchemaVersion: 1, protocolVersion: 1 },
+      { step: 'validateVersions', bundleSchemaVersion: 2, protocolVersion: 1 },
       { step: 'loadAssetLock', artifact: 'lock.json', assetCount: 4 },
       { step: 'loadSceneDocument', artifact: 'scene.json', scene: sceneId(1001) },
       { step: 'bootstrapScene', scene: sceneId(1001), runtimeSession: runtimeSessionId(7) },

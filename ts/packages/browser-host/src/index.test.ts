@@ -410,6 +410,24 @@ void test('browser host gives ASHA Studio pages isolated one-cell lifecycles and
       assert.equal((await invokeBrowserHostBridge(host.url, secondHeaders, 'initializeEngine', [{ seed: 22 }])).status, 200);
       assert.equal((await invokeBrowserHostBridge(host.url, firstHeaders, 'loadRuntimeProject', [runtimeProjectLoadRequest(101)])).status, 200);
       assert.equal((await invokeBrowserHostBridge(host.url, secondHeaders, 'loadRuntimeProject', [runtimeProjectLoadRequest(202)])).status, 200);
+      const rejectedReplacement = await invokeBrowserHostBridge(
+        host.url,
+        firstHeaders,
+        'loadRuntimeProject',
+        [{
+          source: {
+            kind: 'inMemory',
+            identity: 'project:rejected',
+            materializationHash: 'materialization-rejected',
+          },
+          expectedLifecycle: { generation: 1, revision: 1 },
+        }],
+      );
+      assert.equal(rejectedReplacement.status, 200);
+      assert.equal(
+        (await rejectedReplacement.json() as { readonly result?: { readonly accepted?: boolean } }).result?.accepted,
+        false,
+      );
       const firstCamera = await invokeBrowserHostBridge(host.url, firstHeaders, 'createCamera', [{}]);
       const secondCamera = await invokeBrowserHostBridge(host.url, secondHeaders, 'createCamera', [{}]);
       assert.deepEqual(await firstCamera.json(), { result: { cellId: 1 } });
@@ -478,6 +496,7 @@ void test('browser host gives ASHA Studio pages isolated one-cell lifecycles and
       );
       assert.equal(switchDisconnect.status, 200);
       assert.equal(cells[1]?.closedProjects, 1);
+      assert.equal(cells[1]?.calls.filter((call) => call === 'close:101@1:1').length, 1);
       const switchedBridge = firstProvider.createRuntimeBridge() as typeof firstBridge;
       assert.equal(switchedBridge.browserHostLifecycle.status(), 'active');
       const switchedHeaders = browserHostHeaders(firstProvider.browserHostSessionId, '1');
@@ -821,6 +840,21 @@ function createTrackedRuntimeBridge(cell: {
       return cell.id as never;
     },
     loadRuntimeProject(input) {
+      if (input.source.identity === 'project:rejected') {
+        cell.calls.push('load-rejected');
+        return {
+          accepted: false,
+          source: input.source,
+          activeProject: null,
+          lifecycle,
+          diagnostics: [{
+            code: 'replacement_rejected',
+            message: 'Replacement project rejected by the fixture.',
+            path: null,
+            severity: 'error',
+          }],
+        } as never;
+      }
       project = Number(input.source.identity.replace('project:', ''));
       lifecycle = {
         generation: input.expectedLifecycle.generation + 1,
@@ -847,9 +881,11 @@ function createTrackedRuntimeBridge(cell: {
         diagnostics: [],
       } as never;
     },
-    closeRuntimeProject() {
+    closeRuntimeProject(input) {
       const closedProjectId = project;
-      cell.calls.push(`close:${project ?? 'none'}`);
+      cell.calls.push(
+        `close:${project ?? 'none'}@${input.expectedLifecycle.generation}:${input.expectedLifecycle.revision}`,
+      );
       cell.closedProjects += 1;
       project = null;
       lifecycle = { generation: lifecycle.generation, revision: lifecycle.revision + 1 };

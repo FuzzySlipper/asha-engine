@@ -518,7 +518,7 @@ fn loaded_bundle() -> ProjectBundleLoadResult {
     let plan = LoadPlan {
         steps: vec![
             LoadStep::ValidateVersions {
-                bundle_schema_version: 1,
+                bundle_schema_version: 2,
                 protocol_version: 1,
             },
             LoadStep::LoadAssetLock {

@@ -26,7 +26,7 @@ RuntimeSession proposals rather than browser-owned authority.
 
 Consumers import semantic RuntimeSession readouts, proposal envelopes, and helper
 projections from `@asha/runtime-session`. Product/live bridge-backed facade
-construction, launcher types, and transport surfaces stay on the
+construction and transport surfaces stay on the
 `@asha/runtime-bridge` package root. Reference/mock helpers live behind the
 explicit reference entrypoint and carry a fixture-only backend profile:
 
@@ -53,7 +53,7 @@ substrate.
 envelopes, and helper projections are owned by `@asha/runtime-session` and
 exported through its package root. `@asha/runtime-bridge` no longer re-exports
 that semantic surface. It retains concrete adapter construction, native/reference
-transport selection, launchers, render decode, reference helpers, and generated
+transport selection, canonical project-source loading, render decode, reference helpers, and generated
 bridge operation conformance.
 
 The package-root boundary regression originating in #4053 lives in
