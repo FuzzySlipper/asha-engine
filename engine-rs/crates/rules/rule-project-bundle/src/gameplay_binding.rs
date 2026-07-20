@@ -38,7 +38,7 @@ use rule_trigger_volume::{
     TriggerVolumeDiagnostic, TriggerVolumeRule, TriggerVolumeSnapshot, TRIGGER_VOLUME_OWNER_ID,
 };
 use svc_gameplay_fabric::GameplayFabricRegistry;
-use svc_serialization::{ArtifactEntry, ArtifactRole};
+use svc_serialization::{ArtifactEntry, ArtifactRole, ValidatedPrefabRegistry};
 
 use crate::{
     compose_session_state_snapshot_with_prefabs, ProjectBundleLoadResult, SessionStateArtifact,
@@ -58,7 +58,65 @@ pub struct GameplayBindingEntityTargets {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct GameplayBindingPrefabInstanceTarget {
     instance: PrefabInstanceId,
-    authored_prefab: Option<core_ids::PrefabId>,
+    lineage: Option<ValidatedGameplayPrefabLineage>,
+}
+
+/// Registry-proven relationship between a concrete runtime prefab definition
+/// and the base prefab identity selected by stored content.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ValidatedGameplayPrefabLineage {
+    expanded_prefab: core_ids::PrefabId,
+    authored_prefab: core_ids::PrefabId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GameplayPrefabLineageError {
+    MissingExpandedPrefab(core_ids::PrefabId),
+    AuthoredPrefabMismatch {
+        expanded_prefab: core_ids::PrefabId,
+        authored_prefab: core_ids::PrefabId,
+        expected_authored_prefab: core_ids::PrefabId,
+    },
+}
+
+impl core::fmt::Display for GameplayPrefabLineageError {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(formatter, "{self:?}")
+    }
+}
+
+impl std::error::Error for GameplayPrefabLineageError {}
+
+impl ValidatedGameplayPrefabLineage {
+    pub fn from_registry(
+        registry: &ValidatedPrefabRegistry,
+        expanded_prefab: core_ids::PrefabId,
+        authored_prefab: core_ids::PrefabId,
+    ) -> Result<Self, GameplayPrefabLineageError> {
+        let definition = registry
+            .as_registry()
+            .definitions
+            .iter()
+            .find(|definition| definition.id == expanded_prefab)
+            .ok_or(GameplayPrefabLineageError::MissingExpandedPrefab(
+                expanded_prefab,
+            ))?;
+        let expected_authored_prefab = definition
+            .variant
+            .as_ref()
+            .map_or(definition.id, |variant| variant.base);
+        if authored_prefab != expected_authored_prefab {
+            return Err(GameplayPrefabLineageError::AuthoredPrefabMismatch {
+                expanded_prefab,
+                authored_prefab,
+                expected_authored_prefab,
+            });
+        }
+        Ok(Self {
+            expanded_prefab,
+            authored_prefab: expected_authored_prefab,
+        })
+    }
 }
 
 impl GameplayBindingEntityTargets {
@@ -85,26 +143,25 @@ impl GameplayBindingEntityTargets {
             scene_instance_id.into(),
             GameplayBindingPrefabInstanceTarget {
                 instance,
-                authored_prefab: None,
+                lineage: None,
             },
         );
         self
     }
 
-    /// Bind the stable scene identity and the base prefab selected by authored
-    /// content. Runtime expansion may instantiate a concrete named-variant
-    /// definition, but gameplay bindings continue to target the stored base.
-    pub fn bind_authored_prefab_instance(
+    /// Bind a scene identity to lineage already proven against the closed
+    /// prefab registry. Callers cannot assert an unrelated authored base.
+    pub fn bind_validated_prefab_instance(
         &mut self,
         scene_instance_id: impl Into<String>,
         instance: PrefabInstanceId,
-        authored_prefab: core_ids::PrefabId,
+        lineage: ValidatedGameplayPrefabLineage,
     ) -> &mut Self {
         self.prefab_instances.insert(
             scene_instance_id.into(),
             GameplayBindingPrefabInstanceTarget {
                 instance,
-                authored_prefab: Some(authored_prefab),
+                lineage: Some(lineage),
             },
         );
         self
@@ -125,7 +182,11 @@ impl GameplayBindingEntityTargets {
     ) -> bool {
         expanded_prefab == expected_prefab
             || self.prefab_instances.values().any(|target| {
-                target.instance == instance && target.authored_prefab == Some(expected_prefab)
+                target.instance == instance
+                    && target.lineage.is_some_and(|lineage| {
+                        lineage.expanded_prefab == expanded_prefab
+                            && lineage.authored_prefab == expected_prefab
+                    })
             })
     }
 
@@ -977,8 +1038,9 @@ fn validate_overrides<'a>(
             _ => None,
         };
         let binding_prefab = prefab_target
-            .authored_prefab
-            .unwrap_or(instance.record.prefab);
+            .lineage
+            .filter(|lineage| lineage.expanded_prefab == instance.record.prefab)
+            .map_or(instance.record.prefab, |lineage| lineage.authored_prefab);
         if target_prefab != Some(binding_prefab) {
             diagnostics.push(diag(
                 GameplayModuleBindingDiagnosticCode::InvalidOverride,

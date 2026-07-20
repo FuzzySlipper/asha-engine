@@ -24,7 +24,7 @@ use svc_project_content::{
 use svc_serialization::{
     LoadPlan, LoadStep, PrefabDefinition, PrefabInstanceRecord, PrefabPart, PrefabPartReference,
     PrefabPartRoleBinding, PrefabPartSource, PrefabRegistry, PrefabRegistryValidationContext,
-    PrefabTransform, ValidatedPrefabRegistry, PREFAB_DEFINITION_SCHEMA_VERSION,
+    PrefabTransform, PrefabVariantDelta, ValidatedPrefabRegistry, PREFAB_DEFINITION_SCHEMA_VERSION,
     PREFAB_REGISTRY_SCHEMA_VERSION,
 };
 
@@ -502,6 +502,16 @@ fn root_event_for(value: u64, target: Option<EntityId>, event_id: &str) -> Gamep
 }
 
 fn loaded_bundle() -> ProjectBundleLoadResult {
+    loaded_bundle_with_prefabs(false).0
+}
+
+fn loaded_variant_bundle() -> (ProjectBundleLoadResult, ValidatedPrefabRegistry) {
+    loaded_bundle_with_prefabs(true)
+}
+
+fn loaded_bundle_with_prefabs(
+    use_named_variants: bool,
+) -> (ProjectBundleLoadResult, ValidatedPrefabRegistry) {
     let scene = SceneTree {
         id: SceneId::new(90),
         schema_version: 1,
@@ -560,6 +570,24 @@ fn loaded_bundle() -> ProjectBundleLoadResult {
         }],
         variant: None,
     };
+    let mut definitions = vec![prefab];
+    if use_named_variants {
+        for (id, variant_id) in [(11, "blue"), (12, "red")] {
+            definitions.push(PrefabDefinition {
+                id: PrefabId::new(id),
+                schema_version: PREFAB_DEFINITION_SCHEMA_VERSION,
+                display_name: format!("Turret {variant_id}"),
+                parts: Vec::new(),
+                part_roles: Vec::new(),
+                variant: Some(PrefabVariantDelta {
+                    variant_id: variant_id.to_owned(),
+                    base: PrefabId::new(10),
+                    removed_roles: Vec::new(),
+                    overrides: Vec::new(),
+                }),
+            });
+        }
+    }
     let context = PrefabRegistryValidationContext {
         entity_definition_ids: ["weapon.muzzle".to_owned()].into_iter().collect(),
         ..Default::default()
@@ -567,11 +595,16 @@ fn loaded_bundle() -> ProjectBundleLoadResult {
     let registry = ValidatedPrefabRegistry::new(
         PrefabRegistry {
             schema_version: PREFAB_REGISTRY_SCHEMA_VERSION,
-            definitions: vec![prefab],
+            definitions,
         },
         &context,
     )
     .unwrap();
+    let placed_prefabs = if use_named_variants {
+        [11, 12]
+    } else {
+        [10, 10]
+    };
     let catalog = PrefabInstantiationCatalog::from(&context);
     let entities = bundle.runtime_entities.get_or_insert_default();
     bundle
@@ -585,7 +618,7 @@ fn loaded_bundle() -> ProjectBundleLoadResult {
                 origin: PrefabPlacementOrigin::Authored,
                 record: PrefabInstanceRecord {
                     instance: PrefabInstanceId::new(20),
-                    prefab: PrefabId::new(10),
+                    prefab: PrefabId::new(placed_prefabs[0]),
                     seed: 4,
                     transform: PrefabTransform::IDENTITY,
                     overrides: Vec::new(),
@@ -604,7 +637,7 @@ fn loaded_bundle() -> ProjectBundleLoadResult {
                 origin: PrefabPlacementOrigin::Authored,
                 record: PrefabInstanceRecord {
                     instance: PrefabInstanceId::new(21),
-                    prefab: PrefabId::new(10),
+                    prefab: PrefabId::new(placed_prefabs[1]),
                     seed: 5,
                     transform: PrefabTransform::IDENTITY,
                     overrides: Vec::new(),
@@ -617,12 +650,12 @@ fn loaded_bundle() -> ProjectBundleLoadResult {
         .resolve_part(
             PrefabInstanceId::new(20),
             &PrefabPartReference {
-                prefab: PrefabId::new(10),
+                prefab: PrefabId::new(placed_prefabs[0]),
                 role: "weapon/muzzle".to_owned(),
             },
         )
         .is_some());
-    bundle
+    (bundle, registry)
 }
 
 fn configuration(id: &str, value: u64) -> GameplayModuleConfiguration {
@@ -688,20 +721,29 @@ fn binding_targets() -> GameplayBindingEntityTargets {
 
 #[test]
 fn stored_base_prefab_identity_survives_concrete_variant_expansion() {
-    let bundle = loaded_bundle();
-    let mut variant_bindings = bindings();
-    let GameplayModuleBindingTarget::PrefabPart { part } = &mut variant_bindings.bindings[1].target
-    else {
-        panic!("fixture keeps the prefab-part binding in slot one");
-    };
-    part.prefab = PrefabId::new(11);
-    variant_bindings.registry_hash = gameplay_module_binding_registry_hash(&variant_bindings);
+    let (bundle, registry) = loaded_variant_bundle();
+    let variant_bindings = bindings();
 
     let mut targets = GameplayBindingEntityTargets::new();
-    targets.bind_authored_prefab_instance(
+    targets.bind_validated_prefab_instance(
         "fixture.turret.20",
         PrefabInstanceId::new(20),
-        PrefabId::new(11),
+        ValidatedGameplayPrefabLineage::from_registry(
+            &registry,
+            PrefabId::new(11),
+            PrefabId::new(10),
+        )
+        .unwrap(),
+    );
+    targets.bind_validated_prefab_instance(
+        "fixture.turret.21",
+        PrefabInstanceId::new(21),
+        ValidatedGameplayPrefabLineage::from_registry(
+            &registry,
+            PrefabId::new(12),
+            PrefabId::new(10),
+        )
+        .unwrap(),
     );
     let session = GameplayBoundProjectBundleSession::activate(
         bundle.clone(),
@@ -710,23 +752,41 @@ fn stored_base_prefab_identity_survives_concrete_variant_expansion() {
         &targets,
     )
     .expect("stored base identity resolves the expanded variant's real part role");
-    assert!(session.activation.readouts.iter().any(|readout| {
-        readout.binding_id == "muzzle-counter"
-            && readout.configuration_id == "turret-20"
-            && readout.active
-    }));
+    let variant_readouts = session
+        .activation
+        .readouts
+        .iter()
+        .filter(|readout| readout.binding_id == "muzzle-counter" && readout.active)
+        .collect::<Vec<_>>();
+    assert_eq!(variant_readouts.len(), 2);
+    assert!(variant_readouts
+        .iter()
+        .any(|readout| readout.configuration_id == "turret-20"));
+    assert!(variant_readouts
+        .iter()
+        .any(|readout| readout.configuration_id == "default"));
 
-    let mut unrelated = GameplayBindingEntityTargets::new();
-    unrelated.bind_authored_prefab_instance(
-        "fixture.turret.20",
-        PrefabInstanceId::new(20),
-        PrefabId::new(12),
-    );
+    assert!(matches!(
+        ValidatedGameplayPrefabLineage::from_registry(
+            &registry,
+            PrefabId::new(11),
+            PrefabId::new(12),
+        ),
+        Err(GameplayPrefabLineageError::AuthoredPrefabMismatch { .. })
+    ));
+    let mut unrelated_bindings = variant_bindings;
+    let GameplayModuleBindingTarget::PrefabPart { part } =
+        &mut unrelated_bindings.bindings[1].target
+    else {
+        panic!("fixture keeps the prefab-part binding in slot one");
+    };
+    part.prefab = PrefabId::new(99);
+    unrelated_bindings.registry_hash = gameplay_module_binding_registry_hash(&unrelated_bindings);
     let error = GameplayBoundProjectBundleSession::activate(
         bundle,
         composition(),
-        variant_bindings,
-        &unrelated,
+        unrelated_bindings,
+        &targets,
     );
     let error = match error {
         Ok(_) => panic!("an unrelated stored prefab cannot borrow the variant instance"),

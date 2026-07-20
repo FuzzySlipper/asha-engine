@@ -10,7 +10,7 @@ use core_entity::EntityStore;
 use core_ids::{PrefabId, PrefabInstanceId};
 use rule_project_bundle::{
     InstantiatePrefabCommand, PrefabInstantiationCatalog, PrefabPlacementOrigin,
-    ProjectBundleLoadResult,
+    ProjectBundleLoadResult, ValidatedGameplayPrefabLineage,
 };
 use serde::{Deserialize, Serialize};
 use svc_serialization::{
@@ -22,7 +22,7 @@ use crate::GameplayRuntimeHostError;
 
 type AppliedPrefabBootstrap = (
     ValidatedPrefabRegistry,
-    Vec<(String, PrefabInstanceId, PrefabId)>,
+    Vec<(String, PrefabInstanceId, ValidatedGameplayPrefabLineage)>,
 );
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -189,6 +189,13 @@ pub(crate) fn apply_prefab_bootstrap(
             ));
         }
         let runtime_instance = PrefabInstanceId::new(placement.instance);
+        let expanded_prefab = PrefabId::new(placement.prefab);
+        let lineage = ValidatedGameplayPrefabLineage::from_registry(
+            &registry,
+            expanded_prefab,
+            PrefabId::new(placement.authored_prefab),
+        )
+        .map_err(|error| GameplayRuntimeHostError::Prefab(error.to_string()))?;
         bundle
             .prefab_instances
             .instantiate(
@@ -200,7 +207,7 @@ pub(crate) fn apply_prefab_bootstrap(
                     origin: placement.origin.into(),
                     record: PrefabInstanceRecord {
                         instance: runtime_instance,
-                        prefab: PrefabId::new(placement.prefab),
+                        prefab: expanded_prefab,
                         seed: placement.seed,
                         transform: placement.transform.into(),
                         overrides: placement.overrides.into_iter().map(Into::into).collect(),
@@ -208,11 +215,7 @@ pub(crate) fn apply_prefab_bootstrap(
                 },
             )
             .map_err(|error| GameplayRuntimeHostError::Prefab(error.to_string()))?;
-        scene_instances.push((
-            placement.scene_instance_id,
-            runtime_instance,
-            PrefabId::new(placement.authored_prefab),
-        ));
+        scene_instances.push((placement.scene_instance_id, runtime_instance, lineage));
     }
     Ok((registry, scene_instances))
 }
@@ -613,6 +616,36 @@ mod tests {
       { "role": "interaction/sensor", "part": 2 }
     ],
     "variant": null
+  }, {
+    "id": 71,
+    "schemaVersion": 1,
+    "displayName": "Public console blue",
+    "parts": [],
+    "partRoles": [],
+    "variant": {
+      "variantId": "blue",
+      "base": 70,
+      "removedRoles": [],
+      "overrides": [{
+        "targetRole": "console/body",
+        "value": { "field": "entityDefinition", "stableId": "fixture.console.body.blue" }
+      }]
+    }
+  }, {
+    "id": 72,
+    "schemaVersion": 1,
+    "displayName": "Public console red",
+    "parts": [],
+    "partRoles": [],
+    "variant": {
+      "variantId": "red",
+      "base": 70,
+      "removedRoles": [],
+      "overrides": [{
+        "targetRole": "console/body",
+        "value": { "field": "entityDefinition", "stableId": "fixture.console.body.red" }
+      }]
+    }
   }]
 }"#
             .to_owned(),
@@ -776,6 +809,24 @@ mod tests {
             restored.readout().runtime_host_hash,
             host.readout().runtime_host_hash
         );
+    }
+
+    #[test]
+    fn public_prefab_bootstrap_rejects_unproven_authored_lineage_before_activation() {
+        let mut bootstrap = prefab_bootstrap();
+        bootstrap.placements[0].prefab = 71;
+        bootstrap.placements[0].authored_prefab = 72;
+        let error = match GameplayRuntimeHost::activate_project_with_prefabs(
+            prefab_project_input(),
+            bootstrap,
+        ) {
+            Ok(_) => {
+                panic!("a concrete blue variant cannot claim the red variant as its authored base")
+            }
+            Err(error) => error,
+        };
+        assert!(matches!(error, GameplayRuntimeHostError::Prefab(_)));
+        assert!(error.to_string().contains("AuthoredPrefabMismatch"));
     }
 
     #[test]
