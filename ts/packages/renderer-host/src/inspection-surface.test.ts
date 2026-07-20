@@ -66,6 +66,48 @@ void test('inspection surface retains accepted frames, fails closed on malformed
   assert.deepEqual(harness.backend.sizes.at(-1), { width: 1200, height: 700, pixelRatio: 2 });
 });
 
+void test('inspection input fail-safes clear latched movement and drag before rendering resumes', () => {
+  const cases = [
+    {
+      name: 'window blur',
+      interrupt: (harness: ReturnType<typeof createInspectionHarness>) => {
+        harness.window.emit('blur', event());
+      },
+    },
+    {
+      name: 'document visibility loss',
+      interrupt: (harness: ReturnType<typeof createInspectionHarness>) => {
+        harness.document.visibilityState = 'hidden';
+        harness.document.emit('visibilitychange', event());
+      },
+    },
+    {
+      name: 'pointer cancellation',
+      interrupt: (harness: ReturnType<typeof createInspectionHarness>) => {
+        harness.canvas.emit('pointercancel', pointerEvent(0));
+      },
+    },
+  ] as const;
+
+  for (const lifecycleCase of cases) {
+    const harness = createInspectionHarness({ autoStart: false });
+    harness.canvas.emit('pointerdown', pointerEvent(0));
+    harness.document.emit('keydown', keyboardEvent('KeyW'));
+    assert.equal(harness.surface.readout().dragging, true, lifecycleCase.name);
+    assert.deepEqual(harness.surface.readout().pressedMovementKeys, ['KeyW'], lifecycleCase.name);
+    const cameraBeforeInterrupt = harness.surface.camera();
+
+    lifecycleCase.interrupt(harness);
+    assert.equal(harness.surface.readout().dragging, false, lifecycleCase.name);
+    assert.deepEqual(harness.surface.readout().pressedMovementKeys, [], lifecycleCase.name);
+
+    harness.document.emit('mousemove', mouseMoveEvent(80, 40));
+    harness.surface.renderOnce(1000);
+    assert.deepEqual(harness.surface.camera(), cameraBeforeInterrupt, lifecycleCase.name);
+    harness.surface.dispose();
+  }
+});
+
 void test('inspection surface start stop and disposal release animation input renderer and resize resources', () => {
   const harness = createInspectionHarness({ autoStart: true });
   assert.equal(harness.surface.readout().status, 'running');
@@ -94,6 +136,7 @@ void test('inspection surface start stop and disposal release animation input re
   assert.deepEqual(harness.surface.camera(), cameraBeforeDispose);
   assert.equal(harness.canvas.listenerCount(), 0);
   assert.equal(harness.document.listenerCount(), 0);
+  assert.equal(harness.window.listenerCount(), 0);
 });
 
 void test('inspection surface rejects a malformed initial frame and disposes the prepared viewport', () => {
@@ -117,6 +160,7 @@ void test('inspection surface rejects a malformed initial frame and disposes the
   assert.equal(resizeObserver.disconnects, 1);
   assert.equal(canvas.listenerCount(), 0);
   assert.equal(document.listenerCount(), 0);
+  assert.equal(document.window.listenerCount(), 0);
 });
 
 function createInspectionHarness(options: {
@@ -138,7 +182,7 @@ function createInspectionHarness(options: {
     },
     inspectionEnvironment(animation, resizeObserver),
   );
-  return { animation, backend, canvas, document, resizeObserver, surface };
+  return { animation, backend, canvas, document, resizeObserver, surface, window: document.window };
 }
 
 function inspectionEnvironment(
@@ -227,6 +271,12 @@ class FakeEventSource {
 
 class FakeDocument extends FakeEventSource {
   activeElement: Element | null = null;
+  visibilityState: DocumentVisibilityState = 'visible';
+  readonly window = new FakeEventSource();
+
+  get defaultView(): Window {
+    return this.window as unknown as Window;
+  }
 }
 
 class FakeCanvas extends FakeEventSource {
@@ -255,6 +305,10 @@ function pointerEvent(button: number): PointerEvent {
     button,
     preventDefault: () => undefined,
   } as unknown as PointerEvent;
+}
+
+function event(): Event {
+  return {} as Event;
 }
 
 function mouseMoveEvent(movementX: number, movementY: number): MouseEvent {

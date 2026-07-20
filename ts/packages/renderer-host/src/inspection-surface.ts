@@ -301,6 +301,7 @@ function createInspectionControls(
   let dragging = false;
   const pressedKeys = new Set<string>();
   const ownerDocument = canvas.ownerDocument;
+  const ownerWindow = ownerDocument.defaultView;
 
   if (canvas.tabIndex < 0) {
     canvas.tabIndex = 0;
@@ -368,20 +369,28 @@ function createInspectionControls(
     event.preventDefault();
     pressedKeys.delete(event.code);
   };
-  const onBlur = (): void => {
+  const clearInputState = (): void => {
     dragging = false;
     pressedKeys.clear();
+  };
+  const onVisibilityChange = (): void => {
+    if (ownerDocument.visibilityState !== 'visible') {
+      clearInputState();
+    }
   };
 
   if (!commitCamera(target, yawRadians, pitchRadians)) {
     throw new TypeError('inspection camera was rejected during mount');
   }
   canvas.addEventListener('pointerdown', onPointerDown);
-  canvas.addEventListener('blur', onBlur);
+  canvas.addEventListener('pointercancel', clearInputState);
+  canvas.addEventListener('blur', clearInputState);
   ownerDocument.addEventListener('pointerup', onPointerUp);
   ownerDocument.addEventListener('mousemove', onMouseMove);
   ownerDocument.addEventListener('keydown', onKeyDown);
   ownerDocument.addEventListener('keyup', onKeyUp);
+  ownerDocument.addEventListener('visibilitychange', onVisibilityChange);
+  ownerWindow?.addEventListener('blur', clearInputState);
 
   return {
     camera: () => camera,
@@ -403,13 +412,15 @@ function createInspectionControls(
     },
     dispose: () => {
       canvas.removeEventListener('pointerdown', onPointerDown);
-      canvas.removeEventListener('blur', onBlur);
+      canvas.removeEventListener('pointercancel', clearInputState);
+      canvas.removeEventListener('blur', clearInputState);
       ownerDocument.removeEventListener('pointerup', onPointerUp);
       ownerDocument.removeEventListener('mousemove', onMouseMove);
       ownerDocument.removeEventListener('keydown', onKeyDown);
       ownerDocument.removeEventListener('keyup', onKeyUp);
-      dragging = false;
-      pressedKeys.clear();
+      ownerDocument.removeEventListener('visibilitychange', onVisibilityChange);
+      ownerWindow?.removeEventListener('blur', clearInputState);
+      clearInputState();
     },
   };
 }
