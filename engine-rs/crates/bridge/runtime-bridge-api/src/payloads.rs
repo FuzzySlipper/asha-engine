@@ -90,40 +90,6 @@ impl EnemyDirectNavMovementError {
     }
 }
 
-// QUARANTINED PROTOTYPE (asha.compat.wave1.prototype-project-bundle-bridge-dtos):
-// these stand in for the generated
-// `protocol_project_bundle::{ProjectBundleManifest, SaveSummary}` /
-// `protocol_diagnostics::DiagnosticReportSet` contract types named in the
-// manifest. The *shape* of the load/save verbs is the stable part. Demo #5737
-// and Studio #5736/#5733 own downstream migration; remove these facade
-// overrides in the matching upstream contract revision once those consumers
-// use the generated contracts.
-
-/// A bounded request to load a ProjectBundle. Identifies the bundle and its
-/// versions; the runtime resolves artifacts itself (never a raw path or JSON).
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct ProjectBundleLoadRequest {
-    pub bundle_schema_version: u32,
-    pub protocol_version: u32,
-    /// The scene identity the bundle bootstraps (stand-in for the full manifest).
-    pub scene_id: u64,
-}
-
-/// A bounded composition status / diagnostics summary (load + save).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CompositionStatus {
-    /// The currently-loaded ProjectBundle scene identity, or `None` if empty.
-    pub loaded_project_bundle: Option<u64>,
-    /// Number of `Fatal` composition diagnostics.
-    pub fatal_count: u32,
-    /// Total composition diagnostics.
-    pub total_count: u32,
-    /// Whether the diagnostics block a load.
-    pub blocks_load: bool,
-}
-
 pub use protocol_project_bundle::{
     ActiveRuntimeProjectIdentity, ProjectArtifactRelocation, ProjectResourceBeginRequest,
     ProjectResourceStageRequest, ProjectResourceTransactionReceipt, ProjectSourceBatchDiagnostic,
@@ -141,26 +107,6 @@ pub use protocol_project_bundle::{
     WorkspaceAuthoringStateSummary, WorkspaceAuthoringStoredConfirmationReceipt,
     WorkspaceAuthoringStoredConfirmationRequest,
 };
-
-impl CompositionStatus {
-    /// An empty, clean status (no ProjectBundle loaded, no diagnostics).
-    pub fn empty() -> Self {
-        Self {
-            loaded_project_bundle: None,
-            fatal_count: 0,
-            total_count: 0,
-            blocks_load: false,
-        }
-    }
-}
-
-/// A bounded summary of a save through the real save/compaction path.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ProjectBundleSaveSummary {
-    pub artifacts_written: u32,
-    pub compacted_edits: u32,
-    pub retained_edits: u32,
-}
 
 // ── Command submission payloads (launchable-voxel, #2436) ─────────────────────
 //
@@ -684,10 +630,9 @@ pub struct VoxelMeshEvidenceSnapshot {
 
 // ── FPS/ECRP RuntimeSession authority payloads (#4347) ───────────────────────
 //
-// These DTOs are the narrow public bridge shape for the FPS RuntimeSession
-// substrate. Stored definitions enter as typed data, Rust validates/bootstrap
-// them through rule-lifecycle/svc-entity-authoring, and readouts project typed
-// authority state. There is no generic ProjectBundle JSON tunnel here.
+// These DTOs are the narrow public intent and readout shape for an FPS domain
+// activated by canonical project admission. Runtime topology never enters
+// through this surface.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FpsBridgeRole {
@@ -706,98 +651,10 @@ impl FpsBridgeRole {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct FpsBridgeTransformCapability {
-    pub translation: [f32; 3],
-    pub rotation: [f32; 4],
-    pub scale: [f32; 3],
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct FpsBridgeBoundsCapability {
-    /// Authored world-space AABB at the accompanying transform. Admission
-    /// normalizes it into EntityStore-local bounds so movement, collision,
-    /// triggers, and combat all sample one current transform.
-    pub min: [f32; 3],
-    pub max: [f32; 3],
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FpsBridgeHealth {
     pub current: u32,
     pub max: u32,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FpsBridgeWeaponMount {
-    pub weapon_id: String,
-    pub damage: u32,
-    pub range_units: u32,
-    pub ammo: u32,
-    pub cooldown_ticks_after_fire: u32,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FpsBridgePolicyBinding {
-    pub binding_id: String,
-    pub policy_id: String,
-    pub view_kind: String,
-    pub view_version: String,
-    pub allowed_intents: Vec<String>,
-    pub runtime_moment: String,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct FpsBridgeStoredEntityDefinition {
-    pub entity: u64,
-    pub stable_id: String,
-    pub display_name: String,
-    pub source_path: String,
-    pub tags: Vec<String>,
-    pub role: FpsBridgeRole,
-    pub transform: Option<FpsBridgeTransformCapability>,
-    pub bounds: Option<FpsBridgeBoundsCapability>,
-    pub render_visible: Option<bool>,
-    pub static_collider: Option<bool>,
-    pub health: Option<FpsBridgeHealth>,
-    pub weapon: Option<FpsBridgeWeaponMount>,
-    pub policy_binding: Option<FpsBridgePolicyBinding>,
-}
-
-/// One generator provider/preset identity present in the validated
-/// ProjectBundle registry. This is deliberately independent of the scene that
-/// requests the preset during bootstrap.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct FpsBootstrapGeneratorPresetIdentity {
-    pub provider_id: String,
-    pub preset_id: String,
-}
-
-/// Immutable ProjectBundle identities available to FPS scene bootstrap.
-///
-/// The scene contains references; this registry contains the independently
-/// validated identities those references are allowed to resolve to. Keeping
-/// both in the public request prevents a scene from authorizing its own
-/// provider, catalog, or prefab references. Marker identity is self-contained
-/// scene content and is derived from typed marker nodes during validation.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct FpsBootstrapResolutionRegistry {
-    pub schema_version: u32,
-    pub entity_definition_ids: Vec<String>,
-    pub prefab_ids: Vec<u64>,
-    pub generator_presets: Vec<FpsBootstrapGeneratorPresetIdentity>,
-    pub catalog_ids: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct FpsRuntimeSessionLoadRequest {
-    pub project_bundle: String,
-    pub bootstrap_resolution_registry: FpsBootstrapResolutionRegistry,
-    pub definitions: Vec<FpsBridgeStoredEntityDefinition>,
-    pub scene_document: FlatSceneDocumentDto,
-    pub game_rule_modules: Vec<GameRuleModuleManifest>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

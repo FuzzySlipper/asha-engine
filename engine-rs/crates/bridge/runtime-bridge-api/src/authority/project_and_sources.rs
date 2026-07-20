@@ -46,13 +46,13 @@ impl std::error::Error for RuntimeProjectLoadError {}
 impl EngineBridge {
     pub fn runtime_project_lifecycle_version(&self) -> RuntimeProjectLifecycleVersion {
         RuntimeProjectLifecycleVersion {
-            generation: self.bundle.runtime_project_generation,
-            revision: self.bundle.runtime_project_revision,
+            generation: self.runtime_project.runtime_project_generation,
+            revision: self.runtime_project.runtime_project_revision,
         }
     }
 
     pub fn active_runtime_project(&self) -> Option<RuntimeProjectActivationReceipt> {
-        self.bundle
+        self.runtime_project
             .active_runtime_project
             .as_ref()
             .map(|active| RuntimeProjectActivationReceipt {
@@ -74,12 +74,16 @@ impl EngineBridge {
         &self,
     ) -> BridgeResult<ActiveRuntimeProjectContentReadoutDto> {
         self.require_initialized("read_active_runtime_project_content")?;
-        let active = self.bundle.active_runtime_project.as_ref().ok_or_else(|| {
-            RuntimeBridgeError::new(
+        let active = self
+            .runtime_project
+            .active_runtime_project
+            .as_ref()
+            .ok_or_else(|| {
+                RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
                 "read_active_runtime_project_content called without an active canonical project",
             )
-        })?;
+            })?;
         let host = self.gameplay.static_gameplay_host.as_ref().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::Internal,
@@ -151,13 +155,13 @@ impl EngineBridge {
                 actual,
             });
         }
-        if let Some(active) = &self.bundle.active_runtime_project {
+        if let Some(active) = &self.runtime_project.active_runtime_project {
             return self.reject_pending_runtime_project(RuntimeProjectLoadError::AlreadyActive {
                 project_id: active.project_id,
                 lifecycle: actual,
             });
         }
-        let engine = match self.bundle.engine {
+        let engine = match self.runtime_project.engine {
             Some(engine) => engine,
             None => {
                 return self.reject_pending_runtime_project(RuntimeProjectLoadError::NotInitialized)
@@ -172,14 +176,14 @@ impl EngineBridge {
             }
         };
         let domain_adapter = self.gameplay.static_project_domain_adapter;
-        let source = match self.bundle.pending_project_source.take() {
+        let source = match self.runtime_project.pending_project_source.take() {
             Some(source) => source,
             None => {
                 return self
                     .reject_pending_runtime_project(RuntimeProjectLoadError::MissingAdmittedSource)
             }
         };
-        self.bundle.project_resource_staging.reset();
+        self.runtime_project.project_resource_staging.reset();
 
         let admission =
             gameplay_runtime_host::compile_runtime_project_admission(source, composition.clone())
@@ -326,10 +330,9 @@ impl EngineBridge {
             voxel_bindings: active.voxel_bindings.clone(),
             lifecycle,
         };
-        staged.bundle.runtime_project_generation = lifecycle.generation;
-        staged.bundle.runtime_project_revision = lifecycle.revision;
-        staged.bundle.loaded_project_bundle = Some(entry_scene.id.raw());
-        staged.bundle.active_runtime_project = Some(active);
+        staged.runtime_project.runtime_project_generation = lifecycle.generation;
+        staged.runtime_project.runtime_project_revision = lifecycle.revision;
+        staged.runtime_project.active_runtime_project = Some(active);
         *self = staged;
         Ok(receipt)
     }
@@ -343,12 +346,12 @@ impl EngineBridge {
             return Err(RuntimeProjectLoadError::StaleLifecycle { expected, actual });
         }
         let active = self
-            .bundle
+            .runtime_project
             .active_runtime_project
             .clone()
             .ok_or(RuntimeProjectLoadError::NoActiveProject)?;
         let engine = self
-            .bundle
+            .runtime_project
             .engine
             .ok_or(RuntimeProjectLoadError::NotInitialized)?;
         let composition = self
@@ -370,8 +373,8 @@ impl EngineBridge {
             generation: actual.generation,
             revision: actual.revision.saturating_add(1),
         };
-        unloaded.bundle.runtime_project_generation = lifecycle.generation;
-        unloaded.bundle.runtime_project_revision = lifecycle.revision;
+        unloaded.runtime_project.runtime_project_generation = lifecycle.generation;
+        unloaded.runtime_project.runtime_project_revision = lifecycle.revision;
         let receipt = RuntimeProjectUnloadReceipt {
             project_id: active.project_id,
             manifest_hash: active.manifest_hash,
@@ -385,8 +388,8 @@ impl EngineBridge {
         &mut self,
         error: RuntimeProjectLoadError,
     ) -> Result<T, RuntimeProjectLoadError> {
-        self.bundle.pending_project_source = None;
-        self.bundle.project_resource_staging.reset();
+        self.runtime_project.pending_project_source = None;
+        self.runtime_project.project_resource_staging.reset();
         Err(error)
     }
 
@@ -399,7 +402,7 @@ impl EngineBridge {
         manifest_json: &str,
     ) -> BridgeResult<svc_serialization::ProjectResourceTransaction> {
         self.require_initialized("begin_runtime_project_source_resources")?;
-        self.bundle
+        self.runtime_project
             .project_resource_staging
             .begin_for_manifest(manifest_json)
             .map_err(project_source_bridge_error)
@@ -414,7 +417,7 @@ impl EngineBridge {
         bytes: Vec<u8>,
     ) -> BridgeResult<svc_serialization::StagedProjectResource> {
         self.require_initialized("stage_runtime_project_source_resource")?;
-        self.bundle
+        self.runtime_project
             .project_resource_staging
             .stage(transaction, path, bytes)
             .map_err(project_source_bridge_error)
@@ -431,7 +434,7 @@ impl EngineBridge {
         bytes: Vec<u8>,
     ) -> BridgeResult<svc_serialization::StagedProjectResource> {
         self.require_initialized("stage_runtime_project_source_resource_generation")?;
-        self.bundle
+        self.runtime_project
             .project_resource_staging
             .stage_generation(generation, path, bytes)
             .map_err(project_source_bridge_error)
@@ -449,7 +452,7 @@ impl EngineBridge {
         let service_batch = service_project_source_batch(batch);
         let validated = match svc_serialization::validate_runtime_project_source_batch(
             &service_batch,
-            &mut self.bundle.project_resource_staging,
+            &mut self.runtime_project.project_resource_staging,
         ) {
             Ok(validated) => validated,
             Err(error) => {
@@ -465,7 +468,7 @@ impl EngineBridge {
         };
         let manifest_hash = validated.manifest_hash().to_hex();
         let paths = validated.paths().map(str::to_string).collect();
-        let admitted = match validated.commit(&mut self.bundle.project_resource_staging) {
+        let admitted = match validated.commit(&mut self.runtime_project.project_resource_staging) {
             Ok(admitted) => admitted,
             Err(error) => {
                 return Ok(
@@ -478,7 +481,7 @@ impl EngineBridge {
                 );
             }
         };
-        self.bundle.pending_project_source = Some(admitted);
+        self.runtime_project.pending_project_source = Some(admitted);
         Ok(
             protocol_project_bundle::ProjectSourceBatchValidationReceipt {
                 accepted: true,
@@ -493,99 +496,7 @@ impl EngineBridge {
     pub(super) fn pending_project_source(
         &self,
     ) -> Option<&svc_serialization::AdmittedRuntimeProjectSourceBatch> {
-        self.bundle.pending_project_source.as_ref()
-    }
-
-    pub(super) fn load_project_bundle_authority(
-        &mut self,
-        request: ProjectBundleLoadRequest,
-    ) -> BridgeResult<CompositionStatus> {
-        if self.bundle.active_runtime_project.is_some() {
-            return Err(RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::InvalidInput,
-                "legacy project-bundle loading cannot replace an active admitted project; use explicit unload/switch",
-            ));
-        }
-        // Fail closed on a newer bundle; the prior loaded ProjectBundle is left untouched.
-        if request.bundle_schema_version > ENGINE_SUPPORTED_BUNDLE_VERSION
-            || request.protocol_version > ENGINE_SUPPORTED_PROTOCOL_VERSION
-        {
-            return Err(RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::InvalidInput,
-                format!(
-                    "unsupported bundle schema {} / protocol {}",
-                    request.bundle_schema_version, request.protocol_version
-                ),
-            ));
-        }
-        if self.bundle.loaded_project_bundle != Some(request.scene_id) {
-            let teardown = self.projection.voxel_projector.clear();
-            self.projection.pending_voxel_frame.ops.extend(teardown.ops);
-            self.projection.voxel_instance_binding = None;
-        }
-        self.bundle.loaded_project_bundle = Some(request.scene_id);
-        Ok(CompositionStatus {
-            loaded_project_bundle: Some(request.scene_id),
-            ..CompositionStatus::empty()
-        })
-    }
-
-    pub(super) fn save_project_bundle_authority(
-        &mut self,
-    ) -> BridgeResult<ProjectBundleSaveSummary> {
-        if self.bundle.loaded_project_bundle.is_none() {
-            return Err(RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::NotInitialized,
-                "save_project_bundle called with no ProjectBundle loaded",
-            ));
-        }
-        Ok(ProjectBundleSaveSummary {
-            artifacts_written: 3,
-            compacted_edits: 0,
-            retained_edits: 0,
-        })
-    }
-
-    pub(super) fn project_bundle_composition_status_authority(
-        &self,
-    ) -> BridgeResult<CompositionStatus> {
-        Ok(CompositionStatus {
-            loaded_project_bundle: self.bundle.loaded_project_bundle,
-            ..CompositionStatus::empty()
-        })
-    }
-
-    pub(super) fn unload_project_bundle_authority(&mut self) -> BridgeResult<()> {
-        if self.bundle.active_runtime_project.is_some() {
-            let expected = self.runtime_project_lifecycle_version();
-            self.unload_runtime_project(expected).map_err(|error| {
-                RuntimeBridgeError::new(
-                    RuntimeBridgeErrorKind::InvalidInput,
-                    format!("active admitted project unload was rejected: {error}"),
-                )
-            })?;
-            return Ok(());
-        }
-        let teardown = self.projection.voxel_projector.clear();
-        self.projection.pending_voxel_frame.ops.extend(teardown.ops);
-        self.projection.voxel_instance_binding = None;
-        self.bundle.loaded_project_bundle = None;
-        self.bundle.project_resource_staging.reset();
-        self.bundle.pending_project_source = None;
-        self.input.input_session = None;
-        self.scene.entities = EntityStore::new();
-        self.gameplay.fps_session = None;
-        self.gameplay.fps_seed = None;
-        self.gameplay.fps_epoch = 0;
-        self.gameplay.static_gameplay_host = None;
-        self.gameplay.static_project_content_admission = None;
-        self.gameplay.static_gameplay_reset_checkpoint = None;
-        self.gameplay.static_gameplay_base_entities = None;
-        self.gameplay.game_rule_modules.clear();
-        self.gameplay.game_rule_active_modifiers.clear();
-        self.gameplay.game_rule_recent_trace.clear();
-        self.evidence.game_rule_recent_replay_hashes.clear();
-        Ok(())
+        self.runtime_project.pending_project_source.as_ref()
     }
 
     pub(super) fn register_voxel_conversion_mesh_asset_authority(

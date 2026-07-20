@@ -1,586 +1,65 @@
-import { sceneId, sceneNodeId } from '@asha/contracts';
 import type {
   ActiveRuntimeProjectContentReadout,
   EntityDefinition,
   EntityDefinitionCapability,
   FlatSceneDocument,
-  GameRuleHookDeclaration,
-  GameRuleModuleManifest,
-  GameRuleModuleRef,
   SceneNodeRecord,
   SceneTransform,
 } from '@asha/contracts';
 import { lifecycleHealth } from './runtime-session-lifecycle.js';
-import { projectBundleHashRecord, stableHash } from './runtime-session-hash.js';
+import { stableHash } from './runtime-session-hash.js';
 import type {
-  RuntimeSessionEcrpCapabilityKind,
   RuntimeSessionEcrpCapabilityState,
-  RuntimeSessionEcrpEntityDefinition,
   RuntimeSessionEcrpEntityEventReadout,
   RuntimeSessionEcrpEntityReadout,
-  RuntimeSessionEcrpEntityState,
-  RuntimeSessionEcrpProjectCapabilityDefinition,
-  RuntimeSessionEcrpProjectDiagnostic,
-  RuntimeSessionEcrpProjectLoadInput,
-  RuntimeSessionEcrpProjectState,
   RuntimeSessionEcrpRenderTargetIdentity,
-  RuntimeSessionEcrpTransformState,
   RuntimeSessionEcrpReadout,
   RuntimeSessionIdentity,
-  RuntimeSessionInitializeInput,
   RuntimeSessionLifecycleHealthReadout,
+  RuntimeSessionLifecycleRole,
   RuntimeSessionLifecycleState,
 } from '@asha/runtime-session';
 
-export function defaultRuntimeSessionEcrpProjectLoadInput(
-  input: RuntimeSessionInitializeInput & {
-    readonly projectBundle: NonNullable<RuntimeSessionInitializeInput['projectBundle']>;
-  },
-): RuntimeSessionEcrpProjectLoadInput {
-  return {
-    kind: 'runtime_session.load_ecrp_project.v0',
-    projectBundle: {
-      kind: 'ProjectBundle',
-      project: input.project,
-      runtimeRequest: input.projectBundle,
-    },
-    bootstrapResolutionRegistry: {
-      schemaVersion: 1,
-      entityDefinitionIds: [
-        'actor/demo-player',
-        'actor/generated-tunnel-enemy',
-      ],
-      prefabIds: [],
-      generatorPresets: [],
-      catalogIds: [],
-    },
-    entityDefinitions: [
-      {
-        kind: 'EntityDefinition',
-        stableId: 'actor/demo-player',
-        displayName: 'Demo Player',
-        source: {
-          projectBundle: input.project.gameId,
-          relativePath: 'catalogs/actors/demo-player.entity.json',
-        },
-        capabilities: [
-          {
-            kind: 'transform',
-            initial: {
-              position: [0, 1.62, 0],
-              yawDegrees: 0,
-              pitchDegrees: 0,
-            },
-          },
-          {
-            kind: 'collisionBody',
-            halfExtents: [0.5, 1.4, 0.5],
-          },
-          {
-            kind: 'controller',
-            controller: 'player_input',
-          },
-          {
-            kind: 'health',
-            current: 100,
-            max: 100,
-          },
-          {
-            kind: 'weaponMount',
-            weaponId: 'weapon.demo.primary',
-          },
-          {
-            kind: 'renderProjection',
-            projection: 'first_person_camera',
-          },
-          {
-            kind: 'faction',
-            factionId: 'player',
-          },
-        ],
-      },
-      {
-        kind: 'EntityDefinition',
-        stableId: 'actor/generated-tunnel-enemy',
-        displayName: 'Generated Tunnel Enemy',
-        source: {
-          projectBundle: input.project.gameId,
-          relativePath: 'catalogs/actors/generated-tunnel-enemy.entity.json',
-        },
-        capabilities: [
-          {
-            kind: 'transform',
-            initial: {
-              position: [0, 1.1, -3.5],
-              yawDegrees: 180,
-              pitchDegrees: 0,
-            },
-          },
-          {
-            kind: 'collisionBody',
-            halfExtents: [0.7, 1.8, 0.7],
-          },
-          {
-            kind: 'health',
-            current: 40,
-            max: 40,
-          },
-          {
-            kind: 'renderProjection',
-            projection: 'target_cube',
-          },
-          {
-            kind: 'policyBinding',
-            policyId: 'policy.enemy.generated_tunnel.v0',
-          },
-          {
-            kind: 'spawnMarker',
-            markerId: 'spawn.enemy.primary',
-          },
-          {
-            kind: 'faction',
-            factionId: 'hostile',
-          },
-        ],
-      },
-    ],
-    sceneDocument: defaultRuntimeSessionSceneDocument(input.projectBundle.sceneId),
-  };
+export type RuntimeSessionEcrpProjectCapabilityDefinition =
+  | { readonly kind: 'transform'; readonly initial: { readonly position: readonly [number, number, number]; readonly yawDegrees: number; readonly pitchDegrees: number } }
+  | { readonly kind: 'collisionBody'; readonly halfExtents: readonly [number, number, number]; readonly staticCollider?: boolean; readonly policy?: object }
+  | { readonly kind: 'controller'; readonly controller: 'player_input' | 'enemy_policy'; readonly tuning?: object }
+  | { readonly kind: 'health'; readonly current: number; readonly max: number }
+  | { readonly kind: 'weaponMount'; readonly weaponId: string; readonly tuning?: object }
+  | { readonly kind: 'renderProjection'; readonly projection: 'first_person_camera' | 'target_cube' | 'spawn_marker'; readonly visible?: boolean }
+  | { readonly kind: 'policyBinding'; readonly policyId: string; readonly policyLoopRef?: string }
+  | { readonly kind: 'spawnMarker'; readonly markerId: string }
+  | { readonly kind: 'faction'; readonly factionId: string };
+
+export interface RuntimeSessionEcrpEntityDefinition {
+  readonly kind: 'EntityDefinition';
+  readonly stableId: string;
+  readonly displayName: string;
+  readonly source: { readonly projectBundle: string; readonly relativePath: string };
+  readonly capabilities: readonly RuntimeSessionEcrpProjectCapabilityDefinition[];
 }
 
-function defaultRuntimeSessionSceneDocument(id: number): FlatSceneDocument {
-  return {
-    schemaVersion: 4,
-    id: sceneId(id),
-    metadata: {
-      name: 'RuntimeSession default scene',
-      authoringFormatVersion: 4,
-    },
-    dependencies: [],
-    nodes: [
-      runtimeEntitySceneNode({
-        id: 10,
-        label: 'Demo Player',
-        instanceId: 'actor.demo-player.instance',
-        definitionId: 'actor/demo-player',
-        spawnMarkerId: 'spawn.player.start',
-        translation: [0, 0, 0],
-        rotation: [0, 0, 0, 1],
-      }),
-      runtimeEntitySceneNode({
-        id: 20,
-        label: 'Generated Tunnel Enemy',
-        instanceId: 'actor.generated-tunnel-enemy.instance',
-        definitionId: 'actor/generated-tunnel-enemy',
-        spawnMarkerId: 'spawn.enemy.primary',
-        translation: [0, 0, 0],
-        rotation: [0, 0, 0, 1],
-      }),
-      runtimeMarkerSceneNode(30, 'spawn.player.start', [0, 1.62, 0], [0, 0, 0, 1]),
-      runtimeMarkerSceneNode(40, 'spawn.enemy.primary', [0, 1.1, -3.5], [0, 1, 0, 0]),
-    ],
-  };
-}
-
-function runtimeMarkerSceneNode(
-  id: number,
-  markerId: string,
-  translation: readonly [number, number, number],
-  rotation: readonly [number, number, number, number],
-): SceneNodeRecord {
-  return {
-    id: sceneNodeId(id),
-    parent: null,
-    childOrder: id,
-    label: markerId,
-    tags: [],
-    transform: { translation, rotation, scale: [1, 1, 1] },
-    kind: { kind: 'marker', markerId },
-  };
-}
-
-function runtimeEntitySceneNode(input: {
-  readonly id: number;
-  readonly label: string;
+export interface RuntimeSessionEcrpEntityState {
+  readonly entity: number;
   readonly instanceId: string;
-  readonly definitionId: string;
   readonly spawnMarkerId: string | null;
-  readonly translation: readonly [number, number, number];
-  readonly rotation: readonly [number, number, number, number];
-}): SceneNodeRecord {
-  return {
-    id: sceneNodeId(input.id),
-    parent: null,
-    childOrder: input.id,
-    label: input.label,
-    tags: [],
-    transform: {
-      translation: input.translation,
-      rotation: input.rotation,
-      scale: [1, 1, 1],
-    },
-    kind: {
-      kind: 'entityInstance',
-      instance: {
-        instanceId: input.instanceId,
-        reference: {
-          kind: 'entityDefinition',
-          stableId: input.definitionId,
-        },
-        spawnMarkerId: input.spawnMarkerId,
-      },
-    },
-  };
-}
-export function validateEcrpProjectLoadInput(
-  input: RuntimeSessionEcrpProjectLoadInput,
-): readonly RuntimeSessionEcrpProjectDiagnostic[] {
-  const diagnostics: RuntimeSessionEcrpProjectDiagnostic[] = [];
-  if (input === null || typeof input !== 'object' || input.kind !== 'runtime_session.load_ecrp_project.v0') {
-    return [
-      {
-        code: 'missingProjectBundle',
-        path: 'input.kind',
-        detail: 'ECRP project load input kind must be runtime_session.load_ecrp_project.v0',
-      },
-    ];
-  }
-  if (input.projectBundle?.kind !== 'ProjectBundle') {
-    diagnostics.push({
-      code: 'missingProjectBundle',
-      path: 'projectBundle.kind',
-      detail: 'projectBundle.kind must be ProjectBundle',
-    });
-  }
-  validateBootstrapResolutionRegistry(input.bootstrapResolutionRegistry, diagnostics);
-  if (!Array.isArray(input.entityDefinitions) || input.entityDefinitions.length === 0) {
-    diagnostics.push({
-      code: 'emptyEntityDefinitionList',
-      path: 'entityDefinitions',
-      detail: 'at least one EntityDefinition is required',
-    });
-  }
-  validateGameRuleModuleManifests(input.gameRuleModules, diagnostics);
-  const definitions = new Map<string, RuntimeSessionEcrpEntityDefinition>();
-  input.entityDefinitions?.forEach((definition, index) => {
-    if (definition.kind !== 'EntityDefinition' || definition.stableId.trim().length === 0) {
-      diagnostics.push({
-        code: 'missingEntityDefinition',
-        path: `entityDefinitions.${index}.stableId`,
-        detail: 'EntityDefinition stableId is required',
-      });
-      return;
-    }
-    if (definitions.has(definition.stableId)) {
-      diagnostics.push({
-        code: 'duplicateEntityDefinition',
-        path: `entityDefinitions.${index}.stableId`,
-        detail: `duplicate EntityDefinition ${definition.stableId}`,
-      });
-    }
-    definitions.set(definition.stableId, definition);
-    validateEcrpCapabilities(definition, `entityDefinitions.${index}.capabilities`, diagnostics);
-  });
-  if (!isPlainObject(input.sceneDocument) || input.sceneDocument.schemaVersion !== 3 || !isTypedArray(input.sceneDocument.nodes)) {
-    diagnostics.push({
-      code: 'missingPlacement',
-      path: 'sceneDocument.nodes',
-      detail: 'a canonical schema-3 FlatSceneDocument is required',
-    });
-    return diagnostics;
-  }
-  const placedDefinitions = new Set<string>();
-  const instanceIds = new Set<string>();
-  const runtimeIds = new Set<number>();
-  const placements = input.sceneDocument.nodes.filter((node) => node.kind.kind === 'entityInstance');
-  placements.forEach((placement, index) => {
-    if (placement.kind.kind !== 'entityInstance') {
-      return;
-    }
-    const instance = placement.kind.instance;
-    if (instance.reference.kind === 'prefab') {
-      diagnostics.push({
-        code: 'unknownEntityDefinition',
-        path: `sceneDocument.nodes.${index}.kind.instance.reference`,
-        detail: `FPS RuntimeSession does not yet materialize prefab ${instance.reference.prefabId}`,
-      });
-    } else if (!definitions.has(instance.reference.stableId)) {
-      diagnostics.push({
-        code: 'unknownEntityDefinition',
-        path: `sceneDocument.nodes.${index}.kind.instance.reference.stableId`,
-        detail: `scene instance references unknown EntityDefinition ${instance.reference.stableId}`,
-      });
-    } else {
-      placedDefinitions.add(instance.reference.stableId);
-    }
-    if (instanceIds.has(instance.instanceId)) {
-      diagnostics.push({
-        code: 'duplicatePlacement',
-        path: `sceneDocument.nodes.${index}.kind.instance.instanceId`,
-        detail: `duplicate scene instance id ${instance.instanceId}`,
-      });
-    }
-    instanceIds.add(instance.instanceId);
-    if (!Number.isSafeInteger(placement.id) || placement.id <= 0 || runtimeIds.has(placement.id)) {
-      diagnostics.push({
-        code: 'duplicatePlacement',
-        path: `sceneDocument.nodes.${index}.id`,
-        detail: `entity instance node id ${placement.id} must be a unique positive runtime entity id`,
-      });
-    }
-    runtimeIds.add(placement.id);
-  });
-  for (const definition of definitions.values()) {
-    if (!placedDefinitions.has(definition.stableId)) {
-      diagnostics.push({
-        code: 'missingPlacement',
-        path: `sceneDocument.nodes.${definition.stableId}`,
-        detail: `missing canonical scene instance for ${definition.stableId}`,
-      });
-    }
-  }
-  return diagnostics;
+  readonly worldTransform: SceneTransform;
+  readonly definition: RuntimeSessionEcrpEntityDefinition;
+  readonly role: RuntimeSessionLifecycleRole | 'neutral';
 }
 
-function validateBootstrapResolutionRegistry(
-  value: RuntimeSessionEcrpProjectLoadInput['bootstrapResolutionRegistry'] | null | undefined,
-  diagnostics: RuntimeSessionEcrpProjectDiagnostic[],
-): void {
-  if (typeof value !== 'object' || value === null || value.schemaVersion !== 1) {
-    diagnostics.push({
-      code: 'invalidBootstrapResolutionRegistry',
-      path: 'bootstrapResolutionRegistry.schemaVersion',
-      detail: 'a schema-1 bootstrap resolution registry is required',
-    });
-    return;
-  }
-
-  const identifierLists = [
-    ['entityDefinitionIds', value.entityDefinitionIds],
-    ['catalogIds', value.catalogIds],
-  ] as const;
-  for (const [field, identifiers] of identifierLists) {
-    if (!Array.isArray(identifiers)
-      || identifiers.some((identifier) => typeof identifier !== 'string' || identifier.trim() !== identifier || identifier === '')
-      || new Set(identifiers).size !== identifiers.length) {
-      diagnostics.push({
-        code: 'invalidBootstrapResolutionRegistry',
-        path: `bootstrapResolutionRegistry.${field}`,
-        detail: `${field} must contain unique non-empty canonical identifiers`,
-      });
-    }
-  }
-  if (!Array.isArray(value.prefabIds)
-    || value.prefabIds.some((prefabId) => !Number.isSafeInteger(prefabId) || prefabId <= 0)
-    || new Set(value.prefabIds).size !== value.prefabIds.length) {
-    diagnostics.push({
-      code: 'invalidBootstrapResolutionRegistry',
-      path: 'bootstrapResolutionRegistry.prefabIds',
-      detail: 'prefabIds must contain unique positive safe integers',
-    });
-  }
-  if (!isTypedArray(value.generatorPresets)
-    || value.generatorPresets.some((preset) => typeof preset !== 'object'
-      || preset === null
-      || typeof preset.providerId !== 'string'
-      || preset.providerId.trim() !== preset.providerId
-      || preset.providerId === ''
-      || typeof preset.presetId !== 'string'
-      || preset.presetId.trim() !== preset.presetId
-      || preset.presetId === '')
-    || new Set(value.generatorPresets.map((preset) => `${preset.providerId}\u0000${preset.presetId}`)).size
-      !== value.generatorPresets.length) {
-    diagnostics.push({
-      code: 'invalidBootstrapResolutionRegistry',
-      path: 'bootstrapResolutionRegistry.generatorPresets',
-      detail: 'generatorPresets must contain unique provider/preset identities',
-    });
-  }
+export interface RuntimeSessionEcrpTransformState {
+  readonly position: readonly [number, number, number];
+  readonly yawDegrees: number;
+  readonly pitchDegrees: number;
 }
 
-function validateGameRuleModuleManifests(
-  value: readonly GameRuleModuleManifest[] | null | undefined,
-  diagnostics: RuntimeSessionEcrpProjectDiagnostic[],
-): void {
-  if (value === undefined) {
-    return;
-  }
-  if (!isTypedArray(value)) {
-    diagnostics.push({
-      code: 'invalidGameRuleModuleManifest',
-      path: 'gameRuleModules',
-      detail: 'gameRuleModules must be an array of generated GameRuleModuleManifest declarations',
-    });
-    return;
-  }
-  value.forEach((manifest, index) => validateGameRuleModuleManifest(manifest, `gameRuleModules.${index}`, diagnostics));
+export interface RuntimeSessionEcrpProjectState {
+  readonly entities: readonly RuntimeSessionEcrpEntityState[];
+  readonly contentHash: string;
 }
 
-function validateGameRuleModuleManifest(
-  manifest: GameRuleModuleManifest | null | undefined,
-  path: string,
-  diagnostics: RuntimeSessionEcrpProjectDiagnostic[],
-): void {
-  if (!isPlainObject(manifest)) {
-    diagnostics.push({
-      code: 'invalidGameRuleModuleManifest',
-      path,
-      detail: 'GameRuleModuleManifest must be an object',
-    });
-    return;
-  }
-  validateGameRuleModuleRef(manifest['moduleRef'], `${path}.moduleRef`, diagnostics);
-  validateGameRuleHookDeclarations(manifest['declaredHooks'], `${path}.declaredHooks`, diagnostics);
-  validateStringArray(manifest['deterministicRequirements'], `${path}.deterministicRequirements`, diagnostics);
-  validateNonEmptyString(manifest['sourceHash'], `${path}.sourceHash`, 'sourceHash is required', diagnostics);
-}
-
-function validateGameRuleModuleRef(
-  value: GameRuleModuleRef | null | undefined,
-  path: string,
-  diagnostics: RuntimeSessionEcrpProjectDiagnostic[],
-): void {
-  if (!isPlainObject(value)) {
-    diagnostics.push({
-      code: 'invalidGameRuleModuleManifest',
-      path,
-      detail: 'moduleRef must be an object',
-    });
-    return;
-  }
-  validateNonEmptyString(value['moduleId'], `${path}.moduleId`, 'moduleRef.moduleId is required', diagnostics);
-  validateNonEmptyString(value['version'], `${path}.version`, 'moduleRef.version is required', diagnostics);
-  validateNonEmptyString(value['contractHash'], `${path}.contractHash`, 'moduleRef.contractHash is required', diagnostics);
-}
-
-function validateGameRuleHookDeclarations(
-  value: readonly GameRuleHookDeclaration[] | null | undefined,
-  path: string,
-  diagnostics: RuntimeSessionEcrpProjectDiagnostic[],
-): void {
-  if (!isTypedArray(value) || value.length === 0) {
-    diagnostics.push({
-      code: 'invalidGameRuleModuleManifest',
-      path,
-      detail: 'declaredHooks must include at least one generated hook declaration',
-    });
-    return;
-  }
-  value.forEach((hook, index) => validateGameRuleHookDeclaration(hook, `${path}.${index}`, diagnostics));
-}
-
-function validateGameRuleHookDeclaration(
-  value: GameRuleHookDeclaration | null | undefined,
-  path: string,
-  diagnostics: RuntimeSessionEcrpProjectDiagnostic[],
-): void {
-  if (!isPlainObject(value)) {
-    diagnostics.push({
-      code: 'invalidGameRuleModuleManifest',
-      path,
-      detail: 'GameRuleHookDeclaration must be an object',
-    });
-    return;
-  }
-  validateNonEmptyString(value['hookId'], `${path}.hookId`, 'hookId is required', diagnostics);
-  const hookKind = value['kind'];
-  if (hookKind !== 'weaponEffect' && hookKind !== 'interactionEffect' && hookKind !== 'spawnCondition') {
-    diagnostics.push({
-      code: 'invalidGameRuleModuleManifest',
-      path: `${path}.kind`,
-      detail: 'hook kind must be weaponEffect, interactionEffect, or spawnCondition',
-    });
-  }
-  validateNonEmptyString(value['inputContract'], `${path}.inputContract`, 'inputContract is required', diagnostics);
-  validateNonEmptyString(value['outputContract'], `${path}.outputContract`, 'outputContract is required', diagnostics);
-  validateStringArray(value['requiredCapabilities'], `${path}.requiredCapabilities`, diagnostics);
-}
-
-function validateNonEmptyString(
-  value: string | null | undefined,
-  path: string,
-  detail: string,
-  diagnostics: RuntimeSessionEcrpProjectDiagnostic[],
-): void {
-  if (typeof value !== 'string' || value.trim().length === 0) {
-    diagnostics.push({
-      code: 'invalidGameRuleModuleManifest',
-      path,
-      detail,
-    });
-  }
-}
-
-function validateStringArray(
-  value: readonly string[] | null | undefined,
-  path: string,
-  diagnostics: RuntimeSessionEcrpProjectDiagnostic[],
-): void {
-  if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string' || entry.trim().length === 0)) {
-    diagnostics.push({
-      code: 'invalidGameRuleModuleManifest',
-      path,
-      detail: `${path} must be an array of non-empty strings`,
-    });
-  }
-}
-
-function isPlainObject(value: object | null | undefined): value is object {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isTypedArray<T>(value: readonly T[] | null | undefined): value is readonly T[] {
-  return Array.isArray(value);
-}
-
-function validateEcrpCapabilities(
-  definition: RuntimeSessionEcrpEntityDefinition,
-  path: string,
-  diagnostics: RuntimeSessionEcrpProjectDiagnostic[],
-): void {
-  const capabilityKinds = new Set<RuntimeSessionEcrpCapabilityKind>();
-  for (const capability of definition.capabilities ?? []) {
-    capabilityKinds.add(capability.kind);
-    if (capability.kind === 'transform' && !isVec3(capability.initial?.position)) {
-      diagnostics.push({
-        code: 'invalidCapability',
-        path: `${path}.transform.initial.position`,
-        detail: 'transform initial position must be a finite vec3',
-      });
-    }
-    if (capability.kind === 'collisionBody' && !isVec3(capability.halfExtents)) {
-      diagnostics.push({
-        code: 'invalidCapability',
-        path: `${path}.collisionBody.halfExtents`,
-        detail: 'collisionBody halfExtents must be a finite vec3',
-      });
-    }
-    if (capability.kind === 'health' && (!Number.isFinite(capability.current) || capability.current < 0 || !Number.isFinite(capability.max) || capability.max <= 0)) {
-      diagnostics.push({
-        code: 'invalidCapability',
-        path: `${path}.health`,
-        detail: 'health current/max must be finite and max must be positive',
-      });
-    }
-  }
-  for (const required of ['transform', 'health', 'renderProjection'] as const) {
-    if (!capabilityKinds.has(required)) {
-      diagnostics.push({
-        code: 'missingCapability',
-        path,
-        detail: `${definition.stableId} missing required ${required} capability`,
-      });
-    }
-  }
-}
-
-function isVec3(value: readonly number[] | undefined): value is readonly [number, number, number] {
-  return Array.isArray(value) && value.length === 3 && value.every((component) => Number.isFinite(component));
-}
-
-export function buildEcrpProjectState(input: RuntimeSessionEcrpProjectLoadInput): RuntimeSessionEcrpProjectState {
-  return buildEcrpProjectStateFromParts(input, input.entityDefinitions, input.sceneDocument, null);
-}
+/* Caller-built ECRP bootstrap was removed. This module only projects admitted Rust content. */
 
 /** Project the accepted Rust-owned canonical content into the existing ECRP
  * display/readout vocabulary. This projection is never used as bootstrap. */
@@ -597,14 +76,19 @@ export function buildEcrpProjectStateFromCanonical(
       domain.entityRoles.map((entry) => [entry.entity, entry.role] as const),
     ),
   );
-  return buildEcrpProjectStateFromParts(null, definitions, readout.entryScene, roleByEntity);
+  return buildEcrpProjectStateFromParts(
+    definitions,
+    readout.entryScene,
+    roleByEntity,
+    readout.contentSetHash,
+  );
 }
 
 function buildEcrpProjectStateFromParts(
-  input: RuntimeSessionEcrpProjectLoadInput | null,
   entityDefinitions: readonly RuntimeSessionEcrpEntityDefinition[],
   sceneDocument: FlatSceneDocument,
-  canonicalRoleByEntity: ReadonlyMap<number, RuntimeSessionEcrpEntityState['role']> | null,
+  canonicalRoleByEntity: ReadonlyMap<number, RuntimeSessionEcrpEntityState['role']>,
+  contentHash: string,
 ): RuntimeSessionEcrpProjectState {
   const definitions = new Map(entityDefinitions.map((definition) => [definition.stableId, definition]));
   const worldTransforms = sceneWorldTransforms(sceneDocument);
@@ -633,26 +117,12 @@ function buildEcrpProjectStateFromParts(
         ? authoredWorldTransform
         : composeSceneTransform(spawnMarkerTransform, placement.transform),
       definition,
-      role: canonicalRoleByEntity === null
-        ? inferCompatibilityRuntimeRole(definition)
-        : canonicalRoleByEntity.get(placement.id) ?? 'neutral',
+      role: canonicalRoleByEntity.get(placement.id) ?? 'neutral',
     };
   });
   return {
-    input,
     entities,
-    bootstrapHash: stableHash({
-      project: {
-        gameId: input?.projectBundle.project.gameId ?? 'canonical-runtime-project',
-        workspaceId: input?.projectBundle.project.workspaceId ?? 'rust-authority',
-      },
-      runtimeRequest: input === null ? null : projectBundleHashRecord(input.projectBundle.runtimeRequest),
-      sceneDocumentHash: stableHash(sceneDocument as never),
-      entityIds: entities.map((entity) => entity.entity),
-      instanceIds: entities.map((entity) => entity.instanceId),
-      definitionIds: entities.map((entity) => entity.definition.stableId),
-      capabilityKinds: entities.map((entity) => entity.definition.capabilities.map((capability) => capability.kind)),
-    }),
+    contentHash,
   };
 }
 
@@ -823,26 +293,6 @@ function rotateSceneVector(
   return [result[0], result[1], result[2]];
 }
 
-function inferCompatibilityRuntimeRole(definition: RuntimeSessionEcrpEntityDefinition): RuntimeSessionEcrpEntityState['role'] {
-  const faction = definition.capabilities.find((capability) => capability.kind === 'faction');
-  if (faction?.kind === 'faction') {
-    if (faction.factionId === 'player') {
-      return 'player';
-    }
-    if (faction.factionId === 'hostile') {
-      return 'enemy';
-    }
-  }
-  const controller = definition.capabilities.find((capability) => capability.kind === 'controller');
-  if (controller?.kind === 'controller' && controller.controller === 'player_input') {
-    return 'player';
-  }
-  if (definition.capabilities.some((capability) => capability.kind === 'policyBinding')) {
-    return 'enemy';
-  }
-  return 'neutral';
-}
-
 export function lifecycleStateFromEcrpProject(state: RuntimeSessionEcrpProjectState): RuntimeSessionLifecycleState {
   const player = state.entities.find((entity) => entity.role === 'player');
   const enemy = state.entities.find((entity) => entity.role === 'enemy');
@@ -941,7 +391,7 @@ function renderVisibleForEntity(
 
 export function buildEcrpRuntimeReadout(input: {
   readonly identity: RuntimeSessionIdentity;
-  readonly projectState: RuntimeSessionEcrpProjectState | null;
+  readonly projectState: RuntimeSessionEcrpProjectState;
   readonly lifecycleState: RuntimeSessionLifecycleState;
   readonly runtimeTransforms?: ReadonlyMap<number, RuntimeSessionEcrpTransformState>;
   readonly sequenceId: number;
@@ -949,20 +399,7 @@ export function buildEcrpRuntimeReadout(input: {
   readonly sessionHash: string;
   readonly authority?: RuntimeSessionEcrpReadout['authority'];
 }): RuntimeSessionEcrpReadout {
-  if (input.identity.projectBundle === null && input.projectState === null) {
-    throw new Error(
-      'ECRP readout requires an active canonical project or compatibility ProjectBundle',
-    );
-  }
-  const projectState = input.projectState ?? buildEcrpProjectState(
-    defaultRuntimeSessionEcrpProjectLoadInput({
-      sessionId: input.identity.sessionId,
-      seed: input.identity.seed,
-      project: input.identity.project,
-      projectBundle: requireCompatibilityProjectBundle(input.identity.projectBundle),
-    }),
-  );
-  const entities = projectState.entities.map((entity) =>
+  const entities = input.projectState.entities.map((entity) =>
     ecrpEntityReadout({
       entity: entity.entity,
       definition: entity.definition,
@@ -998,7 +435,6 @@ export function buildEcrpRuntimeReadout(input: {
       }],
     },
     project: input.identity.project,
-    projectBundle: input.identity.projectBundle,
     entities,
     entityCount: entities.length,
     hashes: {
@@ -1012,15 +448,6 @@ export function buildEcrpRuntimeReadout(input: {
       'not_demo_local_authority',
     ],
   };
-}
-
-function requireCompatibilityProjectBundle(
-  projectBundle: RuntimeSessionIdentity['projectBundle'],
-): NonNullable<RuntimeSessionIdentity['projectBundle']> {
-  if (projectBundle === null) {
-    throw new Error('compatibility ProjectBundle is unavailable');
-  }
-  return projectBundle;
 }
 
 function ecrpEntityReadout(input: {

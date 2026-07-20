@@ -11,7 +11,6 @@ void test('collision camera free flight is explicit and grounded vertical input 
     sessionId: 'runtime-session.camera-movement.reference',
     seed: 17,
     project: { gameId: 'asha-demo', workspaceId: 'workspace.local' },
-    projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 42 },
   });
   const camera = session.createCamera({
     initialPose: { position: [20, 20, 20], yawDegrees: 40, pitchDegrees: -45 },

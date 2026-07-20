@@ -183,7 +183,8 @@ receipt, or add a downstream scheduler alongside the host authority.
 
 1. Author a generated `GameplayTriggerDefinition` with stable trigger identity,
    typed geometry, eligibility, scope, and tags.
-2. Load it through `GameplayRuntimeProjectInput`; do not construct a private
+2. Store it in canonical project content and admit it through
+   `RuntimeSession.loadProject({ source })`; do not construct a private
    collision world downstream.
 3. Move or update subjects through accepted EntityStore authority operations.
 4. Reconcile overlap state through `GameplayRuntimeHost`. Enter and exit owner

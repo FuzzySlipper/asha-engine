@@ -78,8 +78,6 @@ export interface RuntimeCameraPort {
 }
 
 export interface RuntimeGameplayPort {
-  applyGeneratedTunnelToRuntimeWorld(input: Contracts.GeneratedTunnelRuntimeApplyRequest): Contracts.GeneratedTunnelRuntimeApplyReceipt;
-  loadFpsRuntimeSession(input: Session.FpsRuntimeSessionLoadRequest): Session.FpsRuntimeSessionSnapshot;
   readFpsRuntimeSession(): Session.FpsRuntimeSessionSnapshot;
   applyFpsPrimaryFire(input: Session.FpsPrimaryFireRequest): Session.FpsPrimaryFireResult;
   readComposedRuntimeSession(): Session.ComposedRuntimeSessionReadout;
@@ -115,7 +113,7 @@ export interface RuntimeWorkspaceAuthoringPort {
   closeWorkspaceAuthoring(input: Contracts.WorkspaceAuthoringCloseRequest): Contracts.WorkspaceAuthoringCloseReceipt;
 }
 
-export interface RuntimeBundleLifecyclePort {
+export interface RuntimeProjectLifecyclePort {
   initializeEngine(input: Bridge.EngineConfig): Session.EngineHandle;
   beginRuntimeProjectSourceResources(input: Contracts.ProjectResourceBeginRequest): Contracts.ProjectResourceTransactionReceipt;
   stageRuntimeProjectSourceResource(input: Bridge.ProjectResourceStageInput): Contracts.StagedProjectResourceRef;
@@ -123,10 +121,6 @@ export interface RuntimeBundleLifecyclePort {
   loadRuntimeProject(input: Contracts.RuntimeProjectLoadRequest): Contracts.RuntimeProjectLoadReceipt;
   readActiveRuntimeProjectContent(): Contracts.ActiveRuntimeProjectContentReadout;
   closeRuntimeProject(input: Contracts.RuntimeProjectCloseRequest): Contracts.RuntimeProjectCloseReceipt;
-  loadProjectBundle(input: Bridge.ProjectBundleLoadRequest): Bridge.CompositionStatus;
-  saveProjectBundle(): Bridge.ProjectBundleSaveSummary;
-  getProjectBundleCompositionStatus(): Bridge.CompositionStatus;
-  unloadProjectBundle(): void;
 }
 
 export interface RuntimeReplayEvidencePort {
@@ -145,7 +139,7 @@ export interface RuntimeBridge
     RuntimeGameplayPort,
     RuntimeProjectionPort,
     RuntimeWorkspaceAuthoringPort,
-    RuntimeBundleLifecyclePort,
+    RuntimeProjectLifecyclePort,
     RuntimeReplayEvidencePort {}
 
 export interface RuntimeBridgePorts {
@@ -157,7 +151,7 @@ export interface RuntimeBridgePorts {
   readonly gameplay: RuntimeGameplayPort;
   readonly projection: RuntimeProjectionPort;
   readonly workspaceAuthoring: RuntimeWorkspaceAuthoringPort;
-  readonly bundleLifecycle: RuntimeBundleLifecyclePort;
+  readonly runtimeProjectLifecycle: RuntimeProjectLifecyclePort;
   readonly replayEvidence: RuntimeReplayEvidencePort;
 }
 
@@ -165,7 +159,7 @@ export type RuntimeBridgePortId = keyof RuntimeBridgePorts;
 
 export interface RuntimeBridgePortContract {
   readonly initialization: 'requiresEngine' | 'createsEngine';
-  readonly projectBundle: 'retainedAcrossLoadUnload' | 'ownsLoadUnload';
+  readonly runtimeProject: 'retainedAcrossProjectChanges' | 'ownsProjectLifecycle';
   readonly snapshotHash:
     | 'inputEvidence'
     | 'timeState'
@@ -175,7 +169,7 @@ export interface RuntimeBridgePortContract {
     | 'gameplaySessionAndReplay'
     | 'projectionFrame'
     | 'workspaceAuthoringAuthority'
-    | 'compositionStatus'
+    | 'activeProjectContent'
     | 'replayEvidence';
   readonly resourceLifetime: 'session' | 'frame' | 'mixedExplicitAndSession';
 }
@@ -185,61 +179,61 @@ export const RUNTIME_BRIDGE_PORT_CONTRACTS: Readonly<
 > = {
   input: {
     initialization: 'requiresEngine',
-    projectBundle: 'retainedAcrossLoadUnload',
+    runtimeProject: 'retainedAcrossProjectChanges',
     resourceLifetime: 'session',
     snapshotHash: 'inputEvidence',
   },
   timeSimulation: {
     initialization: 'requiresEngine',
-    projectBundle: 'retainedAcrossLoadUnload',
+    runtimeProject: 'retainedAcrossProjectChanges',
     resourceLifetime: 'session',
     snapshotHash: 'timeState',
   },
   sceneEntities: {
     initialization: 'requiresEngine',
-    projectBundle: 'retainedAcrossLoadUnload',
+    runtimeProject: 'retainedAcrossProjectChanges',
     resourceLifetime: 'session',
     snapshotHash: 'sceneDocument',
   },
   voxelAssetsBuffers: {
     initialization: 'requiresEngine',
-    projectBundle: 'retainedAcrossLoadUnload',
+    runtimeProject: 'retainedAcrossProjectChanges',
     resourceLifetime: 'mixedExplicitAndSession',
     snapshotHash: 'voxelStateAndResources',
   },
   camera: {
     initialization: 'requiresEngine',
-    projectBundle: 'retainedAcrossLoadUnload',
+    runtimeProject: 'retainedAcrossProjectChanges',
     resourceLifetime: 'session',
     snapshotHash: 'cameraProjection',
   },
   gameplay: {
     initialization: 'requiresEngine',
-    projectBundle: 'retainedAcrossLoadUnload',
+    runtimeProject: 'retainedAcrossProjectChanges',
     resourceLifetime: 'session',
     snapshotHash: 'gameplaySessionAndReplay',
   },
   projection: {
     initialization: 'requiresEngine',
-    projectBundle: 'retainedAcrossLoadUnload',
+    runtimeProject: 'retainedAcrossProjectChanges',
     resourceLifetime: 'frame',
     snapshotHash: 'projectionFrame',
   },
   workspaceAuthoring: {
     initialization: 'createsEngine',
-    projectBundle: 'ownsLoadUnload',
+    runtimeProject: 'ownsProjectLifecycle',
     resourceLifetime: 'session',
     snapshotHash: 'workspaceAuthoringAuthority',
   },
-  bundleLifecycle: {
+  runtimeProjectLifecycle: {
     initialization: 'createsEngine',
-    projectBundle: 'ownsLoadUnload',
+    runtimeProject: 'ownsProjectLifecycle',
     resourceLifetime: 'session',
-    snapshotHash: 'compositionStatus',
+    snapshotHash: 'activeProjectContent',
   },
   replayEvidence: {
     initialization: 'requiresEngine',
-    projectBundle: 'retainedAcrossLoadUnload',
+    runtimeProject: 'retainedAcrossProjectChanges',
     resourceLifetime: 'session',
     snapshotHash: 'replayEvidence',
   },
@@ -255,7 +249,7 @@ export function runtimeBridgePorts(bridge: RuntimeBridge): RuntimeBridgePorts {
     gameplay: bridge,
     projection: bridge,
     workspaceAuthoring: bridge,
-    bundleLifecycle: bridge,
+    runtimeProjectLifecycle: bridge,
     replayEvidence: bridge,
   };
 }

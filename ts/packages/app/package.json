@@ -20,10 +20,12 @@
   "dependencies": {
     "@asha/contracts": "workspace:*",
     "@asha/runtime-bridge": "workspace:*",
+    "@asha/runtime-session": "workspace:*",
     "@asha/renderer-three": "workspace:*",
     "@asha/ui-dom": "workspace:*",
     "@asha/devtools": "workspace:*",
     "@asha/script-host": "workspace:*",
-    "@asha/editor-tools": "workspace:*"
+    "@asha/editor-tools": "workspace:*",
+    "@asha/game-workspace": "workspace:*"
   }
 }

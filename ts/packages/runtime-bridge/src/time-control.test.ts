@@ -13,7 +13,6 @@ function sessionInput() {
     sessionId: 'runtime-session.time-control',
     seed: 17,
     project: { gameId: 'time-control', workspaceId: 'workspace.local' },
-    projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 42 },
   };
 }
 

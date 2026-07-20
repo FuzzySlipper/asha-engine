@@ -198,34 +198,6 @@ export interface CameraCollisionPolicy {
 // Locomotion basis selected explicitly by a collision-constrained camera input.
 export type FirstPersonMovementMode = 'grounded' | 'freeFlight';
 
-// Bounded generated-level preset accepted by runtime collision materialization.
-export type GeneratedTunnelPreset = 'tiny-enclosed';
-
-// Request to install one deterministic generated tunnel as collision authority.
-export interface GeneratedTunnelRuntimeApplyRequest {
-  readonly preset: GeneratedTunnelPreset;
-  readonly seed: number;
-}
-
-// Authority receipt for the installed generated tunnel collision projection.
-export interface GeneratedTunnelRuntimeFrame {
-  readonly worldOffset: readonly [number, number, number];
-  readonly playableMin: readonly [number, number, number];
-  readonly playableMax: readonly [number, number, number];
-}
-
-// Authority receipt for the installed generated tunnel collision projection.
-export interface GeneratedTunnelRuntimeApplyReceipt {
-  readonly preset: GeneratedTunnelPreset;
-  readonly seed: number;
-  readonly grid: number;
-  readonly configHash: string;
-  readonly outputHash: string;
-  readonly collisionSourceHash: string;
-  readonly collisionProjectionHash: string;
-  readonly runtimeFrame: GeneratedTunnelRuntimeFrame;
-}
-
 // One constrained camera input proposal for a specific tick/grid.
 export interface CollisionConstrainedCameraInputEnvelope {
   readonly camera: CameraHandle;

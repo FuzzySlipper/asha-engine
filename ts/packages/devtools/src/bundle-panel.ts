@@ -1,19 +1,9 @@
-// @asha/devtools — project-bundle save/load and diagnostics panel read models
-// (#2379).
+// @asha/devtools — ProjectBundle artifact and diagnostics read models.
 //
 // Observational read models for the project-bundle manifest, the ordered authority
 // load plan, the save/compaction plan, generator-mismatch + round-trip diagnostics,
-// and a navigable diagnostics panel. The load/save *actions* submit typed requests
-// through the runtime-bridge facade only — this module never touches the filesystem
-// and never mutates authority. Fail-closed outcomes are surfaced, never papered over.
-
-import {
-  RuntimeBridgeError,
-  type CompositionStatus,
-  type RuntimeBridge,
-  type ProjectBundleLoadRequest,
-  type ProjectBundleSaveSummary,
-} from '@asha/runtime-bridge';
+// and a navigable diagnostics panel. Runtime project lifecycle and Studio file
+// writes use their dedicated canonical APIs; this module is observational only.
 import type {
   ArtifactClass,
   ArtifactEntry,
@@ -313,61 +303,4 @@ export function buildDiagnosticsPanel(set: DiagnosticReportSet): DiagnosticsPane
   }));
   const fatalCount = diagnostics.filter((d) => d.severity === 'fatal').length;
   return { diagnostics, fatalCount, blocksLoad: fatalCount > 0 };
-}
-
-// ── Load / save action requests (through the facade only) ─────────────────────────
-
-/** Derive the typed facade load request from a manifest (no local mutation). */
-export function buildProjectBundleLoadRequest(manifest: GeneratedProjectBundleManifest): ProjectBundleLoadRequest {
-  return {
-    bundleSchemaVersion: manifest.bundleSchemaVersion,
-    protocolVersion: manifest.protocolVersion,
-    sceneId: manifest.entryScene as number,
-  };
-}
-
-/** A classified outcome of a load/save action — fail-closed errors are surfaced. */
-export type ProjectBundleActionResult<T> =
-  | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly kind: string; readonly message: string; readonly recovery: string };
-
-function recoveryHint(error: RuntimeBridgeError): string {
-  switch (error.kind) {
-    case 'invalid_input':
-      return 'bundle is incompatible with this build — inspect the manifest version/protocol diagnostics';
-    case 'not_initialized':
-      return 'load a ProjectBundle before saving';
-    case 'native_unavailable':
-      return 'the native runtime is unavailable — retry on the mock facade or rebuild the addon';
-    default:
-      return 'inspect composition diagnostics for the failing artifact';
-  }
-}
-
-/**
- * Submit a project-bundle load through the facade. The prior ProjectBundle is left untouched
- * on failure (the facade stages the swap); this returns a classified result rather
- * than throwing, so a panel can render the fail-closed outcome.
- */
-export function submitProjectBundleLoad(bridge: RuntimeBridge, request: ProjectBundleLoadRequest): ProjectBundleActionResult<CompositionStatus> {
-  try {
-    return { ok: true, value: bridge.loadProjectBundle(request) };
-  } catch (error) {
-    if (error instanceof RuntimeBridgeError) {
-      return { ok: false, kind: error.kind, message: error.message, recovery: recoveryHint(error) };
-    }
-    throw error;
-  }
-}
-
-/** Submit a save through the facade, returning a classified result. */
-export function submitProjectBundleSave(bridge: RuntimeBridge): ProjectBundleActionResult<ProjectBundleSaveSummary> {
-  try {
-    return { ok: true, value: bridge.saveProjectBundle() };
-  } catch (error) {
-    if (error instanceof RuntimeBridgeError) {
-      return { ok: false, kind: error.kind, message: error.message, recovery: recoveryHint(error) };
-    }
-    throw error;
-  }
 }

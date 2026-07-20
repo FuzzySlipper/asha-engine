@@ -96,8 +96,6 @@ import type {
   RuntimeSessionTickResult,
 } from './facade-core.js';
 import type {
-  RuntimeSessionEcrpProjectLoadInput,
-  RuntimeSessionEcrpProjectLoadReceipt,
   RuntimeSessionEcrpReadout,
 } from './facade-ecrp.js';
 import type {
@@ -114,7 +112,6 @@ import type {
   RuntimeSessionGameExtensionWeaponEffectReceipt,
   RuntimeSessionGameRuleCatalogValidationReceipt,
   RuntimeSessionGameRuleEffectIntentReceipt,
-  RuntimeSessionGeneratedTunnelOperationReceipt,
 } from './facade-gameplay.js';
 import type {
   RuntimeSessionLifecycleRestartReceipt,
@@ -128,11 +125,6 @@ import type {
   RuntimeSessionProjectLoadInput,
   RuntimeSessionProjectLoadReceipt,
 } from './facade-project.js';
-import type {
-  GeneratedTunnelOperationRequest,
-  GeneratedTunnelReadout,
-  GeneratedTunnelReadoutRequest,
-} from './generated-tunnel.js';
 import type { NavPathQueryRequest, NavPathReadout, NavPolicyViewReadout, NavProjectionReadout } from './nav-readout.js';
 import type { RuntimeActionIntentEnvelope } from './runtime-action.js';
 import type {
@@ -153,9 +145,6 @@ export interface RuntimeSessionFacade {
   readTimeControlState(): TimeControlState;
   decodeSceneDocument(request: SceneDocumentDecodeRequest): SceneDocumentCodecResult;
   encodeSceneDocument(request: SceneDocumentEncodeRequest): SceneDocumentCodecResult;
-  /** @deprecated Compatibility-only manual topology path. Initialize unloaded
-   * and use `loadProject({ source })`; Demo migration removes this surface. */
-  loadEcrpProject(input: RuntimeSessionEcrpProjectLoadInput): RuntimeSessionEcrpProjectLoadReceipt;
   submitCommands(batch: CommandBatch): RuntimeSessionCommandReceipt;
   tick(input?: RuntimeSessionTickInput): RuntimeSessionTickResult;
   createCamera(request: CameraCreateRequest): RuntimeSessionCameraCreateReceipt;
@@ -188,13 +177,9 @@ export interface RuntimeSessionFacade {
   readCombatFeedbackProjection(
     request?: RuntimeSessionCombatFeedbackProjectionRequest,
   ): CombatFeedbackProjection;
-  readGeneratedTunnelReadout(request?: GeneratedTunnelReadoutRequest): GeneratedTunnelReadout;
   readNavProjection(): NavProjectionReadout;
   queryNavPath(request?: NavPathQueryRequest): NavPathReadout;
   readNavPolicyView(): NavPolicyViewReadout;
-  requestGeneratedTunnelOperation(
-    request: GeneratedTunnelOperationRequest,
-  ): RuntimeSessionGeneratedTunnelOperationReceipt;
   registerVoxelConversionSource(request: VoxelConversionSourceRegistrationRequest): VoxelConversionSourceRegistration;
   registerVoxelConversionMeshAsset(request: VoxelConversionMeshAssetRegistrationRequest): VoxelConversionSourceRegistration;
   importVoxelConversionMeshSource(request: VoxelConversionMeshSourceImportRequest): VoxelConversionMeshSourceImportReceipt;

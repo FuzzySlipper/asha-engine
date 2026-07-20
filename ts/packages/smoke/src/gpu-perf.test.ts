@@ -21,7 +21,7 @@ function fakeBaseResult(): PerfResult {
       runtimeMode: 'mock',
       smokeMode: 'reference',
       fixtureId: 1001,
-      fixtureProjectBundleHash: '0123456789abcdef',
+      fixtureManifestHash: '0123456789abcdef',
       node: 'v0.0.0-test',
       platform: 'linux',
       arch: 'x64',

@@ -18,21 +18,11 @@ import {
   type FixtureChoice,
   type RendererPort,
 } from './shell.js';
+import { defaultFixtures } from './launch.js';
 
-const FIXTURES: FixtureChoice[] = [
-  {
-    id: 'launch-grid',
-    label: 'Launch grid',
-    materials: [1, 2, 3],
-    request: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1001 },
-  },
-  {
-    id: 'alt-grid',
-    label: 'Alternate grid',
-    materials: [7],
-    request: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1002 },
-  },
-];
+const FIXTURES: FixtureChoice[] = defaultFixtures().map((fixture) =>
+  fixture.id === 'alt-grid' ? { ...fixture, materials: [7] } : fixture,
+);
 
 function referenceBoot(): AppBridgeBoot {
   return { bridge: createMockRuntimeBridge(), mode: 'mock', intent: 'reference', nativeAvailable: false };
@@ -142,7 +132,7 @@ void test('runtime mode readout distinguishes reference / degraded / unavailable
   assert.equal(uStatus.error?.kind, 'native_unavailable');
 });
 
-void test('fixture selection is runtime-selectable (data, not compile-time)', () => {
+void test('fixture selection is runtime-selectable canonical source data', async () => {
   const shell = composeAppShell({
     host: { name: 'h', accessibility: false },
     bootBridge: referenceBoot,
@@ -163,13 +153,14 @@ void test('fixture selection is runtime-selectable (data, not compile-time)', ()
     ],
   );
 
-  const world = shell.loadActiveFixture();
+  const world = await shell.loadActiveFixture();
   assert.equal(world.loaded, true);
-  assert.equal(world.composition?.loadedProjectBundle, 1002);
+  assert.equal(world.project?.source.identity, 'app-shell:alt-grid');
+  assert.equal(world.fixtureId, 'alt-grid');
   assert.throws(() => shell.selectFixture('nope'), /unknown fixture/);
 });
 
-void test('controls are accessible and route through the ONE store / controller', () => {
+void test('controls are accessible and route through the ONE store / controller', async () => {
   const shell = composeAppShell({
     host: { name: 'h', accessibility: false },
     bootBridge: referenceBoot,
@@ -187,7 +178,7 @@ void test('controls are accessible and route through the ONE store / controller'
   shell.applyControl('tool', 'place');
   shell.applyControl('material', '1');
   shell.controller.store.dispatch({ type: 'setSelection', selection: { voxel: { x: 0, y: 0, z: 0 }, face: 'posX' } });
-  shell.loadActiveFixture();
+  await shell.loadActiveFixture();
   assert.equal(shell.controls().find((c) => c.id === 'commit')!.disabled, false);
   shell.applyControl('commit', 'commit');
   assert.deepEqual(shell.readout().lastCommandResult, { accepted: 1, rejected: 0, rejections: [] });
@@ -250,14 +241,14 @@ void test('pick with no bridge clears selection and misses (fail closed)', () =>
   assert.equal(shell.controller.store.getState().selection, null);
 });
 
-void test('formatReadout renders a stable, navigable text report', () => {
+void test('formatReadout renders a stable, navigable text report', async () => {
   const shell = composeAppShell({
     host: { name: 'headless', accessibility: false },
     bootBridge: referenceBoot,
     fixtures: FIXTURES,
     renderer: countingRenderer(),
   });
-  shell.loadActiveFixture();
+  await shell.loadActiveFixture();
   shell.projectAuthority();
   const text = formatReadout(shell.readout());
   assert.match(text, /runtime: reference/);

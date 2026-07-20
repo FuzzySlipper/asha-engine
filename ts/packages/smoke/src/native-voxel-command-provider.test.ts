@@ -71,7 +71,6 @@ void test('native provider accepts the generated voxel command union and returns
     sessionId: 'runtime-session.voxel-command.provider-regression',
     seed: 77,
     project: { gameId: 'asha-provider-regression', workspaceId: 'workspace.local' },
-    projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 5547 },
   });
 
   const result = session.submitCommands({

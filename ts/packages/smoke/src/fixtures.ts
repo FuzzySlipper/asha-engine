@@ -10,31 +10,61 @@ import type {
   VoxelCommand,
 } from '@asha/contracts';
 import { entityId, renderHandle } from '@asha/contracts';
-import type { CommandBatch, ProjectBundleLoadRequest } from '@asha/runtime-bridge';
+import type { CommandBatch } from '@asha/runtime-bridge';
+import {
+  ASHA_PROJECT_BUNDLE_MANIFEST_PATH,
+  createMemoryAshaProjectSource,
+} from '@asha/game-workspace';
 
-/** The abstract fixture ProjectBundle the smoke harness loads through the facade. */
-export const FIXTURE_PROJECT_BUNDLE: ProjectBundleLoadRequest = {
-  bundleSchemaVersion: 1,
-  protocolVersion: 1,
-  sceneId: 1001,
-};
+export const FIXTURE_PROJECT_ID = 1001;
 
-/** A deterministic FNV-1a hash over the fixture ProjectBundle definition (stable evidence). */
-export function fixtureProjectBundleHash(request: ProjectBundleLoadRequest): string {
+function fnv1a64(bytes: Uint8Array): string {
   let hash = 0xcbf29ce484222325n;
   const prime = 0x100000001b3n;
   const mask = (1n << 64n) - 1n;
-  const writeU32 = (value: number): void => {
-    for (let i = 0; i < 4; i++) {
-      hash ^= BigInt((value >>> (i * 8)) & 0xff);
-      hash = (hash * prime) & mask;
-    }
-  };
-  writeU32(request.bundleSchemaVersion);
-  writeU32(request.protocolVersion);
-  writeU32(request.sceneId);
+  for (const byte of bytes) {
+    hash ^= BigInt(byte);
+    hash = (hash * prime) & mask;
+  }
   return hash.toString(16).padStart(16, '0');
 }
+
+const encode = (value: unknown): Uint8Array => new TextEncoder().encode(`${JSON.stringify(value)}\n`);
+const scenePath = 'scenes/smoke.scene.json';
+const lockPath = 'assets/lock.json';
+const sceneBytes = encode({
+  schemaVersion: 4,
+  id: FIXTURE_PROJECT_ID,
+  metadata: { name: 'Canonical smoke project', authoringFormatVersion: 4 },
+  dependencies: [],
+  nodes: [],
+});
+const assetLockBytes = encode({ assets: [] });
+const manifestBytes = encode({
+  bundleSchemaVersion: 2,
+  protocolVersion: 1,
+  project: { id: FIXTURE_PROJECT_ID, name: 'Canonical smoke project' },
+  entryScene: FIXTURE_PROJECT_ID,
+  scenes: [{ id: FIXTURE_PROJECT_ID, schemaVersion: 4, artifact: scenePath }],
+  assetLock: { artifact: lockPath, assetCount: 0 },
+  generationProvenance: null,
+  artifacts: [
+    { path: lockPath, class: 'durable', role: 'assetLock', contentHash: fnv1a64(assetLockBytes) },
+    { path: scenePath, class: 'durable', role: 'sceneDocument', contentHash: fnv1a64(sceneBytes) },
+  ],
+});
+
+/** The canonical in-memory project source used by the smoke and perf consumers. */
+export const FIXTURE_PROJECT_SOURCE = createMemoryAshaProjectSource(
+  'smoke:canonical-project',
+  new Map([
+    [ASHA_PROJECT_BUNDLE_MANIFEST_PATH, manifestBytes],
+    [lockPath, assetLockBytes],
+    [scenePath, sceneBytes],
+  ]),
+);
+
+export const FIXTURE_PROJECT_MANIFEST_HASH = fnv1a64(manifestBytes);
 
 /**
  * Deterministic, contract-shaped command envelopes (generated `@asha/contracts`

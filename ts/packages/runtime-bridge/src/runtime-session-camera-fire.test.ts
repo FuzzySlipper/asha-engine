@@ -7,6 +7,7 @@ import {
   createRuntimeSessionFacade,
   type FpsPrimaryFireRequest,
   type FpsPrimaryFireResult,
+  type FpsRuntimeSessionSnapshot,
 } from './index.js';
 import { MockRuntimeBridge } from './mock.js';
 
@@ -15,7 +16,45 @@ class CameraFireBridgeDouble extends MockRuntimeBridge {
 
   override applyFpsPrimaryFire(request: FpsPrimaryFireRequest): FpsPrimaryFireResult {
     this.fireRequests.push(request);
-    return super.applyFpsPrimaryFire(request);
+    return {
+      backend: 'reference_bridge',
+      authoritySurface: 'runtime_session.camera_fire_test.v0',
+      mutationOwner: 'test-double',
+      workspaceTrace: ['camera-authority-forwarded'],
+      shooter: 1,
+      target: 2,
+      targetHealthBefore: { current: 10, max: 10 },
+      targetHealthAfter: { current: 9, max: 10 },
+      lifecycleStatus: { state: 'active' },
+      targetRenderVisible: true,
+      entityHash: 'fnv1a64:0000000000000001',
+      healthHash: 'fnv1a64:0000000000000002',
+      replayHash: 'fnv1a64:0000000000000003',
+    };
+  }
+
+  override readFpsRuntimeSession(): FpsRuntimeSessionSnapshot {
+    return {
+      backend: 'reference_bridge',
+      authoritySurface: 'runtime_session.camera_fire_test.v0',
+      projectBundle: 'canonical-test-project',
+      sessionEpoch: 1,
+      lifecycleStatus: { state: 'active' },
+      playerEntity: 1,
+      enemyEntity: 2,
+      health: [{ entity: 1, current: 10, max: 10 }, { entity: 2, current: 9, max: 10 }],
+      policyBindings: [],
+      replayRecords: [{
+        replayUnit: 'runtime_session.camera_fire_test.v0',
+        entityHash: 'fnv1a64:0000000000000001',
+        healthHash: 'fnv1a64:0000000000000002',
+        recordHash: 'fnv1a64:0000000000000003',
+      }],
+      readSets: [],
+      entityHash: 'fnv1a64:0000000000000001',
+      healthHash: 'fnv1a64:0000000000000002',
+      replayHash: 'fnv1a64:0000000000000003',
+    };
   }
 }
 
@@ -26,7 +65,6 @@ void test('Rust RuntimeSession resolves primary fire from the current bridge-own
     sessionId: 'runtime-session.camera-fire',
     seed: 17,
     project: { gameId: 'asha-demo', workspaceId: 'workspace.local' },
-    projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 42 },
   });
   const camera = session.createCamera({
     initialPose: { position: [3, 1.7, 4], yawDegrees: 25, pitchDegrees: -5 },
@@ -73,7 +111,6 @@ void test('unknown camera rejects before primary-fire authority or facade progre
     sessionId: 'runtime-session.camera-fire.invalid',
     seed: 19,
     project: { gameId: 'asha-demo', workspaceId: 'workspace.local' },
-    projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 43 },
   });
   const before = session.readTelemetry();
 

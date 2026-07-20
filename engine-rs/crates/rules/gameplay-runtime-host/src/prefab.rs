@@ -1,8 +1,8 @@
 //! Public-height prefab bootstrap and inspection for downstream gameplay hosts.
 //!
-//! Authoring tools provide canonical registry JSON plus explicit placement
-//! commands. Validation and entity creation remain in the existing
-//! serialization and ProjectBundle rule owners.
+//! Canonical project admission compiles registry JSON and placement commands.
+//! Validation and entity creation remain in the existing serialization and
+//! ProjectBundle rule owners.
 
 use std::collections::BTreeSet;
 
@@ -15,10 +15,15 @@ use rule_project_bundle::{
 use serde::{Deserialize, Serialize};
 use svc_serialization::{
     load_prefab_registry, PrefabInstanceRecord, PrefabOverride, PrefabOverrideValue,
-    PrefabRegistryValidationContext, PrefabTransform,
+    PrefabRegistryValidationContext, PrefabTransform, ValidatedPrefabRegistry,
 };
 
 use crate::GameplayRuntimeHostError;
+
+type AppliedPrefabBootstrap = (
+    ValidatedPrefabRegistry,
+    Vec<(String, PrefabInstanceId, PrefabId)>,
+);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -156,13 +161,7 @@ pub struct GameplayRuntimePrefabRoleReadout {
 pub(crate) fn apply_prefab_bootstrap(
     bundle: &mut ProjectBundleLoadResult,
     bootstrap: GameplayRuntimePrefabBootstrap,
-) -> Result<
-    (
-        svc_serialization::ValidatedPrefabRegistry,
-        Vec<(String, PrefabInstanceId, PrefabId)>,
-    ),
-    GameplayRuntimeHostError,
-> {
+) -> Result<AppliedPrefabBootstrap, GameplayRuntimeHostError> {
     let validation_context = PrefabRegistryValidationContext {
         asset_ids: bootstrap
             .catalog
@@ -351,8 +350,8 @@ mod tests {
     use crate::GameplayRuntimeSchedulerDefinition;
     use crate::{
         BundleArtifacts, GameplayBindingEntityTargets, GameplayRuntimeDeclaredReadPlan,
-        GameplayRuntimeHost, GameplayRuntimeProjectInput, GameplayRuntimeSpatialEntity,
-        GameplayTriggerDefinition, LoadPlan, LoadStep, GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION,
+        GameplayRuntimeHost, GameplayRuntimeSpatialEntity, GameplayTriggerDefinition, LoadPlan,
+        LoadStep, RuntimeProjectActivationInput, GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION,
     };
     use core_ids::{EntityId, PrefabId, PrefabInstanceId, RuntimeSessionId, SceneId, SceneNodeId};
     use core_scene::{
@@ -514,7 +513,7 @@ mod tests {
         })
     }
 
-    fn prefab_project_input() -> GameplayRuntimeProjectInput {
+    fn prefab_project_input() -> RuntimeProjectActivationInput {
         let scene = SceneTree {
             id: SceneId::new(44),
             schema_version: 4,
@@ -536,7 +535,7 @@ mod tests {
         };
         let mut composition = GameplayStaticCompositionBuilder::new();
         composition.include_standard_owner_events();
-        GameplayRuntimeProjectInput {
+        RuntimeProjectActivationInput {
             load_plan: LoadPlan {
                 steps: vec![
                     LoadStep::ValidateVersions {
@@ -662,7 +661,7 @@ mod tests {
         }
     }
 
-    fn prefab_read_project_input() -> GameplayRuntimeProjectInput {
+    fn prefab_read_project_input() -> RuntimeProjectActivationInput {
         let mut input = prefab_project_input();
         let mut composition = GameplayStaticCompositionBuilder::new();
         composition.add_provider(prefab_read_provider());

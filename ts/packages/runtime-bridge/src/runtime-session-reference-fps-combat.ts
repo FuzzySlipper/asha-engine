@@ -6,9 +6,9 @@ import {
 import type { RuntimeActionIntentEnvelope } from '@asha/runtime-session';
 import { stableHash } from './runtime-session-hash.js';
 import type {
-  RuntimeSessionEcrpProjectState,
   RuntimeSessionLifecycleState,
 } from '@asha/runtime-session';
+import type { RuntimeSessionEcrpProjectState } from './runtime-session-ecrp.js';
 
 export const REFERENCE_FPS_COMBAT_FIXTURE_PROVENANCE = {
   ruleCrate: 'rule-lifecycle',

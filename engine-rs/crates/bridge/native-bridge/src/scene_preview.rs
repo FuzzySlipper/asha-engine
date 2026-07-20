@@ -946,11 +946,6 @@ impl SceneDocumentJson {
     }
 }
 
-pub(crate) fn parse_scene_document_json(source: &str) -> napi::Result<FlatSceneDocumentDto> {
-    parse_wire_json::<SceneDocumentJson>("load_fps_runtime_session.scene_document", source)
-        .map(SceneDocumentJson::protocol)
-}
-
 impl SceneDocumentAuthoringTargetJson {
     fn protocol(self) -> SceneDocumentAuthoringTargetDto {
         SceneDocumentAuthoringTargetDto {

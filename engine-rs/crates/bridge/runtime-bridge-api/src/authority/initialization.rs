@@ -4,16 +4,16 @@ pub(super) fn initialize(
     bridge: &mut EngineBridge,
     config: EngineConfig,
 ) -> BridgeResult<EngineHandle> {
-    if bridge.bundle.active_runtime_project.is_some() {
+    if bridge.runtime_project.active_runtime_project.is_some() {
         return Err(RuntimeBridgeError::new(
             RuntimeBridgeErrorKind::InvalidInput,
             "initialize_engine cannot replace an active admitted project; unload it with its lifecycle version first",
         ));
     }
     let handle = EngineHandle::new(config.seed);
-    bridge.bundle.engine = Some(handle);
-    bridge.bundle.project_resource_staging.reset();
-    bridge.bundle.pending_project_source = None;
+    bridge.runtime_project.engine = Some(handle);
+    bridge.runtime_project.project_resource_staging.reset();
+    bridge.runtime_project.pending_project_source = None;
     bridge.reset_developer_console();
     bridge.voxel.buffers.reset();
     bridge.scene.scene_document = Some(EngineBridge::initial_scene_document());

@@ -20,7 +20,7 @@ void test('fixed port views bind one root without capability lookup', () => {
     'gameplay',
     'projection',
     'workspaceAuthoring',
-    'bundleLifecycle',
+    'runtimeProjectLifecycle',
     'replayEvidence',
   ]);
   for (const port of Object.values(ports)) {
@@ -59,14 +59,17 @@ void test('every fixed port records lifecycle hash and resource rules', () => {
       'gameplay',
       'projection',
       'workspaceAuthoring',
-      'bundleLifecycle',
+      'runtimeProjectLifecycle',
       'replayEvidence',
     ],
   );
-  assert.equal(RUNTIME_BRIDGE_PORT_CONTRACTS.bundleLifecycle.projectBundle, 'ownsLoadUnload');
   assert.equal(
-    RUNTIME_BRIDGE_PORT_CONTRACTS.gameplay.projectBundle,
-    'retainedAcrossLoadUnload',
+    RUNTIME_BRIDGE_PORT_CONTRACTS.runtimeProjectLifecycle.runtimeProject,
+    'ownsProjectLifecycle',
+  );
+  assert.equal(
+    RUNTIME_BRIDGE_PORT_CONTRACTS.gameplay.runtimeProject,
+    'retainedAcrossProjectChanges',
   );
   assert.equal(
     RUNTIME_BRIDGE_PORT_CONTRACTS.voxelAssetsBuffers.resourceLifetime,

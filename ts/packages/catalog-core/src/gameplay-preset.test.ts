@@ -136,7 +136,7 @@ void test('FPS gameplay preset validation is descriptive and cannot authorize ru
   assert.equal(boundary.shapeValidation.scope, 'dto_shape_and_consumer_tuning_ranges_only');
   assert.equal(boundary.shapeValidation.authorizesRuntime, false);
   assert.equal(boundary.runtimeValidation.owner, 'rust_runtime_session_authority');
-  assert.ok(boundary.runtimeValidation.surfaces.includes('RuntimeSessionFacade.loadEcrpProject'));
+  assert.ok(boundary.runtimeValidation.surfaces.includes('RuntimeSessionFacade.loadProject'));
   assert.ok(boundary.runtimeValidation.surfaces.includes('RuntimeSessionFacade.submitRuntimeActionIntent'));
   assert.equal(boundary.semanticOwners.bootstrap, 'svc-entity-authoring');
   assert.equal(boundary.semanticOwners.combat, 'svc-combat');

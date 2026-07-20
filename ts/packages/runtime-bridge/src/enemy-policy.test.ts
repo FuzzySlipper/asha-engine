@@ -15,11 +15,6 @@ function sessionInput() {
       gameId: 'asha-demo',
       workspaceId: 'workspace.local',
     },
-    projectBundle: {
-      bundleSchemaVersion: 1,
-      protocolVersion: 1,
-      sceneId: 42,
-    },
   };
 }
 void test('enemy policy fixture proposes movement and typed fire intent from read-only nav policy view', () => {

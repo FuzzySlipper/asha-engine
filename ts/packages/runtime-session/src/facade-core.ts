@@ -6,10 +6,8 @@ import type {
 } from '@asha/contracts';
 import type { RuntimeActionIntentEnvelope } from './runtime-action.js';
 import type {
-  CompositionStatus,
   EngineHandle,
   FrameCursor,
-  ProjectBundleLoadRequest,
   StepResult,
 } from './transport-contracts.js';
 
@@ -24,9 +22,6 @@ export interface RuntimeSessionInitializeInput {
   readonly sessionId: string;
   readonly seed: number;
   readonly project: RuntimeSessionProjectIdentity;
-  /** Compatibility-only manual bootstrap descriptor. New project runtimes
-   * initialize unloaded and call `loadProject({ source })`. */
-  readonly projectBundle?: ProjectBundleLoadRequest;
 }
 
 export interface RuntimeSessionIdentity {
@@ -34,7 +29,6 @@ export interface RuntimeSessionIdentity {
   readonly mode: RuntimeSessionMode;
   readonly seed: number;
   readonly project: RuntimeSessionProjectIdentity;
-  readonly projectBundle: ProjectBundleLoadRequest | null;
   readonly nonClaims: readonly RuntimeSessionNonClaim[];
 }
 
@@ -49,7 +43,6 @@ export type RuntimeSessionNonClaim =
 export interface RuntimeSessionStateSummary {
   readonly identity: RuntimeSessionIdentity;
   readonly engine: EngineHandle;
-  readonly composition: CompositionStatus;
   readonly sequenceId: number;
   readonly tick: number;
   readonly sessionHash: string;
@@ -63,7 +56,6 @@ export interface RuntimeSessionTickResult {
   readonly sequenceId: number;
   readonly tick: number;
   readonly step: StepResult;
-  readonly composition: CompositionStatus;
   readonly sessionHash: string;
 }
 
@@ -82,7 +74,6 @@ export interface RuntimeSessionProjectionSummary {
   readonly cursor: FrameCursor;
   readonly frame: RenderFrameDiff;
   readonly runtimeFrame: RuntimeProjectionFrame;
-  readonly composition: CompositionStatus;
   readonly renderDiffCount: number;
   readonly presentationOpCount: number;
   readonly projectionHash: string;
@@ -99,7 +90,6 @@ export interface RuntimeSessionReplayRecord {
     | 'applyCameraNavigationInput'
     | 'applyFirstPersonCameraInput'
     | 'applyCollisionConstrainedCameraInput'
-    | 'loadEcrpProject'
     | 'loadProject'
     | 'closeProject'
     | 'submitRuntimeActionIntent'
@@ -108,7 +98,6 @@ export interface RuntimeSessionReplayRecord {
     | 'submitGameRuleEffectIntent'
     | 'lifecycleDeath'
     | 'runAutonomousPolicyTick'
-    | 'requestGeneratedTunnelOperation'
     | 'requestEncounterTransition'
     | 'requestSessionRestart'
     | 'restart';
@@ -119,7 +108,6 @@ export interface RuntimeSessionReplayRecord {
 export interface RuntimeSessionTelemetrySummary {
   readonly sequenceId: number;
   readonly tick: number;
-  readonly composition: CompositionStatus;
   readonly acceptedCommandCount: number;
   readonly rejectedCommandCount: number;
   readonly restartCount: number;

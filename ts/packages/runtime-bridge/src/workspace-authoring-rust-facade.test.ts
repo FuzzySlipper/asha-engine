@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import type { FpsRuntimeSessionLoadRequest } from '@asha/runtime-session';
 import type {
   SceneDocumentCodecResult,
   SceneDocumentDecodeRequest,
@@ -36,17 +35,9 @@ const OPEN_INPUT = {
   },
 } as const;
 
-class GameplayRejectingBridge extends MockRuntimeBridge {
-  gameplayLoadCount = 0;
+class AuthoringTestBridge extends MockRuntimeBridge {}
 
-  override loadFpsRuntimeSession(request: FpsRuntimeSessionLoadRequest): never {
-    void request;
-    this.gameplayLoadCount += 1;
-    throw new Error('workspace authoring must not load gameplay runtime authority');
-  }
-}
-
-class ProjectionCapturingBridge extends GameplayRejectingBridge {
+class ProjectionCapturingBridge extends AuthoringTestBridge {
   bindingRequest: VoxelProjectionBindingRequest | null = null;
   pickRequest: VoxelInstancePickRequest | null = null;
 
@@ -78,7 +69,7 @@ class ProjectionCapturingBridge extends GameplayRejectingBridge {
   }
 }
 
-class SecondSceneRejectingBridge extends GameplayRejectingBridge {
+class SecondSceneRejectingBridge extends AuthoringTestBridge {
   decodeCount = 0;
 
   override decodeSceneDocument(
@@ -107,7 +98,7 @@ class SecondSceneRejectingBridge extends GameplayRejectingBridge {
 }
 
 void test('workspace authoring has a distinct generation-bound lifecycle and never loads gameplay', () => {
-  const bridge = new GameplayRejectingBridge();
+  const bridge = new AuthoringTestBridge();
   const authoring = createWorkspaceAuthoringFacade({ bridge });
 
   const opened = authoring.open(OPEN_INPUT);
@@ -115,7 +106,6 @@ void test('workspace authoring has a distinct generation-bound lifecycle and nev
   assert.equal(opened.identity.generation, 1);
   assert.equal(opened.identity.project.workspaceId, 'workspace.local');
   assert.equal(opened.dirty, false);
-  assert.equal(bridge.gameplayLoadCount, 0);
 
   assert.throws(
     () => authoring.confirmStored({
@@ -147,14 +137,12 @@ void test('workspace authoring has a distinct generation-bound lifecycle and nev
     (error: unknown) => error instanceof RuntimeBridgeError
       && error.kind === 'not_initialized',
   );
-  assert.equal(bridge.gameplayLoadCount, 0);
 
   const reopened = authoring.open({
     ...OPEN_INPUT,
     authoringId: 'workspace-authoring.test.reopened',
   });
   assert.equal(reopened.identity.generation, 2);
-  assert.equal(bridge.gameplayLoadCount, 0);
 });
 
 void test('openProject closes partial Rust authoring state after a late artifact rejection', async () => {

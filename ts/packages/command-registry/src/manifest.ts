@@ -9,8 +9,6 @@ import type {
   CaptureBeforeAfterInput,
   CaptureBeforeAfterOutput,
   CompatibilityRequirement,
-  EmptyInput,
-  EmptyOutput,
   EditorStateOutput,
   ExportAgentReadoutInput,
   ExportAgentReadoutOutput,
@@ -29,8 +27,6 @@ import type {
   RuntimeBridgeOperationRef,
   RuntimeSessionFacadeMethodRef,
   RuntimeRequirement,
-  ScenarioIdInput,
-  ScenarioListOutput,
   SchemaField,
   SchemaRef,
   SchemaShape,
@@ -80,10 +76,7 @@ const arrayOf = (items: NonNullableSchemaShape, minItems?: number): NonNullableS
 const literal = (values: readonly string[]): NonNullableSchemaShape => ({ kind: 'literal', values });
 const contract = (exportName: 'ScreenPointToPickRayRequest' | 'VoxelCoord' | 'VoxelSelectionSnapshot' | 'VoxelCommand' | 'CatalogEntry' | 'MaterialProjection' | 'StaticMeshAsset' | 'RenderFrameDiff' | 'SceneObjectSnapshot' | 'SceneObjectCommandRequest' | 'SceneObjectCommandResult' | 'VoxelConversionPlanRequest' | 'VoxelConversionPlan' | 'VoxelConversionPreviewRequest' | 'VoxelConversionPreview' | 'VoxelConversionApplyRequest' | 'VoxelConversionReceipt' | 'VoxelConversionEvidenceRef'): NonNullableSchemaShape => ({ kind: 'contract', ref: { package: '@asha/contracts', exportName } });
 
-const EMPTY_INPUT: SchemaRef = { name: 'EmptyInput', version: 1, shape: { kind: 'empty' } };
-const EMPTY_OUTPUT = objectSchema('EmptyOutput', [field('kind', literal(['ok']), 'Acknowledgement literal.')]);
 const SESSION_ID_FIELD = field('sessionId', stringShape, 'Stable studio session identifier.');
-const SCENARIO_ID_FIELD = field('scenarioId', stringShape, 'Named public studio scenario identifier.');
 const VOXEL_COORD_SCHEMA = contract('VoxelCoord');
 const VOXEL_COMMAND_SCHEMA = contract('VoxelCommand');
 const CATALOG_ENTRY_SCHEMA = contract('CatalogEntry');
@@ -107,7 +100,6 @@ const mutateEditor: StateImpact = { authority: 'none', editor: 'mutate', render:
 const mutateAuthority: StateImpact = { authority: 'mutate', editor: 'read', render: 'none', workspace: 'none' };
 const captureRender: StateImpact = { authority: 'read', editor: 'read', render: 'capture', workspace: 'none' };
 const writeWorkspace: StateImpact = { authority: 'read', editor: 'read', render: 'read', workspace: 'write' };
-const sessionWorkspace: StateImpact = { authority: 'read', editor: 'mutate', render: 'none', workspace: 'write' };
 
 function artifact(type: ArtifactDeclaration['type'], summary: string, required = true): ArtifactDeclaration {
   return { type, required, producedWhen: required ? 'always' : 'when_available', summary };
@@ -221,9 +213,6 @@ function base<Input extends object, Output extends object>(args: {
   });
 }
 
-const scenarioListOutput = objectSchema('ScenarioListOutput', [
-  field('scenarios', arrayOf({ kind: 'object', allowExtraFields: false, fields: [field('id', stringShape, 'Scenario id.'), field('label', stringShape, 'Human-readable scenario label.')] }), 'Bounded public scenario list.'),
-]);
 const gameWorkspaceManifestInput = objectSchema('GameWorkspaceManifestInput', [
   field('workspaceRoot', stringShape, 'Absolute or workspace-resolved game workspace root selected by the caller.'),
   field('manifestPath', stringShape, 'Manifest path inside the workspace root.'),
@@ -256,7 +245,6 @@ const gameWorkspaceValidateOutput = objectSchema('GameWorkspaceValidateOutput', 
   field('workspaceHash', nullable(hashShape), 'Deterministic workspace readout hash when validation succeeds.'),
   field('diagnostics', arrayOf(gameWorkspaceDiagnosticShape), 'Classified manifest diagnostics.'),
 ]);
-const scenarioIdInput = objectSchema('ScenarioIdInput', [SCENARIO_ID_FIELD]);
 const sessionIdInput = objectSchema('SessionIdInput', [SESSION_ID_FIELD]);
 const sessionStatusOutput = objectSchema('SessionStatusOutput', [SESSION_ID_FIELD, field('status', literal(['not_started', 'ready', 'degraded', 'unavailable']), 'Session/runtime status.')]);
 const worldSummaryOutput = objectSchema('WorldSummaryOutput', [
@@ -640,18 +628,6 @@ const voxelConversionReceiptExample: VoxelConversionReceipt = {
 };
 
 export const COMMAND_MANIFEST = [
-  base<EmptyInput, ScenarioListOutput>({
-    id: 'session.list_scenarios', label: 'List Studio Scenarios', summary: 'List named public scenarios available to a studio session.', category: 'session', menuPath: ['Session', 'List Scenarios'], keywords: ['scenario', 'list'],
-    inputSchema: EMPTY_INPUT, outputSchema: scenarioListOutput, operationClass: 'read_only', stateImpact: noStateImpact, compatibility: REGISTRY_COMPAT, runtimeRequirements: [{ kind: 'none' }], artifacts: [artifact('scenario_manifest', 'Bounded scenario list for session loading.')], typedInputExample: { kind: 'empty' }, typedOutputExample: { scenarios: [{ id: 'voxel-basic', label: 'Basic Voxel Scenario' }] }, panel: 'inspector', dialog: 'readout_only', idempotency: { kind: 'idempotent', keyFields: [] },
-  }),
-  base<ScenarioIdInput, EmptyOutput>({
-    id: 'session.start', label: 'Start Studio Session', summary: 'Create/reset a studio session around a named scenario.', category: 'session', menuPath: ['Session', 'Start'], keywords: ['session', 'start'],
-    inputSchema: scenarioIdInput, outputSchema: EMPTY_OUTPUT, operationClass: 'workspace_io', agentExposure: { kind: 'workspace_io', batchable: false }, stateImpact: sessionWorkspace, runtimeRequirements: [runtime('initialize_engine'), runtime('load_project_bundle')], artifacts: [artifact('session_status', 'Initial session status and compatibility readback.')], typedInputExample: { scenarioId: 'voxel-basic' }, typedOutputExample: { kind: 'ok' }, panel: 'timeline', dialog: 'simple_form', retry: 'retry_after_status_readback', idempotency: { kind: 'conditional', condition: 'Idempotent when scenarioId and session reset token match.' },
-  }),
-  base<ScenarioIdInput, EmptyOutput>({
-    id: 'session.load_scenario', label: 'Load Scenario', summary: 'Load a named scenario into the active studio session.', category: 'session', menuPath: ['Session', 'Load Scenario'], keywords: ['load', 'scenario'],
-    inputSchema: scenarioIdInput, outputSchema: EMPTY_OUTPUT, operationClass: 'workspace_io', agentExposure: { kind: 'workspace_io', batchable: false }, stateImpact: sessionWorkspace, runtimeRequirements: [runtime('load_project_bundle')], artifacts: [artifact('session_status', 'Scenario load status and diagnostics.')], typedInputExample: { scenarioId: 'voxel-basic' }, typedOutputExample: { kind: 'ok' }, panel: 'timeline', dialog: 'simple_form', retry: 'retry_after_status_readback', idempotency: { kind: 'conditional', condition: 'Safe when current session already targets the same scenario id.' },
-  }),
   base<GameWorkspaceManifestInput, GameWorkspaceOpenOutput>({
     id: 'workspace.open_game_manifest', label: 'Open Game Workspace', summary: 'Open a game workspace manifest into Studio as a typed readout before live runtime attach.', category: 'workspace', menuPath: ['File', 'Open Game Workspace'], keywords: ['workspace', 'game', 'manifest', 'open'],
     inputSchema: gameWorkspaceManifestInput, outputSchema: gameWorkspaceOpenOutput, operationClass: 'workspace_io', agentExposure: { kind: 'workspace_io', batchable: false }, stateImpact: { authority: 'none', editor: 'mutate', render: 'none', workspace: 'read' }, compatibility: REGISTRY_COMPAT, runtimeRequirements: [{ kind: 'editor_store' }], artifacts: [artifact('game_workspace', 'Parsed game workspace readout with compatibility, roots, commands, and attach endpoint.')], typedInputExample: { workspaceRoot: '/workspace/asha-demo', manifestPath: 'asha.game.toml' }, typedOutputExample: { workspaceVersion: 'studio-game-workspace.v0', workspaceRoot: '/workspace/asha-demo', manifestPath: 'asha.game.toml', gameId: 'asha-demo', engineVersion: '0.1.0', contractsVersion: '0.1.0', runtimeBridgeVersion: '0.1.0', devtoolsProtocolVersion: 'devtools-protocol.v0', sceneRoots: ['scenes'], assetRoots: ['assets'], catalogPackages: ['packages/game-catalogs'], policyPackages: ['packages/game-policy'], attachEndpoint: 'ws://127.0.0.1:7391', devCommand: 'npm run dev', publishCommand: 'npm run conformance', workspaceHash: 'studio-game-workspace-hash' }, panel: 'inspector', dialog: 'simple_form', retry: 'retry_after_status_readback', idempotency: { kind: 'conditional', condition: 'Safe when manifestPath, workspaceRoot, and manifest file contents are unchanged.' },
@@ -662,7 +638,7 @@ export const COMMAND_MANIFEST = [
   }),
   base<SessionIdInput, SessionStatusOutput>({
     id: 'inspection.session_status', label: 'Inspect Session Status', summary: 'Read studio/runtime readiness, compatibility, and degradation status.', category: 'inspection', menuPath: ['Inspect', 'Session Status'], keywords: ['status', 'compatibility'],
-    inputSchema: sessionIdInput, outputSchema: sessionStatusOutput, operationClass: 'read_only', stateImpact: noStateImpact, runtimeRequirements: [runtime('get_project_bundle_composition_status')], artifacts: [artifact('session_status', 'Status readback for the active session.')], typedInputExample: { sessionId: 'session-1' }, typedOutputExample: { sessionId: 'session-1', status: 'ready' }, panel: 'diagnostics', dialog: 'readout_only',
+    inputSchema: sessionIdInput, outputSchema: sessionStatusOutput, operationClass: 'read_only', stateImpact: noStateImpact, runtimeRequirements: [runtime('read_active_runtime_project_content')], artifacts: [artifact('session_status', 'Status readback for the active session.')], typedInputExample: { sessionId: 'session-1' }, typedOutputExample: { sessionId: 'session-1', status: 'ready' }, panel: 'diagnostics', dialog: 'readout_only',
   }),
   base<SessionIdInput, WorldSummaryOutput>({
     id: 'inspection.world_summary', label: 'Inspect World Summary', summary: 'Read compact public world and authority evidence.', category: 'inspection', menuPath: ['Inspect', 'World Summary'], keywords: ['world', 'hash'],

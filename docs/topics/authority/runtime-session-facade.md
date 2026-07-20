@@ -71,10 +71,9 @@ Rust-capable bridge and `mode: 'rust'`; reference fixtures use
 
 `RuntimeSessionFacade` exposes:
 
-- `initialize(input)`: validates semantic session identity and initializes the bridge. New project runtimes omit the compatibility `projectBundle` field and start unloaded.
-- `loadProject({ source })`: the preferred async project boot path. A shared development-directory, package/archive, or in-memory adapter reads exactly the ProjectBundle manifest closure; the facade stages bodies through bounded binary transport; Rust decodes, links, and atomically activates authority. The generated receipt returns source evidence, project/content/composition hashes, scene/entity/resource counts, lifecycle identity, and path-bearing diagnostics. See [canonical project loading](../consumer/canonical-project-loading.md).
+- `initialize(input)`: validates semantic session identity and initializes the bridge in an unloaded state.
+- `loadProject({ source })`: the sole public async project boot path. A shared development-directory, package/archive, or in-memory adapter reads exactly the ProjectBundle manifest closure; the facade stages bodies through bounded binary transport; Rust decodes, links, and atomically activates authority. The generated receipt returns source evidence, project/content/composition hashes, scene/entity/resource counts, lifecycle identity, and path-bearing diagnostics. See [canonical project loading](../consumer/canonical-project-loading.md).
 - `closeProject()`: closes exactly the facade-tracked active project lifecycle. Stale or missing authority rejects without inferred replacement.
-- `loadEcrpProject(input)`: deprecated compatibility-only handwritten bootstrap path retained until Demo migration. New consumers must not construct its entity registries, runtime numbers, prefab/trigger topology, provider bytes, or hashes.
 - `submitCommands(batch)`: submits generated `CommandBatch` values only.
 - `configureInputSession(request)`, `applyInputContextCommand(command)`, `submitRawInput(sample)`, `replayResolvedInputAction(record)`, and `readInputContextState()`: expose the Rust-owned named-input catalog, context stack, raw resolution, and platform-free semantic replay surface without granting DOM or TypeScript authority over consumption. Accepted raw receipts carry hash-bound `RecordedInputAction` values; direct replay validates catalog/context/action evidence and rejects repeat delivery.
 - `applyTimeControlCommand(command)`: applies generated pause, resume, cadence-multiplier, or exact-step commands through Rust Session authority. Exact steps require paused mode, advance precisely the requested fixed-tick count, and remain paused; invalid commands return atomic classified receipts.
@@ -94,8 +93,6 @@ Rust-capable bridge and `mode: 'rust'`; reference fixtures use
 - `readLifecycleStatus(request?)`: reads player/enemy lifecycle status, win/loss/in-progress outcome, restart eligibility, fixture reset hash, lifecycle/replay hashes, and terminal death events.
 - `requestSessionRestart(intent)`: validates a typed `runtime.restart_session_intent`, rejects stale/non-terminal requests with typed receipts, or resets the session deterministically through the existing restart path.
 - `readCombatReadout(request?)`: reads the committed #4040 generated-tunnel combat fixture readouts for compatibility/golden evidence. Runtime action receipts use the loaded RuntimeSession state when a project has been loaded.
-- `readGeneratedTunnelReadout(request?)`: reads the #4038 tiny generated tunnel fixture evidence, including seed, config/output/replay hashes, spawn markers, material roles, and render/collision projection hashes.
-- `requestGeneratedTunnelOperation(request)`: on Rust-backed sessions, `apply_to_runtime_world` installs the selected `svc-levelgen` tunnel as voxel collision authority and returns its authoritative grid/output/projection hashes. `regenerate` remains fail-closed as an authoring operation; reference sessions claim no runtime apply authority.
 - `readNavProjection()`: reads #4041 generated-tunnel nav projection availability/hash evidence.
 - `queryNavPath(request?)`: returns reachable or no-path generated-tunnel path readouts.
 - `readNavPolicyView()`: returns a read-only/proposal-only policy-facing nav view shape with no mutation/apply authority.
@@ -140,7 +137,7 @@ Rust-capable bridge and `mode: 'rust'`; reference fixtures use
 
 See [`gameplay-runtime-host.md`](gameplay-runtime-host.md) for the downstream
 module host internals and current Wave 1 limits. See
-[`runtime-session-static-composition.md`](runtime-session-static-composition.md)
+[`runtime-session-composition.md`](../bridge/runtime-session-composition.md)
 for the preferred one-cell native-provider boundary.
 See
 [`prefab-authoring-and-placement.md`](prefab-authoring-and-placement.md) for
@@ -175,7 +172,7 @@ Lifecycle fixture hashes in the current reference slice:
 - enemy defeated lifecycle hash: `fnv1a64:5fbf190733451da1`
 - player defeated fixture lifecycle hash: `fnv1a64:32322a108d4f2767`
 
-The current reference helper is `createMockRuntimeSession`, a facade over the existing `RuntimeBridge` mock exposed only from `@asha/runtime-bridge/reference`. It is useful for unit tests, compatibility fixtures, and offline smoke baselines. It is not the product/live authority path for demo or Studio, and selected/native backend launchers must fail closed rather than falling back to this helper. For collision-constrained camera input, the reference facade hosts the upstream static-room collision fixture so consumers can prove wall-stop/open-space behavior without importing demo-local physics. For ECRP content, the reference RuntimeSession owns a loaded project-state projection seeded by `loadEcrpProject`; primary-fire receipts, lifecycle updates, entity events, health state, and render visibility apply to the loaded enemy entity in reference mode. It does not claim native runtime attach, product authority, raw state-store access, or renderer ownership.
+The current reference helper is `createMockRuntimeSession`, a facade over the existing `RuntimeBridge` mock exposed only from `@asha/runtime-bridge/reference`. It is useful for unit tests, compatibility fixtures, and offline smoke baselines. It is not the product/live authority path for demo or Studio, and selected/native backend launchers must fail closed rather than falling back to this helper. For collision-constrained camera input, the reference facade hosts the upstream static-room collision fixture so consumers can prove wall-stop/open-space behavior without importing demo-local physics. Reference ECRP state is admitted through the same canonical project-source facade shape used by product sessions; primary-fire receipts, lifecycle updates, entity events, health state, and render visibility then apply to that loaded state. It does not claim native runtime attach, product authority, raw state-store access, or renderer ownership.
 
 Evidence lanes:
 

@@ -39,7 +39,7 @@ node --input-type=module -e "
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { createNativeRuntimeBridge, createRuntimeSessionFacade } from '$REPO_ROOT/ts/packages/runtime-bridge/dist/index.js';
+import { createNativeRuntimeBridge } from '$REPO_ROOT/ts/packages/runtime-bridge/dist/index.js';
 import { REQUIRED_NATIVE_ADDON_EXPORTS, loadNativeAddon } from '$REPO_ROOT/ts/packages/native-bridge/dist/index.js';
 const require = createRequire('file://$DEST');
 const rawAddon = require('$DEST');
@@ -48,7 +48,6 @@ assert.deepEqual(exportNames, [...REQUIRED_NATIVE_ADDON_EXPORTS].sort());
 const a = loadNativeAddon('$DEST');
 const h = a.initializeEngine(7);
 assert.equal(typeof h, 'number');
-assert.deepEqual(a.loadProjectBundle(h, 1, 1, 1001), { loadedProjectBundle: 1001, fatalCount: 0, totalCount: 0, blocksLoad: false });
 assert.deepEqual(a.submitCommands(h, JSON.stringify([{ op: 'setVoxel', grid: 1, coord: { x: 0, y: 0, z: 0 }, value: { kind: 'solid', material: 1 } }])), { accepted: 1, rejected: 0, rejections: [] });
 assert.deepEqual(a.stepSimulation(h, 6), { tick: 6, diffCount: 0 });
 assert.equal(JSON.parse(a.applyTimeControlCommand(h, JSON.stringify({ operation: 'pause' }))).accepted, true);
@@ -58,8 +57,6 @@ assert.equal(JSON.parse(a.readTimeControlState(h)).authorityTick, 8);
 assert.equal(JSON.parse(a.applyTimeControlCommand(h, JSON.stringify({ operation: 'resume' }))).accepted, true);
 const renderFrame = JSON.parse(a.readRenderDiffs(h, 0));
 assert.ok(renderFrame.ops.some((operation) => operation.op === 'replaceMeshPayload'));
-assert.deepEqual(a.saveProjectBundle(h), { artifactsWritten: 3, compactedEdits: 0, retainedEdits: 0 });
-assert.deepEqual(a.getProjectBundleCompositionStatus(h), { loadedProjectBundle: 1001, fatalCount: 0, totalCount: 0, blocksLoad: false });
 
 const bridge = createNativeRuntimeBridge('$DEST');
 bridge.initializeEngine({ seed: 1 });
@@ -75,80 +72,6 @@ assert.ok(Math.abs(camera.pose.position[1] - 1.6) < 0.00001);
 assert.ok(Math.abs(camera.pose.position[2] - 0) < 0.00001);
 assert.equal(camera.viewport.width, 1280);
 
-const session = createRuntimeSessionFacade({
-  bridge: createNativeRuntimeBridge('$DEST'),
-  mode: 'rust',
-});
-session.initialize({
-  sessionId: 'check-native.generated-tunnel',
-  seed: 17,
-  project: { gameId: 'asha-demo', workspaceId: 'workspace.check-native' },
-  projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 4103 },
-});
-const tunnel = session.requestGeneratedTunnelOperation({
-  operation: 'apply_to_runtime_world',
-  presetId: 'tiny-enclosed',
-  seed: 17,
-});
-assert.equal(tunnel.status, 'applied');
-assert.equal(tunnel.grid, 0);
-assert.equal(tunnel.outputHash, '1471496d88d70647');
-assert.deepEqual(tunnel.runtimeFrame, {
-  worldOffset: [-3.5, -1, -5.5],
-  playableMin: [-2.5, 0, -4.5],
-  playableMax: [2.5, 4, 4.5],
-});
-const tunnelCamera = session.createCamera({
-  initialPose: { position: [0, 1.62, 1.5], yawDegrees: 0, pitchDegrees: 0 },
-  projection: { fovYDegrees: 60, near: 0.1, far: 1000 },
-  viewport: { width: 1280, height: 720 },
-}).snapshot.camera;
-const openTunnelMovement = session.applyCollisionConstrainedCameraInput({
-  camera: tunnelCamera,
-  grid: tunnel.grid,
-  movementMode: 'grounded',
-  input: {
-    moveForward: 1,
-    moveRight: 0,
-    moveUp: 0,
-    yawDeltaDegrees: 0,
-    pitchDeltaDegrees: 0,
-    dtSeconds: 0.1,
-    moveSpeedUnitsPerSecond: 3,
-  },
-  tick: 1,
-  shape: { halfExtents: [0.25, 0.7, 0.25] },
-  policy: { mode: 'axis_separable_slide', maxIterations: 3 },
-});
-assert.equal(openTunnelMovement.collided, false);
-assert.deepEqual(openTunnelMovement.blockedAxes, []);
-assert.ok(Math.abs(openTunnelMovement.snapshot.after.pose.position[2] - 1.2) < 0.00001);
-const shellMovement = session.applyCollisionConstrainedCameraInput({
-  camera: tunnelCamera,
-  grid: tunnel.grid,
-  movementMode: 'grounded',
-  input: {
-    moveForward: 1,
-    moveRight: 0,
-    moveUp: 0,
-    yawDeltaDegrees: 0,
-    pitchDeltaDegrees: 0,
-    dtSeconds: 3,
-    moveSpeedUnitsPerSecond: 3,
-  },
-  tick: 2,
-  shape: { halfExtents: [0.25, 0.7, 0.25] },
-  policy: { mode: 'axis_separable_slide', maxIterations: 3 },
-});
-assert.equal(shellMovement.collided, true);
-assert.deepEqual(shellMovement.blockedAxes, ['z']);
-assert.equal(shellMovement.snapshot.collision.movementMode, 'grounded');
-assert.equal(shellMovement.snapshot.attempted.pose.position[1], shellMovement.snapshot.before.pose.position[1]);
-assert.equal(shellMovement.snapshot.after.pose.position[1], shellMovement.snapshot.before.pose.position[1]);
-assert.ok(Math.abs(shellMovement.snapshot.after.pose.position[2] - 1.2) < 0.00001);
-assert.equal(shellMovement.snapshot.collision.grid, tunnel.grid);
-assert.equal(shellMovement.snapshot.collision.collisionSourceHash, tunnel.collisionSourceHash);
-assert.equal(shellMovement.snapshot.collision.collisionProjectionHash, tunnel.collisionProjectionHash);
 const registrationRequest = {
   source: {
     assetId: 'mesh/check-native-registered-triangle',

@@ -43,8 +43,6 @@ import {
   frameCursor,
   type RuntimeBridge,
 } from './index.js';
-import { fpsLoadRequest } from './native-fps-fixtures.test-fixture.js';
-import { NATIVE_GENERATED_TUNNEL_RECEIPT } from './native-generated-tunnel-fixture.js';
 import { REQUIRED_NATIVE_CONFORMANCE_OPS } from './native-conformance-operations.test-fixture.js';
 import {
   VOXEL_CONVERSION_MESH_ASSET_REGISTRATION_REQUEST,
@@ -504,10 +502,6 @@ function fakeAddon(calls: string[] = []): NativeAddon {
         lifecycleHash: HASH_B,
       });
     },
-    loadProjectBundle: (_handle: number, bundleSchemaVersion: number, protocolVersion: number, sceneId: number) => {
-      calls.push(`load:${bundleSchemaVersion}:${protocolVersion}:${sceneId}`);
-      return { loadedProjectBundle: sceneId + 1000, fatalCount: 0, totalCount: 0, blocksLoad: false };
-    },
     submitCommands: (_handle: number, commandsJson: string) => {
       calls.push(`submit:${commandsJson}`);
       const commands: unknown = JSON.parse(commandsJson);
@@ -579,7 +573,6 @@ function fakeAddon(calls: string[] = []): NativeAddon {
         movementHash: 'fnv1a64:sentinel-movement',
       };
     },
-    applyGeneratedTunnelToRuntimeWorld: (_handle: number, presetId: string, seed: number) => ({ ...NATIVE_GENERATED_TUNNEL_RECEIPT, presetId, seed }),
     applyEnemyDirectNavMovement: (
       _handle: number,
       entity: number,
@@ -599,66 +592,6 @@ function fakeAddon(calls: string[] = []): NativeAddon {
         pathHash: 'fnv1a64:sentinel-path',
         transformHash: 'fnv1a64:sentinel-transform',
         projectionChanged: true,
-      };
-    },
-    loadFpsRuntimeSession: (
-      _handle: number,
-      projectBundle: string,
-      sceneDocumentJson: string,
-      bootstrapResolutionRegistryJson: string,
-      definitions: readonly unknown[],
-      gameRuleModulesJson: string,
-    ) => {
-      const sceneDocument = parseJsonFixture<{ readonly schemaVersion: number }>(sceneDocumentJson);
-      const bootstrapResolutionRegistry = parseJsonFixture<{
-        readonly schemaVersion: number;
-        readonly entityDefinitionIds: readonly string[];
-      }>(bootstrapResolutionRegistryJson);
-      const gameRuleModules = parseJsonFixture<unknown[]>(gameRuleModulesJson);
-      assert.equal(sceneDocument.schemaVersion, 3);
-      assert.equal(bootstrapResolutionRegistry.schemaVersion, 1);
-      assert.deepEqual(
-        bootstrapResolutionRegistry.entityDefinitionIds,
-        ['actor/custom-player', 'actor/custom-enemy'],
-      );
-      calls.push(`fpsLoad:${projectBundle}:${definitions.length}:${gameRuleModules.length}`);
-      const player = definitions[0] as Record<string, unknown>;
-      const enemy = definitions[1] as Record<string, unknown>;
-      const playerTransform = player['transform'] as { readonly translation?: { readonly x?: number } } | undefined;
-      const playerWeapon = player['weapon'] as Record<string, unknown> | undefined;
-      const enemyPolicy = enemy['policyBinding'] as Record<string, unknown> | undefined;
-      assert.equal(player['stableId'], 'actor/custom-player');
-      assert.equal(player['stable_id'], undefined);
-      assert.equal(playerWeapon?.['weaponId'], 'weapon.custom.primary');
-      assert.equal(playerWeapon?.['weapon_id'], undefined);
-      assert.equal(enemyPolicy?.['policyId'], 'policy.enemy.custom.v0');
-      assert.equal(enemy['policy_binding'], undefined);
-      calls.push(
-        `fpsNativeShape:${player['policyBinding'] === undefined}:${enemy['weapon'] === undefined}:${playerTransform?.translation?.x ?? 'missing'}`,
-      );
-      return {
-        backend: 'engine_bridge_rust',
-        authoritySurface: 'runtime_session.fps.authority.v0',
-        projectBundle,
-        sessionEpoch: 1,
-        lifecycleStatus: { state: 'active' },
-        playerEntity: 101,
-        enemyEntity: 777,
-        health: [{ entity: 777, current: 75, max: 75 }],
-        policyBindings: [{
-          entity: 777,
-          bindingId: 'binding.enemy.custom.v0',
-          policyId: 'policy.enemy.custom.v0',
-          viewKind: 'runtime_session.nav_policy_view.v0',
-          viewVersion: 'v0',
-          allowedIntents: ['runtime.intent.primary_fire.v0'],
-          runtimeMoment: 'runtime.tick.enemy_policy.v0',
-        }],
-        replayRecords: [{ replayUnit: 'runtime_session.fps.bootstrap.v0', entityHash: HASH_A, healthHash: HASH_B, recordHash: HASH_C }],
-        readSets: [{ viewKind: 'runtime_session.health.v0', owner: 'svc-combat', readSet: ['CombatState.health'] }],
-        entityHash: HASH_A,
-        healthHash: HASH_B,
-        replayHash: HASH_C,
       };
     },
     readFpsRuntimeSession: (handle: number) => {
@@ -905,16 +838,6 @@ function fakeAddon(calls: string[] = []): NativeAddon {
       nextSequence: 0,
       snapshotHash: 'fnv1a64:console-empty',
     }),
-    saveProjectBundle: (handle: number) => {
-      void handle;
-      calls.push('save');
-      return { artifactsWritten: 5, compactedEdits: 2, retainedEdits: 3 };
-    },
-    getProjectBundleCompositionStatus: (handle: number) => {
-      void handle;
-      calls.push('status');
-      return { loadedProjectBundle: 2001, fatalCount: 0, totalCount: 0, blocksLoad: false };
-    },
     planVoxelConversion: (_handle: number, requestJson: string) => {
       calls.push(`voxelPlan:${requestJson}`);
       const request = parseJsonFixture<VoxelConversionPlanRequest>(requestJson);
@@ -1441,12 +1364,6 @@ void test('native conformance sequence routes through the addon without mock fal
   const bridge: RuntimeBridge = new NativeRuntimeBridge(fakeAddon(calls));
 
   assert.equal(bridge.initializeEngine({ seed: 7 }) as number, 107);
-  assert.deepEqual(bridge.loadProjectBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1001 }), {
-    loadedProjectBundle: 2001,
-    fatalCount: 0,
-    totalCount: 0,
-    blocksLoad: false,
-  });
   assert.deepEqual(
     bridge.submitCommands({
       commands: [
@@ -1495,11 +1412,6 @@ void test('native conformance sequence routes through the addon without mock fal
     transformHash: 'fnv1a64:sentinel-transform',
     projectionChanged: true,
   });
-  const loadedFps = bridge.loadFpsRuntimeSession(fpsLoadRequest());
-  assert.equal(loadedFps.backend, 'native_rust');
-  assert.equal(loadedFps.playerEntity, 101);
-  assert.equal(loadedFps.enemyEntity, 777);
-  assert.equal(loadedFps.replayHash, HASH_C);
   const fired = bridge.applyFpsPrimaryFire({ tick: 9, origin: [2.5, 1.5, 1.5], direction: [0, 0, 1] });
   assert.equal(fired.backend, 'native_rust');
   assert.deepEqual(fired.lifecycleStatus, { state: 'enemy_defeated', entity: 777, tick: 9 });
@@ -1549,17 +1461,8 @@ void test('native conformance sequence routes through the addon without mock fal
   assert.equal(meshAssetRegistration.materialSlots[0]?.sourceMaterialId, 'mat/a');
   assert.deepEqual(bridge.readRenderDiffs(frameCursor(0)), { ops: [] });
   bridge.readProjectionFrame(frameCursor(0));
-  assert.deepEqual(bridge.saveProjectBundle(), { artifactsWritten: 5, compactedEdits: 2, retainedEdits: 3 });
-  assert.deepEqual(bridge.getProjectBundleCompositionStatus(), {
-    loadedProjectBundle: 2001,
-    fatalCount: 0,
-    totalCount: 0,
-    blocksLoad: false,
-  });
-
   assert.deepEqual(calls, [
     'initialize:7',
-    'load:1:1:1001',
     'submit:[{"op":"setVoxel","grid":1,"coord":{"x":0,"y":0,"z":0},"value":{"kind":"solid","material":1}}]',
     'step:6',
     'createCamera:0,1.6,0',
@@ -1568,8 +1471,6 @@ void test('native conformance sequence routes through the addon without mock fal
     `cameraNavigation:${JSON.stringify(CAMERA_NAVIGATION_INPUT)}`,
     'cameraControllerRead:{"camera":1}',
     'enemyMove:777:0,0.5,-2.6:0,1.62,1.25:0.35',
-    'fpsLoad:custom-demo:2:0',
-    'fpsNativeShape:true:true:0',
     'fpsFire:9:2.5,1.5,1.5:0,0,1',
     'gameRuleValidate:catalog.game-rules.native',
     'gameRuleSubmit:catalog.game-rules.native:bundle.poisoned-impact',
@@ -1582,8 +1483,6 @@ void test('native conformance sequence routes through the addon without mock fal
     'voxelMeshAssetRegister:{"source":{"assetId":"mesh/quad","assetKind":"mesh","assetVersion":1,"sourceHash":"sha256:quad","meshPrimitive":null},"meshAsset":{"assetId":"mesh/quad","sourcePath":"assets/mesh/quad.mesh.json","positions":[[0,0,0],[1,0,0],[0,1,0]],"normals":[],"indices":[0,1,2],"groups":[{"materialSlot":0,"start":0,"count":3}],"materialSlots":[{"sourceMaterialSlot":0,"sourceMaterialId":"mat/a"}]}}',
     'render:0',
     'projection:0',
-    'save',
-    'status',
   ]);
 });
 
@@ -1605,19 +1504,11 @@ void test('native voxel volume unload routes generated request and receipt JSON'
   ]);
 });
 
-void test('native facade validates numeric inputs before addon casts can wrap', () => {
+void test('native facade validates numeric simulation inputs before addon casts can wrap', () => {
   const calls: string[] = [];
   const bridge: RuntimeBridge = new NativeRuntimeBridge(fakeAddon(calls));
   bridge.initializeEngine({ seed: 1 });
 
-  assert.throws(
-    () => bridge.loadProjectBundle({ bundleSchemaVersion: 1.5, protocolVersion: 1, sceneId: 1 }),
-    (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input',
-  );
-  assert.throws(
-    () => bridge.loadProjectBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: -1 }),
-    (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input',
-  );
   assert.throws(
     () => bridge.stepSimulation({ tick: -1 }),
     (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input',
@@ -1627,23 +1518,6 @@ void test('native facade validates numeric inputs before addon casts can wrap', 
     (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input',
   );
   assert.deepEqual(calls, ['initialize:1']);
-});
-
-void test('native facade defaults omitted FPS game-rule modules before addon conversion', () => {
-  const calls: string[] = [];
-  const bridge = new NativeRuntimeBridge(fakeAddon(calls));
-  bridge.initializeEngine({ seed: 1 });
-  const request = fpsLoadRequest();
-  const legacyRequest = {
-    projectBundle: request.projectBundle,
-    bootstrapResolutionRegistry: request.bootstrapResolutionRegistry,
-    sceneDocument: request.sceneDocument,
-    definitions: request.definitions,
-  };
-
-  const loaded = bridge.loadFpsRuntimeSession(legacyRequest as ReturnType<typeof fpsLoadRequest>);
-  assert.equal(loaded.backend, 'native_rust');
-  assert.equal(calls.includes('fpsLoad:custom-demo:2:0'), true);
 });
 
 void test('native developer console restores nullable fields omitted by napi', () => {

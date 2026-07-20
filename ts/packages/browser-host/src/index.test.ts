@@ -325,11 +325,11 @@ void test('browser host isolates RuntimeBridge factory clients and bounds their 
       assert.equal((await invoke('1', 'initializeEngine', [{ seed: 23 }])).status, 200);
       assert.equal(sessionCalls.length, 2);
 
-      assert.equal((await invoke('0', 'getProjectBundleCompositionStatus', [])).status, 200);
-      assert.equal((await invoke('1', 'getProjectBundleCompositionStatus', [])).status, 200);
+      assert.equal((await invoke('0', 'readTimeControlState', [])).status, 200);
+      assert.equal((await invoke('1', 'readTimeControlState', [])).status, 200);
       assert.deepEqual(sessionCalls, [
-        ['initialize:17', 'compositionStatus'],
-        ['initialize:23', 'compositionStatus'],
+        ['initialize:17', 'timeControlState'],
+        ['initialize:23', 'timeControlState'],
       ]);
 
       const nonCanonical = await invoke('01', 'initializeEngine', [{ seed: 29 }]);
@@ -352,7 +352,7 @@ void test('browser host gives ASHA Studio pages isolated one-cell lifecycles and
   const cells: Array<{
     readonly id: number;
     readonly calls: string[];
-    unloads: number;
+    closedProjects: number;
   }> = [];
   let hostClosed = false;
   try {
@@ -365,7 +365,7 @@ void test('browser host gives ASHA Studio pages isolated one-cell lifecycles and
       provider: {
         globalScope: {},
         createRuntimeBridge: () => {
-          const cell = { id: cells.length, calls: [] as string[], unloads: 0 };
+          const cell = { id: cells.length, calls: [] as string[], closedProjects: 0 };
           cells.push(cell);
           return createTrackedRuntimeBridge(cell);
         },
@@ -408,8 +408,8 @@ void test('browser host gives ASHA Studio pages isolated one-cell lifecycles and
       const secondHeaders = browserHostHeaders(secondProvider.browserHostSessionId, '0');
       assert.equal((await invokeBrowserHostBridge(host.url, firstHeaders, 'initializeEngine', [{ seed: 11 }])).status, 200);
       assert.equal((await invokeBrowserHostBridge(host.url, secondHeaders, 'initializeEngine', [{ seed: 22 }])).status, 200);
-      assert.equal((await invokeBrowserHostBridge(host.url, firstHeaders, 'loadProjectBundle', [{ sceneId: 101 }])).status, 200);
-      assert.equal((await invokeBrowserHostBridge(host.url, secondHeaders, 'loadProjectBundle', [{ sceneId: 202 }])).status, 200);
+      assert.equal((await invokeBrowserHostBridge(host.url, firstHeaders, 'loadRuntimeProject', [runtimeProjectLoadRequest(101)])).status, 200);
+      assert.equal((await invokeBrowserHostBridge(host.url, secondHeaders, 'loadRuntimeProject', [runtimeProjectLoadRequest(202)])).status, 200);
       const firstCamera = await invokeBrowserHostBridge(host.url, firstHeaders, 'createCamera', [{}]);
       const secondCamera = await invokeBrowserHostBridge(host.url, secondHeaders, 'createCamera', [{}]);
       assert.deepEqual(await firstCamera.json(), { result: { cellId: 1 } });
@@ -477,12 +477,12 @@ void test('browser host gives ASHA Studio pages isolated one-cell lifecycles and
         { method: 'POST', headers: firstHeaders, body: '{}' },
       );
       assert.equal(switchDisconnect.status, 200);
-      assert.equal(cells[1]?.unloads, 1);
+      assert.equal(cells[1]?.closedProjects, 1);
       const switchedBridge = firstProvider.createRuntimeBridge() as typeof firstBridge;
       assert.equal(switchedBridge.browserHostLifecycle.status(), 'active');
       const switchedHeaders = browserHostHeaders(firstProvider.browserHostSessionId, '1');
       assert.equal((await invokeBrowserHostBridge(host.url, switchedHeaders, 'initializeEngine', [{ seed: 33 }])).status, 200);
-      assert.equal((await invokeBrowserHostBridge(host.url, switchedHeaders, 'loadProjectBundle', [{ sceneId: 303 }])).status, 200);
+      assert.equal((await invokeBrowserHostBridge(host.url, switchedHeaders, 'loadRuntimeProject', [runtimeProjectLoadRequest(303)])).status, 200);
       const switchedReadout = await invokeBrowserHostBridge(
         host.url,
         switchedHeaders,
@@ -505,7 +505,7 @@ void test('browser host gives ASHA Studio pages isolated one-cell lifecycles and
         clientId: '1',
         released: 1,
       });
-      assert.equal(cells[3]?.unloads, 1);
+      assert.equal(cells[3]?.closedProjects, 1);
       const closedClient = await invokeBrowserHostBridge(host.url, switchedHeaders, 'readComposedRuntimeSession', []);
       assert.equal(closedClient.status, 500);
       assert.deepEqual(await closedClient.json(), {
@@ -525,7 +525,7 @@ void test('browser host gives ASHA Studio pages isolated one-cell lifecycles and
         { method: 'POST', body: '{}' },
       );
       assert.equal(pageClose.status, 200);
-      assert.equal(cells[2]?.unloads, 1);
+      assert.equal(cells[2]?.closedProjects, 1);
       const staleSession = await invokeBrowserHostBridge(host.url, secondHeaders, 'readComposedRuntimeSession', []);
       assert.equal(staleSession.status, 500);
       const stalePayload = await staleSession.json() as { readonly error?: { readonly kind?: string; readonly message?: string } };
@@ -533,10 +533,10 @@ void test('browser host gives ASHA Studio pages isolated one-cell lifecycles and
       assert.match(stalePayload.error?.message ?? '', /closed or stale/u);
 
       assert.equal((await invokeBrowserHostBridge(host.url, {}, 'initializeEngine', [{ seed: 33 }])).status, 200);
-      assert.equal((await invokeBrowserHostBridge(host.url, {}, 'loadProjectBundle', [{ sceneId: 404 }])).status, 200);
+      assert.equal((await invokeBrowserHostBridge(host.url, {}, 'loadRuntimeProject', [runtimeProjectLoadRequest(404)])).status, 200);
       await host.close();
       hostClosed = true;
-      assert.equal(cells[0]?.unloads, 1);
+      assert.equal(cells[0]?.closedProjects, 1);
     } finally {
       if (!hostClosed) {
         await host.close();
@@ -599,8 +599,8 @@ void test('browser host preserves native RuntimeBridge receiver binding over HTT
         viewport: { width: 1280, height: 720 },
       });
 
-      const compositionInvocation = await fetch(
-        `${host.url}/asha/browser-host/runtime-bridge/getProjectBundleCompositionStatus`,
+      const timeControlInvocation = await fetch(
+        `${host.url}/asha/browser-host/runtime-bridge/readTimeControlState`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -608,16 +608,18 @@ void test('browser host preserves native RuntimeBridge receiver binding over HTT
         },
       );
 
-      assert.equal(compositionInvocation.status, 200);
-      assert.deepEqual(await compositionInvocation.json(), {
+      assert.equal(timeControlInvocation.status, 200);
+      assert.deepEqual(await timeControlInvocation.json(), {
         result: {
-          loadedProjectBundle: 4103,
-          fatalCount: 0,
-          totalCount: 0,
-          blocksLoad: false,
+          schemaVersion: 1,
+          mode: 'running',
+          speedMultiplier: 1,
+          revision: 0,
+          authorityTick: 0,
+          stateHash: 'aaaaaaaaaaaaaaaa',
         },
       });
-      assert.deepEqual(calls, ['initialize:23', 'createCamera', 'compositionStatus']);
+      assert.deepEqual(calls, ['initialize:23', 'createCamera', 'timeControlState']);
     } finally {
       await host.close();
     }
@@ -652,7 +654,7 @@ void test('browser host contains native RuntimeBridge invocation failures', asyn
       assert.equal(initializeInvocation.status, 200);
 
       const failedInvocation = await fetch(
-        `${host.url}/asha/browser-host/runtime-bridge/getProjectBundleCompositionStatus`,
+        `${host.url}/asha/browser-host/runtime-bridge/readTimeControlState`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -664,15 +666,15 @@ void test('browser host contains native RuntimeBridge invocation failures', asyn
       assert.deepEqual(await failedInvocation.json(), {
         error: {
           kind: 'internal',
-          message: 'runtime bridge error [internal]: native composition status failed',
-          operation: 'get_project_bundle_composition_status',
+          message: 'runtime bridge error [internal]: native time control read failed',
+          operation: 'read_time_control_state',
           path: '$',
           retryable: false,
           details: ['invalid_native_error_envelope'],
           provenance: 'transport_loader',
         },
       });
-      assert.deepEqual(calls, ['initialize:23', 'compositionStatus']);
+      assert.deepEqual(calls, ['initialize:23', 'timeControlState']);
 
       const health = await fetch(`${host.url}/health`);
       assert.equal(health.status, 200);
@@ -808,24 +810,56 @@ function invokeBrowserHostBridge(
 function createTrackedRuntimeBridge(cell: {
   readonly id: number;
   readonly calls: string[];
-  unloads: number;
+  closedProjects: number;
 }): RuntimeBridge {
   let project: number | null = null;
+  let lifecycle = { generation: 0, revision: 0 };
   return {
     ...createFakeRuntimeBridge(),
     initializeEngine(input) {
       cell.calls.push(`initialize:${input.seed}`);
       return cell.id as never;
     },
-    loadProjectBundle(input) { // vocab-allow: tracked public bridge fixture
-      project = (input as { readonly sceneId?: number }).sceneId ?? null;
+    loadRuntimeProject(input) {
+      project = Number(input.source.identity.replace('project:', ''));
+      lifecycle = {
+        generation: input.expectedLifecycle.generation + 1,
+        revision: input.expectedLifecycle.revision + 1,
+      };
       cell.calls.push(`load:${project ?? 'none'}`);
-      return { loadedProjectBundle: project, fatalCount: 0, totalCount: 0, blocksLoad: false } as never;
+      return {
+        accepted: true,
+        source: input.source,
+        activeProject: {
+          projectId: project,
+          manifestHash: `manifest-${project}`,
+          admissionHash: `admission-${project}`,
+          contentSetHash: `content-${project}`,
+          compositionHash: `composition-${project}`,
+          entrySceneId: project,
+          sceneCount: 1,
+          entityCount: 0,
+          voxelAssetCount: 0,
+          voxelBindings: [],
+          lifecycle,
+        },
+        lifecycle,
+        diagnostics: [],
+      } as never;
     },
-    unloadProjectBundle() {
-      cell.calls.push(`unload:${project ?? 'none'}`);
-      cell.unloads += 1;
+    closeRuntimeProject() {
+      const closedProjectId = project;
+      cell.calls.push(`close:${project ?? 'none'}`);
+      cell.closedProjects += 1;
       project = null;
+      lifecycle = { generation: lifecycle.generation, revision: lifecycle.revision + 1 };
+      return {
+        accepted: true,
+        closedProjectId,
+        closedManifestHash: closedProjectId === null ? null : `manifest-${closedProjectId}`,
+        lifecycle,
+        diagnostics: [],
+      } as never;
     },
     createCamera() {
       cell.calls.push('camera');
@@ -848,109 +882,12 @@ function createTrackedRuntimeBridge(cell: {
 
 function createFakeRuntimeBridge(): RuntimeBridge {
   const operation = () => ({ called: true }) as never;
-  return {
-    initializeEngine: operation,
-    configureInputSession: operation,
-    applyInputContextCommand: operation,
-    submitRawInput: operation,
-    replayResolvedInputAction: operation,
-    readInputContextState: operation,
-    applyTimeControlCommand: operation,
-    readTimeControlState: operation,
-    beginRuntimeProjectSourceResources: operation,
-    stageRuntimeProjectSourceResource: operation,
-    admitRuntimeProjectSourceBatch: operation,
-    loadRuntimeProject: operation,
-    closeRuntimeProject: operation,
-    readActiveRuntimeProjectContent: operation,
-    loadProjectBundle: operation, // vocab-allow: fake bridge must satisfy the legacy RuntimeBridge method name.
-    getProjectBundleCompositionStatus: operation,
-    submitCommands: operation,
-    stepSimulation: operation,
-    createCamera: operation,
-    applyCameraModeCommand: operation,
-    applyCameraNavigationInput: operation,
-    readCameraControllerState: operation,
-    applyFirstPersonCameraInput: operation,
-    readCameraProjection: operation,
-    pickVoxel: operation,
-    configureVoxelProjectionInstances: operation,
-    pickVoxelInstance: operation,
-    selectVoxel: operation,
-    readVoxelMeshEvidence: operation,
-    readRenderDiffs: operation,
-    readProjectionFrame: operation,
-    readDeveloperConsole: operation,
-    saveProjectBundle: operation,
-    applyCollisionConstrainedCameraInput: operation,
-    applyGeneratedTunnelToRuntimeWorld: operation,
-    readModelMaterialPreview: operation,
-    decodeSceneDocument: operation,
-    encodeSceneDocument: operation,
-    applySceneDocumentAuthoring: operation,
-    previewProceduralEnvironment: operation,
-    applyProceduralEnvironment: operation,
-    decodeProjectContent: operation,
-    encodeProjectContent: operation,
-    applyProjectContentAuthoring: operation,
-    openWorkspaceAuthoring: operation,
-    readWorkspaceAuthoringState: operation,
-    readWorkspaceAuthoringProjection: operation,
-    confirmWorkspaceAuthoringStored: operation,
-    prepareProjectWrite: operation,
-    confirmProjectWrite: operation,
-    closeWorkspaceAuthoring: operation,
-    loadFpsRuntimeSession: operation,
-    readFpsRuntimeSession: operation,
-    applyFpsPrimaryFire: operation,
-    readComposedRuntimeSession: operation,
-    readGameplayModuleView: operation,
-    applyGameplayPrefabPartInteraction: operation,
-    invokeGameExtensionWeaponEffect: operation,
-    validateGameRuleCatalog: operation,
-    submitGameRuleEffectIntent: operation,
-    readGameRuleRuntimeReadout: operation,
-    restartFpsRuntimeSession: operation,
-    readFpsEncounterDirector: operation,
-    applyFpsEncounterTransition: operation,
-    readSceneObjectSnapshot: operation,
-    applySceneObjectCommand: operation,
-    applyEnemyDirectNavMovement: operation,
-    planVoxelConversion: operation,
-    registerVoxelConversionSource: operation,
-    registerVoxelConversionMeshAsset: operation,
-    importVoxelConversionMeshSource: operation,
-    readVoxelConversionSourceMetadata: operation,
-    previewVoxelConversion: operation,
-    applyVoxelConversion: operation,
-    exportVoxelConversionEvidence: operation,
-    readVoxelModelInfo: operation,
-    readVoxelModelWindow: operation,
-    exportVoxelVolumeAsset: operation,
-    saveVoxelVolumeAsset: operation,
-    updateVoxelVolumeAssetPalette: operation,
-    initializeVoxelVolumeAuthoring: operation,
-    loadVoxelVolumeAsset: operation,
-    unloadVoxelVolumeAsset: operation,
-    validateVoxelAnnotationLayer: operation,
-    loadVoxelAnnotationLayer: operation,
-    readVoxelAnnotationQuery: operation,
-    applyVoxelAnnotationEdit: operation,
-    exportVoxelAnnotationLayer: operation,
-    readVoxelEditHistory: operation,
-    previewVoxelEditRevert: operation,
-    applyVoxelEditRevert: operation,
-    undoVoxelEdit: operation,
-    redoVoxelEdit: operation,
-    getBuffer: operation,
-    releaseBuffer: operation,
-    unloadProjectBundle: operation,
-    loadReplayFixture: operation,
-    runReplayStep: operation,
-  };
+  return Object.fromEntries(
+    MANIFEST_OPERATIONS.map(({ facadeMethod }) => [facadeMethod, operation]),
+  ) as unknown as RuntimeBridge;
 }
 
-function createFakeNativeRuntimeBridge(calls: string[], failCompositionStatus = false): RuntimeBridge {
+function createFakeNativeRuntimeBridge(calls: string[], failTimeControlRead = false): RuntimeBridge {
   const addon = {
     initializeEngine: (seed: number) => {
       calls.push(`initialize:${seed}`);
@@ -971,19 +908,32 @@ function createFakeNativeRuntimeBridge(calls: string[], failCompositionStatus = 
         viewport: request.viewport,
       };
     },
-    getProjectBundleCompositionStatus: (handle: number) => {
+    readTimeControlState: (handle: number) => {
       void handle;
-      calls.push('compositionStatus');
-      if (failCompositionStatus) {
-        throw new Error('native composition status failed');
+      calls.push('timeControlState');
+      if (failTimeControlRead) {
+        throw new Error('native time control read failed');
       }
-      return {
-        loadedProjectBundle: 4103,
-        fatalCount: 0,
-        totalCount: 0,
-        blocksLoad: false,
-      };
+      return JSON.stringify({
+        schemaVersion: 1,
+        mode: 'running',
+        speedMultiplier: 1,
+        revision: 0,
+        authorityTick: 0,
+        stateHash: 'aaaaaaaaaaaaaaaa',
+      });
     },
   } as unknown as ConstructorParameters<typeof NativeRuntimeBridge>[0];
   return new NativeRuntimeBridge(addon);
+}
+
+function runtimeProjectLoadRequest(projectId: number): Record<string, unknown> {
+  return {
+    source: {
+      kind: 'inMemory',
+      identity: `project:${projectId}`,
+      materializationHash: `materialization-${projectId}`,
+    },
+    expectedLifecycle: { generation: 0, revision: 0 },
+  };
 }

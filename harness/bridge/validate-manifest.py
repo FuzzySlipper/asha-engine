@@ -46,7 +46,6 @@ KNOWN_TRANSITIONAL_PROTOCOL_REFS = {
     "protocol_runtime::FpsEncounterTransitionResult",
     "protocol_runtime::FpsPrimaryFireRequest",
     "protocol_runtime::FpsPrimaryFireResult",
-    "protocol_runtime::FpsRuntimeSessionLoadRequest",
     "protocol_runtime::FpsRuntimeSessionRestartRequest",
     "protocol_runtime::FpsRuntimeSessionSnapshot",
     "protocol_runtime::GameRuleCatalogValidationReceipt",
@@ -260,7 +259,7 @@ def main():
     # Capability cells own generated TS grouping and lifecycle declarations.
     capabilities = data.get("capability", [])
     required_capability_fields = {
-        "id", "interface", "property", "initialization", "project_bundle",
+        "id", "interface", "property", "initialization", "runtime_project",
         "snapshot_hash", "resource_lifetime", "operations",
     }
     grouped_operations = []
@@ -291,8 +290,8 @@ def main():
         seen_properties.add(property_name)
         if capability.get("initialization") not in {"requiresEngine", "createsEngine"}:
             fail(errors, f"capability [{capability_id}] has invalid initialization")
-        if capability.get("project_bundle") not in {"retainedAcrossLoadUnload", "ownsLoadUnload"}:
-            fail(errors, f"capability [{capability_id}] has invalid project_bundle")
+        if capability.get("runtime_project") not in {"retainedAcrossProjectChanges", "ownsProjectLifecycle"}:
+            fail(errors, f"capability [{capability_id}] has invalid runtime_project")
         if capability.get("resource_lifetime") not in {"session", "frame", "mixedExplicitAndSession"}:
             fail(errors, f"capability [{capability_id}] has invalid resource_lifetime")
         grouped_operations.extend(capability.get("operations", []))

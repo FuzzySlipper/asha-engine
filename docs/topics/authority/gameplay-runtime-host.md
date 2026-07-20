@@ -9,7 +9,7 @@ see-also: []
 # Public Gameplay Runtime Host
 
 Status: implemented gameplay subsystem; the preferred provider boundary is the
-one-cell builder documented in `runtime-session-static-composition.md`.
+one-cell builder documented in `../bridge/runtime-session-composition.md`.
 
 `asha-gameplay-runtime-host` is the public Rust cell that turns a statically
 linked gameplay-module composition into an owning RuntimeSession subsystem. It
@@ -39,28 +39,17 @@ asha-gameplay-module-sdk = { path = "../asha-engine/public-rust/gameplay-module-
 asha-gameplay-runtime-host = { path = "../asha-engine/public-rust/gameplay-runtime-host" }
 ```
 
-The provider constructs its `GameplayStaticComposition` in Rust and passes it
-to `GameplayRuntimeHost::activate_project`. There is no runtime crate discovery,
+The provider constructs its `GameplayStaticComposition` in Rust and installs it
+in `DeferredRuntimeSessionBuilder`. There is no runtime crate discovery,
 dynamic module loading, JavaScript callback table, or mutable global registry.
 Changing linked module code changes the registry/artifact evidence and reaction
 frame hashes.
 
-`GameplayRuntimeProjectInput` carries the normal ProjectBundle load plan and
-artifacts, the closed static composition, generated module bindings, typed
-entity targets, gameplay spatial bootstrap data, declared read plans, and
-generated `GameplayTriggerDefinition` values. It also carries one
-`GameplayRuntimeSchedulerDefinition`: the scheduler owner plus the event and
-proposal contracts it may retain. Activation rejects scheduler contracts that
-are absent from the closed fabric registry. The prefab-aware activation path
-also accepts `GameplayRuntimePrefabBootstrap`: canonical registry source, its
-explicit validation catalog, and ordered authored or accepted player placement
-commands. The host publishes no live state until registry validation, prefab
-expansion, module binding, and normal project activation all succeed.
-
-The current explicit `GameplayRuntimeSpatialEntity` input is transitional. It
-keeps geometry typed and Rust-owned, but the same transform/bounds/collision
-data should ultimately arrive through the existing generated entity-definition
-load contract. It is not a second world format.
+Canonical project admission compiles the host's bindings, typed entity targets,
+spatial authority, declared reads, triggers, scheduler, and validated prefab
+registry inside Rust. Those activation parts are crate-private and cannot be
+assembled by a downstream provider. The host publishes no live state until the
+complete project and domain transaction succeeds.
 
 ## Authority loop
 

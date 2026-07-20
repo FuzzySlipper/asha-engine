@@ -9,6 +9,7 @@
     { "path": "../renderer-host" },
     { "path": "../renderer-three" },
     { "path": "../editor-tools" },
+    { "path": "../game-workspace" },
     { "path": "../ui-dom" },
     { "path": "../app" }
   ]

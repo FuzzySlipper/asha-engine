@@ -108,8 +108,6 @@ import type {
   VoxelVolumeAssetSaveRequest,
   VoxelVolumeAuthoringInitializeReceipt,
   VoxelVolumeAuthoringInitializeRequest,
-  GameExtensionHookReceipt,
-  GameExtensionReplayEvidence,
   GameRuleCatalog,
   GameRuleResolutionReceipt,
   InputActionReplayReceipt,
@@ -125,8 +123,6 @@ import type {
 import {
   RuntimeBridgeError,
   nonNegativeSafeInteger,
-  u32,
-  type CompositionStatus,
   type ComposedRuntimeSessionReadout,
   type EnemyDirectNavMovementRequest,
   type EnemyDirectNavMovementResult,
@@ -147,9 +143,6 @@ import {
   type GameRuleRuntimeReadout,
   type GameplayModuleViewSnapshot,
   type GameplayPrefabPartInteractionReceipt,
-  type GeneratedTunnelRuntimeApplyReceipt,
-  type GeneratedTunnelRuntimeApplyRequest,
-  type FpsRuntimeSessionLoadRequest,
   type FpsRuntimeSessionRestartRequest,
   type FpsRuntimeSessionSnapshot,
   type ReplayFixture,
@@ -162,9 +155,7 @@ import {
   type StepResult,
   type VoxelMeshEvidenceRequest,
   type VoxelMeshEvidenceSnapshot,
-  type ProjectBundleLoadRequest,
   type ProjectResourceStageInput,
-  type ProjectBundleSaveSummary,
   type WorkspaceAuthoringCloseInput,
   type WorkspaceAuthoringCloseReceipt,
   type WorkspaceAuthoringOpenInput,
@@ -366,16 +357,13 @@ export class MockRuntimeBridge implements RuntimeBridge {
   #engine: EngineHandle | null = null;
   #buffer: Uint8Array = new Uint8Array();
   #replaySteps = 0;
-  #loadedProjectBundle: number | null = null;
   #sceneDocument = initialMockSceneDocument();
   #nextCamera = 1;
   #cameras = new Map<number, MutableCameraSnapshot>();
   #cameraControllers = new MockCameraControllers();
   #enemyTransforms = new Map<number, Vec3>();
-  #fpsSeed: FpsRuntimeSessionLoadRequest | null = null;
   #fpsSnapshot: FpsRuntimeSessionSnapshot | null = null;
   #fpsEncounter: FpsEncounterStateReadout = initialFpsEncounterState();
-  #fpsEpoch = 0;
   #gameRules = new MockGameRuleRuntime();
   #inputSession = new MockInputSession();
   #timeController = new MockTimeController();
@@ -401,10 +389,8 @@ export class MockRuntimeBridge implements RuntimeBridge {
     const bytes = new Uint8Array(8);
     new DataView(bytes.buffer).setBigUint64(0, BigInt(config.seed), true);
     this.#buffer = bytes;
-    this.#fpsSeed = null;
     this.#fpsSnapshot = null;
     this.#fpsEncounter = initialFpsEncounterState();
-    this.#fpsEpoch = 0;
     this.#gameRules.reset();
     this.#cameraControllers.clear();
     this.#inputSession.initialize();
@@ -620,127 +606,19 @@ export class MockRuntimeBridge implements RuntimeBridge {
     };
   }
 
-  loadFpsRuntimeSession(request: FpsRuntimeSessionLoadRequest): FpsRuntimeSessionSnapshot {
-    if (this.#engine === null) {
-      throw new RuntimeBridgeError('not_initialized', 'loadFpsRuntimeSession before initializeEngine');
-    }
-    if (request.projectBundle.trim() === '' || request.definitions.length === 0) {
-      throw new RuntimeBridgeError('invalid_input', 'FPS RuntimeSession ProjectBundle is invalid');
-    }
-    const player = request.definitions.find((definition) => definition.role === 'player');
-    const enemy = request.definitions.find((definition) => definition.role === 'enemy');
-    if (player === undefined || enemy === undefined) {
-      throw new RuntimeBridgeError('invalid_input', 'FPS RuntimeSession requires player and enemy definitions');
-    }
-    this.#fpsEpoch += 1;
-    this.#fpsSeed = request;
-    this.#fpsEncounter = initialFpsEncounterState();
-    const health = request.definitions.flatMap((definition) =>
-      definition.health === null
-        ? []
-        : [{ entity: definition.entity, current: definition.health.current, max: definition.health.max }],
-    );
-    const policyBindings = request.definitions.flatMap((definition) =>
-      definition.policyBinding === null ? [] : [{ entity: definition.entity, ...definition.policyBinding }],
-    );
-    const entityHash = `fnv1a64:${fnv1a64(JSON.stringify({ projectBundle: request.projectBundle, definitions: request.definitions.map((d) => d.entity) }))}`;
-    const healthHash = `fnv1a64:${fnv1a64(JSON.stringify(health))}`;
-    const replayHash = `fnv1a64:${fnv1a64(`${entityHash}|${healthHash}|runtime_session.fps.bootstrap.v0`)}`;
-    this.#fpsSnapshot = {
-      backend: 'reference_bridge',
-      authoritySurface: 'runtime_session.fps.reference.v0',
-      projectBundle: request.projectBundle,
-      sessionEpoch: this.#fpsEpoch,
-      lifecycleStatus: { state: 'active' },
-      playerEntity: player.entity,
-      enemyEntity: enemy.entity,
-      health,
-      policyBindings,
-      replayRecords: [{ replayUnit: 'runtime_session.fps.bootstrap.reference.v0', entityHash, healthHash, recordHash: replayHash }],
-      readSets: [
-        { viewKind: 'runtime_session.lifecycle.v0', owner: 'reference-bridge', readSet: ['mock.lifecycle'] },
-        { viewKind: 'runtime_session.health.v0', owner: 'reference-bridge', readSet: ['mock.health'] },
-      ],
-      entityHash,
-      healthHash,
-      replayHash,
-    };
-    return this.#fpsSnapshot;
-  }
-
   readFpsRuntimeSession(): FpsRuntimeSessionSnapshot {
     if (this.#fpsSnapshot === null) {
-      throw new RuntimeBridgeError('not_initialized', 'readFpsRuntimeSession before loadFpsRuntimeSession');
+      throw new RuntimeBridgeError('not_initialized', 'readFpsRuntimeSession before canonical project activation');
     }
     return this.#fpsSnapshot;
   }
 
   applyFpsPrimaryFire(request: FpsPrimaryFireRequest): FpsPrimaryFireResult {
-    if (this.#fpsSnapshot === null || this.#fpsSeed === null) {
-      throw new RuntimeBridgeError('not_initialized', 'applyFpsPrimaryFire before loadFpsRuntimeSession');
-    }
-    const tick = nonNegativeSafeInteger(request.tick, 'tick');
-    validateVec3(request.origin, 'origin');
-    validateVec3(request.direction, 'direction');
-    const shooterRole = request.shooterRole ?? 'player';
-    const targetRole = request.targetRole ?? 'enemy';
-    const shooter = this.#fpsSeed.definitions.find((definition) => definition.role === shooterRole);
-    const target = this.#fpsSeed.definitions.find((definition) => definition.role === targetRole);
-    if (shooter === undefined || target === undefined) {
-      throw new RuntimeBridgeError('invalid_input', 'FPS RuntimeSession is missing shooter or target role');
-    }
-    const enemyPolicyWeapon = {
-      weaponId: 'weapon.enemy_policy.primary',
-      damage: 10,
-      rangeUnits: 16,
-      ammo: 2,
-      cooldownTicksAfterFire: 4,
-    };
-    const weapon = shooter.weapon ?? (
-      shooterRole === 'enemy' && targetRole === 'player' ? enemyPolicyWeapon : null
+    void request;
+    throw new RuntimeBridgeError(
+      'operation_unimplemented',
+      'reference bridge does not synthesize FPS authority; use a canonical Rust project',
     );
-    if (weapon === null) {
-      throw new RuntimeBridgeError('invalid_input', 'FPS RuntimeSession shooter is missing weapon');
-    }
-    const before = this.#fpsSnapshot.health.find((health) => health.entity === target.entity) ?? null;
-    const after = before === null
-      ? null
-      : { ...before, current: Math.max(0, before.current - weapon.damage) };
-    const health = this.#fpsSnapshot.health.map((entry) => (entry.entity === target.entity && after !== null ? after : entry));
-    const lifecycleStatus = targetRole === 'enemy' && after !== null && after.current === 0
-      ? { state: 'enemy_defeated' as const, entity: target.entity, tick }
-      : this.#fpsSnapshot.lifecycleStatus;
-    const healthHash = `fnv1a64:${fnv1a64(JSON.stringify(health))}`;
-    const replayHash = `fnv1a64:${fnv1a64(`${this.#fpsSnapshot.entityHash}|${healthHash}|${tick}|runtime_session.fps.primary_fire.reference.v0`)}`;
-    const record = {
-      replayUnit: 'runtime_session.fps.primary_fire.reference.v0',
-      entityHash: this.#fpsSnapshot.entityHash,
-      healthHash,
-      recordHash: replayHash,
-    };
-    this.#fpsSnapshot = {
-      ...this.#fpsSnapshot,
-      lifecycleStatus,
-      health,
-      healthHash,
-      replayHash,
-      replayRecords: [...this.#fpsSnapshot.replayRecords, record],
-    };
-    return {
-      backend: 'reference_bridge',
-      authoritySurface: 'runtime_session.fps.reference_primary_fire.v0',
-      mutationOwner: 'reference-bridge',
-      workspaceTrace: ['reference fixture primary-fire receipt'],
-      shooter: shooter.entity,
-      target: target.entity,
-      targetHealthBefore: before,
-      targetHealthAfter: after,
-      lifecycleStatus,
-      targetRenderVisible: targetRole === 'enemy' && lifecycleStatus.state === 'enemy_defeated' ? false : true,
-      entityHash: this.#fpsSnapshot.entityHash,
-      healthHash,
-      replayHash,
-    };
   }
 
   readComposedRuntimeSession(): ComposedRuntimeSessionReadout {
@@ -767,54 +645,11 @@ export class MockRuntimeBridge implements RuntimeBridge {
   invokeGameExtensionWeaponEffect(
     request: GameExtensionWeaponEffectInvocationRequest,
   ): GameExtensionWeaponEffectInvocationResult {
-    if (this.#fpsSnapshot === null || this.#fpsSeed === null) {
-      throw new RuntimeBridgeError('not_initialized', 'invokeGameExtensionWeaponEffect before loadFpsRuntimeSession');
-    }
-    const declared = this.#fpsSeed.gameRuleModules.find(
-      (manifest) => manifest.moduleRef.moduleId === request.hook.moduleRef.moduleId,
+    void request;
+    throw new RuntimeBridgeError(
+      'operation_unimplemented',
+      'reference bridge does not synthesize game-extension authority; use a canonical Rust project',
     );
-    if (declared === undefined || JSON.stringify(declared.moduleRef) !== JSON.stringify(request.hook.moduleRef)) {
-      throw new RuntimeBridgeError('invalid_input', 'game rule module is not declared by the loaded RuntimeSession');
-    }
-    const hookReceipt: GameExtensionHookReceipt = {
-      moduleRef: request.hook.moduleRef,
-      hookId: request.hook.hookId,
-      requestId: request.hook.requestId,
-      status: 'proposed',
-      inputHash: request.hook.inputHash,
-      proposal: request.hook.target === null
-        ? { kind: 'noop', proposalId: `${request.hook.requestId}.noop`, proposalHash: 'fnv1a64:mock-noop' }
-        : {
-            kind: 'damageModifier',
-            proposalId: `${request.hook.requestId}.damage_bonus`,
-            target: request.hook.target,
-            channelId: 'combat.primary_fire.damage',
-            amountDelta: 5,
-            tags: ['reference-mock-module'],
-            proposalHash: `fnv1a64:${fnv1a64(JSON.stringify(request.hook))}`,
-          },
-      diagnostics: [],
-      trace: [{
-        step: 1,
-        code: 'mock.module.proposed_damage_modifier',
-        message: 'mock bridge returned a typed extension proposal',
-        refs: [request.hook.moduleRef.moduleId],
-      }],
-      proposalHash: `fnv1a64:${fnv1a64(`${request.hook.inputHash}|proposal`)}`,
-    };
-    const primaryFire = this.applyFpsPrimaryFire(request.primaryFire);
-    const replayEvidence: GameExtensionReplayEvidence = {
-      moduleRef: request.hook.moduleRef,
-      hookId: request.hook.hookId,
-      requestId: request.hook.requestId,
-      inputHash: request.hook.inputHash,
-      proposalHash: hookReceipt.proposalHash,
-      validationStatus: 'accepted',
-      eventHashes: [primaryFire.replayHash],
-      rejectionHashes: [],
-      replayHash: `fnv1a64:${fnv1a64(`${hookReceipt.proposalHash}|${primaryFire.replayHash}`)}`,
-    };
-    return { hookReceipt, replayEvidence, primaryFire };
   }
 
   validateGameRuleCatalog(catalog: GameRuleCatalog): GameRuleCatalogValidationReceipt {
@@ -839,26 +674,23 @@ export class MockRuntimeBridge implements RuntimeBridge {
   }
 
   restartFpsRuntimeSession(request: FpsRuntimeSessionRestartRequest): FpsRuntimeSessionSnapshot {
-    if (this.#fpsSeed === null) {
-      throw new RuntimeBridgeError('not_initialized', 'restartFpsRuntimeSession before loadFpsRuntimeSession');
-    }
-    const expectedEpoch = nonNegativeSafeInteger(request.expectedEpoch, 'expectedEpoch');
-    if (expectedEpoch !== this.#fpsEpoch) {
-      throw new RuntimeBridgeError('invalid_input', `restart expected epoch ${expectedEpoch} but current epoch is ${this.#fpsEpoch}`);
-    }
-    return this.loadFpsRuntimeSession(this.#fpsSeed);
+    void request;
+    throw new RuntimeBridgeError(
+      'operation_unimplemented',
+      'reference bridge does not synthesize FPS restart authority; use a canonical Rust project',
+    );
   }
 
   readFpsEncounterDirector(lifecycle: FpsEncounterLifecycleInput): FpsEncounterDirectorSnapshot {
     if (this.#fpsSnapshot === null) {
-      throw new RuntimeBridgeError('not_initialized', 'readFpsEncounterDirector before loadFpsRuntimeSession');
+      throw new RuntimeBridgeError('not_initialized', 'readFpsEncounterDirector before canonical project activation');
     }
     return this.#fpsEncounterSnapshot(lifecycle);
   }
 
   applyFpsEncounterTransition(request: FpsEncounterTransitionRequest): FpsEncounterTransitionResult {
     if (this.#fpsSnapshot === null) {
-      throw new RuntimeBridgeError('not_initialized', 'applyFpsEncounterTransition before loadFpsRuntimeSession');
+      throw new RuntimeBridgeError('not_initialized', 'applyFpsEncounterTransition before canonical project activation');
     }
     let accepted = true;
     let rejectionReason: FpsEncounterTransitionResult['rejectionReason'] = null;
@@ -952,7 +784,7 @@ export class MockRuntimeBridge implements RuntimeBridge {
 
   #fpsEncounterSnapshot(lifecycle: FpsEncounterLifecycleInput): FpsEncounterDirectorSnapshot {
     if (this.#fpsSnapshot === null) {
-      throw new RuntimeBridgeError('not_initialized', 'readFpsEncounterDirector before loadFpsRuntimeSession');
+      throw new RuntimeBridgeError('not_initialized', 'readFpsEncounterDirector before canonical project activation');
     }
     const encounterHash = fpsEncounterHash(this.#fpsEncounter, lifecycle);
     return {
@@ -1120,10 +952,6 @@ export class MockRuntimeBridge implements RuntimeBridge {
         `${input.camera}|${input.tick}|${input.movementMode}|${JSON.stringify(before.pose)}|${JSON.stringify(attempted.pose)}|${JSON.stringify(after.pose)}|${STATIC_ROOM_COLLISION_SOURCE_HASH}|${STATIC_ROOM_COLLISION_PROJECTION_HASH}`,
       )}`,
     };
-  }
-
-  applyGeneratedTunnelToRuntimeWorld(_request: GeneratedTunnelRuntimeApplyRequest): GeneratedTunnelRuntimeApplyReceipt {
-    void _request; throw new RuntimeBridgeError('operation_unimplemented', 'generated tunnel apply requires Rust authority');
   }
 
   selectVoxel(request: ScreenPointToPickRayRequest): VoxelSelectionSnapshot {
@@ -1645,22 +1473,6 @@ export class MockRuntimeBridge implements RuntimeBridge {
     this.#buffer = new Uint8Array();
   }
 
-  loadProjectBundle(request: ProjectBundleLoadRequest): CompositionStatus {
-    const bundleSchemaVersion = u32(request.bundleSchemaVersion, 'bundleSchemaVersion');
-    const protocolVersion = u32(request.protocolVersion, 'protocolVersion');
-    const sceneId = nonNegativeSafeInteger(request.sceneId, 'sceneId');
-    // Fail closed on a newer bundle; the prior loaded world is left untouched
-    // (we only set #loadedProjectBundle on success — the staged commit/swap).
-    if (bundleSchemaVersion > 2 || protocolVersion > 1) {
-      throw new RuntimeBridgeError(
-        'invalid_input',
-        `unsupported bundle schema ${bundleSchemaVersion} / protocol ${protocolVersion}`,
-      );
-    }
-    this.#loadedProjectBundle = sceneId;
-    return { loadedProjectBundle: sceneId, fatalCount: 0, totalCount: 0, blocksLoad: false };
-  }
-
   beginRuntimeProjectSourceResources(
     request: ProjectResourceBeginRequest,
   ): ProjectResourceTransactionReceipt {
@@ -1732,22 +1544,6 @@ export class MockRuntimeBridge implements RuntimeBridge {
       throw new RuntimeBridgeError('not_initialized', 'closeRuntimeProject before initializeEngine');
     }
     return this.#runtimeProjects.close(request);
-  }
-
-  saveProjectBundle(): ProjectBundleSaveSummary {
-    if (this.#loadedProjectBundle === null) {
-      throw new RuntimeBridgeError('not_initialized', 'saveProjectBundle with no project bundle loaded');
-    }
-    return { artifactsWritten: 3, compactedEdits: 0, retainedEdits: 0 };
-  }
-
-  getProjectBundleCompositionStatus(): CompositionStatus {
-    return { loadedProjectBundle: this.#loadedProjectBundle, fatalCount: 0, totalCount: 0, blocksLoad: false };
-  }
-
-  unloadProjectBundle(): void {
-    this.#loadedProjectBundle = null;
-    this.#runtimeProjects.clearResources();
   }
 
   loadReplayFixture(fixture: ReplayFixture): ReplaySessionHandle {

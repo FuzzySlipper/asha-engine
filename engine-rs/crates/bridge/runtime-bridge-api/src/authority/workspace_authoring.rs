@@ -5,7 +5,7 @@ impl EngineBridge {
         &mut self,
         request: WorkspaceAuthoringOpenRequest,
     ) -> BridgeResult<WorkspaceAuthoringStateSummary> {
-        if self.bundle.engine.is_some() {
+        if self.runtime_project.engine.is_some() {
             return Err(RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::InvalidInput,
                 "workspace authoring cannot open inside a gameplay runtime authority cell",
@@ -293,7 +293,7 @@ impl EngineBridge {
         &self,
         operation: &str,
     ) -> BridgeResult<()> {
-        if self.bundle.engine.is_some()
+        if self.runtime_project.engine.is_some()
             || self
                 .workspace_authoring
                 .as_ref()

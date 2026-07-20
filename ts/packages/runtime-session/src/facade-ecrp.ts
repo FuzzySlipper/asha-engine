@@ -1,12 +1,6 @@
-import type { FlatSceneDocument, GameRuleModuleManifest, SceneTransform } from '@asha/contracts';
 import type { RuntimeSessionMode, RuntimeSessionProjectIdentity } from './facade-core.js';
-import type {
-  RuntimeSessionLifecycleEventKind,
-  RuntimeSessionLifecycleRole,
-} from './facade-lifecycle.js';
+import type { RuntimeSessionLifecycleEventKind } from './facade-lifecycle.js';
 import type { RuntimeSessionEcrpRenderTargetIdentity } from './ecrp-render-target.js';
-import type { ProjectBundleLoadRequest } from './transport-contracts.js';
-import type { FpsBootstrapResolutionRegistry } from './transport-contracts.js';
 
 export type RuntimeSessionEcrpCapabilityKind =
   | 'transform'
@@ -113,7 +107,6 @@ export interface RuntimeSessionEcrpReadout {
     }[];
   };
   readonly project: RuntimeSessionProjectIdentity;
-  readonly projectBundle: ProjectBundleLoadRequest | null;
   readonly entities: readonly RuntimeSessionEcrpEntityReadout[];
   readonly entityCount: number;
   readonly hashes: {
@@ -126,129 +119,4 @@ export interface RuntimeSessionEcrpReadout {
     'not_authoring_mode',
     'not_demo_local_authority',
   ];
-}
-
-export type RuntimeSessionEcrpProjectDiagnosticCode =
-  | 'duplicateEntityDefinition'
-  | 'duplicatePlacement'
-  | 'emptyEntityDefinitionList'
-  | 'invalidGameRuleModuleManifest'
-  | 'invalidBootstrapResolutionRegistry'
-  | 'invalidCapability'
-  | 'missingCapability'
-  | 'missingEntityDefinition'
-  | 'missingPlacement'
-  | 'missingProjectBundle'
-  | 'unknownEntityDefinition';
-
-export interface RuntimeSessionEcrpProjectDiagnostic {
-  readonly code: RuntimeSessionEcrpProjectDiagnosticCode;
-  readonly path: string;
-  readonly detail: string;
-}
-
-export type RuntimeSessionEcrpProjectCapabilityDefinition =
-  | {
-      readonly kind: 'transform';
-      readonly initial: {
-        readonly position: readonly [number, number, number];
-        readonly yawDegrees: number;
-        readonly pitchDegrees: number;
-      };
-    }
-  | {
-      readonly kind: 'collisionBody';
-      readonly halfExtents: readonly [number, number, number];
-      readonly staticCollider?: boolean;
-      readonly policy?: object;
-    }
-  | {
-      readonly kind: 'controller';
-      readonly controller: 'player_input' | 'enemy_policy';
-      readonly tuning?: object;
-    }
-  | {
-      readonly kind: 'health';
-      readonly current: number;
-      readonly max: number;
-    }
-  | {
-      readonly kind: 'weaponMount';
-      readonly weaponId: string;
-      readonly tuning?: object;
-    }
-  | {
-      readonly kind: 'renderProjection';
-      readonly projection: 'first_person_camera' | 'target_cube' | 'spawn_marker';
-      readonly visible?: boolean;
-    }
-  | {
-      readonly kind: 'policyBinding';
-      readonly policyId: string;
-      readonly policyLoopRef?: string;
-    }
-  | {
-      readonly kind: 'spawnMarker';
-      readonly markerId: string;
-    }
-  | {
-      readonly kind: 'faction';
-      readonly factionId: string;
-    };
-
-export interface RuntimeSessionEcrpEntityDefinition {
-  readonly kind: 'EntityDefinition';
-  readonly stableId: string;
-  readonly displayName: string;
-  readonly source: {
-    readonly projectBundle: string;
-    readonly relativePath: string;
-  };
-  readonly capabilities: readonly RuntimeSessionEcrpProjectCapabilityDefinition[];
-}
-
-/** @deprecated Compatibility-only compiled bootstrap input. Persist typed
- * ProjectBundle content and use `RuntimeSessionFacade.loadProject` instead. */
-export interface RuntimeSessionEcrpProjectLoadInput {
-  readonly kind: 'runtime_session.load_ecrp_project.v0';
-  readonly projectBundle: {
-    readonly kind: 'ProjectBundle';
-    readonly project: RuntimeSessionProjectIdentity;
-    readonly runtimeRequest: ProjectBundleLoadRequest;
-  };
-  readonly bootstrapResolutionRegistry: FpsBootstrapResolutionRegistry;
-  readonly entityDefinitions: readonly RuntimeSessionEcrpEntityDefinition[];
-  readonly sceneDocument: FlatSceneDocument;
-  readonly gameRuleModules?: readonly GameRuleModuleManifest[];
-}
-
-export interface RuntimeSessionEcrpProjectLoadReceipt {
-  readonly kind: 'runtime_session.ecrp_project_load_receipt.v0';
-  readonly sequenceId: number;
-  readonly accepted: boolean;
-  readonly diagnostics: readonly RuntimeSessionEcrpProjectDiagnostic[];
-  readonly entityCount: number;
-  readonly bootstrapHash: string | null;
-  readonly sessionHashBefore: string;
-  readonly sessionHashAfter: string;
-}
-export interface RuntimeSessionEcrpEntityState {
-  readonly entity: number;
-  readonly instanceId: string;
-  readonly spawnMarkerId: string | null;
-  readonly worldTransform: SceneTransform;
-  readonly definition: RuntimeSessionEcrpEntityDefinition;
-  readonly role: RuntimeSessionLifecycleRole | 'neutral';
-}
-
-export interface RuntimeSessionEcrpTransformState {
-  readonly position: readonly [number, number, number];
-  readonly yawDegrees: number;
-  readonly pitchDegrees: number;
-}
-
-export interface RuntimeSessionEcrpProjectState {
-  readonly input: RuntimeSessionEcrpProjectLoadInput | null;
-  readonly entities: readonly RuntimeSessionEcrpEntityState[];
-  readonly bootstrapHash: string;
 }

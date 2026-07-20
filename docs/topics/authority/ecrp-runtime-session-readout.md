@@ -8,8 +8,7 @@ see-also: []
 
 # ECRP RuntimeSession Readout
 
-Status: public readout over canonical ProjectBundle admission. The handwritten
-ECRP load input remains compatibility-only while `asha-demo` migrates.
+Status: public readout over canonical ProjectBundle admission.
 
 `@asha/runtime-bridge` exposes `RuntimeSessionFacade.readEcrpRuntimeReadout()`
 as the public, read-only ECRP inspection surface for consumers such as
@@ -20,18 +19,6 @@ discovers EntityDefinitions, scenes, prefab instances, gameplay configuration,
 and resources from the canonical manifest closure and returns the active
 authority identities. Consumers do not assign runtime entity ids or submit a
 parallel bootstrap registry.
-
-`RuntimeSessionFacade.loadEcrpProject()` is the compatibility bootstrap surface
-for the older handwritten ECRP input. It accepts:
-
-- `ProjectBundle` identity plus the current compatibility `runtimeRequest`;
-- `EntityDefinition[]`;
-- `SceneDocument` placements with optional deterministic runtime entity ids.
-
-It returns `runtime_session.ecrp_project_load_receipt.v0` with accepted/rejected
-status, typed diagnostics, entity count, bootstrap hash, and before/after
-session hashes. Invalid input is fail-closed and does not replace the live ECRP
-project state.
 
 ## Surface
 
@@ -75,19 +62,15 @@ for changes.
 
 ## Current Behavior
 
-The reference RuntimeSession starts with a compatibility ECRP project so older
-fixtures continue to boot. Product consumers load canonical project sources;
-compatibility fixtures may still call `loadEcrpProject()` until Demo migration.
-After a successful load, `readEcrpRuntimeReadout()` derives Entity ids, stable ids, source paths,
+After a successful canonical project load, `readEcrpRuntimeReadout()` derives
+Entity ids, stable ids, source paths,
 CapabilityState, health, render visibility, recent events, and hashes from the
 loaded runtime project state. For canonical loads, the facade first reads the
 Rust-owned active ProjectContent/entry-scene projection and the Rust-owned FPS
-snapshot. It does not retain a caller-supplied `ProjectBundle` bootstrap input;
-the compatibility `projectBundle` readout field is therefore `null` on this
-path. The active-project projection also identifies the statically installed
+snapshot. The active-project projection identifies the statically installed
 domain and its Rust-resolved entity roles. Canonical TypeScript projection uses
 that table directly; it does not infer player, enemy, or neutral roles from
-capability strings.
+capability strings or retain caller-authored bootstrap topology.
 
 Canonical scene admission creates one `EntityStore` graph. FPS lifecycle,
 combat, movement, render visibility, and restart state bind to those existing

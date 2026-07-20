@@ -47,7 +47,6 @@ export {
 
 export { RuntimeBridgeError, frameCursor } from './bridge.js';
 export type {
-  CompositionStatus,
   EngineConfig,
   EngineHandle,
   FrameCursor,
@@ -65,8 +64,6 @@ export type {
   VoxelMeshEvidenceRequest,
   VoxelMeshEvidenceSnapshot,
   VoxelMeshStatsEvidence,
-  ProjectBundleLoadRequest,
-  ProjectBundleSaveSummary,
 } from './bridge.js';
 export * from './browser-input-host.js';
 export * from './browser-fps-resolved-actions.js';

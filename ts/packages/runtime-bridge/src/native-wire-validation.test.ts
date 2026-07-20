@@ -185,9 +185,9 @@ void test('handle, lifecycle, and gameplay inputs fail closed before native invo
     'missing_field',
   );
   assertWireRejection(
-    () => validateOperationInput('apply_generated_tunnel_to_runtime_world', {
-      preset: 'tiny-enclosed',
-      seed: 1,
+    () => validateOperationInput('load_runtime_project', {
+      source: { kind: 'inMemory', identity: 'fixture', materializationHash: 'fnv1a64:fixture' },
+      expectedLifecycle: { generation: 0, revision: 0 },
       authorityEscape: true,
     }),
     'invalid_input',
@@ -307,17 +307,17 @@ void test('native errors decode only from the structured envelope', () => {
   const structured = classifyNativeAddonError(new Error(JSON.stringify({
     schemaVersion: 1,
     code: 'invalid_input',
-    operation: 'load_project_bundle',
-    path: '$.bundleSchemaVersion',
+    operation: 'load_runtime_project',
+    path: '$.expectedLifecycle',
     retryable: false,
-    message: 'unsupported bundle schema',
-    details: ['unsupported_schema'],
+    message: 'runtime project lifecycle was stale',
+    details: ['stale_lifecycle'],
     provenance: 'native_rust',
   })));
   assert.equal(structured.kind, 'invalid_input');
-  assert.equal(structured.operation, 'load_project_bundle');
-  assert.equal(structured.path, '$.bundleSchemaVersion');
-  assert.deepEqual(structured.details, ['unsupported_schema']);
+  assert.equal(structured.operation, 'load_runtime_project');
+  assert.equal(structured.path, '$.expectedLifecycle');
+  assert.deepEqual(structured.details, ['stale_lifecycle']);
   assert.equal(structured.provenance, 'native_rust');
 
   const legacy = classifyNativeAddonError(new Error('InvalidInput: legacy prose'));
@@ -328,15 +328,15 @@ void test('native errors decode only from the structured envelope', () => {
 void test('native addon semantic errors retain the active public operation', () => {
   const addon = {
     initializeEngine: () => 1,
-    loadProjectBundle: () => {
+    stepSimulation: () => {
       throw new Error(JSON.stringify({
         schemaVersion: 1,
         code: 'invalid_input',
-        operation: 'load_project_bundle',
-        path: '$.bundleSchemaVersion',
+        operation: 'step_simulation',
+        path: '$.tick',
         retryable: false,
-        message: 'unsupported bundle schema 99 / protocol 1',
-        details: ['unsupported_schema'],
+        message: 'simulation tick was rejected',
+        details: ['invalid_tick'],
         provenance: 'native_rust',
       }));
     },
@@ -345,13 +345,13 @@ void test('native addon semantic errors retain the active public operation', () 
   bridge.initializeEngine({ seed: 1 });
 
   assert.throws(
-    () => bridge.loadProjectBundle({ bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 1 }),
+    () => bridge.stepSimulation({ tick: 1 }),
     (error: unknown) =>
       error instanceof RuntimeBridgeError &&
       error.kind === 'invalid_input' &&
-      error.operation === 'load_project_bundle' &&
-      error.path === '$.bundleSchemaVersion' &&
-      error.message.includes('unsupported bundle schema 99 / protocol 1'),
+      error.operation === 'step_simulation' &&
+      error.path === '$.tick' &&
+      error.message.includes('simulation tick was rejected'),
   );
 });
 

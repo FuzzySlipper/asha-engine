@@ -22,8 +22,9 @@ export type {
   SmokeOutcome,
 } from './result.js';
 export {
-  FIXTURE_PROJECT_BUNDLE,
-  fixtureProjectBundleHash,
+  FIXTURE_PROJECT_ID,
+  FIXTURE_PROJECT_MANIFEST_HASH,
+  FIXTURE_PROJECT_SOURCE,
   fixtureRenderFrame,
   fixtureEditUpdateFrame,
   fixturePickRay,

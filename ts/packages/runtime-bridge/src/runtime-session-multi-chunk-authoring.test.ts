@@ -16,7 +16,6 @@ function createNativeSession(): RuntimeSessionFacade {
     sessionId: 'runtime-session.multi-chunk-authoring.test',
     seed: 17,
     project: { gameId: 'asha-test', workspaceId: 'workspace.local' },
-    projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 42 },
   });
   return session;
 }

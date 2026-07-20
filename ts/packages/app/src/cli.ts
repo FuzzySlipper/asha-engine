@@ -27,9 +27,9 @@ function selectedMode(): LaunchMode {
   return process.env['ASHA_SHELL_MODE'] === 'authority' ? 'authority' : 'reference';
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const mode = selectedMode();
-  const readout = runHeadlessLaunch({ mode });
+  const readout = await runHeadlessLaunch({ mode });
   const text = formatReadout(readout);
   process.stdout.write(text);
 
@@ -45,4 +45,4 @@ function main(): void {
   process.exit(readout.runtime.availability === 'unavailable' ? 1 : 0);
 }
 
-main();
+void main();

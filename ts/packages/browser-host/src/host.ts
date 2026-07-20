@@ -3,6 +3,7 @@ import { createReadStream } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { extname, isAbsolute, relative, resolve } from 'node:path';
+import type { RuntimeProjectLifecycleVersion } from '@asha/contracts';
 
 import {
   createNativeRuntimeBridge,
@@ -119,7 +120,7 @@ const PROJECT_RESOURCE_STAGE_MAX_INPUT_BYTES = MANIFEST_OPERATIONS.find(
 
 interface NativeBrowserHostBridgeEntry {
   readonly bridge: Promise<RuntimeBridge>;
-  projectBundleLoaded: boolean;
+  runtimeProjectLifecycle: RuntimeProjectLifecycleVersion | null;
 }
 
 interface NativeBrowserHostBridgePool {
@@ -426,10 +427,10 @@ async function handleRuntimeBridgeInvocation(
       : await readInvocationBody(request);
     const method = bridge[methodName] as (...args: readonly unknown[]) => unknown;
     const result = Reflect.apply(method, bridge, invocation.args ?? []);
-    if (methodName === 'loadProjectBundle') {
-      entry.projectBundleLoaded = didProjectBundleLoad(result);
-    } else if (methodName === 'unloadProjectBundle') {
-      entry.projectBundleLoaded = false;
+    if (methodName === 'loadRuntimeProject') {
+      entry.runtimeProjectLifecycle = acceptedRuntimeProjectLifecycle(result);
+    } else if (methodName === 'closeRuntimeProject' && didRuntimeProjectClose(result)) {
+      entry.runtimeProjectLifecycle = null;
     }
     sendJson(response, 200, { result: result ?? null });
   } catch (error) {
@@ -437,16 +438,28 @@ async function handleRuntimeBridgeInvocation(
   }
 }
 
-function didProjectBundleLoad(result: unknown): boolean {
+function acceptedRuntimeProjectLifecycle(result: unknown): RuntimeProjectLifecycleVersion | null {
   if (typeof result !== 'object' || result === null) {
-    return false;
+    return null;
   }
-  const status = result as {
-    readonly blocksLoad?: unknown;
-    readonly loadedProjectBundle?: unknown;
+  const receipt = result as {
+    readonly accepted?: unknown;
+    readonly activeProject?: unknown;
+    readonly lifecycle?: { readonly generation?: unknown; readonly revision?: unknown };
   };
-  return status.blocksLoad === false && status.loadedProjectBundle !== null
-    && status.loadedProjectBundle !== undefined;
+  if (receipt.accepted !== true || receipt.activeProject === null || receipt.activeProject === undefined
+    || typeof receipt.lifecycle?.generation !== 'number' || typeof receipt.lifecycle.revision !== 'number') {
+    return null;
+  }
+  return {
+    generation: receipt.lifecycle.generation,
+    revision: receipt.lifecycle.revision,
+  };
+}
+
+function didRuntimeProjectClose(result: unknown): boolean {
+  return typeof result === 'object' && result !== null
+    && (result as { readonly accepted?: unknown }).accepted === true;
 }
 
 interface NativeBrowserHostBridgeIdentity {
@@ -463,7 +476,7 @@ function createNativeBrowserHostBridgePool(
   if (bridge !== undefined) {
     bridges.set('server:0', {
       bridge: Promise.resolve(bridge),
-      projectBundleLoaded: false,
+      runtimeProjectLifecycle: null,
     });
   }
   return {
@@ -500,7 +513,7 @@ async function readNativeBrowserHostBridge(
   const pending = Promise.resolve().then(pool.createRuntimeBridge);
   const entry: NativeBrowserHostBridgeEntry = {
     bridge: pending,
-    projectBundleLoaded: false,
+    runtimeProjectLifecycle: null,
   };
   pool.bridges.set(identity.key, entry);
   try {
@@ -702,9 +715,22 @@ async function releaseNativeBrowserHostBridge(
     return false;
   }
   const bridge = await entry.bridge;
-  if (entry.projectBundleLoaded) {
-    bridge.unloadProjectBundle();
-    entry.projectBundleLoaded = false;
+  if (entry.runtimeProjectLifecycle !== null) {
+    const receipt = bridge.closeRuntimeProject({
+      expectedLifecycle: entry.runtimeProjectLifecycle,
+    });
+    if (!receipt.accepted) {
+      throw new RuntimeBridgeError(
+        'stale_authority_snapshot',
+        'RuntimeBridge browser client could not close its active project.',
+        {
+          operation: 'browserHost.disconnectClient',
+          details: receipt.diagnostics.map((diagnostic) => diagnostic.message),
+          provenance: 'transport_loader',
+        },
+      );
+    }
+    entry.runtimeProjectLifecycle = null;
   }
   return true;
 }

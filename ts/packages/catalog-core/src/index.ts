@@ -173,7 +173,7 @@ export interface FpsGameplayPresetAuthorityBoundary {
   readonly runtimeValidation: {
     readonly owner: 'rust_runtime_session_authority';
     readonly surfaces: readonly [
-      'RuntimeSessionFacade.loadEcrpProject',
+      'RuntimeSessionFacade.loadProject',
       'RuntimeSessionFacade.applyCollisionConstrainedCameraInput',
       'RuntimeSessionFacade.submitRuntimeActionIntent',
       'RuntimeSessionFacade.runAutonomousPolicyTick',
@@ -252,7 +252,6 @@ export type FpsEcrpProjectionRef =
   | 'runtime_session.combat_readout.v0'
   | 'runtime_session.combat_feedback_projection.v0'
   | 'runtime_session.lifecycle_status.v0'
-  | 'runtime_session.generated_tunnel_readout.v0'
   | 'runtime_session.nav_projection.v0'
   | 'renderer_three.browser_surface.v0'
   | 'demo_hud_overlay.v0';
@@ -265,7 +264,6 @@ export type FpsEcrpRuntimeSurfaceRef =
   | 'RuntimeSessionFacade.readCombatReadout'
   | 'RuntimeSessionFacade.readCombatFeedbackProjection'
   | 'RuntimeSessionFacade.readLifecycleStatus'
-  | 'RuntimeSessionFacade.readGeneratedTunnelReadout'
   | 'RuntimeSessionFacade.runAutonomousPolicyTick'
   | 'RuntimeSessionFacade.readNavProjection'
   | 'BrowserInputHost'
@@ -377,7 +375,7 @@ const FPS_GAMEPLAY_PRESET_AUTHORITY_BOUNDARY: FpsGameplayPresetAuthorityBoundary
   runtimeValidation: {
     owner: 'rust_runtime_session_authority',
     surfaces: [
-      'RuntimeSessionFacade.loadEcrpProject',
+      'RuntimeSessionFacade.loadProject',
       'RuntimeSessionFacade.applyCollisionConstrainedCameraInput',
       'RuntimeSessionFacade.submitRuntimeActionIntent',
       'RuntimeSessionFacade.runAutonomousPolicyTick',
@@ -569,7 +567,6 @@ export const GENERATED_TUNNEL_FPS_ECRP_OBJECT_MODEL: FpsEcrpObjectModel = {
         'runtime_session.combat_readout.v0',
         'runtime_session.combat_feedback_projection.v0',
         'runtime_session.lifecycle_status.v0',
-        'runtime_session.generated_tunnel_readout.v0',
         'runtime_session.nav_projection.v0',
         'renderer_three.browser_surface.v0',
         'demo_hud_overlay.v0',
@@ -580,7 +577,6 @@ export const GENERATED_TUNNEL_FPS_ECRP_OBJECT_MODEL: FpsEcrpObjectModel = {
         'RuntimeSessionFacade.readCombatReadout',
         'RuntimeSessionFacade.readCombatFeedbackProjection',
         'RuntimeSessionFacade.readLifecycleStatus',
-        'RuntimeSessionFacade.readGeneratedTunnelReadout',
         'RuntimeSessionFacade.runAutonomousPolicyTick',
         'RuntimeSessionFacade.readNavProjection',
         'mountAshaRendererBrowserSurface',

@@ -6,7 +6,7 @@
   "sourceOfTruth": "ts/packages/runtime-session/src/index.ts",
   "changelog": "docs/topics/consumer/consumer-compatibility.md#runtime-session-compatibility-log",
   "migrationNoteTemplate": "docs/topics/consumer/consumer-compatibility.md#migration-note-template",
-  "failClosedPolicy": "Consumers import RuntimeSession facade contracts, semantic readouts, and proposal shapes from this package root only. Ordinary project boot initializes unloaded and calls loadProject({ source }); loadEcrpProject and its handwritten topology DTOs are compatibility-only until Demo migration. Concrete bridge-backed construction routes through @asha/runtime-bridge rather than private transports or local authority.",
+  "failClosedPolicy": "Consumers import RuntimeSession facade contracts, semantic readouts, and proposal shapes from this package root only. Ordinary project boot initializes unloaded and calls loadProject({ source }); closeProject ends the active authority lifecycle. Concrete bridge-backed construction routes through @asha/runtime-bridge rather than private transports or caller-authored topology.",
   "pinningGuidance": "Consumer evidence should record runtime-session.v0 plus the engine commit that provided the package.",
   "breakingChangeRequires": [
     "update docs/topics/consumer/consumer-compatibility.md",

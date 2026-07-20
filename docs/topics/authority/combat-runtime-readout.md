@@ -44,8 +44,8 @@ surface and report `rust_bridge` / `native_rust` provenance. In the #4532
 migration, Rust-backed primary fire resolves damage as a generic game-rules
 `ApplyDelta` effect, then applies that resolved damage through `svc-combat`,
 which remains the only FPS health mutation/readout path. Reference facades remain
-labelled fixture/compatibility evidence. When a ProjectBundle has been
-loaded through `loadEcrpProject()`, the receipt is derived from the loaded
+labelled fixture/compatibility evidence. When a ProjectBundle has been admitted
+through `loadProject({ source })`, the receipt is derived from the loaded
 player/enemy RuntimeSession state:
 
 - outcome target equals the loaded enemy runtime entity id;

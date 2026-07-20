@@ -25,9 +25,9 @@ function selectedMode(): SmokeMode {
   return process.env['ASHA_SMOKE_MODE'] === 'authority' ? 'authority' : 'reference';
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const mode = selectedMode();
-  const result = runSmoke({ bootBridge: () => bootForMode(mode) });
+  const result = await runSmoke({ bootBridge: () => bootForMode(mode) });
   const text = formatResult(result);
   process.stdout.write(text);
 
@@ -41,4 +41,4 @@ function main(): void {
   process.exit(result.ok ? 0 : 1);
 }
 
-main();
+await main();

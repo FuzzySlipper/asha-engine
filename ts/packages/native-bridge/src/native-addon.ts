@@ -35,28 +35,9 @@ interface NativeEnemyDirectNavMovementResult {
   readonly projectionChanged: boolean;
 }
 
-interface NativeFpsTransformCapability {
-  readonly translation: NativeVec3;
-  readonly rotation: readonly [number, number, number, number];
-  readonly scale: NativeVec3;
-}
-
-interface NativeFpsBoundsCapability {
-  readonly min: NativeVec3;
-  readonly max: NativeVec3;
-}
-
 interface NativeFpsHealth {
   readonly current: number;
   readonly max: number;
-}
-
-interface NativeFpsWeaponMount {
-  readonly weaponId: string;
-  readonly damage: number;
-  readonly rangeUnits: number;
-  readonly ammo: number;
-  readonly cooldownTicksAfterFire: number;
 }
 
 interface NativeFpsPolicyBinding {
@@ -66,22 +47,6 @@ interface NativeFpsPolicyBinding {
   readonly viewVersion: string;
   readonly allowedIntents: readonly string[];
   readonly runtimeMoment: string;
-}
-
-interface NativeFpsStoredEntityDefinition {
-  readonly entity: number;
-  readonly stableId: string;
-  readonly displayName: string;
-  readonly sourcePath: string;
-  readonly tags: readonly string[];
-  readonly role: string;
-  readonly transform: NativeFpsTransformCapability | undefined;
-  readonly bounds: NativeFpsBoundsCapability | undefined;
-  readonly renderVisible: boolean | null;
-  readonly staticCollider: boolean | null;
-  readonly health: NativeFpsHealth | undefined;
-  readonly weapon: NativeFpsWeaponMount | undefined;
-  readonly policyBinding: NativeFpsPolicyBinding | undefined;
 }
 
 interface NativeFpsRuntimeSessionSnapshot {
@@ -104,21 +69,6 @@ interface NativeFpsRuntimeSessionSnapshot {
   readonly entityHash: string;
   readonly healthHash: string;
   readonly replayHash: string;
-}
-
-export interface NativeGeneratedTunnelRuntimeApplyReceipt {
-  readonly presetId: string;
-  readonly seed: number;
-  readonly grid: number;
-  readonly configHash: string;
-  readonly outputHash: string;
-  readonly collisionSourceHash: string;
-  readonly collisionProjectionHash: string;
-  readonly runtimeFrame: {
-    readonly worldOffset: readonly number[];
-    readonly playableMin: readonly number[];
-    readonly playableMax: readonly number[];
-  };
 }
 
 interface NativeFpsPrimaryFireResult {
@@ -277,17 +227,6 @@ interface NativeAddonBindings {
   loadRuntimeProject(handle: number, requestJson: string): string;
   readActiveRuntimeProjectContent(handle: number): string;
   closeRuntimeProject(handle: number, requestJson: string): string;
-  loadProjectBundle(
-    handle: number,
-    bundleSchemaVersion: number,
-    protocolVersion: number,
-    sceneId: number,
-  ): {
-    loadedProjectBundle: number | null;
-    fatalCount: number;
-    totalCount: number;
-    blocksLoad: boolean;
-  };
   submitCommands(handle: number, commandsJson: string): CommandResult;
   stepSimulation(handle: number, tick: number): { readonly tick: number; readonly diffCount: number };
   configureInputSession(handle: number, requestJson: string): string;
@@ -320,7 +259,6 @@ interface NativeAddonBindings {
     readonly bytes: readonly number[];
   };
   releaseBuffer(handle: number, bufferHandle: number): void;
-  unloadProjectBundle(handle: number): void;
   readModelMaterialPreview(handle: number, requestJson: string): string;
   decodeSceneDocument(handle: number, requestJson: string): string;
   encodeSceneDocument(handle: number, requestJson: string): string;
@@ -332,11 +270,6 @@ interface NativeAddonBindings {
   applyProceduralEnvironment(handle: number, requestJson: string): string;
   readSceneObjectSnapshot(handle: number): string;
   applySceneObjectCommand(handle: number, requestJson: string): string;
-  applyGeneratedTunnelToRuntimeWorld(
-    handle: number,
-    presetId: string,
-    seed: number,
-  ): NativeGeneratedTunnelRuntimeApplyReceipt;
   applyEnemyDirectNavMovement(
     handle: number,
     entity: number,
@@ -344,14 +277,6 @@ interface NativeAddonBindings {
     target: NativeVec3,
     maxStepUnits: number,
   ): NativeEnemyDirectNavMovementResult;
-  loadFpsRuntimeSession(
-    handle: number,
-    projectBundle: string,
-    sceneDocumentJson: string,
-    bootstrapResolutionRegistryJson: string,
-    definitions: readonly NativeFpsStoredEntityDefinition[],
-    gameRuleModulesJson: string,
-  ): NativeFpsRuntimeSessionSnapshot;
   readFpsRuntimeSession(handle: number): NativeFpsRuntimeSessionSnapshot;
   applyFpsPrimaryFire(
     handle: number,
@@ -405,17 +330,6 @@ interface NativeAddonBindings {
   readRenderDiffs(handle: number, cursor: number): string;
   readProjectionFrame(handle: number, cursor: number): RuntimeProjectionFrame;
   readDeveloperConsole(handle: number): DeveloperConsoleSnapshot;
-  saveProjectBundle(handle: number): {
-    artifactsWritten: number;
-    compactedEdits: number;
-    retainedEdits: number;
-  };
-  getProjectBundleCompositionStatus(handle: number): {
-    loadedProjectBundle: number | null;
-    fatalCount: number;
-    totalCount: number;
-    blocksLoad: boolean;
-  };
   planVoxelConversion(handle: number, requestJson: string): string;
   registerVoxelConversionSource(handle: number, requestJson: string): string;
   registerVoxelConversionMeshAsset(handle: number, requestJson: string): string;

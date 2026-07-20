@@ -34,6 +34,7 @@
     "@asha/renderer-host": "workspace:*",
     "@asha/renderer-three": "workspace:*",
     "@asha/editor-tools": "workspace:*",
+    "@asha/game-workspace": "workspace:*",
     "@asha/ui-dom": "workspace:*",
     "@asha/app": "workspace:*"
   }

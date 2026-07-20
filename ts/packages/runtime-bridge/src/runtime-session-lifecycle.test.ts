@@ -13,11 +13,6 @@ function sessionInput() {
       gameId: 'asha-demo',
       workspaceId: 'workspace.local',
     },
-    projectBundle: {
-      bundleSchemaVersion: 1,
-      protocolVersion: 1,
-      sceneId: 42,
-    },
   };
 }
 
@@ -44,7 +39,7 @@ void test('RuntimeSession lifecycle readout tracks enemy death from typed combat
   assert.equal(initial.outcome.kind, 'in_progress');
   assert.equal(initial.outcome.terminal, false);
   assert.equal(initial.restart.eligible, true);
-  assert.equal(initial.fixture.resetHash.startsWith('fnv1a64:'), true);
+  assert.equal(initial.reset.resetHash.startsWith('fnv1a64:'), true);
   assert.equal(initial.hashes.lifecycleHash.startsWith('fnv1a64:'), true);
 
   const rejectedRestart = session.requestSessionRestart({
@@ -134,7 +129,7 @@ void test('RuntimeSession typed restart intent resets lifecycle deterministicall
   assert.equal(receipt.statusAfter.player.health.current, 100);
   assert.equal(receipt.statusAfter.enemy.health.current, 40);
   assert.equal(receipt.statusAfter.hashes.lifecycleHash, initial.hashes.lifecycleHash);
-  assert.equal(receipt.resetHash, initial.fixture.resetHash);
+  assert.equal(receipt.resetHash, initial.reset.resetHash);
   assert.equal(receipt.restart?.tick, 0);
   assert.equal(receipt.restart?.restartCount, 1);
   assert.equal(session.readTelemetry().replayRecords.at(-1)?.kind, 'restart');

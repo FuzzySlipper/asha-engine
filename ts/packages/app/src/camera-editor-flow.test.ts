@@ -19,7 +19,6 @@ void test('editor selection drives the public orbit pan zoom and FPS return flow
     sessionId: 'app.camera-editor-flow',
     seed: 41,
     project: { gameId: 'camera-editor-flow', workspaceId: 'workspace.editor' },
-    projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1 },
   });
   const camera = session.createCamera({
     initialPose: { position: [0, 1.6, 0], yawDegrees: 0, pitchDegrees: 0 },

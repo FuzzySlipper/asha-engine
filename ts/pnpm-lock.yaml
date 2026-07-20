@@ -35,12 +35,18 @@ importers:
       '@asha/editor-tools':
         specifier: workspace:*
         version: link:../editor-tools
+      '@asha/game-workspace':
+        specifier: workspace:*
+        version: link:../game-workspace
       '@asha/renderer-three':
         specifier: workspace:*
         version: link:../renderer-three
       '@asha/runtime-bridge':
         specifier: workspace:*
         version: link:../runtime-bridge
+      '@asha/runtime-session':
+        specifier: workspace:*
+        version: link:../runtime-session
       '@asha/script-host':
         specifier: workspace:*
         version: link:../script-host
@@ -50,6 +56,9 @@ importers:
 
   packages/browser-host:
     dependencies:
+      '@asha/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@asha/game-workspace':
         specifier: workspace:*
         version: link:../game-workspace
@@ -175,6 +184,9 @@ importers:
       '@asha/runtime-bridge':
         specifier: workspace:*
         version: link:../runtime-bridge
+      '@asha/runtime-session':
+        specifier: workspace:*
+        version: link:../runtime-session
       three:
         specifier: ^0.184.0
         version: 0.184.0
@@ -243,6 +255,9 @@ importers:
       '@asha/editor-tools':
         specifier: workspace:*
         version: link:../editor-tools
+      '@asha/game-workspace':
+        specifier: workspace:*
+        version: link:../game-workspace
       '@asha/renderer-host':
         specifier: workspace:*
         version: link:../renderer-host

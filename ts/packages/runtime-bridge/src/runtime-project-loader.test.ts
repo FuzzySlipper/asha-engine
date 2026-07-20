@@ -8,14 +8,50 @@ import {
   encodeAshaProjectPackage,
 } from '@asha/game-workspace';
 import type { RuntimeSessionProjectSource } from '@asha/runtime-session';
-import type { ActiveRuntimeProjectContentReadout } from '@asha/contracts';
+import { sceneId, sceneNodeId, type ActiveRuntimeProjectContentReadout, type FlatSceneDocument } from '@asha/contracts';
 
 import { createRuntimeSessionFacade } from './runtime-session-adapter.js';
 import { createMockRuntimeBridge, MockRuntimeBridge } from './mock.js';
 import type { FpsRuntimeSessionSnapshot } from './bridge.js';
-import { entitySceneDocument } from './native-fps-fixtures.test-fixture.js';
 
 const text = (value: string): Uint8Array => new TextEncoder().encode(value);
+
+function entitySceneDocument(input: {
+  readonly id: number;
+  readonly instances: readonly {
+    readonly entity: number;
+    readonly definitionId: string;
+    readonly spawnMarkerId: string | null;
+    readonly translation: readonly [number, number, number];
+  }[];
+}): FlatSceneDocument {
+  return {
+    schemaVersion: 4,
+    id: sceneId(input.id),
+    metadata: { name: 'Canonical runtime project test scene', authoringFormatVersion: 4 },
+    dependencies: [],
+    nodes: input.instances.map((instance, childOrder) => ({
+      id: sceneNodeId(instance.entity),
+      parent: null,
+      childOrder,
+      label: instance.definitionId,
+      tags: [],
+      transform: {
+        translation: instance.translation,
+        rotation: [0, 0, 0, 1],
+        scale: [1, 1, 1],
+      },
+      kind: {
+        kind: 'entityInstance',
+        instance: {
+          instanceId: `${instance.definitionId}.instance`,
+          reference: { kind: 'entityDefinition', stableId: instance.definitionId },
+          spawnMarkerId: instance.spawnMarkerId,
+        },
+      },
+    })),
+  };
+}
 
 function projectFiles(): ReadonlyMap<string, Uint8Array> {
   const manifest = {
@@ -223,7 +259,6 @@ void test('loadProject derives FPS readouts from Rust active content without leg
   assert.equal(receipt.accepted, true);
   const readout = session.readEcrpRuntimeReadout();
   assert.equal(readout.authority.source, 'rust_bridge');
-  assert.equal(readout.projectBundle, null);
   assert.deepEqual(
     readout.entities.map((entity) => entity.definitionStableId),
     ['actor/player', 'actor/enemy'],

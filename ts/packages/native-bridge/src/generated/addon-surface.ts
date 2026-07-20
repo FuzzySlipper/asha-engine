@@ -25,7 +25,6 @@ const GENERATED_NATIVE_ADDON_EXPORT_NAMES = [
   'configureVoxelProjectionInstances',
   'pickVoxelInstance',
   'applyCollisionConstrainedCameraInput',
-  'applyGeneratedTunnelToRuntimeWorld',
   'selectVoxel',
   'readVoxelMeshEvidence',
   'planVoxelConversion',
@@ -54,7 +53,6 @@ const GENERATED_NATIVE_ADDON_EXPORT_NAMES = [
   'applyVoxelEditRevert',
   'undoVoxelEdit',
   'redoVoxelEdit',
-  'loadFpsRuntimeSession',
   'readFpsRuntimeSession',
   'applyFpsPrimaryFire',
   'readComposedRuntimeSession',
@@ -96,10 +94,6 @@ const GENERATED_NATIVE_ADDON_EXPORT_NAMES = [
   'loadRuntimeProject',
   'readActiveRuntimeProjectContent',
   'closeRuntimeProject',
-  'loadProjectBundle',
-  'saveProjectBundle',
-  'getProjectBundleCompositionStatus',
-  'unloadProjectBundle',
 ] as const;
 
 export type GeneratedNativeAddonExport = (typeof GENERATED_NATIVE_ADDON_EXPORT_NAMES)[number];

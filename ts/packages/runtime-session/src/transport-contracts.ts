@@ -1,12 +1,10 @@
 import type {
-  FlatSceneDocument,
   GameExtensionHookReceipt,
   GameExtensionReplayEvidence,
   GameRuleCatalog,
   GameRuleDiagnostic,
   GameRuleEvidenceRef,
   GameRuleModifierState,
-  GameRuleModuleManifest,
   GameRuleResolutionRequest,
   GameRuleTraceEntry,
   GameplayContractRef,
@@ -51,28 +49,9 @@ export interface EnemyDirectNavMovementResult {
 export type FpsRuntimeRole = 'player' | 'enemy' | 'neutral';
 export type FpsRuntimeAuthorityTransport = 'native_rust' | 'reference_bridge';
 
-export interface FpsTransformCapability {
-  readonly translation: BridgeVec3;
-  readonly rotation: readonly [number, number, number, number];
-  readonly scale: BridgeVec3;
-}
-
-export interface FpsBoundsCapability {
-  readonly min: BridgeVec3;
-  readonly max: BridgeVec3;
-}
-
 export interface FpsHealth {
   readonly current: number;
   readonly max: number;
-}
-
-export interface FpsWeaponMount {
-  readonly weaponId: string;
-  readonly damage: number;
-  readonly rangeUnits: number;
-  readonly ammo: number;
-  readonly cooldownTicksAfterFire: number;
 }
 
 export interface FpsPolicyBinding {
@@ -82,48 +61,6 @@ export interface FpsPolicyBinding {
   readonly viewVersion: string;
   readonly allowedIntents: readonly string[];
   readonly runtimeMoment: string;
-}
-
-export interface FpsStoredEntityDefinition {
-  readonly entity: number;
-  readonly stableId: string;
-  readonly displayName: string;
-  readonly sourcePath: string;
-  readonly tags: readonly string[];
-  readonly role: FpsRuntimeRole;
-  readonly transform: FpsTransformCapability | null;
-  readonly bounds: FpsBoundsCapability | null;
-  readonly renderVisible: boolean | null;
-  readonly staticCollider: boolean | null;
-  readonly health: FpsHealth | null;
-  readonly weapon: FpsWeaponMount | null;
-  readonly policyBinding: FpsPolicyBinding | null;
-}
-
-export interface FpsBootstrapGeneratorPresetIdentity {
-  readonly providerId: string;
-  readonly presetId: string;
-}
-
-/**
- * Identities from validated ProjectBundle registries that a scene may resolve
- * during Rust bootstrap. Scene references are intentionally not used to build
- * this registry.
- */
-export interface FpsBootstrapResolutionRegistry {
-  readonly schemaVersion: 1;
-  readonly entityDefinitionIds: readonly string[];
-  readonly prefabIds: readonly number[];
-  readonly generatorPresets: readonly FpsBootstrapGeneratorPresetIdentity[];
-  readonly catalogIds: readonly string[];
-}
-
-export interface FpsRuntimeSessionLoadRequest {
-  readonly projectBundle: string;
-  readonly bootstrapResolutionRegistry: FpsBootstrapResolutionRegistry;
-  readonly sceneDocument: FlatSceneDocument;
-  readonly definitions: readonly FpsStoredEntityDefinition[];
-  readonly gameRuleModules: readonly GameRuleModuleManifest[];
 }
 
 export interface FpsRuntimeSessionRestartRequest {
@@ -366,17 +303,4 @@ export interface FpsEncounterTransitionResult {
   readonly lifecycle: FpsEncounterLifecycleInput;
   readonly encounterHash: string;
   readonly replayHash: string;
-}
-
-export interface ProjectBundleLoadRequest {
-  readonly bundleSchemaVersion: number;
-  readonly protocolVersion: number;
-  readonly sceneId: number;
-}
-
-export interface CompositionStatus {
-  readonly loadedProjectBundle: number | null;
-  readonly fatalCount: number;
-  readonly totalCount: number;
-  readonly blocksLoad: boolean;
 }

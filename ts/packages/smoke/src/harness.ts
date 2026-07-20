@@ -19,11 +19,13 @@
 
 import {
   createNativeRuntimeBridge,
+  createRuntimeSessionFacade,
   frameCursor,
   RuntimeBridgeError,
   type RuntimeBridge,
   type RuntimeBufferHandle,
 } from '@asha/runtime-bridge';
+import type { RuntimeSessionFacade } from '@asha/runtime-session';
 import { createMockRuntimeBridge } from '@asha/runtime-bridge/reference';
 import type { RenderDiff } from '@asha/contracts';
 import { renderHandle } from '@asha/contracts';
@@ -33,12 +35,13 @@ import { bridgePicker, pickAndSelect } from '@asha/app';
 import { previewOverlayDiffs, OVERLAY_HANDLE_BASE } from '@asha/ui-dom';
 
 import {
-  FIXTURE_PROJECT_BUNDLE,
+  FIXTURE_PROJECT_ID,
+  FIXTURE_PROJECT_MANIFEST_HASH,
+  FIXTURE_PROJECT_SOURCE,
   fixtureCommandBatch,
   fixtureEditUpdateFrame,
   fixturePickRay,
   fixtureRenderFrame,
-  fixtureProjectBundleHash,
 } from './fixtures.js';
 import type {
   RuntimeMode,
@@ -122,6 +125,7 @@ function probeNativeAvailable(): boolean {
 /** Mutable accumulator threaded through the staged run. */
 interface RunState {
   readonly bridge: RuntimeBridge;
+  readonly session: RuntimeSessionFacade;
   readonly authority: boolean;
   readonly renderer: ThreeRenderer;
   readonly store: EditorStore;
@@ -132,7 +136,7 @@ interface RunState {
   peakHandles: number;
   sceneNodes: number;
   debugNodes: number;
-  projectBundleLoadOk: boolean;
+  projectLoadOk: boolean;
   renderApplied: boolean;
   diagnostics: { total: number; fatal: number; blocksLoad: boolean };
 }
@@ -156,7 +160,7 @@ function applyAndTrack(state: RunState, ops: readonly RenderDiff[]): void {
 }
 
 /** Run the full staged smoke flow and return a deterministic structured result. */
-export function runSmoke(options: SmokeOptions = {}): SmokeResult {
+export async function runSmoke(options: SmokeOptions = {}): Promise<SmokeResult> {
   const boot = (options.bootBridge ?? defaultBootBridge)();
 
   // ── Stage 1: boot + capability readout (#2395) ──
@@ -168,6 +172,10 @@ export function runSmoke(options: SmokeOptions = {}): SmokeResult {
 
   const state: RunState = {
     bridge: boot.bridge,
+    session: createRuntimeSessionFacade({
+      bridge: boot.bridge,
+      mode: boot.mode === 'native' ? 'rust' : 'reference',
+    }),
     authority: boot.intent === 'authority',
     renderer: new ThreeRenderer(),
     store: new EditorStore(),
@@ -177,26 +185,30 @@ export function runSmoke(options: SmokeOptions = {}): SmokeResult {
     peakHandles: 0,
     sceneNodes: 0,
     debugNodes: 0,
-    projectBundleLoadOk: false,
+    projectLoadOk: false,
     renderApplied: false,
     diagnostics: { total: 0, fatal: 0, blocksLoad: false },
   };
 
-  state.bridge.initializeEngine({ seed: 1 });
+  state.session.initialize({
+    sessionId: 'runtime-session.smoke',
+    seed: 1,
+    project: { gameId: 'canonical-smoke', workspaceId: 'workspace.smoke' },
+  });
   state.stages.push({
     name: 'boot',
     ok: true,
     detail: `runtime facade up in ${boot.mode} mode, ${boot.intent} intent (nativeAvailable=${boot.nativeAvailable})`,
   });
 
-  stageLoad(state);
+  await stageLoad(state);
   stageRender(state);
   stagePick(state);
   stagePreview(state);
   stageCommandSubmit(state);
   stageAuthorityClassify(state);
   stageRenderUpdate(state);
-  stageSaveReloadReplay(state);
+  await stageCloseReloadReplay(state);
   const counters = stageCleanup(state);
 
   const ok = state.failures.length === 0;
@@ -214,11 +226,11 @@ export function runSmoke(options: SmokeOptions = {}): SmokeResult {
     nativeAvailable: boot.nativeAvailable,
     capabilities: {
       runtimeBridge: state.authority ? 'ok' : 'mock',
-      projectBundleLoad: state.projectBundleLoadOk ? (state.authority ? 'ok' : 'mock') : 'unavailable',
+      projectLoad: state.projectLoadOk ? (state.authority ? 'ok' : 'mock') : 'unavailable',
       renderer: state.renderApplied ? 'ok' : 'unavailable',
       projection: state.renderApplied ? (state.authority ? 'ok' : 'mock') : 'unavailable',
     },
-    fixture: { id: FIXTURE_PROJECT_BUNDLE.sceneId, projectBundleHash: fixtureProjectBundleHash(FIXTURE_PROJECT_BUNDLE) },
+    fixture: { id: FIXTURE_PROJECT_ID, manifestHash: FIXTURE_PROJECT_MANIFEST_HASH },
     diagnostics: state.diagnostics,
     render: { applied: state.renderApplied, sceneNodes: state.sceneNodes },
     counters,
@@ -228,32 +240,32 @@ export function runSmoke(options: SmokeOptions = {}): SmokeResult {
 }
 
 // ── Stage 2: load the abstract fixture ProjectBundle through the real facade path ──
-function stageLoad(state: RunState): void {
+async function stageLoad(state: RunState): Promise<void> {
   try {
-    const status = state.bridge.loadProjectBundle(FIXTURE_PROJECT_BUNDLE);
+    const receipt = await state.session.loadProject({ source: FIXTURE_PROJECT_SOURCE });
     state.diagnostics = {
-      total: status.totalCount,
-      fatal: status.fatalCount,
-      blocksLoad: status.blocksLoad,
+      total: receipt.diagnostics.length,
+      fatal: receipt.accepted ? 0 : receipt.diagnostics.length,
+      blocksLoad: !receipt.accepted,
     };
-    state.projectBundleLoadOk = status.loadedProjectBundle === FIXTURE_PROJECT_BUNDLE.sceneId && !status.blocksLoad;
+    state.projectLoadOk = receipt.accepted && receipt.activeProject !== null;
     state.stages.push({
       name: 'load',
-      ok: state.projectBundleLoadOk,
-      detail: state.projectBundleLoadOk
-        ? `loaded ProjectBundle ${status.loadedProjectBundle}`
-        : `load did not settle (loadedProjectBundle=${status.loadedProjectBundle}, blocksLoad=${status.blocksLoad})`,
+      ok: state.projectLoadOk,
+      detail: state.projectLoadOk
+        ? `loaded canonical project ${receipt.activeProject?.projectId}`
+        : `canonical project load rejected (${receipt.diagnostics.map((diagnostic) => diagnostic.code).join(', ')})`,
     });
-    if (!state.projectBundleLoadOk) {
+    if (!state.projectLoadOk) {
       state.failures.push({
         category: 'load_failure',
-        subsystem: 'runtime-bridge.loadProjectBundle',
-        message: `world ${FIXTURE_PROJECT_BUNDLE.sceneId} did not load cleanly`,
-        nextStep: 'inspect composition diagnostics for the failing artifact',
+        subsystem: 'runtime-session.loadProject',
+        message: `project ${FIXTURE_PROJECT_ID} did not load cleanly`,
+        nextStep: 'inspect canonical source admission diagnostics for the failing artifact',
       });
     }
   } catch (cause) {
-    state.failures.push(classifyBridgeFailure('runtime-bridge.loadProjectBundle', 'load_failure', cause));
+    state.failures.push(classifyBridgeFailure('runtime-session.loadProject', 'load_failure', cause));
     state.stages.push({ name: 'load', ok: false, detail: describeError(cause) });
   }
 }
@@ -392,29 +404,17 @@ function stageCommandSubmit(state: RunState): void {
 // ── Stage 7: authority acceptance/rejection evidence ──
 function stageAuthorityClassify(state: RunState): void {
   const rejectedVisible = probeRejectedEdit();
-  // Authority intent additionally reads composition status back through the facade.
-  let statusOk = true;
-  let statusDetail = '';
-  if (state.authority) {
-    try {
-      statusOk = !state.bridge.getProjectBundleCompositionStatus().blocksLoad;
-      statusDetail = '; composition status read=ok';
-    } catch (cause) {
-      statusOk = false;
-      statusDetail = `; composition status read failed: ${describeError(cause)}`;
-    }
-  }
-  const ok = rejectedVisible && statusOk;
+  const ok = rejectedVisible;
   state.stages.push({
     name: 'authority-classify',
     ok,
-    detail: `rejected-path visible=${rejectedVisible}${statusDetail}`,
+    detail: `rejected-path visible=${rejectedVisible}`,
   });
   if (!ok) {
     state.failures.push({
       category: 'ui_command_rejected',
       subsystem: 'runtime-bridge.submitCommands',
-      message: 'the classified rejection path was not observable, or composition status blocked',
+      message: 'the classified rejection path was not observable',
       nextStep: 'verify fail-closed classification on an uninitialized facade',
     });
   }
@@ -441,35 +441,34 @@ function stageRenderUpdate(state: RunState): void {
   }
 }
 
-// ── Stage 9: save / reload / replay through the facade ──
-function stageSaveReloadReplay(state: RunState): void {
+// ── Stage 9: explicit close / canonical reload / replay through the facade ──
+async function stageCloseReloadReplay(state: RunState): Promise<void> {
   try {
-    const save = state.bridge.saveProjectBundle();
-    state.bridge.unloadProjectBundle();
-    const reload = state.bridge.loadProjectBundle(FIXTURE_PROJECT_BUNDLE);
-    const reloadOk = reload.loadedProjectBundle === FIXTURE_PROJECT_BUNDLE.sceneId && !reload.blocksLoad;
+    const close = state.session.closeProject();
+    const reload = await state.session.loadProject({ source: FIXTURE_PROJECT_SOURCE });
+    const reloadOk = reload.accepted && reload.activeProject !== null;
 
     const session = state.bridge.loadReplayFixture({ name: 'smoke-edit-sequence', steps: 1 });
     const step = state.bridge.runReplayStep(session);
-    const ok = save.artifactsWritten > 0 && reloadOk && !step.diverged;
+    const ok = close.accepted && reloadOk && !step.diverged;
     state.stages.push({
-      name: 'save-reload-replay',
+      name: 'close-reload-replay',
       ok,
       detail:
-        `saved artifacts=${save.artifactsWritten} (compacted=${save.compactedEdits} retained=${save.retainedEdits}); ` +
-        `reloaded ProjectBundle ${reload.loadedProjectBundle}; replay step ${step.step} diverged=${step.diverged}`,
+        `closed project ${close.closedProjectId}; reloaded canonical project ${reload.activeProject?.projectId}; ` +
+        `replay step ${step.step} diverged=${step.diverged}`,
     });
     if (!ok) {
       state.failures.push({
         category: 'replay_failure',
-        subsystem: 'runtime-bridge.save/reload/replay',
-        message: 'save wrote no artifact, reload did not settle, or the replay step diverged',
-        nextStep: 'inspect the save/compaction path and replay reproduction',
+        subsystem: 'runtime-session.close/reload/replay',
+        message: 'close/reload did not settle or the replay step diverged',
+        nextStep: 'inspect canonical project lifecycle and replay reproduction',
       });
     }
   } catch (cause) {
-    state.failures.push(classifyBridgeFailure('runtime-bridge.save/reload/replay', 'replay_failure', cause));
-    state.stages.push({ name: 'save-reload-replay', ok: false, detail: describeError(cause) });
+    state.failures.push(classifyBridgeFailure('runtime-session.close/reload/replay', 'replay_failure', cause));
+    state.stages.push({ name: 'close-reload-replay', ok: false, detail: describeError(cause) });
   }
 }
 
@@ -483,6 +482,12 @@ function stageCleanup(state: RunState): SmokeCounters {
   } catch {
     // No buffer outstanding is itself fine; a held buffer would be the leak signal.
     outstandingBuffers = 0;
+  }
+
+  try {
+    state.session.closeProject();
+  } catch {
+    // Earlier lifecycle failure is already classified by its owning stage.
   }
 
   // Destroy every render handle created during the run — scene + overlay.
@@ -541,11 +546,11 @@ function bootFailedResult(boot: BridgeBoot): SmokeResult {
     nativeAvailable: boot.nativeAvailable,
     capabilities: {
       runtimeBridge: 'unavailable',
-      projectBundleLoad: 'unavailable',
+      projectLoad: 'unavailable',
       renderer: 'unavailable',
       projection: 'unavailable',
     },
-    fixture: { id: FIXTURE_PROJECT_BUNDLE.sceneId, projectBundleHash: fixtureProjectBundleHash(FIXTURE_PROJECT_BUNDLE) },
+    fixture: { id: FIXTURE_PROJECT_ID, manifestHash: FIXTURE_PROJECT_MANIFEST_HASH },
     diagnostics: { total: 0, fatal: 0, blocksLoad: false },
     render: { applied: false, sceneNodes: 0 },
     counters: emptyCounters(),

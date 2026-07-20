@@ -41,8 +41,6 @@ changed only through protocol/codegen tooling.
 | `protocol-project-bundle` and generated `ts/packages/contracts/src/generated/projectBundle.ts` | Current target contract lane | `protocol-project-bundle`, `@asha/contracts` / contract-steward | `@asha/contracts` smoke, `@asha/devtools`, `@asha/runtime-bridge`, contract governance docs | Migrated as a breaking protocol/codegen rename. Do not reintroduce generated `worldBundle.ts` or legacy `WorldBundleManifest` aliases. | `asha-demo` may import `@asha/contracts` only at package root. It must not import generated file paths. |
 | `rule-project-bundle` in `engine-rs/crates/rules/rule-project-bundle` | Current target ProjectBundle load/save/regen rule lane | `rule-project-bundle` / rust-rule | Load executor tests, compaction/durability/regen fixtures, docs, `scene-diagnostics` | Migrated as a breaking rust-rule crate rename. Execution remains Rust authority; old rule crate/path names should not be reintroduced as wrappers. | Demo load/save tasks should describe "ProjectBundle validation/load/save" and cite `rule-project-bundle` only as the current implementation lane. |
 | `LoadStage::SessionStateSnapshot` / `RestoreSessionState` in serialization/rule load plans | Current target load stage vocabulary | `svc-serialization`, `rule-project-bundle` | Load-plan fixtures, devtools bundle panel | Migrated from `WorldStateSnapshot` / `RestoreWorldState`. ProjectBundle manifest/load/save/regen naming now lives in `svc-serialization` and `rule-project-bundle`. | Demo evidence should say "runtime/session restore" in prose. |
-| `runtime_bridge_api::ProjectBundleLoadRequest`, TS `ProjectBundleLoadRequest` | Quarantined prototype bridge DTO name | `runtime-bridge-api`, `@asha/runtime-bridge` / rust-bridge and ts-shell | Native bridge glue, runtime bridge mock/native/launcher, conformance tests, `@asha/devtools` bundle actions | The verb/name migration is complete, but this simplified handwritten subset remains in the Wave 1 compatibility inventory until Demo #5737 and Studio #5736/#5733 consume generated `ProjectBundleManifest`/diagnostic/save contracts. Do not copy its shape into a new consumer. | `asha-demo` should call package-root runtime facade methods and describe the behavior as loading a ProjectBundle into a RuntimeSession. |
-| Bridge verbs `load_project_bundle` / `loadProjectBundle`, `save_project_bundle` / `saveProjectBundle`, `get_project_bundle_composition_status` / `getProjectBundleCompositionStatus`, `unload_project_bundle` | Current target bridge/native operation names | `runtime-bridge-api`, `native-bridge`, `@asha/runtime-bridge` | Bridge manifest, native fail-closed checks, runtime bridge generated operation tables, launcher, smoke/native checks | Migrated as a breaking bridge/native rename. Future work should not preserve the old verb names unless it is an explicitly documented external ABI bridge. | Demo code must use only package-root runtime facade methods and ProjectBundle/RuntimeSession language. |
 | `@asha/devtools` bundle-panel project-bundle read models | ProjectBundle inspection/readout models | `@asha/devtools` / ts-tools | Studio/testing readouts; `asha-demo` is not an allowed direct consumer | Future rename after contract rename. No immediate alias needed for `asha-demo` because devtools should remain Studio/testing owned. | `asha-demo` must not import devtools directly to inspect bundles; Studio owns human readout. |
 | `topics/authority/launchable-voxel.md`, `topics/authority/replay-model.md`, `harness/fixtures/project-bundle/*`, `harness/fixtures/session-state/*` | ProjectBundle/session replay fixtures | Docs/fixtures owned by their crate/package lanes | Rust/TS goldens and human operator docs | Service and rule ProjectBundle goldens now live under `harness/fixtures/project-bundle`; remaining doc labels should avoid legacy bundle vocabulary except when explicitly naming rejected terms. | Demo tasks should not copy these proof fixtures as product skeleton. Use them only as upstream evidence references. |
 | `ts/packages/game-workspace` manifest surface | ASHA Game Project manifest / ProjectBundle-facing workspace metadata | `@asha/game-workspace` / ts-shell or ts-tools boundary | `asha-testing`, `asha-demo`, `asha-studio` are allowed consumers by public-surface manifest | Already close to target vocabulary. Keep this as the downstream-facing name; do not backslide into project-bundle product wording. | `asha-demo` skeleton should use ASHA Game Project language and this package only through approved package-root imports. |
@@ -58,26 +56,7 @@ Current hash taxonomy:
   camera collision receipts.
 - `runtimeSessionSummaryHash` labels launcher/devtools projection summaries.
 
-## Search Readback
-
-Focused inventory command used for this map:
-
-```sh
-rg -n "\\bSpatialSessionState\\b|\\bProjectBundleManifest\\b|\\bProjectBundleLoadRequest\\b|\\bProjectBundleSaveSummary\\b|\\bloadProjectBundle\\b|\\bload_project_bundle\\b|\\bsaveProjectBundle\\b|\\bsave_project_bundle\\b|\\bgetProjectBundleCompositionStatus\\b|\\bget_project_bundle_composition_status\\b|\\bProjectSection\\b|\\bLoadStage::SessionStateSnapshot\\b|RestoreSessionState|project-bundle|project bundle" \
-  engine-rs/crates/state/core-scene \
-  engine-rs/crates/services/svc-serialization \
-  engine-rs/crates/protocol/protocol-project-bundle \
-  engine-rs/crates/rules/rule-project-bundle \
-  engine-rs/crates/bridge/runtime-bridge-api \
-  ts/packages/runtime-bridge \
-  ts/packages/devtools \
-  ts/packages/game-workspace \
-  ts/packages/contracts/src \
-  docs governance harness/public-surface \
-  --glob '!**/dist/**' --glob '!**/target/**' --glob '!**/node_modules/**'
-```
-
-The readback confirmed active references in `core-scene`, `svc-serialization`,
-`protocol-project-bundle`, `rule-project-bundle`, `runtime-bridge-api`,
-`@asha/contracts`, `@asha/runtime-bridge`, `@asha/devtools`, repo docs, and
-fixtures. These are live compatibility surfaces rather than stale prose.
+The old handwritten runtime bootstrap DTOs and lifecycle verbs have been
+deleted. Current consumers use canonical project sources through the
+RuntimeSession and Workspace Authoring facades; ProjectBundle remains the
+stored-content vocabulary, not a caller-assembled runtime plan.

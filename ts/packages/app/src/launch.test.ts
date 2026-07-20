@@ -11,8 +11,8 @@ import {
   runHeadlessLaunch,
 } from './launch.js';
 
-void test('headless reference launch assembles a coherent, loaded shell readout', () => {
-  const readout = runHeadlessLaunch({ mode: 'reference', renderer: null });
+void test('headless reference launch assembles a coherent, loaded shell readout', async () => {
+  const readout = await runHeadlessLaunch({ mode: 'reference', renderer: null });
   assert.equal(readout.runtime.availability, 'reference');
   assert.equal(readout.host.name, 'headless');
   assert.equal(readout.world.fixtureId, 'launch-grid');
@@ -28,11 +28,11 @@ void test('default fixture catalog is runtime-selectable (more than one)', () =>
   assert.deepEqual(fixtures.map((f) => f.id), ['launch-grid', 'alt-grid']);
 });
 
-void test('authority launch with no native addon is reported unavailable, never downgraded', () => {
+void test('authority launch with no native addon is reported unavailable, never downgraded', async () => {
   // Exercise the closed-failure contract by injection so the test is stable whether the
   // local machine has the native addon built or not.
   const bootError = new RuntimeBridgeError('native_unavailable', 'addon unavailable in test');
-  const readout = runHeadlessLaunch({
+  const readout = await runHeadlessLaunch({
     mode: 'authority',
     renderer: null,
     bootBridge: () => ({
@@ -53,8 +53,8 @@ void test('bootForMode selects reference vs authority intent', () => {
   assert.equal(bootForMode('authority').intent, 'authority');
 });
 
-void test('launchShell returns a live shell that can keep being driven', () => {
-  const shell = launchShell({ mode: 'reference', renderer: null });
+void test('launchShell returns a live shell that can keep being driven', async () => {
+  const shell = await launchShell({ mode: 'reference', renderer: null });
   shell.applyControl('tool', 'remove');
   assert.equal(shell.editorInspection().tool, 'remove');
 });

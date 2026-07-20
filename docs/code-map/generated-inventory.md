@@ -223,7 +223,6 @@ Source: [bridge-manifest.toml](../../engine-rs/crates/bridge/runtime-bridge-api/
 - `apply_fps_encounter_transition` — stable; output `protocol_runtime::FpsEncounterTransitionResult`
 - `apply_fps_primary_fire` — stable; output `protocol_runtime::FpsPrimaryFireResult`
 - `apply_gameplay_prefab_part_interaction` — stable; output `protocol_runtime::GameplayPrefabPartInteractionReceipt`
-- `apply_generated_tunnel_to_runtime_world` — stable; output `protocol_view::GeneratedTunnelRuntimeApplyReceipt`
 - `apply_input_context_command` — stable; output `protocol_input::InputContextChangeReceipt`
 - `apply_procedural_environment` — stable; output `protocol_project_content::ProceduralEnvironmentApplyResult`
 - `apply_project_content_authoring` — stable; output `protocol_project_content::ProjectContentAuthoringResult`
@@ -249,13 +248,10 @@ Source: [bridge-manifest.toml](../../engine-rs/crates/bridge/runtime-bridge-api/
 - `export_voxel_conversion_evidence` — stable; output `protocol_voxel_conversion::VoxelConversionEvidenceRef[]`
 - `export_voxel_volume_asset` — stable; output `protocol_voxel_asset::VoxelVolumeAssetExportReceipt`
 - `get_buffer` — stable; output `RuntimeBufferView`
-- `get_project_bundle_composition_status` — stable; output `protocol_diagnostics::DiagnosticReportSet`
 - `import_voxel_conversion_mesh_source` — stable; output `protocol_voxel_conversion::VoxelConversionMeshSourceImportReceipt`
 - `initialize_engine` — stable; output `EngineHandle`
 - `initialize_voxel_volume_authoring` — stable; output `protocol_voxel_asset::VoxelVolumeAuthoringInitializeReceipt`
 - `invoke_game_extension_weapon_effect` — quarantined; output `protocol_runtime::GameExtensionWeaponEffectInvocationResult`
-- `load_fps_runtime_session` — stable; output `protocol_runtime::FpsRuntimeSessionSnapshot`
-- `load_project_bundle` — stable; output `protocol_diagnostics::DiagnosticReportSet`
 - `load_replay_fixture` — quarantined; output `ReplaySessionHandle`
 - `load_runtime_project` — stable; output `protocol_project_bundle::RuntimeProjectLoadReceipt`
 - `load_voxel_annotation_layer` — stable; output `protocol_voxel_annotation::VoxelAnnotationLayerLoadReceipt`
@@ -298,7 +294,6 @@ Source: [bridge-manifest.toml](../../engine-rs/crates/bridge/runtime-bridge-api/
 - `replay_resolved_input_action` — stable; output `protocol_input::InputActionReplayReceipt`
 - `restart_fps_runtime_session` — stable; output `protocol_runtime::FpsRuntimeSessionSnapshot`
 - `run_replay_step` — quarantined; output `protocol_replay::ReplayStepReport`
-- `save_project_bundle` — stable; output `protocol_project_bundle::SaveSummary`
 - `save_voxel_volume_asset` — stable; output `protocol_voxel_asset::VoxelVolumeAssetSaveReceipt`
 - `select_voxel` — stable; output `protocol_view::VoxelSelectionSnapshot`
 - `stage_runtime_project_source_resource` — stable; output `protocol_project_bundle::StagedProjectResourceRef`
@@ -307,7 +302,6 @@ Source: [bridge-manifest.toml](../../engine-rs/crates/bridge/runtime-bridge-api/
 - `submit_game_rule_effect_intent` — stable; output `protocol_game_rules::GameRuleResolutionReceipt`
 - `submit_raw_input` — stable; output `protocol_input::InputResolutionReceipt`
 - `undo_voxel_edit` — stable; output `protocol_voxel_edit_history::VoxelEditHistoryUndoReceipt`
-- `unload_project_bundle` — stable; output `Unit`
 - `unload_voxel_volume_asset` — stable; output `protocol_voxel_asset::VoxelVolumeAssetUnloadReceipt`
 - `update_voxel_volume_asset_palette` — stable; output `protocol_voxel_asset::VoxelVolumeAssetPaletteUpdateReceipt`
 - `validate_game_rule_catalog` — stable; output `protocol_runtime::GameRuleCatalogValidationReceipt`
@@ -315,7 +309,7 @@ Source: [bridge-manifest.toml](../../engine-rs/crates/bridge/runtime-bridge-api/
 
 ## Assignment And Dependency Pressure
 
-Committed path classes: 781 source; 27 generated source; 543 other; 0 build/cache/output.
+Committed path classes: 764 source; 27 generated source; 543 other; 0 build/cache/output.
 
 ### Rust actual and allowed edges
 
@@ -423,28 +417,28 @@ Committed path classes: 781 source; 27 generated source; 543 other; 0 build/cach
 
 | Cell | Actual edges / allowed edges | Fan in/out | Cycle risk | Public consumers |
 |---|---|---:|---|---|
-| `@asha/app` (ts-shell) | actual: `@asha/contracts`, `@asha/devtools`, `@asha/editor-tools`, `@asha/renderer-three`, `@asha/runtime-bridge`, `@asha/script-host`, `@asha/ui-dom`<br>allowed: `@asha/contracts`, `@asha/devtools`, `@asha/editor-tools`, `@asha/renderer-three`, `@asha/runtime-bridge`, `@asha/script-host`, `@asha/ui-dom` | 1/7 | none | `@asha/smoke` |
-| `@asha/browser-host` (ts-shell) | actual: `@asha/game-workspace`, `@asha/runtime-bridge`<br>allowed: `@asha/game-workspace`, `@asha/runtime-bridge` | 1/2 | none | `@asha/smoke`, `role:asha-demo`, `role:asha-studio` |
+| `@asha/app` (ts-shell) | actual: `@asha/contracts`, `@asha/devtools`, `@asha/editor-tools`, `@asha/game-workspace`, `@asha/renderer-three`, `@asha/runtime-bridge`, `@asha/runtime-session`, `@asha/script-host`, `@asha/ui-dom`<br>allowed: `@asha/contracts`, `@asha/devtools`, `@asha/editor-tools`, `@asha/game-workspace`, `@asha/renderer-three`, `@asha/runtime-bridge`, `@asha/runtime-session`, `@asha/script-host`, `@asha/ui-dom` | 1/9 | none | `@asha/smoke` |
+| `@asha/browser-host` (ts-shell) | actual: `@asha/contracts`, `@asha/game-workspace`, `@asha/runtime-bridge`<br>allowed: `@asha/contracts`, `@asha/game-workspace`, `@asha/runtime-bridge` | 1/3 | none | `@asha/smoke`, `role:asha-demo`, `role:asha-studio` |
 | `@asha/catalog-core` (ts-catalog) | actual: `@asha/contracts`<br>allowed: `@asha/contracts` | 2/1 | none | `@asha/catalog-examples`, `@asha/smoke`, `role:asha-testing`, `role:asha-demo`, `role:asha-studio` |
 | `@asha/catalog-examples` (ts-catalog) | actual: `@asha/catalog-core`, `@asha/contracts`<br>allowed: `@asha/catalog-core`, `@asha/contracts` | 0/2 | none | none |
 | `@asha/command-registry` (ts-command-registry) | actual: `@asha/contracts`<br>allowed: `@asha/contracts` | 1/1 | none | `@asha/smoke`, `role:asha-studio`, `role:asha-demo` |
-| `@asha/contracts` (contract-steward) | actual: none<br>allowed: none | 21/0 | none | `@asha/app`, `@asha/catalog-core`, `@asha/catalog-examples`, `@asha/command-registry`, `@asha/cosmetic`, `@asha/devtools`, `@asha/editor-tools`, `@asha/game-workspace`, `@asha/native-bridge`, `@asha/policy-core`, `@asha/policy-examples`, `@asha/render-projection`, `@asha/renderer-host`, `@asha/renderer-three`, `@asha/runtime-bridge`, `@asha/runtime-session`, `@asha/script-host`, `@asha/script-sdk`, `@asha/smoke`, `@asha/ui-dom`, `@asha/wasm-replay-bridge`, `role:asha-testing`, `role:asha-demo`, `role:asha-studio`, `role:downstream-authoring`, `role:downstream-visual-authoring` |
+| `@asha/contracts` (contract-steward) | actual: none<br>allowed: none | 22/0 | none | `@asha/app`, `@asha/browser-host`, `@asha/catalog-core`, `@asha/catalog-examples`, `@asha/command-registry`, `@asha/cosmetic`, `@asha/devtools`, `@asha/editor-tools`, `@asha/game-workspace`, `@asha/native-bridge`, `@asha/policy-core`, `@asha/policy-examples`, `@asha/render-projection`, `@asha/renderer-host`, `@asha/renderer-three`, `@asha/runtime-bridge`, `@asha/runtime-session`, `@asha/script-host`, `@asha/script-sdk`, `@asha/smoke`, `@asha/ui-dom`, `@asha/wasm-replay-bridge`, `role:asha-testing`, `role:asha-demo`, `role:asha-studio`, `role:downstream-authoring`, `role:downstream-visual-authoring` |
 | `@asha/cosmetic` (ts-shell) | actual: `@asha/contracts`<br>allowed: `@asha/contracts` | 0/1 | none | none |
 | `@asha/devtools` (ts-tools) | actual: `@asha/contracts`, `@asha/editor-tools`, `@asha/runtime-bridge`<br>allowed: `@asha/contracts`, `@asha/editor-tools`, `@asha/runtime-bridge`, `@asha/wasm-replay-bridge` | 1/3 | none | `@asha/app`, `role:asha-testing`, `role:asha-studio` |
 | `@asha/editor-tools` (ts-shell) | actual: `@asha/contracts`<br>allowed: `@asha/contracts` | 4/1 | none | `@asha/app`, `@asha/devtools`, `@asha/smoke`, `@asha/ui-dom`, `role:asha-studio` |
 | `@asha/electron-main` (ts-shell) | actual: none<br>allowed: none | 0/0 | none | none |
-| `@asha/game-workspace` (ts-game-workspace) | actual: `@asha/contracts`<br>allowed: `@asha/contracts` | 2/1 | none | `@asha/browser-host`, `@asha/runtime-bridge`, `role:asha-testing`, `role:asha-demo`, `role:asha-studio`, `role:downstream-authoring`, `role:downstream-visual-authoring` |
+| `@asha/game-workspace` (ts-game-workspace) | actual: `@asha/contracts`<br>allowed: `@asha/contracts` | 4/1 | none | `@asha/app`, `@asha/browser-host`, `@asha/runtime-bridge`, `@asha/smoke`, `role:asha-testing`, `role:asha-demo`, `role:asha-studio`, `role:downstream-authoring`, `role:downstream-visual-authoring` |
 | `@asha/native-bridge` (ts-shell) | actual: `@asha/contracts`<br>allowed: `@asha/contracts` | 1/1 | none | `@asha/runtime-bridge` |
 | `@asha/policy-core` (ts-policy) | actual: `@asha/contracts`, `@asha/script-sdk`<br>allowed: `@asha/catalog-core`, `@asha/contracts`, `@asha/script-sdk` | 2/2 | none | `@asha/policy-examples`, `@asha/script-host` |
 | `@asha/policy-examples` (ts-policy) | actual: `@asha/contracts`, `@asha/policy-core`, `@asha/script-host`, `@asha/script-sdk`<br>allowed: `@asha/catalog-core`, `@asha/contracts`, `@asha/policy-core`, `@asha/script-host`, `@asha/script-sdk` | 0/4 | none | none |
 | `@asha/render-projection` (ts-shell) | actual: `@asha/contracts`<br>allowed: `@asha/contracts` | 2/1 | none | `@asha/renderer-host`, `@asha/renderer-three`, `role:asha-testing`, `role:asha-demo`, `role:asha-studio` |
 | `@asha/renderer-host` (ts-shell) | actual: `@asha/contracts`, `@asha/render-projection`, `@asha/renderer-three`, `@asha/runtime-bridge`<br>allowed: `@asha/contracts`, `@asha/render-projection`, `@asha/renderer-three`, `@asha/runtime-bridge` | 1/4 | none | `@asha/smoke`, `role:asha-demo`, `role:asha-studio`, `role:downstream-visual-authoring` |
-| `@asha/renderer-three` (ts-shell) | actual: `@asha/contracts`, `@asha/render-projection`, `@asha/runtime-bridge`<br>allowed: `@asha/contracts`, `@asha/render-projection`, `@asha/runtime-bridge` | 3/3 | none | `@asha/app`, `@asha/renderer-host`, `@asha/smoke`, `role:asha-testing` |
+| `@asha/renderer-three` (ts-shell) | actual: `@asha/contracts`, `@asha/render-projection`, `@asha/runtime-bridge`, `@asha/runtime-session`<br>allowed: `@asha/contracts`, `@asha/render-projection`, `@asha/runtime-bridge`, `@asha/runtime-session` | 3/4 | none | `@asha/app`, `@asha/renderer-host`, `@asha/smoke`, `role:asha-testing` |
 | `@asha/runtime-bridge` (ts-shell) | actual: `@asha/contracts`, `@asha/game-workspace`, `@asha/native-bridge`, `@asha/runtime-session`<br>allowed: `@asha/contracts`, `@asha/game-workspace`, `@asha/native-bridge`, `@asha/runtime-session` | 7/4 | none | `@asha/app`, `@asha/browser-host`, `@asha/devtools`, `@asha/renderer-host`, `@asha/renderer-three`, `@asha/smoke`, `@asha/ui-dom`, `role:asha-testing`, `role:asha-demo`, `role:asha-studio`, `role:downstream-authoring`, `role:downstream-visual-authoring` |
-| `@asha/runtime-session` (ts-shell) | actual: `@asha/contracts`<br>allowed: `@asha/contracts` | 2/1 | none | `@asha/runtime-bridge`, `@asha/smoke`, `role:asha-testing`, `role:asha-demo`, `role:asha-studio`, `role:downstream-authoring`, `role:downstream-visual-authoring` |
+| `@asha/runtime-session` (ts-shell) | actual: `@asha/contracts`<br>allowed: `@asha/contracts` | 4/1 | none | `@asha/app`, `@asha/renderer-three`, `@asha/runtime-bridge`, `@asha/smoke`, `role:asha-testing`, `role:asha-demo`, `role:asha-studio`, `role:downstream-authoring`, `role:downstream-visual-authoring` |
 | `@asha/script-host` (ts-policy) | actual: `@asha/contracts`, `@asha/policy-core`, `@asha/script-sdk`<br>allowed: `@asha/contracts`, `@asha/policy-core`, `@asha/script-sdk` | 2/3 | none | `@asha/app`, `@asha/policy-examples` |
 | `@asha/script-sdk` (ts-policy) | actual: `@asha/contracts`<br>allowed: `@asha/contracts` | 3/1 | none | `@asha/policy-core`, `@asha/policy-examples`, `@asha/script-host` |
-| `@asha/smoke` (ts-shell) | actual: `@asha/app`, `@asha/browser-host`, `@asha/catalog-core`, `@asha/command-registry`, `@asha/contracts`, `@asha/editor-tools`, `@asha/renderer-host`, `@asha/renderer-three`, `@asha/runtime-bridge`, `@asha/runtime-session`, `@asha/ui-dom`<br>allowed: `@asha/app`, `@asha/browser-host`, `@asha/catalog-core`, `@asha/command-registry`, `@asha/contracts`, `@asha/editor-tools`, `@asha/renderer-host`, `@asha/renderer-three`, `@asha/runtime-bridge`, `@asha/runtime-session`, `@asha/ui-dom` | 0/11 | none | none |
+| `@asha/smoke` (ts-shell) | actual: `@asha/app`, `@asha/browser-host`, `@asha/catalog-core`, `@asha/command-registry`, `@asha/contracts`, `@asha/editor-tools`, `@asha/game-workspace`, `@asha/renderer-host`, `@asha/renderer-three`, `@asha/runtime-bridge`, `@asha/runtime-session`, `@asha/ui-dom`<br>allowed: `@asha/app`, `@asha/browser-host`, `@asha/catalog-core`, `@asha/command-registry`, `@asha/contracts`, `@asha/editor-tools`, `@asha/game-workspace`, `@asha/renderer-host`, `@asha/renderer-three`, `@asha/runtime-bridge`, `@asha/runtime-session`, `@asha/ui-dom` | 0/12 | none | none |
 | `@asha/ui-dom` (ts-shell) | actual: `@asha/contracts`, `@asha/editor-tools`, `@asha/runtime-bridge`<br>allowed: `@asha/contracts`, `@asha/editor-tools`, `@asha/runtime-bridge` | 2/3 | none | `@asha/app`, `@asha/smoke`, `role:asha-demo`, `role:asha-studio` |
 | `@asha/wasm-replay-bridge` (ts-shell) | actual: `@asha/contracts`<br>allowed: `@asha/contracts` | 0/1 | none | none |
 
@@ -452,24 +446,17 @@ Committed path classes: 781 source; 27 generated source; 543 other; 0 build/cach
 
 | Source | Lines / warning / cap | Owner | Review by |
 |---|---:|---|---|
-| `engine-rs/crates/bridge/runtime-bridge-api/src/authority/fps_and_rules.rs` | 1790 / 1400 / 1600 | rust-bridge | global policy |
 | `engine-rs/crates/services/svc-entity-authoring/src/lib.rs` | 1771 / 1400 / 1600 | rust-service | global policy |
-| `ts/packages/runtime-bridge/src/mock.ts` | 1787 / 1580 / 1620 | ts-shell | 2026-10-15 |
-| `engine-rs/crates/bridge/runtime-bridge-api/src/authority/runtime_bridge_impl.rs` | 1776 / 1570 / 1621 | rust-bridge | 2026-10-15 |
 | `engine-rs/crates/rules/rule-lifecycle/src/lib.rs` | 1725 / 1400 / 1600 | rust-rule | global policy |
-| `engine-rs/crates/rules/gameplay-runtime-host/src/lib.rs` | 3171 / 2950 / 3036 | rust-rule | 2026-09-15 |
-| `engine-rs/crates/rules/gameplay-runtime-host/src/project_admission.rs` | 1669 / 1400 / 1600 | rust-rule | global policy |
+| `engine-rs/crates/bridge/runtime-bridge-api/src/authority/runtime_bridge_impl.rs` | 1743 / 1570 / 1621 | rust-bridge | 2026-10-15 |
+| `engine-rs/crates/rules/gameplay-runtime-host/src/project_admission.rs` | 1670 / 1400 / 1600 | rust-rule | global policy |
 | `engine-rs/crates/services/svc-project-content/src/codec.rs` | 1663 / 1400 / 1600 | rust-service | global policy |
-| `engine-rs/crates/bridge/runtime-bridge-api/src/authority/project_and_sources.rs` | 1638 / 1400 / 1600 | rust-bridge | global policy |
-| `ts/packages/runtime-bridge/src/runtime-session-rust-facade.ts` | 1634 / 1400 / 1600 | ts-shell | global policy |
-| `ts/packages/runtime-bridge/src/runtime-session.test.ts` | 1619 / 1400 / 1600 | ts-shell | global policy |
-| `ts/packages/runtime-bridge/src/native.ts` | 1739 / 1680 / 1730 | ts-shell | 2026-09-15 |
+| `engine-rs/crates/rules/gameplay-runtime-host/src/lib.rs` | 3131 / 2950 / 3036 | rust-rule | 2026-09-15 |
 | `engine-rs/crates/render/render-bridge/src/presentation.rs` | 1608 / 1400 / 1600 | rust-render | global policy |
-| `engine-rs/crates/protocol/protocol-codegen/src/lib.rs` | 1605 / 1560 / 1601 | contract-steward | 2026-10-15 |
+| `engine-rs/crates/protocol/protocol-codegen/src/lib.rs` | 1602 / 1560 / 1601 | contract-steward | 2026-10-15 |
 | `engine-rs/crates/rules/rule-gameplay-fabric/src/observe.rs` | 1622 / 1580 / 1622 | rust-rule | 2026-10-15 |
 | `engine-rs/crates/services/svc-voxel-conversion/src/lib.rs` | 2064 / 2000 / 2064 | rust-service | 2026-09-15 |
 | `ts/packages/app/src/index.ts` | 224 / 200 / 224 | ts-shell | 2026-10-15 |
-| `ts/packages/catalog-core/src/index.ts` | 1140 / 1050 / 1140 | ts-catalog | 2026-09-15 |
 | `ts/packages/devtools/src/index.ts` | 81 / 70 / 81 | ts-tools | 2026-10-15 |
 | `ts/packages/editor-tools/src/index.ts` | 261 / 235 / 261 | ts-shell | 2026-10-15 |
 | `ts/packages/electron-main/src/index.ts` | 102 / 90 / 102 | ts-shell | 2026-10-15 |
@@ -478,23 +465,26 @@ Committed path classes: 781 source; 27 generated source; 543 other; 0 build/cach
 | `ts/packages/script-host/src/index.ts` | 133 / 115 / 133 | ts-policy | 2026-10-15 |
 | `ts/packages/script-sdk/src/index.ts` | 207 / 180 / 207 | ts-policy | 2026-10-15 |
 | `ts/packages/wasm-replay-bridge/src/index.ts` | 190 / 170 / 190 | ts-shell | 2026-10-15 |
+| `ts/packages/catalog-core/src/index.ts` | 1136 / 1050 / 1140 | ts-catalog | 2026-09-15 |
 | `ts/packages/renderer-three/src/three-renderer.ts` | 1593 / 1400 / 1600 | ts-shell | global policy |
 | `engine-rs/crates/bridge/runtime-bridge-api/src/authority/voxel_assets.rs` | 1581 / 1400 / 1600 | rust-bridge | global policy |
-| `ts/packages/runtime-bridge/src/native-fail-closed.test.ts` | 1707 / 1680 / 1728 | ts-shell | 2026-09-15 |
 | `engine-rs/crates/protocol/protocol-render/src/lib.rs` | 1913 / 1880 / 1941 | contract-steward | 2026-10-15 |
 | `engine-rs/crates/rules/rule-voxel-edit/src/history.rs` | 1571 / 1400 / 1600 | rust-rule | global policy |
 | `engine-rs/crates/protocol/protocol-codegen/src/source.rs` | 1566 / 1400 / 1600 | contract-steward | global policy |
 | `engine-rs/crates/rules/rule-animation-controller/src/lib.rs` | 1565 / 1400 / 1600 | rust-rule | global policy |
+| `ts/packages/runtime-bridge/src/mock.ts` | 1583 / 1580 / 1620 | ts-shell | 2026-10-15 |
 | `engine-rs/crates/rules/rule-gameplay-fabric/src/state.rs` | 1556 / 1400 / 1600 | rust-rule | global policy |
 | `engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/voxel.rs` | 1554 / 1400 / 1600 | rust-bridge | global policy |
+| `engine-rs/crates/bridge/runtime-bridge-api/src/authority/project_and_sources.rs` | 1549 / 1400 / 1600 | rust-bridge | global policy |
 | `engine-rs/crates/rules/rule-voxel-edit/src/lib.rs` | 1510 / 1400 / 1600 | rust-rule | global policy |
 | `ts/packages/renderer-three/src/renderer.test.ts` | 1490 / 1400 / 1600 | ts-shell | global policy |
 | `engine-rs/crates/rules/rule-input/src/lib.rs` | 1485 / 1400 / 1600 | rust-rule | global policy |
 | `engine-rs/crates/rules/rule-gameplay-fabric/src/reads.rs` | 1481 / 1400 / 1600 | rust-rule | global policy |
 | `engine-rs/crates/services/svc-pathfinding/src/lib.rs` | 1444 / 1400 / 1600 | rust-service | global policy |
-| `engine-rs/crates/bridge/native-bridge/src/scene_preview.rs` | 1434 / 1400 / 1600 | rust-bridge | global policy |
+| `engine-rs/crates/bridge/runtime-bridge-api/src/authority/fps_and_rules.rs` | 1443 / 1400 / 1600 | rust-bridge | global policy |
 | `engine-rs/crates/rules/rule-gameplay-fabric/tests/observe.rs` | 1431 / 1400 / 1600 | rust-rule | global policy |
-| `ts/packages/runtime-bridge/src/generated/operations.ts` | 1427 / 1400 / 1600 | ts-shell | global policy |
+| `engine-rs/crates/bridge/native-bridge/src/scene_preview.rs` | 1429 / 1400 / 1600 | rust-bridge | global policy |
+| `ts/packages/runtime-bridge/src/runtime-session-rust-facade.ts` | 1423 / 1400 / 1600 | ts-shell | global policy |
 | `engine-rs/crates/services/svc-gameplay-fabric/src/registry.rs` | 1411 / 1400 / 1600 | rust-service | global policy |
 
 ## Evidence Entrypoints

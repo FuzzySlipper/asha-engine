@@ -2,12 +2,10 @@ import { RuntimeBridgeError, type EnemyDirectNavMovementResult } from './bridge.
 import type { CombatRuntimeReadout } from '@asha/runtime-session';
 import { initialEncounterDirectorState, type EncounterLifecycleInput } from '@asha/runtime-session';
 import type { EnemyPolicyProposal, EnemyPolicyVec3 } from '@asha/runtime-session';
-import type { GeneratedTunnelOperationRequest, GeneratedTunnelReadoutRequest } from '@asha/runtime-session';
 import type { RuntimeActionIntentEnvelope } from '@asha/runtime-session';
 import {
   encounterStateHashRecord,
   lifecycleStateHashRecord,
-  projectBundleHashRecord,
   stableHash,
 } from './runtime-session-hash.js';
 import {
@@ -19,7 +17,6 @@ import type {
   RuntimeSessionAutonomousPolicyProposalRejection,
   RuntimeSessionAutonomousPolicyProposalStatus,
   RuntimeSessionAutonomousPolicyTickInput,
-  RuntimeSessionEcrpProjectState,
   RuntimeSessionIdentity,
   RuntimeSessionInitializeInput,
   RuntimeSessionLifecycleEventKind,
@@ -31,6 +28,7 @@ import type {
   RuntimeSessionLifecycleStatusRequest,
   RuntimeSessionRestartIntent,
 } from '@asha/runtime-session';
+import type { RuntimeSessionEcrpProjectState } from './runtime-session-ecrp.js';
 
 export type {
   RuntimeSessionAutonomousPolicyCombatSummary,
@@ -44,9 +42,10 @@ export type {
 function runtimeSessionResetHash(identity: RuntimeSessionIdentity): string {
   return stableHash({
     seed: identity.seed,
-    projectBundle: identity.projectBundle === null
-      ? null
-      : projectBundleHashRecord(identity.projectBundle),
+    project: {
+      gameId: identity.project.gameId,
+      workspaceId: identity.project.workspaceId,
+    },
     lifecycle: lifecycleStateHashRecord(initialRuntimeSessionLifecycleState()),
     encounter: encounterStateHashRecord(initialEncounterDirectorState()),
   });
@@ -208,11 +207,8 @@ export function lifecycleStatusReadout(input: {
       reason: input.restartReason ?? 'always_resettable_reference_fixture',
     },
     events: input.state.terminalEvent === null ? [] : [input.state.terminalEvent],
-    fixture: {
+    reset: {
       seed: input.identity.seed,
-      sceneId: input.identity.projectBundle?.sceneId ?? 0,
-      bundleSchemaVersion: input.identity.projectBundle?.bundleSchemaVersion ?? 0,
-      protocolVersion: input.identity.projectBundle?.protocolVersion ?? 0,
       resetHash,
     },
     hashes: {
@@ -535,20 +531,4 @@ export function combatReadoutTick(readout: CombatRuntimeReadout): number {
     (event) => event.kind === 'fire_hit' || event.kind === 'fire_missed',
   );
   return fireEvent?.tick ?? 0;
-}
-
-export function validateGeneratedTunnelReadoutRequest(request: GeneratedTunnelReadoutRequest): void {
-  if (request.presetId !== undefined && request.presetId !== 'tiny-enclosed') {
-    throw new RuntimeBridgeError('invalid_input', 'only the tiny-enclosed generated tunnel readout is available');
-  }
-  if (request.seed !== undefined && request.seed !== 17) {
-    throw new RuntimeBridgeError('invalid_input', 'only seed 17 generated tunnel fixture readout is available');
-  }
-}
-
-export function validateGeneratedTunnelOperationRequest(request: GeneratedTunnelOperationRequest): void {
-  if (request.operation !== 'regenerate' && request.operation !== 'apply_to_runtime_world') {
-    throw new RuntimeBridgeError('invalid_input', 'generated tunnel operation is unsupported');
-  }
-  validateGeneratedTunnelReadoutRequest(request);
 }

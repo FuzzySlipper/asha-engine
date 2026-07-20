@@ -6,7 +6,6 @@ import {
   type RuntimeBufferHandle,
 } from './bridge.js';
 import { MANIFEST_OPERATIONS } from './generated/operations.js';
-import { fpsLoadRequest } from './native-fps-fixtures.test-fixture.js';
 
 export type NativeOperationInvocation = (bridge: RuntimeBridge) => unknown;
 
@@ -131,7 +130,6 @@ export function createNativeOperationInvocations(
       rendererHint: { localVoxel: { x: 0, y: 0, z: 0 }, localFace: 'negX' },
     })],
     ['applyCollisionConstrainedCameraInput', (bridge) => bridge.applyCollisionConstrainedCameraInput(input.collisionCamera)],
-    ['applyGeneratedTunnelToRuntimeWorld', (bridge) => bridge.applyGeneratedTunnelToRuntimeWorld({ preset: 'tiny-enclosed', seed: 17 })],
     ['selectVoxel', (bridge) => bridge.selectVoxel({
       camera: input.cameraInput.camera,
       grid: 1,
@@ -140,7 +138,6 @@ export function createNativeOperationInvocations(
       maxDistance: 10,
     })],
     ['readVoxelMeshEvidence', (bridge) => bridge.readVoxelMeshEvidence({ grid: 1, chunks: [] })],
-    ['loadFpsRuntimeSession', (bridge) => bridge.loadFpsRuntimeSession(fpsLoadRequest())],
     ['readFpsRuntimeSession', (bridge) => bridge.readFpsRuntimeSession()],
     ['applyFpsPrimaryFire', (bridge) => bridge.applyFpsPrimaryFire({ tick: 9, origin: [2.5, 1.5, 1.5], direction: [0, 0, 1] })],
     ['readComposedRuntimeSession', (bridge) => bridge.readComposedRuntimeSession()],
@@ -367,10 +364,6 @@ export function createNativeOperationInvocations(
     ['closeRuntimeProject', (bridge) => bridge.closeRuntimeProject({
       expectedLifecycle: { generation: 0, revision: 0 },
     })],
-    ['loadProjectBundle', (bridge) => bridge.loadProjectBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1 })],
-    ['saveProjectBundle', (bridge) => bridge.saveProjectBundle()],
-    ['getProjectBundleCompositionStatus', (bridge) => bridge.getProjectBundleCompositionStatus()],
-    ['unloadProjectBundle', (bridge) => bridge.unloadProjectBundle()],
     ['loadReplayFixture', (bridge) => bridge.loadReplayFixture({ name: 'x', steps: 1 })],
     ['runReplayStep', (bridge) => bridge.runReplayStep(0 as ReplaySessionHandle)],
   ]);

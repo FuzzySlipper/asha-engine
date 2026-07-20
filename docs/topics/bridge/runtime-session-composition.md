@@ -6,7 +6,7 @@ supersedes: []
 see-also: []
 ---
 
-# Static RuntimeSession Composition
+# RuntimeSession Composition
 
 Status: preferred deferred native provider shape after canonical project admission.
 
@@ -48,12 +48,10 @@ returns the bridge built above. ASHA's generated N-API operation table remains
 the transport implementation; the downstream crate supplies only its closed
 RuntimeSession composition and never copies individual verbs.
 
-The explicit migration home for `StaticRuntimeSessionBuilder`,
-`GameplayRuntimeProjectInput`, prefab bootstrap, bootstrap resolution
-registries, spatial entity arrays, trigger geometry, and scheduler definitions
-is `asha_runtime_session_composition::compatibility`. Some root aliases remain
-during Demo migration; they are not approved for new use and will be removed
-with that consumer. New providers use deferred composition plus
+Prefab bootstrap, bootstrap resolution registries, spatial entity arrays,
+trigger geometry, and scheduler definitions are compiled from admitted project
+content inside Rust. They are not available through a public compatibility
+module or root alias. Providers use deferred composition plus
 `RuntimeSession.loadProject({ source })`.
 
 The same addon installs a separate

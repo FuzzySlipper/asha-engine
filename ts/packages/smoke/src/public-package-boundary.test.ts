@@ -13,7 +13,6 @@ import {
 } from '@asha/runtime-bridge';
 import {
   GENERATED_TUNNEL_FIRE_HIT_READOUT,
-  TINY_GENERATED_TUNNEL_READOUT,
   type RuntimeActionIntentEnvelope,
 } from '@asha/runtime-session';
 import {
@@ -33,11 +32,6 @@ function sessionInput() {
     project: {
       gameId: 'provider-boundary-fixture',
       workspaceId: 'workspace.local',
-    },
-    projectBundle: {
-      bundleSchemaVersion: 1,
-      protocolVersion: 1,
-      sceneId: 42,
     },
   };
 }
@@ -135,20 +129,6 @@ void test('public package roots compose RuntimeSession readouts and HUD/menu pro
   assert.equal(collision.snapshot.after.pose.position[1], collision.snapshot.before.pose.position[1]);
   assert.ok(collision.collisionProjectionHash.startsWith('fnv1a64:'));
 
-  const tunnel = session.readGeneratedTunnelReadout({ presetId: 'tiny-enclosed', seed: 17 });
-  assert.equal(tunnel.status, 'available');
-  assert.equal(tunnel.generator.outputHash, TINY_GENERATED_TUNNEL_READOUT.generator.outputHash);
-  assert.deepEqual(tunnel.spawnMarkers.map((marker) => marker.id), ['player_start', 'exit_hint']);
-
-  const unsupportedTunnelOperation = session.requestGeneratedTunnelOperation({
-    operation: 'regenerate',
-    presetId: 'tiny-enclosed',
-    seed: 17,
-  });
-  assert.equal(unsupportedTunnelOperation.status, 'unsupported');
-  assert.equal(unsupportedTunnelOperation.reason, 'generated_tunnel_operation_not_wired');
-  assert.equal('payload' in unsupportedTunnelOperation, false);
-
   const encounter = session.readEncounterDirector();
   assert.equal(encounter.kind, 'runtime_session.encounter_director.v0');
   assert.equal(encounter.state.status, 'pending');
@@ -224,28 +204,6 @@ void test('public package roots compose RuntimeSession readouts and HUD/menu pro
   assert.equal('mutate' in policyView, false);
   assert.equal('applyPath' in policyView, false);
 
-  const autonomousSession = createMockRuntimeSession();
-  autonomousSession.initialize(sessionInput());
-  const autonomousCamera = autonomousSession.createCamera(cameraRequest).snapshot.camera;
-  const autonomousTick = autonomousSession.runAutonomousPolicyTick({
-    targetCamera: autonomousCamera,
-    policySource: 'export const policy = (view) => view;',
-  });
-  assert.equal(autonomousTick.kind, 'runtime_session.autonomous_policy_tick.v0');
-  assert.equal(autonomousTick.nav.pathHash, reachable.pathHash);
-  assert.equal(autonomousTick.proposalSummary.acceptedProposalCount, 2);
-  assert.equal(autonomousTick.proposalSummary.unsupportedProposalCount, 0);
-  assert.equal(autonomousTick.commandSummary.acceptedRuntimeActionCount, 1);
-  assert.equal(autonomousTick.movementSummary?.status, 'accepted');
-  assert.equal(autonomousTick.movementSummary?.reason, null);
-  assert.equal(autonomousTick.movementSummary?.authoritySource, 'seeded_from_request');
-  assert.equal(autonomousTick.movementSummary?.authorityTransport, 'reference_bridge');
-  assert.match(autonomousTick.movementSummary?.transformHash ?? '', /^fnv1a64:[0-9a-f]{16}$/);
-  assert.deepEqual(autonomousTick.movementSummary?.nextWaypoint, [3.844, 1.024, 7.688]);
-  assert.match(autonomousTick.combatSummary?.healthHash ?? '', /^fnv1a64:[0-9a-f]{16}$/);
-  assert.equal(autonomousTick.replay.lastRecordKind, 'runAutonomousPolicyTick');
-  assert.ok(autonomousTick.tickHash.startsWith('fnv1a64:'));
-
   const lifecycle = session.readLifecycleStatus();
   assert.equal(lifecycle.kind, 'runtime_session.lifecycle_status.v0');
   assert.equal(lifecycle.outcome.kind, 'won');
@@ -290,7 +248,7 @@ void test('public package roots compose RuntimeSession readouts and HUD/menu pro
   });
   assert.equal(restartReceipt.accepted, true);
   assert.equal(restartReceipt.statusAfter.outcome.kind, 'in_progress');
-  assert.equal(restartReceipt.statusAfter.fixture.resetHash, lifecycleAfterEncounterSync.fixture.resetHash);
+  assert.equal(restartReceipt.statusAfter.reset.resetHash, lifecycleAfterEncounterSync.reset.resetHash);
   assert.deepEqual(hudControlToIntent('hud-options'), {
     kind: 'ui.open_options_intent',
     source: 'hud_menu',

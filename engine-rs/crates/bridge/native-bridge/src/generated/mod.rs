@@ -105,12 +105,6 @@ pub(crate) const REQUIRED_NATIVE_EXPORTS: &[(&str, &str, usize, usize)] = &[
         8388608,
         8388608,
     ),
-    (
-        "apply_generated_tunnel_to_runtime_world",
-        "applyGeneratedTunnelToRuntimeWorld",
-        8388608,
-        8388608,
-    ),
     ("select_voxel", "selectVoxel", 8388608, 8388608),
     (
         "read_voxel_mesh_evidence",
@@ -264,12 +258,6 @@ pub(crate) const REQUIRED_NATIVE_EXPORTS: &[(&str, &str, usize, usize)] = &[
     ),
     ("undo_voxel_edit", "undoVoxelEdit", 8388608, 8388608),
     ("redo_voxel_edit", "redoVoxelEdit", 8388608, 8388608),
-    (
-        "load_fps_runtime_session",
-        "loadFpsRuntimeSession",
-        8388608,
-        8388608,
-    ),
     (
         "read_fps_runtime_session",
         "readFpsRuntimeSession",
@@ -483,20 +471,6 @@ pub(crate) const REQUIRED_NATIVE_EXPORTS: &[(&str, &str, usize, usize)] = &[
     (
         "close_runtime_project",
         "closeRuntimeProject",
-        8388608,
-        8388608,
-    ),
-    ("load_project_bundle", "loadProjectBundle", 8388608, 8388608),
-    ("save_project_bundle", "saveProjectBundle", 8388608, 8388608),
-    (
-        "get_project_bundle_composition_status",
-        "getProjectBundleCompositionStatus",
-        8388608,
-        8388608,
-    ),
-    (
-        "unload_project_bundle",
-        "unloadProjectBundle",
         8388608,
         8388608,
     ),

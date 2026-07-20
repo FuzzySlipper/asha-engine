@@ -20,7 +20,7 @@ function steppedClock(): () => number {
 
 const EXPECTED_PHASES = [
   'initialize',
-  'project-bundle-load',
+  'project-load',
   'render-projection-initial',
   'renderer-apply-initial',
   'edit-one-cell',
@@ -28,8 +28,8 @@ const EXPECTED_PHASES = [
   'edit-inverse',
   'render-update',
   'preview-overlay',
-  'save',
-  'reload',
+  'project-close',
+  'project-reload',
   'replay',
   'edit-render-cycles',
 ];
@@ -57,7 +57,7 @@ void test('reference perf run is structurally sound and all invariants hold', as
   assert.equal(result.meta.branch, 'task-test');
   assert.equal(result.meta.hostLabel, 'ci-host');
   assert.equal(result.meta.fixtureId, 1001);
-  assert.match(result.meta.fixtureProjectBundleHash, /^[0-9a-f]{16}$/);
+  assert.match(result.meta.fixtureManifestHash, /^[0-9a-f]{16}$/);
   assert.ok(result.meta.cpus >= 1);
 
   // Every expected phase is present, in order, each a finite non-negative duration.

@@ -84,7 +84,6 @@ void test('resolved pause context records and replays without browser events or 
       sessionId,
       seed: 19,
       project: { gameId: 'input-replay', workspaceId: 'workspace.input-replay' },
-      projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1 },
     });
     return session;
   };
@@ -183,7 +182,6 @@ void test('public RuntimeSession facade carries browser input to the shared reso
     sessionId: 'input-facade-test',
     seed: 12,
     project: { gameId: 'input-test', workspaceId: 'workspace.input-test' },
-    projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1 },
   });
   const host = new BrowserInputHost({ session, initialContexts: ['gameplay'] });
   const delivery = host.handleKeyDown({ code: 'KeyA' });

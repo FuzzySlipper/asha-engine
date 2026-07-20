@@ -1,64 +1,6 @@
 use super::*;
 use runtime_bridge_api::VoxelEditHistorySummary;
 
-const WIRED_NAPI_EXPORTS: &[&str] = &[
-    "applyFirstPersonCameraInput",
-    "applyCollisionConstrainedCameraInput",
-    "applyGeneratedTunnelToRuntimeWorld",
-    "applySceneObjectCommand",
-    "applyEnemyDirectNavMovement",
-    "applyFpsEncounterTransition",
-    "applyFpsPrimaryFire",
-    "applyVoxelConversion",
-    "applyVoxelAnnotationEdit",
-    "applyVoxelEditRevert",
-    "decodeSceneDocument",
-    "encodeSceneDocument",
-    "exportVoxelConversionEvidence",
-    "exportVoxelAnnotationLayer",
-    "exportVoxelVolumeAsset",
-    "getBuffer",
-    "getProjectBundleCompositionStatus",
-    "initializeEngine",
-    "initializeVoxelVolumeAuthoring",
-    "invokeGameExtensionWeaponEffect",
-    "importVoxelConversionMeshSource",
-    "loadVoxelAnnotationLayer",
-    "loadVoxelVolumeAsset",
-    "loadProjectBundle",
-    "loadFpsRuntimeSession",
-    "planVoxelConversion",
-    "pickVoxel",
-    "previewVoxelEditRevert",
-    "readVoxelConversionSourceMetadata",
-    "readVoxelAnnotationQuery",
-    "readVoxelEditHistory",
-    "readFpsEncounterDirector",
-    "readProjectionFrame",
-    "readRenderDiffs",
-    "readFpsRuntimeSession",
-    "readCameraProjection",
-    "readModelMaterialPreview",
-    "readSceneObjectSnapshot",
-    "readVoxelMeshEvidence",
-    "readVoxelModelInfo",
-    "readVoxelModelWindow",
-    "redoVoxelEdit",
-    "registerVoxelConversionSource",
-    "registerVoxelConversionMeshAsset",
-    "restartFpsRuntimeSession",
-    "saveProjectBundle",
-    "saveVoxelVolumeAsset",
-    "selectVoxel",
-    "stepSimulation",
-    "submitCommands",
-    "undoVoxelEdit",
-    "unloadProjectBundle",
-    "unloadVoxelVolumeAsset",
-    "updateVoxelVolumeAssetPalette",
-    "validateVoxelAnnotationLayer",
-];
-
 #[test]
 fn raw_json_entrypoints_reject_unknown_fields_before_domain_invocation() {
     let camera = apply_camera_mode_command(
@@ -114,134 +56,32 @@ fn raw_json_entrypoints_reject_unknown_fields_before_domain_invocation() {
 }
 #[test]
 fn wired_export_set_is_explicit_and_bounded() {
-    let unique_exports = WIRED_NAPI_EXPORTS
+    let exports = generated::REQUIRED_NATIVE_EXPORTS
+        .iter()
+        .map(|(_, export, _, _)| *export)
+        .collect::<Vec<_>>();
+    let unique_exports = exports
         .iter()
         .copied()
         .collect::<std::collections::BTreeSet<_>>();
-
-    assert_eq!(WIRED_NAPI_EXPORTS.len(), 55);
-    assert_eq!(unique_exports.len(), WIRED_NAPI_EXPORTS.len());
+    assert_eq!(unique_exports.len(), exports.len());
+    assert!(exports.contains(&"loadRuntimeProject"));
+    assert!(exports.contains(&"closeRuntimeProject"));
+    for removed in [
+        "loadProjectBundle",
+        "unloadProjectBundle",
+        "loadFpsRuntimeSession",
+        "applyGeneratedTunnelToRuntimeWorld",
+    ] {
+        assert!(!exports.contains(&removed));
+    }
 }
 
-fn native_fps_definitions(enemy_health: u32) -> Vec<NativeFpsStoredEntityDefinition> {
-    vec![
-        NativeFpsStoredEntityDefinition {
-            entity: 101,
-            stable_id: "actor/custom-player".into(),
-            display_name: "Custom Player".into(),
-            source_path: "catalogs/actors/player.entity.json".into(),
-            tags: vec!["player".into()],
-            role: "player".into(),
-            transform: Some(NativeFpsTransformCapability {
-                translation: NativeVec3 {
-                    x: 0.0,
-                    y: 1.62,
-                    z: 1.5,
-                },
-                rotation: vec![0.0, 0.0, 0.0, 1.0],
-                scale: NativeVec3 {
-                    x: 1.0,
-                    y: 1.0,
-                    z: 1.0,
-                },
-            }),
-            bounds: Some(NativeFpsBoundsCapability {
-                min: NativeVec3 {
-                    x: -0.25,
-                    y: 0.92,
-                    z: 1.25,
-                },
-                max: NativeVec3 {
-                    x: 0.25,
-                    y: 2.32,
-                    z: 1.75,
-                },
-            }),
-            render_visible: Some(true),
-            static_collider: Some(false),
-            health: Some(NativeFpsHealth {
-                current: 88,
-                max: 88,
-            }),
-            weapon: Some(NativeFpsWeaponMount {
-                weapon_id: "weapon.custom.primary".into(),
-                damage: 75,
-                range_units: 16,
-                ammo: 3,
-                cooldown_ticks_after_fire: 4,
-            }),
-            policy_binding: None,
-        },
-        NativeFpsStoredEntityDefinition {
-            entity: 777,
-            stable_id: "actor/custom-enemy".into(),
-            display_name: "Custom Enemy".into(),
-            source_path: "catalogs/actors/enemy.entity.json".into(),
-            tags: vec!["enemy".into()],
-            role: "enemy".into(),
-            transform: Some(NativeFpsTransformCapability {
-                translation: NativeVec3 {
-                    x: 0.0,
-                    y: 0.5,
-                    z: -2.6,
-                },
-                rotation: vec![0.0, 0.0, 0.0, 1.0],
-                scale: NativeVec3 {
-                    x: 1.0,
-                    y: 1.0,
-                    z: 1.0,
-                },
-            }),
-            bounds: Some(NativeFpsBoundsCapability {
-                min: NativeVec3 {
-                    x: -0.25,
-                    y: 0.0,
-                    z: -2.85,
-                },
-                max: NativeVec3 {
-                    x: 0.25,
-                    y: 1.0,
-                    z: -2.35,
-                },
-            }),
-            render_visible: Some(true),
-            static_collider: Some(false),
-            health: Some(NativeFpsHealth {
-                current: enemy_health,
-                max: enemy_health,
-            }),
-            weapon: None,
-            policy_binding: Some(NativeFpsPolicyBinding {
-                binding_id: "binding.enemy.custom.v0".into(),
-                policy_id: "policy.enemy.custom.v0".into(),
-                view_kind: "runtime_session.nav_policy_view.v0".into(),
-                view_version: "v0".into(),
-                allowed_intents: vec!["runtime.intent.primary_fire.v0".into()],
-                runtime_moment: "runtime.tick.enemy_policy.v0".into(),
-            }),
-        },
-    ]
-}
-
-fn native_fps_scene_document_json() -> String {
-    r#"{"schemaVersion":3,"id":77,"metadata":{"name":"Native FPS test scene","authoringFormatVersion":3},"dependencies":[],"nodes":[{"id":101,"parent":null,"childOrder":0,"label":"Custom Player","tags":[],"transform":{"translation":[0,1.62,1.5],"rotation":[0,0,0,1],"scale":[1,1,1]},"kind":{"kind":"entityInstance","instance":{"instanceId":"actor.custom-player.instance","reference":{"kind":"entityDefinition","stableId":"actor/custom-player"},"spawnMarkerId":null}}},{"id":777,"parent":null,"childOrder":1,"label":"Custom Enemy","tags":[],"transform":{"translation":[0,0.5,-2.6],"rotation":[0,0,0,1],"scale":[1,1,1]},"kind":{"kind":"entityInstance","instance":{"instanceId":"actor.custom-enemy.instance","reference":{"kind":"entityDefinition","stableId":"actor/custom-enemy"},"spawnMarkerId":null}}}]}"#.to_string()
-}
-
-fn native_fps_bootstrap_registry_json() -> String {
-    r#"{"schemaVersion":1,"entityDefinitionIds":["actor/custom-player","actor/custom-enemy"],"prefabIds":[],"generatorPresets":[],"catalogIds":[]}"#
-        .to_string()
-}
 
 #[test]
 fn native_bridge_stateful_smoke_uses_bounded_operations() {
     let handle = initialize_engine(7).expect("engine initializes");
     assert!(handle > 0);
-
-    let loaded = load_project_bundle(handle, 1, 1, 1001).expect("ProjectBundle loads");
-    assert_eq!(loaded.loaded_project_bundle, Some(1001));
-    assert_eq!(loaded.fatal_count, 0);
-    assert_eq!(loaded.total_count, 0);
-    assert!(!loaded.blocks_load);
 
     let result = submit_commands(
         handle,
@@ -497,189 +337,11 @@ fn native_bridge_stateful_smoke_uses_bounded_operations() {
     assert_eq!(moved.path_hash, "fnv1a64:69ed74d692922db7");
     assert!(moved.transform_hash.starts_with("fnv1a64:"));
 
-    let fps_loaded = load_fps_runtime_session(
-        handle,
-        "custom-demo".into(),
-        native_fps_scene_document_json(),
-        native_fps_bootstrap_registry_json(),
-        native_fps_definitions(75),
-        "[]".into(),
-    )
-    .expect("fps runtime session loads");
-    assert_eq!(fps_loaded.backend, "engine_bridge_rust");
-    assert_eq!(fps_loaded.player_entity, 101);
-    assert_eq!(fps_loaded.enemy_entity, 777);
-    assert_eq!(fps_loaded.policy_bindings.len(), 1);
-    assert!(fps_loaded.replay_hash.starts_with("fnv1a64:"));
-
-    let tunnel = apply_generated_tunnel_to_runtime_world(handle, "tiny-enclosed".to_string(), 17)
-        .expect("generated tunnel collision authority applies");
-    assert_eq!(tunnel.preset_id, "tiny-enclosed");
-    assert_eq!(tunnel.grid, 0);
-    assert_eq!(tunnel.output_hash, "1471496d88d70647");
-    assert!(tunnel.collision_projection_hash.starts_with("fnv1a64:"));
-    assert_eq!(tunnel.runtime_frame.world_offset, vec![-3.5, -1.0, -5.5]);
-    assert_eq!(tunnel.runtime_frame.playable_min, vec![-2.5, 0.0, -4.5]);
-    assert_eq!(tunnel.runtime_frame.playable_max, vec![2.5, 4.0, 4.5]);
-
-    let fps_fire = apply_fps_primary_fire(
-        handle,
-        9,
-        NativeVec3 {
-            x: 0.0,
-            y: 1.62,
-            z: 1.5,
-        },
-        NativeVec3 {
-            x: 0.0,
-            y: -1.12,
-            z: -4.1,
-        },
-        None,
-        None,
-    )
-    .expect("fps primary fire applies");
-    assert_eq!(fps_fire.target, Some(777));
-    assert_eq!(fps_fire.lifecycle_status.state, "enemy_defeated");
-    assert_eq!(
-        fps_fire
-            .target_health_after
-            .as_ref()
-            .map(|health| health.current),
-        Some(0)
-    );
-
-    let fps_read = read_fps_runtime_session(handle).expect("fps session reads");
-    assert_eq!(fps_read.replay_records.len(), 2);
-    assert_eq!(fps_read.replay_hash, fps_fire.replay_hash);
-
-    let projection = read_projection_frame(handle, 0).expect("projection frame reads");
-    assert_eq!(projection.schema_version, 1);
-    assert_eq!(projection.authority_tick, 9);
-    assert_eq!(
-        projection.presentation.replay_scope,
-        "excludedFromReplayTruth"
-    );
-    assert_eq!(projection.presentation.ops.len(), 8);
-    assert_eq!(projection.presentation.ops[0].domain, "audio");
-    assert_eq!(
-        projection.presentation.ops[0]
-            .audio_op
-            .as_ref()
-            .map(|op| op.op.as_str()),
-        Some("emit")
-    );
-    assert_eq!(
-        projection.presentation.ops[0]
-            .audio_op
-            .as_ref()
-            .expect("audio domain owns audio payload")
-            .descriptor
-            .as_ref()
-            .map(|descriptor| descriptor.clip.asset.as_str()),
-        Some("audio/asha-primary-fire-pulse")
-    );
-    assert_eq!(projection.presentation.ops[1].domain, "particle");
-    assert_eq!(
-        projection.presentation.ops[1]
-            .particle_op
-            .as_ref()
-            .map(|op| op.op.as_str()),
-        Some("emit")
-    );
-    assert_eq!(projection.presentation.ops[2].domain, "billboard");
-    assert_eq!(projection.presentation.ops[3].domain, "billboard");
-    assert_eq!(
-        projection.presentation.ops[3]
-            .billboard_op
-            .as_ref()
-            .and_then(|op| op.descriptor.as_ref())
-            .map(|descriptor| descriptor.visible),
-        Some(true)
-    );
-    assert_eq!(projection.presentation.ops[4].domain, "animation");
-    assert_eq!(projection.presentation.ops[5].domain, "animation");
-    assert_eq!(projection.presentation.ops[6].domain, "animation");
-    let animation = projection.presentation.ops[6]
-        .animation_op
-        .as_ref()
-        .and_then(|operation| operation.controller.as_ref())
-        .expect("latest animation update crosses the native border");
-    assert_eq!(animation.state_id, "ready");
-    assert_eq!(
-        animation
-            .timing_fact
-            .as_ref()
-            .map(|fact| fact.to_state_id.as_str()),
-        Some("primary_fire")
-    );
-    assert_eq!(projection.presentation.ops[7].domain, "telemetryOverlay");
-    assert_eq!(
-        projection.presentation.ops[7]
-            .telemetry_overlay_op
-            .as_ref()
-            .map(|op| op.op.as_str()),
-        Some("create")
-    );
-
-    let fps_restarted =
-        restart_fps_runtime_session(handle, fps_read.session_epoch).expect("fps session restarts");
-    assert_eq!(fps_restarted.session_epoch, fps_read.session_epoch + 1);
-    assert_eq!(fps_restarted.lifecycle_status.state, "active");
 
     let frame = read_render_diffs(handle, 0).expect("render diff read is bounded");
     assert!(frame.contains("replaceMeshPayload"));
-
-    let saved = save_project_bundle(handle).expect("ProjectBundle saves");
-    assert_eq!(saved.artifacts_written, 3);
-    assert_eq!(saved.compacted_edits, 0);
-    assert_eq!(saved.retained_edits, 0);
-
-    let status = get_project_bundle_composition_status(handle).expect("composition reads");
-    assert_eq!(status.loaded_project_bundle, Some(1001));
-    assert_eq!(status.fatal_count, 0);
-    unload_project_bundle(handle).expect("ProjectBundle unload reaches Rust authority");
-    let status = get_project_bundle_composition_status(handle).expect("composition reads");
-    assert_eq!(status.loaded_project_bundle, None);
 }
 
-#[test]
-fn native_fps_scene_reference_drift_is_rejected_without_session_replacement() {
-    let handle = initialize_engine(91).expect("engine initializes");
-    let loaded = load_fps_runtime_session(
-        handle,
-        "custom-demo".into(),
-        native_fps_scene_document_json(),
-        native_fps_bootstrap_registry_json(),
-        native_fps_definitions(75),
-        "[]".into(),
-    )
-    .expect("baseline FPS session loads");
-    let invalid_scene = native_fps_scene_document_json().replacen(
-        "\"spawnMarkerId\":null",
-        "\"spawnMarkerId\":\"spawn.scene-invented\"",
-        1,
-    );
-
-    let error = match load_fps_runtime_session(
-        handle,
-        "custom-demo".into(),
-        invalid_scene,
-        native_fps_bootstrap_registry_json(),
-        native_fps_definitions(33),
-        "[]".into(),
-    ) {
-        Ok(_) => panic!("scene must not authorize its own spawn-marker reference"),
-        Err(error) => error,
-    };
-    assert!(error.reason.contains("UnknownSpawnMarker"));
-
-    let after = read_fps_runtime_session(handle).expect("prior FPS session remains readable");
-    assert_eq!(after.session_epoch, loaded.session_epoch);
-    assert_eq!(after.entity_hash, loaded.entity_hash);
-    assert_eq!(after.health_hash, loaded.health_hash);
-    assert_eq!(after.replay_hash, loaded.replay_hash);
-}
 
 #[test]
 fn native_voxel_command_union_reaches_rust_authority() {
@@ -712,10 +374,8 @@ fn native_voxel_command_union_reaches_rust_authority() {
 #[test]
 fn native_bridge_rejects_invalid_inputs_without_fallback() {
     assert!(initialize_engine(-1).is_err());
-    assert!(get_project_bundle_composition_status(-99).is_err());
 
     let handle = initialize_engine(11).expect("engine initializes");
-    assert!(load_project_bundle(handle, -1, 1, 1001).is_err());
     assert!(step_simulation(handle, -1).is_err());
     assert!(submit_commands(handle, r#"[{"op":"deleteEverything"}]"#.to_string()).is_err());
     assert!(submit_commands(

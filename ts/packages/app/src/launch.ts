@@ -14,6 +14,10 @@ import {
   RuntimeBridgeError,
 } from '@asha/runtime-bridge';
 import { createMockRuntimeBridge } from '@asha/runtime-bridge/reference';
+import {
+  ASHA_PROJECT_BUNDLE_MANIFEST_PATH,
+  createMemoryAshaProjectSource,
+} from '@asha/game-workspace';
 
 import { composeAppShell, threeRendererPort } from './shell.js';
 import type {
@@ -99,13 +103,13 @@ export function defaultFixtures(): FixtureChoice[] {
       id: 'launch-grid',
       label: 'Launch grid',
       materials: [1, 2, 3],
-      request: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1001 },
+      source: canonicalFixtureSource('launch-grid', 1001),
     },
     {
       id: 'alt-grid',
       label: 'Alternate grid',
       materials: [1],
-      request: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1002 },
+      source: canonicalFixtureSource('alt-grid', 1002),
     },
   ];
 }
@@ -127,7 +131,7 @@ export interface HeadlessLaunchOptions {
  * readout reflects a real assembled run. The shell instance is returned alongside the
  * readout so callers (tests) can drive further interactions.
  */
-export function launchShell(options: HeadlessLaunchOptions = {}): AppShell {
+export async function launchShell(options: HeadlessLaunchOptions = {}): Promise<AppShell> {
   const mode = options.mode ?? 'reference';
   // `renderer: null` opts out of any renderer (UI-only); otherwise default to a real
   // headless three renderer. Spread conditionally to satisfy exactOptionalPropertyTypes.
@@ -139,12 +143,53 @@ export function launchShell(options: HeadlessLaunchOptions = {}): AppShell {
     ...(options.initialFixtureId !== undefined ? { initialFixtureId: options.initialFixtureId } : {}),
     ...(renderer !== undefined ? { renderer } : {}),
   });
-  shell.loadActiveFixture();
+  await shell.loadActiveFixture();
   shell.projectAuthority();
   return shell;
 }
 
 /** Run the headless launch and return the deterministic readout. */
-export function runHeadlessLaunch(options: HeadlessLaunchOptions = {}): ShellReadout {
-  return launchShell(options).readout();
+export async function runHeadlessLaunch(options: HeadlessLaunchOptions = {}): Promise<ShellReadout> {
+  return (await launchShell(options)).readout();
+}
+
+function canonicalFixtureSource(id: string, sceneId: number): FixtureChoice['source'] {
+  const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
+  const scenePath = `scenes/${id}.scene.json`;
+  const lockPath = 'assets/lock.json';
+  const scene = encode(`${JSON.stringify({
+    schemaVersion: 4,
+    id: sceneId,
+    metadata: { name: id, authoringFormatVersion: 4 },
+    dependencies: [],
+    nodes: [],
+  })}\n`);
+  const assetLock = encode('{"assets":[]}');
+  const manifest = encode(`${JSON.stringify({
+    bundleSchemaVersion: 2,
+    protocolVersion: 1,
+    project: { id: sceneId, name: id },
+    entryScene: sceneId,
+    scenes: [{ id: sceneId, schemaVersion: 4, artifact: scenePath }],
+    assetLock: { artifact: lockPath, assetCount: 0 },
+    generationProvenance: null,
+    artifacts: [
+      { path: lockPath, class: 'durable', role: 'assetLock', contentHash: fnv1a64(assetLock) },
+      { path: scenePath, class: 'durable', role: 'sceneDocument', contentHash: fnv1a64(scene) },
+    ],
+  })}\n`);
+  return createMemoryAshaProjectSource(`app-shell:${id}`, new Map([
+    [ASHA_PROJECT_BUNDLE_MANIFEST_PATH, manifest],
+    [lockPath, assetLock],
+    [scenePath, scene],
+  ]));
+}
+
+function fnv1a64(bytes: Uint8Array): string {
+  let hash = 0xcbf29ce484222325n;
+  for (const byte of bytes) {
+    hash ^= BigInt(byte);
+    hash = BigInt.asUintN(64, hash * 0x100000001b3n);
+  }
+  return hash.toString(16).padStart(16, '0');
 }

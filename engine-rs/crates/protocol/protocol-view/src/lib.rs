@@ -324,44 +324,6 @@ pub enum FirstPersonMovementMode {
     FreeFlight,
 }
 
-/// Bounded generated-level preset accepted by runtime collision materialization.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum GeneratedTunnelPreset {
-    #[serde(rename = "tiny-enclosed")]
-    TinyEnclosed,
-}
-
-/// Request to install one deterministic generated tunnel as collision authority.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GeneratedTunnelRuntimeApplyRequest {
-    pub preset: GeneratedTunnelPreset,
-    pub seed: u64,
-}
-
-/// Authority receipt for the installed generated tunnel collision projection.
-#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GeneratedTunnelRuntimeFrame {
-    pub world_offset: [f64; 3],
-    pub playable_min: [f64; 3],
-    pub playable_max: [f64; 3],
-}
-
-/// Authority receipt for the installed generated tunnel collision projection.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GeneratedTunnelRuntimeApplyReceipt {
-    pub preset: GeneratedTunnelPreset,
-    pub seed: u64,
-    pub grid: u64,
-    pub config_hash: String,
-    pub output_hash: String,
-    pub collision_source_hash: String,
-    pub collision_projection_hash: String,
-    pub runtime_frame: GeneratedTunnelRuntimeFrame,
-}
-
 /// One constrained camera input proposal for a specific tick/grid.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CollisionConstrainedCameraInputEnvelope {
@@ -518,54 +480,5 @@ mod tests {
         assert_eq!(snapshot.camera, camera);
         assert_eq!(snapshot.pose.position, [0.0, 1.6, 0.0]);
         assert_eq!(snapshot.viewport.width, 1280);
-    }
-
-    #[test]
-    fn generated_tunnel_runtime_apply_dtos_match_the_generated_border() {
-        let request = GeneratedTunnelRuntimeApplyRequest {
-            preset: GeneratedTunnelPreset::TinyEnclosed,
-            seed: 17,
-        };
-        assert_eq!(
-            serde_json::to_value(request).unwrap(),
-            serde_json::json!({ "preset": "tiny-enclosed", "seed": 17 })
-        );
-
-        let receipt = GeneratedTunnelRuntimeApplyReceipt {
-            preset: GeneratedTunnelPreset::TinyEnclosed,
-            seed: 17,
-            grid: 0,
-            config_hash: "e1d156c6b55137a7".to_string(),
-            output_hash: "1471496d88d70647".to_string(),
-            collision_source_hash: "205242bd77238525".to_string(),
-            collision_projection_hash: "fnv1a64:627389be013a3154".to_string(),
-            runtime_frame: GeneratedTunnelRuntimeFrame {
-                world_offset: [-3.5, -1.0, -5.5],
-                playable_min: [-2.5, 0.0, -4.5],
-                playable_max: [2.5, 4.0, 4.5],
-            },
-        };
-        let encoded = serde_json::to_value(&receipt).unwrap();
-        assert_eq!(
-            encoded,
-            serde_json::json!({
-                "preset": "tiny-enclosed",
-                "seed": 17,
-                "grid": 0,
-                "configHash": "e1d156c6b55137a7",
-                "outputHash": "1471496d88d70647",
-                "collisionSourceHash": "205242bd77238525",
-                "collisionProjectionHash": "fnv1a64:627389be013a3154",
-                "runtimeFrame": {
-                    "worldOffset": [-3.5, -1.0, -5.5],
-                    "playableMin": [-2.5, 0.0, -4.5],
-                    "playableMax": [2.5, 4.0, 4.5]
-                }
-            })
-        );
-        assert_eq!(
-            serde_json::from_value::<GeneratedTunnelRuntimeApplyReceipt>(encoded).unwrap(),
-            receipt
-        );
     }
 }

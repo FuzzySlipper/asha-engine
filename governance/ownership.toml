@@ -667,7 +667,7 @@ may_not_import = ["@asha/renderer-three", "@asha/ui-dom", "@asha/runtime-bridge"
 lane = "ts-shell"
 type = "lib"
 layer = "renderer"
-may_import = ["@asha/contracts", "@asha/runtime-bridge", "@asha/render-projection"]
+may_import = ["@asha/contracts", "@asha/runtime-bridge", "@asha/runtime-session", "@asha/render-projection"]
 may_not_import = ["@asha/policy-core", "@asha/policy-examples", "@asha/script-host", "@asha/native-bridge", "@asha/wasm-replay-bridge"]
 
 # Browser/native render host facade. It may depend on the current Three.js
@@ -751,7 +751,7 @@ may_not_import = ["@asha/policy-core", "@asha/policy-examples"]
 lane = "ts-shell"
 type = "shell"
 layer = "shell"
-may_import = ["@asha/contracts", "@asha/runtime-bridge", "@asha/renderer-three", "@asha/ui-dom", "@asha/editor-tools", "@asha/script-host", "@asha/devtools"]
+may_import = ["@asha/contracts", "@asha/game-workspace", "@asha/runtime-bridge", "@asha/runtime-session", "@asha/renderer-three", "@asha/ui-dom", "@asha/editor-tools", "@asha/script-host", "@asha/devtools"]
 may_not_import = ["@asha/electron-main", "@asha/native-bridge", "@asha/wasm-replay-bridge"]
 
 # Developer smoke harness (#2395–#2398): boots the facade against an abstract
@@ -762,7 +762,7 @@ may_not_import = ["@asha/electron-main", "@asha/native-bridge", "@asha/wasm-repl
 lane = "ts-shell"
 type = "testing"
 layer = "testing-fixtures"
-may_import = ["@asha/browser-host", "@asha/contracts", "@asha/catalog-core", "@asha/runtime-bridge", "@asha/runtime-session", "@asha/renderer-host", "@asha/renderer-three", "@asha/editor-tools", "@asha/ui-dom", "@asha/app", "@asha/command-registry"]
+may_import = ["@asha/browser-host", "@asha/contracts", "@asha/catalog-core", "@asha/game-workspace", "@asha/runtime-bridge", "@asha/runtime-session", "@asha/renderer-host", "@asha/renderer-three", "@asha/editor-tools", "@asha/ui-dom", "@asha/app", "@asha/command-registry"]
 may_not_import = ["@asha/native-bridge", "@asha/electron-main", "@asha/wasm-replay-bridge"]
 
 # ─── Runtime bridge boundary (ADR 0006) ──────────────────────────────────────
@@ -810,7 +810,7 @@ lane = "ts-shell"
 type = "shell"
 layer = "shell"
 implementation_status = "active"
-may_import = ["@asha/game-workspace", "@asha/runtime-bridge"]
+may_import = ["@asha/contracts", "@asha/game-workspace", "@asha/runtime-bridge"]
 may_not_import = ["@asha/native-bridge", "@asha/renderer-three", "@asha/ui-dom", "@asha/policy-core", "@asha/policy-examples", "@asha/script-host", "@asha/wasm-replay-bridge", "@asha/electron-main", "@asha/app"]
 
 # Rust: bridge layer (between wasm and tools).

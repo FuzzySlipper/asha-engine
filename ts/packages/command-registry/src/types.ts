@@ -26,9 +26,6 @@ import type {
 } from '@asha/contracts';
 
 export type StudioCommandId =
-  | 'session.list_scenarios'
-  | 'session.start'
-  | 'session.load_scenario'
   | 'workspace.open_game_manifest'
   | 'workspace.validate_game_manifest'
   | 'inspection.session_status'
@@ -116,9 +113,7 @@ export type RuntimeBridgeOperationRef =
   | 'read_model_material_preview'
   | 'read_scene_object_snapshot'
   | 'apply_scene_object_command'
-  | 'load_project_bundle'
-  | 'save_project_bundle'
-  | 'get_project_bundle_composition_status';
+  | 'read_active_runtime_project_content';
 
 export type RuntimeSessionFacadeMethodRef =
   | 'planVoxelConversion'
@@ -300,10 +295,8 @@ export interface GameWorkspaceValidateOutput {
     readonly source: string | null;
   }[];
 }
-export interface ScenarioIdInput { readonly scenarioId: string; }
 export interface SessionIdInput { readonly sessionId: string; }
 export interface SessionStatusOutput { readonly sessionId: string; readonly status: 'not_started' | 'ready' | 'degraded' | 'unavailable'; }
-export interface ScenarioListOutput { readonly scenarios: readonly { readonly id: string; readonly label: string }[]; }
 export interface WorldSummaryOutput { readonly authorityHash: string | null; readonly voxelVolumeCount: number; readonly sceneNodeCount: number; }
 export interface EditorStateOutput { readonly editorVersion: string; readonly selectedVoxel: VoxelCoord | null; }
 export interface MaterialInspectionInput { readonly sessionId: string; readonly materialId: string; }

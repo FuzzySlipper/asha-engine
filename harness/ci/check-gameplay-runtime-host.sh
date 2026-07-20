@@ -39,28 +39,14 @@ run_with_evidence host \
   cargo test --locked --offline --manifest-path "$ROOT/engine-rs/Cargo.toml" \
     -p gameplay-runtime-host -- --nocapture
 
-echo "==> Running one-cell native provider lifecycle regression"
-run_with_evidence provider-lifecycle \
-  cargo test --locked --offline \
-    --manifest-path "$ROOT/harness/fixtures/gameplay-module-sdk/downstream-module/Cargo.toml" \
-    --lib tests::public_static_runtime_provider_lifecycle_releases_each_isolated_cell \
-    -- --exact --nocapture
-
 jq -s -e '
   length >= 4 and all(
     .schemaVersion == 1 and
     (.session != null) and
     (.waveOrAction | type == "string") and
     (.registryDigest | type == "string") and
-    (.runtimeHostHash == null or (.runtimeHostHash | type == "string")) and
+    (.runtimeHostHash | type == "string") and
     (.evidenceHashes | type == "array" and length <= 8)
-  ) and any(
-    .[];
-    .phase == "provider-lifecycle" and
-    .projectBundleSequence == [1, 2, null] and
-    .explicitCloseObserved == true and
-    .resourceReleaseCounts.providerSession == 1 and
-    .resourceReleaseCounts.isolatedSession == 1
   )
 ' "$EVIDENCE" >/dev/null
 

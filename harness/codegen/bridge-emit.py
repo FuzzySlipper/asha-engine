@@ -129,7 +129,7 @@ def validate_model(
             f"missing={missing}, unknown={unknown}, duplicate={duplicate}"
         )
     required_capability_fields = {
-        "id", "interface", "property", "initialization", "project_bundle",
+        "id", "interface", "property", "initialization", "runtime_project",
         "snapshot_hash", "resource_lifetime", "operations",
     }
     for capability in capabilities:
@@ -325,7 +325,7 @@ def emit_surfaces_ts(
         "",
         "export interface RuntimeBridgePortContract {",
         "  readonly initialization: 'requiresEngine' | 'createsEngine';",
-        "  readonly projectBundle: 'retainedAcrossLoadUnload' | 'ownsLoadUnload';",
+        "  readonly runtimeProject: 'retainedAcrossProjectChanges' | 'ownsProjectLifecycle';",
         "  readonly snapshotHash:",
     ])
     snapshot_values = [capability["snapshot_hash"] for capability in capabilities]
@@ -344,7 +344,7 @@ def emit_surfaces_ts(
         lines.extend([
             f"  {capability['property']}: {{",
             f"    initialization: '{capability['initialization']}',",
-            f"    projectBundle: '{capability['project_bundle']}',",
+            f"    runtimeProject: '{capability['runtime_project']}',",
             f"    resourceLifetime: '{capability['resource_lifetime']}',",
             f"    snapshotHash: '{capability['snapshot_hash']}',",
             "  },",

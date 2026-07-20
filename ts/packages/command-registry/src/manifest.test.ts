@@ -16,9 +16,6 @@ import {
 } from './index.js';
 
 const REQUIRED_IDS = [
-  'session.list_scenarios',
-  'session.start',
-  'session.load_scenario',
   'workspace.open_game_manifest',
   'workspace.validate_game_manifest',
   'inspection.session_status',
@@ -108,12 +105,6 @@ void test('typed examples match declared input and output schemas', () => {
 });
 
 void test('example validation rejects opaque contract payloads and malformed empty inputs', () => {
-  const scenarios = requireKnownCommand('session.list_scenarios', COMMAND_MANIFEST);
-  assert.deepEqual(
-    validateExampleAgainstSchema(scenarios.id, 'typedInputExample', { kind: 'anything' }, scenarios.inputSchema.shape),
-    [{ commandId: 'session.list_scenarios', field: 'typedInputExample', message: 'typedInputExample does not match its declared schema' }],
-  );
-
   const select = requireKnownCommand('selection.voxel_from_screen_point', COMMAND_MANIFEST);
   assert.deepEqual(
     validateExampleAgainstSchema(select.id, 'typedInputExample', { sessionId: 'session-1', request: { ray: { origin: [0, 0, 0] } } }, select.inputSchema.shape),
@@ -157,8 +148,7 @@ void test('mutating, writing, and capture commands are not advertised as read-on
   for (const command of nonReadOnlyByImpact) {
     assert.notEqual(command.agentExposure.kind, 'read_only', command.id);
   }
-  assert.equal(requireKnownCommand('session.start', COMMAND_MANIFEST).agentExposure.kind, 'workspace_io');
-  assert.equal(requireKnownCommand('session.load_scenario', COMMAND_MANIFEST).agentExposure.kind, 'workspace_io');
+  assert.equal(requireKnownCommand('workspace.open_game_manifest', COMMAND_MANIFEST).agentExposure.kind, 'workspace_io');
 });
 
 void test('model/material commands use public contract DTOs and runtime readback classification', () => {
@@ -373,8 +363,8 @@ void test('selection command uses screen-point camera request, not a caller-supp
 });
 
 void test('validation rejects read-only exposure for non-read-only or mutating impacts', () => {
-  const start = requireKnownCommand('session.start', COMMAND_MANIFEST);
-  const broken: DraftStudioCommandDefinition = { ...start, agentExposure: { kind: 'read_only' } };
+  const open = requireKnownCommand('workspace.open_game_manifest', COMMAND_MANIFEST);
+  const broken: DraftStudioCommandDefinition = { ...open, agentExposure: { kind: 'read_only' } };
   const issues = validateCommandDefinition(broken);
   assert.ok(issues.some((issue) => issue.field === 'agentExposure' && issue.message.includes('read_only exposure')));
 });

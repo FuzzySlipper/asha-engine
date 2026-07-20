@@ -6,7 +6,7 @@ handwritten semantic exports. Quarantined compatibility wiring is explicit.
 
 | Operation | Capability | Surface | Input | Output | Errors |
 |---|---|---|---|---|---|
-| `initialize_engine` | `bundle_lifecycle` | stable | `protocol_runtime::EngineConfig` | `EngineHandle` | `RuntimeBridgeError` |
+| `initialize_engine` | `runtime_project_lifecycle` | stable | `protocol_runtime::EngineConfig` | `EngineHandle` | `RuntimeBridgeError` |
 | `open_workspace_authoring` | `workspace_authoring` | stable | `protocol_project_bundle::WorkspaceAuthoringOpenRequest` | `protocol_project_bundle::WorkspaceAuthoringStateSummary` | `RuntimeBridgeError` |
 | `read_workspace_authoring_state` | `workspace_authoring` | stable | `Unit` | `protocol_project_bundle::WorkspaceAuthoringStateSummary` | `RuntimeBridgeError` |
 | `read_workspace_authoring_projection` | `workspace_authoring` | stable | `protocol_project_bundle::WorkspaceAuthoringProjectionRequest` | `protocol_project_bundle::WorkspaceAuthoringProjectionReceipt` | `RuntimeBridgeError` |
@@ -27,7 +27,6 @@ handwritten semantic exports. Quarantined compatibility wiring is explicit.
 | `configure_voxel_projection_instances` | `voxel_assets_buffers` | stable | `protocol_voxel::VoxelProjectionBindingRequest` | `protocol_voxel::VoxelProjectionBindingReceipt` | `RuntimeBridgeError` |
 | `pick_voxel_instance` | `voxel_assets_buffers` | stable | `protocol_voxel::VoxelInstancePickRequest` | `protocol_voxel::VoxelInstancePickResult` | `RuntimeBridgeError` |
 | `apply_collision_constrained_camera_input` | `camera` | stable | `protocol_view::CollisionConstrainedCameraInputEnvelope` | `protocol_view::CameraCollisionSnapshot` | `RuntimeBridgeError` |
-| `apply_generated_tunnel_to_runtime_world` | `gameplay` | stable | `protocol_view::GeneratedTunnelRuntimeApplyRequest` | `protocol_view::GeneratedTunnelRuntimeApplyReceipt` | `RuntimeBridgeError` |
 | `select_voxel` | `voxel_assets_buffers` | stable | `protocol_view::ScreenPointToPickRayRequest` | `protocol_view::VoxelSelectionSnapshot` | `RuntimeBridgeError` |
 | `read_voxel_mesh_evidence` | `voxel_assets_buffers` | stable | `protocol_render::VoxelMeshEvidenceRequest` | `protocol_render::VoxelMeshEvidenceSnapshot` | `RuntimeBridgeError` |
 | `plan_voxel_conversion` | `voxel_assets_buffers` | stable | `protocol_voxel_conversion::VoxelConversionPlanRequest` | `protocol_voxel_conversion::VoxelConversionPlan` | `RuntimeBridgeError` |
@@ -56,7 +55,6 @@ handwritten semantic exports. Quarantined compatibility wiring is explicit.
 | `apply_voxel_edit_revert` | `voxel_assets_buffers` | stable | `protocol_voxel_edit_history::VoxelEditHistoryRevertRequest` | `protocol_voxel_edit_history::VoxelEditHistoryRevertReceipt` | `RuntimeBridgeError` |
 | `undo_voxel_edit` | `voxel_assets_buffers` | stable | `protocol_voxel_edit_history::VoxelEditHistoryUndoRequest` | `protocol_voxel_edit_history::VoxelEditHistoryUndoReceipt` | `RuntimeBridgeError` |
 | `redo_voxel_edit` | `voxel_assets_buffers` | stable | `protocol_voxel_edit_history::VoxelEditHistoryRedoRequest` | `protocol_voxel_edit_history::VoxelEditHistoryRedoReceipt` | `RuntimeBridgeError` |
-| `load_fps_runtime_session` | `gameplay` | stable | `protocol_runtime::FpsRuntimeSessionLoadRequest` | `protocol_runtime::FpsRuntimeSessionSnapshot` | `RuntimeBridgeError` |
 | `read_fps_runtime_session` | `gameplay` | stable | `Unit` | `protocol_runtime::FpsRuntimeSessionSnapshot` | `RuntimeBridgeError` |
 | `apply_fps_primary_fire` | `gameplay` | stable | `protocol_runtime::FpsPrimaryFireRequest` | `protocol_runtime::FpsPrimaryFireResult` | `RuntimeBridgeError` |
 | `read_composed_runtime_session` | `gameplay` | stable | `Unit` | `protocol_runtime::ComposedRuntimeSessionReadout` | `RuntimeBridgeError` |
@@ -92,15 +90,11 @@ handwritten semantic exports. Quarantined compatibility wiring is explicit.
 | `read_camera_projection` | `camera` | stable | `protocol_view::CameraProjectionRequest` | `protocol_view::CameraProjectionSnapshot` | `RuntimeBridgeError` |
 | `get_buffer` | `voxel_assets_buffers` | stable | `RuntimeBufferHandle` | `RuntimeBufferView` | `RuntimeBridgeError` |
 | `release_buffer` | `voxel_assets_buffers` | stable | `RuntimeBufferHandle` | `Unit` | `RuntimeBridgeError` |
-| `begin_runtime_project_source_resources` | `bundle_lifecycle` | stable | `protocol_project_bundle::ProjectResourceBeginRequest` | `protocol_project_bundle::ProjectResourceTransactionReceipt` | `RuntimeBridgeError` |
-| `stage_runtime_project_source_resource` | `bundle_lifecycle` | stable | `protocol_project_bundle::ProjectResourceStageRequest` | `protocol_project_bundle::StagedProjectResourceRef` | `RuntimeBridgeError` |
-| `admit_runtime_project_source_batch` | `bundle_lifecycle` | stable | `protocol_project_bundle::RuntimeProjectSourceBatch` | `protocol_project_bundle::ProjectSourceBatchValidationReceipt` | `RuntimeBridgeError` |
-| `load_runtime_project` | `bundle_lifecycle` | stable | `protocol_project_bundle::RuntimeProjectLoadRequest` | `protocol_project_bundle::RuntimeProjectLoadReceipt` | `RuntimeBridgeError` |
-| `read_active_runtime_project_content` | `bundle_lifecycle` | stable | `Unit` | `protocol_project_content::ActiveRuntimeProjectContentReadout` | `RuntimeBridgeError` |
-| `close_runtime_project` | `bundle_lifecycle` | stable | `protocol_project_bundle::RuntimeProjectCloseRequest` | `protocol_project_bundle::RuntimeProjectCloseReceipt` | `RuntimeBridgeError` |
-| `load_project_bundle` | `bundle_lifecycle` | stable | `protocol_project_bundle::ProjectBundleManifest` | `protocol_diagnostics::DiagnosticReportSet` | `RuntimeBridgeError` |
-| `save_project_bundle` | `bundle_lifecycle` | stable | `Unit` | `protocol_project_bundle::SaveSummary` | `RuntimeBridgeError` |
-| `get_project_bundle_composition_status` | `bundle_lifecycle` | stable | `Unit` | `protocol_diagnostics::DiagnosticReportSet` | `RuntimeBridgeError` |
-| `unload_project_bundle` | `bundle_lifecycle` | stable | `Unit` | `Unit` | `RuntimeBridgeError` |
+| `begin_runtime_project_source_resources` | `runtime_project_lifecycle` | stable | `protocol_project_bundle::ProjectResourceBeginRequest` | `protocol_project_bundle::ProjectResourceTransactionReceipt` | `RuntimeBridgeError` |
+| `stage_runtime_project_source_resource` | `runtime_project_lifecycle` | stable | `protocol_project_bundle::ProjectResourceStageRequest` | `protocol_project_bundle::StagedProjectResourceRef` | `RuntimeBridgeError` |
+| `admit_runtime_project_source_batch` | `runtime_project_lifecycle` | stable | `protocol_project_bundle::RuntimeProjectSourceBatch` | `protocol_project_bundle::ProjectSourceBatchValidationReceipt` | `RuntimeBridgeError` |
+| `load_runtime_project` | `runtime_project_lifecycle` | stable | `protocol_project_bundle::RuntimeProjectLoadRequest` | `protocol_project_bundle::RuntimeProjectLoadReceipt` | `RuntimeBridgeError` |
+| `read_active_runtime_project_content` | `runtime_project_lifecycle` | stable | `Unit` | `protocol_project_content::ActiveRuntimeProjectContentReadout` | `RuntimeBridgeError` |
+| `close_runtime_project` | `runtime_project_lifecycle` | stable | `protocol_project_bundle::RuntimeProjectCloseRequest` | `protocol_project_bundle::RuntimeProjectCloseReceipt` | `RuntimeBridgeError` |
 | `load_replay_fixture` | `replay_evidence` | quarantined | `protocol_replay::ReplayFixture` | `ReplaySessionHandle` | `RuntimeBridgeError` |
 | `run_replay_step` | `replay_evidence` | quarantined | `ReplaySessionHandle` | `protocol_replay::ReplayStepReport` | `RuntimeBridgeError` |

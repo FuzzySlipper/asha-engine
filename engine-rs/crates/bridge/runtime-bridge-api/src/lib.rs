@@ -56,9 +56,7 @@ pub use protocol_diagnostics::{
     DEVELOPER_CONSOLE_MAX_RECORDS, DEVELOPER_CONSOLE_MAX_RECORDS_PER_TICK,
     DEVELOPER_CONSOLE_SCHEMA_VERSION,
 };
-pub(crate) use protocol_entity_authoring::{
-    AuthoringTransform, EntityDefinition, EntityDefinitionCapability, EntityDefinitionSourceTrace,
-};
+pub(crate) use protocol_entity_authoring::{AuthoringTransform, EntityDefinitionCapability};
 pub use protocol_game_extension::GameplayContractRef;
 pub use protocol_game_rules::{
     GameRuleCatalog, GameRuleDiagnostic, GameRuleEvidenceKind, GameRuleEvidenceRef,
@@ -123,9 +121,7 @@ pub use protocol_view::{
     CameraCreateRequest, CameraHandle, CameraMode, CameraModeChangeReceipt, CameraModeCommand,
     CameraModeTarget, CameraNavigationInput, CameraNavigationInputEnvelope,
     CameraNavigationReceipt, CameraPose, CameraSnapshot, CameraTransitionEasing,
-    CameraTransitionReadout, CameraTransitionSpec, GeneratedTunnelPreset,
-    GeneratedTunnelRuntimeApplyReceipt, GeneratedTunnelRuntimeApplyRequest,
-    GeneratedTunnelRuntimeFrame, PerspectiveProjection, ViewportSize,
+    CameraTransitionReadout, CameraTransitionSpec, PerspectiveProjection, ViewportSize,
     CAMERA_CONTROLLER_STATE_SCHEMA_VERSION,
 };
 pub(crate) use protocol_view::{
@@ -227,13 +223,9 @@ mod payloads;
 
 pub use authority::EngineBridge;
 pub use authority::{
-    ComposedGameplayOwner, ComposedGameplayOwnerCheckpoint, ComposedGameplayOwnerOutput,
-    ComposedGameplayOwnerReadout, ComposedGameplayOwnerTransactionReceipt, ComposedGameplayRuntime,
-    ComposedGameplayRuntimeBuilder, ComposedRuntimeSessionCheckpoint,
     ComposedRuntimeSessionReadout, DeferredRuntimeSessionBuilder, RuntimeProjectActivationReceipt,
     RuntimeProjectDomainAdapter, RuntimeProjectLifecycleVersion, RuntimeProjectLoadError,
-    RuntimeProjectUnloadReceipt, StaticProjectAuthoringBuilder, StaticRuntimeSessionBuilder,
-    StaticRuntimeSessionCompositionError,
+    RuntimeProjectUnloadReceipt, StaticProjectAuthoringBuilder,
 };
 pub use bridge::RuntimeBridge;
 pub use buffer_provider::{

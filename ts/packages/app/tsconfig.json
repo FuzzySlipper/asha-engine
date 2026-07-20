@@ -16,6 +16,12 @@
     },
     {
       "path": "../renderer-three"
+    },
+    {
+      "path": "../runtime-session"
+    },
+    {
+      "path": "../game-workspace"
     }
   ]
 }

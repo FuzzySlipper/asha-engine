@@ -23,7 +23,7 @@ mod workspace_authoring;
 pub(crate) struct BridgeCapabilityPortContract {
     pub id: &'static str,
     pub initialization: &'static str,
-    pub project_bundle: &'static str,
+    pub runtime_project: &'static str,
     pub snapshot_hash: &'static str,
     pub resource_lifetime: &'static str,
 }
@@ -33,79 +33,78 @@ pub(crate) const ENGINE_BRIDGE_CAPABILITY_PORTS: &[BridgeCapabilityPortContract]
     BridgeCapabilityPortContract {
         id: "input",
         initialization: "requiresEngine",
-        project_bundle: "retainedAcrossLoadUnload",
+        runtime_project: "retainedAcrossProjectChanges",
         snapshot_hash: "inputEvidence",
         resource_lifetime: "session",
     },
     BridgeCapabilityPortContract {
         id: "timeSimulation",
         initialization: "requiresEngine",
-        project_bundle: "retainedAcrossLoadUnload",
+        runtime_project: "retainedAcrossProjectChanges",
         snapshot_hash: "timeState",
         resource_lifetime: "session",
     },
     BridgeCapabilityPortContract {
         id: "sceneEntities",
         initialization: "requiresEngine",
-        project_bundle: "retainedAcrossLoadUnload",
+        runtime_project: "retainedAcrossProjectChanges",
         snapshot_hash: "sceneDocument",
         resource_lifetime: "session",
     },
     BridgeCapabilityPortContract {
         id: "voxelAssetsBuffers",
         initialization: "requiresEngine",
-        project_bundle: "retainedAcrossLoadUnload",
+        runtime_project: "retainedAcrossProjectChanges",
         snapshot_hash: "voxelStateAndResources",
         resource_lifetime: "mixedExplicitAndSession",
     },
     BridgeCapabilityPortContract {
         id: "camera",
         initialization: "requiresEngine",
-        project_bundle: "retainedAcrossLoadUnload",
+        runtime_project: "retainedAcrossProjectChanges",
         snapshot_hash: "cameraProjection",
         resource_lifetime: "session",
     },
     BridgeCapabilityPortContract {
         id: "gameplay",
         initialization: "requiresEngine",
-        project_bundle: "retainedAcrossLoadUnload",
+        runtime_project: "retainedAcrossProjectChanges",
         snapshot_hash: "gameplaySessionAndReplay",
         resource_lifetime: "session",
     },
     BridgeCapabilityPortContract {
         id: "projection",
         initialization: "requiresEngine",
-        project_bundle: "retainedAcrossLoadUnload",
+        runtime_project: "retainedAcrossProjectChanges",
         snapshot_hash: "projectionFrame",
         resource_lifetime: "frame",
     },
     BridgeCapabilityPortContract {
         id: "workspaceAuthoring",
         initialization: "createsEngine",
-        project_bundle: "ownsLoadUnload",
+        runtime_project: "ownsProjectLifecycle",
         snapshot_hash: "workspaceAuthoringAuthority",
         resource_lifetime: "session",
     },
     BridgeCapabilityPortContract {
-        id: "bundleLifecycle",
+        id: "runtimeProjectLifecycle",
         initialization: "createsEngine",
-        project_bundle: "ownsLoadUnload",
-        snapshot_hash: "compositionStatus",
+        runtime_project: "ownsProjectLifecycle",
+        snapshot_hash: "activeProjectContent",
         resource_lifetime: "session",
     },
     BridgeCapabilityPortContract {
         id: "replayEvidence",
         initialization: "requiresEngine",
-        project_bundle: "retainedAcrossLoadUnload",
+        runtime_project: "retainedAcrossProjectChanges",
         snapshot_hash: "replayEvidence",
         resource_lifetime: "session",
     },
 ];
 
 #[derive(Debug, Default)]
-struct BridgeBundleLifecycleState {
+struct BridgeRuntimeProjectLifecycleState {
     engine: Option<EngineHandle>,
-    loaded_project_bundle: Option<u64>,
     runtime_project_generation: u64,
     runtime_project_revision: u64,
     active_runtime_project: Option<ActiveRuntimeProjectAuthority>,
@@ -283,7 +282,7 @@ pub(crate) struct DeveloperConsoleEmission {
 /// (`0`) so buffer verbs exercise the real provider rather than a bespoke `Vec`.
 #[derive(Default)]
 pub struct EngineBridge {
-    bundle: BridgeBundleLifecycleState,
+    runtime_project: BridgeRuntimeProjectLifecycleState,
     input: BridgeInputState,
     time: BridgeTimeSimulationState,
     scene: BridgeSceneEntityState,
@@ -301,10 +300,6 @@ pub struct EngineBridge {
 const ENGINE_SUPPORTED_BUNDLE_VERSION: u32 = svc_serialization::BUNDLE_SCHEMA_VERSION;
 const ENGINE_SUPPORTED_PROTOCOL_VERSION: u32 = svc_serialization::SUPPORTED_PROTOCOL_VERSION;
 const BUILT_IN_GAME_RULE_MODULE_ID: &str = "asha.engine.primary_fire_damage_modifier";
-#[cfg(test)]
-const BUILT_IN_GAME_RULE_MODULE_VERSION: &str = "0.1.0";
-#[cfg(test)]
-const BUILT_IN_GAME_RULE_CONTRACT_HASH: &str = "sha256:asha-engine-primary-fire-damage-modifier-v0";
 const BUILT_IN_GAME_RULE_HOOK_ID: &str = "weapon.primary.damage_modifier";
 const WEAPON_EFFECT_INPUT_CONTRACT: &str = "WeaponEffectHookRequest.v0";
 const GAME_EXTENSION_PROPOSAL_CONTRACT: &str = "GameExtensionProposal.v0";
@@ -337,7 +332,7 @@ impl EngineBridge {
         let sequence = state.next_sequence;
         state.next_sequence = state.next_sequence.saturating_add(1);
         let session = self
-            .bundle
+            .runtime_project
             .engine
             .map(|handle| format!("engine:{}", handle.raw()));
         state.records.push(DeveloperConsoleRecord {
@@ -601,15 +596,6 @@ impl GameRuleModule for ResolvedGameRuleModule {
     }
 }
 
-#[cfg(test)]
-fn built_in_game_rule_module_ref() -> GameRuleModuleRef {
-    GameRuleModuleRef {
-        module_id: BUILT_IN_GAME_RULE_MODULE_ID.to_string(),
-        version: BUILT_IN_GAME_RULE_MODULE_VERSION.to_string(),
-        contract_hash: BUILT_IN_GAME_RULE_CONTRACT_HASH.to_string(),
-    }
-}
-
 fn built_in_game_rule_manifest(module_ref: GameRuleModuleRef) -> GameRuleModuleManifest {
     GameRuleModuleManifest {
         module_ref,
@@ -628,15 +614,9 @@ fn built_in_game_rule_manifest(module_ref: GameRuleModuleRef) -> GameRuleModuleM
     }
 }
 
-#[cfg(test)]
-fn built_in_game_rule_declared_manifest() -> GameRuleModuleManifest {
-    built_in_game_rule_manifest(built_in_game_rule_module_ref())
-}
-
 mod camera;
 mod composition;
 mod fps_and_rules;
-mod fps_bootstrap_registry;
 mod fps_project_diagnostics;
 mod fps_runtime_session;
 mod presentation_catalog;
@@ -650,20 +630,14 @@ mod voxel_history;
 mod voxel_palette_limits;
 
 pub use composition::{
-    ComposedGameplayOwner, ComposedGameplayOwnerCheckpoint, ComposedGameplayOwnerOutput,
-    ComposedGameplayOwnerReadout, ComposedGameplayOwnerTransactionReceipt, ComposedGameplayRuntime,
-    ComposedGameplayRuntimeBuilder, ComposedRuntimeSessionCheckpoint,
     ComposedRuntimeSessionReadout, DeferredRuntimeSessionBuilder, RuntimeProjectDomainAdapter,
-    StaticProjectAuthoringBuilder, StaticRuntimeSessionBuilder,
-    StaticRuntimeSessionCompositionError,
+    StaticProjectAuthoringBuilder,
 };
 pub use project_and_sources::{
     RuntimeProjectActivationReceipt, RuntimeProjectLifecycleVersion, RuntimeProjectLoadError,
     RuntimeProjectUnloadReceipt,
 };
 
-#[cfg(test)]
-mod game_extension_tests;
 #[cfg(test)]
 pub(super) mod tests;
 #[cfg(test)]

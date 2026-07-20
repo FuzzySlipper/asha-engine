@@ -23,7 +23,7 @@
       "interface": "RuntimeInputPort",
       "property": "input",
       "initialization": "requiresEngine",
-      "project_bundle": "retainedAcrossLoadUnload",
+      "runtime_project": "retainedAcrossProjectChanges",
       "snapshot_hash": "inputEvidence",
       "resource_lifetime": "session",
       "operations": [
@@ -39,7 +39,7 @@
       "interface": "RuntimeTimeSimulationPort",
       "property": "timeSimulation",
       "initialization": "requiresEngine",
-      "project_bundle": "retainedAcrossLoadUnload",
+      "runtime_project": "retainedAcrossProjectChanges",
       "snapshot_hash": "timeState",
       "resource_lifetime": "session",
       "operations": [
@@ -53,7 +53,7 @@
       "interface": "RuntimeSceneEntityPort",
       "property": "sceneEntities",
       "initialization": "requiresEngine",
-      "project_bundle": "retainedAcrossLoadUnload",
+      "runtime_project": "retainedAcrossProjectChanges",
       "snapshot_hash": "sceneDocument",
       "resource_lifetime": "session",
       "operations": [
@@ -71,7 +71,7 @@
       "interface": "RuntimeVoxelAssetBufferPort",
       "property": "voxelAssetsBuffers",
       "initialization": "requiresEngine",
-      "project_bundle": "retainedAcrossLoadUnload",
+      "runtime_project": "retainedAcrossProjectChanges",
       "snapshot_hash": "voxelStateAndResources",
       "resource_lifetime": "mixedExplicitAndSession",
       "operations": [
@@ -115,7 +115,7 @@
       "interface": "RuntimeCameraPort",
       "property": "camera",
       "initialization": "requiresEngine",
-      "project_bundle": "retainedAcrossLoadUnload",
+      "runtime_project": "retainedAcrossProjectChanges",
       "snapshot_hash": "cameraProjection",
       "resource_lifetime": "session",
       "operations": [
@@ -133,12 +133,10 @@
       "interface": "RuntimeGameplayPort",
       "property": "gameplay",
       "initialization": "requiresEngine",
-      "project_bundle": "retainedAcrossLoadUnload",
+      "runtime_project": "retainedAcrossProjectChanges",
       "snapshot_hash": "gameplaySessionAndReplay",
       "resource_lifetime": "session",
       "operations": [
-        "apply_generated_tunnel_to_runtime_world",
-        "load_fps_runtime_session",
         "read_fps_runtime_session",
         "apply_fps_primary_fire",
         "read_composed_runtime_session",
@@ -158,7 +156,7 @@
       "interface": "RuntimeProjectionPort",
       "property": "projection",
       "initialization": "requiresEngine",
-      "project_bundle": "retainedAcrossLoadUnload",
+      "runtime_project": "retainedAcrossProjectChanges",
       "snapshot_hash": "projectionFrame",
       "resource_lifetime": "frame",
       "operations": [
@@ -172,7 +170,7 @@
       "interface": "RuntimeWorkspaceAuthoringPort",
       "property": "workspaceAuthoring",
       "initialization": "createsEngine",
-      "project_bundle": "ownsLoadUnload",
+      "runtime_project": "ownsProjectLifecycle",
       "snapshot_hash": "workspaceAuthoringAuthority",
       "resource_lifetime": "session",
       "operations": [
@@ -191,12 +189,12 @@
       ]
     },
     {
-      "id": "bundle_lifecycle",
-      "interface": "RuntimeBundleLifecyclePort",
-      "property": "bundleLifecycle",
+      "id": "runtime_project_lifecycle",
+      "interface": "RuntimeProjectLifecyclePort",
+      "property": "runtimeProjectLifecycle",
       "initialization": "createsEngine",
-      "project_bundle": "ownsLoadUnload",
-      "snapshot_hash": "compositionStatus",
+      "runtime_project": "ownsProjectLifecycle",
+      "snapshot_hash": "activeProjectContent",
       "resource_lifetime": "session",
       "operations": [
         "initialize_engine",
@@ -205,11 +203,7 @@
         "admit_runtime_project_source_batch",
         "load_runtime_project",
         "read_active_runtime_project_content",
-        "close_runtime_project",
-        "load_project_bundle",
-        "save_project_bundle",
-        "get_project_bundle_composition_status",
-        "unload_project_bundle"
+        "close_runtime_project"
       ]
     },
     {
@@ -217,7 +211,7 @@
       "interface": "RuntimeReplayEvidencePort",
       "property": "replayEvidence",
       "initialization": "requiresEngine",
-      "project_bundle": "retainedAcrossLoadUnload",
+      "runtime_project": "retainedAcrossProjectChanges",
       "snapshot_hash": "replayEvidence",
       "resource_lifetime": "session",
       "operations": [
@@ -231,7 +225,7 @@
     {
       "manifestName": "initialize_engine",
       "facadeMethod": "initializeEngine",
-      "capability": "bundle_lifecycle",
+      "capability": "runtime_project_lifecycle",
       "surface": "stable",
       "nativeWired": true,
       "maxInputBytes": 8388608,
@@ -728,30 +722,6 @@
       "outputWire": {
         "owner": "generated",
         "name": "view.CameraCollisionSnapshot",
-        "repeated": false
-      },
-      "errors": "RuntimeBridgeError"
-    },
-    {
-      "manifestName": "apply_generated_tunnel_to_runtime_world",
-      "facadeMethod": "applyGeneratedTunnelToRuntimeWorld",
-      "capability": "gameplay",
-      "surface": "stable",
-      "nativeWired": true,
-      "maxInputBytes": 8388608,
-      "maxOutputBytes": 8388608,
-      "input": "protocol_view::GeneratedTunnelRuntimeApplyRequest",
-      "output": "protocol_view::GeneratedTunnelRuntimeApplyReceipt",
-      "facadeInput": null,
-      "facadeOutput": null,
-      "inputWire": {
-        "owner": "generated",
-        "name": "view.GeneratedTunnelRuntimeApplyRequest",
-        "repeated": false
-      },
-      "outputWire": {
-        "owner": "generated",
-        "name": "view.GeneratedTunnelRuntimeApplyReceipt",
         "repeated": false
       },
       "errors": "RuntimeBridgeError"
@@ -1424,30 +1394,6 @@
       "outputWire": {
         "owner": "generated",
         "name": "voxelEditHistory.VoxelEditHistoryRedoReceipt",
-        "repeated": false
-      },
-      "errors": "RuntimeBridgeError"
-    },
-    {
-      "manifestName": "load_fps_runtime_session",
-      "facadeMethod": "loadFpsRuntimeSession",
-      "capability": "gameplay",
-      "surface": "stable",
-      "nativeWired": true,
-      "maxInputBytes": 8388608,
-      "maxOutputBytes": 8388608,
-      "input": "protocol_runtime::FpsRuntimeSessionLoadRequest",
-      "output": "protocol_runtime::FpsRuntimeSessionSnapshot",
-      "facadeInput": null,
-      "facadeOutput": null,
-      "inputWire": {
-        "owner": "custom",
-        "name": "FpsRuntimeSessionLoadRequest",
-        "repeated": false
-      },
-      "outputWire": {
-        "owner": "custom",
-        "name": "FpsRuntimeSessionSnapshot",
         "repeated": false
       },
       "errors": "RuntimeBridgeError"
@@ -2295,7 +2241,7 @@
     {
       "manifestName": "begin_runtime_project_source_resources",
       "facadeMethod": "beginRuntimeProjectSourceResources",
-      "capability": "bundle_lifecycle",
+      "capability": "runtime_project_lifecycle",
       "surface": "stable",
       "nativeWired": true,
       "maxInputBytes": 8388608,
@@ -2319,7 +2265,7 @@
     {
       "manifestName": "stage_runtime_project_source_resource",
       "facadeMethod": "stageRuntimeProjectSourceResource",
-      "capability": "bundle_lifecycle",
+      "capability": "runtime_project_lifecycle",
       "surface": "stable",
       "nativeWired": true,
       "maxInputBytes": 268500992,
@@ -2343,7 +2289,7 @@
     {
       "manifestName": "admit_runtime_project_source_batch",
       "facadeMethod": "admitRuntimeProjectSourceBatch",
-      "capability": "bundle_lifecycle",
+      "capability": "runtime_project_lifecycle",
       "surface": "stable",
       "nativeWired": true,
       "maxInputBytes": 16777216,
@@ -2367,7 +2313,7 @@
     {
       "manifestName": "load_runtime_project",
       "facadeMethod": "loadRuntimeProject",
-      "capability": "bundle_lifecycle",
+      "capability": "runtime_project_lifecycle",
       "surface": "stable",
       "nativeWired": true,
       "maxInputBytes": 8388608,
@@ -2391,7 +2337,7 @@
     {
       "manifestName": "read_active_runtime_project_content",
       "facadeMethod": "readActiveRuntimeProjectContent",
-      "capability": "bundle_lifecycle",
+      "capability": "runtime_project_lifecycle",
       "surface": "stable",
       "nativeWired": true,
       "maxInputBytes": 8388608,
@@ -2415,7 +2361,7 @@
     {
       "manifestName": "close_runtime_project",
       "facadeMethod": "closeRuntimeProject",
-      "capability": "bundle_lifecycle",
+      "capability": "runtime_project_lifecycle",
       "surface": "stable",
       "nativeWired": true,
       "maxInputBytes": 8388608,
@@ -2432,102 +2378,6 @@
       "outputWire": {
         "owner": "generated",
         "name": "projectBundle.RuntimeProjectCloseReceipt",
-        "repeated": false
-      },
-      "errors": "RuntimeBridgeError"
-    },
-    {
-      "manifestName": "load_project_bundle",
-      "facadeMethod": "loadProjectBundle",
-      "capability": "bundle_lifecycle",
-      "surface": "stable",
-      "nativeWired": true,
-      "maxInputBytes": 8388608,
-      "maxOutputBytes": 8388608,
-      "input": "protocol_project_bundle::ProjectBundleManifest",
-      "output": "protocol_diagnostics::DiagnosticReportSet",
-      "facadeInput": "bridge::ProjectBundleLoadRequest",
-      "facadeOutput": "bridge::CompositionStatus",
-      "inputWire": {
-        "owner": "custom",
-        "name": "ProjectBundleLoadRequest",
-        "repeated": false
-      },
-      "outputWire": {
-        "owner": "custom",
-        "name": "CompositionStatus",
-        "repeated": false
-      },
-      "errors": "RuntimeBridgeError"
-    },
-    {
-      "manifestName": "save_project_bundle",
-      "facadeMethod": "saveProjectBundle",
-      "capability": "bundle_lifecycle",
-      "surface": "stable",
-      "nativeWired": true,
-      "maxInputBytes": 8388608,
-      "maxOutputBytes": 8388608,
-      "input": "Unit",
-      "output": "protocol_project_bundle::SaveSummary",
-      "facadeInput": null,
-      "facadeOutput": "bridge::ProjectBundleSaveSummary",
-      "inputWire": {
-        "owner": "unit",
-        "name": "Unit",
-        "repeated": false
-      },
-      "outputWire": {
-        "owner": "custom",
-        "name": "ProjectBundleSaveSummary",
-        "repeated": false
-      },
-      "errors": "RuntimeBridgeError"
-    },
-    {
-      "manifestName": "get_project_bundle_composition_status",
-      "facadeMethod": "getProjectBundleCompositionStatus",
-      "capability": "bundle_lifecycle",
-      "surface": "stable",
-      "nativeWired": true,
-      "maxInputBytes": 8388608,
-      "maxOutputBytes": 8388608,
-      "input": "Unit",
-      "output": "protocol_diagnostics::DiagnosticReportSet",
-      "facadeInput": null,
-      "facadeOutput": "bridge::CompositionStatus",
-      "inputWire": {
-        "owner": "unit",
-        "name": "Unit",
-        "repeated": false
-      },
-      "outputWire": {
-        "owner": "custom",
-        "name": "CompositionStatus",
-        "repeated": false
-      },
-      "errors": "RuntimeBridgeError"
-    },
-    {
-      "manifestName": "unload_project_bundle",
-      "facadeMethod": "unloadProjectBundle",
-      "capability": "bundle_lifecycle",
-      "surface": "stable",
-      "nativeWired": true,
-      "maxInputBytes": 8388608,
-      "maxOutputBytes": 8388608,
-      "input": "Unit",
-      "output": "Unit",
-      "facadeInput": null,
-      "facadeOutput": null,
-      "inputWire": {
-        "owner": "unit",
-        "name": "Unit",
-        "repeated": false
-      },
-      "outputWire": {
-        "owner": "unit",
-        "name": "Unit",
         "repeated": false
       },
       "errors": "RuntimeBridgeError"

@@ -15,7 +15,6 @@ function createCameraSession() {
     sessionId: 'camera-modes.test',
     seed: 31,
     project: { gameId: 'camera-modes', workspaceId: 'workspace.camera' },
-    projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1 },
   });
   const camera = session.createCamera({
     initialPose: { position: [0, 1.6, 0], yawDegrees: 0, pitchDegrees: 0 },

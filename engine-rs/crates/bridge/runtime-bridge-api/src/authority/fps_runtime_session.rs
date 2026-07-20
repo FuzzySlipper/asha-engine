@@ -98,42 +98,6 @@ impl GameplayRuntimeDecisionOwner for StagedPrimaryFireOwner {
 }
 
 impl EngineBridge {
-    pub(super) fn load_fps_runtime_session_authority(
-        &mut self,
-        request: FpsRuntimeSessionLoadRequest,
-    ) -> BridgeResult<FpsRuntimeSessionSnapshot> {
-        self.require_initialized("load_fps_runtime_session")?;
-        let canonical_scene =
-            Self::scene_document_from_dto(request.scene_document.clone())?.canonical();
-        let input = Self::convert_fps_load_request(&request)?;
-        let game_rule_modules = Self::verify_game_rule_modules(&request.game_rule_modules)?;
-        let mut entities = self
-            .gameplay
-            .static_gameplay_base_entities
-            .clone()
-            .unwrap_or_default();
-        let loaded = load_fps_project_bundle_into(&mut entities, input.clone())
-            .map_err(Self::fps_runtime_error)?;
-        if let Some(checkpoint) = self.gameplay.static_gameplay_reset_checkpoint.clone() {
-            self.with_static_gameplay_runtime("load_fps_runtime_session", move |host| {
-                host.restore_reset_state(checkpoint)
-            })?
-            .expect("composed gameplay reset checkpoint requires a static gameplay host");
-        }
-        self.scene.entities = entities;
-        self.scene.scene_document = Some(canonical_scene);
-        self.gameplay.fps_session = Some(loaded);
-        self.gameplay.fps_seed = Some(input);
-        self.gameplay.fps_epoch = self.gameplay.fps_epoch.saturating_add(1);
-        self.gameplay.game_rule_modules = game_rule_modules;
-        self.reset_presentation_projection();
-        Self::fps_snapshot(
-            self.gameplay.fps_session.as_ref().expect("just committed"),
-            &self.scene.entities,
-            self.gameplay.fps_epoch,
-        )
-    }
-
     pub(super) fn apply_fps_primary_fire_authority(
         &mut self,
         request: FpsPrimaryFireRequest,
@@ -399,7 +363,7 @@ impl EngineBridge {
         let seed = self.gameplay.fps_seed.clone().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
-                "restart_fps_runtime_session called before load_fps_runtime_session",
+                "restart_fps_runtime_session called before canonical FPS project activation",
             )
         })?;
         let input = seed;
@@ -451,7 +415,7 @@ impl EngineBridge {
             .ok_or_else(|| {
                 RuntimeBridgeError::new(
                     RuntimeBridgeErrorKind::NotInitialized,
-                    "apply_fps_encounter_transition called before load_fps_runtime_session",
+                    "apply_fps_encounter_transition called before canonical FPS project activation",
                 )
             })?
             .apply_encounter_transition_with_entities(

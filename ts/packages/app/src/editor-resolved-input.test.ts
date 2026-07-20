@@ -21,7 +21,11 @@ void test('app shell composes resolved editor input into camera and real tool be
       id: 'editor-input',
       label: 'Editor input',
       materials: [1],
-      request: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1 },
+      source: {
+        kind: 'memory',
+        identity: 'editor-input-test',
+        read: async () => new Uint8Array(),
+      },
     }],
   });
   shell.controller.store.dispatch({

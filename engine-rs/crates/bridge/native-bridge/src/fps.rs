@@ -3,12 +3,10 @@ use protocol_game_extension::{
     GameplayCompositionDiagnostic, GameplayCompositionDiagnosticCode, GameplayCompositionLoadMode,
 };
 use runtime_bridge_api::{
-    ComposedRuntimeSessionReadout, FpsBootstrapResolutionRegistry, FpsBridgeBoundsCapability,
-    FpsBridgeHealth, FpsBridgePolicyBinding, FpsBridgeRole, FpsBridgeStoredEntityDefinition,
-    FpsBridgeTransformCapability, FpsBridgeWeaponMount, FpsEncounterDirectorSnapshot,
+    ComposedRuntimeSessionReadout, FpsBridgeRole, FpsEncounterDirectorSnapshot,
     FpsEncounterLifecycleInput, FpsEncounterStateReadout, FpsEncounterTransitionRequest,
     FpsEncounterTransitionResult, FpsPrimaryFireRequest, FpsPrimaryFireResult,
-    FpsRuntimeSessionLoadRequest, FpsRuntimeSessionRestartRequest, FpsRuntimeSessionSnapshot,
+    FpsRuntimeSessionRestartRequest, FpsRuntimeSessionSnapshot,
     GameExtensionWeaponEffectInvocationRequest, GameRuleEffectIntentRequest, GameplayContractRef,
     GameplayModuleViewRequest, GameplayModuleViewScope, GameplayModuleViewSnapshot,
     GameplayPrefabPartInteractionReceipt, GameplayPrefabPartInteractionRequest, RuntimeBridge,
@@ -16,23 +14,10 @@ use runtime_bridge_api::{
 };
 
 use crate::{
-    game_extension_json, game_rule_json, parse_game_rule_catalog, parse_game_rule_module_manifests,
+    game_extension_json, game_rule_json, parse_game_rule_catalog,
     parse_game_rule_resolution_request, parse_weapon_effect_hook_request, to_napi, u32_input,
-    u64_input, wire::parse_wire_json, with_bridge, NativeVec3,
+    u64_input, with_bridge, NativeVec3,
 };
-
-#[napi(object)]
-pub struct NativeFpsTransformCapability {
-    pub translation: NativeVec3,
-    pub rotation: Vec<f64>,
-    pub scale: NativeVec3,
-}
-
-#[napi(object)]
-pub struct NativeFpsBoundsCapability {
-    pub min: NativeVec3,
-    pub max: NativeVec3,
-}
 
 #[napi(object)]
 pub struct NativeFpsHealth {
@@ -40,41 +25,6 @@ pub struct NativeFpsHealth {
     pub max: u32,
 }
 
-#[napi(object)]
-pub struct NativeFpsWeaponMount {
-    pub weapon_id: String,
-    pub damage: u32,
-    pub range_units: u32,
-    pub ammo: u32,
-    pub cooldown_ticks_after_fire: u32,
-}
-
-#[napi(object)]
-pub struct NativeFpsPolicyBinding {
-    pub binding_id: String,
-    pub policy_id: String,
-    pub view_kind: String,
-    pub view_version: String,
-    pub allowed_intents: Vec<String>,
-    pub runtime_moment: String,
-}
-
-#[napi(object)]
-pub struct NativeFpsStoredEntityDefinition {
-    pub entity: i64,
-    pub stable_id: String,
-    pub display_name: String,
-    pub source_path: String,
-    pub tags: Vec<String>,
-    pub role: String,
-    pub transform: Option<NativeFpsTransformCapability>,
-    pub bounds: Option<NativeFpsBoundsCapability>,
-    pub render_visible: Option<bool>,
-    pub static_collider: Option<bool>,
-    pub health: Option<NativeFpsHealth>,
-    pub weapon: Option<NativeFpsWeaponMount>,
-    pub policy_binding: Option<NativeFpsPolicyBinding>,
-}
 
 #[napi(object)]
 pub struct NativeFpsLifecycleStatus {
@@ -339,91 +289,6 @@ fn native_fps_lifecycle_status(
             }
         }
     }
-}
-
-fn bridge_fps_transform(
-    value: NativeFpsTransformCapability,
-    field: &str,
-) -> napi::Result<FpsBridgeTransformCapability> {
-    if value.rotation.len() != 4 || value.rotation.iter().any(|v| !v.is_finite()) {
-        return Err(to_napi(RuntimeBridgeError::new(
-            RuntimeBridgeErrorKind::InvalidInput,
-            format!("{field}.rotation must be a finite quaternion"),
-        )));
-    }
-    let translation = value.translation.to_vec3(&format!("{field}.translation"))?;
-    let scale = value.scale.to_vec3(&format!("{field}.scale"))?;
-    Ok(FpsBridgeTransformCapability {
-        translation: [translation.x, translation.y, translation.z],
-        rotation: [
-            value.rotation[0] as f32,
-            value.rotation[1] as f32,
-            value.rotation[2] as f32,
-            value.rotation[3] as f32,
-        ],
-        scale: [scale.x, scale.y, scale.z],
-    })
-}
-
-fn bridge_fps_bounds(
-    value: NativeFpsBoundsCapability,
-    field: &str,
-) -> napi::Result<FpsBridgeBoundsCapability> {
-    let min = value.min.to_vec3(&format!("{field}.min"))?;
-    let max = value.max.to_vec3(&format!("{field}.max"))?;
-    Ok(FpsBridgeBoundsCapability {
-        min: [min.x, min.y, min.z],
-        max: [max.x, max.y, max.z],
-    })
-}
-
-fn bridge_fps_definitions(
-    definitions: Vec<NativeFpsStoredEntityDefinition>,
-) -> napi::Result<Vec<FpsBridgeStoredEntityDefinition>> {
-    definitions
-        .into_iter()
-        .enumerate()
-        .map(|(index, value)| {
-            let field = format!("definitions[{index}]");
-            Ok(FpsBridgeStoredEntityDefinition {
-                entity: u64_input(value.entity, &format!("{field}.entity"))?,
-                stable_id: value.stable_id,
-                display_name: value.display_name,
-                source_path: value.source_path,
-                tags: value.tags,
-                role: native_fps_role(&value.role)?,
-                transform: value
-                    .transform
-                    .map(|transform| bridge_fps_transform(transform, &format!("{field}.transform")))
-                    .transpose()?,
-                bounds: value
-                    .bounds
-                    .map(|bounds| bridge_fps_bounds(bounds, &format!("{field}.bounds")))
-                    .transpose()?,
-                render_visible: value.render_visible,
-                static_collider: value.static_collider,
-                health: value.health.map(|health| FpsBridgeHealth {
-                    current: health.current,
-                    max: health.max,
-                }),
-                weapon: value.weapon.map(|weapon| FpsBridgeWeaponMount {
-                    weapon_id: weapon.weapon_id,
-                    damage: weapon.damage,
-                    range_units: weapon.range_units,
-                    ammo: weapon.ammo,
-                    cooldown_ticks_after_fire: weapon.cooldown_ticks_after_fire,
-                }),
-                policy_binding: value.policy_binding.map(|binding| FpsBridgePolicyBinding {
-                    binding_id: binding.binding_id,
-                    policy_id: binding.policy_id,
-                    view_kind: binding.view_kind,
-                    view_version: binding.view_version,
-                    allowed_intents: binding.allowed_intents,
-                    runtime_moment: binding.runtime_moment,
-                }),
-            })
-        })
-        .collect()
 }
 
 impl From<FpsRuntimeSessionSnapshot> for NativeFpsRuntimeSessionSnapshot {
@@ -756,36 +621,6 @@ fn module_view_scope(kind: &str, value: Option<i64>) -> napi::Result<GameplayMod
             "module view scope must be session without a value, or entity/prefabInstance with a value",
         ))),
     }
-}
-
-#[napi]
-pub fn load_fps_runtime_session(
-    handle: i64,
-    project_bundle: String,
-    scene_document_json: String,
-    bootstrap_resolution_registry_json: String,
-    definitions: Vec<NativeFpsStoredEntityDefinition>,
-    game_rule_modules_json: String,
-) -> napi::Result<NativeFpsRuntimeSessionSnapshot> {
-    let scene_document = crate::scene_preview::parse_scene_document_json(&scene_document_json)?;
-    let bootstrap_resolution_registry = parse_wire_json::<FpsBootstrapResolutionRegistry>(
-        "load_fps_runtime_session.bootstrap_resolution_registry",
-        &bootstrap_resolution_registry_json,
-    )?;
-    let definitions = bridge_fps_definitions(definitions)?;
-    let game_rule_modules = parse_game_rule_module_manifests(&game_rule_modules_json)?;
-    with_bridge(handle, |bridge| {
-        bridge
-            .load_fps_runtime_session(FpsRuntimeSessionLoadRequest {
-                project_bundle,
-                bootstrap_resolution_registry,
-                definitions,
-                scene_document,
-                game_rule_modules,
-            })
-            .map(NativeFpsRuntimeSessionSnapshot::from)
-            .map_err(to_napi)
-    })
 }
 
 #[napi]

@@ -59,21 +59,10 @@ import {
   RuntimeBridgeError,
   assertNativeRustRuntimeBridgeAuthority,
   createNativeRustRuntimeBridgeProvider,
-  createNativeGameRuntimeLauncher,
   createNativeRuntimeBridge,
-  createDefaultBrowserInputCatalog,
-  createSelectedBackendGameRuntimeLauncher,
   frameCursor,
   installNativeRustRuntimeBridgeProvider,
-  nativeBackendProfile,
   resolveNativeRustRuntimeBridgeProvider,
-  validateGameRuntimeBackendProfile,
-  type GameRuntimeCommandProposalResult,
-  type GameRuntimeConfig,
-  type GameRuntimeLaunchResult,
-  type GameRuntimeProfile,
-  type GameRuntimeProjectionSummary,
-  type GameRuntimeResourceProfile,
   type ModelMaterialPreviewRequest,
   type NativeRustRuntimeBridgeProvider,
   type NativeRustRuntimeBridgeProviderGlobalName,
@@ -82,11 +71,7 @@ import {
 import { fnv1a64 } from './mock-primitives.js';
 import {
   MockRuntimeBridge,
-  REFERENCE_RUNTIME_BACKEND_PROFILE,
   createMockRuntimeBridge,
-  createMockRuntimeSession,
-  createReferenceGameRuntimeLauncher,
-  referenceBackendProfile,
 } from './reference.js';
 
 function writeStaleNativeAddonModule(): string {
@@ -96,17 +81,13 @@ function writeStaleNativeAddonModule(): string {
     modulePath,
     `module.exports = {
       initializeEngine() {},
-      loadProjectBundle() {},
       submitCommands() {},
       stepSimulation() {},
       applyEnemyDirectNavMovement() {},
-      loadFpsRuntimeSession() {},
       readFpsRuntimeSession() {},
       applyFpsPrimaryFire() {},
       restartFpsRuntimeSession() {},
-      readRenderDiffs() {},
-      saveProjectBundle() {},
-      getProjectBundleCompositionStatus() {}
+      readRenderDiffs() {}
     };`,
   );
   return modulePath;
@@ -132,327 +113,7 @@ void test('facade exposes exactly the manifest operations (conformance)', () => 
   );
 });
 
-void test('game runtime launcher public DTOs compile as package-root consumer fixtures', () => {
-  const compatibility = {
-    contractsPackageVersion: '0.1.0',
-    runtimeBridgePackageVersion: '0.1.0',
-    devtoolsProtocolVersion: 'devtools-protocol.v0',
-    publishArtifactVersion: 'publish-artifact.v0',
-  };
-  const resourceProfile: GameRuntimeResourceProfile = {
-    profileId: 'demo.reference.resources.v1',
-    runtimeEntry: 'fixtures/runtime-bridge/minimal-project.json',
-    projectBundleId: 'world.minimal',
-    resourceManifestHash: 'sha256-resource-profile',
-    estimatedBytes: 4096,
-  };
-  const config: GameRuntimeConfig = {
-    gameId: 'asha-demo',
-    workspaceId: 'workspace.local',
-    runtimeEntry: resourceProfile.runtimeEntry,
-    compatibility,
-    resourceProfile,
-    projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 7 },
-    startedAtIso: '2026-06-28T00:00:00.000Z',
-  };
-  const runtimeProfile: GameRuntimeProfile = {
-    profileId: 'reference.launcher.v1',
-    runtimeMode: 'reference',
-    launcherName: 'reference-game-runtime-launcher',
-    bridgeCompatibility: compatibility,
-    nonClaims: ['not_native_runtime', 'not_hardware_gpu', 'not_performance_evidence', 'not_publish_artifact', 'not_product_authority'],
-  };
-  const projection: GameRuntimeProjectionSummary = {
-    sequenceId: 0,
-    runtimeSessionSummaryHash: 'runtime-session:minimal:0',
-    authorityHash: 'authority:minimal:0',
-    loadedProjectBundle: config.projectBundle.sceneId,
-    fatalCount: 0,
-    totalDiagnosticCount: 0,
-    evidenceRefs: [{ kind: 'projection', id: 'projection:0', sequenceId: 0 }],
-  };
-  const launch: GameRuntimeLaunchResult = {
-    status: 'launched',
-    identity: {
-      gameId: config.gameId,
-      workspaceId: config.workspaceId,
-      runtimeMode: 'reference',
-      runtimeEntry: config.runtimeEntry,
-      startedAtIso: config.startedAtIso ?? '2026-06-28T00:00:00.000Z',
-      compatibility,
-      nonClaims: runtimeProfile.nonClaims,
-    },
-    runtimeProfile,
-    resourceProfile,
-    projection,
-    diagnostics: [],
-    evidenceRefs: projection.evidenceRefs,
-  };
-  const commandProposal: GameRuntimeCommandProposalResult = {
-    sequenceId: 1,
-    status: 'accepted',
-    batch: { commands: [] },
-    result: { accepted: 0, rejected: 0, rejections: [] },
-    authorityHashBefore: launch.projection.authorityHash,
-    authorityHashAfter: 'authority:minimal:1',
-    diagnostics: [],
-    evidenceRefs: [{ kind: 'replay', id: 'replay:1', sequenceId: 1 }],
-  };
-
-  assert.equal(launch.identity.runtimeMode, 'reference');
-  assert.equal(commandProposal.status, 'accepted');
-});
-
-function gameRuntimeConfig(): GameRuntimeConfig {
-  return {
-    gameId: 'asha-demo',
-    workspaceId: 'workspace.local',
-    runtimeEntry: 'fixtures/runtime-bridge/minimal-project.json',
-    compatibility: {
-      contractsPackageVersion: '0.1.0',
-      runtimeBridgePackageVersion: '0.1.0',
-      devtoolsProtocolVersion: 'devtools-protocol.v0',
-      publishArtifactVersion: 'publish-artifact.v0',
-    },
-    resourceProfile: {
-      profileId: 'demo.reference.resources.v1',
-      runtimeEntry: 'fixtures/runtime-bridge/minimal-project.json',
-      projectBundleId: 'world.minimal',
-      resourceManifestHash: 'sha256-resource-profile',
-    },
-    projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 7 },
-    startedAtIso: '2026-06-28T00:00:00.000Z',
-  };
-}
-
-void test('reference game runtime launcher launches fixture and advances command projection', async () => {
-  const launcher = createReferenceGameRuntimeLauncher();
-  const config = gameRuntimeConfig();
-
-  const session = await launcher.launch(config);
-  assert.equal(launcher.mode, 'reference');
-  assert.equal(session.identity.runtimeMode, 'reference');
-  assert.ok(session.identity.nonClaims.includes('not_native_runtime'));
-  assert.ok(session.identity.nonClaims.includes('not_product_authority'));
-  assert.ok(!session.identity.nonClaims.includes('not_publish_artifact') || session.identity.runtimeMode === 'reference');
-
-  const before = await session.pullProjection();
-  const command: VoxelCommand = {
-    op: 'setVoxel',
-    grid: 1,
-    coord: { x: 0, y: 0, z: 0 },
-    value: { kind: 'solid', material: 1 },
-  };
-  const receipt = await session.proposeCommands({ commands: [command] });
-  const after = await session.pullProjection();
-  assert.equal(receipt.status, 'accepted');
-  assert.equal(receipt.result?.accepted, 1);
-  assert.equal(receipt.authorityHashBefore, before.authorityHash);
-  assert.equal(receipt.authorityHashAfter, after.authorityHash);
-  assert.notEqual(after.authorityHash, before.authorityHash);
-
-  const rejected = await session.proposeCommands({
-    commands: [{
-      op: 'setVoxel',
-      grid: 1,
-      coord: { x: 0, y: 0, z: 0 },
-      value: { kind: 'solid', material: 999 },
-    }],
-  });
-  const afterRejected = await session.pullProjection();
-  assert.equal(rejected.status, 'rejected');
-  assert.equal(rejected.result?.accepted, 0);
-  assert.equal(rejected.result?.rejected, 1);
-  assert.equal(rejected.authorityHashBefore, after.authorityHash);
-  assert.equal(rejected.authorityHashAfter, after.authorityHash);
-  assert.equal(afterRejected.authorityHash, after.authorityHash);
-
-  const telemetry = await session.pullTelemetry();
-  assert.equal(telemetry.runtimeMode, 'reference');
-  assert.equal(telemetry.acceptedCommandCount, 1);
-  assert.equal(telemetry.rejectedCommandCount, 1);
-
-  const evidence = await session.exportEvidence({ evidenceId: 'evidence:reference-launch' });
-  assert.equal(evidence.sequenceId, afterRejected.sequenceId);
-  assert.ok(evidence.nonClaims.includes('not_hardware_gpu'));
-
-  await session.shutdown();
-});
-
-void test('reference RuntimeSession helper is explicitly fixture-only', () => {
-  assert.equal(REFERENCE_RUNTIME_BACKEND_PROFILE.entrypoint, '@asha/runtime-bridge/reference');
-  assert.equal(REFERENCE_RUNTIME_BACKEND_PROFILE.productAuthority, false);
-  assert.deepEqual(REFERENCE_RUNTIME_BACKEND_PROFILE.disallowedUse, [
-    'product-authority',
-    'live-demo-default',
-    'studio-live-attach',
-  ]);
-  assert.ok(REFERENCE_RUNTIME_BACKEND_PROFILE.nonClaims.includes('not_product_authority'));
-
-  const session = createMockRuntimeSession();
-  const initialized = session.initialize({
-    sessionId: 'runtime-session.reference-quarantine',
-    seed: 11,
-    project: {
-      gameId: 'fixture-demo',
-      workspaceId: 'workspace.fixture',
-    },
-    projectBundle: {
-      bundleSchemaVersion: 1,
-      protocolVersion: 1,
-      sceneId: 11,
-    },
-  });
-  assert.equal(initialized.identity.mode, 'reference');
-  assert.ok(initialized.identity.nonClaims.includes('not_native_runtime'));
-  assert.ok(initialized.identity.nonClaims.includes('not_product_authority'));
-});
-
-void test('reference game runtime launcher fails closed on unsupported project bundle', async () => {
-  const launcher = createReferenceGameRuntimeLauncher();
-  await assert.rejects(
-    () =>
-      launcher.launch({
-        gameId: 'asha-demo',
-        workspaceId: 'workspace.local',
-        runtimeEntry: 'fixtures/runtime-bridge/minimal-project.json',
-        compatibility: {
-          contractsPackageVersion: '0.1.0',
-          runtimeBridgePackageVersion: '0.1.0',
-        },
-        resourceProfile: {
-          profileId: 'demo.reference.resources.v1',
-          runtimeEntry: 'fixtures/runtime-bridge/minimal-project.json',
-          projectBundleId: 'world.minimal',
-        },
-        projectBundle: { bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 7 },
-      }),
-    (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input',
-  );
-});
-
-void test('backend profile validation gates native claims and private transports', () => {
-  const config = gameRuntimeConfig();
-  const native = nativeBackendProfile(config);
-  assert.deepEqual(validateGameRuntimeBackendProfile(native), {
-    ok: true,
-    profile: native,
-    diagnostics: [],
-  });
-
-  const reference = referenceBackendProfile(config);
-  assert.deepEqual(validateGameRuntimeBackendProfile(reference), {
-    ok: true,
-    profile: reference,
-    diagnostics: [],
-  });
-  assert.ok(reference.nonClaims.includes('not_product_authority'));
-
-  const referenceClaimingProductAuthority = validateGameRuntimeBackendProfile({
-    ...reference,
-    nonClaims: reference.nonClaims.filter((claim) => claim !== 'not_product_authority'),
-  });
-  assert.equal(referenceClaimingProductAuthority.ok, false);
-  assert.equal(
-    !referenceClaimingProductAuthority.ok
-      && referenceClaimingProductAuthority.diagnostics.some((diagnostic) => diagnostic.code === 'backend_claim_mismatch'),
-    true,
-  );
-
-  const missingEvidence = validateGameRuntimeBackendProfile({
-    ...native,
-    evidenceRefs: [],
-  });
-  assert.equal(missingEvidence.ok, false);
-  assert.equal(
-    !missingEvidence.ok && missingEvidence.diagnostics.some((diagnostic) => diagnostic.code === 'missing_backend_evidence'),
-    true,
-  );
-
-  const privateHint = validateGameRuntimeBackendProfile({
-    ...native,
-    profileId: '@asha/native-bridge/native-bridge.node',
-  });
-  assert.equal(privateHint.ok, false);
-  assert.equal(
-    !privateHint.ok && privateHint.diagnostics.some((diagnostic) => diagnostic.code === 'private_transport_hint'),
-    true,
-  );
-
-  const unsupported = validateGameRuntimeBackendProfile({
-    ...native,
-    mode: 'raw-native',
-    rawTransport: '@asha/native-bridge',
-  });
-  assert.equal(unsupported.ok, false);
-  assert.equal(
-    !unsupported.ok && unsupported.diagnostics.some((diagnostic) => diagnostic.code === 'private_transport_hint'),
-    true,
-  );
-});
-
-void test('selected backend launcher reports native mode through public facade', async () => {
-  const config = gameRuntimeConfig();
-  const launcher = createSelectedBackendGameRuntimeLauncher({
-    profile: nativeBackendProfile(config),
-    bridgeFactory: createMockRuntimeBridge,
-  });
-
-  const session = await launcher.launch(config);
-  assert.equal(launcher.mode, 'native');
-  assert.equal(session.identity.runtimeMode, 'native');
-  assert.ok(!session.identity.nonClaims.includes('not_native_runtime'));
-  const projection = await session.pullProjection();
-  assert.ok(projection.authorityHash.startsWith('native-authority:'));
-  const telemetry = await session.pullTelemetry();
-  assert.equal(telemetry.runtimeMode, 'native');
-  await session.shutdown();
-});
-
-void test('selected backend launcher fails closed when native dependency is missing', async () => {
-  const launcher = createNativeGameRuntimeLauncher({ nativeModulePath: './definitely-not-built.node' });
-  await assert.rejects(
-    () => launcher.launch(gameRuntimeConfig()),
-    (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'native_unavailable',
-  );
-});
-
-void test('selected backend launcher rejects non-native selected mode without fallback', async () => {
-  const config = gameRuntimeConfig();
-  const profile = {
-    ...nativeBackendProfile(config),
-    mode: 'wasm' as const,
-    transport: 'wasm_module' as const,
-    evidenceRefs: [{ kind: 'diagnostic' as const, id: 'backend-profile:wasm' }],
-  };
-  const launcher = createSelectedBackendGameRuntimeLauncher({
-    profile,
-    bridgeFactory: createMockRuntimeBridge,
-  });
-  await assert.rejects(
-    () => launcher.launch(config),
-    (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input',
-  );
-});
-
-void test('selected backend launcher rejects reference profile before bridge creation', async () => {
-  const config = gameRuntimeConfig();
-  let bridgeFactoryCalls = 0;
-  const launcher = createSelectedBackendGameRuntimeLauncher({
-    profile: referenceBackendProfile(config),
-    bridgeFactory: () => {
-      bridgeFactoryCalls += 1;
-      return createMockRuntimeBridge();
-    },
-  });
-  await assert.rejects(
-    () => launcher.launch(config),
-    (e: unknown) => e instanceof RuntimeBridgeError
-      && e.kind === 'invalid_input'
-      && e.message.includes('reference_mock'),
-  );
-  assert.equal(bridgeFactoryCalls, 0);
-});
+// Launcher compatibility proofs were removed with the retired launcher surface.
 
 void test('native Rust RuntimeBridge provider resolver fails closed without a provider', async () => {
   const resolution = await resolveNativeRustRuntimeBridgeProvider({ globalScope: {} });
@@ -492,7 +153,7 @@ void test('native Rust RuntimeBridge provider resolver reports missing operation
   const resolution = await resolveNativeRustRuntimeBridgeProvider({ provider });
   assert.equal(resolution.status, 'unavailable');
   assert.equal(resolution.diagnostics[0]?.code, 'missing_runtime_bridge_operation');
-  assert.match(resolution.diagnostics[0]?.message ?? '', /loadProjectBundle/);
+  assert.match(resolution.diagnostics[0]?.message ?? '', /beginRuntimeProjectSourceResources/);
 });
 
 void test('native Rust RuntimeBridge provider resolver accepts public native provider shape', async () => {
@@ -806,40 +467,7 @@ void test('mock: readProjectionFrame preserves the G1 scene plus presentation en
   });
 });
 
-void test('mock: project bundle load → save → status → unload, with fail-closed save', () => {
-  const bridge = createMockRuntimeBridge();
-  // Save before load fails closed.
-  assert.throws(
-    () => bridge.saveProjectBundle(),
-    (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'not_initialized',
-  );
-  const status = bridge.loadProjectBundle({
-    bundleSchemaVersion: 1,
-    protocolVersion: 1,
-    sceneId: 100,
-  });
-  assert.equal(status.loadedProjectBundle, 100);
-  assert.equal(status.blocksLoad, false);
-  assert.deepEqual(bridge.saveProjectBundle(), {
-    artifactsWritten: 3,
-    compactedEdits: 0,
-    retainedEdits: 0,
-  });
-  assert.equal(bridge.getProjectBundleCompositionStatus().loadedProjectBundle, 100);
-  bridge.unloadProjectBundle();
-  assert.equal(bridge.getProjectBundleCompositionStatus().loadedProjectBundle, null);
-});
-
-void test('mock: an unsupported bundle version fails closed without swapping the world', () => {
-  const bridge = createMockRuntimeBridge();
-  bridge.loadProjectBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 7 });
-  assert.throws(
-    () => bridge.loadProjectBundle({ bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 8 }),
-    (e: unknown) => e instanceof RuntimeBridgeError && e.kind === 'invalid_input',
-  );
-  // The prior ProjectBundle stays loaded (no partial swap).
-  assert.equal(bridge.getProjectBundleCompositionStatus().loadedProjectBundle, 7);
-});
+// Legacy bundle lifecycle tests were deleted with the retired lifecycle.
 
 void test('mock: submitCommands carries the generated VoxelCommand union (the launch path)', () => {
   const bridge = createMockRuntimeBridge();
@@ -1004,116 +632,4 @@ void test('native project source staging keeps binary bytes out of JSON and cons
   const replayed = bridge.admitRuntimeProjectSourceBatch(batch);
   assert.equal(replayed.accepted, false);
   assert.equal(replayed.diagnostics[0]?.code, 'unknownResourceHandle');
-});
-
-void test('native bridge matches the mock when the addon is built (else skip)', (t) => {
-  let bridge;
-  try {
-    bridge = createNativeRuntimeBridge();
-  } catch (e) {
-    if (e instanceof RuntimeBridgeError && e.kind === 'native_unavailable') {
-      t.skip('native addon not built (run harness/ci/check-native.sh)');
-      return;
-    }
-    throw e;
-  }
-  // Parity with MockRuntimeBridge / Rust ReferenceBridge for the native authority sequence.
-  const handle = bridge.initializeEngine({ seed: 7 }) as number;
-  assert.equal(typeof handle, 'number');
-  const inputSnapshot = bridge.configureInputSession({
-    catalog: createDefaultBrowserInputCatalog(),
-    initialContexts: ['gameplay'],
-  });
-  assert.equal(inputSnapshot.contextState.activeContexts[0]?.contextId, 'gameplay');
-  const resolvedInput = bridge.submitRawInput({
-    sequence: 0,
-    platformKind: 'keyboardKey',
-    control: 'KeyW',
-    phase: 'pressed',
-    value: { kind: 'button', pressed: true },
-  });
-  assert.equal(resolvedInput.action?.actionId, 'gameplay.move.forward');
-  assert.ok(resolvedInput.record);
-  const replayedInput = bridge.replayResolvedInputAction(resolvedInput.record);
-  assert.equal(replayedInput.accepted, true);
-  assert.deepEqual(replayedInput.action, resolvedInput.action);
-  const replayedTwice = bridge.replayResolvedInputAction(resolvedInput.record);
-  assert.equal(replayedTwice.accepted, false);
-  assert.equal(replayedTwice.diagnostics[0]?.code, 'replayAlreadyDelivered');
-  assert.equal(bridge.applyInputContextCommand({ operation: 'push', contextId: 'menu' }).accepted, true);
-  assert.equal(bridge.readInputContextState().activeContexts.at(-1)?.contextId, 'menu');
-  const pause = bridge.applyTimeControlCommand({ operation: 'pause' });
-  assert.equal(pause.accepted, true);
-  assert.equal(bridge.stepSimulation({ tick: 3 }).tick, 0);
-  const exactStep = bridge.applyTimeControlCommand({ operation: 'stepTicks', ticks: 3 });
-  assert.equal(exactStep.exactTicksAdvanced, 3);
-  assert.equal(bridge.readTimeControlState().authorityTick, 3);
-  assert.equal(bridge.applyTimeControlCommand({ operation: 'resume' }).accepted, true);
-  const menuConsumedInput = bridge.submitRawInput({
-    sequence: 1,
-    platformKind: 'keyboardKey',
-    control: 'KeyW',
-    phase: 'held',
-    value: { kind: 'button', pressed: true },
-  });
-  assert.equal(menuConsumedInput.action, null);
-  assert.equal(menuConsumedInput.consumed, true);
-  assert.deepEqual(bridge.loadProjectBundle({ bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 1001 }), {
-    loadedProjectBundle: 1001,
-    fatalCount: 0,
-    totalCount: 0,
-    blocksLoad: false,
-  });
-  assert.deepEqual(
-    bridge.submitCommands({
-      commands: [
-        { op: 'setVoxel', grid: 1, coord: { x: 0, y: 0, z: 0 }, value: { kind: 'solid', material: 1 } },
-      ],
-    }),
-    { accepted: 1, rejected: 0, rejections: [] },
-  );
-  assert.deepEqual(bridge.stepSimulation({ tick: 6 }), { tick: 6, diffCount: 0 });
-  const voxelProjection = bridge.readRenderDiffs(frameCursor(0));
-  assert.ok(voxelProjection.ops.some((operation) => operation.op === 'replaceMeshPayload'));
-  assert.deepEqual(bridge.readRenderDiffs(frameCursor(0)), { ops: [] });
-  assert.deepEqual(bridge.saveProjectBundle(), { artifactsWritten: 3, compactedEdits: 0, retainedEdits: 0 });
-  assert.deepEqual(bridge.getProjectBundleCompositionStatus(), {
-    loadedProjectBundle: 1001,
-    fatalCount: 0,
-    totalCount: 0,
-    blocksLoad: false,
-  });
-  const sceneBefore = bridge.readSceneObjectSnapshot();
-  assert.equal(sceneBefore.objects[0]?.label, 'Root');
-  const selected = bridge.applySceneObjectCommand({
-    expectedDocumentHash: sceneBefore.documentHash,
-    command: { kind: 'select', id: sceneBefore.objects[0]?.id ?? null },
-  });
-  assert.equal(selected.accepted, true);
-  assert.equal(selected.outcome?.selected, sceneBefore.objects[0]?.id);
-
-  const preview = bridge.readModelMaterialPreview(MODEL_MATERIAL_PREVIEW_REQUEST);
-  assert.equal(preview.rendererClassification, 'runtime_readback');
-  assert.deepEqual(preview.previewDiff.ops.map((operation) => operation.op), [
-    'defineMaterial',
-    'defineStaticMesh',
-    'createStaticMeshInstance',
-  ]);
-
-  const buffer = bridge.getBuffer(0 as RuntimeBufferHandle);
-  assert.deepEqual([...buffer.bytes], [7, 0, 0, 0, 0, 0, 0, 0]);
-  bridge.releaseBuffer(buffer.handle);
-  assert.throws(
-    () => bridge.getBuffer(buffer.handle),
-    (error: unknown) =>
-      error instanceof RuntimeBridgeError &&
-      error.kind === 'unknown_handle' &&
-      error.operation === 'get_buffer' &&
-      error.path === '$' &&
-      error.retryable === false &&
-      error.provenance === 'native_rust',
-  );
-
-  bridge.unloadProjectBundle();
-  assert.equal(bridge.getProjectBundleCompositionStatus().loadedProjectBundle, null);
 });

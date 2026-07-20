@@ -91,11 +91,6 @@ pub trait RuntimeBridge {
         &mut self,
         input: CollisionConstrainedCameraInputEnvelope,
     ) -> BridgeResult<CameraCollisionSnapshot>;
-    /// Materialize a selected generated tunnel as the authority collision world.
-    fn apply_generated_tunnel_to_runtime_world(
-        &mut self,
-        request: GeneratedTunnelRuntimeApplyRequest,
-    ) -> BridgeResult<GeneratedTunnelRuntimeApplyReceipt>;
     /// Derive a camera/projection-sourced ray and authority selection evidence.
     fn select_voxel(
         &self,
@@ -318,13 +313,6 @@ pub trait RuntimeBridge {
         &mut self,
         request: SceneObjectCommandRequestDto,
     ) -> BridgeResult<SceneObjectCommandResultDto>;
-    /// Load an FPS/ECRP ProjectBundle-shaped session through Rust authority.
-    /// Stored definitions are validated/bootstraped by rule-lifecycle and
-    /// svc-entity-authoring; failure leaves any prior FPS session untouched.
-    fn load_fps_runtime_session(
-        &mut self,
-        request: FpsRuntimeSessionLoadRequest,
-    ) -> BridgeResult<FpsRuntimeSessionSnapshot>;
     /// Read typed FPS/ECRP RuntimeSession projection from Rust authority.
     fn read_fps_runtime_session(&self) -> BridgeResult<FpsRuntimeSessionSnapshot>;
     /// Submit a primary-fire intent. Rust owns combat, lifecycle, replay/hash,
@@ -455,17 +443,4 @@ pub trait RuntimeBridge {
         &mut self,
         request: RuntimeProjectCloseRequest,
     ) -> BridgeResult<RuntimeProjectCloseReceipt>;
-    /// Load a ProjectBundle into authority. Fails closed (and leaves any prior
-    /// RuntimeSession untouched) on an unsupported version.
-    fn load_project_bundle(
-        &mut self,
-        request: ProjectBundleLoadRequest,
-    ) -> BridgeResult<CompositionStatus>;
-    /// Save the current ProjectBundle/session content. Fails closed with
-    /// `NotInitialized` if none loaded.
-    fn save_project_bundle(&mut self) -> BridgeResult<ProjectBundleSaveSummary>;
-    /// Read composition status/diagnostics without mutating authority.
-    fn get_project_bundle_composition_status(&self) -> BridgeResult<CompositionStatus>;
-    /// Unload the staged/live ProjectBundle, returning to an empty runtime.
-    fn unload_project_bundle(&mut self) -> BridgeResult<()>;
 }

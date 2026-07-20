@@ -21,21 +21,24 @@ import { EditorStore } from '@asha/editor-tools';
 import { ThreeRenderer } from '@asha/renderer-three/backend';
 import {
   frameCursor,
+  createRuntimeSessionFacade,
   RuntimeBridgeError,
   type CommandBatch,
   type RuntimeBridge,
   type RuntimeBufferHandle,
 } from '@asha/runtime-bridge';
+import type { RuntimeSessionFacade } from '@asha/runtime-session';
 import { OVERLAY_HANDLE_BASE, previewOverlayDiffs } from '@asha/ui-dom';
 
 import { bootForMode, type BridgeBoot } from './harness.js';
 import type { SmokeMode } from './result.js';
 import {
-  FIXTURE_PROJECT_BUNDLE,
+  FIXTURE_PROJECT_ID,
+  FIXTURE_PROJECT_MANIFEST_HASH,
+  FIXTURE_PROJECT_SOURCE,
   fixtureEditUpdateFrame,
   fixtureRenderFrame,
   fixtureVoxelCommand,
-  fixtureProjectBundleHash,
 } from './fixtures.js';
 
 /** The documented perf command (referenced by docs + Den). */
@@ -60,7 +63,7 @@ export interface PerfMetadata {
   readonly runtimeMode: BridgeBoot['mode'];
   readonly smokeMode: SmokeMode;
   readonly fixtureId: number;
-  readonly fixtureProjectBundleHash: string;
+  readonly fixtureManifestHash: string;
   readonly node: string;
   readonly platform: string;
   readonly arch: string;
@@ -150,6 +153,7 @@ async function osBasics(): Promise<OsBasics> {
 /** Mutable run accumulator. */
 interface PerfState {
   readonly bridge: RuntimeBridge;
+  readonly session: RuntimeSessionFacade;
   readonly authority: boolean;
   readonly renderer: ThreeRenderer;
   readonly store: EditorStore;
@@ -166,6 +170,18 @@ interface PerfState {
 function phase<T>(state: PerfState, name: string, iterations: number, fn: () => T): T {
   const t0 = state.clock();
   const value = fn();
+  state.timings.push({ phase: name, ms: state.clock() - t0, iterations });
+  return value;
+}
+
+async function asyncPhase<T>(
+  state: PerfState,
+  name: string,
+  iterations: number,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const t0 = state.clock();
+  const value = await fn();
   state.timings.push({ phase: name, ms: state.clock() - t0, iterations });
   return value;
 }
@@ -229,8 +245,8 @@ export async function runPerf(options: PerfOptions = {}): Promise<PerfResult> {
     hostLabel: options.meta?.hostLabel ?? 'unlabeled-host',
     runtimeMode: boot.mode,
     smokeMode: mode,
-    fixtureId: FIXTURE_PROJECT_BUNDLE.sceneId,
-    fixtureProjectBundleHash: fixtureProjectBundleHash(FIXTURE_PROJECT_BUNDLE),
+    fixtureId: FIXTURE_PROJECT_ID,
+    fixtureManifestHash: FIXTURE_PROJECT_MANIFEST_HASH,
     node: process.version,
     platform: os.platform,
     arch: os.arch,
@@ -258,6 +274,10 @@ export async function runPerf(options: PerfOptions = {}): Promise<PerfResult> {
 
   const state: PerfState = {
     bridge: boot.bridge,
+    session: createRuntimeSessionFacade({
+      bridge: boot.bridge,
+      mode: boot.mode === 'native' ? 'rust' : 'reference',
+    }),
     authority: boot.intent === 'authority',
     renderer: new ThreeRenderer(),
     store: new EditorStore(),
@@ -271,8 +291,14 @@ export async function runPerf(options: PerfOptions = {}): Promise<PerfResult> {
   };
 
   // ── Timed phases ──
-  phase(state, 'initialize', 1, () => state.bridge.initializeEngine({ seed: 1 }));
-  phase(state, 'project-bundle-load', 1, () => state.bridge.loadProjectBundle(FIXTURE_PROJECT_BUNDLE));
+  phase(state, 'initialize', 1, () => state.session.initialize({
+    sessionId: 'runtime-session.perf',
+    seed: 1,
+    project: { gameId: 'canonical-perf', workspaceId: 'workspace.perf' },
+  }));
+  await asyncPhase(state, 'project-load', 1, () =>
+    state.session.loadProject({ source: FIXTURE_PROJECT_SOURCE }),
+  );
 
   const initialFrame = phase(state, 'render-projection-initial', 1, () =>
     state.authority ? state.bridge.readRenderDiffs(frameCursor(0)) : fixtureRenderFrame(),
@@ -304,10 +330,12 @@ export async function runPerf(options: PerfOptions = {}): Promise<PerfResult> {
   applyAndTrack(state, overlay);
   const sceneAfterOverlay = sceneNodeCount(state.renderer);
 
-  phase(state, 'save', 1, () => state.bridge.saveProjectBundle());
-  phase(state, 'reload', 1, () => state.bridge.loadProjectBundle(FIXTURE_PROJECT_BUNDLE));
+  phase(state, 'project-close', 1, () => state.session.closeProject());
+  await asyncPhase(state, 'project-reload', 1, () =>
+    state.session.loadProject({ source: FIXTURE_PROJECT_SOURCE }),
+  );
 
-  // Save→reload→replay evidence (the quarantined replay harness path).
+  // Canonical close→reload plus replay evidence.
   const replaySteps = 4;
   const replaySession = state.bridge.loadReplayFixture({ name: 'launch-perf', steps: replaySteps });
   let replayDiverged = false;
@@ -349,6 +377,7 @@ export async function runPerf(options: PerfOptions = {}): Promise<PerfResult> {
   }));
   applyAndTrack(state, destroys);
   const leakedHandles = state.renderer.handleCount;
+  state.session.closeProject();
 
   const counters: PerfCounters = {
     peakHandles: state.peakHandles,
@@ -436,7 +465,7 @@ export function formatPerf(result: PerfResult): string {
   const lines: string[] = [];
   const m = result.meta;
   lines.push(`asha-perf ${result.ok ? 'OK' : 'FAILED'} (structural invariants)`);
-  lines.push(`fixture ${m.fixtureId} hash ${m.fixtureProjectBundleHash} / ${m.runtimeMode} ${m.smokeMode}`);
+  lines.push(`fixture ${m.fixtureId} manifest ${m.fixtureManifestHash} / ${m.runtimeMode} ${m.smokeMode}`);
   lines.push(`host ${m.hostLabel} ${m.platform}/${m.arch} cpus=${m.cpus} mem=${m.totalMemMb}MB node ${m.node}`);
   lines.push(`commit ${m.commit} branch ${m.branch} at ${m.timestamp}`);
   lines.push('timings (ms):');

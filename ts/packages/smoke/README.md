@@ -34,13 +34,13 @@ or any external tool can link to them.
   reported. The canonical smoke runs on the fully-wired **mock** facade for
   determinism (the native addon is a partial prototype today); native mode is
   opt-in by injecting a `bootBridge`.
-- **load** — an abstract fixture ProjectBundle (`sceneId 1001`) loads through
-  the real `loadProjectBundle` facade verb; diagnostics are summarized.
+- **load** — a bounded in-memory canonical project source loads through
+  `RuntimeSession.loadProject({ source })`; diagnostics are summarized.
 - **render** — a deterministic fixture frame is uploaded through the real
   `renderer-three` create → `replaceMeshPayload` path (GL-free scene graph).
-- **edit-save** — a proposed command is submitted through `submitCommands`
-  (accepted/rejected both observable) and the ProjectBundle is saved via
-  `saveProjectBundle`.
+- **edit and replay** — a proposed command is submitted through
+  `submitCommands` (accepted/rejected both observable), the project is closed
+  and reloaded from the same canonical source, and replay is checked.
 
 A missing native/WASM/runtime capability is **classified** (see
 `SmokeFailureCategory`), never a silent blank success.
@@ -48,26 +48,26 @@ A missing native/WASM/runtime capability is **classified** (see
 ## Sample output — PASS (mock facade)
 
 ```
-asha-smoke: PASS
+asha-smoke: PASS [mock_reference_passed]
 command: pnpm --filter @asha/smoke dev:asha-smoke
+smokeMode: reference
 runtimeMode: mock (nativeAvailable=true)
-capabilities: runtimeBridge=mock projectBundleLoad=mock renderer=ok projection=mock
-fixture: id=1001 projectBundleHash=f4a19eb318f7749d
+capabilities: runtimeBridge=mock projectLoad=mock renderer=ok projection=mock
+fixture: id=1001 manifestHash=6e52b42cd0fc9373
 diagnostics: total=0 fatal=0 blocksLoad=false
 render: applied=true sceneNodes=1
-stage boot: ok — runtime facade up in mock mode (nativeAvailable=true)
-stage load: ok — loaded ProjectBundle 1001
-stage render: ok — applied fixture frame; scene nodes=1
-stage edit-save: ok — proposed 1 command → accepted=1 rejected=0; rejected-path visible=true; saved artifacts=3
+stage load: ok — loaded canonical project 1
+stage close-reload-replay: ok — closed project 1; reloaded canonical project 1; replay step 1 diverged=false
+stage cleanup: ok — destroyed 2 handle(s); leakedHandles=0 outstandingBuffers=0
 ```
 
 ## Sample output — FAIL (load blocked by a fatal diagnostic)
 
 ```
 asha-smoke: FAIL
-capabilities: runtimeBridge=mock projectBundleLoad=unavailable renderer=ok projection=unavailable
-stage load: FAIL — load did not settle (loadedProjectBundle=null, blocksLoad=true)
-failure [load_failure] runtime-bridge.loadProjectBundle: ProjectBundle 1001 did not load cleanly → inspect composition diagnostics for the failing artifact
+capabilities: runtimeBridge=mock projectLoad=unavailable renderer=ok projection=unavailable
+stage load: FAIL — canonical project load rejected
+failure [load_failure] runtime-session.loadProject: canonical project did not load cleanly → inspect admission diagnostics for the failing artifact
 ```
 
 ## Programmatic use
@@ -75,7 +75,7 @@ failure [load_failure] runtime-bridge.loadProjectBundle: ProjectBundle 1001 did 
 ```ts
 import { runSmoke, formatResult } from '@asha/smoke';
 
-const result = runSmoke();
+const result = await runSmoke();
 console.log(formatResult(result));
 if (!result.ok) process.exit(1);
 ```

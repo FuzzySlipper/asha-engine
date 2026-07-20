@@ -55,14 +55,14 @@ runtime root.
 | camera | camera and controller state | session / projection hash |
 | gameplay | FPS session and rule modules | session / session and replay hashes |
 | projection | render and presentation projection | frame / frame hash |
-| bundleLifecycle | engine initialization and bundle load/unload | session / composition status |
+| runtimeProjectLifecycle | canonical project admission, active identity, and close | project / generation and revision |
 | replayEvidence | replay hashes and conversion evidence | session / evidence hashes |
 
-All cells except `bundleLifecycle` are retained across the compatibility
-`loadProjectBundle`/`unloadProjectBundle` identity transition. That is an
-explicit current rule, not a claim that unloading destroys the whole runtime
-session. Manual buffer handles still require `releaseBuffer`; other voxel state
-is session-owned.
+The runtime-project lifecycle cell owns canonical admission and close. Other
+cells remain one EngineBridge authority root and are reset or rebound from the
+Rust-owned project activation transaction; callers cannot assemble or retain a
+parallel bootstrap topology. Manual buffer handles still require
+`releaseBuffer`; other voxel state is session-owned.
 
 `RUNTIME_BRIDGE_PORT_CONTRACTS` is the public, inspectable lifecycle contract.
 `ENGINE_BRIDGE_CAPABILITY_PORTS` mirrors it in Rust tests. Rust authority modules

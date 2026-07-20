@@ -13,8 +13,7 @@ links its own gameplay modules. A downstream native addon builds its closed
 `GameplayStaticComposition` and consumes a `DeferredRuntimeSessionBuilder` to
 obtain one unloaded `EngineBridge` root. Canonical ProjectBundle admission later
 supplies bindings, prefabs, declared reads, triggers, scheduler definitions,
-scenes, and resources. `StaticRuntimeSessionBuilder` and caller-assembled
-runtime topology are compatibility-only until Demo migration.
+scenes, and resources. Caller-assembled runtime topology is not public.
 
 ## Key Properties
 
@@ -28,4 +27,4 @@ runtime topology are compatibility-only until Demo migration.
 - `readGameplayModuleView(request)` — selects one registry-owned named view by typed contract and scope.
 - `applyGameplayPrefabPartInteraction(request)` — resolves prefab role and emits standard owner event through the closed gameplay registry.
 
-See `topics/bridge/runtime-session-static-composition.md` for the full document.
+See `topics/bridge/runtime-session-composition.md` for the full document.

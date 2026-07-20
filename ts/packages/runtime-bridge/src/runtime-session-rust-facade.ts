@@ -83,15 +83,10 @@ import type {
 import {
   RuntimeBridgeError,
   frameCursor,
-  type CompositionStatus,
-  type FpsBoundsCapability,
   type EngineHandle,
   type FpsPrimaryFireRequest,
   type FpsPrimaryFireResult,
-  type FpsRuntimeSessionLoadRequest,
   type FpsRuntimeSessionSnapshot,
-  type FpsStoredEntityDefinition,
-  type FpsTransformCapability,
   type EnemyDirectNavMovementResult,
   type GameRuleRuntimeReadout,
   type RuntimeBridge,
@@ -103,11 +98,6 @@ import {
   validateEnemyPolicySource,
   type EnemyPolicyProposal,
   type EnemyPolicyVec3,
-} from '@asha/runtime-session';
-import type {
-  GeneratedTunnelOperationRequest,
-  GeneratedTunnelReadout,
-  GeneratedTunnelReadoutRequest,
 } from '@asha/runtime-session';
 import type {
   EncounterDirectorReadout,
@@ -142,11 +132,10 @@ import {
   type RuntimeSessionAnimationIntentReadout,
 } from './runtime-session-animation.js';
 import {
-  buildEcrpProjectState,
   buildEcrpProjectStateFromCanonical,
   buildEcrpRuntimeReadout,
-  defaultRuntimeSessionEcrpProjectLoadInput,
-  validateEcrpProjectLoadInput,
+  type RuntimeSessionEcrpProjectState,
+  type RuntimeSessionEcrpTransformState,
 } from './runtime-session-ecrp.js';
 import {
   acceptedAutonomousMovementReceipt,
@@ -156,14 +145,12 @@ import {
   runtimeActionReceiptToAutonomousReceipt,
   validateAutonomousPolicyProposal,
   validateAutonomousPolicyTickInput,
-  validateGeneratedTunnelOperationRequest,
   validateInitializeInput,
   validateLifecycleStatusRequest,
   validateRestartIntent,
   validateRuntimeActionIntentEnvelope,
 } from './runtime-session-lifecycle.js';
 import {
-  compositionHashRecord,
   identityHashRecord,
   renderFrameHashRecord,
   runtimeProjectionFrameHashRecord,
@@ -189,15 +176,8 @@ import type {
   RuntimeSessionCommandReceipt,
   RuntimeSessionCombatFeedbackProjectionRequest,
   RuntimeSessionCombatReadoutRequest,
-  RuntimeSessionEcrpEntityState,
-  RuntimeSessionEcrpProjectCapabilityDefinition,
-  RuntimeSessionEcrpProjectLoadInput,
-  RuntimeSessionEcrpProjectLoadReceipt,
-  RuntimeSessionEcrpProjectState,
   RuntimeSessionEcrpReadout,
-  RuntimeSessionEcrpTransformState,
   RuntimeSessionFacade,
-  RuntimeSessionGeneratedTunnelOperationReceipt,
   RuntimeSessionGameRuleCatalogValidationReceipt,
   RuntimeSessionGameRuleEffectIntentReceipt,
   RuntimeSessionGameExtensionWeaponEffectReceipt,
@@ -241,32 +221,22 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   initialize(input: RuntimeSessionInitializeInput): RuntimeSessionStateSummary {
     validateInitializeInput(input);
     const engine = this.#bridge.initializeEngine({ seed: input.seed });
-    const composition = input.projectBundle === undefined
-      ? this.#bridge.getProjectBundleCompositionStatus()
-      : this.#bridge.loadProjectBundle(input.projectBundle); // vocab-allow: compatibility initialization only.
-    const defaultProject = input.projectBundle === undefined
-      ? null
-      : defaultRuntimeSessionEcrpProjectLoadInput(input as RuntimeSessionInitializeInput & { readonly projectBundle: NonNullable<RuntimeSessionInitializeInput['projectBundle']> });
-    const snapshot = defaultProject === null
-      ? null
-      : this.#bridge.loadFpsRuntimeSession(fpsLoadRequestFromEcrpProject(defaultProject));
     this.#engine = engine;
     this.#identity = {
       sessionId: input.sessionId,
       mode: 'rust',
       seed: input.seed,
       project: input.project,
-      projectBundle: input.projectBundle ?? null,
       nonClaims: rustRuntimeSessionNonClaims(),
     };
     this.#progress.initialize();
-    this.#snapshot = snapshot;
-    this.#ecrpProjectState = defaultProject === null ? null : buildEcrpProjectState(defaultProject);
+    this.#snapshot = null;
+    this.#ecrpProjectState = null;
     this.#runtimeTransforms = new Map();
     this.#replayRecords = [];
     this.#runtimeProjectLifecycle = { generation: 0, revision: 0 };
-    this.#record('initialize', snapshot?.replayHash);
-    return this.#stateSummary(composition);
+    this.#record('initialize');
+    return this.#stateSummary();
   }
 
   async loadProject(input: RuntimeSessionProjectLoadInput): Promise<RuntimeSessionProjectLoadReceipt> {
@@ -358,50 +328,6 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     return this.#bridge.applySceneDocumentAuthoring(request);
   }
 
-  loadEcrpProject(input: RuntimeSessionEcrpProjectLoadInput): RuntimeSessionEcrpProjectLoadReceipt {
-    const identity = this.#requireInitialized('loadEcrpProject');
-    const before = this.#sessionHash();
-    const diagnostics = validateEcrpProjectLoadInput(input);
-
-    if (diagnostics.length > 0) {
-      this.#progress.advanceSequence();
-      this.#record('loadEcrpProject');
-      return {
-        kind: 'runtime_session.ecrp_project_load_receipt.v0',
-        sequenceId: this.#progress.sequenceId,
-        accepted: false,
-        diagnostics,
-        entityCount: 0,
-        bootstrapHash: null,
-        sessionHashBefore: before,
-        sessionHashAfter: this.#sessionHash(),
-      };
-    }
-
-    this.#bridge.loadProjectBundle(input.projectBundle.runtimeRequest); // vocab-allow: RuntimeSession ECRP load adapts the legacy bridge operation.
-    const snapshot = this.#bridge.loadFpsRuntimeSession(fpsLoadRequestFromEcrpProject(input));
-    this.#progress.advanceSequence();
-    this.#identity = {
-      ...identity,
-      project: input.projectBundle.project,
-      projectBundle: input.projectBundle.runtimeRequest,
-    };
-    this.#snapshot = snapshot;
-    this.#ecrpProjectState = buildEcrpProjectState(input);
-    this.#runtimeTransforms = new Map();
-    this.#record('loadEcrpProject', snapshot.replayHash);
-    return {
-      kind: 'runtime_session.ecrp_project_load_receipt.v0',
-      sequenceId: this.#progress.sequenceId,
-      accepted: true,
-      diagnostics: [],
-      entityCount: snapshot.health.length,
-      bootstrapHash: snapshot.entityHash,
-      sessionHashBefore: before,
-      sessionHashAfter: this.#sessionHash(),
-    };
-  }
-
   submitCommands(batch: CommandBatch): RuntimeSessionCommandReceipt {
     this.#requireInitialized('submitCommands');
     const before = this.#sessionHash();
@@ -429,7 +355,6 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       sequenceId: this.#progress.sequenceId,
       tick: this.#progress.sessionTick,
       step,
-      composition: this.#bridge.getProjectBundleCompositionStatus(),
       sessionHash: this.#sessionHash(),
     };
   }
@@ -924,12 +849,6 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed combat feedback projection is not wired yet');
   }
 
-  readGeneratedTunnelReadout(_request: GeneratedTunnelReadoutRequest = {}): GeneratedTunnelReadout {
-    void _request;
-    this.#requireInitialized('readGeneratedTunnelReadout');
-    throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed generated tunnel readout is not wired yet');
-  }
-
   readNavProjection(): NavProjectionReadout {
     this.#requireInitialized('readNavProjection');
     throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed nav projection is not wired yet');
@@ -944,49 +863,6 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
   readNavPolicyView(): NavPolicyViewReadout {
     this.#requireInitialized('readNavPolicyView');
     throw new RuntimeBridgeError('operation_unimplemented', 'Rust-backed nav policy view is not wired yet');
-  }
-
-  requestGeneratedTunnelOperation(
-    request: GeneratedTunnelOperationRequest,
-  ): RuntimeSessionGeneratedTunnelOperationReceipt {
-    this.#requireInitialized('requestGeneratedTunnelOperation');
-    validateGeneratedTunnelOperationRequest(request);
-    const before = this.#sessionHash();
-    this.#progress.advanceSequence();
-    if (request.operation === 'regenerate') {
-      this.#record('requestGeneratedTunnelOperation');
-      return {
-        sequenceId: this.#progress.sequenceId,
-        request,
-        operation: request.operation,
-        status: 'unsupported',
-        reason: 'generated_tunnel_operation_not_wired',
-        detail: 'Generated tunnel regeneration remains an authoring operation outside RuntimeSession.',
-        sessionHashBefore: before,
-        sessionHashAfter: this.#sessionHash(),
-      };
-    }
-    const applied = this.#bridge.applyGeneratedTunnelToRuntimeWorld({
-      preset: request.presetId ?? 'tiny-enclosed',
-      seed: request.seed ?? 17,
-    });
-    this.#record('requestGeneratedTunnelOperation', applied.collisionProjectionHash);
-    return {
-      sequenceId: this.#progress.sequenceId,
-      request,
-      operation: request.operation,
-      status: 'applied',
-      presetId: applied.preset,
-      seed: applied.seed,
-      grid: applied.grid,
-      configHash: applied.configHash,
-      outputHash: applied.outputHash,
-      collisionSourceHash: applied.collisionSourceHash,
-      collisionProjectionHash: applied.collisionProjectionHash,
-      runtimeFrame: applied.runtimeFrame,
-      sessionHashBefore: before,
-      sessionHashAfter: this.#sessionHash(),
-    };
   }
 
   planVoxelConversion(request: VoxelConversionPlanRequest): VoxelConversionPlan {
@@ -1140,7 +1016,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     const snapshot = this.#requireSnapshot();
     return buildEcrpRuntimeReadout({
       identity,
-      projectState: this.#ecrpProjectState,
+      projectState: this.#requireEcrpProjectState(),
       lifecycleState: lifecycleStateFromFpsSnapshot(snapshot),
       runtimeTransforms: this.#runtimeTransforms,
       sequenceId: this.#progress.sequenceId,
@@ -1188,18 +1064,15 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       ...projectedRuntimeFrame,
       scene: frame,
     };
-    const composition = this.#bridge.getProjectBundleCompositionStatus();
     return {
       sequenceId: this.#progress.sequenceId,
       cursor,
       frame,
       runtimeFrame,
-      composition,
       renderDiffCount: frame.ops.length,
       presentationOpCount: runtimeFrame.presentation.ops.length,
       projectionHash: stableHash({
         sequenceId: this.#progress.sequenceId,
-        composition: compositionHashRecord(composition),
         frame: renderFrameHashRecord(frame),
         runtimeFrame: runtimeProjectionFrameHashRecord(runtimeFrame),
       }),
@@ -1216,7 +1089,6 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     return {
       sequenceId: this.#progress.sequenceId,
       tick: this.#progress.sessionTick,
-      composition: this.#bridge.getProjectBundleCompositionStatus(),
       acceptedCommandCount: this.#progress.acceptedCommandCount,
       rejectedCommandCount: this.#progress.rejectedCommandCount,
       restartCount: this.#progress.restartCount,
@@ -1236,7 +1108,6 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     return {
       sequenceId: this.#progress.sequenceId,
       tick: this.#progress.sessionTick,
-      composition: this.#bridge.getProjectBundleCompositionStatus(),
       restartCount: this.#progress.restartCount,
       sessionHash: this.#sessionHash(),
     };
@@ -1347,12 +1218,21 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     return this.#snapshot;
   }
 
-  #stateSummary(composition: CompositionStatus): RuntimeSessionStateSummary {
+  #requireEcrpProjectState(): RuntimeSessionEcrpProjectState {
+    if (this.#ecrpProjectState === null) {
+      throw new RuntimeBridgeError(
+        'not_initialized',
+        'ECRP runtime readout is unavailable before an admitted project is active',
+      );
+    }
+    return this.#ecrpProjectState;
+  }
+
+  #stateSummary(): RuntimeSessionStateSummary {
     const identity = this.#requireInitialized('stateSummary');
     return {
       identity,
       engine: this.#engine as EngineHandle,
-      composition,
       sequenceId: this.#progress.sequenceId,
       tick: this.#progress.sessionTick,
       sessionHash: this.#sessionHash(),
@@ -1373,7 +1253,6 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
         ...(actionSource === undefined ? {} : { actionSource }),
         sequenceId: this.#progress.sequenceId,
         tick: this.#progress.sessionTick,
-        composition: compositionHashRecord(this.#bridge.getProjectBundleCompositionStatus()),
         fps: this.#snapshot === null
           ? null
           : {
@@ -1405,102 +1284,12 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
             replayHash: snapshot.replayHash,
             epoch: snapshot.sessionEpoch,
           },
-      composition: this.#identity === null ? null : compositionHashRecord(this.#bridge.getProjectBundleCompositionStatus()),
+      activeProjectContent: this.#ecrpProjectState?.contentHash ?? null,
     });
   }
 }
 function rustRuntimeSessionNonClaims(): readonly RuntimeSessionNonClaim[] {
   return ['not_raw_state_store', 'not_arbitrary_json_bridge', 'not_renderer'];
-}
-
-function fpsLoadRequestFromEcrpProject(input: RuntimeSessionEcrpProjectLoadInput): FpsRuntimeSessionLoadRequest {
-  const projectState = buildEcrpProjectState(input);
-  const definitions: FpsStoredEntityDefinition[] = projectState.entities.map((entity) =>
-    fpsStoredEntityDefinition(entity),
-  );
-  return {
-    projectBundle: `${input.projectBundle.project.gameId}:${input.sceneDocument.id}`,
-    bootstrapResolutionRegistry: input.bootstrapResolutionRegistry,
-    sceneDocument: input.sceneDocument,
-    definitions,
-    gameRuleModules: input.gameRuleModules ?? [],
-  };
-}
-
-function fpsStoredEntityDefinition(entity: RuntimeSessionEcrpEntityState): FpsStoredEntityDefinition {
-  const definition = entity.definition;
-  const transform = definition.capabilities.find((capability) => capability.kind === 'transform');
-  const collisionBody = definition.capabilities.find((capability) => capability.kind === 'collisionBody');
-  const health = definition.capabilities.find((capability) => capability.kind === 'health');
-  const weapon = definition.capabilities.find((capability) => capability.kind === 'weaponMount');
-  const policyBinding = definition.capabilities.find((capability) => capability.kind === 'policyBinding');
-  const renderProjection = definition.capabilities.find((capability) => capability.kind === 'renderProjection');
-  const faction = definition.capabilities.find((capability) => capability.kind === 'faction');
-  const spawnMarker = definition.capabilities.find((capability) => capability.kind === 'spawnMarker');
-  return {
-    entity: entity.entity,
-    stableId: definition.stableId,
-    displayName: definition.displayName,
-    sourcePath: definition.source.relativePath,
-    tags: [
-      ...(faction?.kind === 'faction' ? [`faction:${faction.factionId}`] : []),
-      ...(spawnMarker?.kind === 'spawnMarker' ? [`spawn:${spawnMarker.markerId}`] : []),
-    ],
-    role: entity.role,
-    transform: transform?.kind === 'transform' ? fpsTransform(transform) : null,
-    bounds: collisionBody?.kind === 'collisionBody' ? fpsWorldBounds(transform, collisionBody) : null,
-    renderVisible: renderProjection?.kind === 'renderProjection' ? renderProjection.visible ?? true : null,
-    staticCollider: collisionBody?.kind === 'collisionBody' ? collisionBody.staticCollider ?? false : null,
-    health: health?.kind === 'health' ? { current: health.current, max: health.max } : null,
-    weapon: weapon?.kind === 'weaponMount'
-      ? {
-          weaponId: weapon.weaponId,
-          damage: 40,
-          rangeUnits: 16,
-          ammo: 2,
-          cooldownTicksAfterFire: 4,
-        }
-      : null,
-    policyBinding: policyBinding?.kind === 'policyBinding'
-      ? {
-          bindingId: `${definition.stableId}:policy`,
-          policyId: policyBinding.policyId,
-          viewKind: 'runtime_session.fps.policy_view.v0',
-          viewVersion: 'v0',
-          allowedIntents: ['runtime.intent.move_direct_nav.v0', 'runtime.intent.primary_fire.v0'],
-          runtimeMoment: 'autonomous_policy_tick',
-        }
-      : null,
-  };
-}
-
-function fpsTransform(
-  capability: Extract<RuntimeSessionEcrpProjectCapabilityDefinition, { readonly kind: 'transform' }>,
-): FpsTransformCapability {
-  return {
-    translation: capability.initial.position,
-    rotation: [0, 0, 0, 1],
-    scale: [1, 1, 1],
-  };
-}
-
-function fpsWorldBounds(
-  transform: RuntimeSessionEcrpProjectCapabilityDefinition | undefined,
-  collisionBody: Extract<RuntimeSessionEcrpProjectCapabilityDefinition, { readonly kind: 'collisionBody' }>,
-): FpsBoundsCapability {
-  const position = transform?.kind === 'transform' ? transform.initial.position : [0, 0, 0] as const;
-  return {
-    min: [
-      position[0] - collisionBody.halfExtents[0],
-      position[1] - collisionBody.halfExtents[1],
-      position[2] - collisionBody.halfExtents[2],
-    ],
-    max: [
-      position[0] + collisionBody.halfExtents[0],
-      position[1] + collisionBody.halfExtents[1],
-      position[2] + collisionBody.halfExtents[2],
-    ],
-  };
 }
 
 function lifecycleStateFromFpsSnapshot(snapshot: FpsRuntimeSessionSnapshot): RuntimeSessionLifecycleState {

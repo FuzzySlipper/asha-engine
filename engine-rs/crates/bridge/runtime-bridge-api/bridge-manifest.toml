@@ -37,7 +37,7 @@ id = "input"
 interface = "RuntimeInputPort"
 property = "input"
 initialization = "requiresEngine"
-project_bundle = "retainedAcrossLoadUnload"
+runtime_project = "retainedAcrossProjectChanges"
 snapshot_hash = "inputEvidence"
 resource_lifetime = "session"
 operations = ["configure_input_session", "apply_input_context_command", "submit_raw_input", "replay_resolved_input_action", "read_input_context_state"]
@@ -47,7 +47,7 @@ id = "time_simulation"
 interface = "RuntimeTimeSimulationPort"
 property = "timeSimulation"
 initialization = "requiresEngine"
-project_bundle = "retainedAcrossLoadUnload"
+runtime_project = "retainedAcrossProjectChanges"
 snapshot_hash = "timeState"
 resource_lifetime = "session"
 operations = ["apply_time_control_command", "read_time_control_state", "step_simulation"]
@@ -57,7 +57,7 @@ id = "scene_entities"
 interface = "RuntimeSceneEntityPort"
 property = "sceneEntities"
 initialization = "requiresEngine"
-project_bundle = "retainedAcrossLoadUnload"
+runtime_project = "retainedAcrossProjectChanges"
 snapshot_hash = "sceneDocument"
 resource_lifetime = "session"
 operations = ["decode_scene_document", "encode_scene_document", "apply_scene_document_authoring", "read_model_material_preview", "read_scene_object_snapshot", "apply_scene_object_command", "apply_enemy_direct_nav_movement"]
@@ -67,7 +67,7 @@ id = "voxel_assets_buffers"
 interface = "RuntimeVoxelAssetBufferPort"
 property = "voxelAssetsBuffers"
 initialization = "requiresEngine"
-project_bundle = "retainedAcrossLoadUnload"
+runtime_project = "retainedAcrossProjectChanges"
 snapshot_hash = "voxelStateAndResources"
 resource_lifetime = "mixedExplicitAndSession"
 operations = [
@@ -88,7 +88,7 @@ id = "camera"
 interface = "RuntimeCameraPort"
 property = "camera"
 initialization = "requiresEngine"
-project_bundle = "retainedAcrossLoadUnload"
+runtime_project = "retainedAcrossProjectChanges"
 snapshot_hash = "cameraProjection"
 resource_lifetime = "session"
 operations = ["apply_collision_constrained_camera_input", "create_camera", "apply_camera_mode_command", "apply_camera_navigation_input", "read_camera_controller_state", "apply_first_person_camera_input", "read_camera_projection"]
@@ -98,17 +98,17 @@ id = "gameplay"
 interface = "RuntimeGameplayPort"
 property = "gameplay"
 initialization = "requiresEngine"
-project_bundle = "retainedAcrossLoadUnload"
+runtime_project = "retainedAcrossProjectChanges"
 snapshot_hash = "gameplaySessionAndReplay"
 resource_lifetime = "session"
-operations = ["apply_generated_tunnel_to_runtime_world", "load_fps_runtime_session", "read_fps_runtime_session", "apply_fps_primary_fire", "read_composed_runtime_session", "read_gameplay_module_view", "apply_gameplay_prefab_part_interaction", "invoke_game_extension_weapon_effect", "validate_game_rule_catalog", "submit_game_rule_effect_intent", "read_game_rule_runtime_readout", "restart_fps_runtime_session", "read_fps_encounter_director", "apply_fps_encounter_transition"]
+operations = ["read_fps_runtime_session", "apply_fps_primary_fire", "read_composed_runtime_session", "read_gameplay_module_view", "apply_gameplay_prefab_part_interaction", "invoke_game_extension_weapon_effect", "validate_game_rule_catalog", "submit_game_rule_effect_intent", "read_game_rule_runtime_readout", "restart_fps_runtime_session", "read_fps_encounter_director", "apply_fps_encounter_transition"]
 
 [[capability]]
 id = "projection"
 interface = "RuntimeProjectionPort"
 property = "projection"
 initialization = "requiresEngine"
-project_bundle = "retainedAcrossLoadUnload"
+runtime_project = "retainedAcrossProjectChanges"
 snapshot_hash = "projectionFrame"
 resource_lifetime = "frame"
 operations = ["read_render_diffs", "read_projection_frame", "read_developer_console"]
@@ -118,27 +118,27 @@ id = "workspace_authoring"
 interface = "RuntimeWorkspaceAuthoringPort"
 property = "workspaceAuthoring"
 initialization = "createsEngine"
-project_bundle = "ownsLoadUnload"
+runtime_project = "ownsProjectLifecycle"
 snapshot_hash = "workspaceAuthoringAuthority"
 resource_lifetime = "session"
 operations = ["open_workspace_authoring", "read_workspace_authoring_state", "read_workspace_authoring_projection", "decode_project_content", "encode_project_content", "apply_project_content_authoring", "preview_procedural_environment", "apply_procedural_environment", "confirm_workspace_authoring_stored", "prepare_project_write", "confirm_project_write", "close_workspace_authoring"]
 
 [[capability]]
-id = "bundle_lifecycle"
-interface = "RuntimeBundleLifecyclePort"
-property = "bundleLifecycle"
+id = "runtime_project_lifecycle"
+interface = "RuntimeProjectLifecyclePort"
+property = "runtimeProjectLifecycle"
 initialization = "createsEngine"
-project_bundle = "ownsLoadUnload"
-snapshot_hash = "compositionStatus"
+runtime_project = "ownsProjectLifecycle"
+snapshot_hash = "activeProjectContent"
 resource_lifetime = "session"
-operations = ["initialize_engine", "begin_runtime_project_source_resources", "stage_runtime_project_source_resource", "admit_runtime_project_source_batch", "load_runtime_project", "read_active_runtime_project_content", "close_runtime_project", "load_project_bundle", "save_project_bundle", "get_project_bundle_composition_status", "unload_project_bundle"]
+operations = ["initialize_engine", "begin_runtime_project_source_resources", "stage_runtime_project_source_resource", "admit_runtime_project_source_batch", "load_runtime_project", "read_active_runtime_project_content", "close_runtime_project"]
 
 [[capability]]
 id = "replay_evidence"
 interface = "RuntimeReplayEvidencePort"
 property = "replayEvidence"
 initialization = "requiresEngine"
-project_bundle = "retainedAcrossLoadUnload"
+runtime_project = "retainedAcrossProjectChanges"
 snapshot_hash = "replayEvidence"
 resource_lifetime = "session"
 operations = ["export_voxel_conversion_evidence", "load_replay_fixture", "run_replay_step"]
@@ -339,14 +339,6 @@ input = "protocol_view::CollisionConstrainedCameraInputEnvelope"
 output = "protocol_view::CameraCollisionSnapshot"
 errors = "RuntimeBridgeError"
 summary = "Apply first-person view input while constraining translation against the authority-derived voxel collision projection; returns before/attempted/after pose plus collision evidence."
-
-[[operation]]
-name = "apply_generated_tunnel_to_runtime_world"
-surface = "stable"
-input = "protocol_view::GeneratedTunnelRuntimeApplyRequest"
-output = "protocol_view::GeneratedTunnelRuntimeApplyReceipt"
-errors = "RuntimeBridgeError"
-summary = "Generate the selected tunnel through Rust level-generation authority and atomically install its voxel data as the runtime collision world."
 
 [[operation]]
 name = "select_voxel"
@@ -574,14 +566,6 @@ input = "protocol_voxel_edit_history::VoxelEditHistoryRedoRequest"
 output = "protocol_voxel_edit_history::VoxelEditHistoryRedoReceipt"
 errors = "RuntimeBridgeError"
 summary = "Redo one retained voxel edit transaction from the Rust-owned history redo tail."
-
-[[operation]]
-name = "load_fps_runtime_session"
-surface = "stable"
-input = "protocol_runtime::FpsRuntimeSessionLoadRequest"
-output = "protocol_runtime::FpsRuntimeSessionSnapshot"
-errors = "RuntimeBridgeError"
-summary = "Load an FPS/ECRP ProjectBundle-shaped RuntimeSession through Rust rule-lifecycle authority; validates/bootstrap stored EntityDefinitions and PolicyBindings atomically."
 
 [[operation]]
 name = "read_fps_runtime_session"
@@ -933,41 +917,6 @@ output = "protocol_project_bundle::RuntimeProjectCloseReceipt"
 errors = "RuntimeBridgeError"
 summary = "Close exactly the lifecycle-bound active runtime project without inferring replacement or accepting stale authority."
 
-[[operation]]
-name = "load_project_bundle"
-surface = "stable"
-input = "protocol_project_bundle::ProjectBundleManifest"
-output = "protocol_diagnostics::DiagnosticReportSet"
-errors = "RuntimeBridgeError"
-summary = "Load a ProjectBundle into authority via the staged executor. Returns the composition diagnostics (empty == loaded; a fatal report == failed, prior ProjectBundle/session state untouched)."
-facade_input = "bridge::ProjectBundleLoadRequest"
-facade_output = "bridge::CompositionStatus"
-
-[[operation]]
-name = "save_project_bundle"
-surface = "stable"
-input = "Unit"
-output = "protocol_project_bundle::SaveSummary"
-errors = "RuntimeBridgeError"
-summary = "Save the current ProjectBundle/session content through the real save/compaction path. Fails closed with NotInitialized if no ProjectBundle is loaded."
-facade_output = "bridge::ProjectBundleSaveSummary"
-
-[[operation]]
-name = "get_project_bundle_composition_status"
-surface = "stable"
-input = "Unit"
-output = "protocol_diagnostics::DiagnosticReportSet"
-errors = "RuntimeBridgeError"
-summary = "Read the current load/save composition status and diagnostics without mutating authority."
-facade_output = "bridge::CompositionStatus"
-
-[[operation]]
-name = "unload_project_bundle"
-surface = "stable"
-input = "Unit"
-output = "Unit"
-errors = "RuntimeBridgeError"
-summary = "Unload the staged/live ProjectBundle, returning the runtime to an empty state."
 
 # ── Replay surface (quarantined: tests/devtools/CI only) ─────────────────────
 # These are exercised through the wasm-replay-bridge / native replay path, not

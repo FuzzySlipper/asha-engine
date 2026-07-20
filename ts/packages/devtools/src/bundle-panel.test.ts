@@ -1,8 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { RuntimeBridgeError, type RuntimeBridge } from '@asha/runtime-bridge';
-import { createMockRuntimeBridge } from '@asha/runtime-bridge/reference';
 import {
   projectId,
   sceneId,
@@ -18,7 +16,6 @@ import {
 import {
   buildDiagnosticsPanel,
   buildLoadPlanModel,
-  buildProjectBundleLoadRequest,
   buildManifestModel,
   buildRegenReport,
   buildSavePlanModel,
@@ -27,8 +24,6 @@ import {
   summarizeVoxelDurability,
   type VoxelDurabilityEvidence,
   navigateSource,
-  submitProjectBundleLoad,
-  submitProjectBundleSave,
 } from './bundle-panel.js';
 
 function manifest(): GeneratedProjectBundleManifest {
@@ -204,64 +199,6 @@ void test('buildDiagnosticsPanel carries severity, remedy, and navigation; only 
   assert.deepEqual(model.diagnostics[1]!.target, { kind: 'asset', assetId: 'mesh:x' });
 });
 
-// ── Action requests go through the facade, fail closed ────────────────────────────
-
-function loadedBridge(): RuntimeBridge {
-  const bridge = createMockRuntimeBridge();
-  bridge.initializeEngine({ seed: 1 });
-  return bridge;
-}
-
-void test('buildProjectBundleLoadRequest derives a typed facade request from the manifest', () => {
-  assert.deepEqual(buildProjectBundleLoadRequest(manifest()), { bundleSchemaVersion: 2, protocolVersion: 1, sceneId: 1001 });
-});
-
-void test('submitProjectBundleLoad goes through the facade and returns the composition status', () => {
-  const bridge = loadedBridge();
-  const result = submitProjectBundleLoad(bridge, buildProjectBundleLoadRequest(manifest()));
-  assert.equal(result.ok, true);
-  if (result.ok) {
-    assert.equal(result.value.loadedProjectBundle, 1001);
-    assert.equal(result.value.blocksLoad, false);
-  }
-});
-
-void test('submitProjectBundleLoad surfaces a fail-closed incompatible bundle with a recovery hint', () => {
-  const bridge = loadedBridge();
-  const result = submitProjectBundleLoad(bridge, { bundleSchemaVersion: 99, protocolVersion: 1, sceneId: 1001 });
-  assert.equal(result.ok, false);
-  if (!result.ok) {
-    assert.equal(result.kind, 'invalid_input');
-    assert.match(result.recovery, /incompatible/);
-  }
-});
-
-void test('submitProjectBundleSave fails closed when no ProjectBundle is loaded, succeeds after a load', () => {
-  const bridge = loadedBridge();
-  const before = submitProjectBundleSave(bridge);
-  assert.equal(before.ok, false);
-  if (!before.ok) {
-    assert.equal(before.kind, 'not_initialized');
-  }
-  submitProjectBundleLoad(bridge, buildProjectBundleLoadRequest(manifest()));
-  const after = submitProjectBundleSave(bridge);
-  assert.equal(after.ok, true);
-  if (after.ok) {
-    assert.equal(after.value.artifactsWritten, 3);
-  }
-});
-
-void test('submitProjectBundleLoad rethrows non-bridge errors unchanged', () => {
-  const exploding: RuntimeBridge = {
-    ...createMockRuntimeBridge(),
-    loadProjectBundle() {
-      throw new TypeError('not a bridge error');
-    },
-  };
-  assert.throws(() => submitProjectBundleLoad(exploding, buildProjectBundleLoadRequest(manifest())), TypeError);
-  // Sanity: a bridge error is caught, a TypeError is not.
-  assert.ok(new RuntimeBridgeError('internal', 'x') instanceof RuntimeBridgeError);
-});
 
 // ── voxel durability read model (task #2440) ─────────────────────────────────────
 

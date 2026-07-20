@@ -16,6 +16,9 @@
     },
     {
       "path": "../runtime-bridge"
+    },
+    {
+      "path": "../runtime-session"
     }
   ]
 }

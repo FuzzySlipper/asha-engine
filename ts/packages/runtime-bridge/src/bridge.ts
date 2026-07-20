@@ -1,13 +1,8 @@
-export type {
-  GeneratedTunnelRuntimeApplyReceipt,
-  GeneratedTunnelRuntimeApplyRequest,
-} from '@asha/contracts';
 import type { FrameCursor } from '@asha/runtime-session';
 import type { BridgeErrorFamily } from './generated/operations.js';
 
 export type {
   BridgeVec3,
-  CompositionStatus,
   ComposedGameplayReadout,
   ComposedRuntimeSessionReadout,
   EnemyDirectNavAuthoritySource,
@@ -15,9 +10,6 @@ export type {
   EnemyDirectNavMovementRequest,
   EnemyDirectNavMovementResult,
   EngineHandle,
-  FpsBootstrapGeneratorPresetIdentity,
-  FpsBootstrapResolutionRegistry,
-  FpsBoundsCapability,
   FpsEncounterDirectorSnapshot,
   FpsEncounterLastTransition,
   FpsEncounterLifecycleInput,
@@ -37,12 +29,8 @@ export type {
   FpsReplayEvidence,
   FpsRuntimeAuthorityTransport,
   FpsRuntimeRole,
-  FpsRuntimeSessionLoadRequest,
   FpsRuntimeSessionRestartRequest,
   FpsRuntimeSessionSnapshot,
-  FpsStoredEntityDefinition,
-  FpsTransformCapability,
-  FpsWeaponMount,
   FrameCursor,
   GameExtensionWeaponEffectInvocationRequest,
   GameExtensionWeaponEffectInvocationResult,
@@ -54,7 +42,6 @@ export type {
   GameplayModuleViewSnapshot,
   GameplayPrefabPartInteractionReceipt,
   GameplayPrefabPartInteractionRequest,
-  ProjectBundleLoadRequest,
   StepResult,
   WorkspaceAuthoringCloseInput,
   WorkspaceAuthoringCloseReceipt,
@@ -161,15 +148,6 @@ export interface ReplayStepReport {
   readonly hash: string;
   readonly diverged: boolean;
 }
-// ProjectBundle load/save composition payloads (#2363). PROTOTYPE: replaced by
-// generated bundle/diagnostic contracts once the emitter wires them.
-
-export interface ProjectBundleSaveSummary {
-  readonly artifactsWritten: number;
-  readonly compactedEdits: number;
-  readonly retainedEdits: number;
-}
-
 /**
  * Native-buffer input for one staged ProjectBundle resource. This intentionally
  * differs from the generated Rust wire DTO: public hosts lend a Uint8Array to
@@ -225,7 +203,7 @@ export type {
   RuntimeBridgePortContract,
   RuntimeBridgePortId,
   RuntimeBridgePorts,
-  RuntimeBundleLifecyclePort,
+  RuntimeProjectLifecyclePort,
   RuntimeCameraPort,
   RuntimeGameplayPort,
   RuntimeInputPort,

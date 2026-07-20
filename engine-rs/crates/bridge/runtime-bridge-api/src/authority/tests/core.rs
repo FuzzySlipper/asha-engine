@@ -17,7 +17,7 @@ fn engine_bridge_has_one_fixed_capability_cell_contract() {
             "gameplay",
             "projection",
             "workspaceAuthoring",
-            "bundleLifecycle",
+            "runtimeProjectLifecycle",
             "replayEvidence",
         ]
     );
@@ -26,11 +26,11 @@ fn engine_bridge_has_one_fixed_capability_cell_contract() {
 
     let lifecycle = ENGINE_BRIDGE_CAPABILITY_PORTS
         .iter()
-        .find(|contract| contract.id == "bundleLifecycle")
+        .find(|contract| contract.id == "runtimeProjectLifecycle")
         .unwrap();
     assert_eq!(lifecycle.initialization, "createsEngine");
-    assert_eq!(lifecycle.project_bundle, "ownsLoadUnload");
-    assert_eq!(lifecycle.snapshot_hash, "compositionStatus");
+    assert_eq!(lifecycle.runtime_project, "ownsProjectLifecycle");
+    assert_eq!(lifecycle.snapshot_hash, "activeProjectContent");
     assert_eq!(lifecycle.resource_lifetime, "session");
 
     let workspace_authoring = ENGINE_BRIDGE_CAPABILITY_PORTS
@@ -38,7 +38,7 @@ fn engine_bridge_has_one_fixed_capability_cell_contract() {
         .find(|contract| contract.id == "workspaceAuthoring")
         .unwrap();
     assert_eq!(workspace_authoring.initialization, "createsEngine");
-    assert_eq!(workspace_authoring.project_bundle, "ownsLoadUnload");
+    assert_eq!(workspace_authoring.runtime_project, "ownsProjectLifecycle");
     assert_eq!(
         workspace_authoring.snapshot_hash,
         "workspaceAuthoringAuthority"
@@ -51,34 +51,11 @@ fn engine_bridge_has_one_fixed_capability_cell_contract() {
     assert_eq!(buffers.resource_lifetime, "mixedExplicitAndSession");
 
     let bridge = EngineBridge::new();
-    assert!(bridge.bundle.engine.is_none());
+    assert!(bridge.runtime_project.engine.is_none());
     assert!(bridge.scene.scene_document.is_none());
     assert!(bridge.voxel.voxel.is_none());
     assert!(bridge.gameplay.fps_session.is_none());
     assert!(bridge.projection.projection_frame.is_none());
-}
-
-#[test]
-fn bundle_unload_obeys_the_declared_session_retention_rule() {
-    let mut bridge = EngineBridge::new();
-    let engine = bridge.initialize_engine(EngineConfig { seed: 17 }).unwrap();
-    bridge
-        .load_project_bundle(ProjectBundleLoadRequest {
-            bundle_schema_version: 1,
-            protocol_version: 1,
-            scene_id: 44,
-        })
-        .unwrap();
-
-    bridge.unload_project_bundle().unwrap();
-
-    assert_eq!(bridge.bundle.engine, Some(engine));
-    assert_eq!(bridge.bundle.loaded_project_bundle, None);
-    assert!(bridge.scene.scene_document.is_some());
-    assert!(bridge.voxel.voxel.is_some());
-    assert!(bridge.projection.projection_frame.is_some());
-    assert_eq!(bridge.camera.next_camera, 1);
-    assert_eq!(bridge.time.authority_tick, 0);
 }
 
 #[test]
@@ -89,21 +66,6 @@ fn step_before_init_is_typed_error() {
         .unwrap_err();
     assert_eq!(err.kind, RuntimeBridgeErrorKind::NotInitialized);
     assert_eq!(err.category(), ErrorCategory::Unsupported);
-}
-
-#[test]
-fn save_before_load_fails_closed() {
-    let mut bridge = EngineBridge::new();
-    let err = bridge.save_project_bundle().unwrap_err();
-    assert_eq!(err.kind, RuntimeBridgeErrorKind::NotInitialized);
-    // And status reflects no loaded ProjectBundle.
-    assert_eq!(
-        bridge
-            .get_project_bundle_composition_status()
-            .unwrap()
-            .loaded_project_bundle,
-        None
-    );
 }
 
 #[test]
@@ -265,75 +227,6 @@ fn camera_view_surface_round_trips_and_fails_closed() {
             .unwrap_err()
             .kind,
         RuntimeBridgeErrorKind::UnknownHandle
-    );
-}
-
-#[test]
-fn load_save_status_unload_round_trip() {
-    let mut bridge = EngineBridge::new();
-    let status = bridge
-        .load_project_bundle(ProjectBundleLoadRequest {
-            bundle_schema_version: 1,
-            protocol_version: 1,
-            scene_id: 100,
-        })
-        .unwrap();
-    assert_eq!(status.loaded_project_bundle, Some(100));
-    assert!(!status.blocks_load);
-
-    let save = bridge.save_project_bundle().unwrap();
-    assert_eq!(save.artifacts_written, 3);
-
-    assert_eq!(
-        bridge
-            .get_project_bundle_composition_status()
-            .unwrap()
-            .loaded_project_bundle,
-        Some(100)
-    );
-
-    bridge.unload_project_bundle().unwrap();
-    assert_eq!(
-        bridge
-            .get_project_bundle_composition_status()
-            .unwrap()
-            .loaded_project_bundle,
-        None
-    );
-    // Save after unload fails closed again.
-    assert_eq!(
-        bridge.save_project_bundle().unwrap_err().kind,
-        RuntimeBridgeErrorKind::NotInitialized
-    );
-}
-
-#[test]
-fn load_unsupported_version_fails_closed_without_mutating() {
-    let mut bridge = EngineBridge::new();
-    // Load a valid ProjectBundle first.
-    bridge
-        .load_project_bundle(ProjectBundleLoadRequest {
-            bundle_schema_version: 1,
-            protocol_version: 1,
-            scene_id: 7,
-        })
-        .unwrap();
-    // A too-new bundle is rejected and must NOT replace the loaded ProjectBundle.
-    let err = bridge
-        .load_project_bundle(ProjectBundleLoadRequest {
-            bundle_schema_version: 99,
-            protocol_version: 1,
-            scene_id: 8,
-        })
-        .unwrap_err();
-    assert_eq!(err.kind, RuntimeBridgeErrorKind::InvalidInput);
-    assert_eq!(
-        bridge
-            .get_project_bundle_composition_status()
-            .unwrap()
-            .loaded_project_bundle,
-        Some(7),
-        "a failed load must not swap out the prior ProjectBundle"
     );
 }
 

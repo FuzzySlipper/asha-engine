@@ -150,7 +150,7 @@ fn authoring_cell_is_distinct_from_gameplay_runtime_and_owns_revisions() {
 
     assert_eq!(opened.status, "open");
     assert_eq!(opened.identity.generation, 1);
-    assert!(bridge.bundle.engine.is_none());
+    assert!(bridge.runtime_project.engine.is_none());
     assert_eq!(bridge.time.authority_tick, 0);
     assert_eq!(
         bridge

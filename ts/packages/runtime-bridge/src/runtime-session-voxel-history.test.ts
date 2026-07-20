@@ -24,11 +24,6 @@ function sessionInput() {
       gameId: 'asha-history-test',
       workspaceId: 'workspace.history-test',
     },
-    projectBundle: {
-      bundleSchemaVersion: 1,
-      protocolVersion: 1,
-      sceneId: 5283,
-    },
   };
 }
 

@@ -54,45 +54,12 @@ const BYTE: CustomWireSchema = { kind: 'number', integer: true, minimum: 0, maxi
 const STRING: CustomWireSchema = { kind: 'string' };
 const STRING_ARRAY = array(STRING);
 const VEC3 = tuple(NUMBER, NUMBER, NUMBER);
-const QUATERNION = tuple(NUMBER, NUMBER, NUMBER, NUMBER);
 
 const COORDINATE = object({ x: INTEGER, y: INTEGER, z: INTEGER });
 const FPS_ROLE = enumeration('player', 'enemy', 'neutral');
 const FPS_AUTHORITY_TRANSPORT = enumeration('native_rust', 'reference_bridge');
 const FPS_BACKEND_WIRE = enumeration('engine_bridge_rust', 'native_rust', 'reference_bridge');
 const FPS_HEALTH = object({ current: NON_NEGATIVE_INTEGER, max: NON_NEGATIVE_INTEGER });
-const FPS_TRANSFORM = object({ translation: VEC3, rotation: QUATERNION, scale: VEC3 });
-const FPS_BOUNDS = object({ min: VEC3, max: VEC3 });
-const FPS_WEAPON = object({
-  weaponId: STRING,
-  damage: NON_NEGATIVE_INTEGER,
-  rangeUnits: NON_NEGATIVE_INTEGER,
-  ammo: NON_NEGATIVE_INTEGER,
-  cooldownTicksAfterFire: NON_NEGATIVE_INTEGER,
-});
-const FPS_POLICY_BINDING = object({
-  bindingId: STRING,
-  policyId: STRING,
-  viewKind: STRING,
-  viewVersion: STRING,
-  allowedIntents: STRING_ARRAY,
-  runtimeMoment: STRING,
-});
-const FPS_STORED_ENTITY = object({
-  entity: NON_NEGATIVE_INTEGER,
-  stableId: STRING,
-  displayName: STRING,
-  sourcePath: STRING,
-  tags: STRING_ARRAY,
-  role: FPS_ROLE,
-  transform: nullable(FPS_TRANSFORM),
-  bounds: nullable(FPS_BOUNDS),
-  renderVisible: nullable(BOOLEAN),
-  staticCollider: nullable(BOOLEAN),
-  health: nullable(FPS_HEALTH),
-  weapon: nullable(FPS_WEAPON),
-  policyBinding: nullable(FPS_POLICY_BINDING),
-});
 const FPS_LIFECYCLE = taggedUnion('state', {
   active: object({}),
   enemy_defeated: object({ entity: NON_NEGATIVE_INTEGER, tick: NON_NEGATIVE_INTEGER }),
@@ -182,22 +149,6 @@ export const CUSTOM_WIRE_SCHEMAS: Readonly<Record<string, CustomWireSchema>> = {
   EngineConfig: object({ seed: NON_NEGATIVE_INTEGER }),
   StepInputEnvelope: object({ tick: NON_NEGATIVE_INTEGER }),
   StepResult: object({ tick: NON_NEGATIVE_INTEGER, diffCount: NON_NEGATIVE_INTEGER }),
-  ProjectBundleLoadRequest: object({
-    bundleSchemaVersion: NON_NEGATIVE_INTEGER,
-    protocolVersion: NON_NEGATIVE_INTEGER,
-    sceneId: NON_NEGATIVE_INTEGER,
-  }),
-  CompositionStatus: object({
-    loadedProjectBundle: nullable(NON_NEGATIVE_INTEGER),
-    fatalCount: NON_NEGATIVE_INTEGER,
-    totalCount: NON_NEGATIVE_INTEGER,
-    blocksLoad: BOOLEAN,
-  }),
-  ProjectBundleSaveSummary: object({
-    artifactsWritten: NON_NEGATIVE_INTEGER,
-    compactedEdits: NON_NEGATIVE_INTEGER,
-    retainedEdits: NON_NEGATIVE_INTEGER,
-  }),
   RuntimeBufferView: object({ handle: NON_NEGATIVE_INTEGER, bytes: array(BYTE) }),
   ReplayFixture: object({ name: STRING, steps: NON_NEGATIVE_INTEGER }),
   ReplayStepReport: object({ step: NON_NEGATIVE_INTEGER, hash: STRING, diverged: BOOLEAN }),
@@ -244,19 +195,6 @@ export const CUSTOM_WIRE_SCHEMAS: Readonly<Record<string, CustomWireSchema>> = {
     transformHash: STRING,
     projectionChanged: BOOLEAN,
   }),
-  FpsRuntimeSessionLoadRequest: object({
-    projectBundle: STRING,
-    bootstrapResolutionRegistry: object({
-      schemaVersion: NON_NEGATIVE_INTEGER,
-      entityDefinitionIds: STRING_ARRAY,
-      prefabIds: array(NON_NEGATIVE_INTEGER),
-      generatorPresets: array(object({ providerId: STRING, presetId: STRING })),
-      catalogIds: STRING_ARRAY,
-    }),
-    sceneDocument: generated('scene.FlatSceneDocument'),
-    definitions: array(FPS_STORED_ENTITY),
-    gameRuleModules: array(generated('gameExtension.GameRuleModuleManifest')),
-  }, ['gameRuleModules']),
   FpsRuntimeSessionRestartRequest: object({ expectedEpoch: NON_NEGATIVE_INTEGER }),
   FpsPrimaryFireRequest: object({
     tick: NON_NEGATIVE_INTEGER,

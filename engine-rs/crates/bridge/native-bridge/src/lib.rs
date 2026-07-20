@@ -18,9 +18,9 @@ use std::sync::{Mutex, OnceLock};
 use napi_derive::napi;
 use runtime_bridge_api::{
     parse_voxel_command_batch_json, EnemyDirectNavMovementRequest, EngineBridge, EngineConfig,
-    GameRuleCatalog, GameRuleModuleManifest, GameRuleResolutionRequest, PresentationOpMeta,
-    PresentationOriginRef, ProjectBundleLoadRequest, ProjectWriteConfirmRequest,
-    ProjectWritePrepareRequest, RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind,
+    GameRuleCatalog, GameRuleResolutionRequest, PresentationOpMeta,
+    PresentationOriginRef, ProjectWriteConfirmRequest, ProjectWritePrepareRequest, RuntimeBridge,
+    RuntimeBridgeError, RuntimeBridgeErrorKind,
     RuntimeProjectionFrame, StepInputEnvelope, VoxelAnnotationEditRequest,
     VoxelAnnotationLayerExportRequest, VoxelAnnotationLayerLoadRequest,
     VoxelAnnotationLayerValidationRequest, VoxelAnnotationQueryRequest,
@@ -47,7 +47,6 @@ mod billboard_projection;
 mod camera;
 mod fps;
 mod generated;
-mod generated_tunnel;
 mod input_session;
 mod particle_projection;
 mod presentation_operation;
@@ -78,21 +77,18 @@ pub use camera::{
 };
 pub use fps::{
     apply_fps_encounter_transition, apply_fps_primary_fire, apply_gameplay_prefab_part_interaction,
-    invoke_game_extension_weapon_effect, load_fps_runtime_session, read_composed_runtime_session,
+    invoke_game_extension_weapon_effect, read_composed_runtime_session,
     read_fps_encounter_director, read_fps_runtime_session, read_game_rule_runtime_readout,
     read_gameplay_module_view, restart_fps_runtime_session, submit_game_rule_effect_intent,
     validate_game_rule_catalog, NativeComposedGameplayReadout, NativeComposedRuntimeSessionReadout,
-    NativeFpsBoundsCapability, NativeFpsEncounterDirectorSnapshot,
-    NativeFpsEncounterLifecycleInput, NativeFpsEncounterStateReadout,
-    NativeFpsEncounterTransitionRequest, NativeFpsEncounterTransitionResult,
-    NativeFpsEntityHealthReadout, NativeFpsHealth, NativeFpsLifecycleStatus,
-    NativeFpsPolicyBinding, NativeFpsPolicyBindingReadout, NativeFpsPrimaryFireResult,
+    NativeFpsEncounterDirectorSnapshot, NativeFpsEncounterLifecycleInput,
+    NativeFpsEncounterStateReadout, NativeFpsEncounterTransitionRequest,
+    NativeFpsEncounterTransitionResult, NativeFpsEntityHealthReadout, NativeFpsHealth,
+    NativeFpsLifecycleStatus, NativeFpsPolicyBindingReadout, NativeFpsPrimaryFireResult,
     NativeFpsReadSetEvidence, NativeFpsReplayEvidence, NativeFpsRuntimeSessionSnapshot,
-    NativeFpsStoredEntityDefinition, NativeFpsTransformCapability, NativeFpsWeaponMount,
     NativeGameExtensionWeaponEffectInvocationResult, NativeGameplayContractRef,
     NativeGameplayModuleViewSnapshot, NativeGameplayPrefabPartInteractionReceipt,
 };
-pub use generated_tunnel::apply_generated_tunnel_to_runtime_world;
 pub use input_session::{
     apply_input_context_command, configure_input_session, read_input_context_state,
     replay_resolved_input_action, submit_raw_input,
@@ -307,30 +303,11 @@ fn u64_input(value: i64, field: &str) -> napi::Result<u64> {
     non_negative_i64(value, field).map(|v| v as u64)
 }
 
-#[napi(object)]
-pub struct NativeCompositionStatus {
-    pub loaded_project_bundle: Option<i64>,
-    pub fatal_count: u32,
-    pub total_count: u32,
-    pub blocks_load: bool,
-}
-
 #[derive(Debug, PartialEq, Eq)]
 #[napi(object)]
 pub struct NativeStepResult {
     pub tick: i64,
     pub diff_count: u32,
-}
-
-impl From<runtime_bridge_api::CompositionStatus> for NativeCompositionStatus {
-    fn from(value: runtime_bridge_api::CompositionStatus) -> Self {
-        Self {
-            loaded_project_bundle: value.loaded_project_bundle.map(|v| v as i64),
-            fatal_count: value.fatal_count,
-            total_count: value.total_count,
-            blocks_load: value.blocks_load,
-        }
-    }
 }
 
 #[napi(object)]
@@ -491,26 +468,9 @@ impl From<RuntimeProjectionFrame> for NativeRuntimeProjectionFrame {
 }
 
 #[napi(object)]
-pub struct NativeProjectBundleSaveSummary {
-    pub artifacts_written: u32,
-    pub compacted_edits: u32,
-    pub retained_edits: u32,
-}
-
-#[napi(object)]
 pub struct NativeRuntimeBufferView {
     pub handle: i64,
     pub bytes: Vec<u8>,
-}
-
-impl From<runtime_bridge_api::ProjectBundleSaveSummary> for NativeProjectBundleSaveSummary {
-    fn from(value: runtime_bridge_api::ProjectBundleSaveSummary) -> Self {
-        Self {
-            artifacts_written: value.artifacts_written,
-            compacted_edits: value.compacted_edits,
-            retained_edits: value.retained_edits,
-        }
-    }
 }
 
 #[napi(object)]
@@ -672,11 +632,6 @@ wire_parser!(
     parse_voxel_edit_history_redo_request,
     VoxelEditHistoryRedoRequest,
     "redo_voxel_edit"
-);
-wire_parser!(
-    parse_game_rule_module_manifests,
-    Vec<GameRuleModuleManifest>,
-    "load_fps_runtime_session"
 );
 wire_parser!(
     parse_weapon_effect_hook_request,
@@ -867,28 +822,6 @@ pub fn close_workspace_authoring(handle: i64, request_json: String) -> napi::Res
 }
 
 #[napi]
-pub fn load_project_bundle(
-    handle: i64,
-    bundle_schema_version: i64,
-    protocol_version: i64,
-    scene_id: i64,
-) -> napi::Result<NativeCompositionStatus> {
-    let bundle_schema_version = u32_input(bundle_schema_version, "bundle_schema_version")?;
-    let protocol_version = u32_input(protocol_version, "protocol_version")?;
-    let scene_id = u64_input(scene_id, "scene_id")?;
-    with_bridge(handle, |bridge| {
-        bridge
-            .load_project_bundle(ProjectBundleLoadRequest {
-                bundle_schema_version,
-                protocol_version,
-                scene_id,
-            })
-            .map(NativeCompositionStatus::from)
-            .map_err(to_napi)
-    })
-}
-
-#[napi]
 pub fn submit_commands(handle: i64, commands_json: String) -> napi::Result<NativeCommandResult> {
     let batch = parse_voxel_command_batch_json(&commands_json).map_err(to_napi)?;
     with_bridge(handle, |bridge| {
@@ -968,26 +901,6 @@ pub fn read_developer_console(handle: i64) -> napi::Result<NativeDeveloperConsol
 }
 
 #[napi]
-pub fn save_project_bundle(handle: i64) -> napi::Result<NativeProjectBundleSaveSummary> {
-    with_bridge(handle, |bridge| {
-        bridge
-            .save_project_bundle()
-            .map(NativeProjectBundleSaveSummary::from)
-            .map_err(to_napi)
-    })
-}
-
-#[napi]
-pub fn get_project_bundle_composition_status(handle: i64) -> napi::Result<NativeCompositionStatus> {
-    with_bridge(handle, |bridge| {
-        bridge
-            .get_project_bundle_composition_status()
-            .map(NativeCompositionStatus::from)
-            .map_err(to_napi)
-    })
-}
-
-#[napi]
 pub fn get_buffer(handle: i64, buffer_handle: i64) -> napi::Result<NativeRuntimeBufferView> {
     let buffer_handle = u64_input(buffer_handle, "buffer_handle")?;
     with_bridge(handle, |bridge| {
@@ -1008,13 +921,6 @@ pub fn release_buffer(handle: i64, buffer_handle: i64) -> napi::Result<()> {
         bridge
             .release_buffer(runtime_bridge_api::RuntimeBufferHandle::new(buffer_handle))
             .map_err(to_napi)
-    })
-}
-
-#[napi]
-pub fn unload_project_bundle(handle: i64) -> napi::Result<()> {
-    with_bridge(handle, |bridge| {
-        bridge.unload_project_bundle().map_err(to_napi)
     })
 }
 

@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 
 import { renderHandle, type RenderDiff } from '@asha/contracts';
 import { createMockRuntimeSession } from '@asha/runtime-bridge/reference';
+import { TINY_GENERATED_TUNNEL_READOUT } from '@asha/runtime-session';
 import {
   createGeneratedTunnelRoomFrame,
   type FirstPersonTunnelViewportCollisionDebug,
@@ -27,18 +28,13 @@ function sessionInput() {
       gameId: 'asha-demo',
       workspaceId: 'workspace.local',
     },
-    projectBundle: {
-      bundleSchemaVersion: 1,
-      protocolVersion: 1,
-      sceneId: 42,
-    },
   };
 }
 
 void test('first-person tunnel viewport renders generated tunnel frame from runtime camera projection', () => {
   const session = createMockRuntimeSession();
   session.initialize(sessionInput());
-  const tunnel = session.readGeneratedTunnelReadout({ presetId: 'tiny-enclosed', seed: 17 });
+  const tunnel = TINY_GENERATED_TUNNEL_READOUT;
   const camera = session.createCamera({
     initialPose: { position: [1.5, 1.5, 1.5], yawDegrees: 0, pitchDegrees: 0 },
     projection: { fovYDegrees: 60, near: 0.1, far: 100 },
@@ -88,7 +84,7 @@ function isDefineStaticMeshDiff(op: RenderDiff): op is Extract<RenderDiff, { op:
 void test('first-person tunnel viewport summary can carry optional collision debug hashes', () => {
   const session = createMockRuntimeSession();
   session.initialize(sessionInput());
-  const tunnel = session.readGeneratedTunnelReadout({ presetId: 'tiny-enclosed', seed: 17 });
+  const tunnel = TINY_GENERATED_TUNNEL_READOUT;
   const camera = session.createCamera({
     initialPose: { position: [1.5, 1.5, 1.5], yawDegrees: 0, pitchDegrees: 0 },
     projection: { fovYDegrees: 60, near: 0.1, far: 100 },
@@ -200,7 +196,7 @@ void test('renderer-three backend declarations stay render-backend scoped', () =
 void test('generated tunnel browser surface frame carries combat target metadata', () => {
   const session = createMockRuntimeSession();
   session.initialize(sessionInput());
-  const tunnel = session.readGeneratedTunnelReadout({ presetId: 'tiny-enclosed', seed: 17 });
+  const tunnel = TINY_GENERATED_TUNNEL_READOUT;
   const frame = createGeneratedTunnelRoomFrame({
     tunnel,
     enemy: {

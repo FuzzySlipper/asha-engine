@@ -30,8 +30,7 @@ new-consumer endorsement.
 | Concern | Existing consumers | Preferred replacement | Deletion owner |
 |---|---|---|---|
 | Legacy weapon-effect hook and bridge verb | `asha-demo` | Native `GameplayModuleBehavior` Transform inside `asha-runtime-session-composition` | #5734 |
-| Standalone `asha-gameplay-runtime-host` product host | `asha-demo`, `asha-rulebench`, quarantine fixture `asha-testing` | `StaticRuntimeSessionBuilder` from `asha-runtime-session-composition` | #5734 and Rulebench #5715 |
-| Prototype ProjectBundle bridge DTOs (`ProjectBundleLoadRequest`, `CompositionStatus`, `ProjectBundleSaveSummary`) | engine app/devtools/runtime, `asha-demo`, `asha-studio` | Generated `ProjectBundleManifest`, `DiagnosticReportSet`, and `SaveSummary` contracts | #5737, #5736, and #5733, followed by the same bridge contract revision upstream |
+| Standalone `asha-gameplay-runtime-host` product host | `asha-demo`, `asha-rulebench`, quarantine fixture `asha-testing` | `DeferredRuntimeSessionBuilder` from `asha-runtime-session-composition` | #5734 and Rulebench #5715 |
 
 The inventory records the compatibility version, owning lane, exact code
 boundary, real consumers, diagnostic, fail-closed evidence, and deletion
@@ -58,20 +57,17 @@ upstream. #5732 removed it as part of #5734's migration to
 - Compatibility code validates through the same owner, codec, registry,
   continuation, and rollback gates as its preferred replacement. It may adapt
   shapes; it may not bypass authority.
-- Prototype ProjectBundle DTOs are bounded identifiers/readouts, not authored
-  ProjectBundle truth. No new consumer should copy their handwritten shapes.
 - Removal happens only after the named downstream proof is live. The
   quarantine is allowed to be awkward and visible; it is not allowed to break
   an active consumer merely to make the inventory look clean.
 
 ## Known limitations
 
-Until the deletion tasks close, the repository deliberately carries two Rust
-product composition entry points and a simplified ProjectBundle bridge shape.
-That is migration debt, not a claim of interchangeable authority. The
+Until the deletion tasks close, the repository deliberately carries the
+standalone Rust gameplay host quarantine. That is migration debt, not a claim
+of interchangeable authority. The
 standalone host cannot be used to justify a second browser endpoint, shadow
-EntityStore, or TypeScript semantic-event ferry. The simplified DTOs do not
-replace stored ProjectBundle validation or generated protocol contracts.
+EntityStore, or TypeScript semantic-event ferry.
 
 Run `python3 harness/public-surface/check-public-boundary.py` to validate the
 quarantine inventory and role policy.

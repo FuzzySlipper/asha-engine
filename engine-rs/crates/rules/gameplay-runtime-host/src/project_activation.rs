@@ -6,7 +6,7 @@ use protocol_voxel_asset::VoxelVolumeAsset;
 use svc_serialization::BundleHash;
 
 use crate::{
-    GameplayRuntimeHost, GameplayRuntimeHostError, GameplayRuntimeProjectInput,
+    GameplayRuntimeHost, GameplayRuntimeHostError, RuntimeProjectActivationInput,
     ValidatedRuntimeProjectAdmission,
 };
 
@@ -59,7 +59,7 @@ impl GameplayRuntimeHost {
             runtime_entity_seeds: parts.runtime_entity_seeds,
         };
         let mut host = Self::activate_project_with_prefabs(
-            GameplayRuntimeProjectInput {
+            RuntimeProjectActivationInput {
                 load_plan: parts.load_plan,
                 artifacts: parts.artifacts,
                 bootstrap_resolution: parts.bootstrap_resolution,

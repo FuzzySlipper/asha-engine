@@ -15,12 +15,16 @@
 
 import type { PickRay, PickResult, RenderFrameDiff } from '@asha/contracts';
 import {
+  createRuntimeSessionFacade,
   frameCursor,
   RuntimeBridgeError,
-  type CompositionStatus,
   type RuntimeBridge,
-  type ProjectBundleLoadRequest,
 } from '@asha/runtime-bridge';
+import type {
+  RuntimeSessionFacade,
+  RuntimeSessionProjectLoadReceipt,
+  RuntimeSessionProjectSource,
+} from '@asha/runtime-session';
 import {
   buildEditorControls,
   controlToAction,
@@ -99,16 +103,15 @@ export interface AppBridgeBoot {
 }
 
 /**
- * A runtime-selectable fixture/world the shell can load. Selection is data, not a
- * compile-time switch: the host offers a catalog and the user/agent picks one at
- * runtime. `materials` seeds the accessible material palette for the editor.
+ * A runtime-selectable canonical project source. Selection is data, not a
+ * compile-time switch. `materials` seeds the accessible editor palette.
  */
 export interface FixtureChoice {
   readonly id: string;
   readonly label: string;
   /** Catalog material ids this fixture exposes (drives the material palette). */
   readonly materials: readonly number[];
-  readonly request: ProjectBundleLoadRequest;
+  readonly source: RuntimeSessionProjectSource;
 }
 
 /** Everything the host injects to compose the shell. */
@@ -151,7 +154,7 @@ export interface WorldStatus {
   readonly fixtureId: string;
   readonly fixtureLabel: string;
   readonly loaded: boolean;
-  readonly composition: CompositionStatus | null;
+  readonly project: RuntimeSessionProjectLoadReceipt | null;
   readonly detail: string;
 }
 
@@ -202,12 +205,13 @@ export class AppShell {
 
   readonly #boot: AppBridgeBoot;
   readonly #bridge: RuntimeBridge | null;
+  readonly #session: RuntimeSessionFacade | null;
   readonly #renderer: RendererPort | null;
   readonly #fixtures: readonly FixtureChoice[];
 
   #activeFixtureId: string;
-  #composition: CompositionStatus | null = null;
-  #projectBundleLoaded = false;
+  #project: RuntimeSessionProjectLoadReceipt | null = null;
+  #projectLoaded = false;
   #renderApplied = false;
   #renderSource: 'authority' | 'none' = 'none';
   #renderDetail = 'no projection applied yet';
@@ -222,6 +226,12 @@ export class AppShell {
     this.host = config.host;
     this.#boot = config.bootBridge();
     this.#bridge = this.#boot.bridge;
+    this.#session = this.#bridge
+      ? createRuntimeSessionFacade({
+          bridge: this.#bridge,
+          mode: this.#boot.mode === 'native' ? 'rust' : 'reference',
+        })
+      : null;
     this.#renderer = config.renderer ?? null;
     this.#fixtures = config.fixtures;
     this.#activeFixtureId = config.initialFixtureId ?? config.fixtures[0]!.id;
@@ -244,10 +254,13 @@ export class AppShell {
         };
     this.controller = new VoxelEditController(sink);
 
-    // Boot the engine if a bridge is present (idempotent seed; mirrors the smoke boot).
-    if (this.#bridge) {
+    if (this.#session) {
       try {
-        this.#bridge.initializeEngine({ seed: 1 });
+        this.#session.initialize({
+          sessionId: `asha-shell.${this.host.name}`,
+          seed: 1,
+          project: { gameId: 'asha-shell', workspaceId: 'app-shell' },
+        });
       } catch (cause) {
         this.#captureDegradation(cause);
       }
@@ -265,8 +278,11 @@ export class AppShell {
       throw new Error(`unknown fixture '${id}'`);
     }
     this.#activeFixtureId = id;
-    this.#composition = null;
-    this.#projectBundleLoaded = false;
+    if (this.#projectLoaded && this.#session) {
+      this.#session.closeProject();
+    }
+    this.#project = null;
+    this.#projectLoaded = false;
     this.#renderApplied = false;
     this.#renderSource = 'none';
     this.#renderDetail = 'fixture changed; reload to project';
@@ -277,18 +293,20 @@ export class AppShell {
    * readout; a native-gap failure downgrades the runtime to `degraded` instead of
    * pretending the world loaded.
    */
-  loadActiveFixture(): WorldStatus {
-    if (!this.#bridge) {
-      this.#projectBundleLoaded = false;
-      this.#composition = null;
+  async loadActiveFixture(): Promise<WorldStatus> {
+    if (!this.#session) {
+      this.#projectLoaded = false;
+      this.#project = null;
       return this.worldStatus();
     }
     try {
-      const status = this.#bridge.loadProjectBundle(this.activeFixture.request);
-      this.#composition = status;
-      this.#projectBundleLoaded = status.loadedProjectBundle === this.activeFixture.request.sceneId && !status.blocksLoad;
+      if (this.#projectLoaded) {
+        this.#session.closeProject();
+      }
+      this.#project = await this.#session.loadProject({ source: this.activeFixture.source });
+      this.#projectLoaded = this.#project.accepted;
     } catch (cause) {
-      this.#projectBundleLoaded = false;
+      this.#projectLoaded = false;
       this.#captureDegradation(cause);
     }
     return this.worldStatus();
@@ -422,10 +440,10 @@ export class AppShell {
     return {
       fixtureId: fixture.id,
       fixtureLabel: fixture.label,
-      loaded: this.#projectBundleLoaded,
-      composition: this.#composition,
-      detail: this.#projectBundleLoaded
-        ? `loaded world ${this.#composition?.loadedProjectBundle ?? '?'}`
+      loaded: this.#projectLoaded,
+      project: this.#project,
+      detail: this.#projectLoaded
+        ? `loaded project ${this.#project?.activeProject?.projectId ?? '?'}`
         : this.#bridge
           ? 'fixture not loaded'
           : 'no bridge to load fixture',

@@ -32,7 +32,7 @@ export type RuntimeMode = 'native' | 'mock';
 /**
  * What the run is trying to *prove*, independent of transport:
  * - `reference`: the deterministic mock/dev smoke (renderer upload path, etc.).
- * - `authority`: the real load→authority→projection→render→edit→save loop,
+ * - `authority`: the real load→authority→projection→render→edit loop,
  *   reading render diffs through the facade and submitting contract-shaped commands.
  */
 export type SmokeMode = 'reference' | 'authority';
@@ -96,14 +96,14 @@ export interface SmokeResult {
   /** Per-capability probe results. */
   readonly capabilities: {
     readonly runtimeBridge: CapabilityStatus;
-    readonly projectBundleLoad: CapabilityStatus;
+    readonly projectLoad: CapabilityStatus;
     readonly renderer: CapabilityStatus;
     readonly projection: CapabilityStatus;
   };
-  /** The abstract fixture ProjectBundle that was loaded (id + deterministic content hash). */
+  /** The canonical fixture project that was loaded (id + manifest hash). */
   readonly fixture: {
     readonly id: number;
-    readonly projectBundleHash: string;
+    readonly manifestHash: string;
   };
   /** Diagnostics summary from the load/composition path. */
   readonly diagnostics: {
@@ -131,10 +131,10 @@ export function formatResult(result: SmokeResult): string {
   lines.push(`runtimeMode: ${result.runtimeMode} (nativeAvailable=${result.nativeAvailable})`);
   lines.push(
     `capabilities: runtimeBridge=${result.capabilities.runtimeBridge} ` +
-      `projectBundleLoad=${result.capabilities.projectBundleLoad} renderer=${result.capabilities.renderer} ` +
+      `projectLoad=${result.capabilities.projectLoad} renderer=${result.capabilities.renderer} ` +
       `projection=${result.capabilities.projection}`,
   );
-  lines.push(`fixture: id=${result.fixture.id} projectBundleHash=${result.fixture.projectBundleHash}`);
+  lines.push(`fixture: id=${result.fixture.id} manifestHash=${result.fixture.manifestHash}`);
   lines.push(
     `diagnostics: total=${result.diagnostics.total} fatal=${result.diagnostics.fatal} ` +
       `blocksLoad=${result.diagnostics.blocksLoad}`,

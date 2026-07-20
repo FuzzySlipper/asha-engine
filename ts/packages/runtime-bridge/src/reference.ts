@@ -5,14 +5,3 @@ export {
   type MockRuntimeSessionOptions,
   type ReferenceRuntimeBackendProfile,
 } from './mock-session.js';
-export {
-  ReferenceGameRuntimeLauncher,
-  ReferenceGameRuntimeSession,
-  createReferenceGameRuntimeLauncher,
-  referenceBackendProfile,
-} from './reference-launcher.js';
-export type {
-  GameRuntimeLauncher,
-  GameRuntimeConfig,
-  GameRuntimeSession,
-} from './launcher.js';

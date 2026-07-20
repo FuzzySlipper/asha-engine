@@ -70,11 +70,6 @@ function sessionInput() {
       gameId: 'asha-provider-regression',
       workspaceId: 'workspace.local',
     },
-    projectBundle: {
-      bundleSchemaVersion: 1,
-      protocolVersion: 1,
-      sceneId: 42,
-    },
   };
 }
 

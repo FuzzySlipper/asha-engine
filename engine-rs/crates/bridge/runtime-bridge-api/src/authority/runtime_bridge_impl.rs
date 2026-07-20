@@ -172,13 +172,6 @@ impl RuntimeBridge for EngineBridge {
         collision_camera::apply(self, envelope)
     }
 
-    fn apply_generated_tunnel_to_runtime_world(
-        &mut self,
-        request: GeneratedTunnelRuntimeApplyRequest,
-    ) -> BridgeResult<GeneratedTunnelRuntimeApplyReceipt> {
-        self.apply_generated_tunnel_runtime_authority(request)
-    }
-
     fn select_voxel(
         &self,
         request: ScreenPointToPickRayRequest,
@@ -1285,13 +1278,6 @@ impl RuntimeBridge for EngineBridge {
         self.apply_scene_object_command_authority(request)
     }
 
-    fn load_fps_runtime_session(
-        &mut self,
-        request: FpsRuntimeSessionLoadRequest,
-    ) -> BridgeResult<FpsRuntimeSessionSnapshot> {
-        self.load_fps_runtime_session_authority(request)
-    }
-
     fn read_fps_runtime_session(&self) -> BridgeResult<FpsRuntimeSessionSnapshot> {
         self.require_initialized("read_fps_runtime_session")?;
         Self::fps_snapshot(
@@ -1488,7 +1474,7 @@ impl RuntimeBridge for EngineBridge {
         let session = self.gameplay.fps_session.as_mut().ok_or_else(|| {
             RuntimeBridgeError::new(
                 RuntimeBridgeErrorKind::NotInitialized,
-                "invoke_game_extension_weapon_effect called before load_fps_runtime_session",
+                "invoke_game_extension_weapon_effect called before canonical FPS project activation",
             )
         })?;
         let receipt = session
@@ -1698,13 +1684,6 @@ impl RuntimeBridge for EngineBridge {
         self.voxel.buffers.dispose(handle)
     }
 
-    fn load_project_bundle(
-        &mut self,
-        request: ProjectBundleLoadRequest,
-    ) -> BridgeResult<CompositionStatus> {
-        self.load_project_bundle_authority(request)
-    }
-
     fn begin_runtime_project_source_resources(
         &mut self,
         request: ProjectResourceBeginRequest,
@@ -1759,17 +1738,5 @@ impl RuntimeBridge for EngineBridge {
         request: RuntimeProjectCloseRequest,
     ) -> BridgeResult<RuntimeProjectCloseReceipt> {
         Ok(self.close_runtime_project_authority(request))
-    }
-
-    fn save_project_bundle(&mut self) -> BridgeResult<ProjectBundleSaveSummary> {
-        self.save_project_bundle_authority()
-    }
-
-    fn get_project_bundle_composition_status(&self) -> BridgeResult<CompositionStatus> {
-        self.project_bundle_composition_status_authority()
-    }
-
-    fn unload_project_bundle(&mut self) -> BridgeResult<()> {
-        self.unload_project_bundle_authority()
     }
 }

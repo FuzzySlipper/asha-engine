@@ -16,11 +16,6 @@ function sessionInput() {
       gameId: 'asha-demo',
       workspaceId: 'workspace.local',
     },
-    projectBundle: {
-      bundleSchemaVersion: 1,
-      protocolVersion: 1,
-      sceneId: 42,
-    },
   };
 }
 function cameraRequest(): CameraCreateRequest {
@@ -94,7 +89,7 @@ void test('RuntimeSession exposes deterministic encounter director pending and a
   assert.equal(activated.after.state.activeEnemyCount, 1);
   assert.equal(activated.after.state.pendingEnemyCount, 0);
   assert.equal(activated.after.spawns[0]?.status, 'spawned');
-  assert.equal(activated.hashes.transitionHash, '44cff941f20f6b19');
+  assert.equal(activated.hashes.transitionHash, '1790e08ac96066e7');
   assert.notEqual(activated.hashes.sessionHashAfter, activated.hashes.sessionHashBefore);
   assert.equal(session.readTelemetry().replayRecords.at(-1)?.kind, 'requestEncounterTransition');
 });
@@ -123,7 +118,7 @@ void test('RuntimeSession encounter director syncs lifecycle clear/fail and rest
   assert.equal(cleared.after.spawns[0]?.status, 'defeated');
   assert.equal(cleared.after.lifecycle.outcomeKind, 'won');
   assert.equal(cleared.after.lifecycle.enemyDead, true);
-  assert.equal(cleared.hashes.transitionHash, 'eb120e107cd105b9');
+  assert.equal(cleared.hashes.transitionHash, 'eaa490817aa055d9');
 
   session.restart();
   const reset = session.readEncounterDirector();
@@ -145,7 +140,7 @@ void test('RuntimeSession encounter director syncs lifecycle clear/fail and rest
   assert.equal(failed.after.state.failedReason, 'player_defeated');
   assert.equal(failed.after.lifecycle.outcomeKind, 'lost');
   assert.equal(failed.after.lifecycle.playerDead, true);
-  assert.equal(failed.hashes.transitionHash, 'e9ea7444d202d286');
+  assert.equal(failed.hashes.transitionHash, '08a269ef4498edf7');
 });
 
 void test('RuntimeSession encounter transition fails closed with typed rejection receipts', () => {

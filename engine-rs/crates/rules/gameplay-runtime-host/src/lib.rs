@@ -87,8 +87,7 @@ use svc_serialization::{
 pub use svc_serialization::{LoadPlan, LoadStep};
 
 pub const GAMEPLAY_RUNTIME_HOST_SNAPSHOT_PATH: &str = "session/gameplay-runtime-host.snapshot.json";
-/// Machine-readable deprecation diagnostic for the standalone Wave 1 host.
-/// New consumers compose modules inside `asha-runtime-session-composition`.
+/// Machine-readable quarantine diagnostic for direct host construction.
 pub const GAMEPLAY_RUNTIME_HOST_COMPATIBILITY_DIAGNOSTIC: &str =
     "asha.compat.wave1.standalone-gameplay-runtime-host";
 const GAMEPLAY_RUNTIME_HOST_SNAPSHOT_VERSION: u32 = 4;
@@ -150,9 +149,9 @@ pub struct GameplayRuntimeHostInput {
     pub scheduler: GameplayRuntimeSchedulerDefinition,
 }
 
-/// Public loading form for consumers that have authored ProjectBundle
-/// artifacts but do not already own an engine-internal load result.
-pub struct GameplayRuntimeProjectInput {
+/// Compiler-owned activation parts. The canonical admission artifact is the
+/// only constructor; downstream consumers cannot assemble this topology.
+pub(crate) struct RuntimeProjectActivationInput {
     pub load_plan: LoadPlan,
     pub artifacts: BundleArtifacts,
     /// Independently validated external identities for typed scene references.
@@ -296,33 +295,11 @@ impl GameplayRuntimeHost {
         Ok(())
     }
 
-    pub fn activate_project(
-        input: GameplayRuntimeProjectInput,
-    ) -> Result<Self, GameplayRuntimeHostError> {
-        let bundle = rule_project_bundle::execute_load_plan_resolved(
-            &input.load_plan,
-            &input.artifacts,
-            &input.bootstrap_resolution,
-        )
-        .map_err(|error| GameplayRuntimeHostError::Load(format!("{error:?}")))?;
-        Self::activate(GameplayRuntimeHostInput {
-            bundle,
-            composition: input.composition,
-            composition_requirement: input.composition_requirement,
-            bindings: input.bindings,
-            entity_targets: input.entity_targets,
-            spatial_entities: input.spatial_entities,
-            declared_reads: input.declared_reads,
-            triggers: input.triggers,
-            scheduler: input.scheduler,
-        })
-    }
-
     /// Load authored ProjectBundle artifacts, validate one complete prefab
     /// registry, apply every placement atomically in staging, then activate the
     /// closed gameplay topology against the resulting part-role authority.
-    pub fn activate_project_with_prefabs(
-        input: GameplayRuntimeProjectInput,
+    pub(crate) fn activate_project_with_prefabs(
+        input: RuntimeProjectActivationInput,
         prefabs: GameplayRuntimePrefabBootstrap,
     ) -> Result<Self, GameplayRuntimeHostError> {
         let mut bundle = rule_project_bundle::execute_load_plan_resolved(
@@ -357,37 +334,12 @@ impl GameplayRuntimeHost {
         )
     }
 
-    pub fn restore_project(
-        input: GameplayRuntimeProjectInput,
-        snapshot_text: &str,
-    ) -> Result<Self, GameplayRuntimeHostError> {
-        let bundle = rule_project_bundle::execute_load_plan_resolved(
-            &input.load_plan,
-            &input.artifacts,
-            &input.bootstrap_resolution,
-        )
-        .map_err(|error| GameplayRuntimeHostError::Load(format!("{error:?}")))?;
-        Self::restore(
-            GameplayRuntimeHostInput {
-                bundle,
-                composition: input.composition,
-                composition_requirement: input.composition_requirement,
-                bindings: input.bindings,
-                entity_targets: input.entity_targets,
-                spatial_entities: input.spatial_entities,
-                declared_reads: input.declared_reads,
-                triggers: input.triggers,
-                scheduler: input.scheduler,
-            },
-            snapshot_text,
-        )
-    }
-
     /// Validate the authored prefab source and placement commands before
     /// restoring the saved Session. The snapshot remains authoritative for the
     /// live entity/role map and must match the binding activation evidence.
-    pub fn restore_project_with_prefabs(
-        input: GameplayRuntimeProjectInput,
+    #[cfg(test)]
+    pub(crate) fn restore_project_with_prefabs(
+        input: RuntimeProjectActivationInput,
         prefabs: GameplayRuntimePrefabBootstrap,
         snapshot_text: &str,
     ) -> Result<Self, GameplayRuntimeHostError> {

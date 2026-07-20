@@ -91,12 +91,11 @@ Additional unstable package statuses:
 - `@asha/renderer-three` is an unstable Three.js implementation package for engine smoke/testing only. It is not the long-term public renderer contract; human-facing demos should use `@asha/renderer-host` for browser mounting and `@asha/render-projection` for renderer-neutral retained semantics.
 - `@asha/ui-dom` is an unstable render-agnostic UI projection/control descriptor package. It can expose root-level HUD/menu projection helpers, but it does not execute runtime commands or own DOM framework state.
 - Browser input ownership lives in `@asha/runtime-bridge` through `BrowserInputHost`, which attaches DOM listeners and submits normalized samples through the public RuntimeSession input surface. FPS and editor code consume named actions through `BrowserFpsResolvedActionConsumer` and `EditorResolvedInputConsumer`; they do not own key codes. Consumers must not replace this with demo-local WASD/mouse-look globals, renderer-three imports, bare Three.js controls, raw runtime transports, or generated internals.
-- RuntimeSession ECRP loads may declare generated `GameRuleModuleManifest[]`
-  values through `loadEcrpProject(input.gameRuleModules)`. Rust-backed
-  sessions validate the declaration shape, forward compatible manifests to the
-  FPS RuntimeSession authority load, and fail closed before bridge mutation when
-  declarations are malformed. Consumers must not install game-rule modules
-  through demo-local registries, private native transports, or raw JSON tunnels.
+- Canonical ProjectContent may declare generated gameplay module bindings.
+  Rust-backed sessions resolve them against the statically linked composition
+  during project admission and fail before publication when declarations are
+  malformed. Consumers must not install game-rule modules through demo-local
+  registries, private native transports, or raw JSON tunnels.
 
 Internal packages, including `@asha/native-bridge`, `@asha/wasm-replay-bridge`, `@asha/app`, `@asha/electron-main`, internal policy packages, `@asha/catalog-examples`, and `@asha/smoke`, are not downstream public surfaces.
 
@@ -392,8 +391,8 @@ static composition only; runtime plugin loading is not part of this surface.
   new-consumer guidance.
 
 - 2026-07-12: `GameplayRuntimeHost` now owns the replayable gameplay action
-  scheduler. `GameplayRuntimeProjectInput` adds the closed scheduler definition;
-  public Rust exposes typed schedule/trigger/route commands and bounded
+  scheduler. Canonical project activation compiles the closed scheduler
+  definition; public Rust exposes typed schedule/trigger/route commands and bounded
   readout; host snapshots retain the complete scheduler state. The TypeScript
   load/advance/readout contract adds the matching scheduler shapes. The host
   hash now includes current EntityStore/prefab authority and scheduler state,
@@ -441,20 +440,10 @@ the stable diagnostic is
 
 ## Rust runtime session composition compatibility log
 
-- 2026-07-14: Added the statically installed `ComposedGameplayOwner` seam for
-  downstream Rust combat authority. The composed cell now owns one typed
-  owner checkpoint/replay identity and runs continuation authorization,
-  transformed pre-commit routing, the owner commit, and its typed post-commit
-  event batch as one rollback boundary. Owner state/replay hashes are part of
-  the schema-v2 composed readout and checkpoint hash. Missing, stale, consumed,
-  rejected, malformed-event, and replay-mismatched paths fail without retaining
-  owner, module-state, frame, decision, continuation, or entity mutations.
-
 - 2026-07-13: Added `asha-runtime-session-composition` as the preferred public
-  static builder. It consumes a concrete gameplay ProjectBundle composition and
-  returns one EngineBridge authority cell with one EntityStore, in-process
-  combat/event and movement/trigger delivery, combined readout/checkpoint
-  hashes, and provider-level restore.
+  provider root. It installs a closed static module composition and returns one
+  unloaded EngineBridge authority cell. Canonical project admission compiles
+  runtime topology and publishes it atomically.
 
 ### `asha-runtime-session-composition` — distinct native authority cells
 
@@ -469,13 +458,10 @@ Status: task #5749 preferred public Rust provider boundary.
 - `StaticProjectAuthoringBuilder` consumes static composition and retains only
   immutable provider registry/schema/codec authority. It does not load a
   ProjectBundle or activate module/runtime state.
-- A downstream crate may install one concrete `ComposedGameplayOwner` through
-  `StaticRuntimeSessionBuilder::with_gameplay_owner`. Its typed state codec
-  produces `ComposedGameplayOwnerCheckpoint`; its pre-commit result may emit
-  only registered `GameplayEventEnvelope` facts. Consumers resume through
-  `ComposedGameplayRuntime::transact_composed_gameplay_owner`; no TypeScript event ferry,
-  mutable owner registry, raw Session access, or caller-supplied post-commit
-  evidence is accepted.
+- `DeferredRuntimeSessionBuilder` installs the closed gameplay composition and
+  optional typed product-domain adapter before returning an unloaded bridge.
+  Downstream code cannot inject a mutable owner registry, raw Session access,
+  caller-authored runtime topology, or a TypeScript event ferry.
 
 ## Rust native runtime provider compatibility log
 
@@ -632,8 +618,11 @@ Additive notes under `runtime-bridge.v0`:
 - #4404 promotes `BrowserFpsInputCollector` into the shared browser/standalone FPS input ownership lane. It now exposes typed shell state (`active`, `disabled`, `paused`) and `drainInputFrame()` for runtime-neutral movement/look frames that renderer-host can consume without a RuntimeSession camera handle. `drainFrame()` remains the typed RuntimeSession camera/action proposal path. The compatibility marker remains `runtime-bridge.v0` because the change is additive.
 - #4036 adds the first public typed runtime action/fire intent protocol at the `@asha/runtime-bridge` package root. Browser FPS primary-button press/release now emits `runtime.propose_runtime_action_intent` commands carrying `RuntimeActionIntentEnvelope` values (`primary_fire`, `pressed`/`released`, camera, tick, source, pressed state). `RuntimeSessionFacade.submitRuntimeActionIntent` accepts this typed proposal and returns a fail-closed `unsupported` receipt with `combat_runtime_not_wired` until #4051 wires combat/fire authority. Consumers must not replace this with raw JSON action tunnels. The compatibility marker remains `runtime-bridge.v0` because the change is additive.
 - #4047 adds `RuntimeSessionFacade.applyCollisionConstrainedCameraInput`, a package-root wrapper around the generated `CollisionConstrainedCameraInputEnvelope` / `CameraCollisionSnapshot` bridge surface. The receipt exposes before/attempted/after motion evidence through the snapshot plus collided, blocked axes, world hash, collision projection hash, movement hash, and a replay record kind. The reference mock hosts the upstream static-room collision fixture so forward movement into the wall blocks while lateral movement in open space succeeds; consumers must still use this facade instead of demo-local physics, generated internals, native transports, or Rust crates. The compatibility marker remains `runtime-bridge.v0` because the change is additive.
-- #4050 adds the public generated tunnel readout facade: `RuntimeSessionFacade.readGeneratedTunnelReadout` plus `TINY_GENERATED_TUNNEL_READOUT` and generated tunnel readout types from the `@asha/runtime-session` root export. The current `tiny-enclosed` v2 fixture exposes seed `17`, config hash `e1d156c6b55137a7`, output hash `1471496d88d70647`, replay hash `fnv1a64:0821a0c2aea17dff`, render projection hash `fnv1a64:21eb8696f6f3b5c4`, collision projection hash `fnv1a64:627389be013a3154`, spawn markers, material roles, runtime frame, and volume/corridor summaries. `RuntimeSessionFacade.requestGeneratedTunnelOperation` provides typed fail-closed receipts for `regenerate` and `apply_to_runtime_world`; consumers must not replace these with local generation or JSON action tunnels. The compatibility marker remains `runtime-bridge.v0` because the change is additive.
-- #5532 wires `requestGeneratedTunnelOperation({ operation: 'apply_to_runtime_world' })` through the stable `apply_generated_tunnel_to_runtime_world` bridge operation. Rust `svc-levelgen` regenerates the selected `tiny-enclosed` source and atomically installs its voxel world as runtime collision authority after FPS/ECRP load. Rust `svc-collision` owns the stable source/projection identity used by both apply and movement receipts. Explicit shooter/target role pairs remain semantic targeted-fire requests resolved by Rust FPS authority; anonymous ray fire remains voxel-occluded. The applied receipt exposes grid, config/output, collision-source, and runtime collision-projection hashes so consumers do not hardcode grid `1` or invent collision geometry. Collision-constrained movement continuously sweeps each slide axis and rejects per-axis travel above 256 world units without camera mutation, preventing endpoint tunneling while bounding query cost. `regenerate` remains unsupported and reference sessions retain explicit non-authority behavior. The compatibility marker remains `runtime-bridge.v0` because the change is additive.
+- #6008 removes runtime procedural generation and its handwritten bootstrap. The
+  `tiny-enclosed` metadata remains a reference fixture for focused combat/nav
+  tests only. Product and Studio flows materialize generator output during
+  authoring, save canonical scene and voxel artifacts, and load those stored
+  artifacts without a runtime generator registry.
 - #5533 intentionally breaks the pre-registry collision-camera envelope by requiring generated `movementMode` evidence. `grounded` derives forward/right from yaw only, keeps Y stable, and rejects nonzero vertical input before mutation; `freeFlight` explicitly preserves pitch-aware and vertical motion. The stable bridge operation name and RuntimeSession method are unchanged, and the compatibility marker remains `runtime-bridge.v0` while consumers pin the engine commit during the current v0 phase.
 - #5547 completes the generated `VoxelCommand` native JSON border. `setVoxel`, `fillRegion`, and `generateChunk`, including both `empty` and `solid` voxel values, now parse through the bounded Rust bridge parser into the canonical `core-commands::VoxelCommand` union before authority validation. The public `RuntimeSessionFacade.submitCommands` shape is unchanged. An exhaustive public-root native consumer fixture makes generated command/value vocabulary growth fail TypeScript compilation until the native proof is updated. Unknown variants, malformed payloads, and extra fields fail closed. The compatibility marker remains `runtime-bridge.v0` because this fixes native conformance to the existing generated contract.
 - #5556 completes the native `CommandResult` response border. `submitCommands` now returns generated tagged `VoxelEditRejection` DTOs instead of Rust debug strings, with exhaustive mappings for `unknownMaterial`, `emptyRegion`, `chunkNotResident`, and `generationDivergence`. The public native RuntimeSession proof asserts exact DTOs for the three rejection paths reachable through command submission, and its exhaustive generated-reason record plus Rust's exhaustive native match make vocabulary growth fail closed at compile time. Existing command resource bounds and the stable facade signature are unchanged.
@@ -687,7 +676,7 @@ Initial root exports:
 Compatibility posture:
 
 - Consumers import all RuntimeSession contracts and semantic readout/proposal surfaces from `@asha/runtime-session` root.
-- #5996 adds the preferred `RuntimeSessionFacade.loadProject({ source })` and `closeProject()` lifecycle. Development-directory, packaged/archive, and bounded in-memory adapters share one manifest-driven loader; generated contracts own source identity, diagnostics, activation identity/hashes/counts, and lifecycle receipts. New initialization omits the legacy `projectBundle` bootstrap descriptor. `loadEcrpProject`, `loadProjectBundle`, raw source batches, `StaticRuntimeSessionBuilder`, `GameplayRuntimeProjectInput`, prefab bootstrap, bootstrap registries, and caller-authored spatial/trigger/scheduler plans are compatibility-only until Demo migration. Rust users find compiled-plan vocabulary only under `asha_runtime_session_composition::compatibility`.
+- #5996 adds `RuntimeSessionFacade.loadProject({ source })` and `closeProject()` as the sole public project lifecycle. Development-directory, packaged/archive, and bounded in-memory adapters share one manifest-driven loader; generated contracts own source identity, diagnostics, activation identity/hashes/counts, and lifecycle receipts. Initialization carries only session identity and seed. Runtime topology is compiled inside Rust from admitted content and is not exposed through compatibility aliases.
 - #5997 adds the matching ordinary authoring/save path. `WorkspaceAuthoringFacade.openProject({ source })` opens the same canonical manifest closure without starting gameplay; typed ProjectContent edits and requested relocations feed a revision-bound Rust `ProjectWriteCandidate`; `@asha/browser-host` observes, stages, atomically publishes, and rolls back server-local files; `confirmProjectWrite` consumes the exact candidate once. ProjectContent now keeps its stable envelope `documentId` independent from the manifest-owned `sourcePath`; typed upsert moves the path without changing identity, while write-time relocations remain for non-ProjectContent artifacts. The active runtime identity now includes Rust-selected voxel asset/grid bindings, and the RuntimeSession projection includes retained project voxel diffs. The in-repo walking consumer covers multi-scene dev/package parity, prefab/entity references, gameplay, voxel collision/projection, and add/move/split/delete without a downstream role mirror. `asha-demo` still needs to replace its compatibility bootstrap and inline content with this canonical pipeline before the compatibility APIs can be removed.
 - `@asha/runtime-bridge` does not provide a compatibility semantic re-export.
 - Concrete bridge-backed `createRuntimeSessionFacade` construction, native transport access, reference helpers, launchers, render decode, and generated bridge operation conformance remain in `@asha/runtime-bridge`.
@@ -846,7 +835,7 @@ Additive notes under this unstable status:
   preset and catalog readouts now include `authorityBoundary`, which explicitly
   labels `@asha/catalog-core` validation as DTO shape / consumer tuning range
   validation only. Runtime acceptance remains owned by Rust RuntimeSession
-  authority surfaces such as `loadEcrpProject`, collision input, primary-fire
+  authority surfaces such as `loadProject({ source })`, collision input, primary-fire
   action intents, policy ticks, encounter transitions, and restart.
 
 ## Render projection compatibility log

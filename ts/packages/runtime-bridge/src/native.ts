@@ -130,7 +130,6 @@ import {
   frameCursor,
   nonNegativeSafeInteger,
   u32,
-  type CompositionStatus,
   type ComposedRuntimeSessionReadout,
   type EnemyDirectNavMovementRequest,
   type EnemyDirectNavMovementResult,
@@ -151,14 +150,11 @@ import {
   type GameplayModuleViewSnapshot,
   type GameplayPrefabPartInteractionReceipt,
   type GameplayPrefabPartInteractionRequest,
-  type GeneratedTunnelRuntimeApplyReceipt,
-  type GeneratedTunnelRuntimeApplyRequest,
   type FpsLifecycleStatus,
   type FpsPrimaryFireRequest,
   type FpsPrimaryFireResult,
   type FpsRuntimeAuthorityTransport,
   type FpsRuntimeRole,
-  type FpsRuntimeSessionLoadRequest,
   type FpsRuntimeSessionRestartRequest,
   type FpsRuntimeSessionSnapshot,
   type ReplaySessionHandle,
@@ -170,9 +166,7 @@ import {
   type StepResult,
   type VoxelMeshEvidenceSnapshot,
   type VoxelMeshEvidenceRequest,
-  type ProjectBundleLoadRequest,
   type ProjectResourceStageInput,
-  type ProjectBundleSaveSummary,
   type WorkspaceAuthoringCloseInput,
   type WorkspaceAuthoringCloseReceipt,
   type WorkspaceAuthoringOpenInput,
@@ -217,27 +211,9 @@ const OPERATION_BY_FACADE_METHOD: ReadonlyMap<string, string> = new Map(
 
 type NativeFacadeMethod = (...args: NativeFacadeValue[]) => NativeFacadeValue;
 
-interface NativeProjectBundleCompositionStatus {
-  readonly loadedProjectBundle: number | null;
-  readonly fatalCount: number;
-  readonly totalCount: number;
-  readonly blocksLoad: boolean;
-}
-
 interface NativeWorkspaceAuthoringProjectionReceipt
   extends Omit<WorkspaceAuthoringProjectionSummary, 'frame'> {
   readonly frameJson: string;
-}
-
-function projectBundleCompositionStatusFromNative(
-  status: NativeProjectBundleCompositionStatus,
-): CompositionStatus {
-  return {
-    loadedProjectBundle: status.loadedProjectBundle ?? null,
-    fatalCount: status.fatalCount,
-    totalCount: status.totalCount,
-    blocksLoad: status.blocksLoad,
-  };
 }
 
 function nativeVec3(value: readonly [number, number, number], field: string): { readonly x: number; readonly y: number; readonly z: number } {
@@ -247,22 +223,11 @@ function nativeVec3(value: readonly [number, number, number], field: string): { 
   return { x: value[0], y: value[1], z: value[2] };
 }
 
-function nativeOptionalObject<T extends object>(value: T | null): T | undefined {
-  return value == null ? undefined : value;
-}
-
 function requiredString(value: string | null | undefined, field: string): string {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new RuntimeBridgeError('invalid_input', `${field} must be a non-empty string`);
   }
   return value;
-}
-
-function requiredStringArray(value: readonly string[] | null | undefined, field: string): readonly string[] {
-  if (!isTypedArray(value)) {
-    throw new RuntimeBridgeError('invalid_input', `${field} must be an array of non-empty strings`);
-  }
-  return value.map((entry, index) => requiredString(entry, `${field}[${index}]`));
 }
 
 function requiredBoolean(value: boolean, field: string): boolean {
@@ -280,17 +245,6 @@ function bridgeVec3(
     throw new RuntimeBridgeError('internal', `native ${field} was not a finite vec3`);
   }
   return [value.x, value.y, value.z];
-}
-
-function bridgeVec3Array(value: readonly number[], field: string): readonly [number, number, number] {
-  if (value.length !== 3 || value.some((component) => !Number.isFinite(component))) {
-    throw new RuntimeBridgeError('internal', 'native ' + field + ' was not a finite vec3');
-  }
-  return [value[0]!, value[1]!, value[2]!];
-}
-
-function isTypedArray<T>(value: readonly T[] | null | undefined): value is readonly T[] {
-  return Array.isArray(value);
 }
 
 function nativeAuthoritySource(value: string): 'seeded_from_request' | 'rust_entity_store' {
@@ -459,20 +413,6 @@ function hashString(value: string, field: string): string {
   return value;
 }
 
-function hexHashString(value: string, field: string): string {
-  if (!/^[0-9a-f]{16}$/u.test(value)) {
-    throw new RuntimeBridgeError('internal', `native ${field} was not a 16-character hex hash`);
-  }
-  return value;
-}
-
-function generatedTunnelPreset(value: string): 'tiny-enclosed' {
-  if (value !== 'tiny-enclosed') {
-    throw new RuntimeBridgeError('internal', 'native generated tunnel preset was unknown');
-  }
-  return value;
-}
-
 function normalizeFpsSnapshot(value: FpsRuntimeSessionSnapshot): FpsRuntimeSessionSnapshot {
   return {
     ...value,
@@ -508,149 +448,6 @@ function normalizeEncounterTransition(value: FpsEncounterTransitionResult): FpsE
   };
 }
 
-function nativeFpsLoadRequest(request: FpsRuntimeSessionLoadRequest) {
-  if (request.projectBundle.trim() === '') {
-    throw new RuntimeBridgeError('invalid_input', 'projectBundle is required');
-  }
-  if (request.definitions.length === 0) {
-    throw new RuntimeBridgeError('invalid_input', 'definitions must not be empty');
-  }
-  const definitions = request.definitions.map((definition, index) => {
-    nonNegativeSafeInteger(definition.entity, `definitions[${index}].entity`);
-    fpsRole(definition.role);
-    const stableId = requiredString(definition.stableId, `definitions[${index}].stableId`);
-    const displayName = requiredString(definition.displayName, `definitions[${index}].displayName`);
-    const sourcePath = requiredString(definition.sourcePath, `definitions[${index}].sourcePath`);
-    const tags = requiredStringArray(definition.tags, `definitions[${index}].tags`);
-    const transform = definition.transform == null
-      ? null
-      : {
-          translation: nativeVec3(definition.transform.translation, `definitions[${index}].transform.translation`),
-          rotation: definition.transform.rotation,
-          scale: nativeVec3(definition.transform.scale, `definitions[${index}].transform.scale`),
-        };
-    if (definition.transform != null) {
-      if (definition.transform.rotation.length !== 4 || definition.transform.rotation.some((value) => !Number.isFinite(value))) {
-        throw new RuntimeBridgeError('invalid_input', `definitions[${index}].transform.rotation must be a finite quat`);
-      }
-    }
-    const bounds = definition.bounds == null
-      ? null
-      : {
-          min: nativeVec3(definition.bounds.min, `definitions[${index}].bounds.min`),
-          max: nativeVec3(definition.bounds.max, `definitions[${index}].bounds.max`),
-        };
-    if (definition.bounds != null) {
-    }
-    if (definition.health != null) {
-      u32(definition.health.current, `definitions[${index}].health.current`);
-      u32(definition.health.max, `definitions[${index}].health.max`);
-    }
-    if (definition.weapon != null) {
-      requiredString(definition.weapon.weaponId, `definitions[${index}].weapon.weaponId`);
-      u32(definition.weapon.damage, `definitions[${index}].weapon.damage`);
-      u32(definition.weapon.rangeUnits, `definitions[${index}].weapon.rangeUnits`);
-      u32(definition.weapon.ammo, `definitions[${index}].weapon.ammo`);
-      u32(definition.weapon.cooldownTicksAfterFire, `definitions[${index}].weapon.cooldownTicksAfterFire`);
-    }
-    const policyBinding = definition.policyBinding == null
-      ? undefined
-      : {
-          bindingId: requiredString(definition.policyBinding.bindingId, `definitions[${index}].policyBinding.bindingId`),
-          policyId: requiredString(definition.policyBinding.policyId, `definitions[${index}].policyBinding.policyId`),
-          viewKind: requiredString(definition.policyBinding.viewKind, `definitions[${index}].policyBinding.viewKind`),
-          viewVersion: requiredString(definition.policyBinding.viewVersion, `definitions[${index}].policyBinding.viewVersion`),
-          allowedIntents: requiredStringArray(definition.policyBinding.allowedIntents, `definitions[${index}].policyBinding.allowedIntents`),
-          runtimeMoment: requiredString(definition.policyBinding.runtimeMoment, `definitions[${index}].policyBinding.runtimeMoment`),
-        };
-    return {
-      entity: definition.entity,
-      stableId,
-      displayName,
-      sourcePath,
-      role: definition.role,
-      transform: nativeOptionalObject(transform),
-      bounds: nativeOptionalObject(bounds),
-      tags: [...tags],
-      renderVisible: definition.renderVisible,
-      staticCollider: definition.staticCollider,
-      health: nativeOptionalObject(definition.health),
-      weapon: definition.weapon == null
-        ? undefined
-        : {
-            weaponId: definition.weapon.weaponId,
-            damage: definition.weapon.damage,
-            rangeUnits: definition.weapon.rangeUnits,
-            ammo: definition.weapon.ammo,
-            cooldownTicksAfterFire: definition.weapon.cooldownTicksAfterFire,
-          },
-      policyBinding,
-    };
-  });
-  return {
-    projectBundle: request.projectBundle,
-    bootstrapResolutionRegistry: nativeBootstrapResolutionRegistry(request.bootstrapResolutionRegistry),
-    sceneDocument: request.sceneDocument,
-    definitions,
-  };
-}
-
-function nativeBootstrapResolutionRegistry(
-  registry: FpsRuntimeSessionLoadRequest['bootstrapResolutionRegistry'],
-) {
-  if (registry.schemaVersion !== 1) {
-    throw new RuntimeBridgeError('invalid_input', 'bootstrapResolutionRegistry.schemaVersion must be 1');
-  }
-  const uniqueStrings = (values: readonly string[], field: string): readonly string[] => {
-    const normalized = requiredStringArray(values, field);
-    if (new Set(normalized).size !== normalized.length) {
-      throw new RuntimeBridgeError('invalid_input', `${field} must not contain duplicates`);
-    }
-    return normalized;
-  };
-  const entityDefinitionIds = uniqueStrings(
-    registry.entityDefinitionIds,
-    'bootstrapResolutionRegistry.entityDefinitionIds',
-  );
-  const catalogIds = uniqueStrings(registry.catalogIds, 'bootstrapResolutionRegistry.catalogIds');
-  const prefabIds = registry.prefabIds.map((prefabId, index) => {
-    nonNegativeSafeInteger(prefabId, `bootstrapResolutionRegistry.prefabIds[${index}]`);
-    if (prefabId === 0) {
-      throw new RuntimeBridgeError(
-        'invalid_input',
-        `bootstrapResolutionRegistry.prefabIds[${index}] must be positive`,
-      );
-    }
-    return prefabId;
-  });
-  if (new Set(prefabIds).size !== prefabIds.length) {
-    throw new RuntimeBridgeError('invalid_input', 'bootstrapResolutionRegistry.prefabIds must not contain duplicates');
-  }
-  const generatorPresets = registry.generatorPresets.map((preset, index) => ({
-    providerId: requiredString(
-      preset.providerId,
-      `bootstrapResolutionRegistry.generatorPresets[${index}].providerId`,
-    ),
-    presetId: requiredString(
-      preset.presetId,
-      `bootstrapResolutionRegistry.generatorPresets[${index}].presetId`,
-    ),
-  }));
-  const generatorIdentities = generatorPresets.map((preset) => `${preset.providerId}\u0000${preset.presetId}`);
-  if (new Set(generatorIdentities).size !== generatorIdentities.length) {
-    throw new RuntimeBridgeError(
-      'invalid_input',
-      'bootstrapResolutionRegistry.generatorPresets must not contain duplicates',
-    );
-  }
-  return {
-    schemaVersion: 1,
-    entityDefinitionIds,
-    prefabIds,
-    generatorPresets,
-    catalogIds,
-  } as const;
-}
 
 export class NativeRuntimeBridge implements RuntimeBridge {
   readonly #addon: NativeAddon;
@@ -859,17 +656,6 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     return parseNativeJson<TimeControlState>(payload, 'time control state');
   }
 
-  loadProjectBundle(request: ProjectBundleLoadRequest): CompositionStatus {
-    const handle = this.#requireHandle('loadProjectBundle');
-    const bundleSchemaVersion = u32(request.bundleSchemaVersion, 'bundleSchemaVersion');
-    const protocolVersion = u32(request.protocolVersion, 'protocolVersion');
-    const sceneId = nonNegativeSafeInteger(request.sceneId, 'sceneId');
-    const status = callNative(() =>
-      this.#addon.loadProjectBundle(handle, bundleSchemaVersion, protocolVersion, sceneId),
-    );
-    return projectBundleCompositionStatusFromNative(status);
-  }
-
   beginRuntimeProjectSourceResources(
     request: ProjectResourceBeginRequest,
   ): ProjectResourceTransactionReceipt {
@@ -997,23 +783,6 @@ export class NativeRuntimeBridge implements RuntimeBridge {
       transformHash: result.transformHash,
       projectionChanged: result.projectionChanged,
     };
-  }
-
-  loadFpsRuntimeSession(request: FpsRuntimeSessionLoadRequest): FpsRuntimeSessionSnapshot {
-    const handle = this.#requireHandle('loadFpsRuntimeSession');
-    const nativeRequest = nativeFpsLoadRequest(request);
-    const gameRuleModules = request.gameRuleModules ?? [];
-    const result = callNative(() =>
-      this.#addon.loadFpsRuntimeSession(
-        handle,
-        nativeRequest.projectBundle,
-        JSON.stringify(nativeRequest.sceneDocument),
-        JSON.stringify(nativeRequest.bootstrapResolutionRegistry),
-        nativeRequest.definitions,
-        JSON.stringify(gameRuleModules),
-      ) as FpsRuntimeSessionSnapshot,
-    );
-    return normalizeFpsSnapshot(result);
   }
 
   readFpsRuntimeSession(): FpsRuntimeSessionSnapshot {
@@ -1371,17 +1140,6 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     return snapshot;
   }
 
-  saveProjectBundle(): ProjectBundleSaveSummary {
-    const handle = this.#requireHandle('saveProjectBundle');
-    return callNative(() => this.#addon.saveProjectBundle(handle) as ProjectBundleSaveSummary);
-  }
-
-  getProjectBundleCompositionStatus(): CompositionStatus {
-    const handle = this.#requireHandle('getProjectBundleCompositionStatus');
-    const status = callNative(() => this.#addon.getProjectBundleCompositionStatus(handle));
-    return projectBundleCompositionStatusFromNative(status);
-  }
-
   planVoxelConversion(request: VoxelConversionPlanRequest): VoxelConversionPlan {
     const handle = this.#requireHandle('planVoxelConversion');
     const payload = callNative(() => this.#addon.planVoxelConversion(handle, JSON.stringify(request)));
@@ -1573,36 +1331,6 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     return callNative(() => this.#addon.applyCollisionConstrainedCameraInput(handle, envelope));
   }
 
-  applyGeneratedTunnelToRuntimeWorld(
-    request: GeneratedTunnelRuntimeApplyRequest,
-  ): GeneratedTunnelRuntimeApplyReceipt {
-    const handle = this.#requireHandle('applyGeneratedTunnelToRuntimeWorld');
-    if (request.preset !== 'tiny-enclosed') {
-      throw new RuntimeBridgeError('invalid_input', 'only the tiny-enclosed generated tunnel preset is supported');
-    }
-    const seed = nonNegativeSafeInteger(request.seed, 'seed');
-    const receipt = callNative(() =>
-      this.#addon.applyGeneratedTunnelToRuntimeWorld(handle, request.preset, seed),
-    );
-    return {
-      preset: generatedTunnelPreset(receipt.presetId),
-      seed: nonNegativeSafeInteger(receipt.seed, 'receipt.seed'),
-      grid: nonNegativeSafeInteger(receipt.grid, 'receipt.grid'),
-      configHash: hexHashString(receipt.configHash, 'generatedTunnel.configHash'),
-      outputHash: hexHashString(receipt.outputHash, 'generatedTunnel.outputHash'),
-      collisionSourceHash: hexHashString(receipt.collisionSourceHash, 'generatedTunnel.collisionSourceHash'),
-      collisionProjectionHash: hashString(
-        receipt.collisionProjectionHash,
-        'generatedTunnel.collisionProjectionHash',
-      ),
-      runtimeFrame: {
-        worldOffset: bridgeVec3Array(receipt.runtimeFrame.worldOffset, 'generatedTunnel.runtimeFrame.worldOffset'),
-        playableMin: bridgeVec3Array(receipt.runtimeFrame.playableMin, 'generatedTunnel.runtimeFrame.playableMin'),
-        playableMax: bridgeVec3Array(receipt.runtimeFrame.playableMax, 'generatedTunnel.runtimeFrame.playableMax'),
-      },
-    };
-  }
-
   selectVoxel(request: ScreenPointToPickRayRequest): VoxelSelectionSnapshot {
     const handle = this.#requireHandle('selectVoxel');
     const payload = callNative(() => this.#addon.selectVoxel(handle, JSON.stringify(request)));
@@ -1699,11 +1427,6 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     const handle = this.#requireHandle('releaseBuffer');
     const validatedBufferHandle = nonNegativeSafeInteger(bufferHandle, 'buffer handle');
     callNative(() => this.#addon.releaseBuffer(handle, validatedBufferHandle));
-  }
-
-  unloadProjectBundle(): void {
-    const handle = this.#requireHandle('unloadProjectBundle');
-    callNative(() => this.#addon.unloadProjectBundle(handle));
   }
 
   loadReplayFixture(): ReplaySessionHandle {

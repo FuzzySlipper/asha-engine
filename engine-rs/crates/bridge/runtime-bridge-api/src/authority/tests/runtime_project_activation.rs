@@ -5,6 +5,7 @@ use core_scene::{
 };
 use gameplay_module_sdk::*;
 use protocol_assets::{StoredAssetCatalog, StoredCatalogEntry};
+use protocol_entity_authoring::{EntityDefinition, EntityDefinitionSourceTrace};
 use protocol_input::{
     InputActionDefinition, InputActionPhase, InputBindingRecord, InputContextDefinition,
     InputValue, InputValueKind, PlatformInputKind, INPUT_BINDING_CATALOG_SCHEMA_VERSION,
@@ -655,7 +656,7 @@ fn deferred_runtime_activation_is_atomic_and_lifecycle_bound() {
     let composition = static_composition();
     let mut bridge = DeferredRuntimeSessionBuilder::from_static_composition(composition.clone())
         .build_unloaded();
-    assert!(bridge.bundle.engine.is_none());
+    assert!(bridge.runtime_project.engine.is_none());
     assert!(bridge.active_runtime_project().is_none());
     assert!(bridge.gameplay.static_project_content_admission.is_some());
     bridge.initialize_engine(EngineConfig { seed: 77 }).unwrap();

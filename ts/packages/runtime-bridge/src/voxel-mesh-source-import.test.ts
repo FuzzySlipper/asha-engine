@@ -30,11 +30,6 @@ function sessionInput() {
       gameId: 'asha-test',
       workspaceId: 'workspace.local',
     },
-    projectBundle: {
-      bundleSchemaVersion: 1,
-      protocolVersion: 1,
-      sceneId: 42,
-    },
   };
 }
 

@@ -3,7 +3,7 @@ status: current
 audience: consumer
 tags: [runtime-session, project-bundle, loading, downstream]
 supersedes: []
-see-also: [../authority/runtime-session-facade.md, ../authority/workspace-authoring-facade.md, ../bridge/runtime-session-static-composition.md]
+see-also: [../authority/runtime-session-facade.md, ../authority/workspace-authoring-facade.md, ../bridge/runtime-session-composition.md]
 ---
 
 # Canonical project loading
@@ -129,14 +129,9 @@ for authoring; performs add/move/split/delete; atomically saves; and fresh-loads
 matching development-directory and packaged sources. Its output is an ordinary
 consumer result, not a reusable proof-artifact format.
 
-The following are compatibility or adapter-internal surfaces, not ordinary
-consumer APIs:
-
-- `loadEcrpProject` and its handwritten bootstrap registry;
-- `GameplayRuntimeProjectInput` and explicit prefab/spatial/trigger/scheduler arrays;
-- `loadProjectBundle` and the low-level source resource/batch verbs;
-- caller-computed canonical configuration bytes, hashes, runtime entity numbers, or provider codecs.
-
-Engine tests may use the generated raw batch to isolate source admission. Games
-must use `loadProject({ source })`. Explicit `closeProject()` is required before
-a future replacement load; the facade supplies lifecycle binding itself.
+Handwritten bootstrap registries, caller-assembled prefab/spatial/trigger/
+scheduler arrays, and caller-computed configuration bytes, hashes, runtime
+entity numbers, or provider codecs are not public consumer surfaces. Engine
+tests may use the generated raw batch to isolate source admission. Games must
+use `loadProject({ source })`. Explicit `closeProject()` is required before a
+future replacement load; the facade supplies lifecycle binding itself.

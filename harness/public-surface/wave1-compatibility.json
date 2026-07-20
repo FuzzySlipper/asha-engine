@@ -10,7 +10,6 @@
         "asha-game-rule-extension"
       ],
       "publicSymbols": [
-        "FpsRuntimeSessionLoadRequest.gameRuleModules",
         "GameExtensionProposal",
         "GameRuleModule",
         "RuntimeBridge.invoke_game_extension_weapon_effect",
@@ -24,8 +23,7 @@
         "asha-demo"
       ],
       "replacementPublicPaths": [
-        "asha-gameplay-module-sdk::GameplayModuleBehavior",
-        "asha-runtime-session-composition::StaticRuntimeSessionBuilder"
+        "asha-gameplay-module-sdk::GameplayModuleBehavior"
       ],
       "diagnostic": "asha.compat.wave1.legacy-weapon-effect-hook",
       "deletionTasks": [
@@ -36,57 +34,6 @@
         {
           "path": "engine-rs/crates/rules/rule-gameplay-fabric/tests/legacy_weapon_transform.rs",
           "token": "compatibility_owner_rejects_invalid_transformed_workspace"
-        },
-        {
-          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/game_extension_tests.rs",
-          "token": "game_extension_weapon_effect_rejects_incompatible_downstream_manifest"
-        }
-      ],
-      "forbiddenNewConsumers": true
-    },
-    {
-      "id": "prototype-project-bundle-bridge-dtos",
-      "disposition": "quarantined",
-      "compatibilityVersion": "wave1.v1",
-      "owningLane": "rust-bridge-boundary",
-      "publicSurfaces": [
-        "@asha/runtime-bridge",
-        "asha-runtime-session-composition"
-      ],
-      "publicSymbols": [
-        "CompositionStatus",
-        "ProjectBundleLoadRequest",
-        "ProjectBundleSaveSummary"
-      ],
-      "codeBoundaries": [
-        "engine-rs/crates/bridge/runtime-bridge-api/src/payloads.rs",
-        "ts/packages/runtime-session/src/transport-contracts.ts"
-      ],
-      "realConsumers": [
-        "asha-demo",
-        "asha-engine",
-        "asha-studio"
-      ],
-      "replacementPublicPaths": [
-        "@asha/contracts::DiagnosticReportSet",
-        "@asha/contracts::ProjectBundleManifest",
-        "@asha/contracts::SaveSummary"
-      ],
-      "diagnostic": "asha.compat.wave1.prototype-project-bundle-bridge-dtos",
-      "deletionTasks": [
-        5733,
-        5736,
-        5737
-      ],
-      "deletionCondition": "Remove the facade overrides after #5737 migrates Demo and #5736/#5733 migrate Studio to generated ProjectBundle, diagnostic, and save contracts; engine bridge/app/devtools callers then move in the same contract revision.",
-      "failClosedEvidence": [
-        {
-          "path": "engine-rs/crates/bridge/runtime-bridge-api/src/authority/tests/core.rs",
-          "token": "load_unsupported_version_fails_closed_without_mutating"
-        },
-        {
-          "path": "ts/packages/runtime-bridge/src/native-fail-closed.test.ts",
-          "token": "native facade validates numeric inputs before addon casts can wrap"
         }
       ],
       "forbiddenNewConsumers": true
@@ -101,8 +48,7 @@
       ],
       "publicSymbols": [
         "GameplayRuntimeHost",
-        "GameplayRuntimeHostInput",
-        "GameplayRuntimeProjectInput"
+        "GameplayRuntimeHostInput"
       ],
       "codeBoundaries": [
         "engine-rs/crates/rules/gameplay-runtime-host",
@@ -114,7 +60,7 @@
         "asha-testing"
       ],
       "replacementPublicPaths": [
-        "asha-runtime-session-composition::StaticRuntimeSessionBuilder"
+        "asha-runtime-session-composition::DeferredRuntimeSessionBuilder"
       ],
       "diagnostic": "asha.compat.wave1.standalone-gameplay-runtime-host",
       "deletionTasks": [

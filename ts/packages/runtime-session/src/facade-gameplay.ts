@@ -29,10 +29,6 @@ import type {
   EnemyPolicyTargetView,
   EnemyPolicyVec3,
 } from './enemy-policy.js';
-import type {
-  GeneratedTunnelOperationReceipt,
-  GeneratedTunnelOperationRequest,
-} from './generated-tunnel.js';
 import type { NavPathReadout, NavPathScenario } from './nav-readout.js';
 import type {
   RuntimeActionIntentEnvelope,
@@ -206,13 +202,6 @@ export interface RuntimeSessionCombatFeedbackProjectionRequest extends RuntimeSe
   readonly camera?: CameraHandle;
   readonly viewport?: CameraProjectionRequest['viewport'];
 }
-
-export type RuntimeSessionGeneratedTunnelOperationReceipt = GeneratedTunnelOperationReceipt & {
-  readonly sequenceId: number;
-  readonly request: GeneratedTunnelOperationRequest;
-  readonly sessionHashBefore: string;
-  readonly sessionHashAfter: string;
-};
 
 export interface RuntimeSessionGameExtensionWeaponEffectReceipt {
   readonly sequenceId: number;

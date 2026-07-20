@@ -23,21 +23,19 @@ import type {
   VoxelInstancePickResult,
   VoxelProjectionBindingReceipt,
   VoxelProjectionInstanceBinding,
+  WorkspaceAuthoringCompositionStatus,
+  WorkspaceAuthoringProjectBundleRef,
 } from '@asha/contracts';
 import type { RuntimeSessionFacade } from './facade.js';
 import type { RuntimeSessionProjectIdentity } from './facade-core.js';
 import type { RuntimeSessionProjectSource } from './facade-project.js';
-import type {
-  CompositionStatus,
-  FrameCursor,
-  ProjectBundleLoadRequest,
-} from './transport-contracts.js';
+import type { FrameCursor } from './transport-contracts.js';
 
 export interface WorkspaceAuthoringOpenInput {
   readonly authoringId: string;
   readonly seed: number;
   readonly project: RuntimeSessionProjectIdentity;
-  readonly projectBundle: ProjectBundleLoadRequest;
+  readonly projectBundle: WorkspaceAuthoringProjectBundleRef;
 }
 
 /** Ordinary project-source entrypoint for editor and content-pipeline hosts. */
@@ -61,7 +59,7 @@ export interface WorkspaceAuthoringIdentity {
   readonly generation: number;
   readonly seed: number;
   readonly project: RuntimeSessionProjectIdentity;
-  readonly projectBundle: ProjectBundleLoadRequest;
+  readonly projectBundle: WorkspaceAuthoringProjectBundleRef;
   readonly nonClaims: readonly [
     'not_gameplay_runtime_session',
     'not_simulation_loop',
@@ -74,7 +72,7 @@ export interface WorkspaceAuthoringStateSummary {
   readonly kind: 'workspace_authoring.state.v0';
   readonly status: 'open' | 'closed';
   readonly identity: WorkspaceAuthoringIdentity;
-  readonly composition: CompositionStatus;
+  readonly composition: WorkspaceAuthoringCompositionStatus;
   readonly workingRevision: number;
   readonly storedRevision: number;
   readonly dirty: boolean;

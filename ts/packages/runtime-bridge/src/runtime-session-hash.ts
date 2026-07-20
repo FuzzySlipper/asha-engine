@@ -4,7 +4,6 @@ import type {
   RenderFrameDiff,
   RuntimeProjectionFrame,
 } from '@asha/contracts';
-import type { CompositionStatus, ProjectBundleLoadRequest } from './bridge.js';
 import type { EncounterDirectorState } from '@asha/runtime-session';
 import type {
   RuntimeSessionHashRecord,
@@ -37,9 +36,6 @@ export function identityHashRecord(identity: RuntimeSessionIdentity): RuntimeSes
       gameId: identity.project.gameId,
       workspaceId: identity.project.workspaceId,
     },
-    projectBundle: identity.projectBundle === null
-      ? null
-      : projectBundleHashRecord(identity.projectBundle),
     nonClaims: identity.nonClaims,
   };
 }
@@ -70,23 +66,6 @@ function lifecycleHealthHashRecord(health: RuntimeSessionLifecycleHealthReadout)
     current: health.current,
     max: health.max,
     dead: health.dead,
-  };
-}
-
-export function projectBundleHashRecord(projectBundle: ProjectBundleLoadRequest): RuntimeSessionHashRecord {
-  return {
-    bundleSchemaVersion: projectBundle.bundleSchemaVersion,
-    protocolVersion: projectBundle.protocolVersion,
-    sceneId: projectBundle.sceneId,
-  };
-}
-
-export function compositionHashRecord(composition: CompositionStatus): RuntimeSessionHashRecord {
-  return {
-    loadedProjectBundle: composition.loadedProjectBundle,
-    fatalCount: composition.fatalCount,
-    totalCount: composition.totalCount,
-    blocksLoad: composition.blocksLoad,
   };
 }
 

@@ -126,5 +126,11 @@ fn rejected_source_batch_cleans_staging_without_replacing_prior_admission() {
             .manifest_hash(),
         accepted_hash
     );
-    assert_eq!(bridge.bundle.project_resource_staging.staged_count(), 0);
+    assert_eq!(
+        bridge
+            .runtime_project
+            .project_resource_staging
+            .staged_count(),
+        0
+    );
 }

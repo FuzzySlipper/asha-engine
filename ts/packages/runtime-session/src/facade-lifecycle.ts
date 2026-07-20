@@ -1,9 +1,6 @@
-import type { CompositionStatus } from './transport-contracts.js';
-
 export interface RuntimeSessionRestartResult {
   readonly sequenceId: number;
   readonly tick: number;
-  readonly composition: CompositionStatus;
   readonly restartCount: number;
   readonly sessionHash: string;
 }
@@ -64,11 +61,8 @@ export interface RuntimeSessionLifecycleStatusReadout {
     readonly reason: 'always_resettable_reference_fixture' | 'rust_epoch_restart';
   };
   readonly events: readonly RuntimeSessionLifecycleEventReadout[];
-  readonly fixture: {
+  readonly reset: {
     readonly seed: number;
-    readonly sceneId: number;
-    readonly bundleSchemaVersion: number;
-    readonly protocolVersion: number;
     readonly resetHash: string;
   };
   readonly hashes: {

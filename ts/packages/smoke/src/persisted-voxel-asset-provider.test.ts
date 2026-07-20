@@ -24,7 +24,6 @@ function bootNativeBridge(t: { skip: (reason?: string) => void }): RuntimeSessio
       sessionId: 'runtime-session.persisted-voxel.provider-regression',
       seed: 4911,
       project: { gameId: 'asha-provider-regression', workspaceId: 'workspace.local' },
-      projectBundle: { bundleSchemaVersion: 1, protocolVersion: 1, sceneId: 4911 },
     });
     return session;
   } catch (error) {

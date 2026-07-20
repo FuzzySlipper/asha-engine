@@ -28,6 +28,7 @@
     "test": "tsc --build && node --test 'dist/**/*.test.js'"
   },
   "dependencies": {
+    "@asha/contracts": "workspace:*",
     "@asha/game-workspace": "workspace:*",
     "@asha/runtime-bridge": "workspace:*"
   }

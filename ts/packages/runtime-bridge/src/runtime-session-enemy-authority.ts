@@ -8,12 +8,14 @@ import {
   type NavPathScenario,
 } from '@asha/runtime-session';
 import type {
-  RuntimeSessionEcrpEntityState,
-  RuntimeSessionEcrpProjectState,
-  RuntimeSessionEcrpTransformState,
   RuntimeSessionHashValue,
   RuntimeSessionLifecycleRole,
 } from '@asha/runtime-session';
+import type {
+  RuntimeSessionEcrpEntityState,
+  RuntimeSessionEcrpProjectState,
+  RuntimeSessionEcrpTransformState,
+} from './runtime-session-ecrp.js';
 import { stableHash } from './runtime-session-hash.js';
 
 export const RUNTIME_SESSION_ENEMY_MOVEMENT_AUTHORITY = {

@@ -15,11 +15,6 @@ function sessionInput() {
       gameId: 'asha-demo',
       workspaceId: 'workspace.local',
     },
-    projectBundle: {
-      bundleSchemaVersion: 1,
-      protocolVersion: 1,
-      sceneId: 42,
-    },
   };
 }
 function cameraRequest(): CameraCreateRequest {

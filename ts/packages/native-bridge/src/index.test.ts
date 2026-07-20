@@ -13,17 +13,13 @@ function writeStaleAddonModule(): string {
     modulePath,
     `module.exports = {
       initializeEngine() {},
-      loadProjectBundle() {},
       submitCommands() {},
       stepSimulation() {},
       applyEnemyDirectNavMovement() {},
-      loadFpsRuntimeSession() {},
       readFpsRuntimeSession() {},
       applyFpsPrimaryFire() {},
       restartFpsRuntimeSession() {},
       readRenderDiffs() {},
-      saveProjectBundle() {},
-      getProjectBundleCompositionStatus() {}
     };`,
   );
   return modulePath;
@@ -43,12 +39,12 @@ function retiredRuntimeContainerTerm(): string {
   return String.fromCharCode(87, 111, 114, 108, 100);
 }
 
-void test('native addon loader accepts current ProjectBundle export vocabulary', () => {
+void test('native addon loader accepts the canonical project lifecycle exports', () => {
   const modulePath = writeCurrentAddonModule();
   try {
-    assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('loadProjectBundle'));
-    assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('saveProjectBundle'));
-    assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('getProjectBundleCompositionStatus'));
+    assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('loadRuntimeProject'));
+    assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('closeRuntimeProject'));
+    assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('readActiveRuntimeProjectContent'));
     assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('createCamera'));
     assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('importVoxelConversionMeshSource'));
     assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('unloadVoxelVolumeAsset'));
@@ -57,9 +53,9 @@ void test('native addon loader accepts current ProjectBundle export vocabulary',
     assert.equal((REQUIRED_NATIVE_ADDON_EXPORTS as readonly string[]).includes('getCompositionStatus'), false);
 
     const addon = loadNativeAddon(modulePath);
-    assert.equal(typeof addon.loadProjectBundle, 'function');
-    assert.equal(typeof addon.saveProjectBundle, 'function');
-    assert.equal(typeof addon.getProjectBundleCompositionStatus, 'function');
+    assert.equal(typeof addon.loadRuntimeProject, 'function');
+    assert.equal(typeof addon.closeRuntimeProject, 'function');
+    assert.equal(typeof addon.readActiveRuntimeProjectContent, 'function');
     assert.equal(typeof addon.importVoxelConversionMeshSource, 'function');
     assert.equal(typeof addon.unloadVoxelVolumeAsset, 'function');
   } finally {

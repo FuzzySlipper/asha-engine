@@ -113,7 +113,7 @@
     {
       "id": "rust.downstream-gameplay-module",
       "artifactId": "evidence.execution.downstream-gameplay-module",
-      "command": ["cargo", "test", "--locked", "--offline", "--manifest-path", "harness/fixtures/gameplay-module-sdk/downstream-module/Cargo.toml", "--", "--skip", "public_static_runtime_provider_lifecycle_releases_each_isolated_cell"],
+      "command": ["cargo", "test", "--locked", "--offline", "--manifest-path", "harness/fixtures/gameplay-module-sdk/downstream-module/Cargo.toml"],
       "inputs": ["engine-rs/crates", "harness/fixtures/gameplay-module-sdk", "public-rust"],
       "providerIds": ["provider.fixture-pulse"],
       "claimIds": ["provider.gameplay-module.behavior"]
