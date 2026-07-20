@@ -7,7 +7,6 @@ handwritten semantic exports. Quarantined compatibility wiring is explicit.
 | Operation | Capability | Surface | Input | Output | Errors |
 |---|---|---|---|---|---|
 | `initialize_engine` | `runtime_project_lifecycle` | stable | `protocol_runtime::EngineConfig` | `EngineHandle` | `RuntimeBridgeError` |
-| `open_workspace_authoring` | `workspace_authoring` | stable | `protocol_project_bundle::WorkspaceAuthoringOpenRequest` | `protocol_project_bundle::WorkspaceAuthoringStateSummary` | `RuntimeBridgeError` |
 | `read_workspace_authoring_state` | `workspace_authoring` | stable | `Unit` | `protocol_project_bundle::WorkspaceAuthoringStateSummary` | `RuntimeBridgeError` |
 | `read_workspace_authoring_projection` | `workspace_authoring` | stable | `protocol_project_bundle::WorkspaceAuthoringProjectionRequest` | `protocol_project_bundle::WorkspaceAuthoringProjectionReceipt` | `RuntimeBridgeError` |
 | `confirm_workspace_authoring_stored` | `workspace_authoring` | stable | `protocol_project_bundle::WorkspaceAuthoringStoredConfirmationRequest` | `protocol_project_bundle::WorkspaceAuthoringStoredConfirmationReceipt` | `RuntimeBridgeError` |

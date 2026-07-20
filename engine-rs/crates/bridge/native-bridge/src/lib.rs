@@ -16,12 +16,12 @@ use std::collections::BTreeMap;
 use std::sync::{Mutex, OnceLock};
 
 use napi_derive::napi;
+use protocol_project_bundle::WorkspaceAuthoringOpenRequest;
 use runtime_bridge_api::{
     parse_voxel_command_batch_json, EnemyDirectNavMovementRequest, EngineBridge, EngineConfig,
-    GameRuleCatalog, GameRuleResolutionRequest, PresentationOpMeta,
-    PresentationOriginRef, ProjectWriteConfirmRequest, ProjectWritePrepareRequest, RuntimeBridge,
-    RuntimeBridgeError, RuntimeBridgeErrorKind,
-    RuntimeProjectionFrame, StepInputEnvelope, VoxelAnnotationEditRequest,
+    GameRuleCatalog, GameRuleResolutionRequest, PresentationOpMeta, PresentationOriginRef,
+    ProjectWriteConfirmRequest, ProjectWritePrepareRequest, RuntimeBridge, RuntimeBridgeError,
+    RuntimeBridgeErrorKind, RuntimeProjectionFrame, StepInputEnvelope, VoxelAnnotationEditRequest,
     VoxelAnnotationLayerExportRequest, VoxelAnnotationLayerLoadRequest,
     VoxelAnnotationLayerValidationRequest, VoxelAnnotationQueryRequest,
     VoxelConversionApplyRequest, VoxelConversionEvidenceRef,
@@ -33,9 +33,9 @@ use runtime_bridge_api::{
     VoxelVolumeAssetExportRequest, VoxelVolumeAssetLoadRequest,
     VoxelVolumeAssetPaletteUpdateRequest, VoxelVolumeAssetSaveRequest,
     VoxelVolumeAssetUnloadRequest, VoxelVolumeAuthoringInitializeRequest, WeaponEffectHookRequest,
-    WorkspaceAuthoringCloseRequest, WorkspaceAuthoringOpenRequest,
-    WorkspaceAuthoringProjectionRequest, WorkspaceAuthoringStoredConfirmationRequest,
-    VOXEL_CONVERSION_MESH_IMPORT_MAX_REQUEST_BYTES, VOXEL_PALETTE_UPDATE_MAX_REQUEST_BYTES,
+    WorkspaceAuthoringCloseRequest, WorkspaceAuthoringProjectionRequest,
+    WorkspaceAuthoringStoredConfirmationRequest, VOXEL_CONVERSION_MESH_IMPORT_MAX_REQUEST_BYTES,
+    VOXEL_PALETTE_UPDATE_MAX_REQUEST_BYTES,
 };
 use serde::Serialize;
 
@@ -719,19 +719,26 @@ fn workspace_authoring_json<T: Serialize>(value: &T) -> napi::Result<String> {
 /// Construct the authoring-only authority cell and return its independent
 /// native handle plus Rust-authored lifecycle state.
 #[napi]
-pub fn open_workspace_authoring(existing_handle: i64, request_json: String) -> napi::Result<i64> {
+pub fn open_workspace_authoring_adapter(
+    existing_handle: i64,
+    request_json: String,
+) -> napi::Result<i64> {
     let request = wire::parse_wire_json::<WorkspaceAuthoringOpenRequest>(
-        "open_workspace_authoring",
+        "open_workspace_authoring_adapter",
         &request_json,
     )?;
     if existing_handle >= 0 {
         return with_bridge(existing_handle, |bridge| {
-            bridge.open_workspace_authoring(request).map_err(to_napi)?;
+            bridge
+                .open_workspace_authoring_adapter(request)
+                .map_err(to_napi)?;
             Ok(existing_handle)
         });
     }
     let mut bridge = create_project_authoring_bridge().map_err(to_napi)?;
-    bridge.open_workspace_authoring(request).map_err(to_napi)?;
+    bridge
+        .open_workspace_authoring_adapter(request)
+        .map_err(to_napi)?;
     insert_native_bridge(bridge)
 }
 

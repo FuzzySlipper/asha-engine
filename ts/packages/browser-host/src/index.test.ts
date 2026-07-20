@@ -237,6 +237,80 @@ void test('browser host serves a downstream UI root with provider status evidenc
   }
 });
 
+void test('browser host keeps workspace authoring open behind its private Session adapter', async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), 'asha-browser-host-authoring-adapter-'));
+  const adapterSymbol = Symbol.for('asha.runtime_bridge.private.workspace_authoring_open.v1');
+  const requests: unknown[] = [];
+  try {
+    await writeFile(join(tempRoot, 'index.html'), '<!doctype html><title>ASHA Studio</title>');
+    const bridge = createFakeRuntimeBridge() as RuntimeBridge & {
+      [adapterSymbol](input: unknown): unknown;
+    };
+    Object.defineProperty(bridge, adapterSymbol, {
+      enumerable: false,
+      value: (input: unknown) => {
+        requests.push(input);
+        return { kind: 'workspace_authoring.state.v0', status: 'open' };
+      },
+    });
+    const host = await launchNativeBrowserHost({
+      uiRoot: tempRoot,
+      host: '127.0.0.1',
+      port: 0,
+      provider: { globalScope: {}, createRuntimeBridge: () => bridge },
+    });
+    try {
+      assert.equal(ASHA_BROWSER_HOST_BRIDGE_METHODS.includes('openWorkspaceAuthoring' as never), false);
+      const publicAttempt = await fetch(
+        `${host.url}/asha/browser-host/runtime-bridge/openWorkspaceAuthoring`,
+        { method: 'POST', body: JSON.stringify({ args: [] }) },
+      );
+      assert.equal(publicAttempt.status, 404);
+
+      const unboundAttempt = await fetch(
+        `${host.url}/asha/browser-host/private-adapter/workspace-authoring/open`,
+        { method: 'POST', body: JSON.stringify({ args: [{}] }) },
+      );
+      assert.equal(unboundAttempt.status, 500);
+      assert.match(await unboundAttempt.text(), /host-issued browser Session capability/u);
+
+      const script = await (await fetch(`${host.url}/asha/browser-host/native-provider.js`)).text();
+      const scope: Record<string, unknown> = {};
+      runInNewContext(script, scope);
+      const provider = scope['ashaRuntimeBridge'] as {
+        readonly browserHostSessionId: string;
+      };
+      const input = {
+        authoringId: 'workspace-authoring.browser-private',
+        seed: 7,
+        project: { gameId: '7', workspaceId: 'workspace.browser-private' },
+        projectBundle: { bundleSchemaVersion: 2, protocolVersion: 1, sceneId: 42 },
+      };
+      const privateAttempt = await fetch(
+        `${host.url}/asha/browser-host/private-adapter/workspace-authoring/open`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            [ASHA_BROWSER_HOST_BRIDGE_SESSION_HEADER]: provider.browserHostSessionId,
+            [ASHA_BROWSER_HOST_BRIDGE_CLIENT_HEADER]: '0',
+          },
+          body: JSON.stringify({ args: [input] }),
+        },
+      );
+      assert.equal(privateAttempt.status, 200);
+      assert.deepEqual(await privateAttempt.json(), {
+        result: { kind: 'workspace_authoring.state.v0', status: 'open' },
+      });
+      assert.deepEqual(requests, [input]);
+    } finally {
+      await host.close();
+    }
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 void test('browser host preserves project resource bytes outside the JSON invocation lane', async () => {
   const tempRoot = await mkdtemp(join(tmpdir(), 'asha-browser-host-project-resource-'));
   let captured: { readonly generation: number; readonly path: string; readonly bytes: number[] } | null = null;

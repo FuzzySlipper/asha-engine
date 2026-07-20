@@ -206,7 +206,6 @@ interface NativeFpsEncounterTransitionResult extends NativeFpsEncounterDirectorS
  */
 interface NativeAddonBindings {
   initializeEngine(seed: number): number;
-  openWorkspaceAuthoring(existingHandle: number, requestJson: string): number;
   readWorkspaceAuthoringState(handle: number): string;
   readWorkspaceAuthoringProjection(handle: number, requestJson: string): string;
   confirmWorkspaceAuthoringStored(handle: number, requestJson: string): string;
@@ -358,5 +357,14 @@ interface NativeAddonBindings {
   redoVoxelEdit(handle: number, requestJson: string): string;
 }
 
-export type NativeAddon = GeneratedNativeAddonDeclaration<NativeAddonBindings>;
-export const REQUIRED_NATIVE_ADDON_EXPORTS = GENERATED_NATIVE_ADDON_EXPORTS;
+interface NativeAddonAdapterBindings {
+  /** Private transport used only by canonical WorkspaceAuthoring.openProject. */
+  openWorkspaceAuthoringAdapter(existingHandle: number, requestJson: string): number;
+}
+
+export type NativeAddon = GeneratedNativeAddonDeclaration<NativeAddonBindings>
+  & NativeAddonAdapterBindings;
+export const REQUIRED_NATIVE_ADDON_EXPORTS = [
+  ...GENERATED_NATIVE_ADDON_EXPORTS,
+  'openWorkspaceAuthoringAdapter',
+] as const;

@@ -6,12 +6,6 @@ use crate::*;
 /// `call(method, json)` — adding a verb here is a reviewed boundary change.
 pub trait RuntimeBridge {
     fn initialize_engine(&mut self, config: EngineConfig) -> BridgeResult<EngineHandle>;
-    /// Construct a Rust-owned workspace authoring cell without gameplay,
-    /// simulation, camera, or runtime ProjectBundle initialization.
-    fn open_workspace_authoring(
-        &mut self,
-        request: WorkspaceAuthoringOpenRequest,
-    ) -> BridgeResult<WorkspaceAuthoringStateSummary>;
     fn read_workspace_authoring_state(&self) -> BridgeResult<WorkspaceAuthoringStateSummary>;
     fn read_workspace_authoring_projection(
         &mut self,

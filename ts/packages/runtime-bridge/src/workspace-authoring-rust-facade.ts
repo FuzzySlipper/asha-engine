@@ -36,7 +36,6 @@ import type {
   ProjectWritePublication,
   SceneDocumentCodecResult,
   SceneDocumentDecodeRequest,
-  WorkspaceAuthoringOpenRequest,
 } from '@asha/contracts';
 import { loadAshaProjectSource } from '@asha/game-workspace';
 import {
@@ -44,6 +43,10 @@ import {
   frameCursor,
   type RuntimeBridge,
 } from './bridge.js';
+import {
+  openWorkspaceAuthoringAdapter,
+  type WorkspaceAuthoringOpenAdapterRequest,
+} from './workspace-authoring-adapter-transport.js';
 
 function validateRequiredIdentity(value: string, field: string): string {
   const normalized = value.trim();
@@ -123,9 +126,9 @@ export class RustBackedWorkspaceAuthoringFacade implements WorkspaceAuthoringFac
     this.#bridge = bridge;
   }
 
-  #openTransport(input: WorkspaceAuthoringOpenRequest): WorkspaceAuthoringStateSummary {
+  #openTransport(input: WorkspaceAuthoringOpenAdapterRequest): WorkspaceAuthoringStateSummary {
     const state = workspaceAuthoringStateFromContract(
-      this.#bridge.openWorkspaceAuthoring(input),
+      openWorkspaceAuthoringAdapter(this.#bridge, input),
     );
     this.#state = state;
     this.#nextProjectionCursor = frameCursor(0);

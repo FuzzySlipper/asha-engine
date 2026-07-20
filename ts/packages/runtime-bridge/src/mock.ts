@@ -119,7 +119,6 @@ import type {
   InputSessionSnapshot,
   RawInputSample,
   RecordedInputAction,
-  WorkspaceAuthoringOpenRequest,
   WorkspaceAuthoringStateSummary as WorkspaceAuthoringContractStateSummary,
 } from '@asha/contracts';
 import {
@@ -165,6 +164,11 @@ import {
   type WorkspaceAuthoringStoredConfirmationInput,
   type WorkspaceAuthoringStoredConfirmationReceipt,
 } from './bridge.js';
+import {
+  WORKSPACE_AUTHORING_OPEN_ADAPTER,
+  type WorkspaceAuthoringOpenAdapterRequest,
+  type WorkspaceAuthoringOpenAdapterTransport,
+} from './workspace-authoring-adapter-transport.js';
 import { collisionCameraAttemptedPose } from './camera-collision-movement.js';
 import { mockCameraProjectionSnapshot } from './mock-camera-projection.js';
 import { MockGameRuleRuntime } from './mock-game-rules.js';
@@ -353,7 +357,7 @@ function poseWithAxis(pose: CameraSnapshot['pose'], axis: number, value: number)
   };
 }
 
-export class MockRuntimeBridge implements RuntimeBridge {
+export class MockRuntimeBridge implements RuntimeBridge, WorkspaceAuthoringOpenAdapterTransport {
   #engine: EngineHandle | null = null;
   #buffer: Uint8Array = new Uint8Array();
   #replaySteps = 0;
@@ -399,7 +403,9 @@ export class MockRuntimeBridge implements RuntimeBridge {
     return handle;
   }
 
-  openWorkspaceAuthoring(input: WorkspaceAuthoringOpenRequest): WorkspaceAuthoringContractStateSummary {
+  [WORKSPACE_AUTHORING_OPEN_ADAPTER](
+    input: WorkspaceAuthoringOpenAdapterRequest,
+  ): WorkspaceAuthoringContractStateSummary {
     if (this.#workspaceAuthoringState?.status === 'open') {
       throw new RuntimeBridgeError('invalid_input', 'workspace authoring is already open');
     }

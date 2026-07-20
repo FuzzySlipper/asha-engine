@@ -53,13 +53,6 @@ export interface WorkspaceAuthoringCompositionStatus {
   readonly blocksLoad: boolean;
 }
 
-export interface WorkspaceAuthoringOpenRequest {
-  readonly authoringId: string;
-  readonly seed: number;
-  readonly project: WorkspaceAuthoringProjectIdentity;
-  readonly projectBundle: WorkspaceAuthoringProjectBundleRef;
-}
-
 export interface WorkspaceAuthoringIdentity {
   readonly kind: string;
   readonly authoringId: string;

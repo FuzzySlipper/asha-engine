@@ -13,6 +13,7 @@ asha-gameplay-module-fixture = { path = "../gameplay-module-sdk/downstream-modul
 asha-runtime-session-composition = { path = "../../../public-rust/runtime-session-composition" }
 core-ids = { path = "../../../engine-rs/crates/foundation/core-ids" }
 protocol-voxel-asset = { path = "../../../engine-rs/crates/protocol/protocol-voxel-asset" }
+protocol-project-bundle = { path = "../../../engine-rs/crates/protocol/protocol-project-bundle" }
 svc-serialization = { path = "../../../engine-rs/crates/services/svc-serialization" }
 svc-voxel-asset = { path = "../../../engine-rs/crates/services/svc-voxel-asset" }
 serde_json = "1"

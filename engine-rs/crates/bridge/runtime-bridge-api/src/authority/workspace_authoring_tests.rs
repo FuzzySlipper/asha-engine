@@ -1,4 +1,5 @@
 use super::*;
+use protocol_project_bundle::WorkspaceAuthoringOpenRequest;
 
 use core_ids::ProjectId;
 use core_space::VoxelCoord;
@@ -145,7 +146,7 @@ fn procedural_request(
 fn authoring_cell_is_distinct_from_gameplay_runtime_and_owns_revisions() {
     let mut bridge = EngineBridge::new();
     let opened = bridge
-        .open_workspace_authoring(open_request("workspace.local"))
+        .open_workspace_authoring_adapter(open_request("workspace.local"))
         .unwrap();
 
     assert_eq!(opened.status, "open");
@@ -202,7 +203,7 @@ fn authoring_cell_is_distinct_from_gameplay_runtime_and_owns_revisions() {
     assert!(closed.closed);
 
     let reopened = bridge
-        .open_workspace_authoring(open_request("workspace.local"))
+        .open_workspace_authoring_adapter(open_request("workspace.local"))
         .unwrap();
     assert_eq!(reopened.identity.generation, 2);
     assert_eq!(reopened.working_revision, 0);
@@ -212,7 +213,7 @@ fn authoring_cell_is_distinct_from_gameplay_runtime_and_owns_revisions() {
 fn projection_rejects_foreign_stale_and_future_bindings_before_drain() {
     let mut bridge = EngineBridge::new();
     let opened = bridge
-        .open_workspace_authoring(open_request("workspace.local"))
+        .open_workspace_authoring_adapter(open_request("workspace.local"))
         .unwrap();
     initialize_volume(&mut bridge);
 
@@ -279,7 +280,7 @@ fn projection_rejects_foreign_stale_and_future_bindings_before_drain() {
 fn stored_confirmation_consumes_only_the_current_rust_save_candidate() {
     let mut bridge = EngineBridge::new();
     let opened = bridge
-        .open_workspace_authoring(open_request("workspace.local"))
+        .open_workspace_authoring_adapter(open_request("workspace.local"))
         .unwrap();
     initialize_volume(&mut bridge);
     bridge
@@ -375,7 +376,7 @@ fn stored_confirmation_consumes_only_the_current_rust_save_candidate() {
 fn project_content_authoring_is_revision_bound_and_promotes_only_the_rust_candidate() {
     let mut bridge = EngineBridge::new();
     let opened = bridge
-        .open_workspace_authoring(open_request("workspace.project-content"))
+        .open_workspace_authoring_adapter(open_request("workspace.project-content"))
         .unwrap();
     let source = ProjectContentSourceDto {
         source_path: "entities/fixture.json".to_owned(),
@@ -534,7 +535,7 @@ fn project_content_authoring_is_revision_bound_and_promotes_only_the_rust_candid
 fn project_content_authoring_rejects_a_source_path_owned_by_another_document() {
     let mut bridge = EngineBridge::new();
     let opened = bridge
-        .open_workspace_authoring(open_request("workspace.project-content-paths"))
+        .open_workspace_authoring_adapter(open_request("workspace.project-content-paths"))
         .unwrap();
     let presentation_source = |source_path: &str, document_id: &str| ProjectContentSourceDto {
         source_path: source_path.to_owned(),
@@ -614,7 +615,7 @@ fn project_content_authoring_rejects_a_source_path_owned_by_another_document() {
 fn project_write_is_rust_derived_revision_bound_and_single_use() {
     let mut bridge = EngineBridge::new();
     let opened = bridge
-        .open_workspace_authoring(open_request("workspace.project-write"))
+        .open_workspace_authoring_adapter(open_request("workspace.project-write"))
         .unwrap();
     let scene_bytes = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -801,7 +802,7 @@ fn project_write_is_rust_derived_revision_bound_and_single_use() {
 fn procedural_materialization_is_preview_pure_candidate_bound_and_combined_saveable() {
     let mut bridge = EngineBridge::new();
     let opened = bridge
-        .open_workspace_authoring(open_request("workspace.procedural"))
+        .open_workspace_authoring_adapter(open_request("workspace.procedural"))
         .unwrap();
     let decoded = bridge
         .decode_scene_document(SceneDocumentDecodeRequestDto {
@@ -909,7 +910,7 @@ fn procedural_materialization_is_preview_pure_candidate_bound_and_combined_savea
 fn reopened_procedural_environment_replaces_from_loaded_asset_provenance() {
     let mut source_bridge = EngineBridge::new();
     let source_opened = source_bridge
-        .open_workspace_authoring(open_request("workspace.procedural-source"))
+        .open_workspace_authoring_adapter(open_request("workspace.procedural-source"))
         .unwrap();
     let source_scene = source_bridge
         .decode_scene_document(SceneDocumentDecodeRequestDto {
@@ -927,7 +928,7 @@ fn reopened_procedural_environment_replaces_from_loaded_asset_provenance() {
 
     let mut bridge = EngineBridge::new();
     let opened = bridge
-        .open_workspace_authoring(open_request("workspace.procedural-reopen"))
+        .open_workspace_authoring_adapter(open_request("workspace.procedural-reopen"))
         .unwrap();
     let decoded = bridge
         .decode_scene_document(SceneDocumentDecodeRequestDto {
@@ -1006,7 +1007,7 @@ fn reopened_procedural_environment_replaces_from_loaded_asset_provenance() {
 fn procedural_materialization_rejects_stale_unresolved_and_oversized_without_mutation() {
     let mut bridge = EngineBridge::new();
     let opened = bridge
-        .open_workspace_authoring(open_request("workspace.procedural-rejection"))
+        .open_workspace_authoring_adapter(open_request("workspace.procedural-rejection"))
         .unwrap();
     let decoded = bridge
         .decode_scene_document(SceneDocumentDecodeRequestDto {

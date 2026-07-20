@@ -35,17 +35,6 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
-        manifest_name: "open_workspace_authoring",
-        facade_method: "openWorkspaceAuthoring",
-        capability: "workspace_authoring",
-        input: "protocol_project_bundle::WorkspaceAuthoringOpenRequest",
-        output: "protocol_project_bundle::WorkspaceAuthoringStateSummary",
-        errors: "RuntimeBridgeError",
-        max_input_bytes: 8388608,
-        max_output_bytes: 8388608,
-        surface: GeneratedBridgeSurface::Stable,
-    },
-    GeneratedBridgeBinding {
         manifest_name: "read_workspace_authoring_state",
         facade_method: "readWorkspaceAuthoringState",
         capability: "workspace_authoring",

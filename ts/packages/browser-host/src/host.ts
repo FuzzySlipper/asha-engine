@@ -114,6 +114,14 @@ interface NativeBrowserHostBridgeInvocation {
 }
 
 const PROJECT_RESOURCE_STAGE_METHOD = 'stageRuntimeProjectSourceResource';
+const WORKSPACE_AUTHORING_OPEN_ADAPTER_SYMBOL_KEY =
+  'asha.runtime_bridge.private.workspace_authoring_open.v1';
+const WORKSPACE_AUTHORING_OPEN_ADAPTER_SYMBOL = Symbol.for(
+  WORKSPACE_AUTHORING_OPEN_ADAPTER_SYMBOL_KEY,
+);
+const WORKSPACE_AUTHORING_OPEN_ADAPTER_METHOD = 'openWorkspaceAuthoringAdapter';
+const WORKSPACE_AUTHORING_OPEN_ADAPTER_PATH =
+  '/asha/browser-host/private-adapter/workspace-authoring/open';
 const PROJECT_RESOURCE_STAGE_MAX_INPUT_BYTES = MANIFEST_OPERATIONS.find(
   (operation) => operation.facadeMethod === PROJECT_RESOURCE_STAGE_METHOD,
 )?.maxInputBytes ?? 0;
@@ -122,6 +130,10 @@ interface NativeBrowserHostBridgeEntry {
   readonly bridge: Promise<RuntimeBridge>;
   runtimeProjectLifecycle: RuntimeProjectLifecycleVersion | null;
 }
+
+type NativeBrowserHostWorkspaceAuthoringAdapterBridge = RuntimeBridge & {
+  readonly [WORKSPACE_AUTHORING_OPEN_ADAPTER_SYMBOL]?: (input: unknown) => unknown;
+};
 
 interface NativeBrowserHostBridgePool {
   readonly bridges: Map<string, NativeBrowserHostBridgeEntry>;
@@ -311,6 +323,10 @@ async function handleNativeBrowserHostRequest(
     await handleRuntimeBridgeClientDisconnect(request, response, bridgePool);
     return;
   }
+  if (requestPath === WORKSPACE_AUTHORING_OPEN_ADAPTER_PATH) {
+    await handleWorkspaceAuthoringOpenAdapter(request, response, bridgePool);
+    return;
+  }
   if (requestPath.startsWith('/asha/browser-host/runtime-bridge/session/')) {
     await handleRuntimeBridgeSessionDisconnect(request, response, bridgePool, requestPath);
     return;
@@ -440,6 +456,49 @@ async function handleRuntimeBridgeInvocation(
     } else if (methodName === 'closeRuntimeProject' && didRuntimeProjectClose(result)) {
       entry.runtimeProjectLifecycle = null;
     }
+    sendJson(response, 200, { result: result ?? null });
+  } catch (error) {
+    sendNativeBrowserHostError(response, error);
+  }
+}
+
+async function handleWorkspaceAuthoringOpenAdapter(
+  request: IncomingMessage,
+  response: ServerResponse,
+  bridgePool: NativeBrowserHostBridgePool,
+): Promise<void> {
+  if (request.method !== 'POST') {
+    sendJson(response, 405, { error: { message: 'Workspace-authoring adapter requires POST.' } });
+    return;
+  }
+  try {
+    const identity = readNativeBrowserHostBridgeIdentity(request, bridgePool);
+    if (identity.browserSession === 'server') {
+      throw new RuntimeBridgeError(
+        'invalid_input',
+        'Workspace-authoring adapter requires a host-issued browser Session capability.',
+        { operation: 'WorkspaceAuthoring.openProject', provenance: 'transport_loader' },
+      );
+    }
+    const entry = await readNativeBrowserHostBridge(identity, bridgePool);
+    const bridge = await entry.bridge as NativeBrowserHostWorkspaceAuthoringAdapterBridge;
+    const invocation = await readInvocationBody(request);
+    if (invocation.args?.length !== 1) {
+      throw new RuntimeBridgeError(
+        'invalid_input',
+        'Workspace-authoring adapter requires exactly one canonical open request.',
+        { operation: 'WorkspaceAuthoring.openProject', provenance: 'transport_loader' },
+      );
+    }
+    const open = bridge[WORKSPACE_AUTHORING_OPEN_ADAPTER_SYMBOL];
+    if (typeof open !== 'function') {
+      throw new RuntimeBridgeError(
+        'operation_unimplemented',
+        'Native RuntimeBridge does not provide the private workspace-authoring adapter.',
+        { operation: 'WorkspaceAuthoring.openProject', provenance: 'transport_loader' },
+      );
+    }
+    const result: unknown = open.call(bridge, invocation.args[0]);
     sendJson(response, 200, { result: result ?? null });
   } catch (error) {
     sendNativeBrowserHostError(response, error);
@@ -933,6 +992,7 @@ function injectNativeProviderScript(html: string): string {
 function nativeBrowserHostProviderScript(browserSession: string): string {
   return `(() => {
   const methods = ${JSON.stringify(ASHA_BROWSER_HOST_BRIDGE_METHODS)};
+  const workspaceAuthoringAdapter = Symbol.for('${WORKSPACE_AUTHORING_OPEN_ADAPTER_SYMBOL_KEY}');
   const browserSession = '${browserSession}';
   const disconnectedClients = new Set();
   let nextBridgeClient = 0;
@@ -983,8 +1043,12 @@ function nativeBrowserHostProviderScript(browserSession: string): string {
       ? '?generation=' + encodeURIComponent(String(resourceInput.generation))
         + '&path=' + encodeURIComponent(resourceInput.path)
       : '';
+    const privateWorkspaceAuthoring = method === '${WORKSPACE_AUTHORING_OPEN_ADAPTER_METHOD}';
+    const endpoint = privateWorkspaceAuthoring
+      ? '${WORKSPACE_AUTHORING_OPEN_ADAPTER_PATH}'
+      : '/asha/browser-host/runtime-bridge/' + encodeURIComponent(method) + query;
     const request = new XMLHttpRequest();
-    request.open('POST', '/asha/browser-host/runtime-bridge/' + encodeURIComponent(method) + query, false);
+    request.open('POST', endpoint, false);
     request.setRequestHeader('Content-Type', projectResource
       ? '${ASHA_BROWSER_HOST_PROJECT_RESOURCE_CONTENT_TYPE}'
       : 'application/json; charset=utf-8');
@@ -1030,6 +1094,10 @@ function nativeBrowserHostProviderScript(browserSession: string): string {
     for (const method of methods) {
       bridge[method] = (...args) => invoke(method, args, bridgeClient);
     }
+    Object.defineProperty(bridge, workspaceAuthoringAdapter, {
+      enumerable: false,
+      value: (...args) => invoke('${WORKSPACE_AUTHORING_OPEN_ADAPTER_METHOD}', args, bridgeClient),
+    });
     Object.defineProperty(bridge, 'browserHostLifecycle', {
       enumerable: false,
       value: Object.freeze({

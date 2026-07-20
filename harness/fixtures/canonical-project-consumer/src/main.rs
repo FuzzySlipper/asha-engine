@@ -9,8 +9,6 @@ use asha_runtime_session_composition::{
     SceneDocumentDecodeRequestDto, SceneDocumentEncodeRequestDto, SceneEntityInstanceDto,
     SceneEntityReferenceDto, SceneLightDto, SceneLightShadowIntentDto, SceneMetadataDto,
     SceneNodeKindDto, SceneNodeRecordDto, SceneTransformDto, StaticProjectAuthoringBuilder,
-    WorkspaceAuthoringOpenRequest, WorkspaceAuthoringProjectBundleRef,
-    WorkspaceAuthoringProjectIdentity,
 };
 use core_ids::{ProjectId, SceneId, SceneNodeId};
 use protocol_voxel_asset::{
@@ -18,6 +16,10 @@ use protocol_voxel_asset::{
     VoxelAssetGrid, VoxelAssetMaterialBinding, VoxelAssetProvenanceKind, VoxelAssetProvenanceRef,
     VoxelAssetRepresentation, VoxelAssetRepresentationKind, VoxelAssetSparseRun, VoxelVolumeAsset,
     VOXEL_ASSET_MEDIA_TYPE, VOXEL_ASSET_SCHEMA_VERSION,
+};
+use protocol_project_bundle::{
+    WorkspaceAuthoringOpenRequest, WorkspaceAuthoringProjectBundleRef,
+    WorkspaceAuthoringProjectIdentity,
 };
 use svc_serialization::{
     ArtifactEntry, ArtifactRole, AssetLockSection, ProjectBundleManifest, ProjectSection,
@@ -94,7 +96,7 @@ fn generate_project() -> BTreeMap<String, Vec<u8>> {
     let composition = asha_gameplay_module_fixture::composed_static_composition(4);
     let mut bridge = StaticProjectAuthoringBuilder::from_static_composition(composition).build();
     bridge
-        .open_workspace_authoring(WorkspaceAuthoringOpenRequest {
+        .open_workspace_authoring_adapter(WorkspaceAuthoringOpenRequest {
             authoring_id: "canonical-project-consumer.generator".to_owned(),
             seed: 5997,
             project: WorkspaceAuthoringProjectIdentity {

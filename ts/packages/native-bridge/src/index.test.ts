@@ -45,6 +45,11 @@ void test('native addon loader accepts the canonical project lifecycle exports',
     assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('loadRuntimeProject'));
     assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('closeRuntimeProject'));
     assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('readActiveRuntimeProjectContent'));
+    assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('openWorkspaceAuthoringAdapter'));
+    assert.equal(
+      (REQUIRED_NATIVE_ADDON_EXPORTS as readonly string[]).includes('openWorkspaceAuthoring'),
+      false,
+    );
     assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('createCamera'));
     assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('importVoxelConversionMeshSource'));
     assert.ok(REQUIRED_NATIVE_ADDON_EXPORTS.includes('unloadVoxelVolumeAsset'));

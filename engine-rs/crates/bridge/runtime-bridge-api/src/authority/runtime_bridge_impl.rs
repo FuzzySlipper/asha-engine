@@ -5,13 +5,6 @@ impl RuntimeBridge for EngineBridge {
         initialization::initialize(self, config)
     }
 
-    fn open_workspace_authoring(
-        &mut self,
-        request: WorkspaceAuthoringOpenRequest,
-    ) -> BridgeResult<WorkspaceAuthoringStateSummary> {
-        self.open_workspace_authoring_authority(request)
-    }
-
     fn read_workspace_authoring_state(&self) -> BridgeResult<WorkspaceAuthoringStateSummary> {
         self.read_workspace_authoring_state_authority()
     }

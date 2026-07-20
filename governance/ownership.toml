@@ -850,5 +850,5 @@ may_not_depend_on = ["napi", "wasm-bindgen"]
 
 [crate."engine-rs/crates/bridge/native-bridge"]
 lane = "rust-bridge"
-may_depend_on = ["runtime-bridge-api", "core-ids", "core-math", "core-space", "core-voxel", "protocol-assets", "protocol-diagnostics", "protocol-game-extension", "protocol-render", "protocol-scene", "protocol-view", "protocol-voxel-asset", "protocol-script", "protocol-replay", "sim-runner", "render-bridge", "napi", "napi-derive"]
+may_depend_on = ["runtime-bridge-api", "core-ids", "core-math", "core-space", "core-voxel", "protocol-assets", "protocol-diagnostics", "protocol-game-extension", "protocol-project-bundle", "protocol-render", "protocol-scene", "protocol-view", "protocol-voxel-asset", "protocol-script", "protocol-replay", "sim-runner", "render-bridge", "napi", "napi-derive"]
 may_not_depend_on = ["wasm-bindgen", "core-state"]

@@ -61,6 +61,7 @@ import {
   createNativeInputHandlers,
 } from './native-fail-closed-inputs.test-fixture.js';
 import { createNativeOperationInvocations } from './native-operation-invocations.test-fixture.js';
+import type { WorkspaceAuthoringOpenAdapterRequest } from './workspace-authoring-adapter-transport.js';
 import {
   CAMERA_MODE_COMMAND,
   CAMERA_NAVIGATION_INPUT,
@@ -406,7 +407,7 @@ function voxelHistoryRevertFixture(request: VoxelEditHistoryRevertRequest, appli
 // A fake addon with sentinel return values distinct from MockRuntimeBridge, so a
 // silent mock fallback would be observable in the wired-op assertions below.
 function workspaceAuthoringStateFixture(
-  input: Parameters<RuntimeBridge['openWorkspaceAuthoring']>[0],
+  input: WorkspaceAuthoringOpenAdapterRequest,
   status: 'open' | 'closed' = 'open',
 ) {
   return {
@@ -448,9 +449,9 @@ function fakeAddon(calls: string[] = []): NativeAddon {
       calls.push(`initialize:${seed}`);
       return seed + 100;
     },
-    openWorkspaceAuthoring: (existingHandle: number, requestJson: string) => {
+    openWorkspaceAuthoringAdapter: (existingHandle: number, requestJson: string) => {
       calls.push(`workspaceAuthoringOpen:${requestJson}`);
-      const request = parseJsonFixture<Parameters<RuntimeBridge['openWorkspaceAuthoring']>[0]>(requestJson);
+      const request = parseJsonFixture<WorkspaceAuthoringOpenAdapterRequest>(requestJson);
       void workspaceAuthoringStateFixture(request);
       return existingHandle >= 0 ? existingHandle : 107;
     },

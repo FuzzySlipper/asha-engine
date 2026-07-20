@@ -101,7 +101,7 @@ pub use protocol_project_bundle::{
     RuntimeProjectLoadReceipt, RuntimeProjectLoadRequest, RuntimeProjectSourceAdapterInput,
     RuntimeProjectSourceAdapterKind, RuntimeProjectSourceBatch, StagedProjectResourceRef,
     WorkspaceAuthoringCloseReceipt, WorkspaceAuthoringCloseRequest,
-    WorkspaceAuthoringCompositionStatus, WorkspaceAuthoringIdentity, WorkspaceAuthoringOpenRequest,
+    WorkspaceAuthoringCompositionStatus, WorkspaceAuthoringIdentity,
     WorkspaceAuthoringProjectBundleRef, WorkspaceAuthoringProjectIdentity,
     WorkspaceAuthoringProjectionReceipt, WorkspaceAuthoringProjectionRequest,
     WorkspaceAuthoringStateSummary, WorkspaceAuthoringStoredConfirmationReceipt,

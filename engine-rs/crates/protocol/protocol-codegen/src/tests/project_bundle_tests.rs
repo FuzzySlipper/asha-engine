@@ -6,7 +6,6 @@ pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
         interface_coverage_key("projectBundle", "WorkspaceAuthoringProjectIdentity"),
         interface_coverage_key("projectBundle", "WorkspaceAuthoringProjectBundleRef"),
         interface_coverage_key("projectBundle", "WorkspaceAuthoringCompositionStatus"),
-        interface_coverage_key("projectBundle", "WorkspaceAuthoringOpenRequest"),
         interface_coverage_key("projectBundle", "WorkspaceAuthoringIdentity"),
         interface_coverage_key("projectBundle", "WorkspaceAuthoringStateSummary"),
         interface_coverage_key("projectBundle", "WorkspaceAuthoringProjectionRequest"),
@@ -61,6 +60,10 @@ pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
 #[test]
 fn project_bundle_family_emits_vocab_and_shapes() {
     let output = file("projectBundle.ts");
+    assert!(
+        !output.contains("WorkspaceAuthoringOpenRequest"),
+        "manual workspace bootstrap requests must stay out of public generated contracts"
+    );
     for class in protocol_project_bundle::ARTIFACT_CLASSES {
         assert!(
             output.contains(&format!("'{class}'")),

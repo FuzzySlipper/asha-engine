@@ -305,7 +305,7 @@ mod tests {
     use super::*;
 
     fn open_workspace() -> i64 {
-        crate::open_workspace_authoring(
+        crate::open_workspace_authoring_adapter(
             -1,
             json!({
                 "authoringId": "native.procedural-environment-test",

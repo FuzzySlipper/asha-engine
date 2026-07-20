@@ -5,7 +5,6 @@
 
 const GENERATED_NATIVE_ADDON_EXPORT_NAMES = [
   'initializeEngine',
-  'openWorkspaceAuthoring',
   'readWorkspaceAuthoringState',
   'readWorkspaceAuthoringProjection',
   'confirmWorkspaceAuthoringStored',

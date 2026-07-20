@@ -25,6 +25,7 @@ core-ids = { path = "../../foundation/core-ids" }
 protocol-assets = { path = "../../protocol/protocol-assets" }
 protocol-diagnostics = { path = "../../protocol/protocol-diagnostics" }
 protocol-game-extension = { path = "../../protocol/protocol-game-extension" }
+protocol-project-bundle = { path = "../../protocol/protocol-project-bundle" }
 protocol-render = { path = "../../protocol/protocol-render" }
 protocol-scene = { path = "../../protocol/protocol-scene" }
 protocol-view = { path = "../../protocol/protocol-view" }

@@ -55,7 +55,6 @@ PROTOCOL_WIRE_MODULES = {
 }
 CONTRACT_WIRE_MODULES = {
     "RenderFrameDiff": "render",
-    "WorkspaceAuthoringOpenRequest": "projectBundle",
     "WorkspaceAuthoringStateSummary": "projectBundle",
     "WorkspaceAuthoringProjectionRequest": "projectBundle",
     "WorkspaceAuthoringStoredConfirmationRequest": "projectBundle",

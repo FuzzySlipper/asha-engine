@@ -122,11 +122,15 @@ import type {
   RawInputSample,
   RecordedInputAction,
   ScreenPointToPickRayRequest,
-  WorkspaceAuthoringOpenRequest,
   WorkspaceAuthoringStateSummary as WorkspaceAuthoringContractStateSummary,
 } from '@asha/contracts';
 import { loadNativeAddon, NativeAddonUnavailable, type NativeAddon } from '@asha/native-bridge';
 import { MANIFEST_OPERATIONS } from './generated/operations.js';
+import {
+  WORKSPACE_AUTHORING_OPEN_ADAPTER,
+  type WorkspaceAuthoringOpenAdapterRequest,
+  type WorkspaceAuthoringOpenAdapterTransport,
+} from './workspace-authoring-adapter-transport.js';
 import {
   RuntimeBridgeError,
   frameCursor,
@@ -449,7 +453,7 @@ function normalizeEncounterTransition(value: FpsEncounterTransitionResult): FpsE
 }
 
 
-export class NativeRuntimeBridge implements RuntimeBridge {
+export class NativeRuntimeBridge implements RuntimeBridge, WorkspaceAuthoringOpenAdapterTransport {
   readonly #addon: NativeAddon;
   #seed = 0;
   #initialized = false;
@@ -461,7 +465,11 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     return new Proxy(this, {
       get: (target, property) => {
         const member = Reflect.get(target, property, target) as NativeFacadeMethod | NativeFacadeValue;
-        if (typeof property !== 'string' || typeof member !== 'function') return member;
+        if (typeof member !== 'function') return member;
+        if (typeof property !== 'string') {
+          return (...args: NativeFacadeValue[]) =>
+            Reflect.apply(member, target, args) as NativeFacadeValue;
+        }
         const operation = OPERATION_BY_FACADE_METHOD.get(property);
         if (operation === undefined) {
           return (...args: NativeFacadeValue[]) =>
@@ -491,21 +499,29 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     return handle;
   }
 
-  openWorkspaceAuthoring(input: WorkspaceAuthoringOpenRequest): WorkspaceAuthoringContractStateSummary {
+  [WORKSPACE_AUTHORING_OPEN_ADAPTER](
+    input: WorkspaceAuthoringOpenAdapterRequest,
+  ): WorkspaceAuthoringContractStateSummary {
     const existingHandle = this.#engineHandle ?? -1;
     const handle = callNative(() =>
-      this.#addon.openWorkspaceAuthoring(existingHandle, JSON.stringify(input)),
+      this.#addon.openWorkspaceAuthoringAdapter(existingHandle, JSON.stringify(input)),
     );
     this.#engineHandle = nonNegativeSafeInteger(handle, 'workspace authoring handle') as EngineHandle;
     this.#seed = input.seed;
     this.#initialized = true;
-    const statePayload = callNative(() =>
-      this.#addon.readWorkspaceAuthoringState(this.#engineHandle as EngineHandle),
-    );
-    return parseNativeJson<WorkspaceAuthoringContractStateSummary>(
-      statePayload,
-      'workspace authoring open state',
-    );
+    return runNativeOperation(
+      'read_workspace_authoring_state',
+      null,
+      () => {
+        const statePayload = callNative(() =>
+          this.#addon.readWorkspaceAuthoringState(this.#engineHandle as EngineHandle),
+        );
+        return parseNativeJson<WorkspaceAuthoringContractStateSummary>(
+          statePayload,
+          'workspace authoring open state',
+        );
+      },
+    ) as WorkspaceAuthoringContractStateSummary;
   }
 
   readWorkspaceAuthoringState(): WorkspaceAuthoringContractStateSummary {

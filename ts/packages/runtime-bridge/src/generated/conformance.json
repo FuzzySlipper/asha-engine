@@ -174,7 +174,6 @@
       "snapshot_hash": "workspaceAuthoringAuthority",
       "resource_lifetime": "session",
       "operations": [
-        "open_workspace_authoring",
         "read_workspace_authoring_state",
         "read_workspace_authoring_projection",
         "decode_project_content",
@@ -242,30 +241,6 @@
       "outputWire": {
         "owner": "handle",
         "name": "EngineHandle",
-        "repeated": false
-      },
-      "errors": "RuntimeBridgeError"
-    },
-    {
-      "manifestName": "open_workspace_authoring",
-      "facadeMethod": "openWorkspaceAuthoring",
-      "capability": "workspace_authoring",
-      "surface": "stable",
-      "nativeWired": true,
-      "maxInputBytes": 8388608,
-      "maxOutputBytes": 8388608,
-      "input": "protocol_project_bundle::WorkspaceAuthoringOpenRequest",
-      "output": "protocol_project_bundle::WorkspaceAuthoringStateSummary",
-      "facadeInput": "contracts::WorkspaceAuthoringOpenRequest",
-      "facadeOutput": "contracts::WorkspaceAuthoringStateSummary",
-      "inputWire": {
-        "owner": "generated",
-        "name": "projectBundle.WorkspaceAuthoringOpenRequest",
-        "repeated": false
-      },
-      "outputWire": {
-        "owner": "generated",
-        "name": "projectBundle.WorkspaceAuthoringStateSummary",
         "repeated": false
       },
       "errors": "RuntimeBridgeError"

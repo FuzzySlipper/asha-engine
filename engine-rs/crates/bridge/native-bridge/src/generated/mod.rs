@@ -6,12 +6,6 @@
 pub(crate) const REQUIRED_NATIVE_EXPORTS: &[(&str, &str, usize, usize)] = &[
     ("initialize_engine", "initializeEngine", 8388608, 8388608),
     (
-        "open_workspace_authoring",
-        "openWorkspaceAuthoring",
-        8388608,
-        8388608,
-    ),
-    (
         "read_workspace_authoring_state",
         "readWorkspaceAuthoringState",
         8388608,

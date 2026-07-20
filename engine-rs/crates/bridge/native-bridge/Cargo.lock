@@ -532,6 +532,7 @@ dependencies = [
  "protocol-assets",
  "protocol-diagnostics",
  "protocol-game-extension",
+ "protocol-project-bundle",
  "protocol-render",
  "protocol-scene",
  "protocol-view",

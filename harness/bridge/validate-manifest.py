@@ -33,6 +33,13 @@ RUST_NAPI_EXPORT_RE = re.compile(
     r"pub fn ([a-z][a-z0-9_]*)\s*\("
 )
 
+# Cross-transport adapters that are intentionally absent from the public bridge
+# manifest and generated RuntimeBridge. Each entry must instead live in the
+# separately checked NativeAddonAdapterBindings interface.
+PRIVATE_NATIVE_ADAPTER_EXPORTS = {
+    "open_workspace_authoring_adapter": "openWorkspaceAuthoringAdapter",
+}
+
 # Known prototype manifest refs that predate generated contract ownership. Keep
 # this list explicit so newly-added protocol_* refs cannot silently point at
 # nonexistent generated DTOs.
@@ -296,6 +303,8 @@ def main():
             fail(errors, f"capability [{capability_id}] has invalid resource_lifetime")
         grouped_operations.extend(capability.get("operations", []))
     manifest_names = {op.get("name") for op in ops}
+    for name in sorted(manifest_names.intersection(PRIVATE_NATIVE_ADAPTER_EXPORTS)):
+        fail(errors, f"private native adapter '{name}' must not enter the public manifest")
     grouped_names = set(grouped_operations)
     for name in sorted(manifest_names - grouped_names):
         fail(errors, f"operation '{name}' is missing a capability group")
@@ -328,10 +337,22 @@ def main():
         validate_exact_inventory(
             errors, "NativeAddonBindings", expected_ts_methods, actual_ts_methods
         )
+        adapter_ts_methods, adapter_interface_error = interface_methods(
+            NATIVE_ADDON_TS, "NativeAddonAdapterBindings"
+        )
+        if adapter_interface_error:
+            fail(errors, adapter_interface_error)
+        validate_exact_inventory(
+            errors,
+            "NativeAddonAdapterBindings",
+            set(PRIVATE_NATIVE_ADAPTER_EXPORTS.values()),
+            adapter_ts_methods,
+        )
     else:
         fail(errors, f"native addon declarations not found at {NATIVE_ADDON_TS}")
 
     expected_rust_exports = {op["name"] for op in native_operations}
+    expected_rust_exports.update(PRIVATE_NATIVE_ADAPTER_EXPORTS)
     actual_rust_exports = rust_napi_exports()
     validate_exact_inventory(
         errors, "native-bridge #[napi] exports", expected_rust_exports, actual_rust_exports

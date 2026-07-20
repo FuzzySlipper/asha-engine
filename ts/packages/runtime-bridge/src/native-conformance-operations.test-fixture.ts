@@ -1,6 +1,5 @@
 export const REQUIRED_NATIVE_CONFORMANCE_OPS = [
   'initialize_engine',
-  'open_workspace_authoring',
   'read_workspace_authoring_state',
   'read_workspace_authoring_projection',
   'confirm_workspace_authoring_stored',

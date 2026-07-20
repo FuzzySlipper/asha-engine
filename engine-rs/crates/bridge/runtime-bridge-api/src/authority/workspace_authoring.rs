@@ -1,6 +1,20 @@
 use super::*;
+use protocol_project_bundle::WorkspaceAuthoringOpenRequest;
 
 impl EngineBridge {
+    /// Private transport adapter used by canonical project-source authoring.
+    ///
+    /// This is deliberately absent from [`RuntimeBridge`], the bridge manifest,
+    /// and generated consumer contracts. Native transport calls it only through
+    /// the package-private adapter owned by `WorkspaceAuthoring.openProject`.
+    #[doc(hidden)]
+    pub fn open_workspace_authoring_adapter(
+        &mut self,
+        request: WorkspaceAuthoringOpenRequest,
+    ) -> BridgeResult<WorkspaceAuthoringStateSummary> {
+        self.open_workspace_authoring_authority(request)
+    }
+
     pub(super) fn open_workspace_authoring_authority(
         &mut self,
         request: WorkspaceAuthoringOpenRequest,

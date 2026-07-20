@@ -121,7 +121,7 @@ initialization = "createsEngine"
 runtime_project = "ownsProjectLifecycle"
 snapshot_hash = "workspaceAuthoringAuthority"
 resource_lifetime = "session"
-operations = ["open_workspace_authoring", "read_workspace_authoring_state", "read_workspace_authoring_projection", "decode_project_content", "encode_project_content", "apply_project_content_authoring", "preview_procedural_environment", "apply_procedural_environment", "confirm_workspace_authoring_stored", "prepare_project_write", "confirm_project_write", "close_workspace_authoring"]
+operations = ["read_workspace_authoring_state", "read_workspace_authoring_projection", "decode_project_content", "encode_project_content", "apply_project_content_authoring", "preview_procedural_environment", "apply_procedural_environment", "confirm_workspace_authoring_stored", "prepare_project_write", "confirm_project_write", "close_workspace_authoring"]
 
 [[capability]]
 id = "runtime_project_lifecycle"
@@ -154,16 +154,6 @@ output = "EngineHandle"
 errors = "RuntimeBridgeError"
 summary = "Construct an engine/session. Returns an opaque handle, never a StateStore."
 facade_input = "bridge::EngineConfig"
-
-[[operation]]
-name = "open_workspace_authoring"
-surface = "stable"
-input = "protocol_project_bundle::WorkspaceAuthoringOpenRequest"
-output = "protocol_project_bundle::WorkspaceAuthoringStateSummary"
-errors = "RuntimeBridgeError"
-summary = "Construct a mechanically distinct Rust-owned workspace-authoring cell without gameplay runtime, simulation, or camera lifecycle initialization."
-facade_input = "contracts::WorkspaceAuthoringOpenRequest"
-facade_output = "contracts::WorkspaceAuthoringStateSummary"
 
 [[operation]]
 name = "read_workspace_authoring_state"

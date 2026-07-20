@@ -99,7 +99,6 @@ export interface RuntimeProjectionPort {
 }
 
 export interface RuntimeWorkspaceAuthoringPort {
-  openWorkspaceAuthoring(input: Contracts.WorkspaceAuthoringOpenRequest): Contracts.WorkspaceAuthoringStateSummary;
   readWorkspaceAuthoringState(): Contracts.WorkspaceAuthoringStateSummary;
   readWorkspaceAuthoringProjection(input: Contracts.WorkspaceAuthoringProjectionRequest): Bridge.WorkspaceAuthoringProjectionSummary;
   decodeProjectContent(input: Contracts.ProjectContentDecodeRequest): Contracts.ProjectContentCodecResult;
