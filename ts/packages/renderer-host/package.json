@@ -12,6 +12,13 @@
     }
   },
   "asha": {
+    "publicSurface": {
+      "tier": 1,
+      "role": "projection-only-renderer-host",
+      "allowedConsumers": ["asha-demo", "asha-studio", "downstream-visual-authoring"],
+      "rootExportOnly": true,
+      "nativeTransportAccess": false
+    },
     "compatibility": {
       "version": "renderer-host.v1",
       "metadataFile": "compatibility.json",

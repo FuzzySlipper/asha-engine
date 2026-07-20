@@ -7,6 +7,7 @@ import { renderHandle, type RenderFrameDiff } from '@asha/contracts';
 import {
   ASHA_RENDERER_HOST_ANIMATED_MESH_FIXTURE_MANIFEST,
   ASHA_RENDERER_HOST_COMPATIBILITY_VERSION,
+  ASHA_RENDERER_INSPECTION_SURFACE_COMPATIBILITY_VERSION,
   AshaRendererHostError,
   createAshaRendererAnimatedMeshProjection,
   createAshaRendererSurfaceProjection,
@@ -197,12 +198,16 @@ void test('renderer-host declarations do not expose concrete Three.js backend ty
   const surfaceDeclarationText = readFileSync(surfaceDeclarationPath, 'utf8');
   const editorViewportDeclarationPath = fileURLToPath(new URL('./editor-viewport.d.ts', import.meta.url));
   const editorViewportDeclarationText = readFileSync(editorViewportDeclarationPath, 'utf8');
+  const inspectionSurfaceDeclarationPath = fileURLToPath(new URL('./inspection-surface.d.ts', import.meta.url));
+  const inspectionSurfaceDeclarationText = readFileSync(inspectionSurfaceDeclarationPath, 'utf8');
 
   assert.doesNotMatch(declarationText, /@asha\/renderer-three/);
   assert.doesNotMatch(declarationText, /ThreeRenderer/);
   assert.doesNotMatch(declarationText, /WebGLRenderer/);
   assert.doesNotMatch(declarationText, /from ['"]three['"]/);
   assert.doesNotMatch(declarationText, /@asha\/runtime-bridge/);
+  assert.match(declarationText, /mountAshaRendererInspectionSurface/);
+  assert.equal(ASHA_RENDERER_INSPECTION_SURFACE_COMPATIBILITY_VERSION, 'inspection-surface.v0');
   assert.doesNotMatch(editorViewportDeclarationText, /@asha\/renderer-three/);
   assert.doesNotMatch(editorViewportDeclarationText, /ThreeRenderer/);
   assert.doesNotMatch(editorViewportDeclarationText, /WebGLRenderer/);
@@ -212,6 +217,11 @@ void test('renderer-host declarations do not expose concrete Three.js backend ty
   assert.match(editorViewportDeclarationText, /AshaRendererEditorViewportPickHint/);
   assert.match(editorViewportDeclarationText, /runtime_authority/);
   assert.match(editorViewportDeclarationText, /stored_editor/);
+  assert.match(inspectionSurfaceDeclarationText, /projection_only_inspection/);
+  assert.match(inspectionSurfaceDeclarationText, /readonly replaceFrame:/);
+  assert.doesNotMatch(inspectionSurfaceDeclarationText, /@asha\/renderer-three/);
+  assert.doesNotMatch(inspectionSurfaceDeclarationText, /@asha\/runtime-bridge/);
+  assert.doesNotMatch(inspectionSurfaceDeclarationText, /from ['"]three['"]/);
   assert.match(surfaceDeclarationText, /AshaRendererSurfacePickRequest/);
   assert.match(surfaceDeclarationText, /AshaRendererSurfacePickHint/);
   assert.match(surfaceDeclarationText, /readonly pick:/);

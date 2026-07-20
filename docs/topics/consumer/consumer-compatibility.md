@@ -121,6 +121,7 @@ The metadata schema is intentionally tiny for now:
 - `asha-demo` is the human-facing demo/product-content repo. It owns visible gameplay acceptance through approved engine public or unstable surfaces.
 - `asha-studio` is the editor/product tooling repo. It may use Studio-approved unstable packages through its own boundary policy, but those allowlists should validate against the engine manifest.
 - `downstream-authoring` is the reusable offline authoring/compiler role. It may import only the package roots `@asha/contracts`, `@asha/game-workspace`, `@asha/runtime-bridge`, and `@asha/runtime-session`, with no package subpaths. This role does not imply browser, renderer, UI, devtools, editor, raw native, or WASM access.
+- `downstream-visual-authoring` adds the engine-owned `@asha/renderer-host` root to the offline authoring roots for browser tools that must inspect authored or generated projection. It does not widen `downstream-authoring`: direct `@asha/render-projection`, `@asha/renderer-three`, bare `three`, renderer-host subpaths, raw native/WASM, and private/internal imports remain denied. Its public inspection camera is explicitly projection-only state.
 
 No consumer should import raw native transports, generated contract internals, ASHA package `src/*` paths, Rust crate paths, or arbitrary runtime JSON tunnels. Missing public API should become an ASHA engine feature request, not a private import.
 
@@ -929,6 +930,16 @@ Additive editor viewport in #5741:
   camera-sized procedural grid outside retained scene channels. The only public
   coordinate-system value is right-handed Y-up; ordinary ground grids use XZ.
   This is additive under `renderer-host.v1` and `editor-viewport.v0`.
+- #5979 adds `mountAshaRendererInspectionSurface` for downstream visual-authoring
+  tools. The helper realizes complete retained `RenderFrameDiff` values through
+  the existing editor viewport, owns resize/render/input/disposal lifecycle, and
+  provides primary-drag Y-up orbit plus focused WASD movement as explicitly
+  projection-only inspection state. Atomic frame rejection preserves the last
+  accepted projection. The new `downstream-visual-authoring` consumer role may
+  import only the renderer-host package root and remains denied from renderer
+  implementation packages, bare Three.js, raw transports, and private paths.
+  Asha Procgen #5980 should preserve its evidence view and mount this helper in a
+  separate 3D viewer tab. See `topics/projection/renderer-inspection-surface.md`.
 
 ### `renderer-host.v0` - historical mixed interaction host
 

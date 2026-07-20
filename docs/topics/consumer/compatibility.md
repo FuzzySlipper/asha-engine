@@ -27,7 +27,7 @@ ASHA remains in-house engine substrate work, but downstream consumers need durab
 | `@asha/devtools` | `unstable` | Observational attach/readout protocol |
 | `@asha/game-workspace` | `unstable` | Typed game/workspace manifest validation |
 | `@asha/render-projection` | `unstable` | Renderer-neutral retained render-diff application |
-| `@asha/renderer-host` | `unstable` | Backend-neutral browser render surface host |
+| `@asha/renderer-host` | `unstable` | Backend-neutral browser render and projection-only inspection host |
 | `@asha/ui-dom` | `unstable` | Render-agnostic UI projection/control descriptors |
 
 ## Fail-Closed Policy
@@ -35,3 +35,6 @@ ASHA remains in-house engine substrate work, but downstream consumers need durab
 Unavailable native/reference backend support reports `RuntimeBridgeError` with `operation_unimplemented`. Unsupported source assets, invalid material maps, oversized output, stale hashes, and replay mismatches are typed diagnostics, not best-effort partial output.
 
 See `topics/consumer/consumer-compatibility.md` for the full changelog and migration notes.
+The `downstream-visual-authoring` role is the narrow renderer-enabled authoring
+role; see `topics/projection/renderer-inspection-surface.md` for its package
+boundary and viewer lifecycle.

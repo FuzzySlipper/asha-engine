@@ -32,6 +32,17 @@ export type {
   AshaRendererEditorViewportSizeReceipt,
   AshaRendererEditorViewportStatus,
 } from './editor-viewport.js';
+export {
+  ASHA_RENDERER_INSPECTION_SURFACE_COMPATIBILITY_VERSION,
+  mountAshaRendererInspectionSurface,
+} from './inspection-surface.js';
+export type {
+  AshaRendererInspectionSurface,
+  AshaRendererInspectionSurfaceControlsOptions,
+  AshaRendererInspectionSurfaceOptions,
+  AshaRendererInspectionSurfaceReadout,
+  AshaRendererInspectionSurfaceStatus,
+} from './inspection-surface.js';
 export { resolveAshaStoredEditorCamera } from './stored-editor-camera.js';
 export type {
   AshaStoredEditorCameraDiagnostic,

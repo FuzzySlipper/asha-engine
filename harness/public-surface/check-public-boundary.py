@@ -182,12 +182,75 @@ def check_runtime_bridge_api_crate() -> None:
         fail("runtime-bridge-api must document that downstream consumers should not import it directly")
 
 
+def visual_authoring_policy_errors(policy: dict[str, Any]) -> list[str]:
+    approved = set(cast(list[str], policy["approvedPackageRoots"]))
+    forbidden = set(cast(list[str], policy["forbiddenPackageRoots"]))
+    patterns = set(cast(list[str], policy["forbiddenSpecifierPatterns"]))
+    errors: list[str] = []
+    if "@asha/renderer-host" not in approved:
+        errors.append("must approve the @asha/renderer-host root")
+    forbidden_renderer_roots = {
+        "@asha/native-bridge",
+        "@asha/render-projection",
+        "@asha/renderer-three",
+        "@asha/wasm-replay-bridge",
+    }
+    missing_forbidden_roots = sorted(forbidden_renderer_roots - forbidden)
+    if missing_forbidden_roots:
+        errors.append(
+            "must deny direct renderer/raw transport roots: "
+            + ", ".join(missing_forbidden_roots)
+        )
+    required_private_patterns = {"@asha/renderer-host/*", "@asha/renderer-three/*", "three", "three/*"}
+    missing_private_patterns = sorted(required_private_patterns - patterns)
+    if missing_private_patterns:
+        errors.append(
+            "must deny renderer-host private paths and concrete Three.js: "
+            + ", ".join(missing_private_patterns)
+        )
+    return errors
+
+
+def check_visual_authoring_policy_fixtures(policy: dict[str, Any]) -> None:
+    missing_backend_root = {
+        **policy,
+        "forbiddenPackageRoots": [
+            root for root in cast(list[str], policy["forbiddenPackageRoots"])
+            if root != "@asha/renderer-three"
+        ],
+    }
+    if not visual_authoring_policy_errors(missing_backend_root):
+        fail("downstream-visual-authoring negative fixture allowed direct renderer backend access")
+
+    missing_private_pattern = {
+        **policy,
+        "forbiddenSpecifierPatterns": [
+            pattern for pattern in cast(list[str], policy["forbiddenSpecifierPatterns"])
+            if pattern != "@asha/renderer-host/*"
+        ],
+    }
+    if not visual_authoring_policy_errors(missing_private_pattern):
+        fail("downstream-visual-authoring negative fixture allowed renderer-host private paths")
+
+    missing_three_pattern = {
+        **policy,
+        "forbiddenSpecifierPatterns": [
+            pattern for pattern in cast(list[str], policy["forbiddenSpecifierPatterns"])
+            if pattern not in {"three", "three/*"}
+        ],
+    }
+    if not visual_authoring_policy_errors(missing_three_pattern):
+        fail("downstream-visual-authoring negative fixture allowed bare Three.js")
+    print("Downstream visual-authoring boundary negative fixtures: OK")
+
+
 def check_consumer_policies(manifest: dict[str, Any], records_by_package: dict[str, dict[str, Any]]) -> None:
     policies = manifest.get("consumerPolicies")
     if not isinstance(policies, list) or not policies:
         fail("public surface manifest must declare consumerPolicies")
 
     seen_roles: set[str] = set()
+    policies_by_role: dict[str, dict[str, Any]] = {}
     for policy in policies:
         if not isinstance(policy, dict):
             fail("consumer policy records must be objects")
@@ -197,6 +260,7 @@ def check_consumer_policies(manifest: dict[str, Any], records_by_package: dict[s
         if role in seen_roles:
             fail(f"consumer policy duplicates role {role}")
         seen_roles.add(role)
+        policies_by_role[role] = policy
 
         approved = policy.get("approvedPackageRoots")
         approved_subpaths = policy.get("approvedPackageSubpaths", [])
@@ -258,6 +322,14 @@ def check_consumer_policies(manifest: dict[str, Any], records_by_package: dict[s
 
         if not any("*" in pattern for pattern in cast(list[str], patterns)):
             fail(f"{role} consumer policy must include glob-like forbidden specifier patterns")
+
+    visual_authoring = policies_by_role.get("downstream-visual-authoring")
+    if visual_authoring is None:
+        fail("consumer policies must declare downstream-visual-authoring")
+    visual_errors = visual_authoring_policy_errors(visual_authoring)
+    if visual_errors:
+        fail("downstream-visual-authoring " + "; ".join(visual_errors))
+    check_visual_authoring_policy_fixtures(visual_authoring)
 
 
 def check_ts_manifest() -> None:

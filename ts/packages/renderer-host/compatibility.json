@@ -6,6 +6,7 @@
   "sourceOfTruth": "ts/packages/renderer-host/src/index.ts plus @asha/render-projection and generated @asha/contracts render DTOs",
   "animatedMeshGuide": "docs/renderer-host-animated-mesh.md",
   "editorViewportGuide": "docs/editor-viewport.md",
+  "inspectionSurfaceGuide": "docs/topics/projection/renderer-inspection-surface.md",
   "changelog": "docs/topics/consumer/consumer-compatibility.md#renderer-host-compatibility-log",
   "migrationNoteTemplate": "docs/topics/consumer/consumer-compatibility.md#migration-note-template",
   "failClosedPolicy": "Consumers must fail closed if the compatibility marker is unknown, the host cannot mount, animated-mesh resource/hash/clip validation fails, or a later frame receipt is rejected. Editor viewport channel replacement is atomic: a failed resource or malformed frame retains the previous accepted channel and does not invalidate healthy channels. Picking remains disposable projection evidence.",

@@ -5,7 +5,7 @@
     "publicSurface": {
       "tier": 1,
       "role": "downstream-authoring-workspace",
-      "allowedConsumers": ["asha-testing", "asha-demo", "asha-studio", "downstream-authoring"],
+      "allowedConsumers": ["asha-testing", "asha-demo", "asha-studio", "downstream-authoring", "downstream-visual-authoring"],
       "rootExportOnly": true,
       "nativeTransportAccess": false
     }

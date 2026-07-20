@@ -13,6 +13,7 @@ renderer packages display those projections without owning authority.
 - Concrete Three.js backend isolation behind engine-owned packages.
 - Disposable, typed projection picking by bounded viewport/world ray and
   projection metadata filters.
+- Projection-only interactive inspection for downstream visual-authoring tools.
 
 ## Does Not Own
 
@@ -31,11 +32,14 @@ renderer packages display those projections without owning authority.
 - [ts/packages/renderer-three](../../ts/packages/renderer-three)
 - [render-protocol.md](../topics/projection/render-protocol.md)
 - [static-room-render-path.md](../topics/projection/static-room-render-path.md)
+- [renderer-inspection-surface.md](../topics/projection/renderer-inspection-surface.md)
 
 ## Public Downstream Surfaces
 
 - `@asha/render-projection` for renderer-neutral retained projection state.
 - `@asha/renderer-host` for demo/browser render surface hosting.
+- `@asha/renderer-host` for `downstream-visual-authoring` inspection through the
+  package root; camera interaction remains disposable projection state.
 - `@asha/renderer-three` only for approved testing/backend use, not direct demo
   application coupling.
 
