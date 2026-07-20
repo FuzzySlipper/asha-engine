@@ -165,6 +165,15 @@ export interface ProjectContentCodecResult {
   readonly diagnostics: readonly ProjectContentDiagnostic[];
 }
 
+// Rust-owned projection of the canonical content and entry scene currently backing one active RuntimeSession. This is read-only accepted state, not a second authoring workspace or a caller-replayable bootstrap request.
+export interface ActiveRuntimeProjectContentReadout {
+  readonly projectId: number;
+  readonly manifestHash: string;
+  readonly contentSetHash: string;
+  readonly entryScene: FlatSceneDocument;
+  readonly content: ProjectContentCodecResult;
+}
+
 export type ProjectContentAuthoringCommand =
   | { readonly kind: 'upsert'; readonly sourcePath: string; readonly document: ProjectContentDocument }
   | { readonly kind: 'delete'; readonly documentId: string; readonly documentKind: ProjectContentDocumentKind };

@@ -113,7 +113,7 @@ export interface RuntimeSessionEcrpReadout {
     }[];
   };
   readonly project: RuntimeSessionProjectIdentity;
-  readonly projectBundle: ProjectBundleLoadRequest;
+  readonly projectBundle: ProjectBundleLoadRequest | null;
   readonly entities: readonly RuntimeSessionEcrpEntityReadout[];
   readonly entityCount: number;
   readonly hashes: {
@@ -248,7 +248,7 @@ export interface RuntimeSessionEcrpTransformState {
 }
 
 export interface RuntimeSessionEcrpProjectState {
-  readonly input: RuntimeSessionEcrpProjectLoadInput;
+  readonly input: RuntimeSessionEcrpProjectLoadInput | null;
   readonly entities: readonly RuntimeSessionEcrpEntityState[];
   readonly bootstrapHash: string;
 }

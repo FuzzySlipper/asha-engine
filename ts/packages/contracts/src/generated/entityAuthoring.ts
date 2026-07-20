@@ -94,6 +94,13 @@ export type EntityDefinitionCapability =
   | { readonly kind: 'render'; readonly visible: boolean }
   | { readonly kind: 'collision'; readonly staticCollider: boolean }
   | { readonly kind: 'bounds'; readonly min: readonly [number, number, number]; readonly max: readonly [number, number, number] }
+  | { readonly kind: 'controller'; readonly controllerId: string }
+  | { readonly kind: 'health'; readonly current: number; readonly max: number }
+  | { readonly kind: 'weaponMount'; readonly weaponId: string; readonly damage: number; readonly rangeUnits: number; readonly ammo: number; readonly cooldownTicksAfterFire: number }
+  | { readonly kind: 'renderProjection'; readonly projectionId: string; readonly visible: boolean }
+  | { readonly kind: 'policyBinding'; readonly bindingId: string; readonly policyId: string; readonly viewKind: string; readonly viewVersion: string; readonly allowedIntents: readonly string[]; readonly runtimeMoment: string }
+  | { readonly kind: 'spawnMarker'; readonly markerId: string }
+  | { readonly kind: 'faction'; readonly factionId: string }
   | { readonly kind: 'unknown'; readonly capabilityKind: string };
 
 // Durable stored entity definition authored in a ProjectBundle/catalog and later validated by Rust authority before it can seed runtime CapabilityState.

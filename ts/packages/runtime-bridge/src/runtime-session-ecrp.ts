@@ -1,5 +1,8 @@
 import { sceneId, sceneNodeId } from '@asha/contracts';
 import type {
+  ActiveRuntimeProjectContentReadout,
+  EntityDefinition,
+  EntityDefinitionCapability,
   FlatSceneDocument,
   GameRuleHookDeclaration,
   GameRuleModuleManifest,
@@ -576,14 +579,35 @@ function isVec3(value: readonly number[] | undefined): value is readonly [number
 }
 
 export function buildEcrpProjectState(input: RuntimeSessionEcrpProjectLoadInput): RuntimeSessionEcrpProjectState {
-  const definitions = new Map(input.entityDefinitions.map((definition) => [definition.stableId, definition]));
-  const worldTransforms = sceneWorldTransforms(input.sceneDocument);
+  return buildEcrpProjectStateFromParts(input, input.entityDefinitions, input.sceneDocument);
+}
+
+/** Project the accepted Rust-owned canonical content into the existing ECRP
+ * display/readout vocabulary. This projection is never used as bootstrap. */
+export function buildEcrpProjectStateFromCanonical(
+  readout: ActiveRuntimeProjectContentReadout,
+): RuntimeSessionEcrpProjectState {
+  const definitions = readout.content.documents.flatMap((document) =>
+    document.kind === 'entityDefinition'
+      ? [ecrpDefinitionFromStored(document.definition)]
+      : [],
+  );
+  return buildEcrpProjectStateFromParts(null, definitions, readout.entryScene);
+}
+
+function buildEcrpProjectStateFromParts(
+  input: RuntimeSessionEcrpProjectLoadInput | null,
+  entityDefinitions: readonly RuntimeSessionEcrpEntityDefinition[],
+  sceneDocument: FlatSceneDocument,
+): RuntimeSessionEcrpProjectState {
+  const definitions = new Map(entityDefinitions.map((definition) => [definition.stableId, definition]));
+  const worldTransforms = sceneWorldTransforms(sceneDocument);
   const markerTransforms = new Map(
-    input.sceneDocument.nodes.flatMap((node) => node.kind.kind === 'marker'
+    sceneDocument.nodes.flatMap((node) => node.kind.kind === 'marker'
       ? [[node.kind.markerId, worldTransforms.get(node.id) ?? node.transform] as const]
       : []),
   );
-  const entities = input.sceneDocument.nodes.flatMap((placement) => {
+  const entities = sceneDocument.nodes.flatMap((placement) => {
     if (placement.kind.kind !== 'entityInstance' || placement.kind.instance.reference.kind !== 'entityDefinition') {
       return [];
     }
@@ -611,17 +635,103 @@ export function buildEcrpProjectState(input: RuntimeSessionEcrpProjectLoadInput)
     entities,
     bootstrapHash: stableHash({
       project: {
-        gameId: input.projectBundle.project.gameId,
-        workspaceId: input.projectBundle.project.workspaceId,
+        gameId: input?.projectBundle.project.gameId ?? 'canonical-runtime-project',
+        workspaceId: input?.projectBundle.project.workspaceId ?? 'rust-authority',
       },
-      runtimeRequest: projectBundleHashRecord(input.projectBundle.runtimeRequest),
-      sceneDocumentHash: stableHash(input.sceneDocument as never),
+      runtimeRequest: input === null ? null : projectBundleHashRecord(input.projectBundle.runtimeRequest),
+      sceneDocumentHash: stableHash(sceneDocument as never),
       entityIds: entities.map((entity) => entity.entity),
       instanceIds: entities.map((entity) => entity.instanceId),
       definitionIds: entities.map((entity) => entity.definition.stableId),
       capabilityKinds: entities.map((entity) => entity.definition.capabilities.map((capability) => capability.kind)),
     }),
   };
+}
+
+function ecrpDefinitionFromStored(definition: EntityDefinition): RuntimeSessionEcrpEntityDefinition {
+  const collision = definition.capabilities.find((capability) => capability.kind === 'collision');
+  const staticCollider = collision?.kind === 'collision' ? collision.staticCollider : false;
+  return {
+    kind: 'EntityDefinition',
+    stableId: definition.stableId,
+    displayName: definition.displayName,
+    source: definition.source,
+    capabilities: definition.capabilities.flatMap((capability) =>
+      ecrpCapabilityFromStored(capability, staticCollider),
+    ),
+  };
+}
+
+function ecrpCapabilityFromStored(
+  capability: EntityDefinitionCapability,
+  staticCollider: boolean,
+): readonly RuntimeSessionEcrpProjectCapabilityDefinition[] {
+  switch (capability.kind) {
+    case 'transform':
+      return [{
+        kind: 'transform',
+        initial: {
+          position: capability.transform.translation,
+          yawDegrees: 0,
+          pitchDegrees: 0,
+        },
+      }];
+    case 'collision':
+    case 'render':
+    case 'unknown':
+      return [];
+    case 'bounds':
+      return [{
+        kind: 'collisionBody',
+        halfExtents: [
+          (capability.max[0] - capability.min[0]) * 0.5,
+          (capability.max[1] - capability.min[1]) * 0.5,
+          (capability.max[2] - capability.min[2]) * 0.5,
+        ],
+        staticCollider,
+      }];
+    case 'controller':
+      return capability.controllerId === 'player_input' || capability.controllerId === 'enemy_policy'
+        ? [{ kind: 'controller', controller: capability.controllerId }]
+        : [];
+    case 'health':
+      return [{ kind: 'health', current: capability.current, max: capability.max }];
+    case 'weaponMount':
+      return [{
+        kind: 'weaponMount',
+        weaponId: capability.weaponId,
+        tuning: {
+          damage: capability.damage,
+          rangeUnits: capability.rangeUnits,
+          ammo: capability.ammo,
+          cooldownTicksAfterFire: capability.cooldownTicksAfterFire,
+        },
+      }];
+    case 'renderProjection':
+      return isEcrpProjection(capability.projectionId)
+        ? [{
+            kind: 'renderProjection',
+            projection: capability.projectionId,
+            visible: capability.visible,
+          }]
+        : [];
+    case 'policyBinding':
+      return [{
+        kind: 'policyBinding',
+        policyId: capability.policyId,
+        policyLoopRef: capability.runtimeMoment,
+      }];
+    case 'spawnMarker':
+      return [{ kind: 'spawnMarker', markerId: capability.markerId }];
+    case 'faction':
+      return [{ kind: 'faction', factionId: capability.factionId }];
+  }
+}
+
+function isEcrpProjection(
+  value: string,
+): value is Extract<RuntimeSessionEcrpProjectCapabilityDefinition, { readonly kind: 'renderProjection' }>['projection'] {
+  return value === 'first_person_camera' || value === 'target_cube' || value === 'spawn_marker';
 }
 
 function sceneWorldTransforms(document: FlatSceneDocument): ReadonlyMap<number, SceneTransform> {
@@ -831,18 +941,19 @@ export function buildEcrpRuntimeReadout(input: {
   readonly sessionHash: string;
   readonly authority?: RuntimeSessionEcrpReadout['authority'];
 }): RuntimeSessionEcrpReadout {
-  if (input.identity.projectBundle === null) {
+  if (input.identity.projectBundle === null && input.projectState === null) {
     throw new Error(
-      'legacy ECRP readout is unavailable for a project loaded through canonical runtime admission',
+      'ECRP readout requires an active canonical project or compatibility ProjectBundle',
     );
   }
-  const projectState =
-    input.projectState ?? buildEcrpProjectState(defaultRuntimeSessionEcrpProjectLoadInput({
+  const projectState = input.projectState ?? buildEcrpProjectState(
+    defaultRuntimeSessionEcrpProjectLoadInput({
       sessionId: input.identity.sessionId,
       seed: input.identity.seed,
       project: input.identity.project,
-      projectBundle: input.identity.projectBundle,
-    }));
+      projectBundle: requireCompatibilityProjectBundle(input.identity.projectBundle),
+    }),
+  );
   const entities = projectState.entities.map((entity) =>
     ecrpEntityReadout({
       entity: entity.entity,
@@ -893,6 +1004,15 @@ export function buildEcrpRuntimeReadout(input: {
       'not_demo_local_authority',
     ],
   };
+}
+
+function requireCompatibilityProjectBundle(
+  projectBundle: RuntimeSessionIdentity['projectBundle'],
+): NonNullable<RuntimeSessionIdentity['projectBundle']> {
+  if (projectBundle === null) {
+    throw new Error('compatibility ProjectBundle is unavailable');
+  }
+  return projectBundle;
 }
 
 function ecrpEntityReadout(input: {

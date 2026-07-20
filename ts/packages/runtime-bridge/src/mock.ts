@@ -1,4 +1,5 @@
 import type {
+  ActiveRuntimeProjectContentReadout,
   CameraCollisionShape,
   CameraCollisionSnapshot,
   CameraControllerReadRequest,
@@ -1692,6 +1693,37 @@ export class MockRuntimeBridge implements RuntimeBridge {
       throw new RuntimeBridgeError('not_initialized', 'loadRuntimeProject before initializeEngine');
     }
     return this.#runtimeProjects.load(request);
+  }
+
+  readActiveRuntimeProjectContent(): ActiveRuntimeProjectContentReadout {
+    if (this.#engine === null) {
+      throw new RuntimeBridgeError(
+        'not_initialized',
+        'readActiveRuntimeProjectContent before initializeEngine',
+      );
+    }
+    const active = this.#runtimeProjects.activeProject();
+    if (active === null) {
+      throw new RuntimeBridgeError(
+        'not_initialized',
+        'readActiveRuntimeProjectContent without an active project',
+      );
+    }
+    return {
+      projectId: active.projectId,
+      manifestHash: active.manifestHash,
+      contentSetHash: active.contentSetHash,
+      entryScene: this.#sceneDocument,
+      content: {
+        accepted: true,
+        documents: [],
+        canonicalFiles: [],
+        setHash: active.contentSetHash,
+        providerSchemas: [],
+        fieldMetadata: [],
+        diagnostics: [],
+      },
+    };
   }
 
   closeRuntimeProject(request: RuntimeProjectCloseRequest): RuntimeProjectCloseReceipt {

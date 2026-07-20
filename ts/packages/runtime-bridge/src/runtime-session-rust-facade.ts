@@ -143,6 +143,7 @@ import {
 } from './runtime-session-animation.js';
 import {
   buildEcrpProjectState,
+  buildEcrpProjectStateFromCanonical,
   buildEcrpRuntimeReadout,
   defaultRuntimeSessionEcrpProjectLoadInput,
   validateEcrpProjectLoadInput,
@@ -276,6 +277,17 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       this.#runtimeProjectLifecycle,
     );
     this.#runtimeProjectLifecycle = receipt.lifecycle;
+    if (receipt.accepted) {
+      const activeContent = this.#bridge.readActiveRuntimeProjectContent();
+      const projectState = buildEcrpProjectStateFromCanonical(activeContent);
+      this.#ecrpProjectState = projectState;
+      const hasPlayer = projectState.entities.some((entity) => entity.role === 'player');
+      const hasEnemy = projectState.entities.some((entity) => entity.role === 'enemy');
+      this.#snapshot = hasPlayer && hasEnemy
+        ? this.#bridge.readFpsRuntimeSession()
+        : null;
+      this.#runtimeTransforms = new Map();
+    }
     this.#progress.advanceSequence();
     this.#record('loadProject', receipt.activeProject?.admissionHash);
     return receipt;

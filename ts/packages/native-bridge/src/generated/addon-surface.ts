@@ -94,6 +94,7 @@ const GENERATED_NATIVE_ADDON_EXPORT_NAMES = [
   'stageRuntimeProjectSourceResource',
   'admitRuntimeProjectSourceBatch',
   'loadRuntimeProject',
+  'readActiveRuntimeProjectContent',
   'closeRuntimeProject',
   'loadProjectBundle',
   'saveProjectBundle',

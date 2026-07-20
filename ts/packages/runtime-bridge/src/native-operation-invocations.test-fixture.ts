@@ -363,6 +363,7 @@ export function createNativeOperationInvocations(
       source: { kind: 'inMemory', identity: 'fixture', materializationHash: 'fnv1a64:0000000000000000' },
       expectedLifecycle: { generation: 0, revision: 0 },
     })],
+    ['readActiveRuntimeProjectContent', (bridge) => bridge.readActiveRuntimeProjectContent()],
     ['closeRuntimeProject', (bridge) => bridge.closeRuntimeProject({
       expectedLifecycle: { generation: 0, revision: 0 },
     })],

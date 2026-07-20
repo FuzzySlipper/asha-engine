@@ -8,6 +8,7 @@ import type {
   RuntimeProjectLoadRequest,
   RuntimeProjectSourceBatch,
   StagedProjectResourceRef,
+  ActiveRuntimeProjectIdentity,
 } from '@asha/contracts';
 
 import {
@@ -171,6 +172,10 @@ export class MockRuntimeProjectLifecycle {
 
   clearResources(): void {
     this.#resources.clear();
+  }
+
+  activeProject(): ActiveRuntimeProjectIdentity | null {
+    return this.#activeProject;
   }
 
   #rejectedLoad(

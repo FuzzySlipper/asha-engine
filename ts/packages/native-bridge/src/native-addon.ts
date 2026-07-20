@@ -275,6 +275,7 @@ interface NativeAddonBindings {
   ): { readonly handle: number; readonly generation: number; readonly version: number; readonly byteLen: number };
   admitRuntimeProjectSourceBatch(handle: number, requestJson: string): string;
   loadRuntimeProject(handle: number, requestJson: string): string;
+  readActiveRuntimeProjectContent(handle: number): string;
   closeRuntimeProject(handle: number, requestJson: string): string;
   loadProjectBundle(
     handle: number,

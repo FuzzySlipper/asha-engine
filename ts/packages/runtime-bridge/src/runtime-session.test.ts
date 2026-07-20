@@ -721,7 +721,7 @@ void test('Rust-backed ECRP load fails closed on authority rejection without rep
 
   const after = session.readEcrpRuntimeReadout();
   assert.equal(after.project.gameId, before.project.gameId);
-  assert.equal(after.projectBundle.sceneId, before.projectBundle.sceneId);
+  assert.equal(after.projectBundle?.sceneId, before.projectBundle?.sceneId);
   assert.equal(after.authority.source, 'rust_bridge');
   assert.equal(calls.load.length, 1);
 });
@@ -816,7 +816,7 @@ void test('Rust-backed ECRP load stages ProjectBundle authority before FPS runti
   assert.equal(calls.projectBundle[1]?.sceneId, 77);
   assert.equal(calls.load.length, 1);
   assert.equal(afterReadout.project.gameId, beforeReadout.project.gameId);
-  assert.equal(afterReadout.projectBundle.sceneId, beforeReadout.projectBundle.sceneId);
+  assert.equal(afterReadout.projectBundle?.sceneId, beforeReadout.projectBundle?.sceneId);
   assert.equal(afterReadout.authority.source, 'rust_bridge');
   assert.equal(afterReadout.authority.surface, beforeReadout.authority.surface);
   assert.equal(afterTelemetry.sequenceId, beforeTelemetry.sequenceId);
@@ -1002,7 +1002,7 @@ void test('RuntimeSession loads ECRP ProjectBundle content into live readouts', 
 
   const readout = session.readEcrpRuntimeReadout();
   assert.equal(readout.project.gameId, 'custom-demo');
-  assert.equal(readout.projectBundle.sceneId, 77);
+  assert.equal(readout.projectBundle?.sceneId, 77);
   assert.equal(readout.entityCount, 2);
   const player = readout.entities.find((entity) => entity.definitionStableId === 'actor/custom-player');
   const enemy = readout.entities.find((entity) => entity.definitionStableId === 'actor/custom-enemy');

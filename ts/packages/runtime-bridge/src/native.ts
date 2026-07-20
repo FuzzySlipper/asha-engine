@@ -1,4 +1,5 @@
 import type {
+  ActiveRuntimeProjectContentReadout,
   CameraCollisionSnapshot,
   CameraControllerReadRequest,
   CameraControllerState,
@@ -920,6 +921,18 @@ export class NativeRuntimeBridge implements RuntimeBridge {
     return parseGeneratedOperationOutput<RuntimeProjectLoadReceipt>(
       'load_runtime_project',
       'projectBundle.RuntimeProjectLoadReceipt',
+      payload,
+    );
+  }
+
+  readActiveRuntimeProjectContent(): ActiveRuntimeProjectContentReadout {
+    const handle = this.#requireHandle('readActiveRuntimeProjectContent');
+    const payload = callNative(() =>
+      this.#addon.readActiveRuntimeProjectContent(handle),
+    );
+    return parseGeneratedOperationOutput<ActiveRuntimeProjectContentReadout>(
+      'read_active_runtime_project_content',
+      'projectContent.ActiveRuntimeProjectContentReadout',
       payload,
     );
   }

@@ -8,9 +8,12 @@ import {
   encodeAshaProjectPackage,
 } from '@asha/game-workspace';
 import type { RuntimeSessionProjectSource } from '@asha/runtime-session';
+import type { ActiveRuntimeProjectContentReadout } from '@asha/contracts';
 
 import { createRuntimeSessionFacade } from './runtime-session-adapter.js';
-import { createMockRuntimeBridge } from './mock.js';
+import { createMockRuntimeBridge, MockRuntimeBridge } from './mock.js';
+import type { FpsRuntimeSessionSnapshot } from './bridge.js';
+import { entitySceneDocument } from './native-fps-fixtures.test-fixture.js';
 
 const text = (value: string): Uint8Array => new TextEncoder().encode(value);
 
@@ -97,4 +100,134 @@ void test('loadProject surfaces adapter failure without invoking runtime activat
   assert.equal(receipt.accepted, false);
   assert.equal(receipt.diagnostics[0]?.phase, 'sourceAdapter');
   assert.equal(receipt.diagnostics[0]?.code, 'sourceAdapterRejected');
+});
+
+class CanonicalFpsProjectBridge extends MockRuntimeBridge {
+  override readActiveRuntimeProjectContent(): ActiveRuntimeProjectContentReadout {
+    const entityDefinition = (
+      stableId: string,
+      player: boolean,
+    ): ActiveRuntimeProjectContentReadout['content']['documents'][number] => ({
+      kind: 'entityDefinition',
+      documentId: `entities/${stableId}.json`,
+      definition: {
+        stableId,
+        displayName: player ? 'Canonical Player' : 'Canonical Enemy',
+        source: { projectBundle: 'canonical-fps', relativePath: `entities/${stableId}.json` },
+        tags: [],
+        metadata: [],
+        capabilities: [
+          {
+            kind: 'transform',
+            transform: {
+              translation: [0, 0, 0],
+              rotation: [0, 0, 0, 1],
+              scale: [1, 1, 1],
+            },
+          },
+          { kind: 'bounds', min: [-0.5, -0.5, -0.5], max: [0.5, 0.5, 0.5] },
+          { kind: 'collision', staticCollider: false },
+          { kind: 'health', current: player ? 100 : 40, max: player ? 100 : 40 },
+          {
+            kind: 'renderProjection',
+            projectionId: player ? 'first_person_camera' : 'target_cube',
+            visible: true,
+          },
+          { kind: 'faction', factionId: player ? 'player' : 'hostile' },
+          ...(player
+            ? [{
+                kind: 'weaponMount' as const,
+                weaponId: 'weapon.canonical.primary',
+                damage: 40,
+                rangeUnits: 16,
+                ammo: 2,
+                cooldownTicksAfterFire: 4,
+              }]
+            : [{
+                kind: 'policyBinding' as const,
+                bindingId: 'enemy:policy',
+                policyId: 'policy.enemy.canonical',
+                viewKind: 'runtime_session.fps.policy_view.v0',
+                viewVersion: 'v0',
+                allowedIntents: ['runtime.intent.move_direct_nav.v0'],
+                runtimeMoment: 'autonomous_policy_tick',
+              }]),
+        ],
+      },
+    });
+    return {
+      projectId: 71,
+      manifestHash: 'mock-project-source:canonical-fps',
+      contentSetHash: 'mock-content-set',
+      entryScene: entitySceneDocument({
+        id: 101,
+        instances: [
+          { entity: 101, definitionId: 'actor/player', spawnMarkerId: null, translation: [0, 1.6, 0] },
+          { entity: 102, definitionId: 'actor/enemy', spawnMarkerId: null, translation: [0, 1.1, -3.5] },
+        ],
+      }),
+      content: {
+        accepted: true,
+        documents: [
+          entityDefinition('actor/player', true),
+          entityDefinition('actor/enemy', false),
+        ],
+        canonicalFiles: [],
+        setHash: 'mock-content-set',
+        providerSchemas: [],
+        fieldMetadata: [],
+        diagnostics: [],
+      },
+    };
+  }
+
+  override readFpsRuntimeSession(): FpsRuntimeSessionSnapshot {
+    return {
+      backend: 'native_rust',
+      authoritySurface: 'runtime_session.fps.canonical.v0',
+      projectBundle: 'canonical-fps',
+      sessionEpoch: 1,
+      lifecycleStatus: { state: 'active' },
+      playerEntity: 101,
+      enemyEntity: 102,
+      health: [
+        { entity: 101, current: 100, max: 100 },
+        { entity: 102, current: 40, max: 40 },
+      ],
+      policyBindings: [],
+      replayRecords: [],
+      readSets: [{
+        viewKind: 'runtime_session.fps.lifecycle_health.v0',
+        owner: 'rule-lifecycle',
+        readSet: ['capability.health'],
+      }],
+      entityHash: 'fnv1a64:0000000000000001',
+      healthHash: 'fnv1a64:0000000000000002',
+      replayHash: 'fnv1a64:0000000000000003',
+    };
+  }
+}
+
+void test('loadProject derives FPS readouts from Rust active content without legacy load calls', async () => {
+  const session = createRuntimeSessionFacade({
+    bridge: new CanonicalFpsProjectBridge(),
+    mode: 'rust',
+  });
+  session.initialize({
+    sessionId: 'runtime-session.project-loader.canonical-fps',
+    seed: 6007,
+    project: { gameId: 'canonical-fps', workspaceId: 'workspace.loader' },
+  });
+  const receipt = await session.loadProject({
+    source: createMemoryAshaProjectSource('memory:canonical-fps', projectFiles()),
+  });
+  assert.equal(receipt.accepted, true);
+  const readout = session.readEcrpRuntimeReadout();
+  assert.equal(readout.authority.source, 'rust_bridge');
+  assert.equal(readout.projectBundle, null);
+  assert.deepEqual(
+    readout.entities.map((entity) => entity.definitionStableId),
+    ['actor/player', 'actor/enemy'],
+  );
+  assert.equal(session.readLifecycleStatus().enemy.health.current, 40);
 });

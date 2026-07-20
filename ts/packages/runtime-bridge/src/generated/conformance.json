@@ -204,6 +204,7 @@
         "stage_runtime_project_source_resource",
         "admit_runtime_project_source_batch",
         "load_runtime_project",
+        "read_active_runtime_project_content",
         "close_runtime_project",
         "load_project_bundle",
         "save_project_bundle",
@@ -2383,6 +2384,30 @@
       "outputWire": {
         "owner": "generated",
         "name": "projectBundle.RuntimeProjectLoadReceipt",
+        "repeated": false
+      },
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "read_active_runtime_project_content",
+      "facadeMethod": "readActiveRuntimeProjectContent",
+      "capability": "bundle_lifecycle",
+      "surface": "stable",
+      "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
+      "input": "Unit",
+      "output": "protocol_project_content::ActiveRuntimeProjectContentReadout",
+      "facadeInput": null,
+      "facadeOutput": null,
+      "inputWire": {
+        "owner": "unit",
+        "name": "Unit",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "projectContent.ActiveRuntimeProjectContentReadout",
         "repeated": false
       },
       "errors": "RuntimeBridgeError"

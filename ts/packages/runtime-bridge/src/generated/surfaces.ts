@@ -121,6 +121,7 @@ export interface RuntimeBundleLifecyclePort {
   stageRuntimeProjectSourceResource(input: Bridge.ProjectResourceStageInput): Contracts.StagedProjectResourceRef;
   admitRuntimeProjectSourceBatch(input: Contracts.RuntimeProjectSourceBatch): Contracts.ProjectSourceBatchValidationReceipt;
   loadRuntimeProject(input: Contracts.RuntimeProjectLoadRequest): Contracts.RuntimeProjectLoadReceipt;
+  readActiveRuntimeProjectContent(): Contracts.ActiveRuntimeProjectContentReadout;
   closeRuntimeProject(input: Contracts.RuntimeProjectCloseRequest): Contracts.RuntimeProjectCloseReceipt;
   loadProjectBundle(input: Bridge.ProjectBundleLoadRequest): Bridge.CompositionStatus;
   saveProjectBundle(): Bridge.ProjectBundleSaveSummary;
