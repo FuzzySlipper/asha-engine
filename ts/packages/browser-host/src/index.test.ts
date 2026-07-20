@@ -18,6 +18,7 @@ import {
   ASHA_BROWSER_HOST_BRIDGE_SESSION_HEADER,
   ASHA_BROWSER_HOST_COMMAND,
   ASHA_BROWSER_HOST_COMPATIBILITY_VERSION,
+  ASHA_BROWSER_HOST_PROJECT_RESOURCE_CONTENT_TYPE,
   describeNativeBrowserHostCommand,
   installNativeBrowserHostProvider,
   launchNativeBrowserHost,
@@ -153,6 +154,87 @@ void test('browser host serves a downstream UI root with provider status evidenc
       });
       assert.equal(invocation.status, 200);
       assert.deepEqual(await invocation.json(), { result: { called: true } });
+    } finally {
+      await host.close();
+    }
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+void test('browser host preserves project resource bytes outside the JSON invocation lane', async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), 'asha-browser-host-project-resource-'));
+  let captured: { readonly generation: number; readonly path: string; readonly bytes: number[] } | null = null;
+  try {
+    await writeFile(join(tempRoot, 'index.html'), '<!doctype html><title>ASHA project</title>');
+    const host = await launchNativeBrowserHost({
+      uiRoot: tempRoot,
+      host: '127.0.0.1',
+      port: 0,
+      provider: {
+        globalScope: {},
+        createRuntimeBridge: () => ({
+          ...createFakeRuntimeBridge(),
+          stageRuntimeProjectSourceResource(input) {
+            captured = {
+              generation: input.generation,
+              path: input.path,
+              bytes: Array.from(input.bytes),
+            };
+            return {
+              handle: 7,
+              generation: input.generation,
+              version: 1,
+              byteLen: input.bytes.byteLength,
+            };
+          },
+        }),
+      },
+    });
+    try {
+      const response = await fetch(
+        `${host.url}/asha/browser-host/runtime-bridge/stageRuntimeProjectSourceResource?generation=3&path=assets%2Ffixture.bin`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': ASHA_BROWSER_HOST_PROJECT_RESOURCE_CONTENT_TYPE },
+          body: Uint8Array.of(0, 1, 127, 128, 255),
+        },
+      );
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), {
+        result: { handle: 7, generation: 3, version: 1, byteLen: 5 },
+      });
+      assert.deepEqual(captured, {
+        generation: 3,
+        path: 'assets/fixture.bin',
+        bytes: [0, 1, 127, 128, 255],
+      });
+
+      const jsonEncoded = await fetch(
+        `${host.url}/asha/browser-host/runtime-bridge/stageRuntimeProjectSourceResource?generation=3&path=assets%2Ffixture.bin`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bytes: [0, 1, 2] }),
+        },
+      );
+      assert.equal(jsonEncoded.status, 500);
+      assert.match(await jsonEncoded.text(), /application\/octet-stream/u);
+
+      const malformedMetadata = await fetch(
+        `${host.url}/asha/browser-host/runtime-bridge/stageRuntimeProjectSourceResource?generation=03&path=assets%2Ffixture.bin`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': ASHA_BROWSER_HOST_PROJECT_RESOURCE_CONTENT_TYPE },
+          body: Uint8Array.of(1),
+        },
+      );
+      assert.equal(malformedMetadata.status, 500);
+      assert.match(await malformedMetadata.text(), /canonical non-negative integer/u);
+
+      const oversized = await invokeOversizedProjectResource(host.url);
+      assert.equal(oversized.statusCode, 500);
+      assert.match(oversized.body, /exceeds 268500992 bytes/u);
     } finally {
       await host.close();
     }
@@ -595,6 +677,33 @@ async function readJson(url: string): Promise<Record<string, unknown>> {
   const response = await fetch(url);
   assert.equal(response.status, 200);
   return await response.json() as Record<string, unknown>;
+}
+
+function invokeOversizedProjectResource(
+  baseUrl: string,
+): Promise<{ readonly statusCode: number; readonly body: string }> {
+  const url = new URL(baseUrl);
+  return new Promise((resolveInvocation, rejectInvocation) => {
+    const requestHandle = request({
+      hostname: url.hostname,
+      method: 'POST',
+      path: '/asha/browser-host/runtime-bridge/stageRuntimeProjectSourceResource?generation=3&path=assets%2Foversized.bin',
+      port: Number(url.port),
+      headers: {
+        'Content-Type': ASHA_BROWSER_HOST_PROJECT_RESOURCE_CONTENT_TYPE,
+        'Content-Length': '268500993',
+      },
+    }, (response) => {
+      const chunks: Buffer[] = [];
+      response.on('data', (chunk: Buffer) => chunks.push(chunk));
+      response.on('end', () => resolveInvocation({
+        statusCode: response.statusCode ?? 0,
+        body: Buffer.concat(chunks).toString('utf8'),
+      }));
+    });
+    requestHandle.on('error', rejectInvocation);
+    requestHandle.flushHeaders();
+  });
 }
 
 function readRawHttpPath(baseUrl: string, path: string): Promise<{ readonly statusCode: number; readonly body: string }> {

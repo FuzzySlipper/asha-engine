@@ -24,6 +24,7 @@ export const ASHA_BROWSER_HOST_BRIDGE_CLIENT_HEADER = 'X-ASHA-Runtime-Bridge-Cli
 export const ASHA_BROWSER_HOST_BRIDGE_SESSION_HEADER = 'X-ASHA-Runtime-Bridge-Session';
 export const ASHA_BROWSER_HOST_MAX_BRIDGE_CLIENTS = 8;
 export const ASHA_BROWSER_HOST_MAX_BROWSER_SESSIONS = 32;
+export const ASHA_BROWSER_HOST_PROJECT_RESOURCE_CONTENT_TYPE = 'application/octet-stream';
 export const ASHA_BROWSER_HOST_COMMAND =
   'asha-browser-host --ui-root dist/ui --host 0.0.0.0 --port 5173';
 
@@ -108,6 +109,11 @@ export const ASHA_BROWSER_HOST_BRIDGE_METHODS: readonly NativeBrowserHostBridgeM
 interface NativeBrowserHostBridgeInvocation {
   readonly args?: readonly unknown[];
 }
+
+const PROJECT_RESOURCE_STAGE_METHOD = 'stageRuntimeProjectSourceResource';
+const PROJECT_RESOURCE_STAGE_MAX_INPUT_BYTES = MANIFEST_OPERATIONS.find(
+  (operation) => operation.facadeMethod === PROJECT_RESOURCE_STAGE_METHOD,
+)?.maxInputBytes ?? 0;
 
 interface NativeBrowserHostBridgeEntry {
   readonly bridge: Promise<RuntimeBridge>;
@@ -401,7 +407,9 @@ async function handleRuntimeBridgeInvocation(
     const identity = readNativeBrowserHostBridgeIdentity(request, bridgePool);
     const entry = await readNativeBrowserHostBridge(identity, bridgePool);
     const bridge = await entry.bridge;
-    const invocation = await readInvocationBody(request);
+    const invocation = methodName === PROJECT_RESOURCE_STAGE_METHOD
+      ? await readProjectResourceInvocation(request)
+      : await readInvocationBody(request);
     const method = bridge[methodName] as (...args: readonly unknown[]) => unknown;
     const result = Reflect.apply(method, bridge, invocation.args ?? []);
     if (methodName === 'loadProjectBundle') {
@@ -751,6 +759,87 @@ function readInvocationBody(request: IncomingMessage): Promise<NativeBrowserHost
   });
 }
 
+async function readProjectResourceInvocation(
+  request: IncomingMessage,
+): Promise<NativeBrowserHostBridgeInvocation> {
+  if (request.headers['content-type'] !== ASHA_BROWSER_HOST_PROJECT_RESOURCE_CONTENT_TYPE) {
+    throw new RuntimeBridgeError(
+      'invalid_input',
+      `RuntimeBridge project resources require ${ASHA_BROWSER_HOST_PROJECT_RESOURCE_CONTENT_TYPE}.`,
+      { operation: 'browserHost.stageProjectResource', provenance: 'transport_loader' },
+    );
+  }
+  const target = new URL(request.url ?? '/', 'http://asha-browser-host.invalid');
+  const fields = [...target.searchParams.keys()];
+  if (
+    fields.length !== 2
+    || !fields.includes('generation')
+    || !fields.includes('path')
+  ) {
+    throw new RuntimeBridgeError(
+      'invalid_input',
+      'RuntimeBridge project resource metadata must contain exactly generation and path.',
+      { operation: 'browserHost.stageProjectResource', provenance: 'transport_loader' },
+    );
+  }
+  const generationText = target.searchParams.get('generation') ?? '';
+  if (!/^(?:0|[1-9][0-9]*)$/u.test(generationText)) {
+    throw new RuntimeBridgeError(
+      'invalid_input',
+      'RuntimeBridge project resource generation must be a canonical non-negative integer.',
+      { operation: 'browserHost.stageProjectResource', provenance: 'transport_loader' },
+    );
+  }
+  const generation = Number(generationText);
+  const path = target.searchParams.get('path') ?? '';
+  if (!Number.isSafeInteger(generation) || path.length === 0) {
+    throw new RuntimeBridgeError(
+      'invalid_input',
+      'RuntimeBridge project resource metadata is outside its bounded contract.',
+      { operation: 'browserHost.stageProjectResource', provenance: 'transport_loader' },
+    );
+  }
+  const bytes = await readBoundedBinaryBody(request, PROJECT_RESOURCE_STAGE_MAX_INPUT_BYTES);
+  return { args: [{ generation, path, bytes }] };
+}
+
+function readBoundedBinaryBody(request: IncomingMessage, maxBytes: number): Promise<Uint8Array> {
+  const declaredLength = request.headers['content-length'];
+  if (
+    typeof declaredLength === 'string'
+    && (/^(?:0|[1-9][0-9]*)$/u.test(declaredLength) === false
+      || Number(declaredLength) > maxBytes)
+  ) {
+    return Promise.reject(new RuntimeBridgeError(
+      'invalid_input',
+      `RuntimeBridge project resource body exceeds ${maxBytes} bytes.`,
+      { operation: 'browserHost.stageProjectResource', provenance: 'transport_loader' },
+    ));
+  }
+  return new Promise((resolveBody, rejectBody) => {
+    const chunks: Buffer[] = [];
+    let totalBytes = 0;
+    request.on('data', (chunk: Buffer) => {
+      totalBytes += chunk.byteLength;
+      if (totalBytes > maxBytes) {
+        rejectBody(new RuntimeBridgeError(
+          'invalid_input',
+          `RuntimeBridge project resource body exceeds ${maxBytes} bytes.`,
+          { operation: 'browserHost.stageProjectResource', provenance: 'transport_loader' },
+        ));
+        request.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    request.on('error', rejectBody);
+    request.on('end', () => {
+      const body = Buffer.concat(chunks, totalBytes);
+      resolveBody(new Uint8Array(body.buffer, body.byteOffset, body.byteLength).slice());
+    });
+  });
+}
+
 function sendNativeBrowserHostError(response: ServerResponse, error: unknown): void {
   const classified = error instanceof RuntimeBridgeError
     ? error
@@ -822,12 +911,38 @@ function nativeBrowserHostProviderScript(browserSession: string): string {
         provenance: 'transport_loader',
       } }, 'RuntimeBridge browser client is disconnected.');
     }
+    const projectResource = method === '${PROJECT_RESOURCE_STAGE_METHOD}';
+    const resourceInput = projectResource ? args[0] : null;
+    if (projectResource && (
+      args.length !== 1
+      || resourceInput === null
+      || typeof resourceInput !== 'object'
+      || !Number.isSafeInteger(resourceInput.generation)
+      || resourceInput.generation < 0
+      || typeof resourceInput.path !== 'string'
+      || resourceInput.path.length === 0
+      || !ArrayBuffer.isView(resourceInput.bytes)
+      || Object.prototype.toString.call(resourceInput.bytes) !== '[object Uint8Array]'
+    )) {
+      throw classifiedError({ error: {
+        kind: 'invalid_input',
+        message: 'RuntimeBridge project resource requires generation, path, and Uint8Array bytes.',
+        operation: method,
+        provenance: 'transport_loader',
+      } }, 'Invalid RuntimeBridge project resource input.');
+    }
+    const query = projectResource
+      ? '?generation=' + encodeURIComponent(String(resourceInput.generation))
+        + '&path=' + encodeURIComponent(resourceInput.path)
+      : '';
     const request = new XMLHttpRequest();
-    request.open('POST', '/asha/browser-host/runtime-bridge/' + encodeURIComponent(method), false);
-    request.setRequestHeader('Content-Type', 'application/json; charset=utf-8');
+    request.open('POST', '/asha/browser-host/runtime-bridge/' + encodeURIComponent(method) + query, false);
+    request.setRequestHeader('Content-Type', projectResource
+      ? '${ASHA_BROWSER_HOST_PROJECT_RESOURCE_CONTENT_TYPE}'
+      : 'application/json; charset=utf-8');
     request.setRequestHeader('${ASHA_BROWSER_HOST_BRIDGE_SESSION_HEADER}', browserSession);
     request.setRequestHeader('${ASHA_BROWSER_HOST_BRIDGE_CLIENT_HEADER}', String(bridgeClient));
-    request.send(JSON.stringify({ args }));
+    request.send(projectResource ? resourceInput.bytes : JSON.stringify({ args }));
     const payload = JSON.parse(request.responseText || '{}');
     if (request.status < 200 || request.status >= 300) {
       throw classifiedError(payload, 'ASHA native RuntimeBridge host invocation failed.');
