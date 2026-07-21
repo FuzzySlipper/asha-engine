@@ -810,6 +810,176 @@ fn project_write_is_rust_derived_revision_bound_and_single_use() {
 }
 
 #[test]
+fn project_write_includes_the_rust_owned_voxel_save_and_updated_manifest() {
+    let mut bridge = EngineBridge::new();
+    let opened = bridge
+        .open_workspace_authoring_authority(open_request("workspace.project-write-voxel"))
+        .unwrap();
+    let scene_bytes = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../../harness/fixtures/scenes/sample-flat.json"
+    ));
+    let decoded_scene = bridge
+        .decode_scene_document(SceneDocumentDecodeRequestDto {
+            source_text: String::from_utf8(scene_bytes.to_vec()).unwrap(),
+        })
+        .unwrap();
+    assert!(decoded_scene.accepted, "{:?}", decoded_scene.diagnostics);
+    let decoded_content = bridge
+        .decode_project_content(ProjectContentDecodeRequestDto {
+            sources: vec![ProjectContentSourceDto {
+                source_path: "entities/fixture.json".to_owned(),
+                document_id: "fixture.entity.document".to_owned(),
+                kind: ProjectContentDocumentKind::EntityDefinition,
+                source_text: r#"{
+                    "kind":"EntityDefinition",
+                    "stableId":"fixture.entity",
+                    "displayName":"Fixture Entity",
+                    "source":{"projectBundle":"fixture","relativePath":"entities/fixture.json"},
+                    "tags":[],"metadata":[],"capabilities":[]
+                }"#
+                .to_owned(),
+            }],
+        })
+        .unwrap();
+    assert!(
+        decoded_content.accepted,
+        "{:?}",
+        decoded_content.diagnostics
+    );
+
+    initialize_volume(&mut bridge);
+    let edited = bridge
+        .submit_commands(CommandBatch {
+            commands: vec![VoxelCommand::SetVoxel {
+                grid: GridId::new(2),
+                coord: VoxelCoord::new(0, 0, 0),
+                value: VoxelValue::solid_raw(1),
+            }],
+        })
+        .unwrap();
+    assert_eq!(edited.accepted, 1);
+    let voxel_path = "assets/voxels/project-write.avxl.json";
+    let saved = bridge
+        .save_voxel_volume_asset(VoxelVolumeAssetSaveRequest {
+            export_request: VoxelVolumeAssetExportRequest {
+                grid: 2,
+                volume_asset_id: Some("voxel-volume/workspace-authoring".to_owned()),
+                target_asset_id: "voxel-volume/project-write".to_owned(),
+                label: Some("Project write voxel".to_owned()),
+                created_by: Some("runtime-bridge-api-test".to_owned()),
+                source_tool: Some("workspace-authoring".to_owned()),
+                max_sparse_runs: 16,
+                expected_session_hash: None,
+            },
+            target_project_bundle: "authoring-consumer".to_owned(),
+            target_asset_path: voxel_path.to_owned(),
+            representation_kind: "sparse_runs".to_owned(),
+            expected_existing_canonical_json_hash: None,
+            expected_canonical_json_hash: None,
+            expected_voxel_data_hash: None,
+        })
+        .unwrap();
+    assert!(saved.saved, "{:?}", saved.diagnostics);
+
+    let old_voxel = tests::hand_authored_voxel_volume_asset();
+    let old_voxel_json = svc_voxel_asset::encode_asset(&old_voxel).unwrap();
+    let asset_lock = br#"{"entries":[]}"#;
+    let canonical_content = decoded_content.canonical_files[0].canonical_json.clone();
+    let prior = svc_serialization::ProjectBundleManifest {
+        bundle_schema_version: svc_serialization::BUNDLE_SCHEMA_VERSION,
+        protocol_version: svc_serialization::SUPPORTED_PROTOCOL_VERSION,
+        project: svc_serialization::ProjectSection {
+            id: ProjectId::new(9),
+            name: Some("Project write voxel authority".to_owned()),
+        },
+        entry_scene: SceneId::new(100),
+        scenes: vec![svc_serialization::SceneSection {
+            id: SceneId::new(100),
+            schema_version: 1,
+            artifact: "scenes/sample-flat.json".to_owned(),
+        }],
+        asset_lock: svc_serialization::AssetLockSection {
+            artifact: "assets/lock.json".to_owned(),
+            asset_count: 0,
+        },
+        generation_provenance: None,
+        artifacts: vec![
+            svc_serialization::ArtifactEntry::durable(
+                "assets/lock.json",
+                svc_serialization::ArtifactRole::AssetLock,
+                asset_lock,
+            ),
+            svc_serialization::ArtifactEntry::durable(
+                "entities/fixture.json",
+                svc_serialization::ArtifactRole::ProjectContent,
+                canonical_content.as_bytes(),
+            ),
+            svc_serialization::ArtifactEntry::durable(
+                "scenes/sample-flat.json",
+                svc_serialization::ArtifactRole::SceneDocument,
+                scene_bytes,
+            ),
+            svc_serialization::ArtifactEntry::durable(
+                voxel_path,
+                svc_serialization::ArtifactRole::VoxelVolumeAsset,
+                old_voxel_json.as_bytes(),
+            ),
+        ],
+    }
+    .canonical();
+    let observed = svc_serialization::ProjectStoreIdentity::from_manifest(4, &prior, None).unwrap();
+    let prepared = bridge
+        .prepare_project_write(ProjectWritePrepareRequest {
+            expected_workspace_id: "workspace.project-write-voxel".to_owned(),
+            expected_generation: opened.identity.generation,
+            expected_working_revision: 2,
+            observed_prior: ProjectStoreIdentity {
+                revision: observed.revision,
+                manifest_hash: observed.manifest_hash.to_hex(),
+                content_set_hash: observed.content_set_hash.to_hex(),
+                index_hash: None,
+            },
+            prior_manifest_json: svc_serialization::encode(&prior),
+            relocations: Vec::new(),
+        })
+        .unwrap();
+    assert!(prepared.accepted, "{:?}", prepared.diagnostics);
+    let candidate = prepared.candidate.expect("voxel project write candidate");
+    let voxel_write = candidate
+        .writes
+        .iter()
+        .find(|write| write.path == voxel_path)
+        .expect("changed voxel asset is in the canonical write set");
+    let bytes = bridge
+        .get_buffer(RuntimeBufferHandle::new(voxel_write.resource.handle))
+        .unwrap()
+        .bytes;
+    let decoded = svc_voxel_asset::decode_asset(std::str::from_utf8(&bytes).unwrap()).unwrap();
+    assert_eq!(decoded.asset_id, "voxel-volume/project-write");
+    assert_ne!(bytes, old_voxel_json.as_bytes());
+    assert!(candidate
+        .expected_next_artifacts
+        .iter()
+        .any(|artifact| artifact.path == voxel_path
+            && artifact.content_hash.as_deref() == Some(voxel_write.content_hash.as_str())));
+
+    let confirmed = bridge
+        .confirm_project_write(ProjectWriteConfirmRequest {
+            expected_workspace_id: "workspace.project-write-voxel".to_owned(),
+            expected_generation: opened.identity.generation,
+            expected_working_revision: 2,
+            publication: ProjectWritePublication {
+                candidate_hash: candidate.candidate_hash,
+                published: candidate.expected_next,
+            },
+        })
+        .unwrap();
+    assert!(confirmed.accepted, "{:?}", confirmed.diagnostics);
+    assert!(!bridge.read_workspace_authoring_state().unwrap().dirty);
+}
+
+#[test]
 fn procedural_materialization_is_preview_pure_candidate_bound_and_combined_saveable() {
     let mut bridge = EngineBridge::new();
     let opened = bridge
@@ -882,6 +1052,31 @@ fn procedural_materialization_is_preview_pure_candidate_bound_and_combined_savea
     assert!(applied.accepted, "{:?}", applied.diagnostics);
     assert_eq!(applied.working_revision, 1);
     assert!(bridge.voxel.voxel.is_some());
+    assert_eq!(
+        bridge
+            .workspace_authoring
+            .as_ref()
+            .unwrap()
+            .project_write_voxel_assets
+            .get("assets/generated-tunnel.avxl.json")
+            .map(|asset| asset.asset_id.as_str()),
+        Some("voxel-volume/generated-tunnel"),
+        "accepted materialization must populate the Engine-owned whole-project write closure"
+    );
+    assert_eq!(
+        bridge
+            .workspace_authoring
+            .as_ref()
+            .unwrap()
+            .project_write_generation_provenance,
+        Some(svc_serialization::GeneratorMetadata {
+            provider: "asha.tunnel.enclosed.v2".to_owned(),
+            seed: 42,
+            version: 2,
+            params: candidate.provenance.config_hash.clone(),
+        }),
+        "accepted materialization must update the canonical manifest provenance"
+    );
     let save_hash = applied
         .save_candidate_hash
         .clone()

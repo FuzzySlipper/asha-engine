@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
@@ -31,6 +31,10 @@ interface ProjectFixture {
 
 void test('one Rust candidate saves add move delete and index changes then reloads normally', async (context) => {
   const fixture = await createFixture(context);
+  const unrelatedBuildOutput = join(fixture.root, 'demo-rs/target/debug/unrelated.bin');
+  await mkdir(join(fixture.root, 'demo-rs/target/debug'), { recursive: true });
+  await writeFile(unrelatedBuildOutput, new Uint8Array(4 * 1024 * 1024).fill(37));
+  const buildOutputBefore = await stat(unrelatedBuildOutput);
   const observed = await observeAshaProjectStore(fixture.root);
   assert.deepEqual(observed.identity, fixture.candidate.expectedPrior);
   assert.equal(observed.manifestJson, fixture.priorManifestJson);
@@ -52,6 +56,12 @@ void test('one Rust candidate saves add move delete and index changes then reloa
   });
   assert.equal(confirmations, 1);
   assert.deepEqual(receipt.published, fixture.candidate.expectedNext);
+  const buildOutputAfter = await stat(unrelatedBuildOutput);
+  assert.equal(
+    buildOutputAfter.ino,
+    buildOutputBefore.ino,
+    'unrelated repository bytes should remain a hard-linked copy-on-write snapshot',
+  );
 
   const reloaded = await loadAshaProjectSource(await createAshaProjectDirectorySource(fixture.root));
   assert.equal(reloaded.manifestJson, fixture.nextManifestJson);

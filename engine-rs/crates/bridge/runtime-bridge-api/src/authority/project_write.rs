@@ -12,7 +12,7 @@ impl EngineBridge {
             request.expected_working_revision,
         )?;
 
-        let (canonical_files, scenes) = {
+        let (canonical_files, scenes, voxel_assets, generation_provenance) = {
             let authority = self.require_open_workspace_authoring_mut("prepare_project_write")?;
             let Some(content) = authority.project_content_current.as_ref() else {
                 return Ok(project_write_rejection(
@@ -24,6 +24,8 @@ impl EngineBridge {
             (
                 content.result().canonical_files.clone(),
                 authority.project_content_scenes.clone(),
+                authority.project_write_voxel_assets.clone(),
+                authority.project_write_generation_provenance.clone(),
             )
         };
 
@@ -60,6 +62,8 @@ impl EngineBridge {
             &prior_manifest,
             &canonical_files,
             &scenes,
+            &voxel_assets,
+            generation_provenance.as_ref(),
             &request.relocations,
         ) {
             Ok(draft) => draft,
@@ -172,6 +176,8 @@ impl EngineBridge {
         authority.last_stored_canonical_json_hash = Some(confirmation.candidate_hash.to_hex());
         authority.pending_save_candidate = None;
         authority.pending_procedural_environment = None;
+        authority.project_write_voxel_assets.clear();
+        authority.project_write_generation_provenance = None;
         Ok(ProjectWriteConfirmReceipt {
             accepted: true,
             stored: Some(stored),
@@ -265,6 +271,8 @@ fn project_write_draft(
     prior: &svc_serialization::ProjectBundleManifest,
     canonical_files: &[protocol_project_content::ProjectContentCanonicalFileDto],
     scenes: &BTreeMap<u64, protocol_scene::FlatSceneDocumentDto>,
+    voxel_assets: &BTreeMap<String, VoxelVolumeAsset>,
+    generation_provenance: Option<&svc_serialization::GeneratorMetadata>,
     relocations: &[ProjectArtifactRelocation],
 ) -> Result<svc_serialization::ProjectWriteSetDraft, ProjectWriteDiagnostic> {
     let prior_by_path = prior
@@ -278,6 +286,9 @@ fn project_write_draft(
         .cloned()
         .collect::<BTreeSet<_>>();
     let mut next = prior.clone();
+    if let Some(provenance) = generation_provenance {
+        next.generation_provenance = Some(provenance.clone());
+    }
     next.artifacts.retain(|artifact| {
         !is_project_content_role(&artifact.role)
             && artifact.role != svc_serialization::ArtifactRole::SceneDocument
@@ -353,6 +364,59 @@ fn project_write_draft(
                 &bytes,
             ));
         generated_bodies.insert(next_path, bytes);
+    }
+
+    for (path, asset) in voxel_assets {
+        if let Some(prior_artifact) = prior_by_path.get(path) {
+            if prior_artifact.role != svc_serialization::ArtifactRole::VoxelVolumeAsset {
+                return Err(write_diagnostic(
+                    "voxelPathRoleMismatch",
+                    Some(path.as_str()),
+                    "a workspace voxel asset may replace only a voxelVolumeAsset manifest member",
+                ));
+            }
+        }
+        let report = svc_voxel_asset::validate_asset(asset);
+        if !report.is_valid() {
+            return Err(write_diagnostic(
+                "invalidVoxelAsset",
+                Some(path.as_str()),
+                format!(
+                    "workspace voxel asset failed canonical validation with {} diagnostic(s)",
+                    report.diagnostics.len()
+                ),
+            ));
+        }
+        let bytes = svc_voxel_asset::encode_asset(asset)
+            .map_err(|report| {
+                write_diagnostic(
+                    "invalidVoxelAsset",
+                    Some(path.as_str()),
+                    format!(
+                        "workspace voxel asset failed canonical encoding with {} diagnostic(s)",
+                        report.diagnostics.len()
+                    ),
+                )
+            })?
+            .into_bytes();
+        let next_path = relocation_by_source
+            .get(path)
+            .cloned()
+            .unwrap_or_else(|| path.clone());
+        next.artifacts.retain(|artifact| artifact.path != *path);
+        next.artifacts
+            .push(svc_serialization::ArtifactEntry::durable(
+                next_path.clone(),
+                svc_serialization::ArtifactRole::VoxelVolumeAsset,
+                &bytes,
+            ));
+        if generated_bodies.insert(next_path.clone(), bytes).is_some() {
+            return Err(write_diagnostic(
+                "duplicateCanonicalArtifactPath",
+                Some(next_path),
+                "more than one Engine-owned canonical artifact targets this path",
+            ));
+        }
     }
 
     for artifact in &mut next.artifacts {

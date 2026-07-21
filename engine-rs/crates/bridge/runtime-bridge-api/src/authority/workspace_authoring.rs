@@ -105,6 +105,8 @@ impl EngineBridge {
             projection_initialized: false,
             last_projection_receipt: None,
             loaded_voxel_assets: BTreeMap::new(),
+            project_write_voxel_assets: BTreeMap::new(),
+            project_write_generation_provenance: None,
             project_content_scenes: BTreeMap::new(),
             project_content_reference_revision: 0,
             project_content_current: None,
@@ -156,6 +158,8 @@ impl EngineBridge {
         authority.pending_save_candidate = None;
         authority.pending_project_write = None;
         authority.pending_procedural_environment = None;
+        authority.project_write_voxel_assets.clear();
+        authority.project_write_generation_provenance = None;
         let lifecycle_hash = Self::workspace_authoring_lifecycle_hash(authority);
         Ok(WorkspaceAuthoringStoredConfirmationReceipt {
             kind: "workspace_authoring.stored_confirmation.v0".to_owned(),
@@ -330,6 +334,7 @@ impl EngineBridge {
 
     pub(super) fn record_workspace_authoring_loaded_asset(&mut self, asset: VoxelVolumeAsset) {
         let canonical_json_hash = asset.content_hashes.canonical_json.clone();
+        let asset_id = asset.asset_id.clone();
         self.record_workspace_authoring_mutation();
         if let Some(authority) = self.workspace_authoring.as_mut().filter(|value| value.open) {
             authority.stored_revision = authority.working_revision;
@@ -338,7 +343,21 @@ impl EngineBridge {
             authority.pending_project_write = None;
             authority
                 .loaded_voxel_assets
-                .insert(asset.asset_id.clone(), asset);
+                .insert(asset_id.clone(), asset);
+            authority
+                .project_write_voxel_assets
+                .retain(|_, candidate| candidate.asset_id != asset_id);
+        }
+    }
+
+    pub(super) fn remember_workspace_authoring_voxel_write(
+        &mut self,
+        path: String,
+        asset: VoxelVolumeAsset,
+    ) {
+        if let Some(authority) = self.workspace_authoring.as_mut().filter(|value| value.open) {
+            authority.pending_project_write = None;
+            authority.project_write_voxel_assets.insert(path, asset);
         }
     }
 

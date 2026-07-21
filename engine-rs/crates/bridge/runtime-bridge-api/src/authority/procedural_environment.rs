@@ -252,6 +252,19 @@ impl EngineBridge {
             .pending_voxel_frame
             .ops
             .extend(applied_frame.ops);
+        self.remember_workspace_authoring_voxel_write(
+            pending.asset_path.clone(),
+            pending.materialized.asset.clone(),
+        );
+        if let Some(authority) = self.workspace_authoring.as_mut().filter(|value| value.open) {
+            authority.project_write_generation_provenance =
+                Some(svc_serialization::GeneratorMetadata {
+                    provider: pending.materialized.provenance.provider_id.clone(),
+                    seed: pending.materialized.provenance.seed,
+                    version: pending.materialized.provenance.provider_version,
+                    params: pending.materialized.provenance.config_hash.clone(),
+                });
+        }
         self.record_workspace_authoring_mutation();
         self.remember_workspace_authoring_save_candidate(
             pending.materialized.artifact_set_hash.clone(),

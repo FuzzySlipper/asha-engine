@@ -861,6 +861,8 @@ impl RuntimeBridge for EngineBridge {
             provenance_count: asset.provenance.len() as u64,
             runtime_session_hash: info.session_hash.clone(),
         };
+        let authored_asset = asset.clone();
+        let authored_path = request.target_asset_path.clone();
         let receipt = VoxelVolumeAssetSaveReceipt {
             request,
             saved: true,
@@ -871,6 +873,7 @@ impl RuntimeBridge for EngineBridge {
             voxel_data_hash: Some(voxel_data_hash),
             diagnostics: Vec::new(),
         };
+        self.remember_workspace_authoring_voxel_write(authored_path, authored_asset);
         self.remember_workspace_authoring_save_candidate(canonical_json_hash);
         Ok(receipt)
     }

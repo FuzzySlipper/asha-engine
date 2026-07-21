@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import {
-  cp,
+  link,
   lstat,
   mkdir,
+  readdir,
   readFile,
+  readlink,
   rename,
   rm,
+  symlink,
   writeFile,
 } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
@@ -127,11 +130,14 @@ async function publishAshaProjectWriteCandidate(
   const backup = join(parent, `.${rootName}.asha-backup-${transactionId}`);
   let published = false;
   try {
-    await cp(projectRoot, staging, { recursive: true, force: false, errorOnExist: true });
+    await cloneProjectTree(projectRoot, staging);
     await applyMoves(staging, options.candidate);
     await applyWrites(staging, options.candidate, resources);
     await applyDeletes(staging, options.candidate);
-    await writeFile(join(staging, ASHA_PROJECT_BUNDLE_MANIFEST_PATH), options.candidate.manifestJson);
+    await replaceFile(
+      join(staging, ASHA_PROJECT_BUNDLE_MANIFEST_PATH),
+      options.candidate.manifestJson,
+    );
     await writeStoreState(staging, options.candidate);
 
     const staged = await observeStore(staging, options.candidate.expectedNextArtifacts, indexPath);
@@ -249,7 +255,7 @@ async function applyWrites(
     if (bytes === undefined) throw new Error(`missing borrowed resource ${write.resource.handle}`);
     const target = projectPath(root, write.path);
     await mkdir(dirname(target), { recursive: true });
-    await writeFile(target, bytes);
+    await replaceFile(target, bytes);
   }
 }
 
@@ -261,11 +267,48 @@ async function applyDeletes(root: string, candidate: ProjectWriteCandidate): Pro
 
 async function writeStoreState(root: string, candidate: ProjectWriteCandidate): Promise<void> {
   const target = projectPath(root, ASHA_PROJECT_STORE_STATE_PATH);
-  await mkdir(dirname(target), { recursive: true });
-  await writeFile(target, `${JSON.stringify({
+  await replaceFile(target, `${JSON.stringify({
     revision: candidate.expectedNext.revision,
     candidateHash: candidate.candidateHash,
   })}\n`);
+}
+
+/**
+ * Build a copy-on-write sibling snapshot without copying build outputs or
+ * dependency stores byte-for-byte. Every ordinary file begins as a hard link;
+ * transaction writes replace their link with a new inode before publication.
+ * The snapshot therefore preserves the complete checkout for the atomic root
+ * swap while keeping staging cost proportional to file metadata and changed
+ * project resources rather than repository byte size.
+ */
+async function cloneProjectTree(source: string, target: string): Promise<void> {
+  const sourceStat = await lstat(source);
+  if (!sourceStat.isDirectory()) throw new Error('project snapshot source must be a directory');
+  await mkdir(target, { mode: sourceStat.mode });
+  for (const entry of await readdir(source, { withFileTypes: true })) {
+    const sourcePath = join(source, entry.name);
+    const targetPath = join(target, entry.name);
+    if (entry.isDirectory()) {
+      await cloneProjectTree(sourcePath, targetPath);
+    } else if (entry.isFile()) {
+      await link(sourcePath, targetPath);
+    } else if (entry.isSymbolicLink()) {
+      await symlink(await readlink(sourcePath), targetPath);
+    } else {
+      throw new Error(`project snapshot contains unsupported entry "${sourcePath}"`);
+    }
+  }
+}
+
+async function replaceFile(path: string, bytes: string | Uint8Array): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  const temporary = join(dirname(path), `.${basename(path)}.asha-write-${randomUUID()}`);
+  try {
+    await writeFile(temporary, bytes);
+    await rename(temporary, path);
+  } finally {
+    await rm(temporary, { force: true });
+  }
 }
 
 async function observeStore(
