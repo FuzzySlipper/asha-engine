@@ -47,6 +47,15 @@ impl EngineBridge {
                 })
             }
         };
+        if observed_prior.manifest_hash
+            != svc_serialization::BundleHash::of_str(&request.prior_manifest_json)
+        {
+            return Ok(project_write_rejection(
+                "staleStore",
+                Some("priorManifestJson"),
+                "observed manifest bytes do not match priorManifestJson",
+            ));
+        }
         let draft = match project_write_draft(
             &prior_manifest,
             &canonical_files,
@@ -62,10 +71,9 @@ impl EngineBridge {
                 })
             }
         };
-        let candidate = match svc_serialization::ProjectWriteCandidate::build(
-            observed_prior.revision,
+        let candidate = match svc_serialization::ProjectWriteCandidate::build_from_observed_prior(
+            observed_prior.clone(),
             &prior_manifest,
-            observed_prior.index_hash,
             draft,
         ) {
             Ok(candidate) => candidate,

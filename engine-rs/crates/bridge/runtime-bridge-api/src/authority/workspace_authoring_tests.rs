@@ -728,6 +728,17 @@ fn project_write_is_rust_derived_revision_bound_and_single_use() {
             to: "scenes/archive/sample-flat.json".to_owned(),
         }],
     };
+    let mut mismatched_request = request.clone();
+    mismatched_request.observed_prior.manifest_hash =
+        svc_serialization::BundleHash::of_str("different stored manifest bytes").to_hex();
+    let mismatched = bridge.prepare_project_write(mismatched_request).unwrap();
+    assert!(!mismatched.accepted);
+    assert_eq!(mismatched.diagnostics[0].code, "staleStore");
+    assert_eq!(
+        mismatched.diagnostics[0].path.as_deref(),
+        Some("priorManifestJson")
+    );
+
     let prepared = bridge.prepare_project_write(request).unwrap();
     assert!(prepared.accepted, "{:?}", prepared.diagnostics);
     let candidate = prepared.candidate.unwrap();

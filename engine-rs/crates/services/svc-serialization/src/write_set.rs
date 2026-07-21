@@ -197,6 +197,22 @@ impl ProjectWriteCandidate {
         prior_index_hash: Option<BundleHash>,
         draft: ProjectWriteSetDraft,
     ) -> Result<Self, ProjectWriteSetError> {
+        let expected_prior =
+            ProjectStoreIdentity::from_manifest(prior_revision, prior_manifest, prior_index_hash)
+                .map_err(ProjectWriteSetError::InvalidPriorManifest)?;
+        Self::build_from_observed_prior(expected_prior, prior_manifest, draft)
+    }
+
+    /// Build against the host's exact observed store identity. The decoded
+    /// manifest still determines canonical closure metadata, while the prior
+    /// manifest hash retains the bytes actually observed on disk. This lets a
+    /// canonical rewrite safely replace semantically valid non-canonical JSON
+    /// without weakening the later host compare-and-swap.
+    pub fn build_from_observed_prior(
+        observed_prior: ProjectStoreIdentity,
+        prior_manifest: &ProjectBundleManifest,
+        draft: ProjectWriteSetDraft,
+    ) -> Result<Self, ProjectWriteSetError> {
         prior_manifest
             .validate()
             .map_err(ProjectWriteSetError::InvalidPriorManifest)?;
@@ -204,20 +220,27 @@ impl ProjectWriteCandidate {
             .next_manifest
             .validate()
             .map_err(ProjectWriteSetError::InvalidNextManifest)?;
-        let next_revision = prior_revision
+        let canonical_prior = ProjectStoreIdentity::from_manifest(
+            observed_prior.revision,
+            prior_manifest,
+            observed_prior.index_hash,
+        )
+        .map_err(ProjectWriteSetError::InvalidPriorManifest)?;
+        if observed_prior.content_set_hash != canonical_prior.content_set_hash {
+            return Err(ProjectWriteSetError::StaleStore);
+        }
+        let next_revision = observed_prior
+            .revision
             .checked_add(1)
             .ok_or(ProjectWriteSetError::RevisionOverflow)?;
         validate_operations(prior_manifest, &draft)?;
 
         let asset_lock_path = draft.next_manifest.asset_lock.artifact.clone();
-        let expected_prior =
-            ProjectStoreIdentity::from_manifest(prior_revision, prior_manifest, prior_index_hash)
-                .map_err(ProjectWriteSetError::InvalidPriorManifest)?;
         let next_index_hash = draft
             .index_replacement
             .as_ref()
             .map(CanonicalProjectWrite::content_hash)
-            .or(prior_index_hash);
+            .or(observed_prior.index_hash);
         let expected_next = ProjectStoreIdentity::from_manifest(
             next_revision,
             &draft.next_manifest,
@@ -226,7 +249,7 @@ impl ProjectWriteCandidate {
         .map_err(ProjectWriteSetError::InvalidNextManifest)?;
         let manifest_json = encode(&draft.next_manifest);
         let candidate_hash = candidate_hash(
-            &expected_prior,
+            &observed_prior,
             &expected_next,
             &manifest_json,
             &draft.writes,
@@ -236,7 +259,7 @@ impl ProjectWriteCandidate {
         );
 
         Ok(Self {
-            expected_prior,
+            expected_prior: observed_prior,
             expected_next,
             expected_prior_artifacts: artifact_expectations(prior_manifest),
             expected_next_artifacts: artifact_expectations(&draft.next_manifest),
@@ -827,6 +850,38 @@ mod tests {
             build(next_a, b"new-a").candidate_hash(),
             build(next_b, b"new-b").candidate_hash()
         );
+    }
+
+    #[test]
+    fn observed_noncanonical_manifest_bytes_remain_the_prior_cas_identity() {
+        let prior = manifest(&[(1, "scenes/a.json", b"old")]);
+        let canonical_prior = ProjectStoreIdentity::from_manifest(4, &prior, None).unwrap();
+        let observed_prior = ProjectStoreIdentity {
+            manifest_hash: BundleHash::of_str("same manifest semantics with different whitespace"),
+            ..canonical_prior.clone()
+        };
+        let build = || {
+            ProjectWriteCandidate::build_from_observed_prior(
+                observed_prior.clone(),
+                &prior,
+                ProjectWriteSetDraft {
+                    next_manifest: manifest(&[(1, "scenes/a.json", b"new")]),
+                    writes: vec![CanonicalProjectWrite::new("scenes/a.json", b"new")],
+                    moves: Vec::new(),
+                    deletes: Vec::new(),
+                    index_replacement: None,
+                },
+            )
+            .unwrap()
+        };
+        let candidate = build();
+
+        assert_eq!(candidate.expected_prior(), &observed_prior);
+        assert_eq!(
+            candidate.authorize(&canonical_prior),
+            Err(ProjectWriteSetError::StaleStore)
+        );
+        assert!(build().authorize(&observed_prior).is_ok());
     }
 
     #[test]
