@@ -14,17 +14,17 @@ const INITIAL_GRID = {
   visible: true,
   grid: {
     coordinateSystem: 'rightHandedYUp',
-    origin: [0, 0, 0],
+    origin: [0, 1.002, 0],
     spacing: [1, 1, 1],
   },
   plane: 'xz',
   snapAnchor: 'boundary',
   style: {
-    minorColor: [0.2, 0.2, 0.2, 0.5],
-    majorColor: [0.4, 0.4, 0.4, 0.8],
+    minorColor: [1, 0, 0, 1],
+    majorColor: [1, 0, 0, 1],
     xAxisColor: [1, 0, 0, 1],
-    yAxisColor: [0, 1, 0, 1],
-    zAxisColor: [0, 0, 1, 1],
+    yAxisColor: [1, 0, 0, 1],
+    zAxisColor: [1, 0, 0, 1],
     majorLineEvery: 10,
     opacity: 0.8,
     fadeStart: 20,
@@ -95,15 +95,49 @@ const TEST_PAGE = `<!doctype html>
         autoStart: false,
         bufferSource,
         initialGrid: ${JSON.stringify(INITIAL_GRID)},
-        controls: { initialPosition: [0, 19, 1], minimumDistance: 2, maximumDistance: 20 },
+        controls: {
+          initialPosition: [0, 6, 8],
+          initialTarget: [0, 1, 0],
+          minimumDistance: 2,
+          maximumDistance: 20,
+        },
       },
     );
+    function dot(a, b) {
+      return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    }
+    function sampleWorld(world, radius = 6) {
+      const camera = surface.readout().camera;
+      const relative = world.map((value, index) => value - camera.pose.position[index]);
+      const cameraX = dot(relative, camera.basis.right);
+      const cameraY = dot(relative, camera.basis.up);
+      const cameraZ = dot(relative, camera.basis.forward);
+      if (cameraZ <= 0) throw new Error('sample point is behind the inspection camera');
+      const tangent = Math.tan(camera.projection.fovYDegrees * Math.PI / 360);
+      const aspect = canvas.width / canvas.height;
+      const framebufferX = (cameraX / (cameraZ * tangent * aspect) * 0.5 + 0.5) * canvas.width;
+      const framebufferY = (cameraY / (cameraZ * tangent) * 0.5 + 0.5) * canvas.height;
+      const x = Math.max(0, Math.min(canvas.width - 1, Math.round(framebufferX)));
+      const y = Math.max(0, Math.min(canvas.height - 1, Math.round(framebufferY)));
+      const x0 = Math.max(0, x - radius);
+      const y0 = Math.max(0, y - radius);
+      const width = Math.min(canvas.width - x0, radius * 2 + 1);
+      const height = Math.min(canvas.height - y0, radius * 2 + 1);
+      const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+      if (gl === null) throw new Error('inspection canvas has no WebGL context');
+      const pixels = new Uint8Array(width * height * 4);
+      gl.readPixels(x0, y0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      return { center: [x, y], height, pixels: [...pixels], width };
+    }
     window.__ashaInspection = {
       canvas,
       applyRuntimeFrame: frame => surface.applyRuntimeFrame(frame),
       clearRuntimeProjection: () => surface.clearRuntimeProjection(),
+      dispose: () => surface.dispose(),
       bufferLifecycle: () => ({ borrowed: [...borrowedBuffers], released: [...releasedBuffers] }),
       render: timeMs => surface.renderOnce(timeMs),
+      replaceFrame: frame => surface.replaceFrame(frame),
+      sampleWorld,
       setGrid: descriptor => surface.setGrid(descriptor),
       snapshot: () => surface.readout(),
     };
@@ -164,7 +198,48 @@ async function main() {
     );
 
     const voxelDefined = await evaluate(client, `(() => {
-      const receipt = window.__ashaInspection.applyRuntimeFrame({ ops: [
+      const authoredReceipt = window.__ashaInspection.replaceFrame({ ops: [
+        {
+          op: 'createLight', handle: 60, parent: null,
+          light: { kind: 'ambient', color: [1, 1, 1], intensity: 3, enabled: true },
+        },
+        {
+          op: 'create', handle: 61, parent: null,
+          node: {
+            geometry: { shape: 'cube' },
+            material: { color: [0.05, 0.15, 0.95, 1], wireframe: false },
+            transform: { translation: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+            visible: true, layer: 'scene',
+            metadata: { source: null, tags: [], label: 'authored-voxel-floor' },
+          },
+        },
+        {
+          op: 'replaceMeshPayload', handle: 61,
+          payload: {
+            layout: {
+              vertexCount: 4, indexCount: 6, indexWidth: 'u32',
+              attributes: [
+                { name: 'position', components: 3, kind: 'f32' },
+                { name: 'normal', components: 3, kind: 'f32' },
+              ],
+            },
+            groups: [{ materialSlot: 0, start: 0, count: 6 }],
+            bounds: { min: [-5, 1, -4], max: [5, 1, 4] },
+            source: {
+              kind: 'inline',
+              positions: [-5, 1, -4, -5, 1, 4, 5, 1, 4, 5, 1, -4],
+              normals: [0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0],
+              indices: [0, 1, 2, 0, 2, 3],
+            },
+            provenance: 'voxelChunk',
+          },
+        },
+      ] });
+      const runtimeReceipt = window.__ashaInspection.applyRuntimeFrame({ ops: [
+        {
+          op: 'createLight', handle: 70, parent: null,
+          light: { kind: 'ambient', color: [1, 1, 1], intensity: 3, enabled: true },
+        },
         {
           op: 'create', handle: 71, parent: null,
           node: {
@@ -194,17 +269,71 @@ async function main() {
             provenance: 'voxelChunk',
           },
         },
+        {
+          op: 'create', handle: 72, parent: null,
+          node: {
+            geometry: { shape: 'cube' },
+            material: { color: [0.05, 0.95, 0.15, 1], wireframe: false },
+            transform: { translation: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+            visible: true, layer: 'scene',
+            metadata: { source: null, tags: [], label: 'runtime-voxel-wall' },
+          },
+        },
+        {
+          op: 'replaceMeshPayload', handle: 72,
+          payload: {
+            layout: {
+              vertexCount: 4, indexCount: 6, indexWidth: 'u32',
+              attributes: [
+                { name: 'position', components: 3, kind: 'f32' },
+                { name: 'normal', components: 3, kind: 'f32' },
+              ],
+            },
+            groups: [{ materialSlot: 0, start: 0, count: 6 }],
+            bounds: { min: [-1.5, 1, 2], max: [1.5, 4, 2] },
+            source: {
+              kind: 'inline',
+              positions: [-1.5, 1, 2, 1.5, 1, 2, 1.5, 4, 2, -1.5, 4, 2],
+              normals: [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],
+              indices: [0, 1, 2, 0, 2, 3],
+            },
+            provenance: 'voxelChunk',
+          },
+        },
       ] });
+      window.__ashaInspection.render(5);
       return {
-        receipt,
+        authoredReceipt,
+        runtimeReceipt,
         readout: window.__ashaInspection.snapshot(),
         buffers: window.__ashaInspection.bufferLifecycle(),
+        floorPixels: window.__ashaInspection.sampleWorld([3, 1.002, 0]),
+        wallPixels: window.__ashaInspection.sampleWorld([0, 1.002, 0]),
       };
     })()`);
-    assert.equal(voxelDefined.receipt.applied, true);
+    assert.equal(voxelDefined.authoredReceipt.applied, true);
+    assert.equal(voxelDefined.runtimeReceipt.applied, true);
+    assert.equal(voxelDefined.readout.retainedOpCount, 3);
     assert.equal(voxelDefined.readout.runtimeGeneration, 1);
-    assert.equal(voxelDefined.readout.runtimeRetainedOpCount, 2);
+    assert.equal(voxelDefined.readout.runtimeRetainedOpCount, 5);
     assert.deepEqual(voxelDefined.buffers, { borrowed: [7], released: [7] });
+    assert.ok(
+      countPixels(voxelDefined.floorPixels, isGridRed) > 0,
+      `grid must remain visible over the authored voxel floor: ${JSON.stringify(voxelDefined.floorPixels)}`,
+    );
+    assert.ok(
+      countPixels(voxelDefined.floorPixels, isFloorBlue) > 0,
+      'the grid sample must also contain the voxel floor beneath the line',
+    );
+    assert.ok(
+      countPixels(voxelDefined.wallPixels, isWallGreen) > 0,
+      'runtime voxel wall must remain visible in front of the grid plane',
+    );
+    assert.equal(
+      countPixels(voxelDefined.wallPixels, isGridRed),
+      0,
+      'runtime voxel wall must occlude grid lines behind it',
+    );
 
     const cameraBeforeRuntimeUpdate = voxelDefined.readout.camera;
     const voxelUpdated = await evaluate(client, `(() => {
@@ -222,7 +351,7 @@ async function main() {
     })()`);
     assert.equal(voxelUpdated.receipt.applied, true);
     assert.equal(voxelUpdated.readout.runtimeGeneration, 2);
-    assert.equal(voxelUpdated.readout.runtimeRetainedOpCount, 3);
+    assert.equal(voxelUpdated.readout.runtimeRetainedOpCount, 6);
     assert.deepEqual(voxelUpdated.readout.camera, cameraBeforeRuntimeUpdate);
     assert.deepEqual(voxelUpdated.buffers, { borrowed: [7, 7], released: [7, 7] });
 
@@ -305,7 +434,7 @@ async function main() {
     })()`);
     assert.equal(voxelDeleted.receipt.applied, true);
     assert.equal(voxelDeleted.readout.runtimeGeneration, 3);
-    assert.equal(voxelDeleted.readout.runtimeRetainedOpCount, 4);
+    assert.equal(voxelDeleted.readout.runtimeRetainedOpCount, 7);
     assert.deepEqual(voxelDeleted.buffers, { borrowed: [7, 7, 7], released: [7, 7, 7] });
 
     const runtimeCleared = await evaluate(client, `(() => ({
@@ -317,6 +446,18 @@ async function main() {
     assert.equal(runtimeCleared.readout.runtimeGeneration, 4);
     assert.equal(runtimeCleared.readout.runtimeRetainedOpCount, 0);
     assert.deepEqual(runtimeCleared.buffers, { borrowed: [7, 7, 7], released: [7, 7, 7] });
+
+    const disposed = await evaluate(client, `(() => {
+      window.__ashaInspection.dispose();
+      window.__ashaInspection.dispose();
+      return {
+        readout: window.__ashaInspection.snapshot(),
+        rejectedRuntime: window.__ashaInspection.applyRuntimeFrame({ ops: [] }),
+      };
+    })()`);
+    assert.equal(disposed.readout.status, 'disposed');
+    assert.equal(disposed.rejectedRuntime.applied, false);
+    assert.equal(disposed.rejectedRuntime.diagnostics[0]?.code, 'viewport_disposed');
 
     process.stdout.write('Renderer inspection browser interaction: OK\n');
   } finally {
@@ -452,6 +593,28 @@ async function dispatchKey(client, key, code, virtualKeyCode, whileHeld, modifie
   await client.send('Input.dispatchKeyEvent', {
     type: 'keyUp', key, code, modifiers, windowsVirtualKeyCode: virtualKeyCode,
   });
+}
+
+function countPixels(sample, predicate) {
+  let count = 0;
+  for (let index = 0; index < sample.pixels.length; index += 4) {
+    if (predicate(sample.pixels[index], sample.pixels[index + 1], sample.pixels[index + 2])) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function isGridRed(red, green, blue) {
+  return red > 80 && red > green * 1.5 && red > blue * 1.5;
+}
+
+function isFloorBlue(red, green, blue) {
+  return blue > 50 && blue > red * 1.3 && blue > green * 1.2;
+}
+
+function isWallGreen(red, green, blue) {
+  return green > 50 && green > red * 1.3 && green > blue * 1.2;
 }
 
 async function snapshot(client) {

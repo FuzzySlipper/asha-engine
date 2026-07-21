@@ -93,6 +93,12 @@ current grid plus grid revision, camera distance/revision, last camera-change
 kind, drag state, and focused key sets so downstream smoke checks can distinguish
 pointer orbit, keyboard orbit, movement, zoom, and grid application.
 
+The editor viewport establishes shared runtime/authored scene depth before drawing
+the grid with depth testing enabled and depth writes disabled. A grid plane placed
+slightly above a floor therefore remains visible across that surface, while walls
+and other geometry nearer the camera occlude it. The explicit overlay channel is
+still drawn last after its depth clear; the grid is not an X-ray overlay.
+
 `resizeToCanvas` samples the canvas dimensions, `resize` accepts an explicit
 bounded size, and a browser `ResizeObserver` keeps the surface synchronized when
 available. `start`, `stop`, `renderOnce`, and idempotent `dispose` own the
@@ -140,6 +146,10 @@ For Procgen task #5980:
 7. Use `initialGrid` or `setGrid` for the project grid; do not draw a Procgen-local
    grid. Exercise primary drag, arrow orbit, focused zoom, and grid replacement
    in the live workbench and record the inspection readout as task evidence.
+8. For the Voxel 3D and planned CA trace views, place the XZ grid plane at the
+   intended cell boundary (for example, just above a floor surface when the grid
+   should remain legible). Runtime and authored voxel meshes share depth, walls
+   occlude the grid normally, and debug overlays retain their final-pass precedence.
 
 The surface proves visible realization of Procgen output. It does not claim that
 camera interaction changes the generated artifact or that the inspection frame

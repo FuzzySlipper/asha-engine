@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import type * as THREE from 'three';
 import type { EditorGridDescriptor } from '@asha/contracts';
 import { projectEditorGrid, ThreeEditorGridProjection } from './editor-grid.js';
 
@@ -75,6 +76,10 @@ void test('Three realization updates and removes the public descriptor without s
   grid.resize({ width: 800, height: 600 });
   grid.setDescriptor(descriptor);
   assert.equal(grid.scene.children[0]?.name, 'asha-editor-grid');
+  const lines = grid.scene.children[0] as THREE.LineSegments;
+  const material = lines.material as THREE.ShaderMaterial;
+  assert.equal(material.depthTest, true);
+  assert.equal(material.depthWrite, false);
   assert.ok((grid.readout()?.renderedLineCount ?? 0) > 0);
   grid.setDescriptor(null);
   assert.equal(grid.scene.children.length, 0);

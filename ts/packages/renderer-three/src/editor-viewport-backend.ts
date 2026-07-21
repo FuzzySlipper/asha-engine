@@ -20,6 +20,7 @@ import {
 } from './browser-surface.js';
 import { ThreeRenderer, type MeshBufferSource } from './three-renderer.js';
 import { ThreeEditorGridProjection } from './editor-grid.js';
+import { renderEditorViewportFrame } from './editor-viewport-render-pass.js';
 
 export type AshaRendererEditorBackendChannel = 'runtime' | 'authored' | 'overlay';
 
@@ -194,16 +195,7 @@ export function mountAshaRendererEditorBackend(
       ? 0
       : Math.min(0.05, Math.max(0, (timeMs - lastRenderTimeMs) / 1000));
     lastRenderTimeMs = timeMs;
-    webgl.clear(true, true, true);
-    webgl.render(gridProjection.scene, camera);
-    for (const channel of CHANNEL_ORDER) {
-      const renderer = channels.renderer(channel);
-      renderer.advanceAnimation(deltaSeconds);
-      if (channel === 'overlay') {
-        webgl.clearDepth();
-      }
-      webgl.render(renderer.scene, camera);
-    }
+    renderEditorViewportFrame(webgl, camera, gridProjection.scene, channels, deltaSeconds);
   };
 
   const tick = (timeMs: number): void => {

@@ -954,6 +954,14 @@ Additive editor viewport in #5741:
   stale or unrelated reads; the surface exposes neither storage internals nor
   authoritative timing. Procgen should correlate it with command receipts,
   `readProjection`, and `readVoxelMeshEvidence` through package-root imports.
+- #6052 corrects the engine-owned editor viewport pass order so runtime and authored
+  channels establish shared depth before the procedural grid is drawn. The grid
+  remains depth-tested and non-writing, so a plane slightly above a voxel floor is
+  visible across it while nearer walls occlude it; the explicit overlay depth-clear
+  pass remains last. The real Chromium inspection regression covers authored/runtime
+  voxel meshes, pixel-level floor and wall behavior, camera movement, grid replacement,
+  runtime clearing, and disposal. Procgen's Voxel 3D and planned CA trace views should
+  keep using `initialGrid`/`setGrid` rather than adding local renderer geometry.
 
 ### `renderer-host.v0` - historical mixed interaction host
 
