@@ -97,6 +97,12 @@ pub trait RuntimeBridge {
         &self,
         request: VoxelMeshEvidenceRequest,
     ) -> BridgeResult<VoxelMeshEvidenceSnapshot>;
+    /// Read the single retained deterministic voxel-work observation associated
+    /// with an exact completed projection cursor.
+    fn read_voxel_update_telemetry(
+        &self,
+        request: VoxelUpdateTelemetryRequest,
+    ) -> BridgeResult<VoxelUpdateTelemetryReadout>;
     /// Plan a bounded static-mesh to voxel conversion through Rust authority.
     /// The request/response are generated protocol DTOs; no Studio-specific
     /// transport or renderer buffer shape crosses this boundary.

@@ -32,6 +32,7 @@ impl EngineBridge {
         let teardown = self.projection.voxel_projector.clear();
         self.projection.pending_voxel_frame.ops.extend(teardown.ops);
         self.projection.voxel_instance_binding = None;
+        self.projection.voxel_update_telemetry = VoxelUpdateTelemetryState::default();
         self.voxel.voxel_edit_history = Some(AuthorityVoxelEditHistory::new(world.clone()));
         self.voxel.voxel = Some(world);
         self.voxel.collision_world_offset = collision_world_offset;
@@ -118,6 +119,7 @@ impl EngineBridge {
         }
 
         let mut next_history = current_history;
+        let touched_voxels = receipt.touched_voxels;
         next_history
             .append_accepted(receipt)
             .map_err(Self::voxel_edit_history_error)?;
@@ -131,6 +133,16 @@ impl EngineBridge {
         self.remember_active_voxel_model_edits(&accepted_commands, &current_world, &next_world);
         self.voxel.voxel = Some(next_world);
         self.voxel.voxel_edit_history = Some(next_history);
+        let telemetry = &mut self.projection.voxel_update_telemetry;
+        telemetry.pending_committed_command_batches = telemetry
+            .pending_committed_command_batches
+            .saturating_add(1);
+        telemetry.pending_accepted_commands = telemetry
+            .pending_accepted_commands
+            .saturating_add(u64::from(result.accepted));
+        telemetry.pending_touched_voxels = telemetry
+            .pending_touched_voxels
+            .saturating_add(touched_voxels);
         Ok(result)
     }
 

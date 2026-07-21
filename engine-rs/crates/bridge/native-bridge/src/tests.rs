@@ -53,6 +53,16 @@ fn raw_json_entrypoints_reject_unknown_fields_before_domain_invocation() {
     .expect_err("voxel request must reject unknown fields before handle lookup");
     assert!(voxel.reason.contains("unknown field"));
     assert!(voxel.reason.contains("operation=read_voxel_mesh_evidence"));
+
+    let voxel_telemetry = read_voxel_update_telemetry(
+        0,
+        r#"{"grid":1,"projectionCursor":0,"unknown":true}"#.to_owned(),
+    )
+    .expect_err("voxel telemetry request must reject unknown fields before handle lookup");
+    assert!(voxel_telemetry.reason.contains("unknown field"));
+    assert!(voxel_telemetry
+        .reason
+        .contains("operation=read_voxel_update_telemetry"));
 }
 #[test]
 fn wired_export_set_is_explicit_and_bounded() {
@@ -340,6 +350,17 @@ fn native_bridge_stateful_smoke_uses_bounded_operations() {
 
     let frame = read_render_diffs(handle, 0).expect("render diff read is bounded");
     assert!(frame.contains("replaceMeshPayload"));
+    let voxel_work: serde_json::Value = serde_json::from_str(
+        &read_voxel_update_telemetry(
+            handle,
+            r#"{"grid":1,"projectionCursor":0}"#.to_owned(),
+        )
+        .expect("projection-bound voxel work reads through native transport"),
+    )
+    .expect("voxel update telemetry JSON decodes");
+    assert_eq!(voxel_work["compatibilityVersion"], "voxel-update-telemetry.v0");
+    assert_eq!(voxel_work["projectionCursor"], 0);
+    assert!(voxel_work["residentChunkCount"].as_u64().unwrap() > 0);
 }
 
 

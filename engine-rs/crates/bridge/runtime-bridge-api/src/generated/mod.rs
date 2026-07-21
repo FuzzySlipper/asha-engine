@@ -266,6 +266,17 @@ pub(crate) const GENERATED_BRIDGE_BINDINGS: &[GeneratedBridgeBinding] = &[
         surface: GeneratedBridgeSurface::Stable,
     },
     GeneratedBridgeBinding {
+        manifest_name: "read_voxel_update_telemetry",
+        facade_method: "readVoxelUpdateTelemetry",
+        capability: "voxel_assets_buffers",
+        input: "protocol_telemetry::VoxelUpdateTelemetryRequest",
+        output: "protocol_telemetry::VoxelUpdateTelemetryReadout",
+        errors: "RuntimeBridgeError",
+        max_input_bytes: 8388608,
+        max_output_bytes: 8388608,
+        surface: GeneratedBridgeSurface::Stable,
+    },
+    GeneratedBridgeBinding {
         manifest_name: "plan_voxel_conversion",
         facade_method: "planVoxelConversion",
         capability: "voxel_assets_buffers",

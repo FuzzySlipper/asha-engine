@@ -59,6 +59,8 @@ import type {
   VoxelVolumeAssetSaveRequest,
   VoxelVolumeAuthoringInitializeReceipt,
   VoxelVolumeAuthoringInitializeRequest,
+  VoxelUpdateTelemetryReadout,
+  VoxelUpdateTelemetryRequest,
   WeaponEffectHookRequest,
   GameRuleCatalog,
   GameRuleResolutionRequest,
@@ -343,6 +345,11 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       sessionHashBefore: before,
       sessionHashAfter: this.#sessionHash(),
     };
+  }
+
+  readVoxelUpdateTelemetry(request: VoxelUpdateTelemetryRequest): VoxelUpdateTelemetryReadout {
+    this.#requireInitialized('readVoxelUpdateTelemetry');
+    return this.#bridge.readVoxelUpdateTelemetry(request);
   }
 
   tick(input: RuntimeSessionTickInput = {}): RuntimeSessionTickResult {

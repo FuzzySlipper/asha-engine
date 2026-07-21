@@ -272,6 +272,37 @@ impl RuntimeBridge for EngineBridge {
         })
     }
 
+    fn read_voxel_update_telemetry(
+        &self,
+        request: VoxelUpdateTelemetryRequest,
+    ) -> BridgeResult<VoxelUpdateTelemetryReadout> {
+        self.require_runtime_or_workspace_authoring("read_voxel_update_telemetry")?;
+        let readout = self
+            .projection
+            .voxel_update_telemetry
+            .latest
+            .as_ref()
+            .ok_or_else(|| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::NotInitialized,
+                    "voxel update telemetry is unavailable before a projection read",
+                )
+            })?;
+        if request.grid != readout.grid {
+            return Err(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                "voxel update telemetry request targets an unknown grid",
+            ));
+        }
+        if request.projection_cursor != readout.projection_cursor {
+            return Err(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::InvalidInput,
+                "voxel update telemetry cursor is stale or from the future",
+            ));
+        }
+        Ok(readout.clone())
+    }
+
     fn plan_voxel_conversion(
         &mut self,
         request: VoxelConversionPlanRequest,

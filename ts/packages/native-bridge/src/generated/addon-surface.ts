@@ -26,6 +26,7 @@ const GENERATED_NATIVE_ADDON_EXPORT_NAMES = [
   'applyCollisionConstrainedCameraInput',
   'selectVoxel',
   'readVoxelMeshEvidence',
+  'readVoxelUpdateTelemetry',
   'planVoxelConversion',
   'registerVoxelConversionSource',
   'registerVoxelConversionMeshAsset',

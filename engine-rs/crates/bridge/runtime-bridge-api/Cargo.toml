@@ -35,6 +35,7 @@ protocol-game-rules = { path = "../../protocol/protocol-game-rules" }
 protocol-game-extension = { path = "../../protocol/protocol-game-extension" }
 protocol-input = { path = "../../protocol/protocol-input" }
 protocol-time-control = { path = "../../protocol/protocol-time-control" }
+protocol-telemetry = { path = "../../protocol/protocol-telemetry" }
 protocol-voxel-asset = { path = "../../protocol/protocol-voxel-asset" }
 protocol-voxel-annotation = { path = "../../protocol/protocol-voxel-annotation" }
 protocol-voxel-conversion = { path = "../../protocol/protocol-voxel-conversion" }

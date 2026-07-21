@@ -38,6 +38,7 @@ export interface RuntimeVoxelAssetBufferPort {
   pickVoxelInstance(input: Contracts.VoxelInstancePickRequest): Contracts.VoxelInstancePickResult;
   selectVoxel(input: Contracts.ScreenPointToPickRayRequest): Contracts.VoxelSelectionSnapshot;
   readVoxelMeshEvidence(input: Bridge.VoxelMeshEvidenceRequest): Bridge.VoxelMeshEvidenceSnapshot;
+  readVoxelUpdateTelemetry(input: Contracts.VoxelUpdateTelemetryRequest): Contracts.VoxelUpdateTelemetryReadout;
   planVoxelConversion(input: Contracts.VoxelConversionPlanRequest): Contracts.VoxelConversionPlan;
   registerVoxelConversionSource(input: Contracts.VoxelConversionSourceRegistrationRequest): Contracts.VoxelConversionSourceRegistration;
   registerVoxelConversionMeshAsset(input: Contracts.VoxelConversionMeshAssetRegistrationRequest): Contracts.VoxelConversionSourceRegistration;

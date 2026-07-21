@@ -70,6 +70,16 @@ pub enum VoxelProjectionDiagnostic {
     MeshOverflow { coord: ChunkCoord, vertices: u64 },
 }
 
+/// Deterministic structural work produced while draining one dirty-chunk batch.
+/// This is projection instrumentation only; it contains no authority storage or
+/// mutable scheduler state.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VoxelProjectionWork {
+    pub frame: RenderFrameDiff,
+    pub projected_chunk_count: u64,
+    pub remeshed_chunk_count: u64,
+}
+
 /// Renderer-neutral binding for one projected use of a voxel asset.
 ///
 /// Voxel cell and chunk coordinates remain asset-local. The scene transform is
@@ -254,7 +264,8 @@ impl<S: ChunkMeshStrategy> VoxelChunkProjector<S> {
                     self.create_instance(instance, &mut frame);
                     let coords: Vec<_> = world.resident_chunks().map(|(coord, _)| coord).collect();
                     for coord in coords {
-                        self.project_one_for_instance(world, instance_id, coord, &mut frame);
+                        let _ =
+                            self.project_one_for_instance(world, instance_id, coord, &mut frame);
                     }
                 }
             }
@@ -289,29 +300,60 @@ impl<S: ChunkMeshStrategy> VoxelChunkProjector<S> {
     /// into render diffs. Deterministic: the dirty set drains in ascending coord
     /// order, so diffs are ordered and reproducible.
     pub fn project_dirty(&mut self, world: &mut VoxelWorld) -> RenderFrameDiff {
+        self.project_dirty_with_work(world).frame
+    }
+
+    /// Drain and project dirty chunks while returning deterministic aggregate
+    /// counts for bounded public diagnostics.
+    pub fn project_dirty_with_work(&mut self, world: &mut VoxelWorld) -> VoxelProjectionWork {
         let mut frame = self.ensure_default_instance();
         let dirty = world.drain_dirty();
-        frame.ops.extend(self.project_coords(world, &dirty).ops);
-        frame
+        let projected = self.project_coords_with_work(world, &dirty);
+        frame.ops.extend(projected.frame.ops);
+        VoxelProjectionWork {
+            frame,
+            projected_chunk_count: projected.projected_chunk_count,
+            remeshed_chunk_count: projected.remeshed_chunk_count,
+        }
     }
 
     /// Project a specific set of chunk coords (e.g. an initial full projection)
     /// without consuming the dirty set. Coords are de-duplicated and visited in
     /// ascending order.
     pub fn project_coords(&mut self, world: &VoxelWorld, coords: &[ChunkCoord]) -> RenderFrameDiff {
+        self.project_coords_with_work(world, coords).frame
+    }
+
+    fn project_coords_with_work(
+        &mut self,
+        world: &VoxelWorld,
+        coords: &[ChunkCoord],
+    ) -> VoxelProjectionWork {
         self.diagnostics.clear();
         let mut ordered: Vec<ChunkCoord> = coords.to_vec();
         ordered.sort();
         ordered.dedup();
 
         let mut frame = self.ensure_default_instance();
+        let projected_chunk_count = ordered.len().min(u64::MAX as usize) as u64;
+        let mut remeshed_chunk_count = 0_u64;
         for coord in ordered {
             let instance_ids: Vec<String> = self.instances.keys().cloned().collect();
+            let mut remeshed = false;
             for instance_id in instance_ids {
-                self.project_one_for_instance(world, &instance_id, coord, &mut frame);
+                if self.project_one_for_instance(world, &instance_id, coord, &mut frame) {
+                    remeshed = true;
+                }
+            }
+            if remeshed {
+                remeshed_chunk_count = remeshed_chunk_count.saturating_add(1);
             }
         }
-        frame
+        VoxelProjectionWork {
+            frame,
+            projected_chunk_count,
+            remeshed_chunk_count,
+        }
     }
 
     fn project_one_for_instance(
@@ -320,8 +362,10 @@ impl<S: ChunkMeshStrategy> VoxelChunkProjector<S> {
         instance_id: &str,
         coord: ChunkCoord,
         frame: &mut RenderFrameDiff,
-    ) {
-        let mesh = match self.strategy.mesh(world, coord) {
+    ) -> bool {
+        let mesh_result = self.strategy.mesh(world, coord);
+        let remeshed = mesh_result.is_some();
+        let mesh = match mesh_result {
             Some(Ok(m)) if !m.indices.is_empty() => Some(m),
             // Resident but no visible geometry (empty chunk / fully culled) → treat
             // like an absent chunk: destroy any prior handle.
@@ -358,6 +402,7 @@ impl<S: ChunkMeshStrategy> VoxelChunkProjector<S> {
                 }
             }
         }
+        remeshed
     }
 
     fn allocate_handle(&mut self) -> RenderHandle {

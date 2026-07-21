@@ -945,6 +945,15 @@ Additive editor viewport in #5741:
   existing buffer source make live voxel remesh projection inspectable without
   importing renderer internals or treating renderer state as authority. Procgen
   should clear the runtime channel on run restart or project switch.
+- #6040 adds generated `VoxelUpdateTelemetryRequest` and
+  `VoxelUpdateTelemetryReadout` contracts plus
+  `RuntimeSessionFacade.readVoxelUpdateTelemetry`. Rust retains exactly one
+  projection-bound structural observation covering accepted command batches,
+  touched voxels, resident/dirty/projected/remeshed chunks, emitted mesh/render
+  operations, and remaining dirty work. Exact cursor and grid binding rejects
+  stale or unrelated reads; the surface exposes neither storage internals nor
+  authoritative timing. Procgen should correlate it with command receipts,
+  `readProjection`, and `readVoxelMeshEvidence` through package-root imports.
 
 ### `renderer-host.v0` - historical mixed interaction host
 

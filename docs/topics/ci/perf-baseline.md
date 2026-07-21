@@ -105,6 +105,39 @@ ballpark host/browser/GPU sanity notes (for example MotionMark/Basemark-style sc
 small local reference scenes), but they are **not** acceptance criteria and must not block
 merge/review by default. Omit them freely; omission is not a failure.
 
+## Native voxel update telemetry
+
+Rust-backed sessions expose one bounded, projection-bound structural observation through
+`RuntimeSessionFacade.readVoxelUpdateTelemetry({ grid, projectionCursor })`. The request
+must name the exact cursor returned by `readProjection()`. A stale or future cursor, a
+different grid, or a read before the first projection fails closed. The bridge retains
+only the latest observation; it does not accumulate a telemetry log.
+Engine initialization, project replacement/close, and workspace-authoring replacement
+clear the retained observation and pending counters.
+
+The readout separates the work leading to that projection:
+
+- committed command batches, accepted commands, and estimated touched voxels since the
+  previous projection;
+- resident chunks, chunks dirtied, projected, and remeshed;
+- emitted mesh payloads, total render operations, and dirty chunks still pending after
+  projection.
+
+These are structural counters for diagnosing edit-to-projection behavior. They are not
+authority hashes, replay evidence, correctness goldens, or storage-layout readback.
+There are deliberately no elapsed-time fields: host timing is non-deterministic and
+belongs in the existing same-machine trend record above. Reading telemetry is
+non-consuming; a later projection deterministically replaces the retained observation.
+
+### Procgen adoption handback
+
+For a native Procgen edit probe, retain the command receipt, call `readProjection()`
+once, then query `readVoxelUpdateTelemetry` with the selected grid and the returned
+projection cursor. Correlate affected chunks with `readVoxelMeshEvidence`; do not infer
+meshing work from renderer-private objects. Record the engine commit and stable host
+label beside any external timing, compare only same-host trends, and keep these metrics
+diagnostic rather than making them delivery proof or a default CI budget.
+
 ## Output
 
 Written under `harness/perf-out/` (gitignored — it is per-host trend data, not a golden):
@@ -154,10 +187,10 @@ artifact trend monitoring on a chosen baseline host.
 ## Limitations
 
 - **Reference baseline by default.** The default run uses the deterministic mock facade,
-  so it measures the TS launch/edit/render/save loop, not Rust authority compute. Some
-  suggested metrics (dirty-chunk counts, per-chunk meshing time) are not observable
-  through the facade in reference mode and are therefore not recorded; they become
-  available only when the authority/native path exposes them.
+  so it measures the TS launch/edit/render/save loop, not Rust authority compute. Native
+  structural metrics are mirrored by the reference facade for contract testing, but
+  only the Rust-backed `readVoxelUpdateTelemetry` path reports actual authority and
+  projection work. Neither path reports per-chunk elapsed time.
 - **No GPU / no pixel work.** `ThreeRenderer` runs headless (structural scene graph only),
   so renderer timings reflect retained-mode bookkeeping, not real draw cost.
 - **GPU lane is operator-supplied context.** The optional GPU/WebGL command records the

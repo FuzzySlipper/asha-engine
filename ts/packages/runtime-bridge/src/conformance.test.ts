@@ -528,6 +528,42 @@ void test('mock: readVoxelMeshEvidence returns compact chunk evidence and fails 
   assert.equal(snapshot.chunks[0]?.meshHash, 'fnv1a64:mock-mesh');
 });
 
+void test('mock: voxel update telemetry is bounded to the latest projection cursor', () => {
+  const bridge = createMockRuntimeBridge();
+  bridge.initializeEngine({ seed: 1 });
+  assert.throws(
+    () => bridge.readVoxelUpdateTelemetry({ grid: 1, projectionCursor: 0 }),
+    (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'not_initialized',
+  );
+  bridge.submitCommands({
+    commands: [{
+      op: 'setVoxel',
+      grid: 1,
+      coord: { x: 0, y: 0, z: 0 },
+      value: { kind: 'solid', material: 1 },
+    }],
+  });
+  bridge.readRenderDiffs(frameCursor(4));
+  const readout = bridge.readVoxelUpdateTelemetry({ grid: 1, projectionCursor: 4 });
+  assert.equal(readout.compatibilityVersion, 'voxel-update-telemetry.v0');
+  assert.equal(readout.committedCommandBatchCount, 1);
+  assert.equal(readout.acceptedCommandCount, 1);
+  assert.equal(readout.touchedVoxelCount, 1);
+  assert.equal(readout.pendingDirtyChunkCount, 0);
+  assert.throws(
+    () => bridge.readVoxelUpdateTelemetry({ grid: 1, projectionCursor: 3 }),
+    (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'invalid_input',
+  );
+  assert.throws(
+    () => bridge.readVoxelUpdateTelemetry({ grid: 1, projectionCursor: 5 }),
+    (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'invalid_input',
+  );
+  assert.throws(
+    () => bridge.readVoxelUpdateTelemetry({ grid: 2, projectionCursor: 4 }),
+    (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'invalid_input',
+  );
+});
+
 void test('mock: pickVoxel before init fails closed', () => {
   const bridge = createMockRuntimeBridge();
   assert.throws(

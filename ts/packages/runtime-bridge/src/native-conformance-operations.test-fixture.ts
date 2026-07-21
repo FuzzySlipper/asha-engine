@@ -14,6 +14,7 @@ export const REQUIRED_NATIVE_CONFORMANCE_OPS = [
   'read_active_runtime_project_content',
   'close_runtime_project',
   'submit_commands',
+  'read_voxel_update_telemetry',
   'configure_voxel_projection_instances',
   'pick_voxel_instance',
   'step_simulation',

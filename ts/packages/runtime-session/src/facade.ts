@@ -68,6 +68,8 @@ import type {
   VoxelVolumeAssetSaveRequest,
   VoxelVolumeAuthoringInitializeReceipt,
   VoxelVolumeAuthoringInitializeRequest,
+  VoxelUpdateTelemetryReadout,
+  VoxelUpdateTelemetryRequest,
   WeaponEffectHookRequest,
   RawInputSample,
   RecordedInputAction,
@@ -146,6 +148,7 @@ export interface RuntimeSessionFacade {
   decodeSceneDocument(request: SceneDocumentDecodeRequest): SceneDocumentCodecResult;
   encodeSceneDocument(request: SceneDocumentEncodeRequest): SceneDocumentCodecResult;
   submitCommands(batch: CommandBatch): RuntimeSessionCommandReceipt;
+  readVoxelUpdateTelemetry(request: VoxelUpdateTelemetryRequest): VoxelUpdateTelemetryReadout;
   tick(input?: RuntimeSessionTickInput): RuntimeSessionTickResult;
   createCamera(request: CameraCreateRequest): RuntimeSessionCameraCreateReceipt;
   applyCameraModeCommand(command: CameraModeCommand): CameraModeChangeReceipt;

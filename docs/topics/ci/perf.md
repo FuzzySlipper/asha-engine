@@ -18,3 +18,6 @@ ASHA_PERF_HOST=<stable-host-label> pnpm --filter @asha/smoke dev:asha-perf
 ```
 
 See `topics/ci/perf-baseline.md` for field stability, output paths, and known limitations.
+That document also defines the bounded native `readVoxelUpdateTelemetry` workflow for
+correlating command, dirty-chunk, remesh, render-op, and mesh-evidence structure without
+turning host timing into authority or a default CI threshold.

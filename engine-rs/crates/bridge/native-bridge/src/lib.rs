@@ -118,7 +118,7 @@ pub use voxel_assets::{
 };
 pub use voxel_readout::{
     configure_voxel_projection_instances, pick_voxel, pick_voxel_instance,
-    read_voxel_mesh_evidence, select_voxel,
+    read_voxel_mesh_evidence, read_voxel_update_telemetry, select_voxel,
 };
 pub use voxel_rejections::NativeCommandResult;
 

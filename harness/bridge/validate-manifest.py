@@ -82,6 +82,7 @@ PROTOCOL_MODULE_TO_GENERATED_FILE = {
     "protocol_presentation": "presentation.ts",
     "protocol_replay": "replay.ts",
     "protocol_scene": "scene.ts",
+    "protocol_telemetry": "telemetry.ts",
     "protocol_view": "view.ts",
     "protocol_voxel": "voxel.ts",
     "protocol_voxel_annotation": "voxelAnnotation.ts",

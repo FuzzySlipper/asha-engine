@@ -5,6 +5,8 @@ pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
         interface_coverage_key("telemetry", "LiveTelemetryMetric"),
         interface_coverage_key("telemetry", "LiveTelemetryDiagnostic"),
         interface_coverage_key("telemetry", "LiveTelemetrySnapshot"),
+        interface_coverage_key("telemetry", "VoxelUpdateTelemetryRequest"),
+        interface_coverage_key("telemetry", "VoxelUpdateTelemetryReadout"),
     ]);
 }
 
@@ -13,8 +15,10 @@ fn telemetry_rust_serialization_matches_ir_shape() {
     use protocol_telemetry::{
         LiveTelemetryCounter, LiveTelemetryDiagnostic, LiveTelemetryDiagnosticCode,
         LiveTelemetryMetric, LiveTelemetrySnapshot, TelemetryEnvelope, TelemetryEvent,
-        TelemetryLevel, TelemetryMetric, TelemetryMetricKind, TelemetrySource, TELEMETRY_LEVELS,
-        TELEMETRY_METRIC_KINDS, TELEMETRY_SOURCES,
+        TelemetryLevel, TelemetryMetric, TelemetryMetricKind, TelemetrySource,
+        VoxelUpdateTelemetryReadout, VoxelUpdateTelemetryRequest, TELEMETRY_LEVELS,
+        TELEMETRY_METRIC_KINDS, TELEMETRY_SOURCES, VOXEL_UPDATE_TELEMETRY_COMPATIBILITY_VERSION,
+        VOXEL_UPDATE_TELEMETRY_SCHEMA_VERSION,
     };
 
     let telemetry = module("telemetry");
@@ -117,4 +121,35 @@ fn telemetry_rust_serialization_matches_ir_shape() {
         &snapshot["diagnostics"][0],
     )
     .unwrap();
+
+    let voxel_request = serde_json::to_value(VoxelUpdateTelemetryRequest {
+        grid: 1,
+        projection_cursor: 4,
+    })
+    .unwrap();
+    compare_object_to_interface(&telemetry, "VoxelUpdateTelemetryRequest", &voxel_request).unwrap();
+    let voxel_readout = serde_json::to_value(VoxelUpdateTelemetryReadout {
+        schema_version: VOXEL_UPDATE_TELEMETRY_SCHEMA_VERSION,
+        compatibility_version: VOXEL_UPDATE_TELEMETRY_COMPATIBILITY_VERSION.to_owned(),
+        grid: 1,
+        projection_cursor: 4,
+        authority_tick: 9,
+        committed_command_batch_count: 2,
+        accepted_command_count: 3,
+        touched_voxel_count: 5,
+        resident_chunk_count: 2,
+        chunks_dirtied: 2,
+        chunks_projected: 2,
+        chunks_remeshed: 2,
+        emitted_mesh_count: 2,
+        emitted_render_op_count: 3,
+        pending_dirty_chunk_count: 0,
+    })
+    .unwrap();
+    compare_object_to_interface(&telemetry, "VoxelUpdateTelemetryReadout", &voxel_readout).unwrap();
+    assert_eq!(voxel_readout["schemaVersion"], json!(1));
+    assert_eq!(
+        voxel_readout["compatibilityVersion"],
+        json!("voxel-update-telemetry.v0")
+    );
 }

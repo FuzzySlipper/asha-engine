@@ -110,6 +110,10 @@ pub use protocol_scene::{
     SceneObjectCommandResultDto, SceneObjectRecordDto, SceneObjectSnapshotDto, SceneTransformDto,
     SceneValidationCode, SceneValidationErrorDto, SceneValidationReportDto,
 };
+pub use protocol_telemetry::{
+    VoxelUpdateTelemetryReadout, VoxelUpdateTelemetryRequest,
+    VOXEL_UPDATE_TELEMETRY_COMPATIBILITY_VERSION, VOXEL_UPDATE_TELEMETRY_SCHEMA_VERSION,
+};
 pub use protocol_time_control::{
     TimeControlCommand, TimeControlMode, TimeControlReceipt, TimeControlRejection,
     TimeControlState, TIME_CONTROL_STATE_SCHEMA_VERSION,

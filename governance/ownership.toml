@@ -824,6 +824,8 @@ lane = "rust-bridge"
 # invokes the public game-rule-extension trait for declared game-owned modules (#4517),
 # and routes RuntimeSession voxel conversion through generated diagnostics/DTOs
 # plus svc-voxel-conversion while preserving command-based authority apply (#4479).
+# Projection-bound voxel work telemetry crosses through the generated
+# protocol-telemetry contract without exposing authority storage (#6040).
 # Voxel-volume asset export/load/save routes generated stored-asset DTOs through
 # svc-voxel-asset validation/canonical hashing at the RuntimeSession bridge (#4908).
 # The game-rules RuntimeSession verbs added in #4531 route generated
@@ -845,7 +847,7 @@ lane = "rust-bridge"
 # The gameplay-module-sdk edge is dev-only and constructs one real downstream
 # provider for the deferred-admission integration test; production composition
 # continues to enter through gameplay-runtime-host's opaque static composition.
-may_depend_on = ["core-ids", "core-error", "core-math", "core-assets", "core-space", "core-voxel", "core-catalog", "core-commands", "core-entity", "core-scene", "sim-runner", "svc-spatial", "svc-volume", "svc-collision", "svc-mesh", "svc-mesh-import", "svc-serialization", "svc-project-content", "svc-environment-authoring", "svc-pathfinding", "svc-combat", "svc-levelgen", "svc-voxel-conversion", "svc-voxel-asset", "svc-voxel-annotation", "svc-game-rules", "rule-voxel-edit", "rule-lifecycle", "rule-input", "rule-gameplay-fabric", "rule-project-bundle", "gameplay-module-sdk", "gameplay-runtime-host", "rule-animation-controller", "game-rule-extension", "render-bridge", "render-audio", "render-billboard", "render-particle", "render-animation", "render-telemetry-overlay", "protocol-assets", "protocol-diagnostics", "protocol-scene", "protocol-project-bundle", "protocol-project-content", "protocol-view", "protocol-render", "protocol-presentation", "protocol-script", "protocol-replay", "protocol-input", "protocol-time-control", "protocol-entity-authoring", "protocol-voxel-conversion", "protocol-voxel-asset", "protocol-voxel-annotation", "protocol-voxel-edit-history", "protocol-game-rules", "protocol-game-extension"]
+may_depend_on = ["core-ids", "core-error", "core-math", "core-assets", "core-space", "core-voxel", "core-catalog", "core-commands", "core-entity", "core-scene", "sim-runner", "svc-spatial", "svc-volume", "svc-collision", "svc-mesh", "svc-mesh-import", "svc-serialization", "svc-project-content", "svc-environment-authoring", "svc-pathfinding", "svc-combat", "svc-levelgen", "svc-voxel-conversion", "svc-voxel-asset", "svc-voxel-annotation", "svc-game-rules", "rule-voxel-edit", "rule-lifecycle", "rule-input", "rule-gameplay-fabric", "rule-project-bundle", "gameplay-module-sdk", "gameplay-runtime-host", "rule-animation-controller", "game-rule-extension", "render-bridge", "render-audio", "render-billboard", "render-particle", "render-animation", "render-telemetry-overlay", "protocol-assets", "protocol-diagnostics", "protocol-scene", "protocol-project-bundle", "protocol-project-content", "protocol-view", "protocol-render", "protocol-presentation", "protocol-script", "protocol-replay", "protocol-telemetry", "protocol-input", "protocol-time-control", "protocol-entity-authoring", "protocol-voxel-conversion", "protocol-voxel-asset", "protocol-voxel-annotation", "protocol-voxel-edit-history", "protocol-game-rules", "protocol-game-extension"]
 may_not_depend_on = ["napi", "wasm-bindgen"]
 
 [crate."engine-rs/crates/bridge/native-bridge"]

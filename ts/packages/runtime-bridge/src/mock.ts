@@ -27,6 +27,8 @@ import type {
   VoxelInstancePickResult,
   VoxelProjectionBindingRequest,
   VoxelProjectionBindingReceipt,
+  VoxelUpdateTelemetryReadout,
+  VoxelUpdateTelemetryRequest,
   RenderFrameDiff,
   RuntimeProjectionFrame,
   TimeControlCommand,
@@ -357,6 +359,15 @@ function poseWithAxis(pose: CameraSnapshot['pose'], axis: number, value: number)
   };
 }
 
+function mockCommandTouchedVoxelCount(command: CommandBatch['commands'][number]): number {
+  if (command.op === 'setVoxel') return 1;
+  if (command.op === 'generateChunk') return 16 * 16 * 16;
+  const x = Math.max(0, command.max.x - command.min.x);
+  const y = Math.max(0, command.max.y - command.min.y);
+  const z = Math.max(0, command.max.z - command.min.z);
+  return x * y * z;
+}
+
 export class MockRuntimeBridge implements RuntimeBridge, WorkspaceAuthoringOpenAdapterTransport {
   #engine: EngineHandle | null = null;
   #buffer: Uint8Array = new Uint8Array();
@@ -374,6 +385,10 @@ export class MockRuntimeBridge implements RuntimeBridge, WorkspaceAuthoringOpenA
   #workspaceAuthoringGeneration = 0;
   #workspaceAuthoringState: WorkspaceAuthoringContractStateSummary | null = null;
   #workspaceAuthoringCursor = 0;
+  #voxelTelemetryPendingBatches = 0;
+  #voxelTelemetryPendingAcceptedCommands = 0;
+  #voxelTelemetryPendingTouchedVoxels = 0;
+  #voxelTelemetryLatest: VoxelUpdateTelemetryReadout | null = null;
   readonly #runtimeProjects = new MockRuntimeProjectLifecycle();
 
   #unsupportedAfterInit(method: string, message: string): never {
@@ -400,6 +415,10 @@ export class MockRuntimeBridge implements RuntimeBridge, WorkspaceAuthoringOpenA
     this.#inputSession.initialize();
     this.#timeController.initialize();
     this.#runtimeProjects.reset();
+    this.#voxelTelemetryPendingBatches = 0;
+    this.#voxelTelemetryPendingAcceptedCommands = 0;
+    this.#voxelTelemetryPendingTouchedVoxels = 0;
+    this.#voxelTelemetryLatest = null;
     return handle;
   }
 
@@ -824,7 +843,14 @@ export class MockRuntimeBridge implements RuntimeBridge, WorkspaceAuthoringOpenA
       rejected: rejections.length,
       rejections,
     };
-    if (result.accepted > 0) this.#recordMockWorkspaceMutation();
+    if (result.accepted > 0) {
+      this.#recordMockWorkspaceMutation();
+      this.#voxelTelemetryPendingBatches += 1;
+      this.#voxelTelemetryPendingAcceptedCommands += result.accepted;
+      this.#voxelTelemetryPendingTouchedVoxels += batch.commands
+        .slice(0, result.accepted)
+        .reduce((total, command) => total + mockCommandTouchedVoxelCount(command), 0);
+    }
     return result;
   }
 
@@ -1065,6 +1091,23 @@ export class MockRuntimeBridge implements RuntimeBridge, WorkspaceAuthoringOpenA
     };
   }
 
+  readVoxelUpdateTelemetry(request: VoxelUpdateTelemetryRequest): VoxelUpdateTelemetryReadout {
+    if (this.#engine === null && this.#workspaceAuthoringState?.status !== 'open') {
+      throw new RuntimeBridgeError('not_initialized', 'readVoxelUpdateTelemetry before initializeEngine');
+    }
+    const latest = this.#voxelTelemetryLatest;
+    if (latest === null) {
+      throw new RuntimeBridgeError('not_initialized', 'voxel update telemetry before projection read');
+    }
+    if (request.grid !== latest.grid) {
+      throw new RuntimeBridgeError('invalid_input', 'voxel update telemetry request targets an unknown grid');
+    }
+    if (request.projectionCursor !== latest.projectionCursor) {
+      throw new RuntimeBridgeError('invalid_input', 'voxel update telemetry cursor is stale or from the future');
+    }
+    return structuredClone(latest);
+  }
+
   planVoxelConversion(_request: VoxelConversionPlanRequest): VoxelConversionPlan {
     void _request;
     if (this.#engine === null) {
@@ -1277,6 +1320,35 @@ export class MockRuntimeBridge implements RuntimeBridge, WorkspaceAuthoringOpenA
     if (!Number.isInteger(cursor as number) || (cursor as number) < 0) {
       throw new RuntimeBridgeError('invalid_input', `frame cursor must be a non-negative integer`);
     }
+    if (
+      this.#voxelTelemetryLatest?.projectionCursor === cursor as number
+      && this.#voxelTelemetryPendingBatches === 0
+      && this.#voxelTelemetryPendingAcceptedCommands === 0
+      && this.#voxelTelemetryPendingTouchedVoxels === 0
+    ) {
+      return { ops: [] };
+    }
+    const changed = this.#voxelTelemetryPendingAcceptedCommands > 0;
+    this.#voxelTelemetryLatest = {
+      schemaVersion: 1,
+      compatibilityVersion: 'voxel-update-telemetry.v0',
+      grid: 1,
+      projectionCursor: cursor as number,
+      authorityTick: cursor as number,
+      committedCommandBatchCount: this.#voxelTelemetryPendingBatches,
+      acceptedCommandCount: this.#voxelTelemetryPendingAcceptedCommands,
+      touchedVoxelCount: this.#voxelTelemetryPendingTouchedVoxels,
+      residentChunkCount: 1,
+      chunksDirtied: changed ? 1 : 0,
+      chunksProjected: changed ? 1 : 0,
+      chunksRemeshed: 0,
+      emittedMeshCount: 0,
+      emittedRenderOpCount: 0,
+      pendingDirtyChunkCount: 0,
+    };
+    this.#voxelTelemetryPendingBatches = 0;
+    this.#voxelTelemetryPendingAcceptedCommands = 0;
+    this.#voxelTelemetryPendingTouchedVoxels = 0;
     return { ops: [] };
   }
 

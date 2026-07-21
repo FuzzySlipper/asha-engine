@@ -107,6 +107,12 @@ pub(crate) const REQUIRED_NATIVE_EXPORTS: &[(&str, &str, usize, usize)] = &[
         8388608,
     ),
     (
+        "read_voxel_update_telemetry",
+        "readVoxelUpdateTelemetry",
+        8388608,
+        8388608,
+    ),
+    (
         "plan_voxel_conversion",
         "planVoxelConversion",
         8388608,

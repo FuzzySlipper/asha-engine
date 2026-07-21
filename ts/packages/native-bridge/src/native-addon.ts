@@ -253,6 +253,7 @@ interface NativeAddonBindings {
   pickVoxelInstance(handle: number, requestJson: string): string;
   selectVoxel(handle: number, requestJson: string): string;
   readVoxelMeshEvidence(handle: number, requestJson: string): string;
+  readVoxelUpdateTelemetry(handle: number, requestJson: string): string;
   getBuffer(handle: number, bufferHandle: number): {
     readonly handle: number;
     readonly bytes: readonly number[];

@@ -1009,7 +1009,7 @@ const MODULE_PLANS: &[ModulePlan] = &[
         name: "telemetry",
         preferred_paths: &["protocol/protocol-telemetry"],
         imports: &[],
-        declarations: "type:TelemetrySource type:TelemetryLevel type:TelemetryMetricKind type:TelemetryMetric type:TelemetryEvent:TelemetryEvent:kind type:TelemetryEnvelope type:LiveTelemetryCounter type:LiveTelemetryMetric type:LiveTelemetryDiagnosticCode type:LiveTelemetryDiagnostic type:LiveTelemetrySnapshot",
+        declarations: "const:VOXEL_UPDATE_TELEMETRY_COMPATIBILITY_VERSION const:VOXEL_UPDATE_TELEMETRY_SCHEMA_VERSION type:TelemetrySource type:TelemetryLevel type:TelemetryMetricKind type:TelemetryMetric type:TelemetryEvent:TelemetryEvent:kind type:TelemetryEnvelope type:LiveTelemetryCounter type:LiveTelemetryMetric type:LiveTelemetryDiagnosticCode type:LiveTelemetryDiagnostic type:LiveTelemetrySnapshot type:VoxelUpdateTelemetryRequest type:VoxelUpdateTelemetryReadout",
     },
     ModulePlan {
         name: "input",

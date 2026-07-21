@@ -132,6 +132,10 @@ export function createNativeOperationInvocations(
       maxDistance: 10,
     })],
     ['readVoxelMeshEvidence', (bridge) => bridge.readVoxelMeshEvidence({ grid: 1, chunks: [] })],
+    ['readVoxelUpdateTelemetry', (bridge) => {
+      bridge.readRenderDiffs(frameCursor(0));
+      return bridge.readVoxelUpdateTelemetry({ grid: 1, projectionCursor: 0 });
+    }],
     ['readFpsRuntimeSession', (bridge) => bridge.readFpsRuntimeSession()],
     ['applyFpsPrimaryFire', (bridge) => bridge.applyFpsPrimaryFire({ tick: 9, origin: [2.5, 1.5, 1.5], direction: [0, 0, 1] })],
     ['readComposedRuntimeSession', (bridge) => bridge.readComposedRuntimeSession()],

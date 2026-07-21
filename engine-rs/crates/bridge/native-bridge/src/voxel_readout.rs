@@ -8,7 +8,7 @@ use runtime_bridge_api::{
     PickRay, PickResult, RuntimeBridge, RuntimeBridgeError, RuntimeBridgeErrorKind,
     SceneTransformDto, VoxelInstancePickHint, VoxelInstancePickOutcome, VoxelInstancePickRejection,
     VoxelInstancePickRequest, VoxelMeshEvidenceRequest, VoxelProjectionBindingRequest,
-    VoxelProjectionInstanceBinding,
+    VoxelProjectionInstanceBinding, VoxelUpdateTelemetryRequest,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -422,5 +422,21 @@ pub fn read_voxel_mesh_evidence(handle: i64, request_json: String) -> napi::Resu
             }),
             "voxel mesh evidence",
         )
+    })
+}
+
+#[napi]
+pub fn read_voxel_update_telemetry(handle: i64, request_json: String) -> napi::Result<String> {
+    let request =
+        parse_wire_json::<VoxelUpdateTelemetryRequest>("read_voxel_update_telemetry", &request_json)?;
+    with_bridge(handle, |bridge| {
+        let readout = bridge.read_voxel_update_telemetry(request).map_err(to_napi)?;
+        let value = serde_json::to_value(readout).map_err(|error| {
+            to_napi(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::Internal,
+                format!("voxel update telemetry could not be encoded: {error}"),
+            ))
+        })?;
+        encode(value, "voxel update telemetry")
     })
 }

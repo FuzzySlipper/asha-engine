@@ -125,6 +125,11 @@ Rust-capable bridge and `mode: 'rust'`; reference fixtures use
   not through raw bridge transport. See
   [`integrated-feedback-projection.md`](integrated-feedback-projection.md) for
   the composed public-path proof and disposal boundary.
+- `readVoxelUpdateTelemetry(request)`: reads the latest bounded Rust voxel
+  command/dirty/projection/remesh observation for the request's exact grid and
+  projection cursor. Stale, future, wrong-grid, and pre-projection reads fail
+  closed. The structural counters contain no storage internals or authoritative
+  elapsed timing; correlate affected chunks through `readVoxelMeshEvidence`.
 - `readEcrpRuntimeReadout()`: returns live Entity/CapabilityState/event readouts derived from the selected backend. Rust-backed readouts identify `mode: 'rust'`, `source: 'rust_bridge'`, authority surface, and declared read sets.
 - Statically linked gameplay modules are installed by the downstream native
   provider's `DeferredRuntimeSessionBuilder`; saved project bindings and

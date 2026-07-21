@@ -28,6 +28,7 @@ handwritten semantic exports. Quarantined compatibility wiring is explicit.
 | `apply_collision_constrained_camera_input` | `camera` | stable | `protocol_view::CollisionConstrainedCameraInputEnvelope` | `protocol_view::CameraCollisionSnapshot` | `RuntimeBridgeError` |
 | `select_voxel` | `voxel_assets_buffers` | stable | `protocol_view::ScreenPointToPickRayRequest` | `protocol_view::VoxelSelectionSnapshot` | `RuntimeBridgeError` |
 | `read_voxel_mesh_evidence` | `voxel_assets_buffers` | stable | `protocol_render::VoxelMeshEvidenceRequest` | `protocol_render::VoxelMeshEvidenceSnapshot` | `RuntimeBridgeError` |
+| `read_voxel_update_telemetry` | `voxel_assets_buffers` | stable | `protocol_telemetry::VoxelUpdateTelemetryRequest` | `protocol_telemetry::VoxelUpdateTelemetryReadout` | `RuntimeBridgeError` |
 | `plan_voxel_conversion` | `voxel_assets_buffers` | stable | `protocol_voxel_conversion::VoxelConversionPlanRequest` | `protocol_voxel_conversion::VoxelConversionPlan` | `RuntimeBridgeError` |
 | `register_voxel_conversion_source` | `voxel_assets_buffers` | stable | `protocol_voxel_conversion::VoxelConversionSourceRegistrationRequest` | `protocol_voxel_conversion::VoxelConversionSourceRegistration` | `RuntimeBridgeError` |
 | `register_voxel_conversion_mesh_asset` | `voxel_assets_buffers` | stable | `protocol_voxel_conversion::VoxelConversionMeshAssetRegistrationRequest` | `protocol_voxel_conversion::VoxelConversionSourceRegistration` | `RuntimeBridgeError` |

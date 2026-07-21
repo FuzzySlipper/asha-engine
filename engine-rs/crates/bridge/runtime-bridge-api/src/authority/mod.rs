@@ -196,6 +196,15 @@ struct BridgeProjectionState {
     animation_projector: Option<render_animation::AnimationControllerProjector>,
     animation_tick: u64,
     telemetry_overlay_projector: Option<TelemetryOverlayProjector>,
+    voxel_update_telemetry: VoxelUpdateTelemetryState,
+}
+
+#[derive(Debug, Default)]
+struct VoxelUpdateTelemetryState {
+    pending_committed_command_batches: u64,
+    pending_accepted_commands: u64,
+    pending_touched_voxels: u64,
+    latest: Option<VoxelUpdateTelemetryReadout>,
 }
 
 #[derive(Debug, Clone)]

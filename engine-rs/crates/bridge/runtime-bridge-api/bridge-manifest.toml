@@ -71,7 +71,7 @@ runtime_project = "retainedAcrossProjectChanges"
 snapshot_hash = "voxelStateAndResources"
 resource_lifetime = "mixedExplicitAndSession"
 operations = [
-  "submit_commands", "pick_voxel", "configure_voxel_projection_instances", "pick_voxel_instance", "select_voxel", "read_voxel_mesh_evidence",
+  "submit_commands", "pick_voxel", "configure_voxel_projection_instances", "pick_voxel_instance", "select_voxel", "read_voxel_mesh_evidence", "read_voxel_update_telemetry",
   "plan_voxel_conversion", "register_voxel_conversion_source", "register_voxel_conversion_mesh_asset",
   "import_voxel_conversion_mesh_source", "read_voxel_conversion_source_metadata",
   "preview_voxel_conversion", "apply_voxel_conversion", "read_voxel_model_info",
@@ -347,6 +347,14 @@ errors = "RuntimeBridgeError"
 summary = "Read compact deterministic voxel mesh/remesh evidence (world hash, per-chunk content/mesh hashes, stats, material slots) derived from Rust authority and svc-mesh; no renderer internals or inline geometry."
 facade_input = "bridge::VoxelMeshEvidenceRequest"
 facade_output = "bridge::VoxelMeshEvidenceSnapshot"
+
+[[operation]]
+name = "read_voxel_update_telemetry"
+surface = "stable"
+input = "protocol_telemetry::VoxelUpdateTelemetryRequest"
+output = "protocol_telemetry::VoxelUpdateTelemetryReadout"
+errors = "RuntimeBridgeError"
+summary = "Read the latest bounded deterministic voxel command/projection/remesh work counters for an exact projection cursor; no storage internals, mutable handles, elapsed timing, authority hash, or replay identity."
 
 [[operation]]
 name = "plan_voxel_conversion"

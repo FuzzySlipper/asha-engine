@@ -6,6 +6,12 @@
 // Manual edits will be overwritten and are rejected by CI
 // (harness/ci/check-contracts.sh).
 
+// Compatibility marker for projection-bound voxel work observations.
+export const VOXEL_UPDATE_TELEMETRY_COMPATIBILITY_VERSION = "voxel-update-telemetry.v0";
+
+// Wire schema version for [`VoxelUpdateTelemetryReadout`].
+export const VOXEL_UPDATE_TELEMETRY_SCHEMA_VERSION = 1;
+
 // Component that produced an observational telemetry event.
 export type TelemetrySource = 'runtime' | 'policy' | 'renderer' | 'devtools' | 'replay';
 
@@ -61,4 +67,29 @@ export interface LiveTelemetrySnapshot {
   readonly metrics: readonly LiveTelemetryMetric[];
   readonly frameTimeHistoryMs: readonly number[];
   readonly diagnostics: readonly LiveTelemetryDiagnostic[];
+}
+
+// Request the single retained voxel-work observation for an exact projection cursor. Older and future cursors fail closed rather than reading an unbounded event history.
+export interface VoxelUpdateTelemetryRequest {
+  readonly grid: number;
+  readonly projectionCursor: number;
+}
+
+// Deterministic structural work associated with one completed voxel projection read. Timing is intentionally absent: these counters may aid trend analysis but never participate in authority, replay, or correctness decisions.
+export interface VoxelUpdateTelemetryReadout {
+  readonly schemaVersion: number;
+  readonly compatibilityVersion: string;
+  readonly grid: number;
+  readonly projectionCursor: number;
+  readonly authorityTick: number;
+  readonly committedCommandBatchCount: number;
+  readonly acceptedCommandCount: number;
+  readonly touchedVoxelCount: number;
+  readonly residentChunkCount: number;
+  readonly chunksDirtied: number;
+  readonly chunksProjected: number;
+  readonly chunksRemeshed: number;
+  readonly emittedMeshCount: number;
+  readonly emittedRenderOpCount: number;
+  readonly pendingDirtyChunkCount: number;
 }

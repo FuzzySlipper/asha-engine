@@ -103,6 +103,15 @@ void test('generated native input contracts reject scalar and tagged-union drift
     'invalid_input',
     'unknown_field',
   );
+  assertWireRejection(
+    () => validateOperationInput('read_voxel_update_telemetry', {
+      grid: 1,
+      projectionCursor: 0,
+      unknown: true,
+    }),
+    'invalid_input',
+    'unknown_field',
+  );
 });
 
 void test('public native facade carries one bounded stored-scene command and consumes Rust output', () => {
@@ -224,6 +233,28 @@ void test('operation limits and tampered native responses reject with typed evid
       setHash: 'fnv1a64:fixture',
       fieldMetadata: [],
       diagnostics: [],
+    })),
+    'internal',
+    'unknown_field',
+  );
+  assertWireRejection(
+    () => parseOperationOutput('read_voxel_update_telemetry', JSON.stringify({
+      schemaVersion: 1,
+      compatibilityVersion: 'voxel-update-telemetry.v0',
+      grid: 1,
+      projectionCursor: 0,
+      authorityTick: 0,
+      committedCommandBatchCount: 0,
+      acceptedCommandCount: 0,
+      touchedVoxelCount: 0,
+      residentChunkCount: 0,
+      chunksDirtied: 0,
+      chunksProjected: 0,
+      chunksRemeshed: 0,
+      emittedMeshCount: 0,
+      emittedRenderOpCount: 0,
+      pendingDirtyChunkCount: 0,
+      storageInternals: { forbidden: true },
     })),
     'internal',
     'unknown_field',

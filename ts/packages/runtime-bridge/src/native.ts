@@ -22,6 +22,8 @@ import type {
   PickRay,
   VoxelInstancePickRequest,
   VoxelInstancePickResult,
+  VoxelUpdateTelemetryReadout,
+  VoxelUpdateTelemetryRequest,
   VoxelProjectionBindingRequest,
   VoxelProjectionBindingReceipt,
   RenderFrameDiff,
@@ -1357,6 +1359,14 @@ export class NativeRuntimeBridge implements RuntimeBridge, WorkspaceAuthoringOpe
     const handle = this.#requireHandle('readVoxelMeshEvidence');
     const payload = callNative(() => this.#addon.readVoxelMeshEvidence(handle, JSON.stringify(request)));
     return parseNativeJson<VoxelMeshEvidenceSnapshot>(payload, 'voxel mesh evidence snapshot');
+  }
+
+  readVoxelUpdateTelemetry(request: VoxelUpdateTelemetryRequest): VoxelUpdateTelemetryReadout {
+    const handle = this.#requireHandle('readVoxelUpdateTelemetry');
+    const payload = callNative(() =>
+      this.#addon.readVoxelUpdateTelemetry(handle, JSON.stringify(request)),
+    );
+    return parseNativeJson<VoxelUpdateTelemetryReadout>(payload, 'voxel update telemetry readout');
   }
 
   readVoxelEditHistory(request: VoxelEditHistoryReadRequest): VoxelEditHistorySummary {

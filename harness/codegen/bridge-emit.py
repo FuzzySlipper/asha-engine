@@ -45,6 +45,7 @@ PROTOCOL_WIRE_MODULES = {
     "protocol_project_content": "projectContent",
     "protocol_render": "render",
     "protocol_scene": "scene",
+    "protocol_telemetry": "telemetry",
     "protocol_time_control": "timeControl",
     "protocol_view": "view",
     "protocol_voxel": "voxel",

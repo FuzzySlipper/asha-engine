@@ -78,6 +78,7 @@ impl EngineBridge {
         self.projection.voxel_projector = VoxelChunkProjector::default();
         self.projection.pending_voxel_frame = RenderFrameDiff::default();
         self.projection.voxel_instance_binding = None;
+        self.projection.voxel_update_telemetry = VoxelUpdateTelemetryState::default();
 
         let project_content_admission = self
             .gameplay
@@ -202,6 +203,7 @@ impl EngineBridge {
         self.projection.voxel_projector = VoxelChunkProjector::default();
         self.projection.pending_voxel_frame = RenderFrameDiff::default();
         self.projection.voxel_instance_binding = None;
+        self.projection.voxel_update_telemetry = VoxelUpdateTelemetryState::default();
         Ok(WorkspaceAuthoringCloseReceipt {
             kind: "workspace_authoring.close_receipt.v0".to_owned(),
             closed: true,

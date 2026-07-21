@@ -1078,6 +1078,7 @@ dependencies = [
  "protocol-project-content",
  "protocol-render",
  "protocol-scene",
+ "protocol-telemetry",
  "protocol-time-control",
  "protocol-view",
  "protocol-voxel-annotation",

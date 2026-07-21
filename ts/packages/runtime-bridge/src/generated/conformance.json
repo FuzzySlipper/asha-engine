@@ -81,6 +81,7 @@
         "pick_voxel_instance",
         "select_voxel",
         "read_voxel_mesh_evidence",
+        "read_voxel_update_telemetry",
         "plan_voxel_conversion",
         "register_voxel_conversion_source",
         "register_voxel_conversion_mesh_asset",
@@ -745,6 +746,30 @@
       "outputWire": {
         "owner": "custom",
         "name": "VoxelMeshEvidenceSnapshot",
+        "repeated": false
+      },
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "read_voxel_update_telemetry",
+      "facadeMethod": "readVoxelUpdateTelemetry",
+      "capability": "voxel_assets_buffers",
+      "surface": "stable",
+      "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
+      "input": "protocol_telemetry::VoxelUpdateTelemetryRequest",
+      "output": "protocol_telemetry::VoxelUpdateTelemetryReadout",
+      "facadeInput": null,
+      "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "telemetry.VoxelUpdateTelemetryRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "telemetry.VoxelUpdateTelemetryReadout",
         "repeated": false
       },
       "errors": "RuntimeBridgeError"

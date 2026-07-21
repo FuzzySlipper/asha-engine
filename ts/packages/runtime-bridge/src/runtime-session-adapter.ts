@@ -46,6 +46,7 @@ import {
   type VoxelVolumeAssetPaletteUpdateReceipt, type VoxelVolumeAssetPaletteUpdateRequest,
   type VoxelVolumeAssetSaveReceipt, type VoxelVolumeAssetSaveRequest,
   type VoxelVolumeAuthoringInitializeReceipt, type VoxelVolumeAuthoringInitializeRequest,
+  type VoxelUpdateTelemetryReadout, type VoxelUpdateTelemetryRequest,
   type GameRuleCatalog,
   type GameRuleResolutionRequest,
   type InputActionReplayReceipt,
@@ -366,6 +367,11 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
       sessionHashBefore: before,
       sessionHashAfter: this.#sessionHash(),
     };
+  }
+
+  readVoxelUpdateTelemetry(request: VoxelUpdateTelemetryRequest): VoxelUpdateTelemetryReadout {
+    this.#requireInitialized('readVoxelUpdateTelemetry');
+    return this.#bridge.readVoxelUpdateTelemetry(request);
   }
 
   tick(input: RuntimeSessionTickInput = {}): RuntimeSessionTickResult {

@@ -11,6 +11,12 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Compatibility marker for projection-bound voxel work observations.
+pub const VOXEL_UPDATE_TELEMETRY_COMPATIBILITY_VERSION: &str = "voxel-update-telemetry.v0";
+
+/// Wire schema version for [`VoxelUpdateTelemetryReadout`].
+pub const VOXEL_UPDATE_TELEMETRY_SCHEMA_VERSION: u16 = 1;
+
 /// Stable telemetry source strings in declaration order.
 pub const TELEMETRY_SOURCES: &[&str] = &["runtime", "policy", "renderer", "devtools", "replay"];
 
@@ -184,6 +190,39 @@ pub struct LiveTelemetrySnapshot {
     pub metrics: Vec<LiveTelemetryMetric>,
     pub frame_time_history_ms: Vec<f64>,
     pub diagnostics: Vec<LiveTelemetryDiagnostic>,
+}
+
+/// Request the single retained voxel-work observation for an exact projection
+/// cursor. Older and future cursors fail closed rather than reading an
+/// unbounded event history.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct VoxelUpdateTelemetryRequest {
+    pub grid: u64,
+    pub projection_cursor: u64,
+}
+
+/// Deterministic structural work associated with one completed voxel projection
+/// read. Timing is intentionally absent: these counters may aid trend analysis
+/// but never participate in authority, replay, or correctness decisions.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct VoxelUpdateTelemetryReadout {
+    pub schema_version: u16,
+    pub compatibility_version: String,
+    pub grid: u64,
+    pub projection_cursor: u64,
+    pub authority_tick: u64,
+    pub committed_command_batch_count: u64,
+    pub accepted_command_count: u64,
+    pub touched_voxel_count: u64,
+    pub resident_chunk_count: u64,
+    pub chunks_dirtied: u64,
+    pub chunks_projected: u64,
+    pub chunks_remeshed: u64,
+    pub emitted_mesh_count: u64,
+    pub emitted_render_op_count: u64,
+    pub pending_dirty_chunk_count: u64,
 }
 
 #[cfg(test)]

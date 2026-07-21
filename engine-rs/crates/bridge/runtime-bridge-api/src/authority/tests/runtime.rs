@@ -520,6 +520,121 @@ fn mesh_evidence_fails_closed_before_init_and_unknown_grid() {
 }
 
 #[test]
+fn voxel_update_telemetry_is_projection_bound_bounded_and_deterministic() {
+    let mut bridge = init_bridge();
+    assert_eq!(
+        bridge
+            .read_voxel_update_telemetry(VoxelUpdateTelemetryRequest {
+                grid: 1,
+                projection_cursor: 0,
+            })
+            .unwrap_err()
+            .kind,
+        RuntimeBridgeErrorKind::NotInitialized
+    );
+
+    let _initial_projection = bridge.read_render_diffs(0).unwrap();
+    let initial = bridge
+        .read_voxel_update_telemetry(VoxelUpdateTelemetryRequest {
+            grid: 1,
+            projection_cursor: 0,
+        })
+        .unwrap();
+    assert_eq!(initial.schema_version, 1);
+    assert_eq!(
+        initial.compatibility_version,
+        VOXEL_UPDATE_TELEMETRY_COMPATIBILITY_VERSION
+    );
+    assert_eq!(initial.pending_dirty_chunk_count, 0);
+
+    let edit = bridge
+        .submit_commands(CommandBatch {
+            commands: vec![
+                set_voxel(VoxelCoord::new(1, 1, 1), 2),
+                set_voxel(VoxelCoord::new(2, 1, 1), 2),
+            ],
+        })
+        .unwrap();
+    assert_eq!(edit.accepted, 2);
+    let frame = bridge.read_render_diffs(1).unwrap();
+    let telemetry = bridge
+        .read_voxel_update_telemetry(VoxelUpdateTelemetryRequest {
+            grid: 1,
+            projection_cursor: 1,
+        })
+        .unwrap();
+    assert_eq!(telemetry.authority_tick, 0);
+    assert_eq!(telemetry.committed_command_batch_count, 1);
+    assert_eq!(telemetry.accepted_command_count, 2);
+    assert_eq!(telemetry.touched_voxel_count, 2);
+    assert_eq!(telemetry.resident_chunk_count, 4);
+    assert_eq!(telemetry.chunks_dirtied, 4);
+    assert_eq!(telemetry.chunks_projected, 4);
+    assert_eq!(telemetry.chunks_remeshed, 4);
+    assert_eq!(telemetry.emitted_mesh_count, 4);
+    assert_eq!(telemetry.emitted_render_op_count, frame.ops.len() as u64);
+    assert_eq!(telemetry.pending_dirty_chunk_count, 0);
+    assert_eq!(
+        bridge
+            .read_voxel_update_telemetry(VoxelUpdateTelemetryRequest {
+                grid: 1,
+                projection_cursor: 1,
+            })
+            .unwrap(),
+        telemetry,
+        "reading telemetry does not consume or rotate the retained observation"
+    );
+
+    let mesh = bridge
+        .read_voxel_mesh_evidence(VoxelMeshEvidenceRequest {
+            grid: 1,
+            chunks: Vec::new(),
+        })
+        .unwrap();
+    assert_eq!(mesh.grid, telemetry.grid);
+    assert_eq!(mesh.chunks.len() as u64, telemetry.resident_chunk_count);
+
+    let empty_frame = bridge.read_render_diffs(2).unwrap();
+    assert!(empty_frame.is_empty());
+    let empty = bridge
+        .read_voxel_update_telemetry(VoxelUpdateTelemetryRequest {
+            grid: 1,
+            projection_cursor: 2,
+        })
+        .unwrap();
+    assert_eq!(empty.committed_command_batch_count, 0);
+    assert_eq!(empty.accepted_command_count, 0);
+    assert_eq!(empty.touched_voxel_count, 0);
+    assert_eq!(empty.chunks_dirtied, 0);
+    assert_eq!(empty.chunks_projected, 0);
+    assert_eq!(empty.chunks_remeshed, 0);
+    assert_eq!(empty.emitted_mesh_count, 0);
+
+    for request in [
+        VoxelUpdateTelemetryRequest {
+            grid: 1,
+            projection_cursor: 1,
+        },
+        VoxelUpdateTelemetryRequest {
+            grid: 1,
+            projection_cursor: 3,
+        },
+        VoxelUpdateTelemetryRequest {
+            grid: 999,
+            projection_cursor: 2,
+        },
+    ] {
+        assert_eq!(
+            bridge
+                .read_voxel_update_telemetry(request)
+                .unwrap_err()
+                .kind,
+            RuntimeBridgeErrorKind::InvalidInput
+        );
+    }
+}
+
+#[test]
 fn mixed_batch_classifies_invalid_input_and_withholds_the_valid_peer_atomically() {
     let mut bridge = init_bridge();
     let before = rule_voxel_edit::voxel_world_hash(bridge.voxel.voxel.as_ref().unwrap());

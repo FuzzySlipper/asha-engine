@@ -779,6 +779,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "protocol-telemetry"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "protocol-time-control"
 version = "0.1.0"
 dependencies = [
@@ -1101,6 +1108,7 @@ dependencies = [
  "protocol-project-content",
  "protocol-render",
  "protocol-scene",
+ "protocol-telemetry",
  "protocol-time-control",
  "protocol-view",
  "protocol-voxel-annotation",
