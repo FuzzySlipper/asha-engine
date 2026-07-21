@@ -19,7 +19,7 @@ renderer state. They do not configure a `RuntimeSession`, submit gameplay input,
 authorize edits, or create replay truth. A tool that needs an authoritative game
 camera must use the RuntimeSession input and camera operations instead.
 
-## Public mount and frame replacement
+## Public mount and projection channels
 
 ```ts
 import { mountAshaRendererInspectionSurface } from '@asha/renderer-host';
@@ -37,6 +37,14 @@ const receipt = viewer.replaceFrame(generationResult.renderFrame);
 if (!receipt.applied) {
   showDiagnostics(receipt.diagnostics);
 }
+
+const runtimeReceipt = viewer.applyRuntimeFrame(runtimeSessionFrame);
+if (!runtimeReceipt.applied) {
+  showDiagnostics(runtimeReceipt.diagnostics);
+}
+
+// Run restart, project switch, or explicit runtime teardown:
+viewer.clearRuntimeProjection();
 ```
 
 `replaceFrame` treats its argument as the complete retained inspection result.
@@ -44,6 +52,21 @@ Replacement is atomic: malformed frames, invalid handles, policy violations, or
 backend resource failures return a rejected receipt while the last accepted
 frame remains visible. A malformed `frame` passed during mount rejects the mount
 and disposes the prepared renderer.
+
+`applyRuntimeFrame` incrementally retains engine-produced runtime projection on
+the viewport's dedicated `runtime` channel. It does not replace or mutate the
+complete authored result supplied through `replaceFrame`. Runtime frames use the
+same bounded frame/history validation, handle namespacing, atomic backend swap,
+picking, and optional `bufferSource` upload path as the editor viewport.
+`clearRuntimeProjection` resets only that runtime channel for run restarts,
+project switches, or teardown.
+
+The readout reports `runtimeGeneration`, `runtimeFrameHash`, and
+`runtimeRetainedOpCount` separately from the authored `retainedFrameHash` and
+`retainedOpCount`. These are bounded projection diagnostics, not gameplay state,
+replay evidence, or authority receipts. A rejected malformed, over-limit, or
+resource-invalid runtime frame leaves the previous runtime generation, hash, and
+retained operations intact.
 
 The helper reuses the engine-owned editor viewport for retained frame
 validation, backend realization, picking, buffer-backed resources, resize, and
@@ -104,12 +127,17 @@ For Procgen task #5980:
 3. Import only `mountAshaRendererInspectionSurface` and public types from the
    `@asha/renderer-host` root. Do not add `three`, `@asha/renderer-three`, or an
    engine package private path.
-4. Convert the accepted Procgen result into one complete `RenderFrameDiff`, then
-   pass it to `replaceFrame`. Display rejected receipts instead of falling back
-   to a downstream renderer or reference runtime.
-5. Dispose the surface when the tab/workbench is destroyed and resize it when
+4. Convert an accepted authored Procgen result into one complete
+   `RenderFrameDiff`, then pass it to `replaceFrame`. When the workbench attaches
+   a real RuntimeSession, forward each emitted `RenderFrameDiff` through
+   `applyRuntimeFrame` and call `clearRuntimeProjection` on run restart or
+   project switch. Do not merge those two channels downstream.
+5. Preserve the runtime buffer source when mounting so handle-backed voxel mesh
+   frames use the engine upload path. Display rejected receipts instead of
+   falling back to a downstream renderer or reference runtime.
+6. Dispose the surface when the tab/workbench is destroyed and resize it when
    the viewer panel changes dimensions.
-6. Use `initialGrid` or `setGrid` for the project grid; do not draw a Procgen-local
+7. Use `initialGrid` or `setGrid` for the project grid; do not draw a Procgen-local
    grid. Exercise primary drag, arrow orbit, focused zoom, and grid replacement
    in the live workbench and record the inspection readout as task evidence.
 

@@ -8,6 +8,7 @@ import {
   type RenderFrameDiff,
 } from '@asha/contracts';
 import {
+  ASHA_RENDERER_EDITOR_VIEWPORT_MAX_FRAME_OPS,
   createAshaRendererEditorViewportWithBackend,
   type AshaRendererEditorViewportBackendPort,
   type AshaRendererEditorViewportSize,
@@ -160,6 +161,78 @@ void test('inspection surface retains accepted frames, fails closed on malformed
   assert.deepEqual(harness.backend.sizes.at(-1), { width: 1200, height: 700, pixelRatio: 2 });
 });
 
+void test('inspection surface keeps incremental runtime projection distinct from authored replacement', () => {
+  const harness = createInspectionHarness({ autoStart: false, frame: primitiveFrame(7) });
+  const initial = harness.surface.readout();
+
+  const created = harness.surface.applyRuntimeFrame(primitiveFrame(8));
+  assert.equal(created.applied, true);
+  assert.equal(created.channel, 'runtime');
+  assert.equal(harness.surface.readout().runtimeGeneration, 1);
+  assert.equal(harness.surface.readout().runtimeRetainedOpCount, 1);
+  assert.equal(harness.surface.readout().retainedFrameHash, initial.retainedFrameHash);
+  assert.equal(harness.surface.readout().retainedOpCount, 1);
+
+  const updated = harness.surface.applyRuntimeFrame({
+    ops: [{
+      op: 'update',
+      handle: renderHandle(8),
+      transform: {
+        translation: [3, 2, 1],
+        rotation: [0, 0, 0, 1],
+        scale: [1, 1, 1],
+      },
+      material: null,
+      visible: null,
+      metadata: null,
+    }],
+  });
+  assert.equal(updated.applied, true);
+  assert.equal(harness.surface.readout().runtimeGeneration, 2);
+  assert.equal(harness.surface.readout().runtimeRetainedOpCount, 2);
+
+  const deleted = harness.surface.applyRuntimeFrame({
+    ops: [{ op: 'destroy', handle: renderHandle(8) }],
+  });
+  assert.equal(deleted.applied, true);
+  assert.equal(harness.surface.readout().runtimeGeneration, 3);
+  assert.equal(harness.surface.readout().runtimeRetainedOpCount, 3);
+
+  const cleared = harness.surface.clearRuntimeProjection();
+  assert.equal(cleared.applied, true);
+  assert.equal(cleared.channel, 'runtime');
+  assert.equal(harness.surface.readout().runtimeGeneration, 4);
+  assert.equal(harness.surface.readout().runtimeRetainedOpCount, 0);
+  assert.equal(harness.surface.readout().retainedFrameHash, initial.retainedFrameHash);
+});
+
+void test('inspection surface rejects malformed and over-limit runtime frames without changing retained runtime state', () => {
+  const harness = createInspectionHarness({ autoStart: false });
+  assert.equal(harness.surface.applyRuntimeFrame(primitiveFrame(8)).applied, true);
+  const accepted = harness.surface.readout();
+
+  const malformed = harness.surface.applyRuntimeFrame({ ops: null } as unknown as RenderFrameDiff);
+  assert.equal(malformed.applied, false);
+  assert.equal(malformed.diagnostics[0]?.code, 'invalid_frame');
+  assertRuntimeReadoutUnchanged(harness.surface.readout(), accepted);
+
+  const repeatedUpdates = Array.from(
+    { length: ASHA_RENDERER_EDITOR_VIEWPORT_MAX_FRAME_OPS + 1 },
+    () => ({
+      op: 'update' as const,
+      handle: renderHandle(8),
+      transform: null,
+      material: null,
+      visible: true,
+      metadata: null,
+    }),
+  );
+  const overLimit = harness.surface.applyRuntimeFrame({ ops: repeatedUpdates });
+  assert.equal(overLimit.applied, false);
+  assert.equal(overLimit.diagnostics[0]?.code, 'frame_limit_exceeded');
+  assertRuntimeReadoutUnchanged(harness.surface.readout(), accepted);
+});
+
 void test('inspection input fail-safes clear latched movement and drag before rendering resumes', () => {
   const cases = [
     {
@@ -232,6 +305,9 @@ void test('inspection surface start stop and disposal release animation input re
   harness.document.emit('keydown', keyboardEvent('KeyW'));
   harness.surface.renderOnce(1000);
   assert.deepEqual(harness.surface.camera(), cameraBeforeDispose);
+  const runtimeAfterDispose = harness.surface.applyRuntimeFrame(primitiveFrame(99));
+  assert.equal(runtimeAfterDispose.applied, false);
+  assert.equal(runtimeAfterDispose.diagnostics[0]?.code, 'viewport_disposed');
   assert.equal(harness.canvas.listenerCount(), 0);
   assert.equal(harness.document.listenerCount(), 0);
   assert.equal(harness.window.listenerCount(), 0);
@@ -285,6 +361,15 @@ function createInspectionHarness(options: {
     inspectionEnvironment(animation, resizeObserver),
   );
   return { animation, backend, canvas, document, resizeObserver, surface, window: document.window };
+}
+
+function assertRuntimeReadoutUnchanged(
+  actual: ReturnType<ReturnType<typeof createInspectionHarness>['surface']['readout']>,
+  expected: ReturnType<ReturnType<typeof createInspectionHarness>['surface']['readout']>,
+): void {
+  assert.equal(actual.runtimeFrameHash, expected.runtimeFrameHash);
+  assert.equal(actual.runtimeGeneration, expected.runtimeGeneration);
+  assert.equal(actual.runtimeRetainedOpCount, expected.runtimeRetainedOpCount);
 }
 
 function inspectionEnvironment(

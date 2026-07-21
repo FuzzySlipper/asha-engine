@@ -59,16 +59,50 @@ const TEST_PAGE = `<!doctype html>
     import { mountAshaRendererInspectionSurface } from '/ts/packages/renderer-host/dist/inspection-surface.js';
 
     const canvas = document.querySelector('#surface');
+    const positions = [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0];
+    const normals = [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1];
+    const indices = [0, 1, 2, 0, 2, 3];
+    const voxelMeshBytes = new Uint8Array((positions.length + normals.length + indices.length) * 4);
+    const voxelMeshView = new DataView(voxelMeshBytes.buffer);
+    let voxelMeshOffset = 0;
+    for (const value of positions) {
+      voxelMeshView.setFloat32(voxelMeshOffset, value, true);
+      voxelMeshOffset += 4;
+    }
+    for (const value of normals) {
+      voxelMeshView.setFloat32(voxelMeshOffset, value, true);
+      voxelMeshOffset += 4;
+    }
+    for (const value of indices) {
+      voxelMeshView.setUint32(voxelMeshOffset, value, true);
+      voxelMeshOffset += 4;
+    }
+    const buffers = new Map([[7, voxelMeshBytes]]);
+    const borrowedBuffers = [];
+    const releasedBuffers = [];
+    const bufferSource = {
+      borrow: handle => {
+        const bytes = buffers.get(handle);
+        if (bytes === undefined) throw new Error('unknown browser fixture buffer ' + handle);
+        borrowedBuffers.push(handle);
+        return bytes;
+      },
+      release: handle => releasedBuffers.push(handle),
+    };
     const surface = await mountAshaRendererInspectionSurface(
       canvas,
       {
         autoStart: false,
+        bufferSource,
         initialGrid: ${JSON.stringify(INITIAL_GRID)},
         controls: { initialPosition: [0, 19, 1], minimumDistance: 2, maximumDistance: 20 },
       },
     );
     window.__ashaInspection = {
       canvas,
+      applyRuntimeFrame: frame => surface.applyRuntimeFrame(frame),
+      clearRuntimeProjection: () => surface.clearRuntimeProjection(),
+      bufferLifecycle: () => ({ borrowed: [...borrowedBuffers], released: [...releasedBuffers] }),
       render: timeMs => surface.renderOnce(timeMs),
       setGrid: descriptor => surface.setGrid(descriptor),
       snapshot: () => surface.readout(),
@@ -128,6 +162,69 @@ async function main() {
       Math.abs(initial.camera.pose.pitchDegrees) <= 85.000_001,
       'real browser mount must clamp the initial inspection camera pitch',
     );
+
+    const voxelDefined = await evaluate(client, `(() => {
+      const receipt = window.__ashaInspection.applyRuntimeFrame({ ops: [
+        {
+          op: 'create', handle: 71, parent: null,
+          node: {
+            geometry: { shape: 'cube' },
+            material: { color: [0.7, 0.6, 0.4, 1], wireframe: false },
+            transform: { translation: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+            visible: true, layer: 'scene',
+            metadata: { source: null, tags: [], label: 'runtime-voxel-chunk' },
+          },
+        },
+        {
+          op: 'replaceMeshPayload', handle: 71,
+          payload: {
+            layout: {
+              vertexCount: 4, indexCount: 6, indexWidth: 'u32',
+              attributes: [
+                { name: 'position', components: 3, kind: 'f32' },
+                { name: 'normal', components: 3, kind: 'f32' },
+              ],
+            },
+            groups: [{ materialSlot: 0, start: 0, count: 6 }],
+            bounds: { min: [0, 0, 0], max: [1, 1, 0] },
+            source: {
+              kind: 'handle', buffer: 7,
+              positionsByteOffset: 0, normalsByteOffset: 48, indicesByteOffset: 96,
+            },
+            provenance: 'voxelChunk',
+          },
+        },
+      ] });
+      return {
+        receipt,
+        readout: window.__ashaInspection.snapshot(),
+        buffers: window.__ashaInspection.bufferLifecycle(),
+      };
+    })()`);
+    assert.equal(voxelDefined.receipt.applied, true);
+    assert.equal(voxelDefined.readout.runtimeGeneration, 1);
+    assert.equal(voxelDefined.readout.runtimeRetainedOpCount, 2);
+    assert.deepEqual(voxelDefined.buffers, { borrowed: [7], released: [7] });
+
+    const cameraBeforeRuntimeUpdate = voxelDefined.readout.camera;
+    const voxelUpdated = await evaluate(client, `(() => {
+      const receipt = window.__ashaInspection.applyRuntimeFrame({ ops: [{
+        op: 'update', handle: 71,
+        transform: { translation: [2, 0, -1], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+        material: null, visible: null, metadata: null,
+      }] });
+      window.__ashaInspection.render(10);
+      return {
+        receipt,
+        readout: window.__ashaInspection.snapshot(),
+        buffers: window.__ashaInspection.bufferLifecycle(),
+      };
+    })()`);
+    assert.equal(voxelUpdated.receipt.applied, true);
+    assert.equal(voxelUpdated.readout.runtimeGeneration, 2);
+    assert.equal(voxelUpdated.readout.runtimeRetainedOpCount, 3);
+    assert.deepEqual(voxelUpdated.readout.camera, cameraBeforeRuntimeUpdate);
+    assert.deepEqual(voxelUpdated.buffers, { borrowed: [7, 7], released: [7, 7] });
 
     await client.send('Input.dispatchMouseEvent', {
       type: 'mousePressed', x: point.x, y: point.y, button: 'left', buttons: 1, clickCount: 1,
@@ -195,6 +292,31 @@ async function main() {
     assert.equal(replaced.receipt.applied, true);
     assert.deepEqual(replaced.readout.grid.descriptor.grid.spacing, [2, 2, 2]);
     assert.equal(replaced.readout.gridRevision, 3);
+
+    const voxelDeleted = await evaluate(client, `(() => {
+      const receipt = window.__ashaInspection.applyRuntimeFrame({
+        ops: [{ op: 'destroy', handle: 71 }],
+      });
+      return {
+        receipt,
+        readout: window.__ashaInspection.snapshot(),
+        buffers: window.__ashaInspection.bufferLifecycle(),
+      };
+    })()`);
+    assert.equal(voxelDeleted.receipt.applied, true);
+    assert.equal(voxelDeleted.readout.runtimeGeneration, 3);
+    assert.equal(voxelDeleted.readout.runtimeRetainedOpCount, 4);
+    assert.deepEqual(voxelDeleted.buffers, { borrowed: [7, 7, 7], released: [7, 7, 7] });
+
+    const runtimeCleared = await evaluate(client, `(() => ({
+      receipt: window.__ashaInspection.clearRuntimeProjection(),
+      readout: window.__ashaInspection.snapshot(),
+      buffers: window.__ashaInspection.bufferLifecycle(),
+    }))()`);
+    assert.equal(runtimeCleared.receipt.applied, true);
+    assert.equal(runtimeCleared.readout.runtimeGeneration, 4);
+    assert.equal(runtimeCleared.readout.runtimeRetainedOpCount, 0);
+    assert.deepEqual(runtimeCleared.buffers, { borrowed: [7, 7, 7], released: [7, 7, 7] });
 
     process.stdout.write('Renderer inspection browser interaction: OK\n');
   } finally {

@@ -218,12 +218,17 @@ void test('renderer-host declarations do not expose concrete Three.js backend ty
   assert.match(editorViewportDeclarationText, /runtime_authority/);
   assert.match(editorViewportDeclarationText, /stored_editor/);
   assert.match(inspectionSurfaceDeclarationText, /projection_only_inspection/);
+  assert.match(inspectionSurfaceDeclarationText, /readonly applyRuntimeFrame:/);
+  assert.match(inspectionSurfaceDeclarationText, /readonly clearRuntimeProjection:/);
   assert.match(inspectionSurfaceDeclarationText, /readonly replaceFrame:/);
   assert.match(inspectionSurfaceDeclarationText, /readonly setGrid:/);
   assert.match(inspectionSurfaceDeclarationText, /readonly initialGrid\?: EditorGridDescriptor/);
   assert.match(inspectionSurfaceDeclarationText, /readonly lastCameraChange: AshaRendererInspectionCameraChange/);
   assert.match(inspectionSurfaceDeclarationText, /readonly cameraDistance: number/);
   assert.match(inspectionSurfaceDeclarationText, /readonly grid: EditorGridProjectionReadout \| null/);
+  assert.match(inspectionSurfaceDeclarationText, /readonly runtimeFrameHash: string/);
+  assert.match(inspectionSurfaceDeclarationText, /readonly runtimeGeneration: number/);
+  assert.match(inspectionSurfaceDeclarationText, /readonly runtimeRetainedOpCount: number/);
   assert.doesNotMatch(inspectionSurfaceDeclarationText, /@asha\/renderer-three/);
   assert.doesNotMatch(inspectionSurfaceDeclarationText, /@asha\/runtime-bridge/);
   assert.doesNotMatch(inspectionSurfaceDeclarationText, /from ['"]three['"]/);

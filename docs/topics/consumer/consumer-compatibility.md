@@ -938,6 +938,13 @@ Additive editor viewport in #5741:
   drives browser pointer, keyboard, wheel, scroll-prevention, and grid behavior.
   This remains additive under `renderer-host.v1` and is the upstream handback for
   Asha Procgen #5980.
+- #6041 adds `applyRuntimeFrame` and `clearRuntimeProjection` to the public
+  inspection surface. Incremental RuntimeSession frames retain on the bounded
+  `runtime` channel while complete authored results remain on `replaceFrame`'s
+  `authored` channel. Separate runtime generation/hash/op-count readout and the
+  existing buffer source make live voxel remesh projection inspectable without
+  importing renderer internals or treating renderer state as authority. Procgen
+  should clear the runtime channel on run restart or project switch.
 
 ### `renderer-host.v0` - historical mixed interaction host
 

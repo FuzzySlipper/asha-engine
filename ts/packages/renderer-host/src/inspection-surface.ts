@@ -86,6 +86,10 @@ export interface AshaRendererInspectionSurfaceReadout {
   readonly pressedOrbitKeys: readonly string[];
   readonly retainedFrameHash: string;
   readonly retainedOpCount: number;
+  /** Incremental RuntimeSession projection state, separate from authored inspection content. */
+  readonly runtimeFrameHash: string;
+  readonly runtimeGeneration: number;
+  readonly runtimeRetainedOpCount: number;
   readonly status: AshaRendererInspectionSurfaceStatus;
   readonly viewportHash: string;
 }
@@ -95,6 +99,10 @@ export interface AshaRendererInspectionSurface {
   readonly authority: 'projection_only_inspection';
   readonly canvas: HTMLCanvasElement;
   readonly camera: () => AshaRendererEditorViewportCamera;
+  /** Apply one incremental, projection-only runtime frame to the retained runtime channel. */
+  readonly applyRuntimeFrame: (frame: RenderFrameDiff) => AshaRendererEditorViewportChannelReceipt;
+  /** Clear retained runtime projection without disturbing authored inspection content. */
+  readonly clearRuntimeProjection: () => AshaRendererEditorViewportChannelReceipt;
   readonly dispose: () => void;
   readonly grid: () => EditorGridProjectionReadout | null;
   readonly pick: (request: AshaRendererEditorViewportPickRequest) => AshaRendererEditorViewportPickReceipt;
@@ -245,6 +253,12 @@ export function createAshaRendererInspectionSurfaceWithViewport(
   const replaceFrame = (frame: RenderFrameDiff): AshaRendererEditorViewportChannelReceipt =>
     viewport.channels.authored.replace(frame);
 
+  const applyRuntimeFrame = (frame: RenderFrameDiff): AshaRendererEditorViewportChannelReceipt =>
+    viewport.channels.runtime.apply(frame);
+
+  const clearRuntimeProjection = (): AshaRendererEditorViewportChannelReceipt =>
+    viewport.channels.runtime.clear();
+
   const setGrid = (
     descriptor: EditorGridDescriptor | null,
   ): AshaRendererEditorViewportGridReceipt => {
@@ -295,12 +309,15 @@ export function createAshaRendererInspectionSurfaceWithViewport(
     kind: 'asha_renderer_inspection_surface.v0',
     authority: 'projection_only_inspection',
     canvas,
+    applyRuntimeFrame,
     camera: () => controls.camera(),
+    clearRuntimeProjection,
     grid: () => viewport.grid(),
     pick: (request) => viewport.pick(request),
     readout: () => {
       const viewportReadout = viewport.readout();
       const authored = viewportReadout.channels.find((channel) => channel.channel === 'authored');
+      const runtime = viewportReadout.channels.find((channel) => channel.channel === 'runtime');
       return {
         kind: 'asha_renderer_inspection_surface_readout.v0',
         compatibilityVersion: ASHA_RENDERER_INSPECTION_SURFACE_COMPATIBILITY_VERSION,
@@ -316,6 +333,9 @@ export function createAshaRendererInspectionSurfaceWithViewport(
         pressedOrbitKeys: controls.pressedOrbitKeys(),
         retainedFrameHash: authored?.hash ?? '',
         retainedOpCount: authored?.retainedOpCount ?? 0,
+        runtimeFrameHash: runtime?.hash ?? '',
+        runtimeGeneration: runtime?.generation ?? 0,
+        runtimeRetainedOpCount: runtime?.retainedOpCount ?? 0,
         status,
         viewportHash: viewportReadout.viewportHash,
       };
