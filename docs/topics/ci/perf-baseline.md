@@ -112,6 +112,11 @@ Rust-backed sessions expose one bounded, projection-bound structural observation
 must name the exact cursor returned by `readProjection()`. A stale or future cursor, a
 different grid, or a read before the first projection fails closed. The bridge retains
 only the latest observation; it does not accumulate a telemetry log.
+Projection cursors are monotonically increasing observation identities within a Session;
+they are deliberately independent from the authority tick reported by the projection.
+Repeated raw bridge drains with the completed cursor are idempotent only while no new
+projection work is pending. Once new work exists, reusing that cursor fails closed and the
+caller must supply a later identity.
 Engine initialization, project replacement/close, and workspace-authoring replacement
 clear the retained observation and pending counters.
 

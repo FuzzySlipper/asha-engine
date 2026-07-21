@@ -1320,13 +1320,18 @@ export class MockRuntimeBridge implements RuntimeBridge, WorkspaceAuthoringOpenA
     if (!Number.isInteger(cursor as number) || (cursor as number) < 0) {
       throw new RuntimeBridgeError('invalid_input', `frame cursor must be a non-negative integer`);
     }
-    if (
-      this.#voxelTelemetryLatest?.projectionCursor === cursor as number
-      && this.#voxelTelemetryPendingBatches === 0
-      && this.#voxelTelemetryPendingAcceptedCommands === 0
-      && this.#voxelTelemetryPendingTouchedVoxels === 0
-    ) {
-      return { ops: [] };
+    const latestCursor = this.#voxelTelemetryLatest?.projectionCursor;
+    const hasPendingWork = this.#voxelTelemetryPendingBatches > 0
+      || this.#voxelTelemetryPendingAcceptedCommands > 0
+      || this.#voxelTelemetryPendingTouchedVoxels > 0;
+    if (latestCursor !== undefined && (cursor as number) <= latestCursor) {
+      if ((cursor as number) === latestCursor && !hasPendingWork) {
+        return { ops: [] };
+      }
+      throw new RuntimeBridgeError(
+        'invalid_input',
+        'frame cursor is stale or already identifies a completed projection',
+      );
     }
     const changed = this.#voxelTelemetryPendingAcceptedCommands > 0;
     this.#voxelTelemetryLatest = {
@@ -1334,7 +1339,7 @@ export class MockRuntimeBridge implements RuntimeBridge, WorkspaceAuthoringOpenA
       compatibilityVersion: 'voxel-update-telemetry.v0',
       grid: 1,
       projectionCursor: cursor as number,
-      authorityTick: cursor as number,
+      authorityTick: this.#timeController.read().authorityTick,
       committedCommandBatchCount: this.#voxelTelemetryPendingBatches,
       acceptedCommandCount: this.#voxelTelemetryPendingAcceptedCommands,
       touchedVoxelCount: this.#voxelTelemetryPendingTouchedVoxels,
@@ -1353,11 +1358,10 @@ export class MockRuntimeBridge implements RuntimeBridge, WorkspaceAuthoringOpenA
   }
 
   readProjectionFrame(cursor: FrameCursor): RuntimeProjectionFrame {
-    const scene = this.readRenderDiffs(cursor);
     return {
       schemaVersion: 1,
       authorityTick: cursor as number,
-      scene,
+      scene: { ops: [] },
       presentation: {
         replayScope: 'excludedFromReplayTruth',
         ops: [],

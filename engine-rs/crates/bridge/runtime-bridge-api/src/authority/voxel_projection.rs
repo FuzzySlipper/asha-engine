@@ -20,6 +20,27 @@ impl EngineBridge {
         &mut self,
         cursor: u64,
     ) -> BridgeResult<RenderFrameDiff> {
+        if let Some(latest) = &self.projection.voxel_update_telemetry.latest {
+            let telemetry = &self.projection.voxel_update_telemetry;
+            let has_pending_work = telemetry.pending_committed_command_batches > 0
+                || telemetry.pending_accepted_commands > 0
+                || telemetry.pending_touched_voxels > 0
+                || !self.projection.pending_voxel_frame.is_empty()
+                || self
+                    .voxel
+                    .voxel
+                    .as_ref()
+                    .is_some_and(|world| world.dirty_count() > 0);
+            if cursor == latest.projection_cursor && !has_pending_work {
+                return Ok(RenderFrameDiff::default());
+            }
+            if cursor <= latest.projection_cursor {
+                return Err(RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::InvalidInput,
+                    "frame cursor is stale or already identifies a completed projection",
+                ));
+            }
+        }
         let mut frame = std::mem::take(&mut self.projection.pending_voxel_frame);
         let Some(world) = self.voxel.voxel.as_mut() else {
             return Ok(frame);

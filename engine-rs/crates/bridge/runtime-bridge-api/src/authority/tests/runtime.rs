@@ -584,6 +584,17 @@ fn voxel_update_telemetry_is_projection_bound_bounded_and_deterministic() {
         telemetry,
         "reading telemetry does not consume or rotate the retained observation"
     );
+    assert!(bridge.read_render_diffs(1).unwrap().is_empty());
+    assert_eq!(
+        bridge
+            .read_voxel_update_telemetry(VoxelUpdateTelemetryRequest {
+                grid: 1,
+                projection_cursor: 1,
+            })
+            .unwrap(),
+        telemetry,
+        "an exact duplicate projection drain is idempotent when no work is pending"
+    );
 
     let mesh = bridge
         .read_voxel_mesh_evidence(VoxelMeshEvidenceRequest {
@@ -594,12 +605,49 @@ fn voxel_update_telemetry_is_projection_bound_bounded_and_deterministic() {
     assert_eq!(mesh.grid, telemetry.grid);
     assert_eq!(mesh.chunks.len() as u64, telemetry.resident_chunk_count);
 
-    let empty_frame = bridge.read_render_diffs(2).unwrap();
+    let second_edit = bridge
+        .submit_commands(CommandBatch {
+            commands: vec![set_voxel(VoxelCoord::new(3, 1, 1), 2)],
+        })
+        .unwrap();
+    assert_eq!(second_edit.accepted, 1);
+    assert_eq!(
+        bridge.read_render_diffs(1).unwrap_err().kind,
+        RuntimeBridgeErrorKind::InvalidInput,
+        "pending work cannot replace an observation under its completed cursor"
+    );
+    assert_eq!(
+        bridge
+            .read_voxel_update_telemetry(VoxelUpdateTelemetryRequest {
+                grid: 1,
+                projection_cursor: 1,
+            })
+            .unwrap(),
+        telemetry,
+        "a rejected cursor reuse leaves the retained observation unchanged"
+    );
+    let second_frame = bridge.read_render_diffs(2).unwrap();
+    let second = bridge
+        .read_voxel_update_telemetry(VoxelUpdateTelemetryRequest {
+            grid: 1,
+            projection_cursor: 2,
+        })
+        .unwrap();
+    assert_eq!(second.committed_command_batch_count, 1);
+    assert_eq!(second.accepted_command_count, 1);
+    assert_eq!(second.touched_voxel_count, 1);
+    assert_eq!(
+        second.emitted_render_op_count,
+        second_frame.ops.len() as u64
+    );
+    assert_eq!(second.authority_tick, telemetry.authority_tick);
+
+    let empty_frame = bridge.read_render_diffs(3).unwrap();
     assert!(empty_frame.is_empty());
     let empty = bridge
         .read_voxel_update_telemetry(VoxelUpdateTelemetryRequest {
             grid: 1,
-            projection_cursor: 2,
+            projection_cursor: 3,
         })
         .unwrap();
     assert_eq!(empty.committed_command_batch_count, 0);
@@ -617,11 +665,11 @@ fn voxel_update_telemetry_is_projection_bound_bounded_and_deterministic() {
         },
         VoxelUpdateTelemetryRequest {
             grid: 1,
-            projection_cursor: 3,
+            projection_cursor: 4,
         },
         VoxelUpdateTelemetryRequest {
             grid: 999,
-            projection_cursor: 2,
+            projection_cursor: 3,
         },
     ] {
         assert_eq!(

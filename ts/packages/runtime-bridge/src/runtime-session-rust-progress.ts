@@ -15,6 +15,7 @@ export class RuntimeSessionProgress {
   #sequenceId = 0;
   #sessionTick = 0;
   #latestProjectionTick = 0;
+  #nextProjectionCursor = 0;
   #acceptedCommandCount = 0;
   #rejectedCommandCount = 0;
   #restartCount = 0;
@@ -23,6 +24,7 @@ export class RuntimeSessionProgress {
     this.#sequenceId = 0;
     this.#sessionTick = 0;
     this.#latestProjectionTick = 0;
+    this.#nextProjectionCursor = 0;
     this.#acceptedCommandCount = 0;
     this.#rejectedCommandCount = 0;
     this.#restartCount = 0;
@@ -77,6 +79,15 @@ export class RuntimeSessionProgress {
   recordProjectedAuthorityTick(tick: number): void {
     this.recordProjectionTick(tick);
     this.observeAuthorityTick(tick);
+  }
+
+  claimProjectionCursor(): number {
+    if (this.#nextProjectionCursor >= Number.MAX_SAFE_INTEGER) {
+      throw new RangeError('runtime projection cursor exhausted the safe integer range');
+    }
+    const cursor = this.#nextProjectionCursor;
+    this.#nextProjectionCursor += 1;
+    return cursor;
   }
 
   restart(): void {

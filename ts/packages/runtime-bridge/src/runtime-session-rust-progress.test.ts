@@ -26,6 +26,7 @@ void test('session and sparse projection ticks remain explicit across movement a
 
 void test('command counters and restart reset the epoch without cursor drift', () => {
   const progress = new RuntimeSessionProgress();
+  assert.equal(progress.claimProjectionCursor(), 0);
   progress.recordCommandBatch(3, 1);
   progress.recordSimulationTick(9);
   progress.recordProjectionTick(6);
@@ -39,4 +40,22 @@ void test('command counters and restart reset the epoch without cursor drift', (
     rejectedCommandCount: 0,
     restartCount: 1,
   });
+  assert.equal(
+    progress.claimProjectionCursor(),
+    1,
+    'projection observation identity remains unique across a runtime restart',
+  );
+});
+
+void test('projection cursors advance independently from sparse authority ticks', () => {
+  const progress = new RuntimeSessionProgress();
+  progress.initialize();
+
+  assert.equal(progress.claimProjectionCursor(), 0);
+  assert.equal(progress.claimProjectionCursor(), 1);
+  assert.equal(progress.latestProjectionTick, 0);
+
+  progress.recordProjectionTick(8);
+  assert.equal(progress.claimProjectionCursor(), 2);
+  assert.equal(progress.latestProjectionTick, 8);
 });

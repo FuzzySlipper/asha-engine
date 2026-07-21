@@ -550,16 +550,38 @@ void test('mock: voxel update telemetry is bounded to the latest projection curs
   assert.equal(readout.acceptedCommandCount, 1);
   assert.equal(readout.touchedVoxelCount, 1);
   assert.equal(readout.pendingDirtyChunkCount, 0);
+  assert.deepEqual(bridge.readRenderDiffs(frameCursor(4)), { ops: [] });
+  assert.deepEqual(
+    bridge.readVoxelUpdateTelemetry({ grid: 1, projectionCursor: 4 }),
+    readout,
+    'an exact duplicate drain with no pending work is idempotent',
+  );
+  bridge.submitCommands({
+    commands: [{
+      op: 'setVoxel',
+      grid: 1,
+      coord: { x: 1, y: 0, z: 0 },
+      value: { kind: 'solid', material: 1 },
+    }],
+  });
   assert.throws(
-    () => bridge.readVoxelUpdateTelemetry({ grid: 1, projectionCursor: 3 }),
+    () => bridge.readRenderDiffs(frameCursor(4)),
+    (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'invalid_input',
+  );
+  bridge.readRenderDiffs(frameCursor(5));
+  const second = bridge.readVoxelUpdateTelemetry({ grid: 1, projectionCursor: 5 });
+  assert.equal(second.committedCommandBatchCount, 1);
+  assert.equal(second.acceptedCommandCount, 1);
+  assert.throws(
+    () => bridge.readVoxelUpdateTelemetry({ grid: 1, projectionCursor: 4 }),
     (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'invalid_input',
   );
   assert.throws(
-    () => bridge.readVoxelUpdateTelemetry({ grid: 1, projectionCursor: 5 }),
+    () => bridge.readVoxelUpdateTelemetry({ grid: 1, projectionCursor: 6 }),
     (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'invalid_input',
   );
   assert.throws(
-    () => bridge.readVoxelUpdateTelemetry({ grid: 2, projectionCursor: 4 }),
+    () => bridge.readVoxelUpdateTelemetry({ grid: 2, projectionCursor: 5 }),
     (error: unknown) => error instanceof RuntimeBridgeError && error.kind === 'invalid_input',
   );
 });

@@ -1061,8 +1061,9 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
 
   readProjection(): RuntimeSessionProjectionSummary {
     this.#requireInitialized('readProjection');
-    const cursor = frameCursor(this.#progress.latestProjectionTick);
-    const projectedRuntimeFrame = this.#bridge.readProjectionFrame(cursor);
+    const authorityCursor = frameCursor(this.#progress.latestProjectionTick);
+    const cursor = frameCursor(this.#progress.claimProjectionCursor());
+    const projectedRuntimeFrame = this.#bridge.readProjectionFrame(authorityCursor);
     const retainedScene = this.#bridge.readRenderDiffs(cursor);
     const frame = {
       ops: [...projectedRuntimeFrame.scene.ops, ...retainedScene.ops],
@@ -1080,6 +1081,7 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
       presentationOpCount: runtimeFrame.presentation.ops.length,
       projectionHash: stableHash({
         sequenceId: this.#progress.sequenceId,
+        cursor,
         frame: renderFrameHashRecord(frame),
         runtimeFrame: runtimeProjectionFrameHashRecord(runtimeFrame),
       }),

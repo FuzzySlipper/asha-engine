@@ -220,7 +220,7 @@ fn explicit_empty_instance_binding_never_recreates_the_legacy_default() {
     assert_eq!(receipt.instance_count, 0);
     assert_eq!(receipt.projection_op_count, 2);
 
-    let teardown = bridge.read_render_diffs(0).unwrap();
+    let teardown = bridge.read_render_diffs(1).unwrap();
     assert_eq!(teardown.ops.len(), 2);
     assert!(teardown
         .ops
@@ -236,6 +236,6 @@ fn explicit_empty_instance_binding_never_recreates_the_legacy_default() {
             }],
         })
         .unwrap();
-    let after_edit = bridge.read_render_diffs(0).unwrap();
+    let after_edit = bridge.read_render_diffs(2).unwrap();
     assert!(after_edit.ops.is_empty());
 }

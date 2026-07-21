@@ -224,6 +224,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
   #acceptedCommandCount = 0;
   #rejectedCommandCount = 0;
   #restartCount = 0;
+  #nextProjectionCursor = 0;
   #lifecycleState: RuntimeSessionLifecycleState = initialRuntimeSessionLifecycleState();
   #encounterState: EncounterDirectorState = initialEncounterDirectorState();
   #ecrpProjectState: RuntimeSessionEcrpProjectState | null = null;
@@ -255,6 +256,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     this.#tick = 0;
     this.#acceptedCommandCount = 0;
     this.#rejectedCommandCount = 0;
+    this.#nextProjectionCursor = 0;
     this.#ecrpProjectState = null;
     this.#lifecycleState = initialRuntimeSessionLifecycleState();
     this.#runtimeTransforms = new Map();
@@ -964,9 +966,18 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
   readAnimationIntent(): RuntimeSessionAnimationIntentReadout { this.#requireInitialized('readAnimationIntent'); return buildRuntimeSessionAnimationIntentReadout({ sequenceId: this.#sequenceId, tick: this.#tick, lifecycleState: this.#lifecycleState }); }
   readProjection(): RuntimeSessionProjectionSummary {
     this.#requireInitialized('readProjection');
-    const cursor = frameCursor(this.#tick);
-    const runtimeFrame = this.#bridge.readProjectionFrame(cursor);
-    const frame = runtimeFrame.scene;
+    const authorityCursor = frameCursor(this.#tick);
+    const cursor = frameCursor(this.#nextProjectionCursor);
+    const projectedRuntimeFrame = this.#bridge.readProjectionFrame(authorityCursor);
+    const retainedScene = this.#bridge.readRenderDiffs(cursor);
+    this.#nextProjectionCursor += 1;
+    const frame = {
+      ops: [...projectedRuntimeFrame.scene.ops, ...retainedScene.ops],
+    };
+    const runtimeFrame = {
+      ...projectedRuntimeFrame,
+      scene: frame,
+    };
     return {
       sequenceId: this.#sequenceId,
       cursor,
@@ -976,6 +987,7 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
       presentationOpCount: runtimeFrame.presentation.ops.length,
       projectionHash: stableHash({
         sequenceId: this.#sequenceId,
+        cursor,
         frame: renderFrameHashRecord(frame),
         runtimeFrame: runtimeProjectionFrameHashRecord(runtimeFrame),
       }),
