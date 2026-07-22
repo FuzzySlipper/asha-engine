@@ -144,6 +144,8 @@ pub enum GameplayConfigurationReferenceKind {
     EntityDefinition,
     /// An entity definition that must also be instantiated by an admitted scene.
     InstantiatedEntityDefinition,
+    /// An admitted scene instance whose definition carries finite, positive bounds.
+    InstantiatedBoundedEntityDefinition,
     SceneInstance,
     Prefab,
     PrefabPart,

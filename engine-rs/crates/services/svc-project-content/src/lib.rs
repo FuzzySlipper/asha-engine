@@ -779,6 +779,19 @@ mod tests {
                         number_min: None,
                         number_max: None,
                     },
+                    ProjectConfigurationFieldDto {
+                        field_id: "requiredBoundedActor".to_owned(),
+                        label: "Required bounded actor".to_owned(),
+                        value_kind: ProjectConfigurationValueKind::Reference,
+                        required: false,
+                        reference_kind: Some(
+                            ProjectContentReferenceKind::InstantiatedBoundedEntityDefinition,
+                        ),
+                        integer_min: None,
+                        integer_max: None,
+                        number_min: None,
+                        number_max: None,
+                    },
                 ],
             }],
         }
@@ -973,8 +986,80 @@ mod tests {
         assert!(!uninstantiated.result.accepted);
         assert!(uninstantiated.result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == ProjectContentDiagnosticCode::UnknownReference
-                && diagnostic.message.contains("unknown or has the wrong kind")
+                && diagnostic.message.contains("requiredActor")
         }));
+    }
+
+    #[test]
+    fn instantiated_bounded_entity_definition_reference_requires_usable_bounds() {
+        let with_bounds = |bounds: Option<([f32; 3], [f32; 3])>| {
+            let mut request = request();
+            let entity = request
+                .sources
+                .iter_mut()
+                .find(|source| source.document_id == "entities/reference-trigger.json")
+                .expect("instantiated entity source");
+            let mut definition: serde_json::Value =
+                serde_json::from_str(&entity.source_text).expect("entity fixture JSON");
+            let capabilities = definition["capabilities"]
+                .as_array_mut()
+                .expect("entity capabilities");
+            capabilities.retain(|capability| capability["kind"] != "bounds");
+            if let Some((min, max)) = bounds {
+                capabilities.push(serde_json::json!({
+                    "kind": "bounds",
+                    "min": min,
+                    "max": max,
+                }));
+            }
+            entity.source_text = serde_json::to_string(&definition).expect("entity serializes");
+
+            let gameplay = request
+                .sources
+                .iter_mut()
+                .find(|source| source.kind == ProjectContentDocumentKind::GameplayConfiguration)
+                .expect("gameplay source");
+            let mut document: serde_json::Value =
+                serde_json::from_str(&gameplay.source_text).expect("gameplay fixture JSON");
+            document["configurations"][0]["values"]
+                .as_array_mut()
+                .expect("configuration values")
+                .push(serde_json::json!({
+                    "fieldId": "requiredBoundedActor",
+                    "value": {
+                        "kind": "reference",
+                        "referenceKind": "instantiatedBoundedEntityDefinition",
+                        "targetId": "reference.trigger",
+                    }
+                }));
+            gameplay.source_text = serde_json::to_string(&document).expect("gameplay serializes");
+            request
+        };
+        let reference_diagnostic = |outcome: &ProjectContentValidationOutcome| {
+            outcome.result.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == ProjectContentDiagnosticCode::UnknownReference
+                    && diagnostic.path == "document.configurations[0].values[1]"
+            })
+        };
+
+        let valid = decode(with_bounds(Some(([-1.0; 3], [1.0; 3]))));
+        assert!(valid.result.accepted, "{:?}", valid.result.diagnostics);
+
+        let missing = decode(with_bounds(None));
+        assert!(!missing.result.accepted);
+        assert!(
+            reference_diagnostic(&missing),
+            "{:?}",
+            missing.result.diagnostics
+        );
+
+        let zero_width = decode(with_bounds(Some(([0.0, -1.0, -1.0], [0.0, 1.0, 1.0]))));
+        assert!(!zero_width.result.accepted);
+        assert!(
+            reference_diagnostic(&zero_width),
+            "{:?}",
+            zero_width.result.diagnostics
+        );
     }
 
     #[test]

@@ -53,6 +53,7 @@ pub enum ProjectContentReferenceKind {
     Asset,
     EntityDefinition,
     InstantiatedEntityDefinition,
+    InstantiatedBoundedEntityDefinition,
     SceneInstance,
     Prefab,
     PrefabPart,

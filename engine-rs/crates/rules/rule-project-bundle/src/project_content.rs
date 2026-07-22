@@ -338,6 +338,9 @@ fn reference_kind(
         GameplayConfigurationReferenceKind::InstantiatedEntityDefinition => {
             ProjectContentReferenceKind::InstantiatedEntityDefinition
         }
+        GameplayConfigurationReferenceKind::InstantiatedBoundedEntityDefinition => {
+            ProjectContentReferenceKind::InstantiatedBoundedEntityDefinition
+        }
         GameplayConfigurationReferenceKind::SceneInstance => {
             ProjectContentReferenceKind::SceneInstance
         }

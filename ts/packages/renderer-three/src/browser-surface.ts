@@ -212,7 +212,10 @@ export function mountAshaRendererBrowserSurface(
 
   const webgl = new THREE.WebGLRenderer({ canvas, antialias: true });
   webgl.setClearColor(options.clearColor ?? 0x101820, 1);
-  webgl.setPixelRatio(options.pixelRatio ?? globalThis.devicePixelRatio ?? 1);
+  const pixelRatio = validatePixelRatio(
+    options.pixelRatio ?? globalThis.devicePixelRatio ?? 1,
+  );
+  webgl.setPixelRatio(pixelRatio);
 
   const cameraProjection = validatePerspectiveProjection(
     options.camera?.projection ?? { fovYDegrees: 55, near: 0.1, far: 100 },
@@ -236,6 +239,7 @@ export function mountAshaRendererBrowserSurface(
 
   let animationFrame: number | null = null;
   let lastRenderTimeMs: number | null = null;
+  let logicalViewport = { width: 0, height: 0 };
 
   const setCameraPose = (
     pose: AshaRendererBrowserSurfaceCameraPose,
@@ -262,10 +266,17 @@ export function mountAshaRendererBrowserSurface(
   };
 
   const resize = (): void => {
-    const width = Math.max(1, canvas.clientWidth || canvas.width || 800);
-    const height = Math.max(1, canvas.clientHeight || canvas.height || 450);
-    if (canvas.width !== width || canvas.height !== height) {
+    const width = Math.max(
+      1,
+      canvas.clientWidth || Math.round(canvas.width / pixelRatio) || 800,
+    );
+    const height = Math.max(
+      1,
+      canvas.clientHeight || Math.round(canvas.height / pixelRatio) || 450,
+    );
+    if (logicalViewport.width !== width || logicalViewport.height !== height) {
       webgl.setSize(width, height, false);
+      logicalViewport = { width, height };
     }
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
@@ -289,7 +300,7 @@ export function mountAshaRendererBrowserSurface(
     camera.updateMatrixWorld(true);
     return projectWorldPointWithPerspectiveCamera(
       camera,
-      { width: Math.max(1, canvas.width), height: Math.max(1, canvas.height) },
+      logicalViewport,
       position,
     );
   };
@@ -382,6 +393,13 @@ function validatePerspectiveProjection(projection: PerspectiveProjection): Persp
     near: projection.near,
     far: projection.far,
   };
+}
+
+function validatePixelRatio(pixelRatio: number): number {
+  if (!Number.isFinite(pixelRatio) || pixelRatio <= 0) {
+    throw new RangeError('renderer pixel ratio must be finite and greater than zero');
+  }
+  return pixelRatio;
 }
 
 export function createAshaRendererBrowserSurfaceFrame(): RenderFrameDiff {

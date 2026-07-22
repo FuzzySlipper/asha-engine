@@ -27,7 +27,7 @@ export interface ProjectContentSource {
 
 export type ProjectConfigurationValueKind = 'boolean' | 'integer' | 'number' | 'string' | 'reference';
 
-export type ProjectContentReferenceKind = 'asset' | 'entityDefinition' | 'instantiatedEntityDefinition' | 'sceneInstance' | 'prefab' | 'prefabPart' | 'presentationResource';
+export type ProjectContentReferenceKind = 'asset' | 'entityDefinition' | 'instantiatedEntityDefinition' | 'instantiatedBoundedEntityDefinition' | 'sceneInstance' | 'prefab' | 'prefabPart' | 'presentationResource';
 
 // Provider-owned field metadata. Engine validates the shape and references; providers retain the semantic meaning and codec identity.
 export interface ProjectConfigurationField {

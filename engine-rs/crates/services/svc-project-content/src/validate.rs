@@ -859,7 +859,10 @@ fn validate_value(
                 ProjectContentDiagnosticCode::UnknownReference,
                 Some(document_id),
                 path,
-                "configuration reference is unknown or has the wrong kind",
+                &format!(
+                    "configuration reference `{target_id}` is unknown or does not satisfy the required {reference_kind:?} reference for field `{}`",
+                    field.field_id
+                ),
             );
         }
         _ => {}
@@ -876,6 +879,19 @@ fn reference_exists(
         ProjectContentReferenceKind::EntityDefinition => index.entities.contains_key(target_id),
         ProjectContentReferenceKind::InstantiatedEntityDefinition => {
             index.entities.contains_key(target_id)
+                && index.scene_instances.values().any(|reference| {
+                    matches!(
+                        reference,
+                        SceneInstanceReference::EntityDefinition { stable_id, .. }
+                            if stable_id == target_id
+                    )
+                })
+        }
+        ProjectContentReferenceKind::InstantiatedBoundedEntityDefinition => {
+            index
+                .entities
+                .get(target_id)
+                .is_some_and(|definition| has_usable_bounds(definition))
                 && index.scene_instances.values().any(|reference| {
                     matches!(
                         reference,
@@ -902,6 +918,14 @@ fn reference_exists(
             index.presentation_resources.contains(target_id)
         }
     }
+}
+
+fn has_usable_bounds(definition: &EntityDefinition) -> bool {
+    definition.capabilities.iter().any(|capability| {
+        matches!(capability, EntityDefinitionCapability::Bounds { min, max }
+            if min.iter().zip(max).all(|(min, max)|
+                min.is_finite() && max.is_finite() && min < max))
+    })
 }
 
 fn validate_binding_target(

@@ -38,7 +38,9 @@ const TEST_PAGE = `<!doctype html>
   <meta charset="utf-8">
   <style>
     html, body { margin: 0; min-height: 2200px; }
-    canvas { display: block; margin: 40px; width: 640px; height: 360px; }
+    canvas { display: block; margin: 40px; }
+    #surface { width: 640px; height: 360px; }
+    #projection-surface { width: 1000px; height: 500px; }
   </style>
   <script type="importmap">
     {
@@ -55,8 +57,10 @@ const TEST_PAGE = `<!doctype html>
 </head>
 <body>
   <canvas id="surface" width="640" height="360" tabindex="0"></canvas>
+  <canvas id="projection-surface" width="1000" height="500"></canvas>
   <script type="module">
     import { mountAshaRendererInspectionSurface } from '/ts/packages/renderer-host/dist/inspection-surface.js';
+    import { mountAshaRendererBrowserSurface } from '@asha/renderer-three/backend';
 
     const canvas = document.querySelector('#surface');
     const positions = [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0];
@@ -141,6 +145,21 @@ const TEST_PAGE = `<!doctype html>
       setGrid: descriptor => surface.setGrid(descriptor),
       snapshot: () => surface.readout(),
     };
+    const projectionCanvas = document.querySelector('#projection-surface');
+    const projectionSurface = mountAshaRendererBrowserSurface(projectionCanvas, {
+      autoStart: false,
+      pixelRatio: 2,
+      camera: {
+        projection: { fovYDegrees: 58, near: 0.1, far: 100 },
+        initialPose: { position: [0, 0, 0], pitchDegrees: 0, yawDegrees: 0 },
+      },
+    });
+    projectionSurface.renderOnce(0);
+    window.__ashaProjection = {
+      canvas: projectionCanvas,
+      dispose: () => projectionSurface.dispose(),
+      project: position => projectionSurface.projectWorldPoint(position),
+    };
     document.documentElement.dataset.ready = 'true';
   </script>
 </body>
@@ -182,6 +201,23 @@ async function main() {
     await client.send('Network.enable');
     await client.send('Log.enable');
     await waitForInspectionSurface(client);
+
+    const highDpiProjection = await evaluate(client, `(() => {
+      const canvas = window.__ashaProjection.canvas;
+      const rect = canvas.getBoundingClientRect();
+      return {
+        backingSize: [canvas.width, canvas.height],
+        cssSize: [rect.width, rect.height],
+        projection: window.__ashaProjection.project([2, 0, -5]),
+      };
+    })()`);
+    assert.deepEqual(highDpiProjection.cssSize, [1000, 500]);
+    assert.deepEqual(highDpiProjection.backingSize, [2000, 1000]);
+    assert.ok(highDpiProjection.projection.xPixels > 500);
+    assert.ok(highDpiProjection.projection.xPixels < 1000);
+    assert.ok(highDpiProjection.projection.yPixels >= 0);
+    assert.ok(highDpiProjection.projection.yPixels <= 500);
+    assert.equal(highDpiProjection.projection.insideViewport, true);
 
     const point = await evaluate(client, `(() => {
       const rect = window.__ashaInspection.canvas.getBoundingClientRect();
@@ -450,6 +486,7 @@ async function main() {
     const disposed = await evaluate(client, `(() => {
       window.__ashaInspection.dispose();
       window.__ashaInspection.dispose();
+      window.__ashaProjection.dispose();
       return {
         readout: window.__ashaInspection.snapshot(),
         rejectedRuntime: window.__ashaInspection.applyRuntimeFrame({ ops: [] }),
