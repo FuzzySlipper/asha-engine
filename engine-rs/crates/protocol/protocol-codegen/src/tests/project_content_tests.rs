@@ -47,12 +47,32 @@ pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
         interface_coverage_key("projectContent", "ProjectContentDiagnostic"),
         interface_coverage_key("projectContent", "ProjectContentCanonicalFile"),
         interface_coverage_key("projectContent", "ProjectContentFieldMetadata"),
+        variant_coverage_key(
+            "projectContent",
+            "ProjectEntityAppearanceUpdate",
+            "resource",
+        ),
+        variant_coverage_key(
+            "projectContent",
+            "ProjectEntityAppearanceUpdate",
+            "initialClip",
+        ),
+        variant_coverage_key(
+            "projectContent",
+            "ProjectEntityAppearanceUpdate",
+            "modelScale",
+        ),
         interface_coverage_key("projectContent", "ProjectContentCodecResult"),
         interface_coverage_key("projectContent", "ActiveRuntimeProjectEntityRoleReadout"),
         interface_coverage_key("projectContent", "ActiveRuntimeProjectDomainReadout"),
         interface_coverage_key("projectContent", "ActiveRuntimeProjectContentReadout"),
         variant_coverage_key("projectContent", "ProjectContentAuthoringCommand", "upsert"),
         variant_coverage_key("projectContent", "ProjectContentAuthoringCommand", "delete"),
+        variant_coverage_key(
+            "projectContent",
+            "ProjectContentAuthoringCommand",
+            "updateEntityAppearance",
+        ),
         interface_coverage_key("projectContent", "ProjectContentAuthoringRequest"),
         interface_coverage_key("projectContent", "ProjectContentAuthoringResult"),
         interface_coverage_key("projectContent", "ProceduralEnvironmentLimits"),
@@ -223,6 +243,7 @@ fn project_content_samples_match_closed_generated_ir_shapes() {
     let reference_option = json!({ "targetId": "actor/demo-player", "label": "Player" });
     let metadata = json!({
         "documentId": "gameplay/demo",
+        "fieldId": "damage",
         "path": "document.configurations[0].values.damage",
         "label": "Damage",
         "valueKind": "integer",
@@ -244,6 +265,15 @@ fn project_content_samples_match_closed_generated_ir_shapes() {
     let result = json!({ "accepted": true, "documents": [documents[3].1], "canonicalFiles": [canonical], "setHash": "fnv1a64:set", "providerSchemas": [schema], "fieldMetadata": [metadata], "diagnostics": [] });
     let upsert = json!({ "kind": "upsert", "sourcePath": "content/gameplay.json", "document": documents[3].1 });
     let delete = json!({ "kind": "delete", "documentId": "gameplay/demo", "documentKind": "gameplayConfiguration" });
+    let appearance_resource = json!({ "kind": "resource", "resourceId": "presentation/enemy" });
+    let appearance_clip = json!({ "kind": "initialClip", "initialClipId": null });
+    let appearance_scale = json!({ "kind": "modelScale", "axis": 1, "value": 2.0 });
+    let update_appearance = json!({
+        "kind": "updateEntityAppearance",
+        "documentId": "entity/demo",
+        "projectionId": "enemy",
+        "update": appearance_resource,
+    });
     let authoring = json!({ "expectedWorkspaceId": "workspace-1", "expectedGeneration": 2, "expectedWorkingRevision": 3, "expectedSetHash": "fnv1a64:set", "command": upsert });
 
     for (name, value) in [
@@ -264,6 +294,20 @@ fn project_content_samples_match_closed_generated_ir_shapes() {
         "ProjectContentAuthoringCommand",
         "upsert",
         &upsert,
+    )
+    .unwrap();
+    for (tag, update) in [
+        ("resource", &appearance_resource),
+        ("initialClip", &appearance_clip),
+        ("modelScale", &appearance_scale),
+    ] {
+        compare_object_to_variant(&project, "ProjectEntityAppearanceUpdate", tag, update).unwrap();
+    }
+    compare_object_to_variant(
+        &project,
+        "ProjectContentAuthoringCommand",
+        "updateEntityAppearance",
+        &update_appearance,
     )
     .unwrap();
     compare_object_to_variant(

@@ -339,6 +339,9 @@ pub struct ProjectContentCanonicalFileDto {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProjectContentFieldMetadataDto {
     pub document_id: String,
+    /// Stable Rust-owned field identity within `schema_id`. Studio uses this
+    /// instead of deriving mutation semantics from JSON path spelling.
+    pub field_id: String,
     pub path: String,
     pub label: String,
     pub value_kind: ProjectConfigurationValueKind,
@@ -356,6 +359,16 @@ pub struct ProjectContentFieldMetadataDto {
     pub integer_max: Option<i64>,
     pub number_min: Option<f64>,
     pub number_max: Option<f64>,
+}
+
+/// Closed typed edits for the canonical entity-appearance binding. Rust owns
+/// compatible-resource selection, dependent clip normalization, and numeric
+/// bounds; authoring clients only select one generated operation.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ProjectEntityAppearanceUpdateDto {
+    Resource { resource_id: String },
+    InitialClip { initial_clip_id: Option<String> },
+    ModelScale { axis: u8, value: f32 },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -422,6 +435,11 @@ pub enum ProjectContentAuthoringCommandDto {
     Delete {
         document_id: String,
         document_kind: ProjectContentDocumentKind,
+    },
+    UpdateEntityAppearance {
+        document_id: String,
+        projection_id: String,
+        update: ProjectEntityAppearanceUpdateDto,
     },
 }
 

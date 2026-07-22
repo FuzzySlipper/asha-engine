@@ -166,7 +166,15 @@ impl EngineBridge {
             self.deliver_static_gameplay_owner_events(receipt.gameplay_events.clone())
         {
             self.gameplay.fps_session = Some(fps_before);
-            self.scene.entities = entities_before;
+            self.scene.entities = entities_before.clone();
+            if let Some(resolved) = composed_damage {
+                self.restore_primary_fire_decision_evidence(resolved.evidence_checkpoint)?;
+            }
+            return Err(error);
+        }
+        let entities_next = core::mem::replace(&mut self.scene.entities, entities_before);
+        if let Err(error) = self.commit_entity_authority_change(entities_next, request.tick) {
+            self.gameplay.fps_session = Some(fps_before);
             if let Some(resolved) = composed_damage {
                 self.restore_primary_fire_decision_evidence(resolved.evidence_checkpoint)?;
             }
@@ -181,9 +189,6 @@ impl EngineBridge {
                 "revalidated the final Workspace and committed through rule-lifecycle + svc-combat"
                     .to_owned(),
             ];
-        }
-        if let Some(target) = result.target {
-            self.project_entity_appearance_visibility(EntityId::new(target), request.tick);
         }
         self.project_primary_fire_feedback(request, &result)?;
         Ok(result)

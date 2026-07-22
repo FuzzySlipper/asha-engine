@@ -17,7 +17,8 @@ use protocol_project_content::{
     ProjectContentAuthoringCommandDto, ProjectContentAuthoringRequestDto,
     ProjectContentAuthoringResultDto, ProjectContentCodecResultDto, ProjectContentDecodeRequestDto,
     ProjectContentDiagnosticCode, ProjectContentDiagnosticDto, ProjectContentDocumentDto,
-    ProjectContentDocumentKind, ProjectContentEncodeRequestDto,
+    ProjectContentDocumentKind, ProjectContentEncodeRequestDto, ProjectEntityAppearanceUpdateDto,
+    ProjectPresentationResourceKind,
 };
 use protocol_scene::FlatSceneDocumentDto;
 use svc_serialization::ValidatedPrefabRegistry;
@@ -348,10 +349,151 @@ pub fn apply_project_content_authoring(
             }
             source_paths.remove(&document_key(document_kind, &document_id));
         }
+        ProjectContentAuthoringCommandDto::UpdateEntityAppearance {
+            document_id,
+            projection_id,
+            update,
+        } => {
+            if let Err(diagnostic) =
+                update_entity_appearance(&mut documents, &document_id, &projection_id, update)
+            {
+                return authoring_rejection(
+                    current,
+                    context.gameplay.configuration_schemas(),
+                    diagnostic,
+                );
+            }
+        }
     }
     let encoded = encode_documents(documents, Some(&source_paths), context);
     let result = authoring_from_codec(encoded.result.clone());
     (result, encoded.validated)
+}
+
+fn update_entity_appearance(
+    documents: &mut [ProjectContentDocumentDto],
+    document_id: &str,
+    projection_id: &str,
+    update: ProjectEntityAppearanceUpdateDto,
+) -> Result<(), ProjectContentDiagnosticDto> {
+    let reject = |path: &str, message: String| ProjectContentDiagnosticDto {
+        code: ProjectContentDiagnosticCode::InvalidField,
+        document_id: Some(document_id.to_owned()),
+        path: path.to_owned(),
+        message,
+    };
+    let resource = match &update {
+        ProjectEntityAppearanceUpdateDto::Resource { resource_id } => Some(
+            documents
+                .iter()
+                .find_map(|document| match document {
+                    ProjectContentDocumentDto::PresentationCatalog { catalog, .. } => catalog
+                        .resources
+                        .iter()
+                        .find(|resource| resource.resource_id == *resource_id)
+                        .cloned(),
+                    _ => None,
+                })
+                .filter(|resource| {
+                    resource.kind == ProjectPresentationResourceKind::AnimatedMesh
+                        && resource.animated_mesh.is_some()
+                })
+                .ok_or_else(|| {
+                    reject(
+                        "command.update.resourceId",
+                        format!(
+                            "entity appearance resource `{resource_id}` is not an admitted animated mesh"
+                        ),
+                    )
+                })?,
+        ),
+        _ => None,
+    };
+    let target = documents
+        .iter_mut()
+        .find_map(|document| match document {
+            ProjectContentDocumentDto::EntityDefinition {
+                document_id: candidate,
+                definition,
+            } if candidate == document_id => Some(definition),
+            _ => None,
+        })
+        .ok_or_else(|| {
+            reject(
+                "command.documentId",
+                "entity appearance update targeted an unknown EntityDefinition".to_owned(),
+            )
+        })?;
+    let appearance = target
+        .capabilities
+        .iter_mut()
+        .find_map(|capability| match capability {
+            protocol_entity_authoring::EntityDefinitionCapability::RenderProjection {
+                projection_id: candidate,
+                appearance,
+                ..
+            } if candidate == projection_id => Some(appearance),
+            _ => None,
+        })
+        .ok_or_else(|| {
+            reject(
+                "command.projectionId",
+                format!("unknown render projection `{projection_id}`"),
+            )
+        })?;
+
+    match update {
+        ProjectEntityAppearanceUpdateDto::Resource { .. } => {
+            let resource = resource.expect("resource update resolved above");
+            let descriptor = resource
+                .animated_mesh
+                .expect("compatible resource has an animated-mesh descriptor");
+            let retained_clip = appearance
+                .as_ref()
+                .and_then(|binding| binding.initial_clip_id.as_ref())
+                .filter(|clip| {
+                    descriptor
+                        .clips
+                        .iter()
+                        .any(|candidate| candidate.id == **clip)
+                })
+                .cloned();
+            let model_scale = appearance
+                .as_ref()
+                .map_or([1.0, 1.0, 1.0], |binding| binding.model_scale);
+            *appearance = Some(protocol_entity_authoring::EntityAppearanceBinding {
+                resource_id: resource.resource_id,
+                initial_clip_id: retained_clip.or(descriptor.default_clip),
+                model_scale,
+            });
+        }
+        ProjectEntityAppearanceUpdateDto::InitialClip { initial_clip_id } => {
+            let binding = appearance.as_mut().ok_or_else(|| {
+                reject(
+                    "command.update.initialClipId",
+                    "select an appearance resource before selecting a clip".to_owned(),
+                )
+            })?;
+            binding.initial_clip_id = initial_clip_id;
+        }
+        ProjectEntityAppearanceUpdateDto::ModelScale { axis, value } => {
+            if axis > 2 || !value.is_finite() || !(0.0001..=1000.0).contains(&value) {
+                return Err(reject(
+                    "command.update.modelScale",
+                    "model scale axis must be 0..=2 and value must be finite in 0.0001..=1000"
+                        .to_owned(),
+                ));
+            }
+            let binding = appearance.as_mut().ok_or_else(|| {
+                reject(
+                    "command.update.modelScale",
+                    "select an appearance resource before editing model scale".to_owned(),
+                )
+            })?;
+            binding.model_scale[usize::from(axis)] = value;
+        }
+    }
+    Ok(())
 }
 
 fn encode_documents(
@@ -871,9 +1013,11 @@ mod tests {
                       "tags":[],
                       "metadata":[],
                       "capabilities":[
+                        {"kind":"transform","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]}},
                         {"kind":"bounds","min":[-1,-1,-1],"max":[1,1,1]},
                         {"kind":"collision","staticCollider":false},
-                        {"kind":"controller","controllerId":"player_input"}
+                        {"kind":"controller","controllerId":"player_input"},
+                        {"kind":"renderProjection","projectionId":"reference.trigger.appearance","visible":true,"appearance":{"resourceId":"reference.character.mesh","initialClipId":"idle","modelScale":[1,1,1]}}
                       ]
                     }"#,
                 ),
@@ -895,7 +1039,7 @@ mod tests {
                     r#"{
                       "entries":[
                         {"id":"audio/reference-confirm","version":1,"hash":"aabb","sourcePath":"assets/confirm.wav","label":"Confirm","dependencies":[],"material":null},
-                        {"id":"mesh/reference-character","version":1,"hash":null,"sourcePath":"assets/character.glb","label":"Character","dependencies":[],"material":null}
+                        {"id":"mesh/reference-character","version":1,"hash":"ccdd","sourcePath":"assets/character.glb","label":"Character","dependencies":[],"material":null}
                       ]
                     }"#,
                 ),
@@ -941,7 +1085,10 @@ mod tests {
                     ProjectContentDocumentKind::PresentationCatalog,
                     r#"{
                       "schemaVersion":1,
-                      "resources":[{"resourceId":"reference.confirm.audio","kind":"audio","assetId":"audio/reference-confirm","sourcePath":"assets/confirm.wav","contentHash":"aabb","licensePath":null,"animatedMesh":null}],
+                      "resources":[
+                        {"resourceId":"reference.confirm.audio","kind":"audio","assetId":"audio/reference-confirm","sourcePath":"assets/confirm.wav","contentHash":"aabb","licensePath":null,"animatedMesh":null},
+                        {"resourceId":"reference.character.mesh","kind":"animatedMesh","assetId":"mesh/reference-character","sourcePath":"assets/character.glb","contentHash":"ccdd","licensePath":null,"animatedMesh":{"asset":"mesh/reference-character","runtimeFormat":"glb","contentHash":"ccdd","clips":[{"id":"idle","name":"Idle","durationSeconds":1.0},{"id":"walk","name":"Walk","durationSeconds":0.5}],"defaultClip":"idle","materialSlots":[],"bounds":{"min":[-0.5,0,-0.5],"max":[0.5,2,0.5]}}}
+                      ],
                       "cues":[{"kind":"audio","cueId":"reference.confirm","signalId":"reference.confirm","resourceId":"reference.confirm.audio","gain":0.8}]
                     }"#,
                 ),
@@ -995,6 +1142,128 @@ mod tests {
             .iter()
             .any(|document| document.document_id() == stable_document_id));
         assert_ne!(moved.result.set_hash, decoded.result.set_hash);
+    }
+
+    #[test]
+    fn entity_appearance_metadata_and_updates_are_rust_owned() {
+        let decoded = decode(request());
+        assert!(decoded.result.accepted, "{:?}", decoded.result.diagnostics);
+        let fields = decoded
+            .result
+            .field_metadata
+            .iter()
+            .filter(|field| field.schema_id.as_deref() == Some("asha.entity-appearance.v1"))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            fields
+                .iter()
+                .map(|field| field.field_id.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "initialClipId",
+                "modelScaleX",
+                "modelScaleY",
+                "modelScaleZ",
+                "resourceId",
+            ]
+        );
+        let resource = fields
+            .iter()
+            .find(|field| field.field_id == "resourceId")
+            .expect("resource descriptor");
+        assert_eq!(resource.reference_options.len(), 1);
+        assert_eq!(
+            resource.reference_options[0].target_id,
+            "reference.character.mesh"
+        );
+        let clip = fields
+            .iter()
+            .find(|field| field.field_id == "initialClipId")
+            .expect("clip descriptor");
+        assert_eq!(
+            clip.reference_options
+                .iter()
+                .map(|option| option.target_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["", "idle", "walk"]
+        );
+
+        let current = decoded.validated.expect("validated set");
+        let scenes = vec![scene()];
+        let admission = admission();
+        let context = ProjectContentValidationContext {
+            scenes: &scenes,
+            entry_scene_id: Some(scenes[0].id),
+            gameplay: &admission,
+            reference_revision: 0,
+        };
+        let (updated, next) = apply_project_content_authoring(
+            &current,
+            ProjectContentAuthoringRequestDto {
+                expected_workspace_id: "fixture".to_owned(),
+                expected_generation: 1,
+                expected_working_revision: 1,
+                expected_set_hash: current.set_hash().to_owned(),
+                command: ProjectContentAuthoringCommandDto::UpdateEntityAppearance {
+                    document_id: "entities/reference-trigger.json".to_owned(),
+                    projection_id: "reference.trigger.appearance".to_owned(),
+                    update: ProjectEntityAppearanceUpdateDto::InitialClip {
+                        initial_clip_id: None,
+                    },
+                },
+            },
+            context,
+        );
+        assert!(updated.accepted, "{:?}", updated.diagnostics);
+        let definition = updated
+            .documents
+            .iter()
+            .find_map(|document| match document {
+                ProjectContentDocumentDto::EntityDefinition {
+                    document_id,
+                    definition,
+                } if document_id == "entities/reference-trigger.json" => Some(definition),
+                _ => None,
+            })
+            .expect("updated definition");
+        assert!(definition.capabilities.iter().any(|capability| matches!(
+            capability,
+            protocol_entity_authoring::EntityDefinitionCapability::RenderProjection {
+                appearance: Some(protocol_entity_authoring::EntityAppearanceBinding {
+                    initial_clip_id: None,
+                    ..
+                }),
+                ..
+            }
+        )));
+        assert!(next.is_some());
+
+        let context = ProjectContentValidationContext {
+            scenes: &scenes,
+            entry_scene_id: Some(scenes[0].id),
+            gameplay: &admission,
+            reference_revision: 0,
+        };
+        let (rejected, rejected_next) = apply_project_content_authoring(
+            &current,
+            ProjectContentAuthoringRequestDto {
+                expected_workspace_id: "fixture".to_owned(),
+                expected_generation: 1,
+                expected_working_revision: 1,
+                expected_set_hash: current.set_hash().to_owned(),
+                command: ProjectContentAuthoringCommandDto::UpdateEntityAppearance {
+                    document_id: "entities/reference-trigger.json".to_owned(),
+                    projection_id: "reference.trigger.appearance".to_owned(),
+                    update: ProjectEntityAppearanceUpdateDto::Resource {
+                        resource_id: "reference.confirm.audio".to_owned(),
+                    },
+                },
+            },
+            context,
+        );
+        assert!(!rejected.accepted);
+        assert!(rejected_next.is_none());
+        assert_eq!(rejected.set_hash.as_deref(), Some(current.set_hash()));
     }
 
     #[test]

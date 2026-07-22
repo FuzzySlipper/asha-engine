@@ -1429,7 +1429,7 @@ pub(super) fn field_metadata(
     for document in documents {
         let document_id = document.document_id().to_owned();
         match document {
-            ProjectContentDocumentDto::EntityDefinition { .. } => {
+            ProjectContentDocumentDto::EntityDefinition { definition, .. } => {
                 for (path, label, kind, reference) in [
                     (
                         "definition.stableId",
@@ -1452,6 +1452,11 @@ pub(super) fn field_metadata(
                 ] {
                     fields.push(metadata(&document_id, path, label, kind, true, reference));
                 }
+                fields.extend(entity_appearance_field_metadata(
+                    &document_id,
+                    definition,
+                    documents,
+                ));
             }
             ProjectContentDocumentDto::AssetCatalog { catalog, .. } => {
                 for (index, entry) in catalog.entries.iter().enumerate() {
@@ -1478,6 +1483,7 @@ pub(super) fn field_metadata(
                         ] {
                             fields.push(ProjectContentFieldMetadataDto {
                                 document_id: document_id.clone(),
+                                field_id: suffix.to_owned(),
                                 path: format!("catalog.entries[{index}].material.style.{suffix}"),
                                 label: format!(
                                     "{} · {label}",
@@ -1532,6 +1538,7 @@ pub(super) fn field_metadata(
                     for field in &schema.fields {
                         fields.push(ProjectContentFieldMetadataDto {
                             document_id: document_id.clone(),
+                            field_id: field.field_id.clone(),
                             path: format!(
                                 "document.configurations[{configuration_index}].values.{}",
                                 field.field_id
@@ -1593,6 +1600,7 @@ pub(super) fn field_metadata(
                     for (field, label, minimum, maximum) in fields_for_cue {
                         fields.push(ProjectContentFieldMetadataDto {
                             document_id: document_id.clone(),
+                            field_id: (*field).to_owned(),
                             path: format!("catalog.cues[{index}].{field}"),
                             label: format!("{cue_id} · {label}"),
                             value_kind: ProjectConfigurationValueKind::Number,
@@ -1633,6 +1641,7 @@ fn metadata(
 ) -> ProjectContentFieldMetadataDto {
     ProjectContentFieldMetadataDto {
         document_id: document_id.to_owned(),
+        field_id: path.rsplit('.').next().unwrap_or(path).to_owned(),
         path: path.to_owned(),
         label: label.to_owned(),
         value_kind,
@@ -1651,6 +1660,140 @@ fn metadata(
         number_min: None,
         number_max: None,
     }
+}
+
+fn entity_appearance_field_metadata(
+    document_id: &str,
+    definition: &EntityDefinition,
+    documents: &[ProjectContentDocumentDto],
+) -> Vec<ProjectContentFieldMetadataDto> {
+    let animated_meshes = documents
+        .iter()
+        .flat_map(|document| match document {
+            ProjectContentDocumentDto::PresentationCatalog { catalog, .. } => catalog
+                .resources
+                .iter()
+                .filter(|resource| {
+                    resource.kind == ProjectPresentationResourceKind::AnimatedMesh
+                        && resource.animated_mesh.is_some()
+                })
+                .collect::<Vec<_>>(),
+            _ => Vec::new(),
+        })
+        .collect::<Vec<_>>();
+    let resource_options = animated_meshes
+        .iter()
+        .map(|resource| ProjectContentReferenceOptionDto {
+            target_id: resource.resource_id.clone(),
+            label: format!("{} · {}", resource.resource_id, resource.asset_id),
+        })
+        .collect::<Vec<_>>();
+    let mut fields = Vec::new();
+
+    for (capability_index, capability) in definition.capabilities.iter().enumerate() {
+        let EntityDefinitionCapability::RenderProjection {
+            projection_id,
+            appearance,
+            ..
+        } = capability
+        else {
+            continue;
+        };
+        let path = format!("definition.capabilities[{capability_index}].appearance");
+        let common =
+            |field_id: &str,
+             path: String,
+             label: &str,
+             value_kind: ProjectConfigurationValueKind,
+             required: bool,
+             reference_kind: Option<ProjectContentReferenceKind>,
+             reference_options: Vec<ProjectContentReferenceOptionDto>,
+             number_min: Option<f64>,
+             number_max: Option<f64>| ProjectContentFieldMetadataDto {
+                document_id: document_id.to_owned(),
+                field_id: field_id.to_owned(),
+                path,
+                label: label.to_owned(),
+                value_kind,
+                required,
+                editable: true,
+                reference_kind,
+                reference_options,
+                configuration_id: Some(projection_id.clone()),
+                schema_id: Some("asha.entity-appearance.v1".to_owned()),
+                module_id: None,
+                provider_id: Some("provider.asha.entity-appearance".to_owned()),
+                contract: None,
+                codec_id: Some("svc-project-content.entity-appearance.v1".to_owned()),
+                integer_min: None,
+                integer_max: None,
+                number_min,
+                number_max,
+            };
+        fields.push(common(
+            "resourceId",
+            format!("{path}.resourceId"),
+            "Appearance resource",
+            ProjectConfigurationValueKind::Reference,
+            true,
+            Some(ProjectContentReferenceKind::PresentationResource),
+            resource_options.clone(),
+            None,
+            None,
+        ));
+        let Some(appearance) = appearance else {
+            continue;
+        };
+        let selected = animated_meshes
+            .iter()
+            .find(|resource| resource.resource_id == appearance.resource_id)
+            .and_then(|resource| resource.animated_mesh.as_ref());
+        let mut clip_options = vec![ProjectContentReferenceOptionDto {
+            target_id: String::new(),
+            label: format!(
+                "Resource default ({})",
+                selected
+                    .and_then(|descriptor| descriptor.default_clip.as_deref())
+                    .unwrap_or("none")
+            ),
+        }];
+        if let Some(descriptor) = selected {
+            clip_options.extend(descriptor.clips.iter().map(|clip| {
+                ProjectContentReferenceOptionDto {
+                    target_id: clip.id.clone(),
+                    label: clip
+                        .name
+                        .as_ref()
+                        .map_or_else(|| clip.id.clone(), |name| format!("{} · {name}", clip.id)),
+                }
+            }));
+        }
+        fields.push(common(
+            "initialClipId",
+            format!("{path}.initialClipId"),
+            "Initial animation clip",
+            ProjectConfigurationValueKind::String,
+            false,
+            None,
+            clip_options,
+            None,
+            None,
+        ));
+        for (axis, label) in ["X", "Y", "Z"].into_iter().enumerate() {
+            fields.push(common(
+                &format!("modelScale{label}"),
+                format!("{path}.modelScale[{axis}]"),
+                &format!("Model scale {label}"),
+                ProjectConfigurationValueKind::Number,
+                true,
+                None,
+                Vec::new(),
+                Some(0.0001),
+                Some(1000.0),
+            ));
+        }
+    }
+    fields
 }
 
 fn reference_options(

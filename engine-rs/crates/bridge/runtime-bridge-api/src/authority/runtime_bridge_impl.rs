@@ -1509,15 +1509,11 @@ impl RuntimeBridge for EngineBridge {
             .fps_session("invoke_game_extension_weapon_effect")?
             .clone();
         let entities_before = self.scene.entities.clone();
-        let session = self.gameplay.fps_session.as_mut().ok_or_else(|| {
-            RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::NotInitialized,
-                "invoke_game_extension_weapon_effect called before canonical FPS project activation",
-            )
-        })?;
-        let receipt = session
+        let mut fps_next = fps_before.clone();
+        let mut entities_next = entities_before.clone();
+        let receipt = fps_next
             .apply_primary_fire_for_roles_with_entities(FpsPrimaryFireAuthorityInput {
-                entities: &mut self.scene.entities,
+                entities: &mut entities_next,
                 projection: &projection,
                 ray,
                 tick: primary_fire.tick,
@@ -1527,9 +1523,15 @@ impl RuntimeBridge for EngineBridge {
             })
             .map_err(Self::fps_runtime_error)?;
         let gameplay_events = receipt.gameplay_events.clone();
+        self.scene.entities = entities_next;
         if let Err(error) = self.deliver_static_gameplay_owner_events(gameplay_events) {
+            self.scene.entities = entities_before.clone();
+            return Err(error);
+        }
+        let entities_next = core::mem::replace(&mut self.scene.entities, entities_before);
+        self.gameplay.fps_session = Some(fps_next);
+        if let Err(error) = self.commit_entity_authority_change(entities_next, primary_fire.tick) {
             self.gameplay.fps_session = Some(fps_before);
-            self.scene.entities = entities_before;
             return Err(error);
         }
         let primary_fire = Self::primary_fire_result(receipt);

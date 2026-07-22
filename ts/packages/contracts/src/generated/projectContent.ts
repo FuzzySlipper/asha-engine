@@ -179,6 +179,7 @@ export interface ProjectContentCanonicalFile {
 
 export interface ProjectContentFieldMetadata {
   readonly documentId: string;
+  readonly fieldId: string;
   readonly path: string;
   readonly label: string;
   readonly valueKind: ProjectConfigurationValueKind;
@@ -197,6 +198,12 @@ export interface ProjectContentFieldMetadata {
   readonly numberMin: number | null;
   readonly numberMax: number | null;
 }
+
+// Closed typed edits for the canonical entity-appearance binding. Rust owns compatible-resource selection, dependent clip normalization, and numeric bounds; authoring clients only select one generated operation.
+export type ProjectEntityAppearanceUpdate =
+  | { readonly kind: 'resource'; readonly resourceId: string }
+  | { readonly kind: 'initialClip'; readonly initialClipId: string | null }
+  | { readonly kind: 'modelScale'; readonly axis: number; readonly value: number };
 
 export interface ProjectContentCodecResult {
   readonly accepted: boolean;
@@ -235,7 +242,8 @@ export interface ActiveRuntimeProjectContentReadout {
 
 export type ProjectContentAuthoringCommand =
   | { readonly kind: 'upsert'; readonly sourcePath: string; readonly document: ProjectContentDocument }
-  | { readonly kind: 'delete'; readonly documentId: string; readonly documentKind: ProjectContentDocumentKind };
+  | { readonly kind: 'delete'; readonly documentId: string; readonly documentKind: ProjectContentDocumentKind }
+  | { readonly kind: 'updateEntityAppearance'; readonly documentId: string; readonly projectionId: string; readonly update: ProjectEntityAppearanceUpdate };
 
 export interface ProjectContentAuthoringRequest {
   readonly expectedWorkspaceId: string;

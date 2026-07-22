@@ -97,8 +97,9 @@ pub(super) fn apply(
             .role_entity(FpsRuntimeRole::Player)
             .map_err(EngineBridge::fps_runtime_error)?;
         let entities_before = bridge.scene.entities.clone();
-        let gameplay_result = bridge.with_static_gameplay_runtime(
+        let gameplay_result = bridge.with_static_gameplay_runtime_at_tick(
             "apply_collision_constrained_camera_input.trigger_reconciliation",
+            envelope.tick,
             |host| {
                 host.set_actor_translation_and_reconcile(player, after.pose.position, envelope.tick)
             },

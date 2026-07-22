@@ -69,6 +69,24 @@ enum AuthoringCommandJson {
         document_id: String,
         document_kind: DocumentKindJson,
     },
+    UpdateEntityAppearance {
+        document_id: String,
+        projection_id: String,
+        update: EntityAppearanceUpdateJson,
+    },
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
+enum EntityAppearanceUpdateJson {
+    Resource { resource_id: String },
+    InitialClip { initial_clip_id: Option<String> },
+    ModelScale { axis: u8, value: f32 },
 }
 
 impl From<DocumentKindJson> for ProjectContentDocumentKind {
@@ -183,6 +201,7 @@ fn result_json(
         "providerSchemas": provider_schemas.iter().map(configuration_schema_json).collect::<Vec<_>>(),
         "fieldMetadata": field_metadata.iter().map(|field| json!({
             "documentId": field.document_id,
+            "fieldId": field.field_id,
             "path": field.path,
             "label": field.label,
             "valueKind": value_kind_tag(field.value_kind),
@@ -521,6 +540,25 @@ pub fn apply_project_content_authoring(handle: i64, request_json: String) -> nap
                     document,
                 }
             }
+            AuthoringCommandJson::UpdateEntityAppearance {
+                document_id,
+                projection_id,
+                update,
+            } => ProjectContentAuthoringCommandDto::UpdateEntityAppearance {
+                document_id,
+                projection_id,
+                update: match update {
+                    EntityAppearanceUpdateJson::Resource { resource_id } => {
+                        ProjectEntityAppearanceUpdateDto::Resource { resource_id }
+                    }
+                    EntityAppearanceUpdateJson::InitialClip { initial_clip_id } => {
+                        ProjectEntityAppearanceUpdateDto::InitialClip { initial_clip_id }
+                    }
+                    EntityAppearanceUpdateJson::ModelScale { axis, value } => {
+                        ProjectEntityAppearanceUpdateDto::ModelScale { axis, value }
+                    }
+                },
+            },
         };
         let result = bridge
             .apply_project_content_authoring(ProjectContentAuthoringRequestDto {

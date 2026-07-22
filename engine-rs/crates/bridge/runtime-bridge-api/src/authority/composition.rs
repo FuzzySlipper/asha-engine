@@ -105,29 +105,62 @@ impl EngineBridge {
         operation: &'static str,
         apply: impl FnOnce(&mut GameplayRuntimeHost) -> Result<R, GameplayRuntimeHostError>,
     ) -> BridgeResult<Option<R>> {
-        let Some(host) = self.gameplay.static_gameplay_host.as_mut() else {
+        self.with_static_gameplay_runtime_at_tick(operation, self.time.authority_tick, apply)
+    }
+
+    pub(super) fn with_static_gameplay_runtime_at_tick<R>(
+        &mut self,
+        operation: &'static str,
+        authority_tick: u64,
+        apply: impl FnOnce(&mut GameplayRuntimeHost) -> Result<R, GameplayRuntimeHostError>,
+    ) -> BridgeResult<Option<R>> {
+        if self.gameplay.static_gameplay_host.is_none() {
             return Ok(None);
-        };
+        }
+        let previous_entities = self.scene.entities.clone();
         let entities = core::mem::take(&mut self.scene.entities);
-        host.install_entity_authority(entities).map_err(|error| {
-            RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::Internal,
-                format!("{operation} could not enter composed entity authority: {error}"),
-            )
-        })?;
-        let result = apply(host);
-        self.scene.entities = host.take_entity_authority().map_err(|error| {
-            RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::Internal,
-                format!("{operation} did not return composed entity authority: {error}"),
-            )
-        })?;
-        result.map(Some).map_err(|error| {
-            RuntimeBridgeError::new(
-                RuntimeBridgeErrorKind::InvalidInput,
-                format!("{operation} was rejected by composed gameplay authority: {error}"),
-            )
-        })
+        let (result, next_entities) = {
+            let host = self
+                .gameplay
+                .static_gameplay_host
+                .as_mut()
+                .expect("static gameplay host availability checked above");
+            if let Err(error) = host.install_entity_authority(entities) {
+                self.scene.entities = previous_entities;
+                return Err(RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::Internal,
+                    format!("{operation} could not enter composed entity authority: {error}"),
+                ));
+            }
+            let result = apply(host);
+            let next_entities = host.take_entity_authority().map_err(|error| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::Internal,
+                    format!("{operation} did not return composed entity authority: {error}"),
+                )
+            });
+            (result, next_entities)
+        };
+        let next_entities = match next_entities {
+            Ok(entities) => entities,
+            Err(error) => {
+                self.scene.entities = previous_entities;
+                return Err(error);
+            }
+        };
+        let value = match result {
+            Ok(value) => value,
+            Err(error) => {
+                self.scene.entities = previous_entities;
+                return Err(RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::InvalidInput,
+                    format!("{operation} was rejected by composed gameplay authority: {error}"),
+                ));
+            }
+        };
+        self.scene.entities = previous_entities;
+        self.commit_entity_authority_change(next_entities, authority_tick)?;
+        Ok(Some(value))
     }
 
     pub(super) fn deliver_static_gameplay_owner_events(

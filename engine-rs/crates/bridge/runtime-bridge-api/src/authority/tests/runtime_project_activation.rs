@@ -1549,6 +1549,83 @@ fn canonical_project_load_activates_playable_fps_authority_without_legacy_bootst
             protocol_render::RenderDiff::CreateAnimatedMeshInstance { handle, .. }
                 if *handle == appearance_handle
         )));
+
+    let module_ref = GameRuleModuleRef {
+        module_id: BUILT_IN_GAME_RULE_MODULE_ID.to_owned(),
+        version: "1.0.0".to_owned(),
+        contract_hash: "sha256:fixture-primary-fire-module".to_owned(),
+    };
+    bridge.gameplay.game_rule_modules.insert(
+        module_ref.module_id.clone(),
+        built_in_game_rule_manifest(module_ref.clone()),
+    );
+    let restarted_player_position = bridge
+        .scene
+        .entities
+        .transform(EntityId::new(restarted.player_entity))
+        .expect("restarted player transform")
+        .transform
+        .translation;
+    let restarted_enemy_position = bridge
+        .scene
+        .entities
+        .transform(EntityId::new(restarted.enemy_entity))
+        .expect("restarted enemy transform")
+        .transform
+        .translation;
+    let extension_fire = bridge
+        .invoke_game_extension_weapon_effect(GameExtensionWeaponEffectInvocationRequest {
+            hook: WeaponEffectHookRequest {
+                module_ref,
+                hook_id: BUILT_IN_GAME_RULE_HOOK_ID.to_owned(),
+                request_id: "fixture.extension-primary-fire".to_owned(),
+                tick: 11,
+                source: EntityId::new(restarted.player_entity),
+                target: Some(EntityId::new(restarted.enemy_entity)),
+                base_damage: 40,
+                range_millimeters: 10_000,
+                tags: vec!["primary-fire".to_owned()],
+                input_hash: "fnv1a64:fixture-extension-input".to_owned(),
+            },
+            primary_fire: FpsPrimaryFireRequest {
+                tick: 11,
+                origin: [
+                    restarted_player_position.x as f64,
+                    restarted_player_position.y as f64,
+                    restarted_player_position.z as f64,
+                ],
+                direction: [
+                    (restarted_enemy_position.x - restarted_player_position.x) as f64,
+                    (restarted_enemy_position.y - restarted_player_position.y) as f64,
+                    (restarted_enemy_position.z - restarted_player_position.z) as f64,
+                ],
+                shooter_role: None,
+                target_role: None,
+            },
+        })
+        .expect("extension primary fire uses the same accepted entity boundary");
+    assert_eq!(
+        extension_fire.primary_fire.unwrap().target_health_after,
+        Some(FpsBridgeHealth {
+            current: 0,
+            max: 40
+        })
+    );
+    let extension_projection = bridge
+        .read_projection_frame(11)
+        .expect("extension defeat publishes the retained appearance delta");
+    assert!(extension_projection
+        .scene
+        .ops
+        .iter()
+        .any(|operation| matches!(
+            operation,
+            protocol_render::RenderDiff::Update {
+                handle,
+                visible: Some(false),
+                ..
+            } if *handle == appearance_handle
+        )));
 }
 
 #[test]
