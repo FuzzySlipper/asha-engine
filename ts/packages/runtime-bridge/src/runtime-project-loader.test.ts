@@ -169,6 +169,7 @@ class CanonicalFpsProjectBridge extends MockRuntimeBridge {
             kind: 'renderProjection',
             projectionId: player ? 'first_person_camera' : 'target_cube',
             visible: true,
+            appearance: null,
           },
           ...(player
             ? [{

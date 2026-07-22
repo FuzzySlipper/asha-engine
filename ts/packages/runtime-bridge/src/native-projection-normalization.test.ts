@@ -11,7 +11,9 @@ void test('native projection decoding restores nullable contract fields omitted 
     readProjectionFrame: (_handle: number, cursor: number) => ({
       schemaVersion: 1,
       authorityTick: cursor,
-      scene: { ops: [] },
+      scene: {
+        frameJson: '{"ops":[{"op":"update","handle":8000000,"transform":null,"material":null,"visible":false,"metadata":null}]}',
+      },
       presentation: {
         replayScope: 'excludedFromReplayTruth',
         ops: [
@@ -84,6 +86,14 @@ void test('native projection decoding restores nullable contract fields omitted 
   bridge.initializeEngine({ seed: 1 });
 
   const frame = bridge.readProjectionFrame(frameCursor(0));
+  assert.deepEqual(frame.scene.ops, [{
+    op: 'update',
+    handle: 8_000_000,
+    transform: null,
+    material: null,
+    visible: false,
+    metadata: null,
+  }]);
   assert.deepEqual(frame.presentation.ops[0]?.meta.origin, {
     kind: 'ownerFact',
     id: 'fact:fire',

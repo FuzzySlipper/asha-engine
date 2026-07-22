@@ -810,13 +810,47 @@ fn validate_entity_definition_capability(
                 ));
             }
         }
-        EntityDefinitionCapability::RenderProjection { projection_id, .. } => {
+        EntityDefinitionCapability::RenderProjection {
+            projection_id,
+            appearance,
+            ..
+        } => {
             validate_required_capability_id(
                 projection_id,
                 path,
                 "render projection id",
                 diagnostics,
             );
+            if let Some(appearance) = appearance {
+                validate_required_capability_id(
+                    &appearance.resource_id,
+                    path,
+                    "appearance resource id",
+                    diagnostics,
+                );
+                if appearance
+                    .initial_clip_id
+                    .as_ref()
+                    .is_some_and(|clip| clip.trim().is_empty())
+                {
+                    diagnostics.push(entity_definition_diag(
+                        EntityDefinitionDiagnosticCode::InvalidInitialValue,
+                        path,
+                        "appearance initial clip id must be non-empty when present",
+                    ));
+                }
+                if !appearance
+                    .model_scale
+                    .iter()
+                    .all(|value| value.is_finite() && *value > 0.0)
+                {
+                    diagnostics.push(entity_definition_diag(
+                        EntityDefinitionDiagnosticCode::InvalidInitialValue,
+                        path,
+                        "appearance model scale must contain finite positive values",
+                    ));
+                }
+            }
         }
         EntityDefinitionCapability::PolicyBinding {
             binding_id,
@@ -1226,6 +1260,7 @@ mod tests {
             EntityDefinitionCapability::RenderProjection {
                 projection_id: "first_person_camera".into(),
                 visible: true,
+                appearance: None,
             },
             EntityDefinitionCapability::PolicyBinding {
                 binding_id: "player:policy".into(),

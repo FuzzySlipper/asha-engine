@@ -313,7 +313,7 @@ pub struct NativeStepResult {
 
 #[napi(object)]
 pub struct NativeRenderFrameDiff {
-    pub ops: Vec<String>,
+    pub frame_json: String,
 }
 
 #[napi(object)]
@@ -447,14 +447,12 @@ impl From<runtime_bridge_api::DeveloperConsoleSnapshot> for NativeDeveloperConso
 
 impl From<RuntimeProjectionFrame> for NativeRuntimeProjectionFrame {
     fn from(value: RuntimeProjectionFrame) -> Self {
-        debug_assert!(
-            value.scene.ops.is_empty(),
-            "native scene compatibility is empty today"
-        );
         Self {
             schema_version: u32::from(value.schema_version),
             authority_tick: value.authority_tick as i64,
-            scene: NativeRenderFrameDiff { ops: Vec::new() },
+            scene: NativeRenderFrameDiff {
+                frame_json: render_bridge::json::encode_frame(&value.scene),
+            },
             presentation: NativePresentationFrameDiff {
                 replay_scope: "excludedFromReplayTruth".to_string(),
                 ops: value
@@ -465,6 +463,28 @@ impl From<RuntimeProjectionFrame> for NativeRuntimeProjectionFrame {
                     .collect(),
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod projection_frame_transport_tests {
+    use super::*;
+
+    #[test]
+    fn native_projection_frame_retains_scene_operations_as_shared_wire_json() {
+        let mut frame = RuntimeProjectionFrame::empty(7);
+        frame
+            .scene
+            .ops
+            .push(protocol_render::RenderDiff::Destroy {
+                handle: protocol_render::RenderHandle::new(8_000_000),
+            });
+
+        let native = NativeRuntimeProjectionFrame::from(frame);
+        assert_eq!(
+            native.scene.frame_json,
+            "{\n  \"ops\": [\n    { \"op\": \"destroy\", \"handle\": 8000000 }\n  ]\n}\n"
+        );
     }
 }
 

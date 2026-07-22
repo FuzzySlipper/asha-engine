@@ -19,6 +19,7 @@ pub(super) struct InstalledAnimationCue {
 #[derive(Debug, Clone, Default)]
 pub(super) struct InstalledPresentationCatalog {
     catalog: Catalog,
+    animated_meshes: BTreeMap<String, protocol_render::AnimatedMeshAsset>,
     audio_signals: BTreeMap<String, InstalledPresentationCue>,
     particle_signals: BTreeMap<String, InstalledPresentationCue>,
     animation_cues: BTreeMap<String, InstalledAnimationCue>,
@@ -67,6 +68,7 @@ impl InstalledPresentationCatalog {
 
         let mut installed = Self {
             catalog: Catalog::from_entries(projected_entries),
+            animated_meshes: BTreeMap::new(),
             audio_signals: BTreeMap::new(),
             particle_signals: BTreeMap::new(),
             animation_cues: BTreeMap::new(),
@@ -75,6 +77,14 @@ impl InstalledPresentationCatalog {
             ProjectContentDocumentDto::PresentationCatalog { catalog, .. } => Some(catalog),
             _ => None,
         }) {
+            for resource in &catalog.resources {
+                if let Some(animated_mesh) = &resource.animated_mesh {
+                    installed.animated_meshes.insert(
+                        resource.resource_id.clone(),
+                        live_animated_mesh_descriptor(animated_mesh),
+                    );
+                }
+            }
             for cue in &catalog.cues {
                 if let ProjectPresentationCueDto::Animation {
                     cue_id,
@@ -87,7 +97,14 @@ impl InstalledPresentationCatalog {
                     })?;
                     let installed_cue = InstalledAnimationCue {
                         asset_id: resource.asset_id.clone(),
-                        clip_ids: resource.clip_ids.clone(),
+                        clip_ids: resource
+                            .animated_mesh
+                            .as_ref()
+                            .expect("validated animation resource has a descriptor")
+                            .clips
+                            .iter()
+                            .map(|clip| clip.id.clone())
+                            .collect(),
                     };
                     if installed
                         .animation_cues
@@ -152,5 +169,45 @@ impl InstalledPresentationCatalog {
 
     pub fn animation(&self, cue_id: &str) -> Option<&InstalledAnimationCue> {
         self.animation_cues.get(cue_id)
+    }
+
+    pub fn animated_mesh(&self, resource_id: &str) -> Option<&protocol_render::AnimatedMeshAsset> {
+        self.animated_meshes.get(resource_id)
+    }
+}
+
+fn live_animated_mesh_descriptor(
+    descriptor: &ProjectAnimatedMeshDescriptorDto,
+) -> protocol_render::AnimatedMeshAsset {
+    protocol_render::AnimatedMeshAsset {
+        asset: descriptor.asset.clone(),
+        runtime_format: match descriptor.runtime_format {
+            ProjectAnimatedMeshRuntimeFormat::Glb => {
+                protocol_render::AnimatedMeshRuntimeFormat::Glb
+            }
+        },
+        content_hash: descriptor.content_hash.clone(),
+        clips: descriptor
+            .clips
+            .iter()
+            .map(|clip| protocol_render::AnimationClipDescriptor {
+                id: clip.id.clone(),
+                name: clip.name.clone(),
+                duration_seconds: clip.duration_seconds,
+            })
+            .collect(),
+        default_clip: descriptor.default_clip.clone(),
+        material_slots: descriptor
+            .material_slots
+            .iter()
+            .map(|slot| protocol_render::MeshMaterialSlot {
+                slot: slot.slot,
+                material: slot.material.clone(),
+            })
+            .collect(),
+        bounds: protocol_render::MeshBoundsDescriptor {
+            min: descriptor.bounds.min,
+            max: descriptor.bounds.max,
+        },
     }
 }

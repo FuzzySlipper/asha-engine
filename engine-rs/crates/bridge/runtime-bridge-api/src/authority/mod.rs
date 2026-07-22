@@ -2,6 +2,7 @@ use crate::*;
 
 mod collision_camera;
 mod enemy_navigation;
+mod entity_appearance_projection;
 mod fps_animation_catalog;
 mod initialization;
 mod input;
@@ -187,6 +188,9 @@ struct BridgeGameplayState {
 #[derive(Debug, Default)]
 struct BridgeProjectionState {
     projection_frame: Option<RuntimeProjectionFrame>,
+    entity_appearances:
+        BTreeMap<EntityId, entity_appearance_projection::EntityAppearanceProjectionSeed>,
+    entity_appearance_handles: BTreeMap<EntityId, protocol_render::RenderHandle>,
     voxel_projector: VoxelChunkProjector,
     pending_voxel_frame: RenderFrameDiff,
     voxel_instance_binding: Option<VoxelInstanceBindingAuthority>,

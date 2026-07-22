@@ -187,9 +187,11 @@ impl EngineBridge {
                         EntityDefinitionCapability::RenderProjection {
                             projection_id,
                             visible,
+                            appearance,
                         } => Some(FpsRenderProjectionState {
                             projection: projection_id.clone(),
                             visible: *visible,
+                            appearance: appearance.clone(),
                         }),
                         _ => None,
                     });

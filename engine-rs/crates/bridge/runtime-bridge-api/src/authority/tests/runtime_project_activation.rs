@@ -8,7 +8,9 @@ use protocol_assets::{
     Rgba, StoredAssetCatalog, StoredCatalogEntry, StoredMaterialAuthority,
     StoredMaterialDefinition, StoredMaterialStyle,
 };
-use protocol_entity_authoring::{EntityDefinition, EntityDefinitionSourceTrace};
+use protocol_entity_authoring::{
+    EntityAppearanceBinding, EntityDefinition, EntityDefinitionSourceTrace,
+};
 use protocol_input::{
     InputActionDefinition, InputActionPhase, InputBindingRecord, InputContextDefinition,
     InputValue, InputValueKind, PlatformInputKind, INPUT_BINDING_CATALOG_SCHEMA_VERSION,
@@ -253,6 +255,11 @@ fn stored_fps_definition(
             }
             .to_owned(),
             visible: true,
+            appearance: (!player).then(|| EntityAppearanceBinding {
+                resource_id: "fixture.primary-fire.animation".to_owned(),
+                initial_clip_id: Some("idle".to_owned()),
+                model_scale: [1.0, 1.0, 1.0],
+            }),
         },
         EntityDefinitionCapability::Faction {
             faction_id: if player { "player" } else { "hostile" }.to_owned(),
@@ -389,6 +396,40 @@ fn fps_content_artifacts_with(
                 }],
             },
         },
+        ProjectContentDocumentDto::AssetCatalog {
+            document_id: "catalogs/appearance-validation.project-content.json".to_owned(),
+            catalog: StoredAssetCatalog {
+                entries: vec![StoredCatalogEntry {
+                    id: "mesh/fixture-character".to_owned(),
+                    version: 1,
+                    hash: Some(svc_serialization::BundleHash::of(ANIMATED_MESH_BYTES).to_hex()),
+                    source_path: Some(ANIMATED_MESH_PATH.to_owned()),
+                    label: Some("Animated character".to_owned()),
+                    dependencies: Vec::new(),
+                    material: None,
+                }],
+            },
+        },
+        ProjectContentDocumentDto::PresentationCatalog {
+            document_id: "catalogs/appearance-validation.presentation.json".to_owned(),
+            catalog: ProjectPresentationCatalogDto {
+                schema_version: PROJECT_CONTENT_SCHEMA_VERSION,
+                resources: vec![ProjectPresentationResourceDto {
+                    resource_id: "fixture.primary-fire.animation".to_owned(),
+                    kind: ProjectPresentationResourceKind::AnimatedMesh,
+                    asset_id: "mesh/fixture-character".to_owned(),
+                    source_path: ANIMATED_MESH_PATH.to_owned(),
+                    content_hash: svc_serialization::BundleHash::of(ANIMATED_MESH_BYTES).to_hex(),
+                    license_path: None,
+                    animated_mesh: Some(fixture_animated_mesh_asset(vec![
+                        "idle".to_owned(),
+                        "run".to_owned(),
+                        "jump".to_owned(),
+                    ])),
+                }],
+                cues: Vec::new(),
+            },
+        },
     ];
     let gameplay = rule_project_bundle::GameplayProjectContentAdmission::new(
         composition.project_configuration_authority(),
@@ -407,6 +448,12 @@ fn fps_content_artifacts_with(
         .result
         .canonical_files
         .into_iter()
+        .filter(|file| {
+            matches!(
+                file.document_id.as_str(),
+                PLAYER_DEFINITION_DOCUMENT_ID | ENEMY_DEFINITION_DOCUMENT_ID | GAMEPLAY_PATH
+            )
+        })
         .map(|file| {
             let path = match file.document_id.as_str() {
                 PLAYER_DEFINITION_DOCUMENT_ID => PLAYER_DEFINITION_PATH,
@@ -527,7 +574,7 @@ fn presentation_catalog_document_with_clips(
                     source_path: ANIMATED_MESH_PATH.to_owned(),
                     content_hash: svc_serialization::BundleHash::of(ANIMATED_MESH_BYTES).to_hex(),
                     license_path: None,
-                    clip_ids: animation_clip_ids,
+                    animated_mesh: Some(fixture_animated_mesh_asset(animation_clip_ids)),
                 },
                 ProjectPresentationResourceDto {
                     resource_id: "fixture.primary-fire.audio".to_owned(),
@@ -536,7 +583,7 @@ fn presentation_catalog_document_with_clips(
                     source_path: AUDIO_PATH.to_owned(),
                     content_hash: svc_serialization::BundleHash::of(AUDIO_BYTES).to_hex(),
                     license_path: None,
-                    clip_ids: Vec::new(),
+                    animated_mesh: None,
                 },
                 ProjectPresentationResourceDto {
                     resource_id: "fixture.primary-fire.particle".to_owned(),
@@ -545,7 +592,7 @@ fn presentation_catalog_document_with_clips(
                     source_path: PARTICLE_PATH.to_owned(),
                     content_hash: svc_serialization::BundleHash::of(PARTICLE_BYTES).to_hex(),
                     license_path: None,
-                    clip_ids: Vec::new(),
+                    animated_mesh: None,
                 },
             ],
             cues: vec![
@@ -579,6 +626,31 @@ fn presentation_catalog_document_with_clips(
                     scale: 0.8,
                 },
             ],
+        },
+    }
+}
+
+fn fixture_animated_mesh_asset(
+    animation_clip_ids: Vec<String>,
+) -> ProjectAnimatedMeshDescriptorDto {
+    let default_clip = animation_clip_ids.first().cloned();
+    ProjectAnimatedMeshDescriptorDto {
+        asset: "mesh/fixture-character".to_owned(),
+        runtime_format: ProjectAnimatedMeshRuntimeFormat::Glb,
+        content_hash: Some(svc_serialization::BundleHash::of(ANIMATED_MESH_BYTES).to_hex()),
+        clips: animation_clip_ids
+            .into_iter()
+            .map(|id| ProjectAnimationClipDescriptorDto {
+                id,
+                name: None,
+                duration_seconds: None,
+            })
+            .collect(),
+        default_clip,
+        material_slots: Vec::new(),
+        bounds: ProjectMeshBoundsDescriptorDto {
+            min: [-0.7, -0.9, -0.7],
+            max: [0.7, 0.9, 0.7],
         },
     }
 }
@@ -999,7 +1071,7 @@ fn deferred_runtime_activation_is_atomic_and_lifecycle_bound() {
 }
 
 #[test]
-fn fps_activation_rejects_incomplete_animation_graph_before_publication() {
+fn fps_activation_rejects_incomplete_bound_appearance_before_publication() {
     let composition = static_composition();
     let mut bridge = DeferredRuntimeSessionBuilder::from_static_composition(composition.clone())
         .with_project_domain(RuntimeProjectDomainAdapter::Fps)
@@ -1024,10 +1096,10 @@ fn fps_activation_rejects_incomplete_animation_graph_before_publication() {
     let error = bridge
         .activate_pending_runtime_project(RuntimeProjectLifecycleVersion::default())
         .expect_err("incomplete built-in animation graph must reject before publication");
-    assert!(matches!(error, RuntimeProjectLoadError::Resource(_)));
+    assert!(matches!(error, RuntimeProjectLoadError::Admission(_)));
     assert!(error
         .to_string()
-        .contains("FPS animation graph is incompatible"));
+        .contains("appearance initial clip is absent"));
     assert!(bridge.active_runtime_project().is_none());
     assert!(bridge.scene.entities.snapshot().records.is_empty());
     assert_eq!(
@@ -1202,6 +1274,45 @@ fn canonical_project_load_activates_playable_fps_authority_without_legacy_bootst
         Some((40, 40))
     );
     assert_eq!(initial.policy_bindings.len(), 1);
+    let initial_projection = bridge
+        .read_projection_frame(0)
+        .expect("canonical load publishes entity appearance projection");
+    assert!(initial_projection
+        .scene
+        .ops
+        .iter()
+        .any(|operation| matches!(
+            operation,
+            protocol_render::RenderDiff::DefineAnimatedMesh { asset }
+                if asset.asset == "mesh/fixture-character"
+        )));
+    let (appearance_handle, appearance_transform) = initial_projection
+        .scene
+        .ops
+        .iter()
+        .find_map(|operation| match operation {
+            protocol_render::RenderDiff::CreateAnimatedMeshInstance {
+                handle, instance, ..
+            } if instance.metadata.source == Some(EntityId::new(initial.enemy_entity)) => {
+                Some((*handle, instance.transform))
+            }
+            _ => None,
+        })
+        .expect("enemy appearance is created from its stored binding");
+    let admitted_enemy_transform = bridge
+        .scene
+        .entities
+        .transform(EntityId::new(initial.enemy_entity))
+        .expect("enemy transform is authoritative")
+        .transform;
+    assert_eq!(
+        appearance_transform.translation,
+        [
+            admitted_enemy_transform.translation.x,
+            admitted_enemy_transform.translation.y,
+            admitted_enemy_transform.translation.z,
+        ]
+    );
 
     let active = receipt.active_project.as_ref().unwrap();
     let collision_grid = active.voxel_bindings[0].grid;
@@ -1307,6 +1418,22 @@ fn canonical_project_load_activates_playable_fps_authority_without_legacy_bootst
         moved.authority_source,
         EnemyDirectNavAuthoritySource::RustEntityStore
     );
+    let movement_projection = bridge
+        .read_projection_frame(bridge.time.authority_tick)
+        .expect("movement publishes an appearance transform update");
+    assert!(movement_projection
+        .scene
+        .ops
+        .iter()
+        .any(|operation| matches!(
+            operation,
+            protocol_render::RenderDiff::Update {
+                handle,
+                transform: Some(transform),
+                ..
+            } if *handle == appearance_handle
+                && transform.translation == moved.next_waypoint.to_array()
+        )));
 
     let player_position = bridge
         .scene
@@ -1372,6 +1499,21 @@ fn canonical_project_load_activates_playable_fps_authority_without_legacy_bootst
         fire.lifecycle_status,
         FpsBridgeLifecycleStatus::EnemyDefeated { .. }
     ));
+    let defeated_projection = bridge
+        .read_projection_frame(10)
+        .expect("defeat publishes appearance visibility");
+    assert!(defeated_projection
+        .scene
+        .ops
+        .iter()
+        .any(|operation| matches!(
+            operation,
+            protocol_render::RenderDiff::Update {
+                handle,
+                visible: Some(false),
+                ..
+            } if *handle == appearance_handle
+        )));
 
     let restarted = bridge
         .restart_fps_runtime_session(FpsRuntimeSessionRestartRequest {
@@ -1387,6 +1529,26 @@ fn canonical_project_load_activates_playable_fps_authority_without_legacy_bootst
             .map(|health| health.current),
         Some(40)
     );
+    let restarted_projection = bridge
+        .read_projection_frame(0)
+        .expect("restart recreates retained appearances");
+    assert!(restarted_projection
+        .scene
+        .ops
+        .iter()
+        .any(|operation| matches!(
+            operation,
+            protocol_render::RenderDiff::Destroy { handle } if *handle == appearance_handle
+        )));
+    assert!(restarted_projection
+        .scene
+        .ops
+        .iter()
+        .any(|operation| matches!(
+            operation,
+            protocol_render::RenderDiff::CreateAnimatedMeshInstance { handle, .. }
+                if *handle == appearance_handle
+        )));
 }
 
 #[test]

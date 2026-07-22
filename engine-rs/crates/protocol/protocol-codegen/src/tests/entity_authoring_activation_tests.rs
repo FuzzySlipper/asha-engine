@@ -7,6 +7,7 @@ pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
             "CapabilityActivationEvent",
             "CapabilityActivationReadout",
             "CapabilityActivationDiagnostic",
+            "EntityAppearanceBinding",
         ]
         .map(|item| interface_coverage_key("entityAuthoring", item)),
     );
@@ -61,12 +62,18 @@ fn capability_activation_samples_match_generated_ir_shapes() {
         "capability": "collision",
         "message": "wrong owner"
     });
+    let appearance = json!({
+        "resourceId": "presentation/enemy",
+        "initialClipId": "idle",
+        "modelScale": [1.0, 1.0, 1.0]
+    });
 
     for (name, value) in [
         ("CapabilityActivationRequest", &request),
         ("CapabilityActivationEvent", &event),
         ("CapabilityActivationReadout", &readout),
         ("CapabilityActivationDiagnostic", &diagnostic),
+        ("EntityAppearanceBinding", &appearance),
     ] {
         compare_object_to_interface(&module, name, value).unwrap();
     }

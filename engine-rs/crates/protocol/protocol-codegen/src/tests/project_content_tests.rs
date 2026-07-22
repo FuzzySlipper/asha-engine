@@ -14,6 +14,10 @@ pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
         interface_coverage_key("projectContent", "ProjectConfigurationFieldValue"),
         interface_coverage_key("projectContent", "ProjectGameplayConfiguration"),
         interface_coverage_key("projectContent", "ProjectGameplayConfigurationDocument"),
+        interface_coverage_key("projectContent", "ProjectAnimationClipDescriptor"),
+        interface_coverage_key("projectContent", "ProjectMeshMaterialSlot"),
+        interface_coverage_key("projectContent", "ProjectMeshBoundsDescriptor"),
+        interface_coverage_key("projectContent", "ProjectAnimatedMeshDescriptor"),
         interface_coverage_key("projectContent", "ProjectPresentationResource"),
         interface_coverage_key("projectContent", "ProjectPresentationSignal"),
         variant_coverage_key("projectContent", "ProjectPresentationCue", "animation"),
@@ -122,6 +126,18 @@ fn project_content_samples_match_closed_generated_ir_shapes() {
         "overrides": [],
         "triggers": []
     });
+    let animation_clip = json!({ "id": "fire", "name": null, "durationSeconds": 0.4 });
+    let material_slot = json!({ "slot": 0, "material": "material/demo-weapon" });
+    let mesh_bounds = json!({ "min": [-0.5, -0.5, -0.5], "max": [0.5, 0.5, 0.5] });
+    let animated_mesh = json!({
+        "asset": "mesh/demo-weapon",
+        "runtimeFormat": "glb",
+        "contentHash": "sha256:mesh",
+        "clips": [animation_clip],
+        "defaultClip": "fire",
+        "materialSlots": [material_slot],
+        "bounds": mesh_bounds
+    });
     let resource = json!({
         "resourceId": "demo.weapon.mesh",
         "kind": "animatedMesh",
@@ -129,7 +145,7 @@ fn project_content_samples_match_closed_generated_ir_shapes() {
         "sourcePath": "assets/demo-weapon.mesh",
         "contentHash": "sha256:mesh",
         "licensePath": null,
-        "clipIds": ["fire"]
+        "animatedMesh": animated_mesh
     });
     let cues = [
         (
@@ -161,6 +177,11 @@ fn project_content_samples_match_closed_generated_ir_shapes() {
     compare_object_to_interface(&project, "ProjectGameplayConfiguration", &configuration).unwrap();
     compare_object_to_interface(&project, "ProjectGameplayConfigurationDocument", &gameplay)
         .unwrap();
+    compare_object_to_interface(&project, "ProjectAnimationClipDescriptor", &animation_clip)
+        .unwrap();
+    compare_object_to_interface(&project, "ProjectMeshMaterialSlot", &material_slot).unwrap();
+    compare_object_to_interface(&project, "ProjectMeshBoundsDescriptor", &mesh_bounds).unwrap();
+    compare_object_to_interface(&project, "ProjectAnimatedMeshDescriptor", &animated_mesh).unwrap();
     compare_object_to_interface(&project, "ProjectPresentationResource", &resource).unwrap();
     compare_object_to_interface(
         &project,

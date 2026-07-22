@@ -941,7 +941,7 @@ mod tests {
                     ProjectContentDocumentKind::PresentationCatalog,
                     r#"{
                       "schemaVersion":1,
-                      "resources":[{"resourceId":"reference.confirm.audio","kind":"audio","assetId":"audio/reference-confirm","sourcePath":"assets/confirm.wav","contentHash":"aabb","licensePath":null,"clipIds":[]}],
+                      "resources":[{"resourceId":"reference.confirm.audio","kind":"audio","assetId":"audio/reference-confirm","sourcePath":"assets/confirm.wav","contentHash":"aabb","licensePath":null,"animatedMesh":null}],
                       "cues":[{"kind":"audio","cueId":"reference.confirm","signalId":"reference.confirm","resourceId":"reference.confirm.audio","gain":0.8}]
                     }"#,
                 ),

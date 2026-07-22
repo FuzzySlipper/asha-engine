@@ -18,7 +18,7 @@ struct ReferenceIndex<'a> {
     base_prefabs: BTreeSet<u64>,
     prefab_variants: BTreeMap<u64, BTreeSet<String>>,
     scene_instances: BTreeMap<String, SceneInstanceReference>,
-    presentation_resources: BTreeSet<String>,
+    presentation_resources: BTreeMap<String, &'a ProjectPresentationResourceDto>,
 }
 
 #[derive(Debug, Clone)]
@@ -56,7 +56,7 @@ pub(super) fn validate_document_set(
     let configuration_schemas =
         validate_configuration_schemas(gameplay.configuration_schemas(), &mut diagnostics);
 
-    validate_entities(documents, &mut diagnostics);
+    validate_entities(documents, &index, &mut diagnostics);
     validate_prefabs(documents, &index, &mut diagnostics);
     validate_gameplay(
         documents,
@@ -194,9 +194,9 @@ fn index_prefabs(
     }
 }
 
-fn index_presentation(
-    documents: &[ProjectContentDocumentDto],
-    index: &mut ReferenceIndex<'_>,
+fn index_presentation<'a>(
+    documents: &'a [ProjectContentDocumentDto],
+    index: &mut ReferenceIndex<'a>,
     diagnostics: &mut Vec<ProjectContentDiagnosticDto>,
 ) {
     for document in documents {
@@ -206,9 +206,10 @@ fn index_presentation(
         } = document
         {
             for resource in &catalog.resources {
-                if !index
+                if index
                     .presentation_resources
-                    .insert(resource.resource_id.clone())
+                    .insert(resource.resource_id.clone(), resource)
+                    .is_some()
                 {
                     push(
                         diagnostics,
@@ -349,6 +350,7 @@ fn trigger_transform_is_supported(
 
 fn validate_entities(
     documents: &[ProjectContentDocumentDto],
+    index: &ReferenceIndex<'_>,
     diagnostics: &mut Vec<ProjectContentDiagnosticDto>,
 ) {
     for document in documents {
@@ -368,6 +370,56 @@ fn validate_entities(
                         Some(document_id),
                         &failure.path,
                         &failure.message,
+                    );
+                }
+            }
+            for (capability_index, capability) in definition.capabilities.iter().enumerate() {
+                let EntityDefinitionCapability::RenderProjection {
+                    appearance: Some(appearance),
+                    ..
+                } = capability
+                else {
+                    continue;
+                };
+                let path =
+                    format!("definition.capabilities[{capability_index}].appearance.resourceId");
+                let Some(resource) = index
+                    .presentation_resources
+                    .get(appearance.resource_id.as_str())
+                else {
+                    push(
+                        diagnostics,
+                        ProjectContentDiagnosticCode::UnknownReference,
+                        Some(document_id),
+                        &path,
+                        "entity appearance references an unknown presentation resource",
+                    );
+                    continue;
+                };
+                let Some(animated_mesh) = resource.animated_mesh.as_ref() else {
+                    push(
+                        diagnostics,
+                        ProjectContentDiagnosticCode::InvalidField,
+                        Some(document_id),
+                        &path,
+                        "entity appearance requires an animated-mesh presentation resource",
+                    );
+                    continue;
+                };
+                if appearance.initial_clip_id.as_ref().is_some_and(|clip| {
+                    !animated_mesh
+                        .clips
+                        .iter()
+                        .any(|descriptor| descriptor.id == *clip)
+                }) {
+                    push(
+                        diagnostics,
+                        ProjectContentDiagnosticCode::UnknownReference,
+                        Some(document_id),
+                        &format!(
+                            "definition.capabilities[{capability_index}].appearance.initialClipId"
+                        ),
+                        "entity appearance initial clip is absent from its presentation resource",
                     );
                 }
             }
@@ -962,7 +1014,7 @@ fn reference_exists(
                 .is_some_and(|roles| roles.contains(role))
         }
         ProjectContentReferenceKind::PresentationResource => {
-            index.presentation_resources.contains(target_id)
+            index.presentation_resources.contains_key(target_id)
         }
     }
 }
@@ -1101,18 +1153,36 @@ fn validate_presentation(
                     );
                 }
             }
-            let mut clips = BTreeSet::new();
-            if resource
-                .clip_ids
-                .iter()
-                .any(|clip| clip.trim().is_empty() || !clips.insert(clip.as_str()))
-            {
+            let animated_descriptor_matches = match resource.kind {
+                ProjectPresentationResourceKind::AnimatedMesh => {
+                    resource.animated_mesh.as_ref().is_some_and(|descriptor| {
+                        descriptor.asset == resource.asset_id
+                            && descriptor.content_hash.as_deref()
+                                == Some(resource.content_hash.as_str())
+                            && valid_project_animated_mesh_descriptor(descriptor)
+                            && descriptor
+                                .bounds
+                                .min
+                                .iter()
+                                .chain(descriptor.bounds.max.iter())
+                                .all(|value| value.is_finite())
+                            && descriptor
+                                .bounds
+                                .min
+                                .iter()
+                                .zip(descriptor.bounds.max.iter())
+                                .all(|(min, max)| min <= max)
+                    })
+                }
+                _ => resource.animated_mesh.is_none(),
+            };
+            if !animated_descriptor_matches {
                 push(
                     diagnostics,
-                    ProjectContentDiagnosticCode::InvalidDocument,
+                    ProjectContentDiagnosticCode::InvalidField,
                     Some(document_id),
-                    &format!("catalog.resources[{resource_index}].clipIds"),
-                    "presentation clip ids must be non-empty and unique",
+                    &format!("catalog.resources[{resource_index}].animatedMesh"),
+                    "animated-mesh resources require a valid matching renderer-neutral descriptor and other resource kinds forbid one",
                 );
             }
         }
@@ -1149,7 +1219,9 @@ fn validate_presentation(
                 } => {
                     if !resources.get(resource_id.as_str()).is_some_and(|resource| {
                         resource.kind == ProjectPresentationResourceKind::AnimatedMesh
-                            && resource.clip_ids.contains(clip_id)
+                            && resource.animated_mesh.as_ref().is_some_and(|descriptor| {
+                                descriptor.clips.iter().any(|clip| clip.id == *clip_id)
+                            })
                     }) {
                         push(
                             diagnostics,
@@ -1289,6 +1361,34 @@ fn presentation_resource_asset_prefix(kind: ProjectPresentationResourceKind) -> 
         }
         ProjectPresentationResourceKind::Font => "font",
     }
+}
+
+fn valid_project_animated_mesh_descriptor(descriptor: &ProjectAnimatedMeshDescriptorDto) -> bool {
+    if descriptor.asset.trim().is_empty() {
+        return false;
+    }
+    let mut clips = BTreeSet::new();
+    if descriptor.clips.iter().any(|clip| {
+        clip.id.trim().is_empty()
+            || !clips.insert(clip.id.as_str())
+            || clip
+                .duration_seconds
+                .is_some_and(|duration| !duration.is_finite() || duration <= 0.0)
+    }) {
+        return false;
+    }
+    if descriptor
+        .default_clip
+        .as_ref()
+        .is_some_and(|clip| !clips.contains(clip.as_str()))
+    {
+        return false;
+    }
+    let mut slots = BTreeSet::new();
+    !descriptor
+        .material_slots
+        .iter()
+        .any(|slot| slot.material.trim().is_empty() || !slots.insert(slot.slot))
 }
 
 fn validate_signal_binding<'a>(

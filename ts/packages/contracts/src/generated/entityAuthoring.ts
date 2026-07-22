@@ -88,6 +88,13 @@ export interface EntityDefinitionMetadataEntry {
   readonly value: string;
 }
 
+// Stored renderer-neutral appearance selected for an entity projection.  The resource id resolves through the project's validated presentation catalog. The optional clip is an initial cosmetic playback selection; it never feeds renderer state back into gameplay authority.
+export interface EntityAppearanceBinding {
+  readonly resourceId: string;
+  readonly initialClipId: string | null;
+  readonly modelScale: readonly [number, number, number];
+}
+
 // A stored capability declaration with an initial value. `Unknown` exists so decoded or hand-authored bad data can be represented and rejected explicitly instead of disappearing before validation.
 export type EntityDefinitionCapability =
   | { readonly kind: 'transform'; readonly transform: AuthoringTransform }
@@ -97,7 +104,7 @@ export type EntityDefinitionCapability =
   | { readonly kind: 'controller'; readonly controllerId: string }
   | { readonly kind: 'health'; readonly current: number; readonly max: number }
   | { readonly kind: 'weaponMount'; readonly weaponId: string; readonly damage: number; readonly rangeUnits: number; readonly ammo: number; readonly cooldownTicksAfterFire: number }
-  | { readonly kind: 'renderProjection'; readonly projectionId: string; readonly visible: boolean }
+  | { readonly kind: 'renderProjection'; readonly projectionId: string; readonly visible: boolean; readonly appearance: EntityAppearanceBinding | null }
   | { readonly kind: 'policyBinding'; readonly bindingId: string; readonly policyId: string; readonly viewKind: string; readonly viewVersion: string; readonly allowedIntents: readonly string[]; readonly runtimeMoment: string }
   | { readonly kind: 'spawnMarker'; readonly markerId: string }
   | { readonly kind: 'faction'; readonly factionId: string }

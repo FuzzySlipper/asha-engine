@@ -40,6 +40,7 @@ impl EngineBridge {
                     return Err(error);
                 }
             }
+            self.project_entity_appearance_transform(entity, self.time.authority_tick)?;
             return Ok(EnemyDirectNavMovementResult {
                 entity: receipt.entity.raw(),
                 authority_source: EnemyDirectNavAuthoritySource::RustEntityStore,

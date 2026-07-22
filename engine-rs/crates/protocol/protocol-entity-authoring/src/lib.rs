@@ -218,6 +218,19 @@ pub struct EntityDefinitionMetadataEntry {
     pub value: String,
 }
 
+/// Stored renderer-neutral appearance selected for an entity projection.
+///
+/// The resource id resolves through the project's validated presentation
+/// catalog. The optional clip is an initial cosmetic playback selection; it
+/// never feeds renderer state back into gameplay authority.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EntityAppearanceBinding {
+    pub resource_id: String,
+    pub initial_clip_id: Option<String>,
+    /// Renderer-local model scale composed with the authoritative entity scale.
+    pub model_scale: [f32; 3],
+}
+
 /// A stored capability declaration with an initial value. `Unknown` exists so
 /// decoded or hand-authored bad data can be represented and rejected explicitly
 /// instead of disappearing before validation.
@@ -253,6 +266,7 @@ pub enum EntityDefinitionCapability {
     RenderProjection {
         projection_id: String,
         visible: bool,
+        appearance: Option<EntityAppearanceBinding>,
     },
     PolicyBinding {
         binding_id: String,

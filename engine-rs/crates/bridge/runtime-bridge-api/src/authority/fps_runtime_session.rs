@@ -182,6 +182,9 @@ impl EngineBridge {
                     .to_owned(),
             ];
         }
+        if let Some(target) = result.target {
+            self.project_entity_appearance_visibility(EntityId::new(target), request.tick);
+        }
         self.project_primary_fire_feedback(request, &result)?;
         Ok(result)
     }
@@ -392,6 +395,7 @@ impl EngineBridge {
         self.gameplay.fps_session = Some(loaded);
         self.gameplay.fps_epoch = self.gameplay.fps_epoch.saturating_add(1);
         self.reset_presentation_projection();
+        self.recreate_entity_appearance_projection(0)?;
         Self::fps_snapshot(
             self.gameplay.fps_session.as_ref().expect("just restarted"),
             &self.scene.entities,

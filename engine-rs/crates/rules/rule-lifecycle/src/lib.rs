@@ -109,10 +109,11 @@ pub struct FpsWeaponMount {
     pub cooldown_ticks_after_fire: u32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FpsRenderProjectionState {
     pub projection: String,
     pub visible: bool,
+    pub appearance: Option<protocol_entity_authoring::EntityAppearanceBinding>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -940,9 +941,20 @@ fn hash_entity_definition(h: &mut Fnv1a, definition: &EntityDefinition) {
             EntityDefinitionCapability::RenderProjection {
                 projection_id,
                 visible,
+                appearance,
             } => {
                 h.write_str(projection_id);
                 h.write_bool(*visible);
+                if let Some(appearance) = appearance {
+                    h.write_bool(true);
+                    h.write_str(&appearance.resource_id);
+                    h.write_str(appearance.initial_clip_id.as_deref().unwrap_or_default());
+                    for value in appearance.model_scale {
+                        h.write_u64(u64::from(value.to_bits()));
+                    }
+                } else {
+                    h.write_bool(false);
+                }
             }
             EntityDefinitionCapability::PolicyBinding {
                 binding_id,
@@ -1269,6 +1281,7 @@ mod tests {
                     render_projection: Some(FpsRenderProjectionState {
                         projection: "first_person_camera".into(),
                         visible: true,
+                        appearance: None,
                     }),
                     policy_binding: None,
                 },
@@ -1285,6 +1298,7 @@ mod tests {
                     render_projection: Some(FpsRenderProjectionState {
                         projection: "target_cube".into(),
                         visible: true,
+                        appearance: None,
                     }),
                     policy_binding: Some(FpsPolicyBinding {
                         binding_id: "binding.enemy.custom.v0".into(),
@@ -1381,6 +1395,7 @@ mod tests {
             Some(&FpsRenderProjectionState {
                 projection: "first_person_camera".into(),
                 visible: true,
+                appearance: None,
             })
         );
         assert_eq!(
@@ -1388,6 +1403,7 @@ mod tests {
             Some(&FpsRenderProjectionState {
                 projection: "target_cube".into(),
                 visible: true,
+                appearance: None,
             })
         );
         assert_eq!(session.replay_records.len(), 1);

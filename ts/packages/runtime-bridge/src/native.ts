@@ -1130,7 +1130,7 @@ export class NativeRuntimeBridge implements RuntimeBridge, WorkspaceAuthoringOpe
     const handle = this.#requireHandle('readProjectionFrame');
     const frame = nonNegativeSafeInteger(cursor as number, 'frame cursor') as FrameCursor;
     const nativeFrame = callNative(
-      () => this.#addon.readProjectionFrame(handle, frame) as NativeRuntimeProjectionFrameDto,
+      () => this.#addon.readProjectionFrame(handle, frame) as unknown as NativeRuntimeProjectionFrameDto,
     );
     return projectionFrameFromNative(nativeFrame);
   }

@@ -151,7 +151,44 @@ pub enum ProjectPresentationResourceKind {
     Overlay,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProjectAnimatedMeshRuntimeFormat {
+    Glb,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProjectAnimationClipDescriptorDto {
+    pub id: String,
+    pub name: Option<String>,
+    pub duration_seconds: Option<f32>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectMeshMaterialSlotDto {
+    pub slot: u16,
+    pub material: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ProjectMeshBoundsDescriptorDto {
+    pub min: [f32; 3],
+    pub max: [f32; 3],
+}
+
+/// Stored renderer-neutral animated-mesh metadata. Runtime projection maps this
+/// contract into the live render descriptor only after project admission.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProjectAnimatedMeshDescriptorDto {
+    pub asset: String,
+    pub runtime_format: ProjectAnimatedMeshRuntimeFormat,
+    pub content_hash: Option<String>,
+    pub clips: Vec<ProjectAnimationClipDescriptorDto>,
+    pub default_clip: Option<String>,
+    pub material_slots: Vec<ProjectMeshMaterialSlotDto>,
+    pub bounds: ProjectMeshBoundsDescriptorDto,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct ProjectPresentationResourceDto {
     pub resource_id: String,
     pub kind: ProjectPresentationResourceKind,
@@ -159,7 +196,9 @@ pub struct ProjectPresentationResourceDto {
     pub source_path: String,
     pub content_hash: String,
     pub license_path: Option<String>,
-    pub clip_ids: Vec<String>,
+    /// Renderer-neutral descriptor required for animated-mesh resources and
+    /// forbidden for every other resource kind.
+    pub animated_mesh: Option<ProjectAnimatedMeshDescriptorDto>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

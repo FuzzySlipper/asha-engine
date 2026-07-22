@@ -11,6 +11,7 @@ import type {
 } from '@asha/contracts';
 
 import { RuntimeBridgeError } from './bridge.js';
+import { decodeRenderFrameDiff } from './render-decode.js';
 
 type AudioPresentationOp = Extract<PresentationOp, { readonly domain: 'audio' }>;
 type BillboardPresentationOp = Extract<PresentationOp, { readonly domain: 'billboard' }>;
@@ -43,7 +44,9 @@ type NativePresentationOpMetaDto = Omit<PresentationOpMeta, 'origin'> & {
 export interface NativeRuntimeProjectionFrameDto {
   readonly schemaVersion: number;
   readonly authorityTick: number;
-  readonly scene: RuntimeProjectionFrame['scene'];
+  readonly scene: {
+    readonly frameJson: string;
+  };
   readonly presentation: {
     readonly replayScope: RuntimeProjectionFrame['presentation']['replayScope'];
     readonly ops: readonly NativePresentationOpDto[];
@@ -61,6 +64,12 @@ export function projectionFrameFromNative(
   }
   if (!Array.isArray(native.presentation.ops)) {
     throw new RuntimeBridgeError('internal', 'native projection operations must be an array');
+  }
+  let scene: RuntimeProjectionFrame['scene'];
+  try {
+    scene = decodeRenderFrameDiff(JSON.parse(native.scene?.frameJson), '$.scene');
+  } catch {
+    throw new RuntimeBridgeError('internal', 'native scene projection frame is not valid JSON');
   }
   const nativeOperations = native.presentation.ops as unknown as readonly NativePresentationOpDto[];
   const ops = nativeOperations.map((operation, index): PresentationOp => {
@@ -134,7 +143,7 @@ export function projectionFrameFromNative(
   return {
     schemaVersion: native.schemaVersion,
     authorityTick: native.authorityTick,
-    scene: native.scene,
+    scene,
     presentation: {
       replayScope: native.presentation.replayScope,
       ops,

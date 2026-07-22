@@ -5,7 +5,7 @@ use protocol_assets::{
     StoredCatalogEntry, StoredMaterialAuthority, StoredMaterialDefinition, StoredMaterialStyle,
 };
 use protocol_entity_authoring::{
-    AuthoringTransform, EntityDefinition, EntityDefinitionCapability,
+    AuthoringTransform, EntityAppearanceBinding, EntityDefinition, EntityDefinitionCapability,
     EntityDefinitionMetadataEntry, EntityDefinitionSourceTrace,
 };
 use protocol_project_bundle::{
@@ -107,6 +107,7 @@ enum EntityDefinitionCapabilityWire {
     RenderProjection {
         projection_id: String,
         visible: bool,
+        appearance: Option<EntityAppearanceBindingWire>,
     },
     PolicyBinding {
         binding_id: String,
@@ -122,6 +123,14 @@ enum EntityDefinitionCapabilityWire {
     Faction {
         faction_id: String,
     },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct EntityAppearanceBindingWire {
+    resource_id: String,
+    initial_clip_id: Option<String>,
+    model_scale: [f32; 3],
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -295,7 +304,47 @@ struct PresentationResourceWire {
     source_path: String,
     content_hash: String,
     license_path: Option<String>,
-    clip_ids: Vec<String>,
+    animated_mesh: Option<AnimatedMeshAssetWire>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct AnimatedMeshAssetWire {
+    asset: String,
+    runtime_format: AnimatedMeshRuntimeFormatWire,
+    content_hash: Option<String>,
+    clips: Vec<AnimationClipDescriptorWire>,
+    default_clip: Option<String>,
+    material_slots: Vec<MeshMaterialSlotWire>,
+    bounds: MeshBoundsDescriptorWire,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum AnimatedMeshRuntimeFormatWire {
+    Glb,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct AnimationClipDescriptorWire {
+    id: String,
+    name: Option<String>,
+    duration_seconds: Option<f32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct MeshMaterialSlotWire {
+    slot: u16,
+    material: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct MeshBoundsDescriptorWire {
+    min: [f32; 3],
+    max: [f32; 3],
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -824,9 +873,15 @@ impl From<EntityDefinitionCapabilityWire> for EntityDefinitionCapability {
             EntityDefinitionCapabilityWire::RenderProjection {
                 projection_id,
                 visible,
+                appearance,
             } => Self::RenderProjection {
                 projection_id,
                 visible,
+                appearance: appearance.map(|binding| EntityAppearanceBinding {
+                    resource_id: binding.resource_id,
+                    initial_clip_id: binding.initial_clip_id,
+                    model_scale: binding.model_scale,
+                }),
             },
             EntityDefinitionCapabilityWire::PolicyBinding {
                 binding_id,
@@ -884,9 +939,15 @@ impl TryFrom<EntityDefinitionCapability> for EntityDefinitionCapabilityWire {
             EntityDefinitionCapability::RenderProjection {
                 projection_id,
                 visible,
+                appearance,
             } => Self::RenderProjection {
                 projection_id,
                 visible,
+                appearance: appearance.map(|binding| EntityAppearanceBindingWire {
+                    resource_id: binding.resource_id,
+                    initial_clip_id: binding.initial_clip_id,
+                    model_scale: binding.model_scale,
+                }),
             },
             EntityDefinitionCapability::PolicyBinding {
                 binding_id,
@@ -1580,7 +1641,7 @@ impl From<PresentationResourceWire> for ProjectPresentationResourceDto {
             source_path: value.source_path,
             content_hash: value.content_hash,
             license_path: value.license_path,
-            clip_ids: value.clip_ids,
+            animated_mesh: value.animated_mesh.map(Into::into),
         }
     }
 }
@@ -1594,7 +1655,75 @@ impl From<ProjectPresentationResourceDto> for PresentationResourceWire {
             source_path: value.source_path,
             content_hash: value.content_hash,
             license_path: value.license_path,
-            clip_ids: value.clip_ids,
+            animated_mesh: value.animated_mesh.map(Into::into),
+        }
+    }
+}
+
+impl From<AnimatedMeshAssetWire> for ProjectAnimatedMeshDescriptorDto {
+    fn from(value: AnimatedMeshAssetWire) -> Self {
+        Self {
+            asset: value.asset,
+            runtime_format: match value.runtime_format {
+                AnimatedMeshRuntimeFormatWire::Glb => ProjectAnimatedMeshRuntimeFormat::Glb,
+            },
+            content_hash: value.content_hash,
+            clips: value
+                .clips
+                .into_iter()
+                .map(|clip| ProjectAnimationClipDescriptorDto {
+                    id: clip.id,
+                    name: clip.name,
+                    duration_seconds: clip.duration_seconds,
+                })
+                .collect(),
+            default_clip: value.default_clip,
+            material_slots: value
+                .material_slots
+                .into_iter()
+                .map(|slot| ProjectMeshMaterialSlotDto {
+                    slot: slot.slot,
+                    material: slot.material,
+                })
+                .collect(),
+            bounds: ProjectMeshBoundsDescriptorDto {
+                min: value.bounds.min,
+                max: value.bounds.max,
+            },
+        }
+    }
+}
+
+impl From<ProjectAnimatedMeshDescriptorDto> for AnimatedMeshAssetWire {
+    fn from(value: ProjectAnimatedMeshDescriptorDto) -> Self {
+        Self {
+            asset: value.asset,
+            runtime_format: match value.runtime_format {
+                ProjectAnimatedMeshRuntimeFormat::Glb => AnimatedMeshRuntimeFormatWire::Glb,
+            },
+            content_hash: value.content_hash,
+            clips: value
+                .clips
+                .into_iter()
+                .map(|clip| AnimationClipDescriptorWire {
+                    id: clip.id,
+                    name: clip.name,
+                    duration_seconds: clip.duration_seconds,
+                })
+                .collect(),
+            default_clip: value.default_clip,
+            material_slots: value
+                .material_slots
+                .into_iter()
+                .map(|slot| MeshMaterialSlotWire {
+                    slot: slot.slot,
+                    material: slot.material,
+                })
+                .collect(),
+            bounds: MeshBoundsDescriptorWire {
+                min: value.bounds.min,
+                max: value.bounds.max,
+            },
         }
     }
 }

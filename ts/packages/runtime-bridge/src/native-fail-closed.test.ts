@@ -829,7 +829,7 @@ function fakeAddon(calls: string[] = []): NativeAddon {
     },
     readProjectionFrame: (_handle: number, cursor: number) => {
       calls.push(`projection:${cursor}`);
-      return { schemaVersion: 1, authorityTick: cursor, scene: { ops: [] }, presentation: { replayScope: 'excludedFromReplayTruth', ops: [] } };
+      return { schemaVersion: 1, authorityTick: cursor, scene: { frameJson: '{"ops":[]}' }, presentation: { replayScope: 'excludedFromReplayTruth', ops: [] } };
     },
     readDeveloperConsole: () => ({
       schemaVersion: 1,

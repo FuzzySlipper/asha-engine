@@ -242,6 +242,7 @@ impl EngineBridge {
         }
         let voxel_assets = gameplay_host.take_activated_voxel_assets();
         let runtime_entity_seeds = gameplay_host.take_activated_runtime_entity_seeds();
+        let entity_appearance_seeds = runtime_entity_seeds.clone();
         let fps_seed = match domain_adapter {
             Some(RuntimeProjectDomainAdapter::Fps) => Some(Self::convert_runtime_project_fps_seed(
                 runtime_entity_seeds,
@@ -262,6 +263,7 @@ impl EngineBridge {
             ParticleProjectionLimits::default(),
         ));
         staged.projection.presentation_catalog = installed_presentation;
+        staged.install_entity_appearance_bindings(&entity_appearance_seeds);
         staged.gameplay.static_gameplay_composition = Some(composition.clone());
         staged.gameplay.static_project_domain_adapter = domain_adapter;
         staged.gameplay.static_project_content_admission =
@@ -291,6 +293,9 @@ impl EngineBridge {
             staged.gameplay.fps_epoch = 1;
             staged.reset_presentation_projection();
         }
+        staged
+            .recreate_entity_appearance_projection(0)
+            .map_err(|error| RuntimeProjectLoadError::Resource(error.to_string()))?;
 
         let referenced_voxel_assets = entry_scene
             .nodes

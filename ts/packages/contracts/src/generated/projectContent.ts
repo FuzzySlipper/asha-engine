@@ -87,6 +87,35 @@ export interface ProjectGameplayConfigurationDocument {
 
 export type ProjectPresentationResourceKind = 'animatedMesh' | 'audio' | 'particle' | 'font' | 'overlay';
 
+export type ProjectAnimatedMeshRuntimeFormat = 'glb';
+
+export interface ProjectAnimationClipDescriptor {
+  readonly id: string;
+  readonly name: string | null;
+  readonly durationSeconds: number | null;
+}
+
+export interface ProjectMeshMaterialSlot {
+  readonly slot: number;
+  readonly material: string;
+}
+
+export interface ProjectMeshBoundsDescriptor {
+  readonly min: readonly [number, number, number];
+  readonly max: readonly [number, number, number];
+}
+
+// Stored renderer-neutral animated-mesh metadata. Runtime projection maps this contract into the live render descriptor only after project admission.
+export interface ProjectAnimatedMeshDescriptor {
+  readonly asset: string;
+  readonly runtimeFormat: ProjectAnimatedMeshRuntimeFormat;
+  readonly contentHash: string | null;
+  readonly clips: readonly ProjectAnimationClipDescriptor[];
+  readonly defaultClip: string | null;
+  readonly materialSlots: readonly ProjectMeshMaterialSlot[];
+  readonly bounds: ProjectMeshBoundsDescriptor;
+}
+
 export interface ProjectPresentationResource {
   readonly resourceId: string;
   readonly kind: ProjectPresentationResourceKind;
@@ -94,7 +123,7 @@ export interface ProjectPresentationResource {
   readonly sourcePath: string;
   readonly contentHash: string;
   readonly licensePath: string | null;
-  readonly clipIds: readonly string[];
+  readonly animatedMesh: ProjectAnimatedMeshDescriptor | null;
 }
 
 export type ProjectPresentationSignalDomain = 'audio' | 'particle';

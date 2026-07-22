@@ -1704,7 +1704,7 @@ mod tests {
                             document_id: "catalogs/presentation.json".to_owned(),
                             kind: ProjectContentDocumentKind::PresentationCatalog,
                             source_text: format!(
-                                r#"{{"schemaVersion":1,"resources":[{{"resourceId":"reference.fire","kind":"audio","assetId":"audio/reference-fire","sourcePath":"assets/reference-fire.wav","contentHash":"{declared_hash}","licensePath":null,"clipIds":[]}}],"cues":[{{"kind":"audio","cueId":"reference.fire","signalId":"reference.fire","resourceId":"reference.fire","gain":0.5}}]}}"#
+                                r#"{{"schemaVersion":1,"resources":[{{"resourceId":"reference.fire","kind":"audio","assetId":"audio/reference-fire","sourcePath":"assets/reference-fire.wav","contentHash":"{declared_hash}","licensePath":null,"animatedMesh":null}}],"cues":[{{"kind":"audio","cueId":"reference.fire","signalId":"reference.fire","resourceId":"reference.fire","gain":0.5}}]}}"#
                             ),
                         },
                     ],
