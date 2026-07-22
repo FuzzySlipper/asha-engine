@@ -150,13 +150,13 @@ void test('project interaction resolves once beside protected Engine movement th
   assert.deepEqual(resolvedActions, ['gameplay.move.forward', 'demo.interact']);
 });
 
-void test('keyboard focus exclusion blocks project actions before DOM normalization', () => {
+void test('keyboard focus exclusion blocks standalone release actions but completes accepted key lifecycles', () => {
   const baseCatalog = createDefaultBrowserInputCatalog();
   const catalog: InputBindingCatalog = {
     ...baseCatalog,
     actions: [
       ...baseCatalog.actions,
-      { actionId: 'demo.interact', valueKind: 'button', acceptedPhases: ['pressed'] },
+      { actionId: 'demo.interact', valueKind: 'button', acceptedPhases: ['released'] },
     ],
     bindings: [
       ...baseCatalog.bindings,
@@ -184,10 +184,17 @@ void test('keyboard focus exclusion blocks project actions before DOM normalizat
   });
 
   listeners.get('keydown')?.({ code: 'KeyE' } as KeyboardEvent);
+  listeners.get('keyup')?.({ code: 'KeyE' } as KeyboardEvent);
   assert.equal(host.readout().recentDeliveries.length, 0);
   acceptsKeyboard = true;
   listeners.get('keydown')?.({ code: 'KeyE' } as KeyboardEvent);
+  assert.equal(host.readout().lastDelivery?.receipt.action, null);
+  acceptsKeyboard = false;
+  listeners.get('keyup')?.({ code: 'KeyE' } as KeyboardEvent);
   assert.equal(host.readout().lastDelivery?.receipt.action?.actionId, 'demo.interact');
+  assert.equal(host.readout().recentDeliveries.length, 2);
+  listeners.get('keyup')?.({ code: 'KeyE' } as KeyboardEvent);
+  assert.equal(host.readout().recentDeliveries.length, 2);
   detach();
 });
 

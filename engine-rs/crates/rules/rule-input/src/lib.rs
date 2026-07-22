@@ -827,7 +827,11 @@ fn validate_project_catalog(
         ));
     }
     if !is_project_namespace(&project.namespace)
-        || RESERVED_PROJECT_NAMESPACES.contains(&project.namespace.as_str())
+        || project
+            .namespace
+            .split('.')
+            .next()
+            .is_some_and(|root| RESERVED_PROJECT_NAMESPACES.contains(&root))
     {
         diagnostics.push(diagnostic(
             InputDiagnosticCode::ReservedNamespace,
@@ -1232,8 +1236,7 @@ fn valid_platform_control(kind: PlatformInputKind, control: &str) -> bool {
         }
         PlatformInputKind::MouseButton => control
             .strip_prefix("button")
-            .and_then(|suffix| suffix.parse::<u8>().ok())
-            .is_some_and(|button| button <= 7),
+            .is_some_and(|suffix| suffix.len() == 1 && matches!(suffix.as_bytes()[0], b'0'..=b'7')),
         PlatformInputKind::MouseDelta => control == "pointer",
         PlatformInputKind::MouseWheel => control == "wheel",
     }
@@ -1960,6 +1963,19 @@ mod tests {
             .iter()
             .any(|item| item.code == InputDiagnosticCode::ReservedNamespace));
 
+        let mut nested_reserved = project_catalog("KeyE");
+        nested_reserved.namespace = "gameplay.demo".into();
+        nested_reserved.actions[0].action_id = "gameplay.demo.interact".into();
+        nested_reserved.bindings[0].binding_id = "gameplay.demo.interact.primary".into();
+        nested_reserved.bindings[0].action_id = "gameplay.demo.interact".into();
+        let error =
+            compose_project_input_catalog(default_browser_input_catalog(), &[nested_reserved])
+                .unwrap_err();
+        assert!(error
+            .diagnostics()
+            .iter()
+            .any(|item| item.code == InputDiagnosticCode::ReservedNamespace));
+
         let protected = project_catalog("KeyW");
         let error = compose_project_input_catalog(default_browser_input_catalog(), &[protected])
             .unwrap_err();
@@ -1971,6 +1987,18 @@ mod tests {
         let malformed = project_catalog("the e key");
         let error = compose_project_input_catalog(default_browser_input_catalog(), &[malformed])
             .unwrap_err();
+        assert!(error
+            .diagnostics()
+            .iter()
+            .any(|item| item.code == InputDiagnosticCode::InvalidControl));
+
+        let mut noncanonical_mouse_button = project_catalog("button01");
+        noncanonical_mouse_button.bindings[0].platform_kind = PlatformInputKind::MouseButton;
+        let error = compose_project_input_catalog(
+            default_browser_input_catalog(),
+            &[noncanonical_mouse_button],
+        )
+        .unwrap_err();
         assert!(error
             .diagnostics()
             .iter()

@@ -107,6 +107,7 @@ export class BrowserInputHost {
 
   attachDom(attachment: BrowserInputDomAttachment): () => void {
     const mouseTarget = attachment.mouseTarget ?? attachment.keyboardTarget;
+    const acceptedKeyboardControls = new Set<string>();
     const onPointerDown = (event: PointerEvent): void => {
       this.handlePointerDown(event);
       for (const intent of this.pointerLockIntentsForButton(event)) {
@@ -118,12 +119,17 @@ export class BrowserInputHost {
     const onWheel = (event: WheelEvent): void => { this.handleWheel(event); };
     const onKeyDown = (event: KeyboardEvent): void => {
       if (attachment.acceptsKeyboard?.() === false) return;
+      acceptedKeyboardControls.add(event.code);
       this.handleKeyDown(event);
       for (const intent of this.pointerLockIntentsForKey(event)) {
         attachment.onPointerLockIntent?.(intent, event);
       }
     };
-    const onKeyUp = (event: KeyboardEvent): void => { this.handleKeyUp(event); };
+    const onKeyUp = (event: KeyboardEvent): void => {
+      const beganWhileAccepted = acceptedKeyboardControls.delete(event.code);
+      if (attachment.acceptsKeyboard?.() === false && !beganWhileAccepted) return;
+      this.handleKeyUp(event);
+    };
     attachment.pointerTarget.addEventListener('pointerdown', onPointerDown);
     attachment.pointerTarget.addEventListener('pointerup', onPointerUp);
     mouseTarget.addEventListener('mousemove', onMouseMove);
