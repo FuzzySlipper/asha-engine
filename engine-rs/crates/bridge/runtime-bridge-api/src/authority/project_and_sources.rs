@@ -211,21 +211,34 @@ impl EngineBridge {
                 &project_content.documents,
             )
             .map_err(RuntimeProjectLoadError::Resource)?;
-        if domain_adapter == Some(RuntimeProjectDomainAdapter::Fps)
-            && (installed_presentation
+        if domain_adapter == Some(RuntimeProjectDomainAdapter::Fps) {
+            let animation_cue =
+                installed_presentation.animation(presentation_catalog::PRIMARY_FIRE_ANIMATION_CUE);
+            if installed_presentation
                 .audio(presentation_catalog::PRIMARY_FIRE_PRESENTATION_SIGNAL)
                 .is_none()
                 || installed_presentation
                     .particle(presentation_catalog::PRIMARY_FIRE_PRESENTATION_SIGNAL)
                     .is_none()
-                || installed_presentation
-                    .animation(presentation_catalog::PRIMARY_FIRE_ANIMATION_CUE)
-                    .is_none())
-        {
-            return Err(RuntimeProjectLoadError::Resource(
-                "FPS project content must bind typed audio and particle cues to `fps.primary-fire.accepted` and an animation cue named `fps.primary-fire.animation`"
-                    .to_owned(),
-            ));
+                || animation_cue.is_none()
+            {
+                return Err(RuntimeProjectLoadError::Resource(
+                    "FPS project content must bind typed audio and particle cues to `fps.primary-fire.accepted` and an animation cue named `fps.primary-fire.animation`"
+                        .to_owned(),
+                ));
+            }
+            let animation_cue = animation_cue.expect("checked above");
+            rule_animation_controller::validate_animation_catalog(
+                fps_animation_catalog::primary_fire_animation_catalog(
+                    &animation_cue.asset_id,
+                    &animation_cue.clip_ids,
+                ),
+            )
+            .map_err(|error| {
+                RuntimeProjectLoadError::Resource(format!(
+                    "FPS animation graph is incompatible with the admitted primary-fire animation resource: {error}"
+                ))
+            })?;
         }
         let voxel_assets = gameplay_host.take_activated_voxel_assets();
         let runtime_entity_seeds = gameplay_host.take_activated_runtime_entity_seeds();

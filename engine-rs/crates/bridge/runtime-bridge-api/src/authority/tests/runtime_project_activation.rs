@@ -504,6 +504,16 @@ fn material_catalog_document(asset: &VoxelVolumeAsset) -> ProjectContentDocument
 }
 
 fn presentation_catalog_document() -> ProjectContentDocumentDto {
+    presentation_catalog_document_with_clips(vec![
+        "idle".to_owned(),
+        "run".to_owned(),
+        "jump".to_owned(),
+    ])
+}
+
+fn presentation_catalog_document_with_clips(
+    animation_clip_ids: Vec<String>,
+) -> ProjectContentDocumentDto {
     ProjectContentDocumentDto::PresentationCatalog {
         document_id: PRESENTATION_PATH.to_owned(),
         catalog: ProjectPresentationCatalogDto {
@@ -516,7 +526,7 @@ fn presentation_catalog_document() -> ProjectContentDocumentDto {
                     source_path: ANIMATED_MESH_PATH.to_owned(),
                     content_hash: svc_serialization::BundleHash::of(ANIMATED_MESH_BYTES).to_hex(),
                     license_path: None,
-                    clip_ids: vec!["idle".to_owned(), "run".to_owned(), "jump".to_owned()],
+                    clip_ids: animation_clip_ids,
                 },
                 ProjectPresentationResourceDto {
                     resource_id: "fixture.primary-fire.audio".to_owned(),
@@ -572,18 +582,16 @@ fn presentation_catalog_document() -> ProjectContentDocumentDto {
     }
 }
 
-fn catalog_artifacts(
+fn catalog_artifacts_with_presentation(
     composition: &GameplayStaticComposition,
     asset: &VoxelVolumeAsset,
+    presentation: ProjectContentDocumentDto,
 ) -> (Vec<u8>, Vec<u8>) {
     let gameplay = rule_project_bundle::GameplayProjectContentAdmission::new(
         composition.project_configuration_authority(),
     );
     let outcome = svc_project_content::validate_project_content_documents(
-        vec![
-            material_catalog_document(asset),
-            presentation_catalog_document(),
-        ],
+        vec![material_catalog_document(asset), presentation],
         svc_project_content::ProjectContentValidationContext {
             scenes: &[],
             gameplay: &gameplay,
@@ -631,12 +639,29 @@ fn project_source_batch_for_scene(
     scene: FlatSceneDocument,
     content_artifacts: Vec<(String, Vec<u8>)>,
 ) -> protocol_project_bundle::RuntimeProjectSourceBatch {
+    project_source_batch_for_scene_with_presentation(
+        bridge,
+        composition,
+        scene,
+        content_artifacts,
+        presentation_catalog_document(),
+    )
+}
+
+fn project_source_batch_for_scene_with_presentation(
+    bridge: &mut EngineBridge,
+    composition: &GameplayStaticComposition,
+    scene: FlatSceneDocument,
+    content_artifacts: Vec<(String, Vec<u8>)>,
+    presentation: ProjectContentDocumentDto,
+) -> protocol_project_bundle::RuntimeProjectSourceBatch {
     let asset = hand_authored_voxel_volume_asset();
     let scene_bytes = core_scene::encode(&scene).into_bytes();
     let asset_bytes = svc_voxel_asset::encode_asset(&asset)
         .expect("canonical voxel asset")
         .into_bytes();
-    let (catalog_bytes, presentation_bytes) = catalog_artifacts(composition, &asset);
+    let (catalog_bytes, presentation_bytes) =
+        catalog_artifacts_with_presentation(composition, &asset, presentation);
     let lock_bytes = serde_json::to_vec(&serde_json::json!({
             "entries": [{
             "id": asset.asset_id,
@@ -969,6 +994,44 @@ fn deferred_runtime_activation_is_atomic_and_lifecycle_bound() {
         .expect("explicit reload");
     assert_eq!(reloaded.lifecycle.generation, 2);
     assert_eq!(reloaded.lifecycle.revision, 3);
+}
+
+#[test]
+fn fps_activation_rejects_incomplete_animation_graph_before_publication() {
+    let composition = static_composition();
+    let mut bridge = DeferredRuntimeSessionBuilder::from_static_composition(composition.clone())
+        .with_project_domain(RuntimeProjectDomainAdapter::Fps)
+        .build_unloaded();
+    bridge
+        .initialize_engine(EngineConfig { seed: 6060 })
+        .unwrap();
+    let scene = stored_fps_scene("voxel-volume/hand-authored-room");
+    let content = fps_content_artifacts_with(&composition, &scene, 40, true, false, false);
+    let source = project_source_batch_for_scene_with_presentation(
+        &mut bridge,
+        &composition,
+        scene,
+        content,
+        presentation_catalog_document_with_clips(vec!["jump".to_owned()]),
+    );
+    let admission = bridge
+        .admit_runtime_project_source_batch(source)
+        .expect("structurally valid source reaches staged activation");
+    assert!(admission.accepted, "{:?}", admission.diagnostics);
+
+    let error = bridge
+        .activate_pending_runtime_project(RuntimeProjectLifecycleVersion::default())
+        .expect_err("incomplete built-in animation graph must reject before publication");
+    assert!(matches!(error, RuntimeProjectLoadError::Resource(_)));
+    assert!(error
+        .to_string()
+        .contains("FPS animation graph is incompatible"));
+    assert!(bridge.active_runtime_project().is_none());
+    assert!(bridge.scene.entities.snapshot().records.is_empty());
+    assert_eq!(
+        bridge.runtime_project_lifecycle_version(),
+        RuntimeProjectLifecycleVersion::default()
+    );
 }
 
 #[test]
