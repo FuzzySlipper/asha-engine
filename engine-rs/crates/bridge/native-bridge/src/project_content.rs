@@ -189,6 +189,10 @@ fn result_json(
             "required": field.required,
             "editable": field.editable,
             "referenceKind": field.reference_kind.map(reference_kind_tag),
+            "referenceOptions": field.reference_options.iter().map(|option| json!({
+                "targetId": option.target_id,
+                "label": option.label,
+            })).collect::<Vec<_>>(),
             "configurationId": field.configuration_id,
             "schemaId": field.schema_id,
             "moduleId": field.module_id,
@@ -408,6 +412,9 @@ fn reference_kind_tag(value: ProjectContentReferenceKind) -> &'static str {
         }
         ProjectContentReferenceKind::InstantiatedBoundedEntityDefinition => {
             "instantiatedBoundedEntityDefinition"
+        }
+        ProjectContentReferenceKind::EntrySceneFpsPlayerEntityDefinition => {
+            "entrySceneFpsPlayerEntityDefinition"
         }
         ProjectContentReferenceKind::SceneInstance => "sceneInstance",
         ProjectContentReferenceKind::Prefab => "prefab",

@@ -351,6 +351,7 @@ pub fn compile_runtime_project_admission(
         documents,
         ProjectContentValidationContext {
             scenes: &scene_dtos,
+            entry_scene_id: Some(source.manifest().entry_scene),
             gameplay: &gameplay,
             reference_revision: 0,
         },
@@ -1456,6 +1457,7 @@ mod tests {
             vec![document],
             ProjectContentValidationContext {
                 scenes: &[],
+                entry_scene_id: None,
                 gameplay: &gameplay,
                 reference_revision: 0,
             },
@@ -1489,6 +1491,7 @@ mod tests {
             },
             ProjectContentValidationContext {
                 scenes: &[],
+                entry_scene_id: None,
                 gameplay: &gameplay,
                 reference_revision: 0,
             },
@@ -1659,6 +1662,7 @@ mod tests {
             },
             ProjectContentValidationContext {
                 scenes: &[],
+                entry_scene_id: None,
                 gameplay: &gameplay,
                 reference_revision: 0,
             },
@@ -1707,6 +1711,7 @@ mod tests {
                 },
                 ProjectContentValidationContext {
                     scenes: &[],
+                    entry_scene_id: None,
                     gameplay: &gameplay,
                     reference_revision: 0,
                 },

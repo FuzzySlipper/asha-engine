@@ -146,6 +146,9 @@ pub enum GameplayConfigurationReferenceKind {
     InstantiatedEntityDefinition,
     /// An admitted scene instance whose definition carries finite, positive bounds.
     InstantiatedBoundedEntityDefinition,
+    /// A bounded entry-scene definition classified by the built-in FPS domain
+    /// as its authoritative Player.
+    EntrySceneFpsPlayerEntityDefinition,
     SceneInstance,
     Prefab,
     PrefabPart,

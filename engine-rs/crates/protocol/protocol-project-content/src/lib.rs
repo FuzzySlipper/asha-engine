@@ -54,10 +54,22 @@ pub enum ProjectContentReferenceKind {
     EntityDefinition,
     InstantiatedEntityDefinition,
     InstantiatedBoundedEntityDefinition,
+    /// A bounded definition instantiated by the entry scene and classified as
+    /// Player by the same built-in FPS domain semantics used at activation.
+    EntrySceneFpsPlayerEntityDefinition,
     SceneInstance,
     Prefab,
     PrefabPart,
     PresentationResource,
+}
+
+/// One Rust-resolved target that is valid for a provider-owned reference
+/// field. Studio consumes this catalog instead of reimplementing scene,
+/// capability, or gameplay-domain eligibility rules.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectContentReferenceOptionDto {
+    pub target_id: String,
+    pub label: String,
 }
 
 /// Provider-owned field metadata. Engine validates the shape and references;
@@ -294,6 +306,7 @@ pub struct ProjectContentFieldMetadataDto {
     pub required: bool,
     pub editable: bool,
     pub reference_kind: Option<ProjectContentReferenceKind>,
+    pub reference_options: Vec<ProjectContentReferenceOptionDto>,
     pub configuration_id: Option<String>,
     pub schema_id: Option<String>,
     pub module_id: Option<String>,

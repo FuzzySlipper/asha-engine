@@ -484,7 +484,9 @@ may_not_depend_on = ["render-bridge", "wasm-api"]
 lane = "rust-rule"
 # Project-content admission resolves stored authoring DTOs against this rule's
 # existing RuntimeSession binding validators and provider composition (#5946).
-may_depend_on = ["core-ids", "core-assets", "core-math", "core-space", "core-voxel", "core-events", "core-entity", "core-scene", "svc-volume", "svc-spatial", "svc-serialization", "svc-project-content", "svc-voxel-annotation", "svc-gameplay-fabric", "protocol-diagnostics", "protocol-project-bundle", "protocol-project-content", "protocol-voxel-annotation", "protocol-game-extension", "rule-voxel-edit", "rule-gameplay-fabric", "rule-trigger-volume", "gameplay-module-sdk"]
+# FPS player reference admission shares rule-lifecycle's exact role classifier
+# and reads only the stored entity-definition protocol (#6059).
+may_depend_on = ["core-ids", "core-assets", "core-math", "core-space", "core-voxel", "core-events", "core-entity", "core-scene", "svc-volume", "svc-spatial", "svc-serialization", "svc-project-content", "svc-voxel-annotation", "svc-gameplay-fabric", "protocol-diagnostics", "protocol-entity-authoring", "protocol-project-bundle", "protocol-project-content", "protocol-voxel-annotation", "protocol-game-extension", "rule-voxel-edit", "rule-gameplay-fabric", "rule-lifecycle", "rule-trigger-volume", "gameplay-module-sdk"]
 may_not_depend_on = ["protocol-render", "render-bridge", "wasm-api"]
 
 # ─── Rust: Render ────────────────────────────────────────────────────────────

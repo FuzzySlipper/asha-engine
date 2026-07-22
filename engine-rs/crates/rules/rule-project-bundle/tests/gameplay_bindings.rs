@@ -307,6 +307,7 @@ fn project_content_uses_composed_provider_codec_and_runtime_contract_admission()
         },
         ProjectContentValidationContext {
             scenes: &[],
+            entry_scene_id: None,
             gameplay: &admission,
             reference_revision: 0,
         },
@@ -320,6 +321,7 @@ fn project_content_uses_composed_provider_codec_and_runtime_contract_admission()
         vec![authored_gameplay_document(4)],
         ProjectContentValidationContext {
             scenes: &[],
+            entry_scene_id: None,
             gameplay: &admission,
             reference_revision: 0,
         },
@@ -339,6 +341,7 @@ fn project_content_uses_composed_provider_codec_and_runtime_contract_admission()
         },
         ProjectContentValidationContext {
             scenes: &[],
+            entry_scene_id: None,
             gameplay: &admission,
             reference_revision: 0,
         },
@@ -361,6 +364,7 @@ fn project_content_uses_composed_provider_codec_and_runtime_contract_admission()
         },
         ProjectContentValidationContext {
             scenes: &[],
+            entry_scene_id: None,
             gameplay: &admission,
             reference_revision: 0,
         },
@@ -383,6 +387,7 @@ fn project_content_uses_composed_provider_codec_and_runtime_contract_admission()
         },
         ProjectContentValidationContext {
             scenes: &[],
+            entry_scene_id: None,
             gameplay: &admission,
             reference_revision: 0,
         },
@@ -429,6 +434,7 @@ fn project_content_uses_composed_provider_codec_and_runtime_contract_admission()
         },
         ProjectContentValidationContext {
             scenes: &[],
+            entry_scene_id: None,
             gameplay: &admission,
             reference_revision: 0,
         },

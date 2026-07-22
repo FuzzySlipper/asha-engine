@@ -955,7 +955,7 @@ fn project_write_includes_the_rust_owned_voxel_save_and_updated_manifest() {
         .get_buffer(RuntimeBufferHandle::new(voxel_write.resource.handle))
         .unwrap()
         .bytes;
-    let decoded = svc_voxel_asset::decode_asset(std::str::from_utf8(&bytes).unwrap()).unwrap();
+    let decoded = svc_voxel_asset::decode_asset(std::str::from_utf8(bytes).unwrap()).unwrap();
     assert_eq!(decoded.asset_id, "voxel-volume/project-write");
     assert_ne!(bytes, old_voxel_json.as_bytes());
     assert!(candidate

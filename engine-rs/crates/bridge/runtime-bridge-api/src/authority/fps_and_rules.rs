@@ -137,26 +137,19 @@ impl EngineBridge {
                     EntityDefinitionCapability::Faction { faction_id } => Some(faction_id.as_str()),
                     _ => None,
                 });
-            let player_signal = controller == Some("player_input") || faction == Some("player");
-            let enemy_signal = controller == Some("enemy_policy") || faction == Some("hostile");
-            if player_signal && enemy_signal {
-                return Err(runtime_project_seed_domain_error(
-                    "conflictingFpsRole",
-                    &seed,
-                    "capabilities",
-                    format!(
-                        "canonical entity definition `{}` has conflicting player/enemy role capabilities",
-                        definition.stable_id
-                    ),
-                ));
-            }
-            let role = if player_signal {
-                FpsRuntimeRole::Player
-            } else if enemy_signal {
-                FpsRuntimeRole::Enemy
-            } else {
-                FpsRuntimeRole::Neutral
-            };
+            let role = rule_lifecycle::classify_fps_runtime_role(controller, faction).map_err(
+                |_| {
+                    runtime_project_seed_domain_error(
+                        "conflictingFpsRole",
+                        &seed,
+                        "capabilities",
+                        format!(
+                            "canonical entity definition `{}` has conflicting player/enemy role capabilities",
+                            definition.stable_id
+                        ),
+                    )
+                },
+            )?;
 
             let health = definition
                 .capabilities

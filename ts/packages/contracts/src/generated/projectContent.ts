@@ -27,7 +27,13 @@ export interface ProjectContentSource {
 
 export type ProjectConfigurationValueKind = 'boolean' | 'integer' | 'number' | 'string' | 'reference';
 
-export type ProjectContentReferenceKind = 'asset' | 'entityDefinition' | 'instantiatedEntityDefinition' | 'instantiatedBoundedEntityDefinition' | 'sceneInstance' | 'prefab' | 'prefabPart' | 'presentationResource';
+export type ProjectContentReferenceKind = 'asset' | 'entityDefinition' | 'instantiatedEntityDefinition' | 'instantiatedBoundedEntityDefinition' | 'entrySceneFpsPlayerEntityDefinition' | 'sceneInstance' | 'prefab' | 'prefabPart' | 'presentationResource';
+
+// One Rust-resolved target that is valid for a provider-owned reference field. Studio consumes this catalog instead of reimplementing scene, capability, or gameplay-domain eligibility rules.
+export interface ProjectContentReferenceOption {
+  readonly targetId: string;
+  readonly label: string;
+}
 
 // Provider-owned field metadata. Engine validates the shape and references; providers retain the semantic meaning and codec identity.
 export interface ProjectConfigurationField {
@@ -150,6 +156,7 @@ export interface ProjectContentFieldMetadata {
   readonly required: boolean;
   readonly editable: boolean;
   readonly referenceKind: ProjectContentReferenceKind | null;
+  readonly referenceOptions: readonly ProjectContentReferenceOption[];
   readonly configurationId: string | null;
   readonly schemaId: string | null;
   readonly moduleId: string | null;

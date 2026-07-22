@@ -3,6 +3,7 @@ use super::*;
 pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
     coverage.extend([
         interface_coverage_key("projectContent", "ProjectContentSource"),
+        interface_coverage_key("projectContent", "ProjectContentReferenceOption"),
         interface_coverage_key("projectContent", "ProjectConfigurationField"),
         interface_coverage_key("projectContent", "ProjectConfigurationSchema"),
         variant_coverage_key("projectContent", "ProjectConfigurationValue", "boolean"),
@@ -198,6 +199,7 @@ fn project_content_samples_match_closed_generated_ir_shapes() {
     let encode = json!({ "documents": [documents[3].1] });
     let diagnostic = json!({ "code": "invalidField", "documentId": "gameplay/demo", "path": "configurations[0]", "message": "invalid" });
     let canonical = json!({ "sourcePath": "content/gameplay.json", "documentId": "gameplay/demo", "kind": "gameplayConfiguration", "canonicalJson": "{}\n", "contentHash": "fnv1a64:1" });
+    let reference_option = json!({ "targetId": "actor/demo-player", "label": "Player" });
     let metadata = json!({
         "documentId": "gameplay/demo",
         "path": "document.configurations[0].values.damage",
@@ -206,6 +208,7 @@ fn project_content_samples_match_closed_generated_ir_shapes() {
         "required": true,
         "editable": true,
         "referenceKind": null,
+        "referenceOptions": [],
         "configurationId": "demo.weapon.primary",
         "schemaId": "demo.weapon.v1",
         "moduleId": "demo.weapon.module",
@@ -227,6 +230,7 @@ fn project_content_samples_match_closed_generated_ir_shapes() {
         ("ProjectContentEncodeRequest", &encode),
         ("ProjectContentDiagnostic", &diagnostic),
         ("ProjectContentCanonicalFile", &canonical),
+        ("ProjectContentReferenceOption", &reference_option),
         ("ProjectContentFieldMetadata", &metadata),
         ("ProjectContentCodecResult", &result),
         ("ProjectContentAuthoringRequest", &authoring),

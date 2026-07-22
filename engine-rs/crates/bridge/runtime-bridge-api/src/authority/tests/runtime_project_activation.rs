@@ -397,6 +397,7 @@ fn fps_content_artifacts_with(
         documents,
         svc_project_content::ProjectContentValidationContext {
             scenes: &[svc_project_content::project_scene_document_dto(scene)],
+            entry_scene_id: Some(scene.id),
             gameplay: &gameplay,
             reference_revision: 0,
         },
@@ -594,6 +595,7 @@ fn catalog_artifacts_with_presentation(
         vec![material_catalog_document(asset), presentation],
         svc_project_content::ProjectContentValidationContext {
             scenes: &[],
+            entry_scene_id: None,
             gameplay: &gameplay,
             reference_revision: 0,
         },

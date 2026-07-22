@@ -1167,6 +1167,7 @@ impl RuntimeBridge for EngineBridge {
             request,
             svc_project_content::ProjectContentValidationContext {
                 scenes: &scenes,
+                entry_scene_id: Some(SceneId::new(authority.identity.project_bundle.scene_id)),
                 gameplay: &authority.project_content_admission,
                 reference_revision: authority.project_content_reference_revision,
             },
@@ -1228,6 +1229,7 @@ impl RuntimeBridge for EngineBridge {
             request,
             svc_project_content::ProjectContentValidationContext {
                 scenes: &scenes,
+                entry_scene_id: Some(SceneId::new(authority.identity.project_bundle.scene_id)),
                 gameplay: &authority.project_content_admission,
                 reference_revision: authority.project_content_reference_revision,
             },
@@ -1264,6 +1266,7 @@ impl RuntimeBridge for EngineBridge {
                 request,
                 svc_project_content::ProjectContentValidationContext {
                     scenes: &scenes,
+                    entry_scene_id: Some(SceneId::new(authority.identity.project_bundle.scene_id)),
                     gameplay: &authority.project_content_admission,
                     reference_revision: authority.project_content_reference_revision,
                 },

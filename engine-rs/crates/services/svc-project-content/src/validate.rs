@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use core_ids::SceneId;
 use protocol_entity_authoring::{
     EntityDefinition, EntityDefinitionCapability, EntityDefinitionValidationOutcome,
 };
@@ -23,6 +24,7 @@ struct ReferenceIndex<'a> {
 #[derive(Debug, Clone)]
 enum SceneInstanceReference {
     EntityDefinition {
+        scene_id: SceneId,
         stable_id: String,
         transform_ok: bool,
     },
@@ -31,10 +33,17 @@ enum SceneInstanceReference {
     },
 }
 
+#[derive(Clone, Copy)]
+struct SemanticReferenceContext<'a> {
+    entry_scene_id: Option<SceneId>,
+    gameplay: &'a dyn crate::ProjectContentGameplayAdmission,
+}
+
 pub(super) fn validate_document_set(
     documents: &[ProjectContentDocumentDto],
     scenes: &[FlatSceneDocumentDto],
-    provider_schemas: &[ProjectConfigurationSchemaDto],
+    entry_scene_id: Option<SceneId>,
+    gameplay: &dyn crate::ProjectContentGameplayAdmission,
 ) -> Vec<ProjectContentDiagnosticDto> {
     let mut diagnostics = Vec::new();
     let mut index = ReferenceIndex::default();
@@ -44,11 +53,19 @@ pub(super) fn validate_document_set(
     index_prefabs(documents, &mut index, &mut diagnostics);
     index_presentation(documents, &mut index, &mut diagnostics);
     index_scenes(scenes, &mut index, &mut diagnostics);
-    let configuration_schemas = validate_configuration_schemas(provider_schemas, &mut diagnostics);
+    let configuration_schemas =
+        validate_configuration_schemas(gameplay.configuration_schemas(), &mut diagnostics);
 
     validate_entities(documents, &mut diagnostics);
     validate_prefabs(documents, &index, &mut diagnostics);
-    validate_gameplay(documents, &index, &configuration_schemas, &mut diagnostics);
+    validate_gameplay(
+        documents,
+        &index,
+        entry_scene_id,
+        gameplay,
+        &configuration_schemas,
+        &mut diagnostics,
+    );
     validate_presentation(documents, &index, &mut diagnostics);
     diagnostics
 }
@@ -261,6 +278,7 @@ fn index_scenes(
             let reference = match &instance.reference {
                 SceneEntityReferenceDto::EntityDefinition { stable_id } => {
                     SceneInstanceReference::EntityDefinition {
+                        scene_id: scene.id,
                         stable_id: stable_id.clone(),
                         transform_ok: trigger_transform_is_supported(node, &nodes),
                     }
@@ -378,9 +396,15 @@ fn validate_prefabs(
 fn validate_gameplay(
     documents: &[ProjectContentDocumentDto],
     index: &ReferenceIndex<'_>,
+    entry_scene_id: Option<SceneId>,
+    gameplay: &dyn crate::ProjectContentGameplayAdmission,
     schemas: &BTreeMap<&str, &ProjectConfigurationSchemaDto>,
     diagnostics: &mut Vec<ProjectContentDiagnosticDto>,
 ) {
+    let reference_context = SemanticReferenceContext {
+        entry_scene_id,
+        gameplay,
+    };
     let mut trigger_targets = BTreeSet::new();
     let mut project_configuration_ids = BTreeSet::new();
     let mut project_binding_ids = BTreeSet::new();
@@ -433,6 +457,7 @@ fn validate_gameplay(
                     configuration,
                     schema,
                     index,
+                    reference_context,
                     diagnostics,
                 ),
                 None => push(
@@ -594,6 +619,7 @@ fn validate_gameplay(
             let Some(SceneInstanceReference::EntityDefinition {
                 stable_id,
                 transform_ok,
+                ..
             }) = index.scene_instances.get(&trigger.scene_instance_id)
             else {
                 push(
@@ -713,6 +739,7 @@ fn validate_configuration_values(
     configuration: &ProjectGameplayConfigurationDto,
     schema: &ProjectConfigurationSchemaDto,
     index: &ReferenceIndex<'_>,
+    reference_context: SemanticReferenceContext<'_>,
     diagnostics: &mut Vec<ProjectContentDiagnosticDto>,
 ) {
     if configuration.module.module_id != schema.module_id {
@@ -761,7 +788,15 @@ fn validate_configuration_values(
             );
             continue;
         };
-        validate_value(document_id, &path, field, &entry.value, index, diagnostics);
+        validate_value(
+            document_id,
+            &path,
+            field,
+            &entry.value,
+            index,
+            reference_context,
+            diagnostics,
+        );
     }
     for field in &schema.fields {
         if field.required && !seen.contains(field.field_id.as_str()) {
@@ -782,6 +817,7 @@ fn validate_value(
     field: &ProjectConfigurationFieldDto,
     value: &ProjectConfigurationValueDto,
     index: &ReferenceIndex<'_>,
+    reference_context: SemanticReferenceContext<'_>,
     diagnostics: &mut Vec<ProjectContentDiagnosticDto>,
 ) {
     let kind_ok = matches!(
@@ -852,7 +888,13 @@ fn validate_value(
             reference_kind,
             target_id,
         } if Some(*reference_kind) != field.reference_kind
-            || !reference_exists(*reference_kind, target_id, index) =>
+            || !reference_exists(
+                *reference_kind,
+                target_id,
+                index,
+                reference_context.entry_scene_id,
+                reference_context.gameplay,
+            ) =>
         {
             push(
                 diagnostics,
@@ -873,6 +915,8 @@ fn reference_exists(
     kind: ProjectContentReferenceKind,
     target_id: &str,
     index: &ReferenceIndex<'_>,
+    entry_scene_id: Option<SceneId>,
+    gameplay: &dyn crate::ProjectContentGameplayAdmission,
 ) -> bool {
     match kind {
         ProjectContentReferenceKind::Asset => index.assets.contains_key(target_id),
@@ -899,6 +943,23 @@ fn reference_exists(
                             if stable_id == target_id
                     )
                 })
+        }
+        ProjectContentReferenceKind::EntrySceneFpsPlayerEntityDefinition => {
+            index.entities.get(target_id).is_some_and(|definition| {
+                has_usable_bounds(definition)
+                    && gameplay.entity_definition_matches_reference(kind, definition)
+            }) && entry_scene_id.is_some_and(|entry_scene_id| {
+                index.scene_instances.values().any(|reference| {
+                    matches!(
+                        reference,
+                        SceneInstanceReference::EntityDefinition {
+                            scene_id,
+                            stable_id,
+                            ..
+                        } if *scene_id == entry_scene_id && stable_id == target_id
+                    )
+                })
+            })
         }
         ProjectContentReferenceKind::SceneInstance => index.scene_instances.contains_key(target_id),
         ProjectContentReferenceKind::Prefab => target_id
@@ -1228,8 +1289,19 @@ fn validate_signal_binding<'a>(
 
 pub(super) fn field_metadata(
     documents: &[ProjectContentDocumentDto],
-    configuration_schemas: &[ProjectConfigurationSchemaDto],
+    scenes: &[FlatSceneDocumentDto],
+    entry_scene_id: Option<SceneId>,
+    gameplay: &dyn crate::ProjectContentGameplayAdmission,
 ) -> Vec<ProjectContentFieldMetadataDto> {
+    let configuration_schemas = gameplay.configuration_schemas();
+    let mut index = ReferenceIndex::default();
+    let mut accepted_diagnostics = Vec::new();
+    index_entities(documents, &mut index, &mut accepted_diagnostics);
+    index_catalogs(documents, &mut index, &mut accepted_diagnostics);
+    index_prefabs(documents, &mut index, &mut accepted_diagnostics);
+    index_presentation(documents, &mut index, &mut accepted_diagnostics);
+    index_scenes(scenes, &mut index, &mut accepted_diagnostics);
+    debug_assert!(accepted_diagnostics.is_empty());
     let mut fields = Vec::new();
     for document in documents {
         let document_id = document.document_id().to_owned();
@@ -1292,6 +1364,7 @@ pub(super) fn field_metadata(
                                 required: true,
                                 editable: true,
                                 reference_kind: None,
+                                reference_options: Vec::new(),
                                 configuration_id: Some(entry.id.clone()),
                                 schema_id: Some("asha.material.v1".to_owned()),
                                 module_id: None,
@@ -1345,6 +1418,16 @@ pub(super) fn field_metadata(
                             required: field.required,
                             editable: true,
                             reference_kind: field.reference_kind,
+                            reference_options: field.reference_kind.map_or_else(Vec::new, |kind| {
+                                reference_options(
+                                    kind,
+                                    documents,
+                                    scenes,
+                                    &index,
+                                    entry_scene_id,
+                                    gameplay,
+                                )
+                            }),
                             configuration_id: Some(configuration.configuration_id.clone()),
                             schema_id: Some(schema.schema_id.clone()),
                             module_id: Some(schema.module_id.clone()),
@@ -1393,6 +1476,7 @@ pub(super) fn field_metadata(
                             required: true,
                             editable: true,
                             reference_kind: None,
+                            reference_options: Vec::new(),
                             configuration_id: Some(cue_id.to_owned()),
                             schema_id: Some("asha.presentation-cue.v1".to_owned()),
                             module_id: None,
@@ -1432,6 +1516,7 @@ fn metadata(
         required,
         editable: true,
         reference_kind,
+        reference_options: Vec::new(),
         configuration_id: None,
         schema_id: None,
         module_id: None,
@@ -1443,6 +1528,125 @@ fn metadata(
         number_min: None,
         number_max: None,
     }
+}
+
+fn reference_options(
+    kind: ProjectContentReferenceKind,
+    documents: &[ProjectContentDocumentDto],
+    scenes: &[FlatSceneDocumentDto],
+    index: &ReferenceIndex<'_>,
+    entry_scene_id: Option<SceneId>,
+    gameplay: &dyn crate::ProjectContentGameplayAdmission,
+) -> Vec<ProjectContentReferenceOptionDto> {
+    let mut options: Vec<ProjectContentReferenceOptionDto> = match kind {
+        ProjectContentReferenceKind::Asset => documents
+            .iter()
+            .flat_map(|document| match document {
+                ProjectContentDocumentDto::AssetCatalog { catalog, .. } => catalog
+                    .entries
+                    .iter()
+                    .map(|entry| ProjectContentReferenceOptionDto {
+                        target_id: entry.id.clone(),
+                        label: entry.label.clone().unwrap_or_else(|| entry.id.clone()),
+                    })
+                    .collect(),
+                _ => Vec::new(),
+            })
+            .collect(),
+        ProjectContentReferenceKind::EntityDefinition
+        | ProjectContentReferenceKind::InstantiatedEntityDefinition
+        | ProjectContentReferenceKind::InstantiatedBoundedEntityDefinition
+        | ProjectContentReferenceKind::EntrySceneFpsPlayerEntityDefinition => documents
+            .iter()
+            .filter_map(|document| match document {
+                ProjectContentDocumentDto::EntityDefinition { definition, .. }
+                    if reference_exists(
+                        kind,
+                        &definition.stable_id,
+                        index,
+                        entry_scene_id,
+                        gameplay,
+                    ) =>
+                {
+                    Some(ProjectContentReferenceOptionDto {
+                        target_id: definition.stable_id.clone(),
+                        label: definition.display_name.clone(),
+                    })
+                }
+                _ => None,
+            })
+            .collect(),
+        ProjectContentReferenceKind::SceneInstance => scenes
+            .iter()
+            .flat_map(|scene| {
+                scene.nodes.iter().filter_map(|node| match &node.kind {
+                    SceneNodeKindDto::EntityInstance { instance } => {
+                        Some(ProjectContentReferenceOptionDto {
+                            target_id: instance.instance_id.clone(),
+                            label: node
+                                .label
+                                .clone()
+                                .unwrap_or_else(|| instance.instance_id.clone()),
+                        })
+                    }
+                    _ => None,
+                })
+            })
+            .collect(),
+        ProjectContentReferenceKind::Prefab => documents
+            .iter()
+            .flat_map(|document| match document {
+                ProjectContentDocumentDto::PrefabRegistry { registry, .. } => registry
+                    .definitions
+                    .iter()
+                    .map(|definition| ProjectContentReferenceOptionDto {
+                        target_id: definition.id.raw().to_string(),
+                        label: definition.display_name.clone(),
+                    })
+                    .collect(),
+                _ => Vec::new(),
+            })
+            .collect(),
+        ProjectContentReferenceKind::PrefabPart => documents
+            .iter()
+            .flat_map(|document| match document {
+                ProjectContentDocumentDto::PrefabRegistry { registry, .. } => registry
+                    .definitions
+                    .iter()
+                    .flat_map(|definition| {
+                        definition
+                            .part_roles
+                            .iter()
+                            .map(|role| ProjectContentReferenceOptionDto {
+                                target_id: format!("{}:{}", definition.id.raw(), role.role),
+                                label: format!("{} · {}", definition.display_name, role.role),
+                            })
+                    })
+                    .collect(),
+                _ => Vec::new(),
+            })
+            .collect(),
+        ProjectContentReferenceKind::PresentationResource => documents
+            .iter()
+            .flat_map(|document| match document {
+                ProjectContentDocumentDto::PresentationCatalog { catalog, .. } => catalog
+                    .resources
+                    .iter()
+                    .map(|resource| ProjectContentReferenceOptionDto {
+                        target_id: resource.resource_id.clone(),
+                        label: resource.resource_id.clone(),
+                    })
+                    .collect(),
+                _ => Vec::new(),
+            })
+            .collect(),
+    };
+    options.sort_by(|left, right| {
+        (left.target_id.as_str(), left.label.as_str())
+            .cmp(&(right.target_id.as_str(), right.label.as_str()))
+    });
+    options.dedup_by(|left, right| left.target_id == right.target_id);
+    options
 }
 
 fn push(

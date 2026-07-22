@@ -76,6 +76,17 @@ pub trait ProjectContentGameplayAdmission: Send + Sync {
         &self,
         documents: &[ProjectContentDocumentDto],
     ) -> Result<CompiledProjectGameplayContent, Vec<ProjectContentDiagnosticDto>>;
+
+    /// Resolve provider/domain semantics that cannot be inferred from generic
+    /// project structure alone. The service remains the owner of scene and
+    /// bounds checks; composed Rust gameplay authority owns role meaning.
+    fn entity_definition_matches_reference(
+        &self,
+        _kind: protocol_project_content::ProjectContentReferenceKind,
+        _definition: &protocol_entity_authoring::EntityDefinition,
+    ) -> bool {
+        false
+    }
 }
 
 #[derive(Debug, Default)]
@@ -118,6 +129,7 @@ impl ProjectContentGameplayAdmission for EmptyProjectContentGameplayAdmission {
 
 pub struct ProjectContentValidationContext<'a> {
     pub scenes: &'a [FlatSceneDocumentDto],
+    pub entry_scene_id: Option<core_ids::SceneId>,
     pub gameplay: &'a dyn ProjectContentGameplayAdmission,
     pub reference_revision: u64,
 }
@@ -373,7 +385,8 @@ fn encode_documents(
     let mut diagnostics = validate::validate_document_set(
         &documents,
         context.scenes,
-        context.gameplay.configuration_schemas(),
+        context.entry_scene_id,
+        context.gameplay,
     );
     let compiled_gameplay = match context.gameplay.compile_gameplay(&documents) {
         Ok(compiled) => compiled,
@@ -451,8 +464,12 @@ fn encode_documents(
                 }
             };
             let set_hash = Some(codec::document_set_hash(&canonical_files));
-            let field_metadata =
-                validate::field_metadata(&documents, context.gameplay.configuration_schemas());
+            let field_metadata = validate::field_metadata(
+                &documents,
+                context.scenes,
+                context.entry_scene_id,
+                context.gameplay,
+            );
             let result = ProjectContentCodecResultDto {
                 accepted: true,
                 documents,
@@ -739,6 +756,22 @@ mod tests {
         ) -> Result<CompiledProjectGameplayContent, Vec<ProjectContentDiagnosticDto>> {
             Ok(CompiledProjectGameplayContent::default())
         }
+
+        fn entity_definition_matches_reference(
+            &self,
+            kind: ProjectContentReferenceKind,
+            definition: &protocol_entity_authoring::EntityDefinition,
+        ) -> bool {
+            kind == ProjectContentReferenceKind::EntrySceneFpsPlayerEntityDefinition
+                && definition.capabilities.iter().any(|capability| {
+                    matches!(
+                        capability,
+                        protocol_entity_authoring::EntityDefinitionCapability::Controller {
+                            controller_id
+                        } if controller_id == "player_input"
+                    )
+                })
+        }
     }
 
     fn admission() -> FixtureAdmission {
@@ -763,6 +796,19 @@ mod tests {
                         reference_kind: None,
                         integer_min: Some(0),
                         integer_max: Some(120),
+                        number_min: None,
+                        number_max: None,
+                    },
+                    ProjectConfigurationFieldDto {
+                        field_id: "entryPlayer".to_owned(),
+                        label: "Entry-scene FPS player".to_owned(),
+                        value_kind: ProjectConfigurationValueKind::Reference,
+                        required: false,
+                        reference_kind: Some(
+                            ProjectContentReferenceKind::EntrySceneFpsPlayerEntityDefinition,
+                        ),
+                        integer_min: None,
+                        integer_max: None,
                         number_min: None,
                         number_max: None,
                     },
@@ -804,6 +850,7 @@ mod tests {
             request,
             ProjectContentValidationContext {
                 scenes: &scenes,
+                entry_scene_id: Some(scenes[0].id),
                 gameplay: &admission,
                 reference_revision: 0,
             },
@@ -825,7 +872,8 @@ mod tests {
                       "metadata":[],
                       "capabilities":[
                         {"kind":"bounds","min":[-1,-1,-1],"max":[1,1,1]},
-                        {"kind":"collision","staticCollider":false}
+                        {"kind":"collision","staticCollider":false},
+                        {"kind":"controller","controllerId":"player_input"}
                       ]
                     }"#,
                 ),
@@ -1063,6 +1111,89 @@ mod tests {
     }
 
     #[test]
+    fn entry_scene_fps_player_reference_uses_rust_semantics_and_catalogs_only_valid_targets() {
+        let with_entry_player = |controller_id: &str| {
+            let mut request = request();
+            let entity = request
+                .sources
+                .iter_mut()
+                .find(|source| source.document_id == "entities/reference-trigger.json")
+                .expect("entry player entity source");
+            let mut definition: serde_json::Value =
+                serde_json::from_str(&entity.source_text).expect("entity fixture JSON");
+            let controller = definition["capabilities"]
+                .as_array_mut()
+                .expect("entity capabilities")
+                .iter_mut()
+                .find(|capability| capability["kind"] == "controller")
+                .expect("controller capability");
+            controller["controllerId"] = serde_json::json!(controller_id);
+            entity.source_text = serde_json::to_string(&definition).expect("entity serializes");
+
+            let gameplay = request
+                .sources
+                .iter_mut()
+                .find(|source| source.kind == ProjectContentDocumentKind::GameplayConfiguration)
+                .expect("gameplay source");
+            let mut document: serde_json::Value =
+                serde_json::from_str(&gameplay.source_text).expect("gameplay fixture JSON");
+            document["configurations"][0]["values"]
+                .as_array_mut()
+                .expect("configuration values")
+                .push(serde_json::json!({
+                    "fieldId": "entryPlayer",
+                    "value": {
+                        "kind": "reference",
+                        "referenceKind": "entrySceneFpsPlayerEntityDefinition",
+                        "targetId": "reference.trigger",
+                    }
+                }));
+            gameplay.source_text = serde_json::to_string(&document).expect("gameplay serializes");
+            request
+        };
+
+        let valid = decode(with_entry_player("player_input"));
+        assert!(valid.result.accepted, "{:?}", valid.result.diagnostics);
+        let metadata = valid
+            .result
+            .field_metadata
+            .iter()
+            .find(|field| field.path.ends_with(".entryPlayer"))
+            .expect("entry-player field metadata");
+        assert_eq!(
+            metadata.reference_options,
+            vec![ProjectContentReferenceOptionDto {
+                target_id: "reference.trigger".to_owned(),
+                label: "Reference Trigger".to_owned(),
+            }]
+        );
+
+        let enemy = decode(with_entry_player("enemy_policy"));
+        assert!(!enemy.result.accepted);
+        assert!(enemy.result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == ProjectContentDiagnosticCode::UnknownReference
+                && diagnostic.message.contains("entryPlayer")
+        }));
+
+        let scenes = vec![marker_scene(99, None, None), scene()];
+        let admission = admission();
+        let outside_entry = decode_project_content(
+            with_entry_player("player_input"),
+            ProjectContentValidationContext {
+                scenes: &scenes,
+                entry_scene_id: Some(SceneId::new(99)),
+                gameplay: &admission,
+                reference_revision: 0,
+            },
+        );
+        assert!(!outside_entry.result.accepted);
+        assert!(outside_entry.result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == ProjectContentDiagnosticCode::UnknownReference
+                && diagnostic.message.contains("entryPlayer")
+        }));
+    }
+
+    #[test]
     fn strict_decode_rejects_unknown_nested_fields() {
         let result = decode(ProjectContentDecodeRequestDto {
             sources: vec![source(
@@ -1114,6 +1245,7 @@ mod tests {
             request,
             ProjectContentValidationContext {
                 scenes: &scenes,
+                entry_scene_id: Some(scenes[0].id),
                 gameplay: &admission,
                 reference_revision: 0,
             },
@@ -1137,6 +1269,7 @@ mod tests {
             request(),
             ProjectContentValidationContext {
                 scenes: &valid_scenes,
+                entry_scene_id: Some(valid_scenes[0].id),
                 gameplay: &admission,
                 reference_revision: 0,
             },
@@ -1152,6 +1285,7 @@ mod tests {
             request(),
             ProjectContentValidationContext {
                 scenes: &cross_scene,
+                entry_scene_id: Some(cross_scene[0].id),
                 gameplay: &admission,
                 reference_revision: 0,
             },
@@ -1182,6 +1316,7 @@ mod tests {
             },
             ProjectContentValidationContext {
                 scenes: &scenes,
+                entry_scene_id: Some(scenes[0].id),
                 gameplay: &admission,
                 reference_revision: 0,
             },
@@ -1233,6 +1368,7 @@ mod tests {
             },
             ProjectContentValidationContext {
                 scenes: &scenes,
+                entry_scene_id: Some(scenes[0].id),
                 gameplay: &admission,
                 reference_revision: 0,
             },
@@ -1289,6 +1425,7 @@ mod tests {
             },
             ProjectContentValidationContext {
                 scenes: &scenes,
+                entry_scene_id: Some(scenes[0].id),
                 gameplay: &admission,
                 reference_revision: 0,
             },

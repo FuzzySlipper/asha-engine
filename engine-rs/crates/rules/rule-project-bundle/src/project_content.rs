@@ -7,6 +7,7 @@ use gameplay_module_sdk::{
     GameplayProjectConfigurationAuthority,
 };
 use protocol_diagnostics::DiagnosticSeverity;
+use protocol_entity_authoring::{EntityDefinition, EntityDefinitionCapability};
 use protocol_game_extension::{
     GameplayCompositionDiagnostic, GameplayCompositionLoadMode, GameplayModuleConfiguration,
 };
@@ -301,6 +302,36 @@ impl ProjectContentGameplayAdmission for GameplayProjectContentAdmission {
             Err(diagnostics)
         }
     }
+
+    fn entity_definition_matches_reference(
+        &self,
+        kind: protocol_project_content::ProjectContentReferenceKind,
+        definition: &EntityDefinition,
+    ) -> bool {
+        if kind
+            != protocol_project_content::ProjectContentReferenceKind::EntrySceneFpsPlayerEntityDefinition
+        {
+            return false;
+        }
+        let controller = definition
+            .capabilities
+            .iter()
+            .find_map(|capability| match capability {
+                EntityDefinitionCapability::Controller { controller_id } => {
+                    Some(controller_id.as_str())
+                }
+                _ => None,
+            });
+        let faction = definition
+            .capabilities
+            .iter()
+            .find_map(|capability| match capability {
+                EntityDefinitionCapability::Faction { faction_id } => Some(faction_id.as_str()),
+                _ => None,
+            });
+        rule_lifecycle::classify_fps_runtime_role(controller, faction)
+            == Ok(rule_lifecycle::FpsRuntimeRole::Player)
+    }
 }
 
 fn project_diagnostic(
@@ -340,6 +371,9 @@ fn reference_kind(
         }
         GameplayConfigurationReferenceKind::InstantiatedBoundedEntityDefinition => {
             ProjectContentReferenceKind::InstantiatedBoundedEntityDefinition
+        }
+        GameplayConfigurationReferenceKind::EntrySceneFpsPlayerEntityDefinition => {
+            ProjectContentReferenceKind::EntrySceneFpsPlayerEntityDefinition
         }
         GameplayConfigurationReferenceKind::SceneInstance => {
             ProjectContentReferenceKind::SceneInstance

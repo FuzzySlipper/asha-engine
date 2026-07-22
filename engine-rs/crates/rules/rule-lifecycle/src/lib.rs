@@ -75,6 +75,31 @@ impl FpsRuntimeRole {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FpsRuntimeRoleSignalConflict;
+
+/// Classify the built-in FPS role from stored entity capability signals.
+/// Project-content admission and runtime activation both call this function so
+/// an authoring picker cannot disagree with the entity that runtime authority
+/// will move.
+pub fn classify_fps_runtime_role(
+    controller: Option<&str>,
+    faction: Option<&str>,
+) -> Result<FpsRuntimeRole, FpsRuntimeRoleSignalConflict> {
+    let player_signal = controller == Some("player_input") || faction == Some("player");
+    let enemy_signal = controller == Some("enemy_policy") || faction == Some("hostile");
+    if player_signal && enemy_signal {
+        return Err(FpsRuntimeRoleSignalConflict);
+    }
+    Ok(if player_signal {
+        FpsRuntimeRole::Player
+    } else if enemy_signal {
+        FpsRuntimeRole::Enemy
+    } else {
+        FpsRuntimeRole::Neutral
+    })
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FpsWeaponMount {
     pub weapon_id: String,
@@ -1139,6 +1164,30 @@ mod tests {
 
     #[path = "fps_movement_tests.rs"]
     mod fps_movement_tests;
+
+    #[test]
+    fn fps_role_classification_has_one_authoritative_signal_contract() {
+        assert_eq!(
+            classify_fps_runtime_role(Some("player_input"), None),
+            Ok(FpsRuntimeRole::Player)
+        );
+        assert_eq!(
+            classify_fps_runtime_role(None, Some("player")),
+            Ok(FpsRuntimeRole::Player)
+        );
+        assert_eq!(
+            classify_fps_runtime_role(Some("enemy_policy"), None),
+            Ok(FpsRuntimeRole::Enemy)
+        );
+        assert_eq!(
+            classify_fps_runtime_role(None, None),
+            Ok(FpsRuntimeRole::Neutral)
+        );
+        assert_eq!(
+            classify_fps_runtime_role(Some("player_input"), Some("hostile")),
+            Err(FpsRuntimeRoleSignalConflict)
+        );
+    }
 
     fn tunnel_projection() -> CollisionProjection {
         let tunnel = generate_tunnel(TunnelGeneratorConfig::tiny_enclosed(17)).expect("tunnel");
