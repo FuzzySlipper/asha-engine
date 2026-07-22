@@ -14,6 +14,7 @@ pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
         interface_coverage_key("projectContent", "ProjectGameplayConfiguration"),
         interface_coverage_key("projectContent", "ProjectGameplayConfigurationDocument"),
         interface_coverage_key("projectContent", "ProjectPresentationResource"),
+        interface_coverage_key("projectContent", "ProjectPresentationSignal"),
         variant_coverage_key("projectContent", "ProjectPresentationCue", "animation"),
         variant_coverage_key("projectContent", "ProjectPresentationCue", "audio"),
         variant_coverage_key("projectContent", "ProjectPresentationCue", "particle"),
@@ -132,15 +133,15 @@ fn project_content_samples_match_closed_generated_ir_shapes() {
     let cues = [
         (
             "animation",
-            json!({ "kind": "animation", "cueId": "weapon.fire", "resourceId": "demo.weapon.mesh", "clipId": "fire", "looped": false }),
+            json!({ "kind": "animation", "cueId": "weapon.fire", "resourceId": "demo.weapon.mesh", "clipId": "fire", "looped": false, "atSeconds": 0.05, "signal": { "domain": "particle", "signalId": "weapon.fire.impact" } }),
         ),
         (
             "audio",
-            json!({ "kind": "audio", "cueId": "weapon.sound", "resourceId": "demo.weapon.audio", "gain": 0.8 }),
+            json!({ "kind": "audio", "cueId": "weapon.sound", "signalId": "weapon.fire", "resourceId": "demo.weapon.audio", "gain": 0.8 }),
         ),
         (
             "particle",
-            json!({ "kind": "particle", "cueId": "weapon.flash", "resourceId": "demo.weapon.particle", "scale": 1.0 }),
+            json!({ "kind": "particle", "cueId": "weapon.flash", "signalId": "weapon.fire.impact", "resourceId": "demo.weapon.particle", "scale": 1.0 }),
         ),
         (
             "overlay",
@@ -160,6 +161,12 @@ fn project_content_samples_match_closed_generated_ir_shapes() {
     compare_object_to_interface(&project, "ProjectGameplayConfigurationDocument", &gameplay)
         .unwrap();
     compare_object_to_interface(&project, "ProjectPresentationResource", &resource).unwrap();
+    compare_object_to_interface(
+        &project,
+        "ProjectPresentationSignal",
+        &json!({ "domain": "particle", "signalId": "weapon.fire.impact" }),
+    )
+    .unwrap();
     compare_object_to_interface(&project, "ProjectPresentationCatalog", &presentation).unwrap();
 
     let documents = [

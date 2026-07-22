@@ -4,7 +4,10 @@ use core_scene::{
     SceneMetadata, SceneNodeKind, SceneNodeRecord, SceneTransform,
 };
 use gameplay_module_sdk::*;
-use protocol_assets::{StoredAssetCatalog, StoredCatalogEntry};
+use protocol_assets::{
+    Rgba, StoredAssetCatalog, StoredCatalogEntry, StoredMaterialAuthority,
+    StoredMaterialDefinition, StoredMaterialStyle,
+};
 use protocol_entity_authoring::{EntityDefinition, EntityDefinitionSourceTrace};
 use protocol_input::{
     InputActionDefinition, InputActionPhase, InputBindingRecord, InputContextDefinition,
@@ -18,6 +21,13 @@ const PROJECT_ID: u64 = 311;
 const SCENE_ID: u64 = 912;
 const VOXEL_PATH: &str = "assets/hand-authored-room.avxl.json";
 const CATALOG_PATH: &str = "catalogs/materials.project-content.json";
+const PRESENTATION_PATH: &str = "catalogs/presentation.project-content.json";
+const AUDIO_PATH: &str = "assets/primary-fire.wav";
+const PARTICLE_PATH: &str = "assets/primary-fire.svg";
+const ANIMATED_MESH_PATH: &str = "assets/character.glb";
+const AUDIO_BYTES: &[u8] = b"fixture-primary-fire-audio";
+const PARTICLE_BYTES: &[u8] = b"<svg xmlns=\"http://www.w3.org/2000/svg\"/>";
+const ANIMATED_MESH_BYTES: &[u8] = b"fixture-animated-mesh";
 const FPS_PROJECT_BUNDLE: &str = "stored-fps-project";
 const PLAYER_DEFINITION_DOCUMENT_ID: &str = "entity.demo-player";
 const PLAYER_DEFINITION_PATH: &str = "entities/demo-player.project-content.json";
@@ -407,29 +417,173 @@ fn fps_content_artifacts_with(
         .collect()
 }
 
-fn material_catalog_artifact(
-    composition: &GameplayStaticComposition,
-    asset: &VoxelVolumeAsset,
-) -> Vec<u8> {
-    let document = ProjectContentDocumentDto::AssetCatalog {
+fn material_catalog_document(asset: &VoxelVolumeAsset) -> ProjectContentDocumentDto {
+    ProjectContentDocumentDto::AssetCatalog {
         document_id: CATALOG_PATH.to_owned(),
         catalog: StoredAssetCatalog {
-            entries: vec![StoredCatalogEntry {
-                id: asset.asset_id.clone(),
-                version: 1,
-                hash: None,
-                source_path: Some(VOXEL_PATH.to_owned()),
-                label: Some("Hand-authored room".to_owned()),
-                dependencies: Vec::new(),
-                material: None,
-            }],
+            entries: vec![
+                StoredCatalogEntry {
+                    id: asset.asset_id.clone(),
+                    version: 1,
+                    hash: None,
+                    source_path: Some(VOXEL_PATH.to_owned()),
+                    label: Some("Hand-authored room".to_owned()),
+                    dependencies: Vec::new(),
+                    material: None,
+                },
+                StoredCatalogEntry {
+                    id: "material/concrete".to_owned(),
+                    version: 1,
+                    hash: None,
+                    source_path: None,
+                    label: Some("Concrete".to_owned()),
+                    dependencies: Vec::new(),
+                    material: Some(StoredMaterialDefinition {
+                        authority: StoredMaterialAuthority {
+                            solid: true,
+                            collidable: true,
+                            occludes: true,
+                            structural_class: "structural".to_owned(),
+                        },
+                        style: StoredMaterialStyle {
+                            color: Rgba {
+                                r: 0.45,
+                                g: 0.48,
+                                b: 0.52,
+                                a: 1.0,
+                            },
+                            texture: None,
+                            roughness: 0.85,
+                            texture_tint: Rgba {
+                                r: 1.0,
+                                g: 1.0,
+                                b: 1.0,
+                                a: 1.0,
+                            },
+                            emission_color: Rgba {
+                                r: 0.0,
+                                g: 0.0,
+                                b: 0.0,
+                                a: 1.0,
+                            },
+                            emissive: 0.0,
+                            uv_strategy: "flat".to_owned(),
+                        },
+                    }),
+                },
+                StoredCatalogEntry {
+                    id: "mesh/fixture-character".to_owned(),
+                    version: 1,
+                    hash: Some(svc_serialization::BundleHash::of(ANIMATED_MESH_BYTES).to_hex()),
+                    source_path: Some(ANIMATED_MESH_PATH.to_owned()),
+                    label: Some("Animated character".to_owned()),
+                    dependencies: Vec::new(),
+                    material: None,
+                },
+                StoredCatalogEntry {
+                    id: "audio/fixture-primary-fire".to_owned(),
+                    version: 1,
+                    hash: Some(svc_serialization::BundleHash::of(AUDIO_BYTES).to_hex()),
+                    source_path: Some(AUDIO_PATH.to_owned()),
+                    label: Some("Primary fire audio".to_owned()),
+                    dependencies: Vec::new(),
+                    material: None,
+                },
+                StoredCatalogEntry {
+                    id: "sprite/fixture-primary-fire".to_owned(),
+                    version: 1,
+                    hash: Some(svc_serialization::BundleHash::of(PARTICLE_BYTES).to_hex()),
+                    source_path: Some(PARTICLE_PATH.to_owned()),
+                    label: Some("Primary fire particle".to_owned()),
+                    dependencies: Vec::new(),
+                    material: None,
+                },
+            ],
         },
-    };
+    }
+}
+
+fn presentation_catalog_document() -> ProjectContentDocumentDto {
+    ProjectContentDocumentDto::PresentationCatalog {
+        document_id: PRESENTATION_PATH.to_owned(),
+        catalog: ProjectPresentationCatalogDto {
+            schema_version: PROJECT_CONTENT_SCHEMA_VERSION,
+            resources: vec![
+                ProjectPresentationResourceDto {
+                    resource_id: "fixture.primary-fire.animation".to_owned(),
+                    kind: ProjectPresentationResourceKind::AnimatedMesh,
+                    asset_id: "mesh/fixture-character".to_owned(),
+                    source_path: ANIMATED_MESH_PATH.to_owned(),
+                    content_hash: svc_serialization::BundleHash::of(ANIMATED_MESH_BYTES).to_hex(),
+                    license_path: None,
+                    clip_ids: vec!["idle".to_owned(), "run".to_owned(), "jump".to_owned()],
+                },
+                ProjectPresentationResourceDto {
+                    resource_id: "fixture.primary-fire.audio".to_owned(),
+                    kind: ProjectPresentationResourceKind::Audio,
+                    asset_id: "audio/fixture-primary-fire".to_owned(),
+                    source_path: AUDIO_PATH.to_owned(),
+                    content_hash: svc_serialization::BundleHash::of(AUDIO_BYTES).to_hex(),
+                    license_path: None,
+                    clip_ids: Vec::new(),
+                },
+                ProjectPresentationResourceDto {
+                    resource_id: "fixture.primary-fire.particle".to_owned(),
+                    kind: ProjectPresentationResourceKind::Particle,
+                    asset_id: "sprite/fixture-primary-fire".to_owned(),
+                    source_path: PARTICLE_PATH.to_owned(),
+                    content_hash: svc_serialization::BundleHash::of(PARTICLE_BYTES).to_hex(),
+                    license_path: None,
+                    clip_ids: Vec::new(),
+                },
+            ],
+            cues: vec![
+                ProjectPresentationCueDto::Animation {
+                    cue_id: presentation_catalog::PRIMARY_FIRE_ANIMATION_CUE.to_owned(),
+                    resource_id: "fixture.primary-fire.animation".to_owned(),
+                    clip_id: "jump".to_owned(),
+                    looped: false,
+                    at_seconds: 0.05,
+                    signal: protocol_project_content::ProjectPresentationSignalDto {
+                        domain: protocol_project_content::ProjectPresentationSignalDomain::Particle,
+                        signal_id: "fixture.primary-fire.animation.particle".to_owned(),
+                    },
+                },
+                ProjectPresentationCueDto::Audio {
+                    cue_id: "fixture.primary-fire.audio".to_owned(),
+                    signal_id: presentation_catalog::PRIMARY_FIRE_PRESENTATION_SIGNAL.to_owned(),
+                    resource_id: "fixture.primary-fire.audio".to_owned(),
+                    gain: 0.7,
+                },
+                ProjectPresentationCueDto::Particle {
+                    cue_id: "fixture.primary-fire.particle".to_owned(),
+                    signal_id: presentation_catalog::PRIMARY_FIRE_PRESENTATION_SIGNAL.to_owned(),
+                    resource_id: "fixture.primary-fire.particle".to_owned(),
+                    scale: 1.0,
+                },
+                ProjectPresentationCueDto::Particle {
+                    cue_id: "fixture.primary-fire.animation.particle".to_owned(),
+                    signal_id: "fixture.primary-fire.animation.particle".to_owned(),
+                    resource_id: "fixture.primary-fire.particle".to_owned(),
+                    scale: 0.8,
+                },
+            ],
+        },
+    }
+}
+
+fn catalog_artifacts(
+    composition: &GameplayStaticComposition,
+    asset: &VoxelVolumeAsset,
+) -> (Vec<u8>, Vec<u8>) {
     let gameplay = rule_project_bundle::GameplayProjectContentAdmission::new(
         composition.project_configuration_authority(),
     );
     let outcome = svc_project_content::validate_project_content_documents(
-        vec![document],
+        vec![
+            material_catalog_document(asset),
+            presentation_catalog_document(),
+        ],
         svc_project_content::ProjectContentValidationContext {
             scenes: &[],
             gameplay: &gameplay,
@@ -437,10 +591,25 @@ fn material_catalog_artifact(
         },
     );
     assert!(outcome.result.accepted, "{:?}", outcome.result.diagnostics);
-    outcome.result.canonical_files[0]
+    let catalog = outcome
+        .result
+        .canonical_files
+        .iter()
+        .find(|file| file.document_id == CATALOG_PATH)
+        .expect("material catalog")
         .canonical_json
         .as_bytes()
-        .to_vec()
+        .to_vec();
+    let presentation = outcome
+        .result
+        .canonical_files
+        .iter()
+        .find(|file| file.document_id == PRESENTATION_PATH)
+        .expect("presentation catalog")
+        .canonical_json
+        .as_bytes()
+        .to_vec();
+    (catalog, presentation)
 }
 
 fn project_source_batch(
@@ -467,14 +636,23 @@ fn project_source_batch_for_scene(
     let asset_bytes = svc_voxel_asset::encode_asset(&asset)
         .expect("canonical voxel asset")
         .into_bytes();
-    let catalog_bytes = material_catalog_artifact(composition, &asset);
+    let (catalog_bytes, presentation_bytes) = catalog_artifacts(composition, &asset);
     let lock_bytes = serde_json::to_vec(&serde_json::json!({
-        "entries": [{
+            "entries": [{
             "id": asset.asset_id,
             "kind": "voxel-volume",
             "version": 1,
             "hash": null,
             "dependencies": []
+        }, {
+            "id": "mesh/fixture-character", "kind": "mesh", "version": 1,
+            "hash": svc_serialization::BundleHash::of(ANIMATED_MESH_BYTES).to_hex(), "dependencies": []
+        }, {
+            "id": "audio/fixture-primary-fire", "kind": "audio", "version": 1,
+            "hash": svc_serialization::BundleHash::of(AUDIO_BYTES).to_hex(), "dependencies": []
+        }, {
+            "id": "sprite/fixture-primary-fire", "kind": "sprite", "version": 1,
+            "hash": svc_serialization::BundleHash::of(PARTICLE_BYTES).to_hex(), "dependencies": []
         }]
     }))
     .expect("asset lock serializes");
@@ -493,6 +671,26 @@ fn project_source_batch_for_scene(
             CATALOG_PATH,
             svc_serialization::ArtifactRole::MaterialCatalog,
             &catalog_bytes,
+        ),
+        svc_serialization::ArtifactEntry::durable(
+            PRESENTATION_PATH,
+            svc_serialization::ArtifactRole::ProjectContent,
+            &presentation_bytes,
+        ),
+        svc_serialization::ArtifactEntry::durable(
+            ANIMATED_MESH_PATH,
+            svc_serialization::ArtifactRole::Resource("resource:animatedMesh".to_owned()),
+            ANIMATED_MESH_BYTES,
+        ),
+        svc_serialization::ArtifactEntry::durable(
+            AUDIO_PATH,
+            svc_serialization::ArtifactRole::Resource("resource:audio".to_owned()),
+            AUDIO_BYTES,
+        ),
+        svc_serialization::ArtifactEntry::durable(
+            PARTICLE_PATH,
+            svc_serialization::ArtifactRole::Resource("resource:particle".to_owned()),
+            PARTICLE_BYTES,
         ),
         svc_serialization::ArtifactEntry::durable(
             VOXEL_PATH,
@@ -526,7 +724,7 @@ fn project_source_batch_for_scene(
         }],
         asset_lock: svc_serialization::AssetLockSection {
             artifact: "assets/lock.json".to_owned(),
-            asset_count: 1,
+            asset_count: 4,
         },
         generation_provenance: None,
         artifacts,
@@ -538,6 +736,19 @@ fn project_source_batch_for_scene(
     let staged_asset = bridge
         .stage_runtime_project_source_resource(transaction, VOXEL_PATH, asset_bytes)
         .expect("stage canonical voxel asset");
+    let staged_audio = bridge
+        .stage_runtime_project_source_resource(transaction, AUDIO_PATH, AUDIO_BYTES.to_vec())
+        .expect("stage canonical audio resource");
+    let staged_animated_mesh = bridge
+        .stage_runtime_project_source_resource(
+            transaction,
+            ANIMATED_MESH_PATH,
+            ANIMATED_MESH_BYTES.to_vec(),
+        )
+        .expect("stage canonical animated mesh resource");
+    let staged_particle = bridge
+        .stage_runtime_project_source_resource(transaction, PARTICLE_PATH, PARTICLE_BYTES.to_vec())
+        .expect("stage canonical particle resource");
     let mut bodies = vec![
         protocol_project_bundle::ProjectSourceBody::Inline {
             path: "assets/lock.json".to_owned(),
@@ -550,6 +761,37 @@ fn project_source_batch_for_scene(
         protocol_project_bundle::ProjectSourceBody::Inline {
             path: CATALOG_PATH.to_owned(),
             bytes: catalog_bytes,
+        },
+        protocol_project_bundle::ProjectSourceBody::Inline {
+            path: PRESENTATION_PATH.to_owned(),
+            bytes: presentation_bytes,
+        },
+        protocol_project_bundle::ProjectSourceBody::Resource {
+            path: ANIMATED_MESH_PATH.to_owned(),
+            resource: protocol_project_bundle::StagedProjectResourceRef {
+                handle: staged_animated_mesh.handle.raw(),
+                generation: staged_animated_mesh.generation,
+                version: staged_animated_mesh.version,
+                byte_len: staged_animated_mesh.byte_len,
+            },
+        },
+        protocol_project_bundle::ProjectSourceBody::Resource {
+            path: AUDIO_PATH.to_owned(),
+            resource: protocol_project_bundle::StagedProjectResourceRef {
+                handle: staged_audio.handle.raw(),
+                generation: staged_audio.generation,
+                version: staged_audio.version,
+                byte_len: staged_audio.byte_len,
+            },
+        },
+        protocol_project_bundle::ProjectSourceBody::Resource {
+            path: PARTICLE_PATH.to_owned(),
+            resource: protocol_project_bundle::StagedProjectResourceRef {
+                handle: staged_particle.handle.raw(),
+                generation: staged_particle.generation,
+                version: staged_particle.version,
+                byte_len: staged_particle.byte_len,
+            },
         },
         protocol_project_bundle::ProjectSourceBody::Resource {
             path: VOXEL_PATH.to_owned(),
@@ -864,7 +1106,7 @@ fn canonical_project_load_activates_playable_fps_authority_without_legacy_bootst
     let active_content = RuntimeBridge::read_active_runtime_project_content(&bridge)
         .expect("active content is projected from Rust authority");
     assert_eq!(active_content.project_id, PROJECT_ID);
-    assert_eq!(active_content.content.documents.len(), 4);
+    assert_eq!(active_content.content.documents.len(), 5);
     assert_eq!(active_content.entry_scene.id, SceneId::new(SCENE_ID));
     assert_eq!(active_content.active_domains.len(), 1);
     assert_eq!(

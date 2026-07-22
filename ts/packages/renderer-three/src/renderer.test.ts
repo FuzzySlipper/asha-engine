@@ -385,6 +385,39 @@ void test('registered slot colour maps to the group material; unregistered uses 
   assert.notDeepEqual([mats[1]!.color.r, mats[1]!.color.g, mats[1]!.color.b], [1, 0, 0]);
 });
 
+void test('voxel material descriptors style uploaded groups and redefine them live', () => {
+  const renderer = new ThreeRenderer();
+  const handle = renderHandle(1);
+  renderer.applyDiff({ op: 'create', handle, parent: null, node: meshNode() });
+  renderer.applyDiff({
+    op: 'defineMaterial',
+    material: { ...woodMaterial(), id: 'voxel-material/1' },
+  });
+  renderer.applyDiff({ op: 'replaceMeshPayload', handle, payload: quadPayload() });
+
+  const mesh = renderer.objectFor(handle) as THREE.Mesh;
+  const before = (mesh.material as THREE.MeshStandardMaterial[])[0]!;
+  assert.ok(Math.abs(before.color.r - 0.6) < 1e-6);
+  assert.ok(Math.abs(before.color.b - 0.2) < 1e-6);
+  let disposed = false;
+  before.addEventListener('dispose', () => {
+    disposed = true;
+  });
+
+  renderer.applyDiff({
+    op: 'defineMaterial',
+    material: {
+      ...woodMaterial(),
+      id: 'voxel-material/1',
+      color: [0.1, 0.8, 0.2, 1],
+    },
+  });
+
+  const after = (mesh.material as THREE.MeshStandardMaterial[])[0]!;
+  assert.ok(Math.abs(after.color.g - 0.8) < 1e-6, 'voxel material redefine reached the live mesh');
+  assert.ok(disposed, 'the prior uploaded-mesh material was disposed');
+});
+
 void test('replaceMeshPayload disposes the previous geometry and material', () => {
   const r = new ThreeRenderer();
   const h = renderHandle(1);
@@ -869,8 +902,8 @@ void test('two voxel materials project to distinct catalog render descriptors (#
   );
   const r = new ThreeRenderer();
   r.applyEncodedFrame(fixture);
-  const stone = r.materialDescriptor('material/stone');
-  const dirt = r.materialDescriptor('material/dirt');
+  const stone = r.materialDescriptor('voxel-material/1');
+  const dirt = r.materialDescriptor('voxel-material/2');
   assert.ok(stone && dirt, 'both voxel materials register a descriptor');
   assert.notDeepEqual(stone!.color, dirt!.color, 'distinct catalog styles');
   // Visual projection only — the descriptor has no collision field.

@@ -148,6 +148,18 @@ pub struct ProjectPresentationResourceDto {
     pub clip_ids: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ProjectPresentationSignalDomain {
+    Audio,
+    Particle,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectPresentationSignalDto {
+    pub domain: ProjectPresentationSignalDomain,
+    pub signal_id: String,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ProjectPresentationCueDto {
     Animation {
@@ -155,14 +167,18 @@ pub enum ProjectPresentationCueDto {
         resource_id: String,
         clip_id: String,
         looped: bool,
+        at_seconds: f32,
+        signal: ProjectPresentationSignalDto,
     },
     Audio {
         cue_id: String,
+        signal_id: String,
         resource_id: String,
         gain: f32,
     },
     Particle {
         cue_id: String,
+        signal_id: String,
         resource_id: String,
         scale: f32,
     },

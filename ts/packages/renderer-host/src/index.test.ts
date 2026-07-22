@@ -64,6 +64,15 @@ function fixtureResolver(): Promise<ArrayBuffer> {
   return Promise.resolve(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
 }
 
+function fnv1a64(data: ArrayBuffer): string {
+  let hash = 0xcbf29ce484222325n;
+  for (const byte of new Uint8Array(data)) {
+    hash ^= BigInt(byte);
+    hash = BigInt.asUintN(64, hash * 0x100000001b3n);
+  }
+  return hash.toString(16).padStart(16, '0');
+}
+
 void test('renderer-host projects render frames through the neutral projection model', () => {
   const frame: RenderFrameDiff = {
     ops: [
@@ -146,6 +155,32 @@ void test('renderer-host public projection loads the real fixture and advances c
   } finally {
     console.warn = priorWarn;
     console.error = priorError;
+    testGlobal.self = priorSelf;
+  }
+});
+
+void test('renderer-host accepts the manifest-native FNV resource hash used by ProjectContent', async () => {
+  const testGlobal = globalThis as unknown as { self: unknown };
+  const priorSelf = testGlobal.self;
+  testGlobal.self = globalThis;
+  const priorWarn = console.warn;
+  console.warn = () => undefined;
+  try {
+    const data = await fixtureResolver();
+    const manifest = {
+      ...ASHA_RENDERER_HOST_ANIMATED_MESH_FIXTURE_MANIFEST,
+      resources: ASHA_RENDERER_HOST_ANIMATED_MESH_FIXTURE_MANIFEST.resources.map(resource => ({
+        ...resource,
+        contentHash: fnv1a64(data),
+      })),
+    };
+    const projection = await createAshaRendererAnimatedMeshProjection({
+      manifest,
+      resolveResource: () => Promise.resolve(data),
+    });
+    assert.ok(projection);
+  } finally {
+    console.warn = priorWarn;
     testGlobal.self = priorSelf;
   }
 });

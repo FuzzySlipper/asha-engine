@@ -134,6 +134,9 @@ fn source_from_document(value: &Value) -> napi::Result<ProjectContentSourceDto> 
             Value::String("EntityDefinition".to_owned()),
         );
     }
+    if document_kind == ProjectContentDocumentKind::AssetCatalog {
+        normalize_asset_catalog_for_storage(&mut payload)?;
+    }
     let source_text = serde_json::to_string(&payload)
         .map_err(|error| napi::Error::from_reason(error.to_string()))?;
     Ok(ProjectContentSourceDto {
@@ -284,9 +287,12 @@ fn document_json(file: &ProjectContentCanonicalFileDto) -> napi::Result<Value> {
             "canonical ProjectContent artifact documentKind {artifact_kind:?} does not match {expected_kind}"
         )));
     }
-    let payload = artifact.get("document").cloned().ok_or_else(|| {
+    let mut payload = artifact.get("document").cloned().ok_or_else(|| {
         napi::Error::from_reason("canonical ProjectContent artifact is missing document".to_owned())
     })?;
+    if file.kind == ProjectContentDocumentKind::AssetCatalog {
+        normalize_asset_catalog_for_public(&mut payload)?;
+    }
     let (kind, payload_key) = match file.kind {
         ProjectContentDocumentKind::EntityDefinition => ("entityDefinition", "definition"),
         ProjectContentDocumentKind::AssetCatalog => ("assetCatalog", "catalog"),
@@ -302,6 +308,75 @@ fn document_json(file: &ProjectContentCanonicalFileDto) -> napi::Result<Value> {
     );
     object.insert(payload_key.to_owned(), payload);
     Ok(Value::Object(object))
+}
+
+fn normalize_asset_catalog_for_public(catalog: &mut Value) -> napi::Result<()> {
+    for_each_material_style(catalog, |style, field| {
+        let value = style.get_mut(field).ok_or_else(|| {
+            napi::Error::from_reason(format!("stored material style is missing {field}"))
+        })?;
+        let components = value.as_array().ok_or_else(|| {
+            napi::Error::from_reason(format!("stored material {field} must be a 4-array"))
+        })?;
+        if components.len() != 4 || components.iter().any(|component| !component.is_number()) {
+            return Err(napi::Error::from_reason(format!(
+                "stored material {field} must be a numeric 4-array"
+            )));
+        }
+        *value = json!({
+            "r": components[0],
+            "g": components[1],
+            "b": components[2],
+            "a": components[3],
+        });
+        Ok(())
+    })
+}
+
+fn normalize_asset_catalog_for_storage(catalog: &mut Value) -> napi::Result<()> {
+    for_each_material_style(catalog, |style, field| {
+        let value = style.get_mut(field).ok_or_else(|| {
+            napi::Error::from_reason(format!("public material style is missing {field}"))
+        })?;
+        let components = value.as_object().ok_or_else(|| {
+            napi::Error::from_reason(format!("public material {field} must be an RGBA object"))
+        })?;
+        let component = |name: &str| {
+            components.get(name).and_then(Value::as_f64).ok_or_else(|| {
+                napi::Error::from_reason(format!(
+                    "public material {field}.{name} must be a number"
+                ))
+            })
+        };
+        *value = json!([component("r")?, component("g")?, component("b")?, component("a")?]);
+        Ok(())
+    })
+}
+
+fn for_each_material_style(
+    catalog: &mut Value,
+    mut visit: impl FnMut(&mut Map<String, Value>, &str) -> napi::Result<()>,
+) -> napi::Result<()> {
+    let entries = catalog
+        .get_mut("entries")
+        .and_then(Value::as_array_mut)
+        .ok_or_else(|| napi::Error::from_reason("asset catalog entries must be an array"))?;
+    for entry in entries {
+        let Some(material) = entry.get_mut("material") else {
+            continue;
+        };
+        if material.is_null() {
+            continue;
+        }
+        let style = material
+            .get_mut("style")
+            .and_then(Value::as_object_mut)
+            .ok_or_else(|| napi::Error::from_reason("material style must be an object"))?;
+        for field in ["color", "textureTint", "emissionColor"] {
+            visit(style, field)?;
+        }
+    }
+    Ok(())
 }
 
 fn document_kind_tag(value: ProjectContentDocumentKind) -> &'static str {
@@ -468,7 +543,7 @@ mod tests {
                 "schemaVersion": PROJECT_CONTENT_SCHEMA_VERSION,
                 "documentId": "catalog/test",
                 "documentKind": "assetCatalog",
-                "document": { "schemaVersion": 1, "catalogId": "test", "assets": [] },
+                "document": { "entries": [] },
             })
             .to_string(),
         ))
@@ -476,7 +551,7 @@ mod tests {
 
         assert_eq!(value["kind"], "assetCatalog");
         assert_eq!(value["documentId"], "catalog/test");
-        assert_eq!(value["catalog"]["catalogId"], "test");
+        assert_eq!(value["catalog"]["entries"], json!([]));
         assert!(value.get("schemaVersion").is_none());
         assert!(value["catalog"].get("document").is_none());
     }
@@ -494,5 +569,56 @@ mod tests {
         ));
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn asset_catalog_boundary_translates_canonical_color_arrays_to_public_rgba_objects() {
+        let value = document_json(&canonical_file(
+            json!({
+                "schemaVersion": PROJECT_CONTENT_SCHEMA_VERSION,
+                "documentId": "catalog/test",
+                "documentKind": "assetCatalog",
+                "document": {
+                    "entries": [{
+                        "id": "material/test",
+                        "version": 1,
+                        "hash": null,
+                        "sourcePath": null,
+                        "label": "Test",
+                        "dependencies": [],
+                        "material": {
+                            "authority": {
+                                "solid": true,
+                                "collidable": true,
+                                "occludes": true,
+                                "structuralClass": "structural"
+                            },
+                            "style": {
+                                "color": [0.1, 0.2, 0.3, 1.0],
+                                "texture": null,
+                                "roughness": 0.8,
+                                "textureTint": [1.0, 1.0, 1.0, 1.0],
+                                "emissionColor": [0.0, 0.0, 0.0, 1.0],
+                                "emissive": 0.0,
+                                "uvStrategy": "flat"
+                            }
+                        }
+                    }]
+                },
+            })
+            .to_string(),
+        ))
+        .expect("canonical material should convert");
+
+        assert_eq!(
+            value["catalog"]["entries"][0]["material"]["style"]["color"],
+            json!({ "r": 0.1, "g": 0.2, "b": 0.3, "a": 1.0 })
+        );
+        let source = source_from_document(&value).expect("public material should encode");
+        let source: Value = serde_json::from_str(&source.source_text).expect("stored source json");
+        assert_eq!(
+            source["entries"][0]["material"]["style"]["color"],
+            json!([0.1, 0.2, 0.3, 1.0])
+        );
     }
 }

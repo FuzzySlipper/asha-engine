@@ -734,6 +734,17 @@ impl EngineBridge {
         request: FpsPrimaryFireRequest,
         result: &FpsPrimaryFireResult,
     ) -> BridgeResult<()> {
+        let cue = self
+            .projection
+            .presentation_catalog
+            .audio(presentation_catalog::PRIMARY_FIRE_PRESENTATION_SIGNAL)
+            .cloned()
+            .ok_or_else(|| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::Internal,
+                    "active project has no admitted primary-fire audio cue",
+                )
+            })?;
         let sequence = self
             .projection
             .projection_frame
@@ -751,13 +762,11 @@ impl EngineBridge {
             ),
             descriptor: AudioSourceDescriptor {
                 clip: AudioClipRef {
-                    asset: "audio/asha-primary-fire-pulse".to_string(),
-                    content_hash:
-                        "9de44d49edeab1dba3c78b42a602d8d1c5dcf92f752638995adda894a5b3ccba"
-                            .to_string(),
+                    asset: cue.asset_id.clone(),
+                    content_hash: cue.content_hash.clone(),
                 },
                 bus: AudioBus::Sfx,
-                volume: 0.7,
+                volume: cue.value,
                 pitch: 1.0,
                 looping: false,
                 spatial_blend: 1.0,
@@ -784,7 +793,7 @@ impl EngineBridge {
                     code: "resource_degraded".to_owned(),
                     operation: Some("apply_fps_primary_fire".to_owned()),
                     resource_kind: Some("audio_projector".to_owned()),
-                    resource_id: Some("audio/asha-primary-fire-pulse".to_owned()),
+                    resource_id: Some(cue.asset_id.clone()),
                     reason: Some("audio projector unavailable".to_owned()),
                 },
             });
@@ -813,14 +822,14 @@ impl EngineBridge {
                         code: "resource_degraded".to_owned(),
                         operation: Some("apply_fps_primary_fire".to_owned()),
                         resource_kind: Some("audio_clip".to_owned()),
-                        resource_id: Some("audio/asha-primary-fire-pulse".to_owned()),
+                        resource_id: Some(cue.asset_id.clone()),
                         reason: Some(format!("{:?}", diagnostic.code)),
                     },
                 });
                 return Err(RuntimeBridgeError::new(
                     RuntimeBridgeErrorKind::Internal,
                     format!(
-                        "built-in primary-fire audio projection rejected: {:?}",
+                        "project primary-fire audio projection rejected: {:?}",
                         diagnostic.code
                     ),
                 ));
@@ -975,6 +984,17 @@ impl EngineBridge {
         request: FpsPrimaryFireRequest,
         result: &FpsPrimaryFireResult,
     ) -> BridgeResult<()> {
+        let cue = self
+            .projection
+            .presentation_catalog
+            .particle(presentation_catalog::PRIMARY_FIRE_PRESENTATION_SIGNAL)
+            .cloned()
+            .ok_or_else(|| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::Internal,
+                    "active project has no admitted primary-fire particle cue",
+                )
+            })?;
         let authority_tick = request.tick;
         if self
             .projection
@@ -1025,14 +1045,12 @@ impl EngineBridge {
                     descriptor: ParticleEmitterDescriptor {
                         anchor,
                         sprite: ParticleSpriteRef {
-                            asset: "sprite/asha-primary-fire-spark".to_string(),
-                            content_hash:
-                                "0541e102a0dc20342819a3fb9024de73f3249269fed374b68c6aa8fc5dd2f5c1"
-                                    .to_string(),
+                            asset: cue.asset_id,
+                            content_hash: cue.content_hash,
                             frame_count: 1,
                         },
                         rate_per_second: 0.0,
-                        burst_count: 12,
+                        burst_count: (12.0 * cue.value).round().max(1.0) as u32,
                         lifetime_seconds: [0.6, 1.1],
                         velocity_min: [-1.8, 0.8, -1.8],
                         velocity_max: [1.8, 3.2, 1.8],
@@ -1040,7 +1058,7 @@ impl EngineBridge {
                         size_curve: vec![
                             ParticleScalarKey {
                                 age: 0.0,
-                                value: 0.22,
+                                value: 0.22 * cue.value,
                             },
                             ParticleScalarKey {
                                 age: 1.0,
@@ -1068,7 +1086,7 @@ impl EngineBridge {
                 RuntimeBridgeError::new(
                     RuntimeBridgeErrorKind::Internal,
                     format!(
-                        "built-in primary-fire particle projection rejected: {:?}",
+                        "project primary-fire particle projection rejected: {:?}",
                         diagnostic.code
                     ),
                 )
@@ -1096,6 +1114,17 @@ impl EngineBridge {
         if entity != player {
             return Ok(());
         }
+        let animation_cue = self
+            .projection
+            .presentation_catalog
+            .animation(super::presentation_catalog::PRIMARY_FIRE_ANIMATION_CUE)
+            .cloned()
+            .ok_or_else(|| {
+                RuntimeBridgeError::new(
+                    RuntimeBridgeErrorKind::InvalidInput,
+                    "FPS primary-fire animation cue is unavailable from admitted project content",
+                )
+            })?;
         let presentation_origin = self.primary_fire_presentation_origin(request.tick, result);
         let source_fact_id = presentation_origin.id;
         let causation_id = presentation_origin
@@ -1113,7 +1142,7 @@ impl EngineBridge {
 
         let create_change = if self.projection.animation_controller.is_none() {
             let catalog = rule_animation_controller::validate_animation_catalog(
-                primary_fire_animation_catalog(),
+                primary_fire_animation_catalog(&animation_cue.asset_id, &animation_cue.clip_ids),
             )
             .map_err(|error| {
                 RuntimeBridgeError::new(
@@ -1154,7 +1183,7 @@ impl EngineBridge {
                 .create(
                     entity,
                     protocol_render::RenderHandle::new(4_100),
-                    "mesh-animation/kenney-retro-character-medium",
+                    &animation_cue.asset_id,
                     50,
                     &change,
                     meta,

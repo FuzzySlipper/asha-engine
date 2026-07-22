@@ -1018,6 +1018,7 @@ impl RuntimeBridge for EngineBridge {
         self.voxel.active_voxel_model = Some(key);
         if receipt.loaded {
             self.record_workspace_authoring_loaded_asset(loaded_asset);
+            self.queue_current_project_voxel_materials()?;
         }
         Ok(receipt)
     }
@@ -1170,6 +1171,7 @@ impl RuntimeBridge for EngineBridge {
                 reference_revision: authority.project_content_reference_revision,
             },
         );
+        let mut installed = false;
         if let Some(validated) = outcome.validated {
             if let Some(current) = &authority.project_content_current {
                 if current.set_hash() != validated.set_hash() {
@@ -1194,8 +1196,13 @@ impl RuntimeBridge for EngineBridge {
                 }
             }
             authority.project_content_current = Some(validated);
+            installed = true;
         }
-        Ok(outcome.result)
+        let result = outcome.result;
+        if installed {
+            self.queue_current_project_voxel_materials()?;
+        }
+        Ok(result)
     }
 
     fn encode_project_content(
@@ -1276,6 +1283,7 @@ impl RuntimeBridge for EngineBridge {
             if let Some(set_hash) = result.set_hash.clone() {
                 self.remember_workspace_authoring_save_candidate(set_hash);
             }
+            self.queue_current_project_voxel_materials()?;
         }
         Ok(result)
     }

@@ -202,6 +202,31 @@ impl EngineBridge {
             .activated_entry_scene()
             .expect("validated activation retains entry scene")
             .clone();
+        let project_content = gameplay_host
+            .activated_project_content_readout()
+            .expect("validated activation retains project content")
+            .clone();
+        let installed_presentation =
+            presentation_catalog::InstalledPresentationCatalog::from_documents(
+                &project_content.documents,
+            )
+            .map_err(RuntimeProjectLoadError::Resource)?;
+        if domain_adapter == Some(RuntimeProjectDomainAdapter::Fps)
+            && (installed_presentation
+                .audio(presentation_catalog::PRIMARY_FIRE_PRESENTATION_SIGNAL)
+                .is_none()
+                || installed_presentation
+                    .particle(presentation_catalog::PRIMARY_FIRE_PRESENTATION_SIGNAL)
+                    .is_none()
+                || installed_presentation
+                    .animation(presentation_catalog::PRIMARY_FIRE_ANIMATION_CUE)
+                    .is_none())
+        {
+            return Err(RuntimeProjectLoadError::Resource(
+                "FPS project content must bind typed audio and particle cues to `fps.primary-fire.accepted` and an animation cue named `fps.primary-fire.animation`"
+                    .to_owned(),
+            ));
+        }
         let voxel_assets = gameplay_host.take_activated_voxel_assets();
         let runtime_entity_seeds = gameplay_host.take_activated_runtime_entity_seeds();
         let fps_seed = match domain_adapter {
@@ -215,6 +240,15 @@ impl EngineBridge {
         let mut staged = EngineBridge::new();
         initialization::initialize(&mut staged, EngineConfig { seed: engine.raw() })
             .map_err(|error| RuntimeProjectLoadError::Resource(error.to_string()))?;
+        staged.projection.audio_projector =
+            Some(AudioProjector::new(installed_presentation.catalog()));
+        staged.projection.billboard_projector =
+            Some(BillboardProjector::new(installed_presentation.catalog()));
+        staged.projection.particle_projector = Some(ParticleProjector::new(
+            installed_presentation.catalog(),
+            ParticleProjectionLimits::default(),
+        ));
+        staged.projection.presentation_catalog = installed_presentation;
         staged.gameplay.static_gameplay_composition = Some(composition.clone());
         staged.gameplay.static_project_domain_adapter = domain_adapter;
         staged.gameplay.static_project_content_admission =
@@ -267,6 +301,16 @@ impl EngineBridge {
                     "entry scene voxel asset `{asset_id}` was not retained by admission"
                 ))
             })?;
+            let material_frame = material_catalog::project_voxel_material_frame(
+                &project_content.documents,
+                &asset.material_palette,
+            )
+            .map_err(|error| RuntimeProjectLoadError::Resource(error.to_string()))?;
+            staged
+                .projection
+                .pending_voxel_frame
+                .ops
+                .extend(material_frame.ops);
             staged.voxel.materials = MaterialCatalog::new(
                 asset
                     .material_palette

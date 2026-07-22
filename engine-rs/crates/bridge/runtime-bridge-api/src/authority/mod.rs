@@ -5,6 +5,7 @@ mod enemy_navigation;
 mod fps_animation_catalog;
 mod initialization;
 mod input;
+mod material_catalog;
 mod procedural_environment;
 mod project_write;
 mod scene_and_preview;
@@ -192,6 +193,7 @@ struct BridgeProjectionState {
     audio_projector: Option<AudioProjector>,
     billboard_projector: Option<BillboardProjector>,
     particle_projector: Option<ParticleProjector>,
+    presentation_catalog: presentation_catalog::InstalledPresentationCatalog,
     animation_controller: Option<rule_animation_controller::AnimationControllerAuthority>,
     animation_projector: Option<render_animation::AnimationControllerProjector>,
     animation_tick: u64,

@@ -59,6 +59,7 @@ pub enum RuntimeProjectAdmissionDiagnosticCode {
     DuplicateTrigger,
     ProviderSchemaMismatch,
     ResourceNotStaged,
+    ResourceHashMismatch,
     ResourceDecode,
     RuntimeGeneratorDependency,
     BootstrapLink,
@@ -79,6 +80,7 @@ impl RuntimeProjectAdmissionDiagnosticCode {
             Self::DuplicateTrigger => "duplicateTrigger",
             Self::ProviderSchemaMismatch => "providerSchemaMismatch",
             Self::ResourceNotStaged => "resourceNotStaged",
+            Self::ResourceHashMismatch => "resourceHashMismatch",
             Self::ResourceDecode => "resourceDecode",
             Self::RuntimeGeneratorDependency => "runtimeGeneratorDependency",
             Self::BootstrapLink => "bootstrapLink",
@@ -700,6 +702,14 @@ fn check_runtime_resource_closure(
                 for entry in &catalog.entries {
                     if let Some(path) = entry.source_path.as_deref() {
                         require_staged_path(source, report, document_id, path);
+                        require_catalog_resource_identity(
+                            source,
+                            report,
+                            document_id,
+                            path,
+                            entry.hash.as_deref(),
+                            None,
+                        );
                     }
                 }
             }
@@ -709,12 +719,75 @@ fn check_runtime_resource_closure(
             } => {
                 for resource in &catalog.resources {
                     require_staged_path(source, report, document_id, &resource.source_path);
+                    require_catalog_resource_identity(
+                        source,
+                        report,
+                        document_id,
+                        &resource.source_path,
+                        Some(&resource.content_hash),
+                        Some(presentation_resource_role(resource.kind)),
+                    );
                     if let Some(path) = resource.license_path.as_deref() {
                         require_staged_path(source, report, document_id, path);
                     }
                 }
             }
             _ => {}
+        }
+    }
+}
+
+fn presentation_resource_role(
+    kind: protocol_project_content::ProjectPresentationResourceKind,
+) -> &'static str {
+    use protocol_project_content::ProjectPresentationResourceKind;
+    match kind {
+        ProjectPresentationResourceKind::AnimatedMesh => "resource:animatedMesh",
+        ProjectPresentationResourceKind::Audio => "resource:audio",
+        ProjectPresentationResourceKind::Particle => "resource:particle",
+        ProjectPresentationResourceKind::Font => "resource:font",
+        ProjectPresentationResourceKind::Overlay => "resource:overlay",
+    }
+}
+
+fn require_catalog_resource_identity(
+    source: &AdmittedRuntimeProjectSourceBatch,
+    report: &mut RuntimeProjectAdmissionReport,
+    document_id: &str,
+    path: &str,
+    expected_hash: Option<&str>,
+    expected_role: Option<&str>,
+) {
+    let Some(artifact) = source
+        .manifest()
+        .artifacts
+        .iter()
+        .find(|artifact| artifact.path == path)
+    else {
+        return;
+    };
+    if let Some(expected_hash) = expected_hash {
+        let actual = artifact.content_hash.map(BundleHash::to_hex);
+        if actual.as_deref() != Some(expected_hash) {
+            report.push(
+                RuntimeProjectAdmissionDiagnosticCode::ResourceHashMismatch,
+                Some(document_id.to_owned()),
+                path,
+                "stored resource content hash does not match its manifest-authorized body",
+            );
+        }
+    }
+    if let Some(expected_role) = expected_role {
+        if artifact.role.tag() != expected_role {
+            report.push(
+                RuntimeProjectAdmissionDiagnosticCode::ArtifactRoleMismatch,
+                Some(document_id.to_owned()),
+                path,
+                format!(
+                    "stored resource expects artifact role `{expected_role}`, found `{}`",
+                    artifact.role.tag()
+                ),
+            );
         }
     }
 }
@@ -1604,6 +1677,91 @@ mod tests {
         assert!(report.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == RuntimeProjectAdmissionDiagnosticCode::ResourceNotStaged
                 && diagnostic.path == "assets/reference-house.glb"
+        }));
+    }
+
+    #[test]
+    fn presentation_resources_reject_hash_and_role_drift_before_activation() {
+        fn canonical_documents(declared_hash: &str) -> Vec<(String, Vec<u8>)> {
+            let gameplay = EmptyProjectContentGameplayAdmission::default();
+            let decoded = decode_project_content(
+                ProjectContentDecodeRequestDto {
+                    sources: vec![
+                        ProjectContentSourceDto {
+                            source_path: "catalogs/assets.json".to_owned(),
+                            document_id: "catalogs/assets.json".to_owned(),
+                            kind: ProjectContentDocumentKind::AssetCatalog,
+                            source_text: format!(
+                                r#"{{"entries":[{{"id":"audio/reference-fire","version":1,"hash":"{declared_hash}","sourcePath":"assets/reference-fire.wav","label":"Fire","dependencies":[],"material":null}}]}}"#
+                            ),
+                        },
+                        ProjectContentSourceDto {
+                            source_path: "catalogs/presentation.json".to_owned(),
+                            document_id: "catalogs/presentation.json".to_owned(),
+                            kind: ProjectContentDocumentKind::PresentationCatalog,
+                            source_text: format!(
+                                r#"{{"schemaVersion":1,"resources":[{{"resourceId":"reference.fire","kind":"audio","assetId":"audio/reference-fire","sourcePath":"assets/reference-fire.wav","contentHash":"{declared_hash}","licensePath":null,"clipIds":[]}}],"cues":[{{"kind":"audio","cueId":"reference.fire","signalId":"reference.fire","resourceId":"reference.fire","gain":0.5}}]}}"#
+                            ),
+                        },
+                    ],
+                },
+                ProjectContentValidationContext {
+                    scenes: &[],
+                    gameplay: &gameplay,
+                    reference_revision: 0,
+                },
+            );
+            assert!(decoded.result.accepted, "{:?}", decoded.result.diagnostics);
+            decoded
+                .result
+                .canonical_files
+                .into_iter()
+                .map(|file| (file.document_id, file.canonical_json.into_bytes()))
+                .collect()
+        }
+
+        let resource = b"canonical-reference-audio";
+        let actual_hash = svc_serialization::BundleHash::of(resource).to_hex();
+        let stale_documents = canonical_documents("0000000000000000");
+        let mut stale_contents = stale_documents
+            .iter()
+            .map(|(path, bytes)| (path.as_str(), ArtifactRole::ProjectContent, bytes.clone()))
+            .collect::<Vec<_>>();
+        stale_contents.push((
+            "assets/reference-fire.wav",
+            ArtifactRole::GeneratedMetadata,
+            resource.to_vec(),
+        ));
+        let hash_report = compile_runtime_project_admission(
+            admitted_batch_with_roles(&empty_scene(8), stale_contents),
+            composition(),
+        )
+        .err()
+        .expect("stale presentation hash must reject");
+        assert!(hash_report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == RuntimeProjectAdmissionDiagnosticCode::ResourceHashMismatch
+                && diagnostic.path == "assets/reference-fire.wav"
+        }));
+
+        let valid_documents = canonical_documents(&actual_hash);
+        let mut wrong_role_contents = valid_documents
+            .iter()
+            .map(|(path, bytes)| (path.as_str(), ArtifactRole::ProjectContent, bytes.clone()))
+            .collect::<Vec<_>>();
+        wrong_role_contents.push((
+            "assets/reference-fire.wav",
+            ArtifactRole::GeneratedMetadata,
+            resource.to_vec(),
+        ));
+        let role_report = compile_runtime_project_admission(
+            admitted_batch_with_roles(&empty_scene(8), wrong_role_contents),
+            composition(),
+        )
+        .err()
+        .expect("presentation resource role mismatch must reject");
+        assert!(role_report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == RuntimeProjectAdmissionDiagnosticCode::ArtifactRoleMismatch
+                && diagnostic.path == "assets/reference-fire.wav"
         }));
     }
 

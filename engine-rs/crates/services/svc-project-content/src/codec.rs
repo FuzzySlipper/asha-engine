@@ -305,6 +305,20 @@ enum PresentationResourceKindWire {
     Overlay,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum PresentationSignalDomainWire {
+    Audio,
+    Particle,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct PresentationSignalWire {
+    domain: PresentationSignalDomainWire,
+    signal_id: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -318,14 +332,18 @@ enum PresentationCueWire {
         resource_id: String,
         clip_id: String,
         looped: bool,
+        at_seconds: f32,
+        signal: PresentationSignalWire,
     },
     Audio {
         cue_id: String,
+        signal_id: String,
         resource_id: String,
         gain: f32,
     },
     Particle {
         cue_id: String,
+        signal_id: String,
         resource_id: String,
         scale: f32,
     },
@@ -1583,27 +1601,35 @@ impl From<PresentationCueWire> for ProjectPresentationCueDto {
                 resource_id,
                 clip_id,
                 looped,
+                at_seconds,
+                signal,
             } => Self::Animation {
                 cue_id,
                 resource_id,
                 clip_id,
                 looped,
+                at_seconds,
+                signal: signal.into(),
             },
             PresentationCueWire::Audio {
                 cue_id,
+                signal_id,
                 resource_id,
                 gain,
             } => Self::Audio {
                 cue_id,
+                signal_id,
                 resource_id,
                 gain,
             },
             PresentationCueWire::Particle {
                 cue_id,
+                signal_id,
                 resource_id,
                 scale,
             } => Self::Particle {
                 cue_id,
+                signal_id,
                 resource_id,
                 scale,
             },
@@ -1626,27 +1652,35 @@ impl From<ProjectPresentationCueDto> for PresentationCueWire {
                 resource_id,
                 clip_id,
                 looped,
+                at_seconds,
+                signal,
             } => Self::Animation {
                 cue_id,
                 resource_id,
                 clip_id,
                 looped,
+                at_seconds,
+                signal: signal.into(),
             },
             ProjectPresentationCueDto::Audio {
                 cue_id,
+                signal_id,
                 resource_id,
                 gain,
             } => Self::Audio {
                 cue_id,
+                signal_id,
                 resource_id,
                 gain,
             },
             ProjectPresentationCueDto::Particle {
                 cue_id,
+                signal_id,
                 resource_id,
                 scale,
             } => Self::Particle {
                 cue_id,
+                signal_id,
                 resource_id,
                 scale,
             },
@@ -1657,6 +1691,42 @@ impl From<ProjectPresentationCueDto> for PresentationCueWire {
                 cue_id,
                 resource_id,
             },
+        }
+    }
+}
+
+impl From<PresentationSignalWire> for ProjectPresentationSignalDto {
+    fn from(value: PresentationSignalWire) -> Self {
+        Self {
+            domain: value.domain.into(),
+            signal_id: value.signal_id,
+        }
+    }
+}
+
+impl From<ProjectPresentationSignalDto> for PresentationSignalWire {
+    fn from(value: ProjectPresentationSignalDto) -> Self {
+        Self {
+            domain: value.domain.into(),
+            signal_id: value.signal_id,
+        }
+    }
+}
+
+impl From<PresentationSignalDomainWire> for ProjectPresentationSignalDomain {
+    fn from(value: PresentationSignalDomainWire) -> Self {
+        match value {
+            PresentationSignalDomainWire::Audio => Self::Audio,
+            PresentationSignalDomainWire::Particle => Self::Particle,
+        }
+    }
+}
+
+impl From<ProjectPresentationSignalDomain> for PresentationSignalDomainWire {
+    fn from(value: ProjectPresentationSignalDomain) -> Self {
+        match value {
+            ProjectPresentationSignalDomain::Audio => Self::Audio,
+            ProjectPresentationSignalDomain::Particle => Self::Particle,
         }
     }
 }

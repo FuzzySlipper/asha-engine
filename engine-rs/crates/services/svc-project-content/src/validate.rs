@@ -11,7 +11,7 @@ use crate::codec::{compiled_prefab_registry, core_catalog_from_stored};
 
 #[derive(Default)]
 struct ReferenceIndex<'a> {
-    assets: BTreeSet<String>,
+    assets: BTreeMap<String, &'a protocol_assets::StoredCatalogEntry>,
     entities: BTreeMap<String, &'a EntityDefinition>,
     prefabs: BTreeMap<u64, BTreeSet<String>>,
     base_prefabs: BTreeSet<u64>,
@@ -81,9 +81,9 @@ fn index_entities<'a>(
     }
 }
 
-fn index_catalogs(
-    documents: &[ProjectContentDocumentDto],
-    index: &mut ReferenceIndex<'_>,
+fn index_catalogs<'a>(
+    documents: &'a [ProjectContentDocumentDto],
+    index: &mut ReferenceIndex<'a>,
     diagnostics: &mut Vec<ProjectContentDiagnosticDto>,
 ) {
     for document in documents {
@@ -114,7 +114,7 @@ fn index_catalogs(
                 ),
             }
             for entry in &catalog.entries {
-                if !index.assets.insert(entry.id.clone()) {
+                if index.assets.insert(entry.id.clone(), entry).is_some() {
                     push(
                         diagnostics,
                         ProjectContentDiagnosticCode::InvalidDocument,
@@ -872,7 +872,7 @@ fn reference_exists(
     index: &ReferenceIndex<'_>,
 ) -> bool {
     match kind {
-        ProjectContentReferenceKind::Asset => index.assets.contains(target_id),
+        ProjectContentReferenceKind::Asset => index.assets.contains_key(target_id),
         ProjectContentReferenceKind::EntityDefinition => index.entities.contains_key(target_id),
         ProjectContentReferenceKind::SceneInstance => index.scene_instances.contains_key(target_id),
         ProjectContentReferenceKind::Prefab => target_id
@@ -946,10 +946,11 @@ fn validate_presentation(
             );
         }
         for (resource_index, resource) in catalog.resources.iter().enumerate() {
+            let asset = index.assets.get(&resource.asset_id).copied();
             if resource.resource_id.trim().is_empty()
                 || resource.source_path.trim().is_empty()
                 || resource.content_hash.trim().is_empty()
-                || !index.assets.contains(&resource.asset_id)
+                || asset.is_none()
             {
                 push(
                     diagnostics,
@@ -958,6 +959,29 @@ fn validate_presentation(
                     &format!("catalog.resources[{resource_index}]"),
                     "presentation resources require ids, source/content identity, and a catalog asset",
                 );
+            }
+            if let Some(asset) = asset {
+                let expected_prefix = presentation_resource_asset_prefix(resource.kind);
+                if !asset.id.starts_with(&format!("{expected_prefix}/")) {
+                    push(
+                        diagnostics,
+                        ProjectContentDiagnosticCode::InvalidField,
+                        Some(document_id),
+                        &format!("catalog.resources[{resource_index}].assetId"),
+                        "presentation resource kind does not match its catalog asset kind",
+                    );
+                }
+                if asset.source_path.as_deref() != Some(resource.source_path.as_str())
+                    || asset.hash.as_deref() != Some(resource.content_hash.as_str())
+                {
+                    push(
+                        diagnostics,
+                        ProjectContentDiagnosticCode::InvalidField,
+                        Some(document_id),
+                        &format!("catalog.resources[{resource_index}]"),
+                        "presentation resource source path and content hash must match its catalog asset",
+                    );
+                }
             }
             let mut clips = BTreeSet::new();
             if resource
@@ -979,19 +1003,36 @@ fn validate_presentation(
             .iter()
             .map(|resource| (resource.resource_id.as_str(), resource))
             .collect::<BTreeMap<_, _>>();
+        let realizable_signals = catalog
+            .cues
+            .iter()
+            .filter_map(|cue| match cue {
+                ProjectPresentationCueDto::Audio { signal_id, .. } => {
+                    Some((ProjectPresentationSignalDomain::Audio, signal_id.as_str()))
+                }
+                ProjectPresentationCueDto::Particle { signal_id, .. } => Some((
+                    ProjectPresentationSignalDomain::Particle,
+                    signal_id.as_str(),
+                )),
+                _ => None,
+            })
+            .collect::<BTreeSet<_>>();
         let mut cues = BTreeSet::new();
+        let mut signal_bindings = BTreeSet::new();
         for (cue_index, cue) in catalog.cues.iter().enumerate() {
             let (cue_id, resource_id) = match cue {
                 ProjectPresentationCueDto::Animation {
                     cue_id,
                     resource_id,
                     clip_id,
+                    at_seconds,
+                    signal,
                     ..
                 } => {
-                    if !resources
-                        .get(resource_id.as_str())
-                        .is_some_and(|resource| resource.clip_ids.contains(clip_id))
-                    {
+                    if !resources.get(resource_id.as_str()).is_some_and(|resource| {
+                        resource.kind == ProjectPresentationResourceKind::AnimatedMesh
+                            && resource.clip_ids.contains(clip_id)
+                    }) {
                         push(
                             diagnostics,
                             ProjectContentDiagnosticCode::UnknownReference,
@@ -1000,36 +1041,96 @@ fn validate_presentation(
                             "animation cue references an unknown resource clip",
                         );
                     }
+                    if !at_seconds.is_finite() || *at_seconds < 0.0 {
+                        push(
+                            diagnostics,
+                            ProjectContentDiagnosticCode::InvalidField,
+                            Some(document_id),
+                            &format!("catalog.cues[{cue_index}].atSeconds"),
+                            "animation cue sample time must be finite and non-negative",
+                        );
+                    }
+                    if signal.signal_id.trim().is_empty()
+                        || !realizable_signals.contains(&(signal.domain, signal.signal_id.as_str()))
+                    {
+                        push(
+                            diagnostics,
+                            ProjectContentDiagnosticCode::UnknownReference,
+                            Some(document_id),
+                            &format!("catalog.cues[{cue_index}].signal"),
+                            "animation cue signal must resolve to a typed audio or particle cue binding",
+                        );
+                    }
                     (cue_id, resource_id)
                 }
                 ProjectPresentationCueDto::Audio {
                     cue_id,
+                    signal_id,
                     resource_id,
                     gain,
                 } => {
-                    if !gain.is_finite() || *gain < 0.0 {
+                    if !gain.is_finite() || !(0.0..=1.0).contains(gain) {
                         push(
                             diagnostics,
                             ProjectContentDiagnosticCode::InvalidField,
                             Some(document_id),
                             &format!("catalog.cues[{cue_index}].gain"),
-                            "audio cue gain must be finite and non-negative",
+                            "audio cue gain must be finite and between zero and one",
+                        );
+                    }
+                    validate_signal_binding(
+                        document_id,
+                        cue_index,
+                        ProjectPresentationSignalDomain::Audio,
+                        signal_id,
+                        &mut signal_bindings,
+                        diagnostics,
+                    );
+                    if !resources.get(resource_id.as_str()).is_some_and(|resource| {
+                        resource.kind == ProjectPresentationResourceKind::Audio
+                    }) {
+                        push(
+                            diagnostics,
+                            ProjectContentDiagnosticCode::InvalidField,
+                            Some(document_id),
+                            &format!("catalog.cues[{cue_index}].resourceId"),
+                            "audio cue requires an audio presentation resource",
                         );
                     }
                     (cue_id, resource_id)
                 }
                 ProjectPresentationCueDto::Particle {
                     cue_id,
+                    signal_id,
                     resource_id,
                     scale,
                 } => {
-                    if !scale.is_finite() || *scale <= 0.0 {
+                    if !scale.is_finite() || *scale <= 0.0 || *scale > 16.0 {
                         push(
                             diagnostics,
                             ProjectContentDiagnosticCode::InvalidField,
                             Some(document_id),
                             &format!("catalog.cues[{cue_index}].scale"),
-                            "particle cue scale must be finite and positive",
+                            "particle cue scale must be finite, positive, and at most 16",
+                        );
+                    }
+                    validate_signal_binding(
+                        document_id,
+                        cue_index,
+                        ProjectPresentationSignalDomain::Particle,
+                        signal_id,
+                        &mut signal_bindings,
+                        diagnostics,
+                    );
+                    if !resources.get(resource_id.as_str()).is_some_and(|resource| {
+                        resource.kind == ProjectPresentationResourceKind::Particle
+                    }) {
+                        push(
+                            diagnostics,
+                            ProjectContentDiagnosticCode::InvalidField,
+                            Some(document_id),
+                            &format!("catalog.cues[{cue_index}].resourceId"),
+                            "particle cue requires a particle presentation resource",
                         );
                     }
                     (cue_id, resource_id)
@@ -1058,6 +1159,36 @@ fn validate_presentation(
                 );
             }
         }
+    }
+}
+
+fn presentation_resource_asset_prefix(kind: ProjectPresentationResourceKind) -> &'static str {
+    match kind {
+        ProjectPresentationResourceKind::AnimatedMesh => "mesh",
+        ProjectPresentationResourceKind::Audio => "audio",
+        ProjectPresentationResourceKind::Particle | ProjectPresentationResourceKind::Overlay => {
+            "sprite"
+        }
+        ProjectPresentationResourceKind::Font => "font",
+    }
+}
+
+fn validate_signal_binding<'a>(
+    document_id: &str,
+    cue_index: usize,
+    domain: ProjectPresentationSignalDomain,
+    signal_id: &'a str,
+    signal_bindings: &mut BTreeSet<(ProjectPresentationSignalDomain, &'a str)>,
+    diagnostics: &mut Vec<ProjectContentDiagnosticDto>,
+) {
+    if signal_id.trim().is_empty() || !signal_bindings.insert((domain, signal_id)) {
+        push(
+            diagnostics,
+            ProjectContentDiagnosticCode::InvalidDocument,
+            Some(document_id),
+            &format!("catalog.cues[{cue_index}].signalId"),
+            "presentation signal ids must be non-empty and unique within each signal domain",
+        );
     }
 }
 
@@ -1094,7 +1225,7 @@ pub(super) fn field_metadata(
                 }
             }
             ProjectContentDocumentDto::AssetCatalog { catalog, .. } => {
-                for (index, _) in catalog.entries.iter().enumerate() {
+                for (index, entry) in catalog.entries.iter().enumerate() {
                     fields.push(metadata(
                         &document_id,
                         &format!("catalog.entries[{index}].id"),
@@ -1103,6 +1234,47 @@ pub(super) fn field_metadata(
                         true,
                         Some(ProjectContentReferenceKind::Asset),
                     ));
+                    if entry.material.is_some() {
+                        for (suffix, label) in [
+                            ("color.r", "Base color red"),
+                            ("color.g", "Base color green"),
+                            ("color.b", "Base color blue"),
+                            ("color.a", "Base color alpha"),
+                            ("roughness", "Roughness"),
+                            ("emissionColor.r", "Emission red"),
+                            ("emissionColor.g", "Emission green"),
+                            ("emissionColor.b", "Emission blue"),
+                            ("emissionColor.a", "Emission alpha"),
+                            ("emissive", "Emission intensity"),
+                        ] {
+                            fields.push(ProjectContentFieldMetadataDto {
+                                document_id: document_id.clone(),
+                                path: format!("catalog.entries[{index}].material.style.{suffix}"),
+                                label: format!(
+                                    "{} · {label}",
+                                    entry.label.as_deref().unwrap_or(&entry.id)
+                                ),
+                                value_kind: ProjectConfigurationValueKind::Number,
+                                required: true,
+                                editable: true,
+                                reference_kind: None,
+                                configuration_id: Some(entry.id.clone()),
+                                schema_id: Some("asha.material.v1".to_owned()),
+                                module_id: None,
+                                provider_id: Some("provider.asha.material-catalog".to_owned()),
+                                contract: None,
+                                codec_id: Some("svc-project-content.material.v1".to_owned()),
+                                integer_min: None,
+                                integer_max: None,
+                                number_min: Some(0.0),
+                                number_max: if suffix == "emissive" {
+                                    Some(16.0)
+                                } else {
+                                    Some(1.0)
+                                },
+                            });
+                        }
+                    }
                 }
             }
             ProjectContentDocumentDto::PrefabRegistry { registry, .. } => {
@@ -1163,6 +1335,42 @@ pub(super) fn field_metadata(
                         true,
                         Some(ProjectContentReferenceKind::Asset),
                     ));
+                }
+                for (index, cue) in catalog.cues.iter().enumerate() {
+                    let (cue_id, fields_for_cue): (&str, &[(&str, &str, f64, f64)]) = match cue {
+                        ProjectPresentationCueDto::Animation { cue_id, .. } => (
+                            cue_id,
+                            &[("atSeconds", "Animation sample time", 0.0, 3_600.0)],
+                        ),
+                        ProjectPresentationCueDto::Audio { cue_id, .. } => {
+                            (cue_id, &[("gain", "Audio gain", 0.0, 1.0)])
+                        }
+                        ProjectPresentationCueDto::Particle { cue_id, .. } => {
+                            (cue_id, &[("scale", "Particle scale", 0.000_001, 16.0)])
+                        }
+                        ProjectPresentationCueDto::Overlay { cue_id, .. } => (cue_id, &[]),
+                    };
+                    for (field, label, minimum, maximum) in fields_for_cue {
+                        fields.push(ProjectContentFieldMetadataDto {
+                            document_id: document_id.clone(),
+                            path: format!("catalog.cues[{index}].{field}"),
+                            label: format!("{cue_id} · {label}"),
+                            value_kind: ProjectConfigurationValueKind::Number,
+                            required: true,
+                            editable: true,
+                            reference_kind: None,
+                            configuration_id: Some(cue_id.to_owned()),
+                            schema_id: Some("asha.presentation-cue.v1".to_owned()),
+                            module_id: None,
+                            provider_id: Some("provider.asha.presentation-catalog".to_owned()),
+                            contract: None,
+                            codec_id: Some("svc-project-content.presentation-cue.v1".to_owned()),
+                            integer_min: None,
+                            integer_max: None,
+                            number_min: Some(*minimum),
+                            number_max: Some(*maximum),
+                        });
+                    }
                 }
             }
         }

@@ -18,7 +18,10 @@ pub(super) fn animation_projection_error(
     )
 }
 
-pub(super) fn primary_fire_animation_catalog() -> rule_animation_controller::AnimationCatalog {
+pub(super) fn primary_fire_animation_catalog(
+    asset_id: &str,
+    clip_ids: &[String],
+) -> rule_animation_controller::AnimationCatalog {
     use rule_animation_controller::{
         AnimationCatalog, AnimationClipAsset, AnimationCondition, AnimationGraphDefinition,
         AnimationMotionDefinition, AnimationParameterDefinition, AnimationParameterKind,
@@ -29,13 +32,13 @@ pub(super) fn primary_fire_animation_catalog() -> rule_animation_controller::Ani
         schema_version: rule_animation_controller::ANIMATION_CATALOG_SCHEMA_VERSION,
         catalog_id: "asha.fps.animation".to_string(),
         assets: vec![AnimationClipAsset {
-            asset_id: "mesh-animation/kenney-retro-character-medium".to_string(),
-            clips: vec!["idle".to_string(), "run".to_string(), "jump".to_string()],
+            asset_id: asset_id.to_string(),
+            clips: clip_ids.to_vec(),
         }],
         graphs: vec![AnimationGraphDefinition {
             graph_id: "fps.primary-fire".to_string(),
             version: 1,
-            asset_id: "mesh-animation/kenney-retro-character-medium".to_string(),
+            asset_id: asset_id.to_string(),
             initial_state_id: "ready".to_string(),
             parameters: vec![
                 AnimationParameterDefinition {

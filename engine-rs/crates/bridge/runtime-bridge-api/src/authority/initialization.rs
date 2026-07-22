@@ -41,13 +41,15 @@ pub(super) fn initialize(
     bridge.gameplay.game_rule_active_modifiers.clear();
     bridge.gameplay.game_rule_recent_trace.clear();
     bridge.evidence.game_rule_recent_replay_hashes.clear();
-    let presentation_catalog = presentation_catalog::built_in_presentation_catalog();
-    bridge.projection.audio_projector = Some(AudioProjector::new(&presentation_catalog));
-    bridge.projection.billboard_projector = Some(BillboardProjector::new(&presentation_catalog));
+    let presentation_catalog = presentation_catalog::InstalledPresentationCatalog::empty();
+    bridge.projection.audio_projector = Some(AudioProjector::new(presentation_catalog.catalog()));
+    bridge.projection.billboard_projector =
+        Some(BillboardProjector::new(presentation_catalog.catalog()));
     bridge.projection.particle_projector = Some(ParticleProjector::new(
-        &presentation_catalog,
+        presentation_catalog.catalog(),
         ParticleProjectionLimits::default(),
     ));
+    bridge.projection.presentation_catalog = presentation_catalog;
     bridge.projection.telemetry_overlay_projector = Some(TelemetryOverlayProjector::default());
     bridge.projection.projection_frame = Some(RuntimeProjectionFrame::empty(0));
     let (sources, source_metadata) = EngineBridge::seeded_voxel_conversion_authority()?;

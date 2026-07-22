@@ -22,6 +22,7 @@ import type {
   AshaTelemetryOverlayHost,
 } from './telemetry-host.js';
 import type { AshaAnimationFrameReceipt, AshaAnimationHost } from './animation-host.js';
+import { rendererResourceContentHash } from './resource-content-hash.js';
 
 export interface AshaAudioResource {
   readonly bytes: ArrayBuffer;
@@ -372,7 +373,13 @@ export class AshaAudioHost {
           'resolved audio content hash does not match the catalog projection',
         );
       }
-      const actualHash = await sha256Hex(resource.bytes);
+      const actualHash = await rendererResourceContentHash(resource.bytes, clip.contentHash)
+        .catch((error: unknown) => {
+          throw new AshaAudioResourceError(
+            'contentHashMismatch',
+            error instanceof Error ? error.message : String(error),
+          );
+        });
       if (actualHash !== clip.contentHash) {
         throw new AshaAudioResourceError(
           'contentHashMismatch',
@@ -412,19 +419,6 @@ export class AshaAudioHost {
   ): AshaAudioFrameReceipt {
     return { applied, diagnostics, readout: this.readout() };
   }
-}
-
-async function sha256Hex(data: ArrayBuffer): Promise<string> {
-  if (globalThis.crypto?.subtle === undefined) {
-    throw new AshaAudioResourceError(
-      'contentHashMismatch',
-      'Web Crypto SHA-256 is unavailable for audio content validation',
-    );
-  }
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', data);
-  return [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
 }
 
 export interface AshaRuntimeProjectionApplicationPorts {

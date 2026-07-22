@@ -164,6 +164,16 @@ pub fn decode_project_content_sources(
     codec::decode_sources(sources)
 }
 
+/// Compile a stored catalog into the validated core representation used by
+/// authority and render projection. Callers still validate the complete
+/// ProjectContent set first; this function prevents downstream cells from
+/// reimplementing the durable catalog codec.
+pub fn compile_stored_asset_catalog(
+    catalog: &protocol_assets::StoredAssetCatalog,
+) -> Result<core_catalog::Catalog, String> {
+    codec::core_catalog_from_stored(catalog)
+}
+
 /// Decode one manifest `projectContent` body. Unlike the authoring DTO seam,
 /// the artifact is self-identifying so runtime admission never infers a
 /// document kind or stable id from its path.
@@ -808,7 +818,7 @@ mod tests {
                     ProjectContentDocumentKind::AssetCatalog,
                     r#"{
                       "entries":[
-                        {"id":"audio/reference-confirm","version":1,"hash":null,"sourcePath":"assets/confirm.wav","label":"Confirm","dependencies":[],"material":null},
+                        {"id":"audio/reference-confirm","version":1,"hash":"aabb","sourcePath":"assets/confirm.wav","label":"Confirm","dependencies":[],"material":null},
                         {"id":"mesh/reference-character","version":1,"hash":null,"sourcePath":"assets/character.glb","label":"Character","dependencies":[],"material":null}
                       ]
                     }"#,
@@ -855,8 +865,8 @@ mod tests {
                     ProjectContentDocumentKind::PresentationCatalog,
                     r#"{
                       "schemaVersion":1,
-                      "resources":[{"resourceId":"reference.confirm.audio","kind":"audio","assetId":"audio/reference-confirm","sourcePath":"assets/confirm.wav","contentHash":"sha256:reference","licensePath":null,"clipIds":[]}],
-                      "cues":[{"kind":"audio","cueId":"reference.confirm","resourceId":"reference.confirm.audio","gain":0.8}]
+                      "resources":[{"resourceId":"reference.confirm.audio","kind":"audio","assetId":"audio/reference-confirm","sourcePath":"assets/confirm.wav","contentHash":"aabb","licensePath":null,"clipIds":[]}],
+                      "cues":[{"kind":"audio","cueId":"reference.confirm","signalId":"reference.confirm","resourceId":"reference.confirm.audio","gain":0.8}]
                     }"#,
                 ),
             ],
@@ -1114,6 +1124,7 @@ mod tests {
             .expect("presentation catalog");
         changed.1.cues[0] = ProjectPresentationCueDto::Audio {
             cue_id: "reference.confirm".to_owned(),
+            signal_id: "reference.confirm".to_owned(),
             resource_id: "reference.confirm.audio".to_owned(),
             gain: 0.65,
         };

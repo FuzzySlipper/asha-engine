@@ -667,13 +667,6 @@ export class ThreeRenderer {
   }
 
   /**
-   * Register (or replace) a catalog material descriptor by id (#2373). The
-   * renderer resolves a static-mesh slot or sprite ref to this descriptor so a
-   * mesh renders its real catalog colour/texture instead of a placeholder hue.
-   * Authority/collision flags never reach here — the descriptor is the disjoint
-   * visual projection (boundary 18).
-   */
-  /**
    * Register (or replace) a catalog material descriptor by id (#2373/#2376). A
    * *redefine* of an already-registered id is a live visual-only update: every
    * static-mesh material bound to that id is rebuilt from the new descriptor and
@@ -703,6 +696,10 @@ export class ThreeRenderer {
     }
 
     for (const entry of this.#handles.values()) {
+      if (entry.meshMaterialSlots?.some(slot => `voxel-material/${String(slot)}` === id)) {
+        this.#applyUploadedMeshMaterial(entry, entry.viewMaterial ?? MaterialFallback);
+        continue;
+      }
       if (entry.kind !== 'staticMesh' || !entry.materialIds || entry.asset === undefined) {
         continue;
       }
@@ -1004,6 +1001,15 @@ export class ThreeRenderer {
   }
 
   #uploadedMeshMaterial(slot: number, view: Material): THREE.MeshStandardMaterial {
+    const descriptor = this.#materials.get(`voxel-material/${String(slot)}`);
+    if (descriptor !== undefined) {
+      const material = standardMaterial(descriptor);
+      material.color.multiply(new THREE.Color(view.color[0], view.color[1], view.color[2]));
+      material.opacity *= view.color[3];
+      material.transparent = material.opacity < 1;
+      material.wireframe = view.wireframe;
+      return material;
+    }
     const slotColor = this.#slotColor(slot);
     return new THREE.MeshStandardMaterial({
       color: new THREE.Color(

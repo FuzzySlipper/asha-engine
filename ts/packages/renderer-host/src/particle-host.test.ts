@@ -15,6 +15,7 @@ import {
 } from './particle-host.js';
 
 const SPRITE_HASH = '9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a';
+const SPRITE_FNV_HASH = 'be7a5e775165785d';
 
 class FakeParticleSink implements AshaParticleBillboardSink {
   readonly active = new Map<number, AshaParticleBillboard>();
@@ -207,6 +208,28 @@ void test('missing particle resources fail locally without consuming the burst',
   assert.equal(receipt.readout.emittedBursts, 0);
   assert.equal(receipt.readout.activeParticles, 0);
   assert.equal(sink.created.length, 0);
+});
+
+void test('particle host accepts a manifest-native FNV content hash', async () => {
+  const sink = new FakeParticleSink();
+  const particles = host(sink);
+  const receipt = await particles.applyPresentation(frame([
+    operation(0, {
+      op: 'emit',
+      signalId: 'fnv-particle',
+      descriptor: descriptor({
+        sprite: {
+          asset: 'sprite/asha-primary-fire-spark',
+          contentHash: SPRITE_FNV_HASH,
+          frameCount: 1,
+        },
+      }),
+    }),
+  ]).presentation);
+
+  assert.equal(receipt.applied, 1);
+  assert.deepEqual(receipt.diagnostics, []);
+  assert.equal(sink.created.length, 3);
 });
 
 void test('retained emitter create update destroy owns continuous simulation and cleanup', async () => {

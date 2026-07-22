@@ -2,6 +2,7 @@ import {
   renderHandle,
   type AnimatedMeshAsset,
   type AnimatedMeshPlaybackCommand,
+  type RenderDiff,
   type RenderFrameDiff,
 } from '@asha/contracts';
 import type {
@@ -121,10 +122,54 @@ export function buildRuntimeSessionAnimationIntentReadout(
  */
 export function buildRuntimeSessionAnimationControllerTargetFrame(
   readout: RuntimeSessionAnimationIntentReadout,
+  target?: {
+    readonly asset: string;
+    readonly contentHash: string;
+    readonly clipIds: readonly string[];
+  },
 ): RenderFrameDiff {
-  return {
-    ops: readout.frame.ops.filter((operation) => operation.op !== 'setAnimatedMeshPlayback'),
+  if (target === undefined) {
+    return {
+      ops: readout.frame.ops.filter((operation) => operation.op !== 'setAnimatedMeshPlayback'),
+    };
+  }
+  const requestedClips = new Set(target.clipIds);
+  const clips = readout.asset.clips.filter((clip) => requestedClips.has(clip.id));
+  if (clips.length !== requestedClips.size) {
+    const available = new Set(readout.asset.clips.map((clip) => clip.id));
+    const missing = target.clipIds.filter((clipId) => !available.has(clipId));
+    throw new Error(`animation target is missing runtime clip metadata for ${missing.join(', ')}`);
+  }
+  const defaultClip = readout.asset.defaultClip !== null && requestedClips.has(readout.asset.defaultClip)
+    ? readout.asset.defaultClip
+    : clips[0]?.id;
+  if (defaultClip === undefined) {
+    throw new Error('animation target must retain at least one runtime clip');
+  }
+  const asset: AnimatedMeshAsset = {
+    ...readout.asset,
+    asset: target.asset,
+    contentHash: target.contentHash,
+    clips,
+    defaultClip,
   };
+  const ops: RenderDiff[] = [];
+  for (const operation of readout.frame.ops) {
+      if (operation.op === 'setAnimatedMeshPlayback') continue;
+      if (operation.op === 'defineAnimatedMesh') {
+        ops.push({ ...operation, asset });
+        continue;
+      }
+      if (operation.op === 'createAnimatedMeshInstance') {
+        ops.push({
+          ...operation,
+          instance: { ...operation.instance, asset: target.asset },
+        });
+        continue;
+      }
+      ops.push(operation);
+  }
+  return { ops };
 }
 
 function selectRuntimeSessionAnimationClip(

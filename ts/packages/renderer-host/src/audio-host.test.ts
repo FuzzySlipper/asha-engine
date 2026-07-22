@@ -14,6 +14,7 @@ import {
 } from './audio-host.js';
 
 const FIXTURE_AUDIO_HASH = '9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a';
+const FIXTURE_FNV_AUDIO_HASH = 'be7a5e775165785d';
 
 class FakeParam {
   value = 0;
@@ -384,6 +385,28 @@ void test('audio host hashes resolved bytes before decode and reports catalog dr
   assert.equal(receipt.readout.cachedClips, 0);
   assert.equal(receipt.readout.emittedSignals, 0);
   assert.equal(context.decodeCount, 0);
+});
+
+void test('audio host accepts a manifest-native FNV content hash', async () => {
+  const context = new FakeContext();
+  const audio = host(context);
+  const receipt = await audio.applyPresentation(frame([
+    operation(0, {
+      op: 'emit',
+      signalId: 'fnv-audio',
+      descriptor: {
+        ...descriptor(),
+        clip: {
+          asset: 'audio/asha-primary-fire-pulse',
+          contentHash: FIXTURE_FNV_AUDIO_HASH,
+        },
+      },
+    }),
+  ]).presentation);
+
+  assert.equal(receipt.applied, 1);
+  assert.deepEqual(receipt.diagnostics, []);
+  assert.equal(context.decodeCount, 1);
 });
 
 void test('missing audio resources fail locally with origin-preserving diagnostics', async () => {

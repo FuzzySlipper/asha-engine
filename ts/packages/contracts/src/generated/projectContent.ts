@@ -91,10 +91,17 @@ export interface ProjectPresentationResource {
   readonly clipIds: readonly string[];
 }
 
+export type ProjectPresentationSignalDomain = 'audio' | 'particle';
+
+export interface ProjectPresentationSignal {
+  readonly domain: ProjectPresentationSignalDomain;
+  readonly signalId: string;
+}
+
 export type ProjectPresentationCue =
-  | { readonly kind: 'animation'; readonly cueId: string; readonly resourceId: string; readonly clipId: string; readonly looped: boolean }
-  | { readonly kind: 'audio'; readonly cueId: string; readonly resourceId: string; readonly gain: number }
-  | { readonly kind: 'particle'; readonly cueId: string; readonly resourceId: string; readonly scale: number }
+  | { readonly kind: 'animation'; readonly cueId: string; readonly resourceId: string; readonly clipId: string; readonly looped: boolean; readonly atSeconds: number; readonly signal: ProjectPresentationSignal }
+  | { readonly kind: 'audio'; readonly cueId: string; readonly signalId: string; readonly resourceId: string; readonly gain: number }
+  | { readonly kind: 'particle'; readonly cueId: string; readonly signalId: string; readonly resourceId: string; readonly scale: number }
   | { readonly kind: 'overlay'; readonly cueId: string; readonly resourceId: string };
 
 export interface ProjectPresentationCatalog {

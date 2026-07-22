@@ -12,6 +12,7 @@ import type {
   PresentationFrameDiff,
   PresentationOp,
 } from '@asha/contracts';
+import { rendererResourceContentHash } from './resource-content-hash.js';
 
 type Vec3 = readonly [number, number, number];
 type ParticlePresentationOp = Extract<PresentationOp, { readonly domain: 'particle' }>;
@@ -551,15 +552,12 @@ function spriteKey(sprite: ParticleSpriteRef): string {
 }
 
 async function validateResourceHash(bytes: ArrayBuffer, expected: string): Promise<void> {
-  if (globalThis.crypto?.subtle === undefined) {
+  const actual = await rendererResourceContentHash(bytes, expected).catch((error: unknown) => {
     throw new AshaParticleResourceError(
-      'contentHashMismatch', 'Web Crypto SHA-256 is unavailable for particle sprites',
+      'contentHashMismatch',
+      error instanceof Error ? error.message : String(error),
     );
-  }
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
-  const actual = [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
+  });
   if (actual !== expected) {
     throw new AshaParticleResourceError(
       'contentHashMismatch', `particle sprite hash ${actual} does not match ${expected}`,

@@ -91,6 +91,16 @@ pub(super) fn check_voxel_asset_links(
     voxel_assets: &BTreeMap<String, VoxelVolumeAsset>,
     report: &mut RuntimeProjectAdmissionReport,
 ) {
+    let material_assets = documents
+        .iter()
+        .filter_map(|document| match document {
+            ProjectContentDocumentDto::AssetCatalog { catalog, .. } => Some(catalog),
+            _ => None,
+        })
+        .flat_map(|catalog| &catalog.entries)
+        .filter(|entry| entry.material.is_some())
+        .map(|entry| entry.id.as_str())
+        .collect::<BTreeSet<_>>();
     let catalog_paths = documents
         .iter()
         .filter_map(|document| match document {
@@ -141,6 +151,24 @@ pub(super) fn check_voxel_asset_links(
                 format!("assets.{asset_id}"),
                 "manifest voxel asset is not identified by a stored asset-catalog entry",
             ),
+        }
+    }
+
+    for (asset_id, asset) in voxel_assets {
+        for (palette_index, binding) in asset.material_palette.iter().enumerate() {
+            if !material_assets.contains(binding.material_asset_id.as_str()) {
+                report.push(
+                    RuntimeProjectAdmissionDiagnosticCode::DanglingReference,
+                    None,
+                    format!(
+                        "voxelAssets.{asset_id}.materialPalette[{palette_index}].materialAssetId"
+                    ),
+                    format!(
+                        "voxel material references `{}` without an admitted material descriptor",
+                        binding.material_asset_id
+                    ),
+                );
+            }
         }
     }
 

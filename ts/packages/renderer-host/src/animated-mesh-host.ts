@@ -5,6 +5,7 @@ import {
   loadAnimatedMeshGlbResource,
   type AnimatedMeshAssetSource,
 } from '@asha/renderer-three/backend';
+import { rendererResourceContentHash } from './resource-content-hash.js';
 
 export type AshaRendererHostDiagnosticCode =
   | 'animated_mesh_manifest_invalid'
@@ -37,7 +38,7 @@ export class AshaRendererHostError extends Error {
 export interface AshaRendererAnimatedMeshResourceDescriptor {
   readonly asset: string;
   readonly resourceUrl: string;
-  readonly contentHash: `sha256:${string}`;
+  readonly contentHash: string;
   readonly clipIds: readonly string[];
   readonly licenseUrl: string | null;
 }
@@ -144,7 +145,7 @@ export async function loadRendererAnimatedMeshSource(
     } catch (cause) {
       throw hostError('animated_mesh_resource_unavailable', descriptor.asset, null, cause);
     }
-    const actualHash = `sha256:${await sha256Hex(data)}`;
+    const actualHash = await rendererResourceContentHash(data, descriptor.contentHash);
     if (actualHash !== descriptor.contentHash) {
       throw hostError(
         'animated_mesh_content_hash_mismatch',
@@ -269,21 +270,13 @@ function validateManifest(manifest: AshaRendererAnimatedMeshResourceManifest): v
   }
   const assets = new Set<string>();
   for (const resource of manifest.resources) {
-    const validHash = /^sha256:[0-9a-f]{64}$/u.test(resource.contentHash);
+    const validHash = /^(?:sha256:[0-9a-f]{64}|[0-9a-f]{16})$/u.test(resource.contentHash);
     const validClips = resource.clipIds.length > 0 && new Set(resource.clipIds).size === resource.clipIds.length;
     if (resource.asset.length === 0 || resource.resourceUrl.length === 0 || !validHash || !validClips || assets.has(resource.asset)) {
       throw hostError('animated_mesh_manifest_invalid', resource.asset || null, null, 'animated mesh resource descriptor is invalid or duplicated');
     }
     assets.add(resource.asset);
   }
-}
-
-async function sha256Hex(data: ArrayBuffer): Promise<string> {
-  if (globalThis.crypto?.subtle === undefined) {
-    throw hostError('animated_mesh_resource_unavailable', null, null, 'Web Crypto SHA-256 is unavailable');
-  }
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', data);
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 function animationDiagnosticCode(code: string): AshaRendererHostDiagnosticCode {

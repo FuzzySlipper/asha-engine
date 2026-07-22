@@ -994,7 +994,7 @@ fn rgba_to_array(c: Rgba) -> [f32; 4] {
 /// (material-wiring super, #2375). Each id resolves through the
 /// [`VoxelMaterialTable`] + catalog to its **visual** [`RenderMaterial`] (collision
 /// stays on the disjoint authority projection), emitted as a `DefineMaterial` keyed
-/// by the catalog material id (or `voxel-material/<id>` for an unresolved fallback).
+/// by the stable compact-slot projection id `voxel-material/<id>`.
 /// Returns the diffs plus the ids that fell back, so a caller can raise a
 /// fallback-used diagnostic (#2376). Ids are visited ascending (deterministic).
 pub fn project_voxel_materials(
@@ -1010,10 +1010,7 @@ pub fn project_voxel_materials(
     let mut fallbacks = Vec::new();
     for id in ids {
         let resolution = table.render_material(catalog, id);
-        let descriptor_id = match table.material_asset(id) {
-            Some(asset) if !resolution.used_fallback => asset.as_str().to_string(),
-            _ => format!("voxel-material/{}", id.raw()),
-        };
+        let descriptor_id = format!("voxel-material/{}", id.raw());
         if resolution.used_fallback {
             fallbacks.push(id);
         }
