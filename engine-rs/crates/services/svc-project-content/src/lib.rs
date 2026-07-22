@@ -610,9 +610,9 @@ fn authoring_from_codec(result: ProjectContentCodecResultDto) -> ProjectContentA
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_project_content_authoring, decode_project_content, CompiledProjectGameplayContent,
-        ProjectContentGameplayAdmission, ProjectContentValidationContext,
-        ProjectContentValidationOutcome,
+        apply_project_content_authoring, decode_project_content, decode_project_content_sources,
+        validate, CompiledProjectGameplayContent, ProjectContentGameplayAdmission,
+        ProjectContentValidationContext, ProjectContentValidationOutcome,
     };
     use core_ids::{SceneId, SceneNodeId};
     use protocol_project_content::*;
@@ -1188,6 +1188,70 @@ mod tests {
         );
         assert!(!outside_entry.result.accepted);
         assert!(outside_entry.result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == ProjectContentDiagnosticCode::UnknownReference
+                && diagnostic.message.contains("entryPlayer")
+        }));
+
+        let ambiguous_request = with_entry_player("player_input");
+        let mut second_player_source = ambiguous_request
+            .sources
+            .iter()
+            .find(|source| source.document_id == "entities/reference-trigger.json")
+            .expect("first player source")
+            .clone();
+        second_player_source.document_id = "entities/reference-second-player.json".to_owned();
+        second_player_source.source_path =
+            "content/entities/reference-second-player.json".to_owned();
+        let mut second_player: serde_json::Value =
+            serde_json::from_str(&second_player_source.source_text).expect("player fixture JSON");
+        second_player["stableId"] = serde_json::json!("reference.second-player");
+        second_player["displayName"] = serde_json::json!("Reference Second Player");
+        second_player["source"]["relativePath"] =
+            serde_json::json!("entities/reference-second-player.json");
+        second_player_source.source_text =
+            serde_json::to_string(&second_player).expect("second player serializes");
+        let mut ambiguous_request = ambiguous_request;
+        ambiguous_request.sources.push(second_player_source);
+
+        let mut ambiguous_scenes = vec![scene()];
+        let mut second_player_node = ambiguous_scenes[0].nodes[0].clone();
+        second_player_node.id = SceneNodeId::new(3);
+        second_player_node.child_order = 2;
+        second_player_node.label = Some("Reference Second Player".to_owned());
+        let SceneNodeKindDto::EntityInstance { instance } = &mut second_player_node.kind else {
+            panic!("player fixture node is an entity instance");
+        };
+        instance.instance_id = "reference.second-player.instance".to_owned();
+        instance.reference = SceneEntityReferenceDto::EntityDefinition {
+            stable_id: "reference.second-player".to_owned(),
+        };
+        ambiguous_scenes[0].nodes.push(second_player_node);
+
+        let ambiguous_documents = decode_project_content_sources(&ambiguous_request.sources)
+            .expect("ambiguous sources remain structurally decodable");
+        let ambiguous_metadata = validate::field_metadata(
+            &ambiguous_documents,
+            &ambiguous_scenes,
+            Some(ambiguous_scenes[0].id),
+            &admission,
+        );
+        let ambiguous_player_field = ambiguous_metadata
+            .iter()
+            .find(|field| field.path.ends_with(".entryPlayer"))
+            .expect("ambiguous player field metadata");
+        assert!(ambiguous_player_field.reference_options.is_empty());
+
+        let ambiguous = decode_project_content(
+            ambiguous_request,
+            ProjectContentValidationContext {
+                scenes: &ambiguous_scenes,
+                entry_scene_id: Some(ambiguous_scenes[0].id),
+                gameplay: &admission,
+                reference_revision: 0,
+            },
+        );
+        assert!(!ambiguous.result.accepted);
+        assert!(ambiguous.result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == ProjectContentDiagnosticCode::UnknownReference
                 && diagnostic.message.contains("entryPlayer")
         }));

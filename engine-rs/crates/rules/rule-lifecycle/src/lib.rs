@@ -152,6 +152,11 @@ pub enum FpsRuntimeError {
     DuplicateStableId {
         stable_id: String,
     },
+    DuplicateRole {
+        role: FpsRuntimeRole,
+        first_entity: EntityId,
+        duplicate_entity: EntityId,
+    },
     MissingPlayer,
     MissingEnemy,
     MissingPlayerWeapon {
@@ -301,7 +306,7 @@ pub fn load_fps_project_bundle_into(
     entities: &mut EntityStore,
     input: FpsProjectBundleLoadInput,
 ) -> Result<FpsRuntimeSessionState, FpsRuntimeError> {
-    validate_load_input(&input)?;
+    let roles = validate_load_input(&input)?;
 
     let request = ProjectBundleEntityDefinitionBootstrapRequest {
         project_bundle: input.project_bundle.clone(),
@@ -317,7 +322,7 @@ pub fn load_fps_project_bundle_into(
     let bootstrap = bootstrap_project_bundle_entity_definitions(entities, &request)
         .map_err(FpsRuntimeError::Bootstrap)?;
 
-    finish_fps_project_bundle(entities, input, bootstrap)
+    finish_fps_project_bundle(entities, input, bootstrap, roles)
 }
 
 /// Attach FPS rule authority to the entities created by canonical project
@@ -327,7 +332,7 @@ pub fn load_fps_project_bundle_from_existing_entities(
     entities: &mut EntityStore,
     input: FpsProjectBundleLoadInput,
 ) -> Result<FpsRuntimeSessionState, FpsRuntimeError> {
-    validate_load_input(&input)?;
+    let roles = validate_load_input(&input)?;
     let request = ProjectBundleEntityDefinitionBootstrapRequest {
         project_bundle: input.project_bundle.clone(),
         entries: input
@@ -341,17 +346,17 @@ pub fn load_fps_project_bundle_from_existing_entities(
     };
     let bootstrap = bind_project_bundle_entity_definitions(entities, &request)
         .map_err(FpsRuntimeError::Bootstrap)?;
-    finish_fps_project_bundle(entities, input, bootstrap)
+    finish_fps_project_bundle(entities, input, bootstrap, roles)
 }
 
 fn finish_fps_project_bundle(
     entities: &mut EntityStore,
     input: FpsProjectBundleLoadInput,
     bootstrap: ProjectBundleEntityDefinitionBootstrapRecord,
+    roles: BTreeMap<FpsRuntimeRole, EntityId>,
 ) -> Result<FpsRuntimeSessionState, FpsRuntimeError> {
     let mut combat = CombatState::new();
     let mut definitions = BTreeMap::new();
-    let mut roles = BTreeMap::new();
     let mut render_projection = BTreeMap::new();
 
     for entry in input.definitions {
@@ -365,9 +370,6 @@ fn finish_fps_project_bundle(
         if let Some(render) = &entry.render_projection {
             attach_render_projection(entities, entry.entity, render.visible)?;
             render_projection.insert(entry.entity, render.clone());
-        }
-        if matches!(entry.role, FpsRuntimeRole::Player | FpsRuntimeRole::Enemy) {
-            roles.insert(entry.role, entry.entity);
         }
         definitions.insert(entry.entity, entry);
     }
@@ -714,7 +716,9 @@ impl FpsRuntimeSessionState {
     }
 }
 
-fn validate_load_input(input: &FpsProjectBundleLoadInput) -> Result<(), FpsRuntimeError> {
+fn validate_load_input(
+    input: &FpsProjectBundleLoadInput,
+) -> Result<BTreeMap<FpsRuntimeRole, EntityId>, FpsRuntimeError> {
     if input.project_bundle.trim().is_empty() {
         return Err(FpsRuntimeError::MissingProjectBundle);
     }
@@ -724,8 +728,7 @@ fn validate_load_input(input: &FpsProjectBundleLoadInput) -> Result<(), FpsRunti
 
     let mut stable_ids = BTreeSet::new();
     let mut entities = BTreeSet::new();
-    let mut has_player = false;
-    let mut has_enemy = false;
+    let mut roles = BTreeMap::new();
     for entry in &input.definitions {
         if !entities.insert(entry.entity) {
             return Err(FpsRuntimeError::DuplicateEntity {
@@ -747,7 +750,7 @@ fn validate_load_input(input: &FpsProjectBundleLoadInput) -> Result<(), FpsRunti
         }
         match entry.role {
             FpsRuntimeRole::Player => {
-                has_player = true;
+                insert_unique_role(&mut roles, entry.role, entry.entity)?;
                 if entry.weapon.is_none() {
                     return Err(FpsRuntimeError::MissingPlayerWeapon {
                         entity: entry.entity,
@@ -755,7 +758,7 @@ fn validate_load_input(input: &FpsProjectBundleLoadInput) -> Result<(), FpsRunti
                 }
             }
             FpsRuntimeRole::Enemy => {
-                has_enemy = true;
+                insert_unique_role(&mut roles, entry.role, entry.entity)?;
                 if entry.health.is_none() {
                     return Err(FpsRuntimeError::MissingEnemyHealth {
                         entity: entry.entity,
@@ -768,11 +771,26 @@ fn validate_load_input(input: &FpsProjectBundleLoadInput) -> Result<(), FpsRunti
             validate_policy_binding(entry.entity, binding)?;
         }
     }
-    if !has_player {
+    if !roles.contains_key(&FpsRuntimeRole::Player) {
         return Err(FpsRuntimeError::MissingPlayer);
     }
-    if !has_enemy {
+    if !roles.contains_key(&FpsRuntimeRole::Enemy) {
         return Err(FpsRuntimeError::MissingEnemy);
+    }
+    Ok(roles)
+}
+
+fn insert_unique_role(
+    roles: &mut BTreeMap<FpsRuntimeRole, EntityId>,
+    role: FpsRuntimeRole,
+    entity: EntityId,
+) -> Result<(), FpsRuntimeError> {
+    if let Some(first_entity) = roles.insert(role, entity) {
+        return Err(FpsRuntimeError::DuplicateRole {
+            role,
+            first_entity,
+            duplicate_entity: entity,
+        });
     }
     Ok(())
 }
@@ -1286,6 +1304,27 @@ mod tests {
 
     fn load_custom_session() -> LoadedFpsRuntimeSession {
         load_fps_project_bundle(custom_load_input()).expect("load session")
+    }
+
+    #[test]
+    fn project_bundle_rejects_duplicate_singleton_player_before_bootstrap() {
+        let mut input = custom_load_input();
+        let mut duplicate_player = input.definitions[0].clone();
+        duplicate_player.entity = EntityId::new(102);
+        duplicate_player.definition.stable_id = "actor/custom-player-two".to_owned();
+        duplicate_player.definition.display_name = "Custom Player Two".to_owned();
+        duplicate_player.definition.source.relative_path =
+            "catalogs/actors/custom-player-two.entity.json".to_owned();
+        input.definitions.push(duplicate_player);
+
+        assert_eq!(
+            load_fps_project_bundle(input),
+            Err(FpsRuntimeError::DuplicateRole {
+                role: FpsRuntimeRole::Player,
+                first_entity: EntityId::new(101),
+                duplicate_entity: EntityId::new(102),
+            })
+        );
     }
 
     fn lifecycle_input(

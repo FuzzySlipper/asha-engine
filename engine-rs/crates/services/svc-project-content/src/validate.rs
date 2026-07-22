@@ -945,21 +945,7 @@ fn reference_exists(
                 })
         }
         ProjectContentReferenceKind::EntrySceneFpsPlayerEntityDefinition => {
-            index.entities.get(target_id).is_some_and(|definition| {
-                has_usable_bounds(definition)
-                    && gameplay.entity_definition_matches_reference(kind, definition)
-            }) && entry_scene_id.is_some_and(|entry_scene_id| {
-                index.scene_instances.values().any(|reference| {
-                    matches!(
-                        reference,
-                        SceneInstanceReference::EntityDefinition {
-                            scene_id,
-                            stable_id,
-                            ..
-                        } if *scene_id == entry_scene_id && stable_id == target_id
-                    )
-                })
-            })
+            is_unique_entry_scene_fps_player_target(target_id, index, entry_scene_id, gameplay)
         }
         ProjectContentReferenceKind::SceneInstance => index.scene_instances.contains_key(target_id),
         ProjectContentReferenceKind::Prefab => target_id
@@ -979,6 +965,43 @@ fn reference_exists(
             index.presentation_resources.contains(target_id)
         }
     }
+}
+
+fn is_unique_entry_scene_fps_player_target(
+    target_id: &str,
+    index: &ReferenceIndex<'_>,
+    entry_scene_id: Option<SceneId>,
+    gameplay: &dyn crate::ProjectContentGameplayAdmission,
+) -> bool {
+    let Some(entry_scene_id) = entry_scene_id else {
+        return false;
+    };
+    let mut player_instances = index.scene_instances.values().filter_map(|reference| {
+        let SceneInstanceReference::EntityDefinition {
+            scene_id,
+            stable_id,
+            ..
+        } = reference
+        else {
+            return None;
+        };
+        if *scene_id != entry_scene_id {
+            return None;
+        }
+        let definition = index.entities.get(stable_id)?;
+        gameplay
+            .entity_definition_matches_reference(
+                ProjectContentReferenceKind::EntrySceneFpsPlayerEntityDefinition,
+                definition,
+            )
+            .then_some(stable_id.as_str())
+    });
+    player_instances.next() == Some(target_id)
+        && player_instances.next().is_none()
+        && index
+            .entities
+            .get(target_id)
+            .is_some_and(|definition| has_usable_bounds(definition))
 }
 
 fn has_usable_bounds(definition: &EntityDefinition) -> bool {

@@ -135,6 +135,20 @@ pub(super) fn runtime_project_fps_activation_error(
             "stableId".to_owned(),
             debug_message.clone(),
         ),
+        FpsRuntimeError::DuplicateRole {
+            role,
+            first_entity,
+            duplicate_entity,
+        } => (
+            "duplicateFpsRole",
+            by_entity(*duplicate_entity),
+            "capabilities".to_owned(),
+            format!(
+                "FPS role {role:?} must resolve to exactly one entity; entities {} and {} both claim it",
+                first_entity.raw(),
+                duplicate_entity.raw()
+            ),
+        ),
         FpsRuntimeError::MissingProjectBundle => (
             "missingProjectBundle",
             definitions.first(),
