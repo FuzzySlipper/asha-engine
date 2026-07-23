@@ -27,8 +27,10 @@ use rule_scheduler::{
 };
 use rule_state_machine::MachineInstance;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use svc_gameplay_fabric::GameplayFabricRegistry;
+use svc_gameplay_fabric::{
+    GameplayEventFilterField, GameplayEventFilterFieldShape, GameplayEventFilterValue,
+    GameplayEventFilterValueKind, GameplayFabricRegistry,
+};
 use svc_project_content::ValidatedProjectContentSet;
 
 use crate::{
@@ -94,6 +96,7 @@ pub(crate) struct CompiledAuthoredTransition {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct CompiledAuthoredSignal {
     pub event: GameplayContractRef,
+    pub filter_descriptor_hash: String,
     pub arguments: Vec<CompiledAuthoredSignalArgument>,
 }
 
@@ -416,8 +419,16 @@ fn compile_signal(
         })
         .collect::<Result<Vec<_>, String>>()?;
     compiled_arguments.sort_by(|left, right| left.name.cmp(&right.name));
+    let filter_fields = compiled_arguments
+        .iter()
+        .map(compiled_signal_argument_shape)
+        .collect::<Result<Vec<_>, String>>()?;
+    let filter_descriptor_hash = registry
+        .validate_event_filter_shape(&event, &filter_fields)
+        .map_err(|error| error.to_string())?;
     Ok(CompiledAuthoredSignal {
         event,
+        filter_descriptor_hash,
         arguments: compiled_arguments,
     })
 }
@@ -725,6 +736,7 @@ impl AuthoredProgramRuntime {
 
     pub fn react(
         &mut self,
+        registry: &GameplayFabricRegistry,
         events: &[GameplayEventEnvelope],
         entities: &mut core_entity::EntityStore,
         scheduler: &mut GameplayActionScheduler,
@@ -734,15 +746,12 @@ impl AuthoredProgramRuntime {
         let scheduler_checkpoint = scheduler.clone();
         let mut emitted = Vec::new();
         for event in events {
-            let matching = self
-                .plan
-                .behaviors
-                .iter()
-                .enumerate()
-                .filter_map(|(index, behavior)| {
-                    signal_matches(&behavior.signal, event).then_some(index)
-                })
-                .collect::<Vec<_>>();
+            let mut matching = Vec::new();
+            for (index, behavior) in self.plan.behaviors.iter().enumerate() {
+                if signal_matches(registry, &behavior.signal, event)? {
+                    matching.push(index);
+                }
+            }
             for behavior_index in matching {
                 if !self.predicates_match(behavior_index) {
                     continue;
@@ -1174,18 +1183,22 @@ fn build_runtime_machines(
         .collect()
 }
 
-fn signal_matches(signal: &CompiledAuthoredSignal, event: &GameplayEventEnvelope) -> bool {
+fn signal_matches(
+    registry: &GameplayFabricRegistry,
+    signal: &CompiledAuthoredSignal,
+    event: &GameplayEventEnvelope,
+) -> Result<bool, String> {
     if signal.event != event.event {
-        return false;
+        return Ok(false);
     }
-    if signal.arguments.is_empty() {
-        return true;
-    }
-    serde_json::from_slice::<Value>(&event.canonical_payload).is_ok_and(|payload| {
-        signal.arguments.iter().all(|argument| {
-            compiled_signal_value_matches(&argument.value, &argument.name, &payload)
-        })
-    })
+    let fields = signal
+        .arguments
+        .iter()
+        .map(compiled_signal_filter_field)
+        .collect::<Result<Vec<_>, String>>()?;
+    registry
+        .matches_event_filter(&event.event, &event.canonical_payload, &fields)
+        .map_err(|error| error.to_string())
 }
 
 fn prefab_part_interaction_target_matches(
@@ -1211,37 +1224,55 @@ fn compiled_signal_argument<'a>(
         .map(|argument| &argument.value)
 }
 
-fn compiled_signal_value_matches(
-    expected: &CompiledAuthoredValue,
-    name: &str,
-    payload: &Value,
-) -> bool {
-    let named = payload.get(name);
-    match expected {
-        CompiledAuthoredValue::Entity { entity } => named.and_then(Value::as_u64) == Some(*entity),
+fn compiled_signal_argument_shape(
+    argument: &CompiledAuthoredSignalArgument,
+) -> Result<GameplayEventFilterFieldShape, String> {
+    let value_kind = match argument.value {
+        CompiledAuthoredValue::Entity { .. } => GameplayEventFilterValueKind::Entity,
+        CompiledAuthoredValue::PrefabPart { .. } => GameplayEventFilterValueKind::PrefabPart,
+        CompiledAuthoredValue::Text { .. } => GameplayEventFilterValueKind::Text,
+        CompiledAuthoredValue::Boolean { .. } => GameplayEventFilterValueKind::Boolean,
+        CompiledAuthoredValue::Integer { .. } => GameplayEventFilterValueKind::Integer,
+        CompiledAuthoredValue::Number { .. } => GameplayEventFilterValueKind::Number,
+        CompiledAuthoredValue::Vector3 { .. } => GameplayEventFilterValueKind::Vector3,
+        CompiledAuthoredValue::StateMachine { .. } | CompiledAuthoredValue::State { .. } => {
+            return Err(format!(
+                "authored signal filter `{}` cannot contain symbolic state",
+                argument.name
+            ));
+        }
+    };
+    Ok(GameplayEventFilterFieldShape {
+        name: argument.name.clone(),
+        value_kind,
+    })
+}
+
+fn compiled_signal_filter_field(
+    argument: &CompiledAuthoredSignalArgument,
+) -> Result<GameplayEventFilterField, String> {
+    let value = match &argument.value {
+        CompiledAuthoredValue::Entity { entity } => GameplayEventFilterValue::Entity(*entity),
         CompiledAuthoredValue::PrefabPart { instance, role } => {
-            let candidate = named.unwrap_or(payload);
-            candidate.get("instance").and_then(Value::as_u64) == Some(*instance)
-                && candidate.get("role").and_then(Value::as_str) == Some(role.as_str())
+            GameplayEventFilterValue::PrefabPart {
+                instance: *instance,
+                role: role.clone(),
+            }
         }
-        CompiledAuthoredValue::Text { value } => {
-            named.and_then(Value::as_str) == Some(value.as_str())
+        CompiledAuthoredValue::Text { value } => GameplayEventFilterValue::Text(value.clone()),
+        CompiledAuthoredValue::Boolean { value } => GameplayEventFilterValue::Boolean(*value),
+        CompiledAuthoredValue::Integer { value } => GameplayEventFilterValue::Integer(*value),
+        CompiledAuthoredValue::Number { value } => GameplayEventFilterValue::Number(*value),
+        CompiledAuthoredValue::Vector3 { value } => GameplayEventFilterValue::Vector3(*value),
+        CompiledAuthoredValue::StateMachine { .. } | CompiledAuthoredValue::State { .. } => {
+            return Err(format!(
+                "compiled signal filter `{}` contains symbolic state",
+                argument.name
+            ));
         }
-        CompiledAuthoredValue::Boolean { value } => named.and_then(Value::as_bool) == Some(*value),
-        CompiledAuthoredValue::Integer { value } => named.and_then(Value::as_i64) == Some(*value),
-        CompiledAuthoredValue::Number { value } => named
-            .and_then(Value::as_f64)
-            .is_some_and(|candidate| candidate == *value),
-        CompiledAuthoredValue::Vector3 { value } => {
-            named.and_then(Value::as_array).is_some_and(|candidate| {
-                candidate.len() == value.len()
-                    && candidate.iter().zip(value).all(|(candidate, expected)| {
-                        candidate
-                            .as_f64()
-                            .is_some_and(|candidate| candidate == f64::from(*expected))
-                    })
-            })
-        }
-        CompiledAuthoredValue::StateMachine { .. } | CompiledAuthoredValue::State { .. } => false,
-    }
+    };
+    Ok(GameplayEventFilterField {
+        name: argument.name.clone(),
+        value,
+    })
 }

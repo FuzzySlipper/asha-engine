@@ -2486,6 +2486,97 @@ mod tests {
     }
 
     #[test]
+    fn authored_signal_filters_reject_missing_unknown_and_wrong_typed_fields_before_activation() {
+        let cases = vec![
+            (
+                "missing required field",
+                AUTHORED_SIGNAL_PREFAB_PART_INTERACTED,
+                Vec::new(),
+                "required filter field `part` is missing",
+            ),
+            (
+                "unknown field",
+                AUTHORED_SIGNAL_PREFAB_PART_INTERACTED,
+                vec![AuthoredBehaviorArgumentDto {
+                    name: "target".to_owned(),
+                    value: AuthoredBehaviorValueDto::PrefabPart {
+                        scene_instance_id: "fixture.switch.instance".to_owned(),
+                        role: "interaction/switch".to_owned(),
+                    },
+                }],
+                "filter field `target` is not published",
+            ),
+            (
+                "wrong field type",
+                AUTHORED_SIGNAL_PREFAB_PART_INTERACTED,
+                vec![AuthoredBehaviorArgumentDto {
+                    name: "part".to_owned(),
+                    value: AuthoredBehaviorValueDto::Text {
+                        value: "fixture.switch.instance".to_owned(),
+                    },
+                }],
+                "filter field `part` requires `prefabPart` rather than `text`",
+            ),
+            (
+                "unfiltered event arguments",
+                "asha.combat.entity-defeated",
+                vec![AuthoredBehaviorArgumentDto {
+                    name: "damage".to_owned(),
+                    value: AuthoredBehaviorValueDto::Text {
+                        value: "not-a-number".to_owned(),
+                    },
+                }],
+                "published event does not expose filter fields",
+            ),
+        ];
+
+        for (label, semantic_id, arguments, expected) in cases {
+            let scene = authored_behavior_scene(14);
+            let composition = authored_behavior_composition();
+            let mut documents = authored_behavior_documents();
+            let package = documents
+                .iter_mut()
+                .find_map(|document| match document {
+                    ProjectContentDocumentDto::BehaviorPackage { package, .. } => Some(package),
+                    _ => None,
+                })
+                .expect("behavior package fixture");
+            package.behaviors[0].signal = AuthoredBehaviorSignalDto {
+                signal: AuthoredBehaviorSemanticRefDto {
+                    semantic_id: semantic_id.to_owned(),
+                    version: 1,
+                },
+                arguments,
+            };
+            let scene_dto = project_scene_document_dto(&scene);
+            let gameplay =
+                GameplayProjectContentAdmission::new(composition.project_configuration_authority());
+            let outcome = validate_project_content_documents(
+                documents,
+                ProjectContentValidationContext {
+                    scenes: std::slice::from_ref(&scene_dto),
+                    entry_scene_id: Some(scene_dto.id),
+                    gameplay: &gameplay,
+                    reference_revision: 0,
+                },
+            );
+            assert!(
+                !outcome.result.accepted,
+                "{label} must reject before activation"
+            );
+            assert!(
+                outcome.result.diagnostics.iter().any(|diagnostic| {
+                    diagnostic.code == ProjectContentDiagnosticCode::InvalidField
+                        && diagnostic.path.ends_with("signal.arguments")
+                        && diagnostic.message.contains(expected)
+                }),
+                "{label}: {:?}",
+                outcome.result.diagnostics
+            );
+        }
+    }
+
+    #[test]
     fn authored_behavior_consumes_any_statically_published_event_without_a_signal_adapter() {
         let scene = authored_behavior_scene(13);
         let composition = authored_behavior_composition();

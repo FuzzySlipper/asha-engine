@@ -14,10 +14,11 @@ use protocol_game_extension::{
 };
 use protocol_project_bundle::GameplayTriggerDefinition;
 use protocol_project_content::{
-    ProjectContentAuthoringCommandDto, ProjectContentAuthoringRequestDto,
-    ProjectContentAuthoringResultDto, ProjectContentCodecResultDto, ProjectContentDecodeRequestDto,
-    ProjectContentDiagnosticCode, ProjectContentDiagnosticDto, ProjectContentDocumentDto,
-    ProjectContentDocumentKind, ProjectContentEncodeRequestDto, ProjectEntityAppearanceUpdateDto,
+    AuthoredBehaviorArgumentDto, ProjectContentAuthoringCommandDto,
+    ProjectContentAuthoringRequestDto, ProjectContentAuthoringResultDto,
+    ProjectContentCodecResultDto, ProjectContentDecodeRequestDto, ProjectContentDiagnosticCode,
+    ProjectContentDiagnosticDto, ProjectContentDocumentDto, ProjectContentDocumentKind,
+    ProjectContentEncodeRequestDto, ProjectEntityAppearanceUpdateDto,
     ProjectPresentationResourceKind,
 };
 use protocol_scene::FlatSceneDocumentDto;
@@ -96,6 +97,21 @@ pub trait ProjectContentGameplayAdmission: Send + Sync {
         _version: u32,
     ) -> Option<protocol_game_extension::GameplayContractRef> {
         None
+    }
+
+    /// Validate the names and value kinds of authored event filters against
+    /// the selected provider. Open event identity does not imply an open JSON
+    /// field bag: providers must explicitly publish every supported filter.
+    fn validate_authored_signal_arguments(
+        &self,
+        _event: &protocol_game_extension::GameplayContractRef,
+        arguments: &[AuthoredBehaviorArgumentDto],
+    ) -> Result<(), String> {
+        if arguments.is_empty() {
+            Ok(())
+        } else {
+            Err("the published event does not expose authored filter fields".to_owned())
+        }
     }
 
     /// Resolve provider/domain semantics that cannot be inferred from generic
@@ -968,6 +984,27 @@ mod tests {
                     schema_hash: "fixture-prefab-part-interacted-v1".to_owned(),
                 }
             })
+        }
+
+        fn validate_authored_signal_arguments(
+            &self,
+            _event: &protocol_game_extension::GameplayContractRef,
+            arguments: &[AuthoredBehaviorArgumentDto],
+        ) -> Result<(), String> {
+            if matches!(
+                arguments,
+                [AuthoredBehaviorArgumentDto {
+                    name,
+                    value: protocol_project_content::AuthoredBehaviorValueDto::PrefabPart { .. },
+                }] if name == "part"
+            ) {
+                Ok(())
+            } else {
+                Err(
+                    "prefab interaction requires the provider-owned `part: prefabPart` filter"
+                        .to_owned(),
+                )
+            }
         }
 
         fn entity_definition_matches_reference(

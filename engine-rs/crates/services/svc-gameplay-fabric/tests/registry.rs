@@ -8,7 +8,9 @@ use protocol_game_extension::{
 };
 use serde::{Deserialize, Serialize};
 use svc_gameplay_fabric::{
-    gameplay_canonical_codec_id, gameplay_contract, stable_identity, GameplayFabricRegistry,
+    gameplay_canonical_codec_id, gameplay_contract, stable_identity, GameplayEventFilterDescriptor,
+    GameplayEventFilterField, GameplayEventFilterFieldDescriptor, GameplayEventFilterFieldShape,
+    GameplayEventFilterValue, GameplayEventFilterValueKind, GameplayFabricRegistry,
     GameplayFabricRegistryBuilder, GameplayLinkedProvider, GameplayProposalOwnerRegistration,
     GameplayReadViewProviderRegistration, TypedGameplayEventCodec,
 };
@@ -84,6 +86,14 @@ fn codec(declaration: GameplayEventSchemaDeclaration) -> TypedGameplayEventCodec
         descriptor,
         |payload| serde_json::to_vec(payload).map_err(|error| error.to_string()),
         |bytes| serde_json::from_slice(bytes).map_err(|error| error.to_string()),
+    )
+}
+
+fn damage_filter_matches(payload: &DamageApplied, field: &GameplayEventFilterField) -> bool {
+    matches!(
+        (field.name.as_str(), &field.value),
+        ("amount", GameplayEventFilterValue::Integer(amount))
+            if u32::try_from(*amount) == Ok(payload.amount)
     )
 }
 
@@ -265,6 +275,72 @@ fn codec_admission_rejects_noncanonical_unknown_and_wrong_hash_payloads() {
         ),
         Err(svc_gameplay_fabric::GameplayCodecError::UnknownContract { .. })
     ));
+}
+
+#[test]
+fn provider_owned_filter_descriptor_validates_shape_and_matches_typed_payload() {
+    let (combat, feedback) = valid_pair();
+    let event = event_declaration().event;
+    let mut builder = GameplayFabricRegistryBuilder::new();
+    builder
+        .register_linked_provider(provider(&combat))
+        .register_linked_provider(provider(&feedback))
+        .register_event_codec(codec(event_declaration()).with_filter(
+            GameplayEventFilterDescriptor {
+                fields: vec![GameplayEventFilterFieldDescriptor {
+                    name: "amount".to_owned(),
+                    value_kind: GameplayEventFilterValueKind::Integer,
+                    required: true,
+                }],
+            },
+            damage_filter_matches,
+        ))
+        .register_module(combat)
+        .register_module(feedback);
+    let registry = builder.build().expect("typed filter registry");
+
+    for fields in [
+        Vec::new(),
+        vec![GameplayEventFilterFieldShape {
+            name: "damage".to_owned(),
+            value_kind: GameplayEventFilterValueKind::Integer,
+        }],
+        vec![GameplayEventFilterFieldShape {
+            name: "amount".to_owned(),
+            value_kind: GameplayEventFilterValueKind::Text,
+        }],
+    ] {
+        assert!(matches!(
+            registry.validate_event_filter_shape(&event, &fields),
+            Err(svc_gameplay_fabric::GameplayCodecError::InvalidFilter { .. })
+        ));
+    }
+
+    let payload = serde_json::to_vec(&DamageApplied { amount: 17 }).expect("payload");
+    let matching = vec![GameplayEventFilterField {
+        name: "amount".to_owned(),
+        value: GameplayEventFilterValue::Integer(17),
+    }];
+    let different = vec![GameplayEventFilterField {
+        name: "amount".to_owned(),
+        value: GameplayEventFilterValue::Integer(19),
+    }];
+    assert!(!registry
+        .validate_event_filter_shape(
+            &event,
+            &matching
+                .iter()
+                .map(GameplayEventFilterField::shape)
+                .collect::<Vec<_>>(),
+        )
+        .expect("provider filter identity")
+        .is_empty());
+    assert!(registry
+        .matches_event_filter(&event, &payload, &matching)
+        .expect("typed filter match"));
+    assert!(!registry
+        .matches_event_filter(&event, &payload, &different)
+        .expect("typed filter mismatch"));
 }
 
 #[test]

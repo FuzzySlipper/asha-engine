@@ -1,5 +1,6 @@
 use crate::codec::{
-    GameplayCodecError, GameplayEventCodecRegistration, RegisteredCodec, TypedGameplayEventCodec,
+    GameplayCodecError, GameplayEventCodecRegistration, GameplayEventFilterField,
+    GameplayEventFilterFieldShape, RegisteredCodec, TypedGameplayEventCodec,
 };
 use crate::topology::{build_readout, semantic_topology_dump, stable_digest, topology_dump};
 use crate::validation::{
@@ -366,6 +367,62 @@ impl GameplayFabricRegistry {
                 .find(|declaration| declaration.event.key() == key)
                 .map(|declaration| &declaration.event)
         })
+    }
+
+    /// Validate a prospective authored filter against the exact descriptor
+    /// installed by the event's typed provider codec. Events without a filter
+    /// descriptor accept no fields; required provider fields cannot be
+    /// omitted. The returned identity is included in the compiled program.
+    pub fn validate_event_filter_shape(
+        &self,
+        event: &GameplayContractRef,
+        fields: &[GameplayEventFilterFieldShape],
+    ) -> Result<String, GameplayCodecError> {
+        let key = event.key();
+        let codec = self
+            .codecs
+            .get(&key)
+            .filter(|codec| codec.event == *event)
+            .ok_or_else(|| GameplayCodecError::UnknownContract {
+                contract: key.clone(),
+            })?;
+        match codec.codec.filter_descriptor() {
+            Some(descriptor) => {
+                descriptor.validates(fields).map_err(|message| {
+                    GameplayCodecError::InvalidFilter {
+                        contract: key,
+                        message,
+                    }
+                })?;
+                Ok(descriptor.identity())
+            }
+            None if fields.is_empty() => Ok(crate::stable_identity([
+                "asha.gameplay-event-filter.v1",
+                "unfiltered",
+            ])),
+            None => Err(GameplayCodecError::InvalidFilter {
+                contract: key,
+                message: "the published event does not expose filter fields".to_owned(),
+            }),
+        }
+    }
+
+    /// Decode canonical payload bytes with the provider's concrete codec and
+    /// evaluate only its typed filter matcher. Runtime consumers never infer
+    /// field names or JSON shapes independently.
+    pub fn matches_event_filter(
+        &self,
+        event: &GameplayContractRef,
+        canonical_payload: &[u8],
+        fields: &[GameplayEventFilterField],
+    ) -> Result<bool, GameplayCodecError> {
+        let key = event.key();
+        let codec = self
+            .codecs
+            .get(&key)
+            .filter(|codec| codec.event == *event)
+            .ok_or(GameplayCodecError::UnknownContract { contract: key })?;
+        codec.codec.matches_filter(canonical_payload, fields)
     }
 
     pub fn module_publishes_event(&self, module_id: &str, event: &GameplayContractRef) -> bool {

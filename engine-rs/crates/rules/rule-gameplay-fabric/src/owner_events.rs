@@ -16,8 +16,10 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use svc_combat::{CombatEvent, CombatReadout, FireMissReason};
 use svc_game_rules::EffectResolutionRequest;
 use svc_gameplay_fabric::{
-    gameplay_canonical_codec_id, gameplay_contract, GameplayFabricRegistryBuilder,
-    GameplayLinkedProvider, GameplayProposalOwnerRegistration, TypedGameplayEventCodec,
+    gameplay_canonical_codec_id, gameplay_contract, GameplayEventFilterDescriptor,
+    GameplayEventFilterField, GameplayEventFilterFieldDescriptor, GameplayEventFilterValue,
+    GameplayEventFilterValueKind, GameplayFabricRegistryBuilder, GameplayLinkedProvider,
+    GameplayProposalOwnerRegistration, TypedGameplayEventCodec,
 };
 
 use crate::gameplay_payload_hash;
@@ -473,10 +475,7 @@ pub fn register_standard_owner_events(builder: &mut GameplayFabricRegistryBuilde
         builder,
         StandardGameplayEventKind::TriggerExited,
     );
-    register_codec::<PrefabPartInteractionGameplayPayload>(
-        builder,
-        StandardGameplayEventKind::PrefabPartInteracted,
-    );
+    register_prefab_part_interaction_codec(builder);
     register_codec::<CombatGameplayPayload>(builder, StandardGameplayEventKind::CombatFireHit);
     register_codec::<CombatGameplayPayload>(builder, StandardGameplayEventKind::CombatFireMissed);
     register_codec::<CombatGameplayPayload>(
@@ -542,6 +541,41 @@ where
         encode_json::<T>,
         decode_json::<T>,
     ));
+}
+
+fn register_prefab_part_interaction_codec(builder: &mut GameplayFabricRegistryBuilder) {
+    let kind = StandardGameplayEventKind::PrefabPartInteracted;
+    builder.register_event_codec(
+        TypedGameplayEventCodec::new(
+            kind.declaration(),
+            kind.schema_descriptor(),
+            encode_json::<PrefabPartInteractionGameplayPayload>,
+            decode_json::<PrefabPartInteractionGameplayPayload>,
+        )
+        .with_filter(
+            GameplayEventFilterDescriptor {
+                fields: vec![GameplayEventFilterFieldDescriptor {
+                    name: "part".to_owned(),
+                    value_kind: GameplayEventFilterValueKind::PrefabPart,
+                    required: true,
+                }],
+            },
+            prefab_part_interaction_filter_matches,
+        ),
+    );
+}
+
+fn prefab_part_interaction_filter_matches(
+    payload: &PrefabPartInteractionGameplayPayload,
+    field: &GameplayEventFilterField,
+) -> bool {
+    matches!(
+        (field.name.as_str(), &field.value),
+        (
+            "part",
+            GameplayEventFilterValue::PrefabPart { instance, role }
+        ) if payload.instance == *instance && payload.role == *role
+    )
 }
 
 fn encode_json<T>(payload: &T) -> Result<Vec<u8>, String>

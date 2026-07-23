@@ -972,8 +972,12 @@ impl GameplayRuntimeHost {
             .expect("runtime entity authority initialized");
         let authority_before = authority_entities.clone();
         if let Some(program) = self.authored_program.as_mut() {
-            if let Err(error) = program.react(&events, &mut authority_entities, &mut self.scheduler)
-            {
+            if let Err(error) = program.react(
+                self.session.registry(),
+                &events,
+                &mut authority_entities,
+                &mut self.scheduler,
+            ) {
                 self.session.bundle.runtime_entities = Some(authority_entities);
                 return Err(GameplayRuntimeHostError::AuthoredProgram(error));
             }

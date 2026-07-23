@@ -352,16 +352,25 @@ fn validate_authored_signal(
         );
         return;
     }
-    if gameplay
-        .resolve_authored_signal(&signal.signal.semantic_id, signal.signal.version)
-        .is_none()
-    {
+    let Some(event) =
+        gameplay.resolve_authored_signal(&signal.signal.semantic_id, signal.signal.version)
+    else {
         push(
             diagnostics,
             ProjectContentDiagnosticCode::UnknownReference,
             Some(document_id),
             &format!("{path}.signal.signal.semanticId"),
             "signal semantic id and version do not resolve to an event published by the statically composed Rust gameplay registry",
+        );
+        return;
+    };
+    if let Err(message) = gameplay.validate_authored_signal_arguments(&event, &signal.arguments) {
+        push(
+            diagnostics,
+            ProjectContentDiagnosticCode::InvalidField,
+            Some(document_id),
+            &format!("{path}.signal.arguments"),
+            &message,
         );
         return;
     }

@@ -13,12 +13,13 @@ use protocol_game_extension::{
 };
 use protocol_project_bundle::GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION;
 use protocol_project_content::{
-    ProjectConfigurationFieldDto, ProjectConfigurationSchemaDto, ProjectConfigurationValueDto,
-    ProjectConfigurationValueKind, ProjectContentDiagnosticCode, ProjectContentDiagnosticDto,
-    ProjectContentDocumentDto,
+    AuthoredBehaviorArgumentDto, AuthoredBehaviorValueDto, ProjectConfigurationFieldDto,
+    ProjectConfigurationSchemaDto, ProjectConfigurationValueDto, ProjectConfigurationValueKind,
+    ProjectContentDiagnosticCode, ProjectContentDiagnosticDto, ProjectContentDocumentDto,
 };
 use rule_trigger_volume::{validate_kinematic_trigger_definition, KinematicTriggerDefinition};
 use serde_json::{Map, Number, Value};
+use svc_gameplay_fabric::{GameplayEventFilterFieldShape, GameplayEventFilterValueKind};
 use svc_project_content::{CompiledProjectGameplayContent, ProjectContentGameplayAdmission};
 
 use crate::gameplay_binding::{
@@ -350,6 +351,53 @@ impl ProjectContentGameplayAdmission for GameplayProjectContentAdmission {
             .registry()
             .published_event(&format!("{semantic_id}.v{version}"))
             .cloned()
+    }
+
+    fn validate_authored_signal_arguments(
+        &self,
+        event: &protocol_game_extension::GameplayContractRef,
+        arguments: &[AuthoredBehaviorArgumentDto],
+    ) -> Result<(), String> {
+        let fields = arguments
+            .iter()
+            .map(|argument| {
+                let value_kind = match argument.value {
+                    AuthoredBehaviorValueDto::SceneEntity { .. } => {
+                        GameplayEventFilterValueKind::Entity
+                    }
+                    AuthoredBehaviorValueDto::PrefabPart { .. } => {
+                        GameplayEventFilterValueKind::PrefabPart
+                    }
+                    AuthoredBehaviorValueDto::Text { .. } => GameplayEventFilterValueKind::Text,
+                    AuthoredBehaviorValueDto::Boolean { .. } => {
+                        GameplayEventFilterValueKind::Boolean
+                    }
+                    AuthoredBehaviorValueDto::Integer { .. } => {
+                        GameplayEventFilterValueKind::Integer
+                    }
+                    AuthoredBehaviorValueDto::Number { .. } => GameplayEventFilterValueKind::Number,
+                    AuthoredBehaviorValueDto::Vector3 { .. } => {
+                        GameplayEventFilterValueKind::Vector3
+                    }
+                    AuthoredBehaviorValueDto::StateMachine { .. }
+                    | AuthoredBehaviorValueDto::State { .. } => {
+                        return Err(format!(
+                            "filter field `{}` cannot use symbolic state as an event payload value",
+                            argument.name
+                        ));
+                    }
+                };
+                Ok(GameplayEventFilterFieldShape {
+                    name: argument.name.clone(),
+                    value_kind,
+                })
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        self.authority
+            .registry()
+            .validate_event_filter_shape(event, &fields)
+            .map(|_| ())
+            .map_err(|error| error.to_string())
     }
 
     fn entity_definition_matches_reference(

@@ -34,7 +34,9 @@ pub use rule_gameplay_fabric::{
 pub use svc_gameplay_fabric::{
     gameplay_canonical_codec_id, gameplay_canonical_payload_hash, gameplay_contract,
     gameplay_schema_hash, stable_bytes_identity, stable_identity, GameplayCodecError,
-    GameplayEventCodecRegistration, GameplayEventMetadata, GameplayLinkedProvider,
+    GameplayEventCodecRegistration, GameplayEventFilterDescriptor, GameplayEventFilterField,
+    GameplayEventFilterFieldDescriptor, GameplayEventFilterFieldShape, GameplayEventFilterValue,
+    GameplayEventFilterValueKind, GameplayEventMetadata, GameplayLinkedProvider,
     GameplayProposalMetadata, GameplayProposalOwnerRegistration,
     GameplayReadViewProviderRegistration, GameplayStateOwnerRegistration, TypedGameplayEventCodec,
 };
