@@ -978,6 +978,9 @@ impl GameplayRuntimeHost {
                 &mut authority_entities,
                 &mut self.scheduler,
             ) {
+                authority_entities = authority_before.clone();
+                self.scheduler = scheduler_checkpoint.clone();
+                self.authored_program = authored_program_checkpoint.clone();
                 self.session.bundle.runtime_entities = Some(authority_entities);
                 return Err(GameplayRuntimeHostError::AuthoredProgram(error));
             }

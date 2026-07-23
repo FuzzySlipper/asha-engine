@@ -744,45 +744,48 @@ impl AuthoredProgramRuntime {
         let runtime_checkpoint = self.clone();
         let entity_checkpoint = entities.clone();
         let scheduler_checkpoint = scheduler.clone();
-        let mut emitted = Vec::new();
-        for event in events {
-            let mut matching = Vec::new();
-            for (index, behavior) in self.plan.behaviors.iter().enumerate() {
-                if signal_matches(registry, &behavior.signal, event)? {
-                    matching.push(index);
+        let result = (|| {
+            let mut emitted = Vec::new();
+            for event in events {
+                let mut matching = Vec::new();
+                for (index, behavior) in self.plan.behaviors.iter().enumerate() {
+                    if signal_matches(registry, &behavior.signal, event)? {
+                        matching.push(index);
+                    }
                 }
-            }
-            for behavior_index in matching {
-                if !self.predicates_match(behavior_index) {
-                    continue;
-                }
-                let roots = self.plan.behaviors[behavior_index]
-                    .steps
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(index, step)| step.after_step_id.is_none().then_some(index))
-                    .collect::<Vec<_>>();
-                for step_index in roots {
-                    if let Err(error) = self.execute_or_schedule_step(
-                        behavior_index,
-                        step_index,
-                        event.tick,
-                        &event.event_id,
-                        event.root_sequence,
-                        Some(event.event_id.clone()),
-                        entities,
-                        scheduler,
-                        &mut emitted,
-                    ) {
-                        *self = runtime_checkpoint;
-                        *entities = entity_checkpoint;
-                        *scheduler = scheduler_checkpoint;
-                        return Err(error);
+                for behavior_index in matching {
+                    if !self.predicates_match(behavior_index) {
+                        continue;
+                    }
+                    let roots = self.plan.behaviors[behavior_index]
+                        .steps
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(index, step)| step.after_step_id.is_none().then_some(index))
+                        .collect::<Vec<_>>();
+                    for step_index in roots {
+                        self.execute_or_schedule_step(
+                            behavior_index,
+                            step_index,
+                            event.tick,
+                            &event.event_id,
+                            event.root_sequence,
+                            Some(event.event_id.clone()),
+                            entities,
+                            scheduler,
+                            &mut emitted,
+                        )?;
                     }
                 }
             }
+            Ok(emitted)
+        })();
+        if result.is_err() {
+            *self = runtime_checkpoint;
+            *entities = entity_checkpoint;
+            *scheduler = scheduler_checkpoint;
         }
-        Ok(emitted)
+        result
     }
 
     pub fn execute_continuation(

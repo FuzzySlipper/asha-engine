@@ -1415,6 +1415,7 @@ fn map_project_diagnostic(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::authored_behavior::CompiledAuthoredValue;
     use crate::{GameplayRuntimeHost, GameplayRuntimePrefabInteractionIntent};
     use core_ids::{PrefabId, PrefabPartId, ProjectId, SceneId, SceneNodeId};
     use core_scene::{
@@ -1445,7 +1446,10 @@ mod tests {
         AUTHORED_VERB_SET_CAPABILITY_ACTIVE, AUTHORED_VERB_SET_RELATIVE_TRANSLATION,
         AUTHORED_VERB_TRANSITION_STATE,
     };
-    use rule_gameplay_fabric::{CombatGameplayPayload, StandardGameplayEventKind};
+    use rule_gameplay_fabric::{
+        adapt_prefab_part_interaction, CombatGameplayPayload, GameplayOwnerEventContext,
+        PrefabPartInteractionGameplayPayload, StandardGameplayEventKind,
+    };
     use svc_project_content::{decode_project_content, EmptyProjectContentGameplayAdmission};
     use svc_serialization::{
         encode, validate_runtime_project_source_batch, ArtifactEntry, AssetLockSection,
@@ -2574,6 +2578,141 @@ mod tests {
                 outcome.result.diagnostics
             );
         }
+    }
+
+    #[test]
+    fn authored_behavior_rolls_back_a_valid_then_malformed_owner_batch() {
+        let scene = authored_behavior_scene(16);
+        let composition = authored_behavior_composition();
+        let admission = compile_runtime_project_admission(
+            authored_behavior_batch(&scene, &composition),
+            composition,
+        )
+        .expect("authored behavior project admission");
+        let door = admission
+            .runtime_entity_seeds
+            .iter()
+            .find(|seed| seed.instance_id == "fixture.door.instance")
+            .expect("door seed")
+            .entity;
+        let actor = admission
+            .runtime_entity_seeds
+            .iter()
+            .find(|seed| seed.instance_id == "fixture.actor.instance")
+            .expect("actor seed")
+            .entity;
+        let (signal_instance, signal_role) = match &admission
+            .authored_program
+            .as_ref()
+            .expect("compiled authored program")
+            .behaviors[0]
+            .signal
+            .arguments[0]
+            .value
+        {
+            CompiledAuthoredValue::PrefabPart { instance, role } => (*instance, role.clone()),
+            value => panic!("expected prefab-part signal filter, got {value:?}"),
+        };
+
+        let mut host = GameplayRuntimeHost::activate_validated_project(admission)
+            .expect("validated behavior project activation");
+        let target = host
+            .resolve_prefab_part_interaction_target(&GameplayRuntimePrefabInteractionIntent {
+                actor,
+                role: signal_role.clone(),
+                max_distance_millimeters: 3_000,
+                tick: 1,
+            })
+            .expect("interaction target query")
+            .expect("closed door has an eligible switch");
+        assert_eq!(target.instance, signal_instance);
+        let prefab = host
+            .prefab_readout()
+            .instances
+            .into_iter()
+            .find(|instance| instance.instance == target.instance)
+            .expect("resolved prefab instance")
+            .prefab;
+        let valid_event = adapt_prefab_part_interaction(
+            &GameplayOwnerEventContext {
+                owner_id: "fixture.prefab-interaction-owner".to_owned(),
+                tick: 1,
+                root_id: "fixture:atomic-authored-batch".to_owned(),
+                root_sequence: 1,
+                first_event_sequence: 0,
+                parent_event_id: None,
+            },
+            &PrefabPartInteractionGameplayPayload {
+                actor: actor.raw(),
+                instance: target.instance,
+                prefab,
+                role: signal_role,
+                target: target.target.raw(),
+                tick: 1,
+            },
+        )
+        .expect("valid prefab interaction event");
+        let mut malformed_event = valid_event.clone();
+        malformed_event.event_id.push_str(":malformed");
+        malformed_event.event_sequence = 1;
+        malformed_event.canonical_payload = b"{}".to_vec();
+        malformed_event.payload_hash =
+            rule_gameplay_fabric::gameplay_payload_hash(&malformed_event.canonical_payload);
+
+        let entities = host.take_entity_authority().expect("entity authority");
+        let door_translation_before = entities
+            .transform(door)
+            .expect("door transform")
+            .transform
+            .translation
+            .to_array();
+        let door_collision_before = entities
+            .capability_activation(door, core_entity::ActivatableCapabilityKind::Collision)
+            .expect("door collision activation")
+            .presence;
+        host.install_entity_authority(entities)
+            .expect("return entity authority");
+        let readout_before = host.readout();
+        let scheduler_before = host.scheduler_readout();
+        let accepted_facts_before = host.authored_program_accepted_fact_count();
+
+        let error = host
+            .observe_owner_events(vec![valid_event.clone(), malformed_event])
+            .expect_err("a malformed filtered event rejects the whole owner batch");
+        assert!(
+            error.to_string().contains("missing field"),
+            "unexpected typed decode error: {error}"
+        );
+        assert_eq!(host.readout(), readout_before);
+        assert_eq!(host.scheduler_readout(), scheduler_before);
+        assert_eq!(
+            host.authored_program_accepted_fact_count(),
+            accepted_facts_before
+        );
+        let entities = host.take_entity_authority().expect("entity authority");
+        assert_eq!(
+            entities
+                .transform(door)
+                .expect("door transform")
+                .transform
+                .translation
+                .to_array(),
+            door_translation_before
+        );
+        assert_eq!(
+            entities
+                .capability_activation(door, core_entity::ActivatableCapabilityKind::Collision)
+                .expect("door collision activation")
+                .presence,
+            door_collision_before
+        );
+        host.install_entity_authority(entities)
+            .expect("return entity authority");
+
+        host.observe_owner_events(vec![valid_event])
+            .expect("the rolled-back valid event remains retryable");
+        assert_eq!(host.authored_program_accepted_fact_count(), 3);
+        assert_eq!(host.scheduler_readout().pending_action_count, 1);
     }
 
     #[test]
