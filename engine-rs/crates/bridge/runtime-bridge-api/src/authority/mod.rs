@@ -112,6 +112,7 @@ struct BridgeRuntimeProjectLifecycleState {
     active_runtime_project: Option<ActiveRuntimeProjectAuthority>,
     project_resource_staging: svc_serialization::ProjectResourceStaging,
     pending_project_source: Option<svc_serialization::AdmittedRuntimeProjectSourceBatch>,
+    pending_gameplay_snapshot: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -126,6 +127,7 @@ struct ActiveRuntimeProjectAuthority {
     entity_count: u32,
     voxel_asset_count: u32,
     voxel_bindings: Vec<protocol_project_bundle::RuntimeProjectVoxelBinding>,
+    source: svc_serialization::AdmittedRuntimeProjectSourceBatch,
 }
 
 #[derive(Debug, Default)]

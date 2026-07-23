@@ -4,6 +4,10 @@ import type {
   ProjectSourceBatchValidationReceipt,
   RuntimeProjectCloseReceipt,
   RuntimeProjectCloseRequest,
+  RuntimeProjectGameplayCheckpointRestoreReceipt,
+  RuntimeProjectGameplayCheckpointRestoreRequest,
+  RuntimeProjectGameplayCheckpointSaveReceipt,
+  RuntimeProjectGameplayCheckpointSaveRequest,
   RuntimeProjectLoadReceipt,
   RuntimeProjectLoadRequest,
   RuntimeProjectSourceBatch,
@@ -165,6 +169,86 @@ export class MockRuntimeProjectLifecycle {
       accepted: true,
       closedProjectId: active.projectId,
       closedManifestHash: active.manifestHash,
+      lifecycle: this.#lifecycle,
+      diagnostics: [],
+    };
+  }
+
+  saveCheckpoint(
+    request: RuntimeProjectGameplayCheckpointSaveRequest,
+  ): RuntimeProjectGameplayCheckpointSaveReceipt {
+    const active = this.#activeProject;
+    if (
+      active === null
+      || request.expectedLifecycle.generation !== this.#lifecycle.generation
+      || request.expectedLifecycle.revision !== this.#lifecycle.revision
+    ) {
+      return {
+        accepted: false,
+        checkpoint: null,
+        lifecycle: this.#lifecycle,
+        diagnostics: [{
+          phase: 'lifecycle',
+          code: active === null ? 'noActiveProject' : 'staleLifecycle',
+          documentId: null,
+          path: null,
+          message: 'mock runtime project checkpoint save rejected',
+        }],
+      };
+    }
+    return {
+      accepted: true,
+      checkpoint: {
+        schemaVersion: 1,
+        projectId: active.projectId,
+        manifestHash: active.manifestHash,
+        admissionHash: active.admissionHash,
+        contentSetHash: active.contentSetHash,
+        compositionHash: active.compositionHash,
+        authorityTick: 0,
+        timeMode: 'running',
+        speedMultiplier: 1,
+        timeRevision: 0,
+        gameplaySnapshot: '{}',
+        checkpointHash: 'mock-gameplay-checkpoint',
+      },
+      lifecycle: this.#lifecycle,
+      diagnostics: [],
+    };
+  }
+
+  restoreCheckpoint(
+    request: RuntimeProjectGameplayCheckpointRestoreRequest,
+  ): RuntimeProjectGameplayCheckpointRestoreReceipt {
+    const active = this.#activeProject;
+    if (
+      active === null
+      || request.expectedLifecycle.generation !== this.#lifecycle.generation
+      || request.expectedLifecycle.revision !== this.#lifecycle.revision
+      || request.checkpoint.projectId !== active.projectId
+      || request.checkpoint.manifestHash !== active.manifestHash
+    ) {
+      return {
+        accepted: false,
+        activeProject: null,
+        lifecycle: this.#lifecycle,
+        diagnostics: [{
+          phase: 'lifecycle',
+          code: active === null ? 'noActiveProject' : 'checkpointRejected',
+          documentId: null,
+          path: null,
+          message: 'mock runtime project checkpoint restore rejected',
+        }],
+      };
+    }
+    this.#lifecycle = {
+      generation: this.#lifecycle.generation + 1,
+      revision: this.#lifecycle.revision + 1,
+    };
+    this.#activeProject = { ...active, lifecycle: this.#lifecycle };
+    return {
+      accepted: true,
+      activeProject: this.#activeProject,
       lifecycle: this.#lifecycle,
       diagnostics: [],
     };

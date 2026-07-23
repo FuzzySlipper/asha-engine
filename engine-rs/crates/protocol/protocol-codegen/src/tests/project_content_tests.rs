@@ -293,10 +293,6 @@ fn project_content_samples_match_closed_generated_ir_shapes() {
         "signal": semantic_ref,
         "arguments": [prefab_argument]
     });
-    let trigger_signal = json!({
-        "signal": { "semanticId": "asha.signal.trigger-entered", "version": 1 },
-        "arguments": [{ "name": "trigger", "value": values[0].1 }]
-    });
     let behavior_condition = json!({
         "predicate": { "semanticId": "asha.predicate.state-is", "version": 1 },
         "arguments": [{ "name": "state", "value": values[3].1 }]
@@ -376,8 +372,6 @@ fn project_content_samples_match_closed_generated_ir_shapes() {
     ] {
         compare_object_to_interface(&project, name, value).unwrap();
     }
-    compare_object_to_interface(&project, "AuthoredBehaviorSignal", &trigger_signal).unwrap();
-
     let documents = [
         (
             "entityDefinition",

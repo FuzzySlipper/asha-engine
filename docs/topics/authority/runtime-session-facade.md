@@ -74,6 +74,8 @@ Rust-capable bridge and `mode: 'rust'`; reference fixtures use
 - `initialize(input)`: validates semantic session identity and initializes the bridge in an unloaded state.
 - `loadProject({ source })`: the sole public async project boot path. A shared development-directory, package/archive, or in-memory adapter reads exactly the ProjectBundle manifest closure; the facade stages bodies through bounded binary transport; Rust decodes, links, and atomically activates authority. The generated receipt returns source evidence, project/content/composition hashes, scene/entity/resource counts, lifecycle identity, and path-bearing diagnostics. See [canonical project loading](../consumer/canonical-project-loading.md).
 - `closeProject()`: closes exactly the facade-tracked active project lifecycle. Stale or missing authority rejects without inferred replacement.
+- `saveGameplayCheckpoint()`: captures the current Rust gameplay host and time state for the exact active project. The facade supplies the active lifecycle; the receipt carries an opaque, hash-bound checkpoint for host storage and never embeds the project source.
+- `restoreGameplayCheckpoint(checkpoint)`: validates and atomically restores an opaque checkpoint after its matching project source has been opened normally. Rust binds the checkpoint to project, manifest, admission, content, composition, lifecycle, time, and gameplay identities; the facade advances lifecycle tracking and refreshes its runtime readout only after acceptance.
 - `submitCommands(batch)`: submits generated `CommandBatch` values only.
 - `configureInputSession(request)`, `applyInputContextCommand(command)`, `submitRawInput(sample)`, `replayResolvedInputAction(record)`, and `readInputContextState()`: expose the Rust-owned named-input catalog, context stack, raw resolution, and platform-free semantic replay surface without granting DOM or TypeScript authority over consumption. Accepted raw receipts carry hash-bound `RecordedInputAction` values; direct replay validates catalog/context/action evidence and rejects repeat delivery.
 - `applyTimeControlCommand(command)`: applies generated pause, resume, cadence-multiplier, or exact-step commands through Rust Session authority. Exact steps require paused mode, advance precisely the requested fixed-tick count, and remain paused; invalid commands return atomic classified receipts.
@@ -135,8 +137,9 @@ Rust-capable bridge and `mode: 'rust'`; reference fixtures use
   provider's `DeferredRuntimeSessionBuilder`; saved project bindings and
   topology arrive later through `loadProject({ source })`. They participate in combat,
   movement, triggers, decisions, scheduling, replay, and checkpointing inside
-  the same Rust bridge cell. The facade has no separate gameplay-host load,
-  advance, read, save, or restore lifecycle.
+  the same Rust bridge cell. The facade does not expose a separate gameplay-host
+  lifecycle: checkpoint save/restore always targets the one canonically loaded
+  runtime project.
 - `readTelemetry()`: returns sequence/tick/composition/command/replay/hash summary.
 - `restart()`: unloads/reinitializes/reloads the same ProjectBundle input and resets tick/command counters and lifecycle state.
 

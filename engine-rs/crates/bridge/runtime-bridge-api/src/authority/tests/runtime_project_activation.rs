@@ -2184,3 +2184,74 @@ fn generated_public_facade_accepts_all_closed_source_adapter_kinds() {
         assert_eq!(closed.lifecycle.revision, 2);
     }
 }
+
+#[test]
+fn gameplay_checkpoint_is_project_bound_atomic_and_restores_rust_time() {
+    let composition = static_composition();
+    let mut bridge = DeferredRuntimeSessionBuilder::from_static_composition(composition.clone())
+        .build_unloaded();
+    bridge
+        .initialize_engine(EngineConfig { seed: 6088 })
+        .unwrap();
+    admit(&mut bridge, &composition, "voxel-volume/hand-authored-room");
+    let loaded = RuntimeBridge::load_runtime_project(
+        &mut bridge,
+        RuntimeProjectLoadRequest {
+            source: RuntimeProjectSourceAdapterInput {
+                kind: RuntimeProjectSourceAdapterKind::InMemory,
+                identity: "checkpoint-fixture".to_owned(),
+                materialization_hash: "fnv1a64:checkpoint-fixture".to_owned(),
+            },
+            expected_lifecycle: RuntimeProjectLifecycleVersion::default(),
+        },
+    )
+    .unwrap();
+    assert!(loaded.accepted);
+    RuntimeBridge::step_simulation(&mut bridge, StepInputEnvelope { tick: 7 }).unwrap();
+    let paused =
+        RuntimeBridge::apply_time_control_command(&mut bridge, TimeControlCommand::Pause).unwrap();
+    assert!(paused.accepted);
+
+    let saved = RuntimeBridge::save_runtime_project_gameplay_checkpoint(
+        &mut bridge,
+        RuntimeProjectGameplayCheckpointSaveRequest {
+            expected_lifecycle: loaded.lifecycle,
+        },
+    )
+    .unwrap();
+    assert!(saved.accepted, "{:?}", saved.diagnostics);
+    let checkpoint = saved.checkpoint.expect("accepted checkpoint");
+    assert_eq!(checkpoint.authority_tick, 7);
+    assert_eq!(
+        checkpoint.time_mode,
+        protocol_project_bundle::RuntimeProjectCheckpointTimeMode::Paused
+    );
+
+    let before_rejection = bridge.active_runtime_project().unwrap();
+    let mut tampered = checkpoint.clone();
+    tampered.gameplay_snapshot.push(' ');
+    let rejected = RuntimeBridge::restore_runtime_project_gameplay_checkpoint(
+        &mut bridge,
+        RuntimeProjectGameplayCheckpointRestoreRequest {
+            expected_lifecycle: saved.lifecycle,
+            checkpoint: tampered,
+        },
+    )
+    .unwrap();
+    assert!(!rejected.accepted);
+    assert_eq!(bridge.active_runtime_project(), Some(before_rejection));
+
+    let restored = RuntimeBridge::restore_runtime_project_gameplay_checkpoint(
+        &mut bridge,
+        RuntimeProjectGameplayCheckpointRestoreRequest {
+            expected_lifecycle: saved.lifecycle,
+            checkpoint,
+        },
+    )
+    .unwrap();
+    assert!(restored.accepted, "{:?}", restored.diagnostics);
+    assert!(restored.lifecycle.generation > saved.lifecycle.generation);
+    let time = RuntimeBridge::read_time_control_state(&bridge).unwrap();
+    assert_eq!(time.authority_tick, 7);
+    assert_eq!(time.mode, TimeControlMode::Paused);
+}

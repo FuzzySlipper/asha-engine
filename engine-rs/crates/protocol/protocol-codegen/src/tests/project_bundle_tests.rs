@@ -38,6 +38,23 @@ pub(super) fn extend_round_trip_coverage(coverage: &mut BTreeSet<String>) {
         interface_coverage_key("projectBundle", "RuntimeProjectLoadReceipt"),
         interface_coverage_key("projectBundle", "RuntimeProjectCloseRequest"),
         interface_coverage_key("projectBundle", "RuntimeProjectCloseReceipt"),
+        interface_coverage_key("projectBundle", "RuntimeProjectGameplayCheckpoint"),
+        interface_coverage_key(
+            "projectBundle",
+            "RuntimeProjectGameplayCheckpointSaveRequest",
+        ),
+        interface_coverage_key(
+            "projectBundle",
+            "RuntimeProjectGameplayCheckpointSaveReceipt",
+        ),
+        interface_coverage_key(
+            "projectBundle",
+            "RuntimeProjectGameplayCheckpointRestoreRequest",
+        ),
+        interface_coverage_key(
+            "projectBundle",
+            "RuntimeProjectGameplayCheckpointRestoreReceipt",
+        ),
         interface_coverage_key("projectBundle", "ProjectStoreIdentity"),
         interface_coverage_key("projectBundle", "ProjectArtifactExpectation"),
         interface_coverage_key("projectBundle", "ProjectWriteResourceRef"),
@@ -252,10 +269,14 @@ fn project_source_batch_serialization_matches_ir_shape() {
 #[test]
 fn runtime_project_public_facade_serialization_matches_ir_shape() {
     use protocol_project_bundle::{
-        ActiveRuntimeProjectIdentity, RuntimeProjectCloseReceipt, RuntimeProjectCloseRequest,
-        RuntimeProjectDiagnostic, RuntimeProjectDiagnosticPhase, RuntimeProjectLifecycleVersion,
-        RuntimeProjectLoadReceipt, RuntimeProjectLoadRequest, RuntimeProjectSourceAdapterInput,
-        RuntimeProjectSourceAdapterKind, RuntimeProjectVoxelBinding,
+        ActiveRuntimeProjectIdentity, RuntimeProjectCheckpointTimeMode, RuntimeProjectCloseReceipt,
+        RuntimeProjectCloseRequest, RuntimeProjectDiagnostic, RuntimeProjectDiagnosticPhase,
+        RuntimeProjectGameplayCheckpoint, RuntimeProjectGameplayCheckpointRestoreReceipt,
+        RuntimeProjectGameplayCheckpointRestoreRequest,
+        RuntimeProjectGameplayCheckpointSaveReceipt, RuntimeProjectGameplayCheckpointSaveRequest,
+        RuntimeProjectLifecycleVersion, RuntimeProjectLoadReceipt, RuntimeProjectLoadRequest,
+        RuntimeProjectSourceAdapterInput, RuntimeProjectSourceAdapterKind,
+        RuntimeProjectVoxelBinding,
     };
 
     let project = module("projectBundle");
@@ -313,6 +334,39 @@ fn runtime_project_public_facade_serialization_matches_ir_shape() {
         lifecycle,
         diagnostics: vec![diagnostic.clone()],
     };
+    let checkpoint = RuntimeProjectGameplayCheckpoint {
+        schema_version: 1,
+        project_id: 8,
+        manifest_hash: "manifest".into(),
+        admission_hash: "admission".into(),
+        content_set_hash: "content".into(),
+        composition_hash: "composition".into(),
+        authority_tick: 31,
+        time_mode: RuntimeProjectCheckpointTimeMode::Paused,
+        speed_multiplier: 1,
+        time_revision: 4,
+        gameplay_snapshot: "{\"schemaVersion\":1}".into(),
+        checkpoint_hash: "fnv1a64:checkpoint".into(),
+    };
+    let checkpoint_save_request = RuntimeProjectGameplayCheckpointSaveRequest {
+        expected_lifecycle: lifecycle,
+    };
+    let checkpoint_save_receipt = RuntimeProjectGameplayCheckpointSaveReceipt {
+        accepted: true,
+        checkpoint: Some(checkpoint.clone()),
+        lifecycle,
+        diagnostics: Vec::new(),
+    };
+    let checkpoint_restore_request = RuntimeProjectGameplayCheckpointRestoreRequest {
+        expected_lifecycle: lifecycle,
+        checkpoint: checkpoint.clone(),
+    };
+    let checkpoint_restore_receipt = RuntimeProjectGameplayCheckpointRestoreReceipt {
+        accepted: false,
+        active_project: None,
+        lifecycle,
+        diagnostics: vec![diagnostic.clone()],
+    };
 
     for (name, value) in [
         (
@@ -350,6 +404,26 @@ fn runtime_project_public_facade_serialization_matches_ir_shape() {
         (
             "RuntimeProjectCloseReceipt",
             serde_json::to_value(close_receipt).unwrap(),
+        ),
+        (
+            "RuntimeProjectGameplayCheckpoint",
+            serde_json::to_value(checkpoint).unwrap(),
+        ),
+        (
+            "RuntimeProjectGameplayCheckpointSaveRequest",
+            serde_json::to_value(checkpoint_save_request).unwrap(),
+        ),
+        (
+            "RuntimeProjectGameplayCheckpointSaveReceipt",
+            serde_json::to_value(checkpoint_save_receipt).unwrap(),
+        ),
+        (
+            "RuntimeProjectGameplayCheckpointRestoreRequest",
+            serde_json::to_value(checkpoint_restore_request).unwrap(),
+        ),
+        (
+            "RuntimeProjectGameplayCheckpointRestoreReceipt",
+            serde_json::to_value(checkpoint_restore_receipt).unwrap(),
         ),
     ] {
         compare_object_to_interface(&project, name, &value).unwrap();

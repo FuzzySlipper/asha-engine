@@ -690,13 +690,26 @@ void test('browser host gives ASHA Studio pages isolated one-cell lifecycles and
         result: { cellId: 1, project: 101, schedulerStateHash: 'scheduler-1' },
       });
 
+      const restoredFirst = await invokeBrowserHostBridge(
+        host.url,
+        firstHeaders,
+        'restoreRuntimeProjectGameplayCheckpoint',
+        [{ expectedLifecycle: { generation: 1, revision: 1 }, checkpoint: {} }],
+      );
+      assert.equal(restoredFirst.status, 200);
+      assert.equal(
+        (await restoredFirst.json() as { readonly result?: { readonly accepted?: boolean } })
+          .result?.accepted,
+        true,
+      );
+
       const switchDisconnect = await fetch(
         `${host.url}/asha/browser-host/runtime-bridge/client/disconnect`,
         { method: 'POST', headers: firstHeaders, body: '{}' },
       );
       assert.equal(switchDisconnect.status, 200);
       assert.equal(cells[1]?.closedProjects, 1);
-      assert.equal(cells[1]?.calls.filter((call) => call === 'close:101@1:1').length, 1);
+      assert.equal(cells[1]?.calls.filter((call) => call === 'close:101@2:2').length, 1);
       const switchedBridge = firstProvider.createRuntimeBridge() as typeof firstBridge;
       assert.equal(switchedBridge.browserHostLifecycle.status(), 'active');
       const switchedHeaders = browserHostHeaders(firstProvider.browserHostSessionId, '1');
@@ -1155,6 +1168,33 @@ function createTrackedRuntimeBridge(cell: {
         accepted: true,
         closedProjectId,
         closedManifestHash: closedProjectId === null ? null : `manifest-${closedProjectId}`,
+        lifecycle,
+        diagnostics: [],
+      } as never;
+    },
+    restoreRuntimeProjectGameplayCheckpoint(input) {
+      cell.calls.push(
+        `restore:${project ?? 'none'}@${input.expectedLifecycle.generation}:${input.expectedLifecycle.revision}`,
+      );
+      lifecycle = {
+        generation: input.expectedLifecycle.generation + 1,
+        revision: input.expectedLifecycle.revision + 1,
+      };
+      return {
+        accepted: true,
+        activeProject: {
+          projectId: project,
+          manifestHash: `manifest-${project}`,
+          admissionHash: `admission-${project}`,
+          contentSetHash: `content-${project}`,
+          compositionHash: `composition-${project}`,
+          entrySceneId: project,
+          sceneCount: 1,
+          entityCount: 0,
+          voxelAssetCount: 0,
+          voxelBindings: [],
+          lifecycle,
+        },
         lifecycle,
         diagnostics: [],
       } as never;

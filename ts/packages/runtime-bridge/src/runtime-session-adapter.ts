@@ -199,6 +199,9 @@ import type {
   RuntimeSessionTelemetrySummary,
   RuntimeSessionTickInput,
   RuntimeSessionTickResult,
+  RuntimeSessionGameplayCheckpoint,
+  RuntimeSessionGameplayCheckpointRestoreReceipt,
+  RuntimeSessionGameplayCheckpointSaveReceipt,
   RuntimeSessionProjectCloseReceipt,
   RuntimeSessionProjectLoadInput,
   RuntimeSessionProjectLoadReceipt,
@@ -299,6 +302,35 @@ class ReferenceRuntimeSessionFacade implements RuntimeSessionFacade {
     }
     this.#sequenceId += 1;
     this.#record('closeProject');
+    return receipt;
+  }
+
+  saveGameplayCheckpoint(): RuntimeSessionGameplayCheckpointSaveReceipt {
+    this.#requireInitialized('saveGameplayCheckpoint');
+    return this.#bridge.saveRuntimeProjectGameplayCheckpoint({
+      expectedLifecycle: this.#runtimeProjectLifecycle,
+    });
+  }
+
+  restoreGameplayCheckpoint(
+    checkpoint: RuntimeSessionGameplayCheckpoint,
+  ): RuntimeSessionGameplayCheckpointRestoreReceipt {
+    this.#requireInitialized('restoreGameplayCheckpoint');
+    const receipt = this.#bridge.restoreRuntimeProjectGameplayCheckpoint({
+      expectedLifecycle: this.#runtimeProjectLifecycle,
+      checkpoint,
+    });
+    this.#runtimeProjectLifecycle = receipt.lifecycle;
+    if (receipt.accepted) {
+      this.#tick = checkpoint.authorityTick;
+      this.#ecrpProjectState = buildEcrpProjectStateFromCanonical(
+        this.#bridge.readActiveRuntimeProjectContent(),
+      );
+      this.#lifecycleState = lifecycleStateFromEcrpProject(this.#ecrpProjectState);
+      this.#runtimeTransforms = new Map();
+    }
+    this.#sequenceId += 1;
+    this.#record('restoreGameplayCheckpoint');
     return receipt;
   }
 

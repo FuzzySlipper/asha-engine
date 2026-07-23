@@ -59,7 +59,7 @@ impl GameplayRuntimeHost {
             .resolve_prefab_part_interaction_target(&intent)?
             .ok_or_else(|| {
                 GameplayRuntimeHostError::Prefab(format!(
-                    "no active prefab role {} is within {} millimeters of actor {}",
+                    "no eligible authored prefab role {} is within {} millimeters of actor {}",
                     intent.role,
                     intent.max_distance_millimeters,
                     intent.actor.raw()
@@ -165,6 +165,11 @@ impl GameplayRuntimeHost {
             {
                 let target = EntityId::new(role.entity);
                 if !entities.is_alive(target) {
+                    continue;
+                }
+                if !self.authored_program.as_ref().is_some_and(|program| {
+                    program.prefab_interaction_is_eligible(instance.instance, &intent.role)
+                }) {
                     continue;
                 }
                 let Some(target_transform) = entities.transform(target) else {

@@ -237,6 +237,8 @@ interface NativeAddonBindings {
   loadRuntimeProject(handle: number, requestJson: string): string;
   readActiveRuntimeProjectContent(handle: number): string;
   closeRuntimeProject(handle: number, requestJson: string): string;
+  saveRuntimeProjectGameplayCheckpoint(handle: number, requestJson: string): string;
+  restoreRuntimeProjectGameplayCheckpoint(handle: number, requestJson: string): string;
   submitCommands(handle: number, commandsJson: string): CommandResult;
   stepSimulation(handle: number, tick: number): { readonly tick: number; readonly diffCount: number };
   configureInputSession(handle: number, requestJson: string): string;

@@ -367,6 +367,26 @@ export function createNativeOperationInvocations(
     ['closeRuntimeProject', (bridge) => bridge.closeRuntimeProject({
       expectedLifecycle: { generation: 0, revision: 0 },
     })],
+    ['saveRuntimeProjectGameplayCheckpoint', (bridge) => bridge.saveRuntimeProjectGameplayCheckpoint({
+      expectedLifecycle: { generation: 0, revision: 0 },
+    })],
+    ['restoreRuntimeProjectGameplayCheckpoint', (bridge) => bridge.restoreRuntimeProjectGameplayCheckpoint({
+      expectedLifecycle: { generation: 0, revision: 0 },
+      checkpoint: {
+        schemaVersion: 1,
+        projectId: 1,
+        manifestHash: input.hashA,
+        admissionHash: input.hashA,
+        contentSetHash: input.hashA,
+        compositionHash: input.hashA,
+        authorityTick: 0,
+        timeMode: 'running',
+        speedMultiplier: 1,
+        timeRevision: 0,
+        gameplaySnapshot: '{}',
+        checkpointHash: input.hashA,
+      },
+    })],
     ['loadReplayFixture', (bridge) => bridge.loadReplayFixture({ name: 'x', steps: 1 })],
     ['runReplayStep', (bridge) => bridge.runReplayStep(0 as ReplaySessionHandle)],
   ]);

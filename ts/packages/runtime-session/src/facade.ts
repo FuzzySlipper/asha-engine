@@ -123,6 +123,9 @@ import type {
   RuntimeSessionRestartResult,
 } from './facade-lifecycle.js';
 import type {
+  RuntimeSessionGameplayCheckpoint,
+  RuntimeSessionGameplayCheckpointRestoreReceipt,
+  RuntimeSessionGameplayCheckpointSaveReceipt,
   RuntimeSessionProjectCloseReceipt,
   RuntimeSessionProjectLoadInput,
   RuntimeSessionProjectLoadReceipt,
@@ -138,6 +141,10 @@ export interface RuntimeSessionFacade {
   initialize(input: RuntimeSessionInitializeInput): RuntimeSessionStateSummary;
   loadProject(input: RuntimeSessionProjectLoadInput): Promise<RuntimeSessionProjectLoadReceipt>;
   closeProject(): RuntimeSessionProjectCloseReceipt;
+  saveGameplayCheckpoint(): RuntimeSessionGameplayCheckpointSaveReceipt;
+  restoreGameplayCheckpoint(
+    checkpoint: RuntimeSessionGameplayCheckpoint,
+  ): RuntimeSessionGameplayCheckpointRestoreReceipt;
   configureInputSession(request: InputSessionConfigureRequest): InputSessionSnapshot;
   applyInputContextCommand(command: InputContextCommand): InputContextChangeReceipt;
   submitRawInput(sample: RawInputSample): InputResolutionReceipt;

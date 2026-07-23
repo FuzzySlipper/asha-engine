@@ -183,17 +183,46 @@ impl EngineBridge {
                     .reject_pending_runtime_project(RuntimeProjectLoadError::MissingAdmittedSource)
             }
         };
+        let retained_source = source.clone();
+        let gameplay_snapshot = self.runtime_project.pending_gameplay_snapshot.take();
         self.runtime_project.project_resource_staging.reset();
 
+        let restored_project_baseline = if gameplay_snapshot.is_some() {
+            let baseline_admission = gameplay_runtime_host::compile_runtime_project_admission(
+                source.clone(),
+                composition.clone(),
+            )
+            .map_err(RuntimeProjectLoadError::Admission)?;
+            let mut baseline_host =
+                gameplay_runtime_host::GameplayRuntimeHost::activate_validated_project(
+                    baseline_admission,
+                )
+                .map_err(RuntimeProjectLoadError::Activation)?;
+            let reset = baseline_host.checkpoint_reset_state();
+            let entities = baseline_host
+                .take_entity_authority()
+                .map_err(RuntimeProjectLoadError::Activation)?;
+            Some((reset, entities))
+        } else {
+            None
+        };
         let admission =
             gameplay_runtime_host::compile_runtime_project_admission(source, composition.clone())
                 .map_err(RuntimeProjectLoadError::Admission)?;
         let content_set_hash = admission.project_content_set_hash().to_owned();
         let composition_hash = admission.composition_registry_digest().to_owned();
         let scene_count = admission.scene_count() as u32;
-        let mut gameplay_host =
-            gameplay_runtime_host::GameplayRuntimeHost::activate_validated_project(admission)
-                .map_err(RuntimeProjectLoadError::Activation)?;
+        let mut gameplay_host = match gameplay_snapshot {
+            Some(snapshot) => {
+                gameplay_runtime_host::GameplayRuntimeHost::restore_validated_project(
+                    admission, &snapshot,
+                )
+            }
+            None => {
+                gameplay_runtime_host::GameplayRuntimeHost::activate_validated_project(admission)
+            }
+        }
+        .map_err(RuntimeProjectLoadError::Activation)?;
         let identity = gameplay_host
             .activated_project_identity()
             .expect("validated activation retains project identity")
@@ -272,12 +301,17 @@ impl EngineBridge {
             ));
         staged.scene.scene_document = Some(entry_scene.clone());
 
-        let reset_checkpoint = gameplay_host.checkpoint_reset_state();
         staged.scene.entities = gameplay_host
             .take_entity_authority()
             .map_err(RuntimeProjectLoadError::Activation)?;
+        let (reset_checkpoint, base_entities) = restored_project_baseline.unwrap_or_else(|| {
+            (
+                gameplay_host.checkpoint_reset_state(),
+                staged.scene.entities.clone(),
+            )
+        });
         let entity_count = staged.scene.entities.snapshot().records.len() as u32;
-        staged.gameplay.static_gameplay_base_entities = Some(staged.scene.entities.clone());
+        staged.gameplay.static_gameplay_base_entities = Some(base_entities);
         staged.gameplay.static_gameplay_reset_checkpoint = Some(reset_checkpoint);
         staged.gameplay.static_gameplay_host = Some(gameplay_host);
         if let Some(seed) = fps_seed {
@@ -378,6 +412,7 @@ impl EngineBridge {
             entity_count,
             voxel_asset_count: referenced_voxel_assets.len() as u32,
             voxel_bindings,
+            source: retained_source,
         };
         let receipt = RuntimeProjectActivationReceipt {
             project_id: active.project_id,
@@ -451,6 +486,7 @@ impl EngineBridge {
         error: RuntimeProjectLoadError,
     ) -> Result<T, RuntimeProjectLoadError> {
         self.runtime_project.pending_project_source = None;
+        self.runtime_project.pending_gameplay_snapshot = None;
         self.runtime_project.project_resource_staging.reset();
         Err(error)
     }

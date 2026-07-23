@@ -15,14 +15,13 @@ use protocol_game_extension::{
 use protocol_project_content::{
     AuthoredBehaviorArgumentDto, AuthoredBehaviorOperationDto, AuthoredBehaviorValueDto,
     ProjectContentDocumentDto, AUTHORED_BEHAVIOR_PACKAGE_SCHEMA_VERSION,
-    AUTHORED_PREDICATE_STATE_IS, AUTHORED_SIGNAL_COMBAT_ENTITY_DEFEATED,
-    AUTHORED_SIGNAL_PREFAB_PART_INTERACTED, AUTHORED_SIGNAL_TRIGGER_ENTERED,
-    AUTHORED_VERB_SET_CAPABILITY_ACTIVE, AUTHORED_VERB_SET_RELATIVE_TRANSLATION,
-    AUTHORED_VERB_TRANSITION_STATE,
+    AUTHORED_BEHAVIOR_VOCABULARY_VERSION, AUTHORED_PREDICATE_STATE_IS,
+    AUTHORED_SIGNAL_PREFAB_PART_INTERACTED, AUTHORED_VERB_SET_CAPABILITY_ACTIVE,
+    AUTHORED_VERB_SET_RELATIVE_TRANSLATION, AUTHORED_VERB_TRANSITION_STATE,
 };
 use rule_gameplay_fabric::{
-    gameplay_payload_hash, CombatGameplayPayload, GameplayOwnerEventContext,
-    PrefabPartInteractionGameplayPayload, StandardGameplayEventKind, TriggerOverlapGameplayPayload,
+    gameplay_payload_hash, GameplayOwnerEventContext, PrefabPartInteractionGameplayPayload,
+    StandardGameplayEventKind,
 };
 use rule_scheduler::{
     GameplayActionScheduler, GameplaySchedulerCommand, ScheduledActionId, ScheduledGameplayAction,
@@ -91,16 +90,40 @@ pub(crate) struct CompiledAuthoredTransition {
     pub to_state: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct CompiledAuthoredSignal {
+    pub semantic_id: String,
+    pub version: u32,
+    pub arguments: Vec<CompiledAuthoredSignalArgument>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct CompiledAuthoredSignalArgument {
+    pub name: String,
+    pub value: CompiledAuthoredValue,
+}
+
+/// Numeric/data-only lowering for the public typed value vocabulary. Signal
+/// families are deliberately not enum variants: a published adapter resolves
+/// one semantic id against these values at admission and event time.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub(crate) enum CompiledAuthoredSignal {
-    PrefabPartInteracted { instance: u64, role: String },
-    TriggerEntered { trigger: u64 },
-    CombatEntityDefeated { target: u64 },
+pub(crate) enum CompiledAuthoredValue {
+    Entity { entity: u64 },
+    PrefabPart { instance: u64, role: String },
+    StateMachine { machine_index: usize },
+    State { machine_index: usize, state: u64 },
+    Text { value: String },
+    Boolean { value: bool },
+    Integer { value: i64 },
+    Number { value: f64 },
+    Vector3 { value: [f32; 3] },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -268,12 +291,19 @@ pub(crate) fn compile_authored_program(
     for package in packages {
         let mut package_behaviors = package.behaviors.iter().collect::<Vec<_>>();
         package_behaviors.sort_by(|left, right| left.behavior_id.cmp(&right.behavior_id));
+        let signal_references = AuthoredSignalCompilationReferences {
+            package_id: &package.package_id,
+            entities: &entities,
+            prefab_instances: &prefab_instances,
+            machine_lookup: &machine_lookup,
+            machines: &machines,
+        };
         for behavior in package_behaviors {
             let signal = compile_signal(
                 &behavior.signal.signal.semantic_id,
+                behavior.signal.signal.version,
                 &behavior.signal.arguments,
-                &entities,
-                &prefab_instances,
+                &signal_references,
             )?;
             let predicates = behavior
                 .conditions
@@ -356,57 +386,101 @@ pub(crate) fn compile_authored_program(
     Ok(Some(program))
 }
 
+struct AuthoredSignalCompilationReferences<'a> {
+    package_id: &'a str,
+    entities: &'a BTreeMap<&'a str, &'a RuntimeProjectEntitySeed>,
+    prefab_instances: &'a BTreeMap<&'a str, u64>,
+    machine_lookup: &'a BTreeMap<(String, String), usize>,
+    machines: &'a [CompiledAuthoredMachine],
+}
+
 fn compile_signal(
     semantic_id: &str,
+    version: u32,
     arguments: &[AuthoredBehaviorArgumentDto],
-    entities: &BTreeMap<&str, &RuntimeProjectEntitySeed>,
-    prefab_instances: &BTreeMap<&str, u64>,
+    references: &AuthoredSignalCompilationReferences<'_>,
 ) -> Result<CompiledAuthoredSignal, String> {
-    match semantic_id {
-        AUTHORED_SIGNAL_PREFAB_PART_INTERACTED => {
-            let AuthoredBehaviorValueDto::PrefabPart {
-                scene_instance_id,
-                role,
-            } = argument(arguments, "part")?
-            else {
-                return Err("prefab-part signal has an invalid compiled value".to_owned());
-            };
-            Ok(CompiledAuthoredSignal::PrefabPartInteracted {
-                instance: *prefab_instances
-                    .get(scene_instance_id.as_str())
-                    .ok_or_else(|| "prefab-part signal instance was not materialized".to_owned())?,
-                role: role.clone(),
+    let adapter = authored_signal_adapter(semantic_id, version)
+        .ok_or_else(|| "unsupported authored signal reached compilation".to_owned())?;
+    let mut compiled_arguments = arguments
+        .iter()
+        .map(|source| {
+            Ok(CompiledAuthoredSignalArgument {
+                name: source.name.clone(),
+                value: compile_authored_value(&source.value, references)?,
             })
-        }
-        AUTHORED_SIGNAL_TRIGGER_ENTERED => {
-            let AuthoredBehaviorValueDto::SceneEntity { scene_instance_id } =
-                argument(arguments, "trigger")?
-            else {
-                return Err("trigger signal has an invalid compiled value".to_owned());
-            };
-            Ok(CompiledAuthoredSignal::TriggerEntered {
-                trigger: entities
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    compiled_arguments.sort_by(|left, right| left.name.cmp(&right.name));
+    let signal = CompiledAuthoredSignal {
+        semantic_id: semantic_id.to_owned(),
+        version,
+        arguments: compiled_arguments,
+    };
+    (adapter.validate_compiled)(&signal)?;
+    Ok(signal)
+}
+
+fn compile_authored_value(
+    value: &AuthoredBehaviorValueDto,
+    references: &AuthoredSignalCompilationReferences<'_>,
+) -> Result<CompiledAuthoredValue, String> {
+    match value {
+        AuthoredBehaviorValueDto::SceneEntity { scene_instance_id } => {
+            Ok(CompiledAuthoredValue::Entity {
+                entity: references
+                    .entities
                     .get(scene_instance_id.as_str())
-                    .ok_or_else(|| "trigger signal entity was not materialized".to_owned())?
+                    .ok_or_else(|| "authored signal entity was not materialized".to_owned())?
                     .entity
                     .raw(),
             })
         }
-        AUTHORED_SIGNAL_COMBAT_ENTITY_DEFEATED => {
-            let AuthoredBehaviorValueDto::SceneEntity { scene_instance_id } =
-                argument(arguments, "target")?
-            else {
-                return Err("combat signal has an invalid compiled value".to_owned());
-            };
-            Ok(CompiledAuthoredSignal::CombatEntityDefeated {
-                target: entities
-                    .get(scene_instance_id.as_str())
-                    .ok_or_else(|| "combat signal entity was not materialized".to_owned())?
-                    .entity
-                    .raw(),
+        AuthoredBehaviorValueDto::PrefabPart {
+            scene_instance_id,
+            role,
+        } => Ok(CompiledAuthoredValue::PrefabPart {
+            instance: *references
+                .prefab_instances
+                .get(scene_instance_id.as_str())
+                .ok_or_else(|| "prefab-part signal instance was not materialized".to_owned())?,
+            role: role.clone(),
+        }),
+        AuthoredBehaviorValueDto::StateMachine { machine_id } => {
+            Ok(CompiledAuthoredValue::StateMachine {
+                machine_index: resolve_machine(
+                    references.machine_lookup,
+                    references.package_id,
+                    machine_id,
+                )?,
             })
         }
-        _ => Err("unsupported authored signal reached compilation".to_owned()),
+        AuthoredBehaviorValueDto::State {
+            machine_id,
+            state_id,
+        } => {
+            let machine_index =
+                resolve_machine(references.machine_lookup, references.package_id, machine_id)?;
+            Ok(CompiledAuthoredValue::State {
+                machine_index,
+                state: resolve_machine_state(&references.machines[machine_index], state_id)?,
+            })
+        }
+        AuthoredBehaviorValueDto::Text { value } => Ok(CompiledAuthoredValue::Text {
+            value: value.clone(),
+        }),
+        AuthoredBehaviorValueDto::Boolean { value } => {
+            Ok(CompiledAuthoredValue::Boolean { value: *value })
+        }
+        AuthoredBehaviorValueDto::Integer { value } => {
+            Ok(CompiledAuthoredValue::Integer { value: *value })
+        }
+        AuthoredBehaviorValueDto::Number { value } => {
+            Ok(CompiledAuthoredValue::Number { value: *value })
+        }
+        AuthoredBehaviorValueDto::Vector3 { value } => {
+            Ok(CompiledAuthoredValue::Vector3 { value: *value })
+        }
     }
 }
 
@@ -616,6 +690,23 @@ impl AuthoredProgramRuntime {
 
     pub fn accepted_facts(&self) -> &[AuthorityOwnerFact] {
         &self.accepted_facts
+    }
+
+    /// Resolve the same admitted signal binding and live predicates used by
+    /// event reaction. The interaction query and submit paths both call this,
+    /// so an unhandled or currently ineligible prefab part cannot be presented
+    /// as actionable or accepted as a no-op.
+    pub fn prefab_interaction_is_eligible(&self, instance: u64, role: &str) -> bool {
+        self.plan
+            .behaviors
+            .iter()
+            .enumerate()
+            .any(|(behavior_index, behavior)| {
+                authored_signal_adapter(&behavior.signal.semantic_id, behavior.signal.version)
+                    .and_then(|adapter| adapter.prefab_interaction_matches)
+                    .is_some_and(|matches| matches(&behavior.signal, instance, role))
+                    && self.predicates_match(behavior_index)
+            })
     }
 
     pub fn validate_scheduler(&self, scheduler: &GameplayActionScheduler) -> Result<(), String> {
@@ -1083,26 +1174,88 @@ fn build_runtime_machines(
         .collect()
 }
 
+type AuthoredSignalCompiledValidator = fn(&CompiledAuthoredSignal) -> Result<(), String>;
+type AuthoredSignalEventMatcher = fn(&CompiledAuthoredSignal, &GameplayEventEnvelope) -> bool;
+type AuthoredPrefabInteractionMatcher = fn(&CompiledAuthoredSignal, u64, &str) -> bool;
+
+struct AuthoredSignalAdapter {
+    semantic_id: &'static str,
+    version: u32,
+    validate_compiled: AuthoredSignalCompiledValidator,
+    event_matches: AuthoredSignalEventMatcher,
+    prefab_interaction_matches: Option<AuthoredPrefabInteractionMatcher>,
+}
+
+fn authored_signal_adapters() -> &'static [AuthoredSignalAdapter] {
+    static ADAPTERS: [AuthoredSignalAdapter; 1] = [AuthoredSignalAdapter {
+        semantic_id: AUTHORED_SIGNAL_PREFAB_PART_INTERACTED,
+        version: AUTHORED_BEHAVIOR_VOCABULARY_VERSION,
+        validate_compiled: validate_compiled_prefab_part_interacted,
+        event_matches: prefab_part_interaction_event_matches,
+        prefab_interaction_matches: Some(prefab_part_interaction_target_matches),
+    }];
+    &ADAPTERS
+}
+
+fn authored_signal_adapter(
+    semantic_id: &str,
+    version: u32,
+) -> Option<&'static AuthoredSignalAdapter> {
+    authored_signal_adapters()
+        .iter()
+        .find(|adapter| adapter.semantic_id == semantic_id && adapter.version == version)
+}
+
 fn signal_matches(signal: &CompiledAuthoredSignal, event: &GameplayEventEnvelope) -> bool {
-    match signal {
-        CompiledAuthoredSignal::PrefabPartInteracted { instance, role }
-            if event.event == StandardGameplayEventKind::PrefabPartInteracted.contract() =>
-        {
-            serde_json::from_slice::<PrefabPartInteractionGameplayPayload>(&event.canonical_payload)
-                .is_ok_and(|payload| payload.instance == *instance && payload.role == *role)
-        }
-        CompiledAuthoredSignal::TriggerEntered { trigger }
-            if event.event == StandardGameplayEventKind::TriggerEntered.contract() =>
-        {
-            serde_json::from_slice::<TriggerOverlapGameplayPayload>(&event.canonical_payload)
-                .is_ok_and(|payload| payload.trigger == *trigger)
-        }
-        CompiledAuthoredSignal::CombatEntityDefeated { target }
-            if event.event == StandardGameplayEventKind::CombatEntityDefeated.contract() =>
-        {
-            serde_json::from_slice::<CombatGameplayPayload>(&event.canonical_payload)
-                .is_ok_and(|payload| payload.target == Some(*target) && payload.defeated)
-        }
-        _ => false,
+    authored_signal_adapter(&signal.semantic_id, signal.version)
+        .is_some_and(|adapter| (adapter.event_matches)(signal, event))
+}
+
+fn validate_compiled_prefab_part_interacted(signal: &CompiledAuthoredSignal) -> Result<(), String> {
+    if signal.arguments.len() == 1
+        && matches!(
+            compiled_signal_argument(signal, "part"),
+            Some(CompiledAuthoredValue::PrefabPart { .. })
+        )
+    {
+        Ok(())
+    } else {
+        Err("prefab-part signal has an invalid compiled value".to_owned())
     }
+}
+
+fn prefab_part_interaction_event_matches(
+    signal: &CompiledAuthoredSignal,
+    event: &GameplayEventEnvelope,
+) -> bool {
+    if event.event != StandardGameplayEventKind::PrefabPartInteracted.contract() {
+        return false;
+    }
+    serde_json::from_slice::<PrefabPartInteractionGameplayPayload>(&event.canonical_payload)
+        .is_ok_and(|payload| {
+            prefab_part_interaction_target_matches(signal, payload.instance, &payload.role)
+        })
+}
+
+fn prefab_part_interaction_target_matches(
+    signal: &CompiledAuthoredSignal,
+    candidate_instance: u64,
+    candidate_role: &str,
+) -> bool {
+    matches!(
+        compiled_signal_argument(signal, "part"),
+        Some(CompiledAuthoredValue::PrefabPart { instance, role })
+            if *instance == candidate_instance && role == candidate_role
+    )
+}
+
+fn compiled_signal_argument<'a>(
+    signal: &'a CompiledAuthoredSignal,
+    name: &str,
+) -> Option<&'a CompiledAuthoredValue> {
+    signal
+        .arguments
+        .iter()
+        .find(|argument| argument.name == name)
+        .map(|argument| &argument.value)
 }

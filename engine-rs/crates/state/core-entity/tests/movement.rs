@@ -106,7 +106,7 @@ fn movement_slides_along_a_blocked_axis() {
 }
 
 #[test]
-fn non_static_collider_does_not_block_other_movers() {
+fn non_static_collider_blocks_other_movers_without_becoming_immovable() {
     let mut store = EntityStore::new();
     let mover = movable(&mut store, 1, Vec3::ZERO);
     let actor = movable(&mut store, 2, Vec3::new(1.0, 0.0, 0.0));
@@ -118,13 +118,8 @@ fn non_static_collider_does_not_block_other_movers() {
         })
         .unwrap();
 
-    assert_eq!(
-        event.outcome,
-        MovementOutcome::Moved {
-            to: Vec3::new(1.0, 0.0, 0.0)
-        }
-    );
-    assert_eq!(event.hit, None);
+    assert_eq!(event.outcome, MovementOutcome::Blocked { at: Vec3::ZERO });
+    assert_eq!(event.hit, Some(actor));
     assert_eq!(
         store.transform(actor).unwrap().transform.translation,
         Vec3::new(1.0, 0.0, 0.0)

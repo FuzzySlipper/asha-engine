@@ -200,6 +200,9 @@ import type {
   RuntimeSessionTelemetrySummary,
   RuntimeSessionTickInput,
   RuntimeSessionTickResult,
+  RuntimeSessionGameplayCheckpoint,
+  RuntimeSessionGameplayCheckpointRestoreReceipt,
+  RuntimeSessionGameplayCheckpointSaveReceipt,
   RuntimeSessionProjectCloseReceipt,
   RuntimeSessionProjectLoadInput,
   RuntimeSessionProjectLoadReceipt,
@@ -277,6 +280,37 @@ export class RustBackedRuntimeSessionFacade implements RuntimeSessionFacade {
     }
     this.#progress.advanceSequence();
     this.#record('closeProject', receipt.closedManifestHash ?? undefined);
+    return receipt;
+  }
+
+  saveGameplayCheckpoint(): RuntimeSessionGameplayCheckpointSaveReceipt {
+    this.#requireInitialized('saveGameplayCheckpoint');
+    return this.#bridge.saveRuntimeProjectGameplayCheckpoint({
+      expectedLifecycle: this.#runtimeProjectLifecycle,
+    });
+  }
+
+  restoreGameplayCheckpoint(
+    checkpoint: RuntimeSessionGameplayCheckpoint,
+  ): RuntimeSessionGameplayCheckpointRestoreReceipt {
+    this.#requireInitialized('restoreGameplayCheckpoint');
+    const receipt = this.#bridge.restoreRuntimeProjectGameplayCheckpoint({
+      expectedLifecycle: this.#runtimeProjectLifecycle,
+      checkpoint,
+    });
+    this.#runtimeProjectLifecycle = receipt.lifecycle;
+    if (receipt.accepted) {
+      this.#progress.observeAuthorityTick(checkpoint.authorityTick);
+      const activeContent = this.#bridge.readActiveRuntimeProjectContent();
+      this.#ecrpProjectState = buildEcrpProjectStateFromCanonical(activeContent);
+      const hasFpsDomain = activeContent.activeDomains.some((domain) => domain.kind === 'fps');
+      this.#snapshot = hasFpsDomain
+        ? this.#bridge.readFpsRuntimeSession()
+        : null;
+      this.#runtimeTransforms = new Map();
+    }
+    this.#progress.advanceSequence();
+    this.#record('restoreGameplayCheckpoint', receipt.activeProject?.admissionHash);
     return receipt;
   }
 

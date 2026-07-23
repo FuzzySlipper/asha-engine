@@ -167,6 +167,48 @@ pub fn close_runtime_project(handle: i64, request_json: String) -> napi::Result<
     })
 }
 
+#[napi]
+pub fn save_runtime_project_gameplay_checkpoint(
+    handle: i64,
+    request_json: String,
+) -> napi::Result<String> {
+    let request = wire::parse_wire_json::<
+        runtime_bridge_api::RuntimeProjectGameplayCheckpointSaveRequest,
+    >("save_runtime_project_gameplay_checkpoint", &request_json)?;
+    with_bridge(handle, |bridge| {
+        let receipt = bridge
+            .save_runtime_project_gameplay_checkpoint(request)
+            .map_err(to_napi)?;
+        serde_json::to_string(&receipt).map_err(|error| {
+            to_napi(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::Internal,
+                format!("failed to serialize runtime project checkpoint: {error}"),
+            ))
+        })
+    })
+}
+
+#[napi]
+pub fn restore_runtime_project_gameplay_checkpoint(
+    handle: i64,
+    request_json: String,
+) -> napi::Result<String> {
+    let request = wire::parse_wire_json::<
+        runtime_bridge_api::RuntimeProjectGameplayCheckpointRestoreRequest,
+    >("restore_runtime_project_gameplay_checkpoint", &request_json)?;
+    with_bridge(handle, |bridge| {
+        let receipt = bridge
+            .restore_runtime_project_gameplay_checkpoint(request)
+            .map_err(to_napi)?;
+        serde_json::to_string(&receipt).map_err(|error| {
+            to_napi(RuntimeBridgeError::new(
+                RuntimeBridgeErrorKind::Internal,
+                format!("failed to serialize runtime project checkpoint restore: {error}"),
+            ))
+        })
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

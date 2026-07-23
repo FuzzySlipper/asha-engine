@@ -135,3 +135,38 @@ entity numbers, or provider codecs are not public consumer surfaces. Engine
 tests may use the generated raw batch to isolate source admission. Games must
 use `loadProject({ source })`. Explicit `closeProject()` is required before a
 future replacement load; the facade supplies lifecycle binding itself.
+
+## Saving and reopening gameplay state
+
+Stored project content and live gameplay state remain distinct. A normal game
+save asks the facade for an opaque Rust checkpoint and lets its trusted host
+choose where those bytes live:
+
+```ts
+const saved = runtimeSession.saveGameplayCheckpoint();
+if (!saved.accepted || saved.checkpoint === null) {
+  throw new Error(JSON.stringify(saved.diagnostics));
+}
+hostSaveSlot.write(JSON.stringify(saved.checkpoint));
+```
+
+On a later process or page lifetime, the game first opens the ordinary project
+source through `loadProject({ source })`, then restores the saved checkpoint:
+
+```ts
+const loaded = await runtimeSession.loadProject({ source });
+if (!loaded.accepted) throw new Error(JSON.stringify(loaded.diagnostics));
+
+const restored = runtimeSession.restoreGameplayCheckpoint(
+  JSON.parse(hostSaveSlot.read()),
+);
+if (!restored.accepted) throw new Error(JSON.stringify(restored.diagnostics));
+```
+
+The storage host may serialize the generated checkpoint but must not interpret
+it as an alternate content model. Rust validates its canonical hash and exact
+project, manifest, admission, content-set, composition, authority-tick, and
+time identities before rebuilding gameplay authority in staging. Rejection
+leaves the already-open project unchanged. Camera and renderer handles are
+process-local projection resources, so consumers restore before creating those
+handles rather than attempting to persist them.

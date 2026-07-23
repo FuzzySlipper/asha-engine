@@ -1175,8 +1175,8 @@ mod tests {
                 ]
               }}],
               "behaviors":[{{
-                "behaviorId":"trigger-opens-door",
-                "signal":{{"signal":{{"semanticId":"asha.signal.trigger-entered","version":1}},"arguments":[{{"name":"trigger","value":{{"kind":"sceneEntity","sceneInstanceId":"reference.trigger.instance"}}}}]}},
+                "behaviorId":"switch-opens-door",
+                "signal":{{"signal":{{"semanticId":"asha.signal.prefab-part-interacted","version":1}},"arguments":[{{"name":"part","value":{{"kind":"prefabPart","sceneInstanceId":"reference.console.blue","role":"interaction/body"}}}}]}},
                 "conditions":[{{"predicate":{{"semanticId":"asha.predicate.state-is","version":1}},"arguments":[{{"name":"state","value":{{"kind":"state","machineId":"door","stateId":"closed"}}}}]}}],
                 "steps":[
                   {{"stepId":"open-now","afterStepIds":[],"delayTicks":0,"operations":[

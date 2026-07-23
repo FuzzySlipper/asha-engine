@@ -64,7 +64,7 @@ pub(super) fn apply(
         }
     };
     let projection = bridge.collision_projection(world);
-    let (after_pose, blocked_axes) = EngineBridge::resolve_collision_camera_pose(
+    let (mut after_pose, mut blocked_axes) = EngineBridge::resolve_collision_camera_pose(
         &projection,
         before.pose,
         attempted.pose,
@@ -73,6 +73,41 @@ pub(super) fn apply(
     let collision_identity = projection.identity(world);
     let collision_projection_hash = collision_identity.projection_hash_label();
     let collision_source_hash = collision_identity.source_hash_hex();
+    if bridge.has_static_gameplay_runtime() && bridge.gameplay.fps_session.is_some() {
+        let player = bridge
+            .fps_session("apply_collision_constrained_camera_input")?
+            .role_entity(FpsRuntimeRole::Player)
+            .map_err(EngineBridge::fps_runtime_error)?;
+        let entity_delta = [
+            after_pose.position[0] - before.pose.position[0],
+            after_pose.position[1] - before.pose.position[1],
+            after_pose.position[2] - before.pose.position[2],
+        ];
+        let movement = bridge
+            .with_static_gameplay_runtime_at_tick(
+                "apply_collision_constrained_camera_input.entity_collision",
+                envelope.tick,
+                |host| host.move_actor_and_reconcile(player, entity_delta, envelope.tick),
+            )?
+            .expect("FPS project movement requires a static gameplay host");
+        let (entity_position, entity_blocked) = match movement.movement.outcome {
+            core_entity::MovementOutcome::Moved { to } => (to, [false; 3]),
+            core_entity::MovementOutcome::Slid { to, blocked } => (to, blocked),
+            core_entity::MovementOutcome::Blocked { at } => (
+                at,
+                entity_delta.map(|component| component.abs() > f32::EPSILON),
+            ),
+        };
+        after_pose.position = entity_position.to_array();
+        for (index, axis) in [CollisionAxis::X, CollisionAxis::Y, CollisionAxis::Z]
+            .into_iter()
+            .enumerate()
+        {
+            if entity_blocked[index] && !blocked_axes.contains(&axis) {
+                blocked_axes.push(axis);
+            }
+        }
+    }
     let after = CameraSnapshot {
         tick: envelope.tick,
         pose: after_pose,
@@ -91,29 +126,6 @@ pub(super) fn apply(
         .camera
         .camera_controllers
         .insert(envelope.camera.raw(), accepted_controller);
-    if bridge.has_static_gameplay_runtime() && bridge.gameplay.fps_session.is_some() {
-        let player = bridge
-            .fps_session("apply_collision_constrained_camera_input")?
-            .role_entity(FpsRuntimeRole::Player)
-            .map_err(EngineBridge::fps_runtime_error)?;
-        let entities_before = bridge.scene.entities.clone();
-        let gameplay_result = bridge.with_static_gameplay_runtime_at_tick(
-            "apply_collision_constrained_camera_input.trigger_reconciliation",
-            envelope.tick,
-            |host| {
-                host.set_actor_translation_and_reconcile(player, after.pose.position, envelope.tick)
-            },
-        );
-        if let Err(error) = gameplay_result {
-            bridge.scene.entities = entities_before;
-            bridge.camera.cameras.insert(envelope.camera.raw(), before);
-            bridge
-                .camera
-                .camera_controllers
-                .insert(envelope.camera.raw(), controller);
-            return Err(error);
-        }
-    }
     let (min, max) = EngineBridge::aabb_for_pose(after.pose, envelope.shape);
     let correction = [
         after.pose.position[0] - attempted.pose.position[0],

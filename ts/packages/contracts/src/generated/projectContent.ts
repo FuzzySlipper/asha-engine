@@ -25,10 +25,6 @@ export const AUTHORED_BEHAVIOR_VOCABULARY_HASH = "asha.authored-behavior.v1:type
 
 export const AUTHORED_SIGNAL_PREFAB_PART_INTERACTED = "asha.signal.prefab-part-interacted";
 
-export const AUTHORED_SIGNAL_TRIGGER_ENTERED = "asha.signal.trigger-entered";
-
-export const AUTHORED_SIGNAL_COMBAT_ENTITY_DEFEATED = "asha.signal.combat-entity-defeated";
-
 export const AUTHORED_PREDICATE_STATE_IS = "asha.predicate.state-is";
 
 export const AUTHORED_VERB_TRANSITION_STATE = "asha.verb.transition-state";

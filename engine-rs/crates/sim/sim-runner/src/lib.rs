@@ -96,6 +96,16 @@ impl TimeController {
         self.state
     }
 
+    /// Rehydrate a previously validated public RuntimeSession time state.
+    /// Authority callers must bind the accompanying tick and project snapshot
+    /// before publishing the restored controller.
+    pub fn restore(state: TimeControlState) -> Result<Self, TimeControlRejection> {
+        if state.speed_multiplier == 0 || state.speed_multiplier > MAX_TIME_SPEED_MULTIPLIER {
+            return Err(TimeControlRejection::InvalidSpeedMultiplier);
+        }
+        Ok(Self { state })
+    }
+
     /// Number of fixed ticks a wall-clock cadence pulse advances. Callers must
     /// execute this many ordinary fixed-tick pipeline iterations; they must not
     /// scale the fixed tick delta or treat the multiplier as metadata only.

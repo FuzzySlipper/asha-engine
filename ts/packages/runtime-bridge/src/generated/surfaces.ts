@@ -122,6 +122,8 @@ export interface RuntimeProjectLifecyclePort {
   loadRuntimeProject(input: Contracts.RuntimeProjectLoadRequest): Contracts.RuntimeProjectLoadReceipt;
   readActiveRuntimeProjectContent(): Contracts.ActiveRuntimeProjectContentReadout;
   closeRuntimeProject(input: Contracts.RuntimeProjectCloseRequest): Contracts.RuntimeProjectCloseReceipt;
+  saveRuntimeProjectGameplayCheckpoint(input: Contracts.RuntimeProjectGameplayCheckpointSaveRequest): Contracts.RuntimeProjectGameplayCheckpointSaveReceipt;
+  restoreRuntimeProjectGameplayCheckpoint(input: Contracts.RuntimeProjectGameplayCheckpointRestoreRequest): Contracts.RuntimeProjectGameplayCheckpointRestoreReceipt;
 }
 
 export interface RuntimeReplayEvidencePort {

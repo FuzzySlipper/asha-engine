@@ -92,6 +92,7 @@ export interface RuntimeSessionReplayRecord {
     | 'applyCollisionConstrainedCameraInput'
     | 'loadProject'
     | 'closeProject'
+    | 'restoreGameplayCheckpoint'
     | 'submitRuntimeActionIntent'
     | 'submitGameExtensionWeaponEffect'
     | 'validateGameRuleCatalog'

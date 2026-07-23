@@ -119,6 +119,37 @@ void test('[reference provider] loadProject uses one source-only call for develo
   }
 });
 
+void test('RuntimeSession owns lifecycle binding for gameplay checkpoint save and restore', async () => {
+  const session = createRuntimeSessionFacade({ bridge: createMockRuntimeBridge(), mode: 'rust' });
+  session.initialize({
+    sessionId: 'runtime-session.gameplay-checkpoint',
+    seed: 29,
+    project: { gameId: 'loader-fixture', workspaceId: 'workspace.loader' },
+  });
+  const loaded = await session.loadProject({
+    source: createMemoryAshaProjectSource('memory:checkpoint', projectFiles()),
+  });
+  assert.equal(loaded.accepted, true, JSON.stringify(loaded.diagnostics));
+
+  const saved = session.saveGameplayCheckpoint();
+  assert.equal(saved.accepted, true, JSON.stringify(saved.diagnostics));
+  assert.notEqual(saved.checkpoint, null);
+
+  const restored = session.restoreGameplayCheckpoint({
+    ...saved.checkpoint!,
+    authorityTick: 12,
+  });
+  assert.equal(restored.accepted, true, JSON.stringify(restored.diagnostics));
+  assert.equal(restored.lifecycle.generation, 2);
+
+  const advanced = session.tick();
+  assert.equal(advanced.tick, 13);
+
+  const savedAgain = session.saveGameplayCheckpoint();
+  assert.equal(savedAgain.accepted, true, JSON.stringify(savedAgain.diagnostics));
+  assert.deepEqual(savedAgain.lifecycle, restored.lifecycle);
+});
+
 void test('loadProject surfaces adapter failure without invoking runtime activation', async () => {
   const session = createRuntimeSessionFacade({ bridge: createMockRuntimeBridge(), mode: 'rust' });
   session.initialize({

@@ -4,9 +4,7 @@ import {
   AUTHORED_BEHAVIOR_VOCABULARY_HASH,
   AUTHORED_BEHAVIOR_VOCABULARY_VERSION,
   AUTHORED_PREDICATE_STATE_IS,
-  AUTHORED_SIGNAL_COMBAT_ENTITY_DEFEATED,
   AUTHORED_SIGNAL_PREFAB_PART_INTERACTED,
-  AUTHORED_SIGNAL_TRIGGER_ENTERED,
   AUTHORED_VERB_SET_CAPABILITY_ACTIVE,
   AUTHORED_VERB_SET_RELATIVE_TRANSLATION,
   AUTHORED_VERB_TRANSITION_STATE,
@@ -84,20 +82,6 @@ export const authoredBehavior = {
     return freeze({
       signal: semantic(AUTHORED_SIGNAL_PREFAB_PART_INTERACTED),
       arguments: freezeArray([argument('part', part)]),
-    });
-  },
-
-  triggerEntered(trigger: SceneEntityValue): AuthoredBehaviorSignal {
-    return freeze({
-      signal: semantic(AUTHORED_SIGNAL_TRIGGER_ENTERED),
-      arguments: freezeArray([argument('trigger', trigger)]),
-    });
-  },
-
-  combatEntityDefeated(target: SceneEntityValue): AuthoredBehaviorSignal {
-    return freeze({
-      signal: semantic(AUTHORED_SIGNAL_COMBAT_ENTITY_DEFEATED),
-      arguments: freezeArray([argument('target', target)]),
     });
   },
 

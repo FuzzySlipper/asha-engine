@@ -97,5 +97,7 @@ handwritten semantic exports. Quarantined compatibility wiring is explicit.
 | `load_runtime_project` | `runtime_project_lifecycle` | stable | `protocol_project_bundle::RuntimeProjectLoadRequest` | `protocol_project_bundle::RuntimeProjectLoadReceipt` | `RuntimeBridgeError` |
 | `read_active_runtime_project_content` | `runtime_project_lifecycle` | stable | `Unit` | `protocol_project_content::ActiveRuntimeProjectContentReadout` | `RuntimeBridgeError` |
 | `close_runtime_project` | `runtime_project_lifecycle` | stable | `protocol_project_bundle::RuntimeProjectCloseRequest` | `protocol_project_bundle::RuntimeProjectCloseReceipt` | `RuntimeBridgeError` |
+| `save_runtime_project_gameplay_checkpoint` | `runtime_project_lifecycle` | stable | `protocol_project_bundle::RuntimeProjectGameplayCheckpointSaveRequest` | `protocol_project_bundle::RuntimeProjectGameplayCheckpointSaveReceipt` | `RuntimeBridgeError` |
+| `restore_runtime_project_gameplay_checkpoint` | `runtime_project_lifecycle` | stable | `protocol_project_bundle::RuntimeProjectGameplayCheckpointRestoreRequest` | `protocol_project_bundle::RuntimeProjectGameplayCheckpointRestoreReceipt` | `RuntimeBridgeError` |
 | `load_replay_fixture` | `replay_evidence` | quarantined | `protocol_replay::ReplayFixture` | `ReplaySessionHandle` | `RuntimeBridgeError` |
 | `run_replay_step` | `replay_evidence` | quarantined | `ReplaySessionHandle` | `protocol_replay::ReplayStepReport` | `RuntimeBridgeError` |

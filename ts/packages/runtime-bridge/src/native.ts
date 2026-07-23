@@ -53,6 +53,10 @@ import type {
   ProjectSourceBatchValidationReceipt,
   RuntimeProjectCloseReceipt,
   RuntimeProjectCloseRequest,
+  RuntimeProjectGameplayCheckpointRestoreReceipt,
+  RuntimeProjectGameplayCheckpointRestoreRequest,
+  RuntimeProjectGameplayCheckpointSaveReceipt,
+  RuntimeProjectGameplayCheckpointSaveRequest,
   RuntimeProjectLoadReceipt,
   RuntimeProjectLoadRequest,
   RuntimeProjectSourceBatch,
@@ -751,6 +755,34 @@ export class NativeRuntimeBridge implements RuntimeBridge, WorkspaceAuthoringOpe
     return parseGeneratedOperationOutput<RuntimeProjectCloseReceipt>(
       'close_runtime_project',
       'projectBundle.RuntimeProjectCloseReceipt',
+      payload,
+    );
+  }
+
+  saveRuntimeProjectGameplayCheckpoint(
+    request: RuntimeProjectGameplayCheckpointSaveRequest,
+  ): RuntimeProjectGameplayCheckpointSaveReceipt {
+    const handle = this.#requireHandle('saveRuntimeProjectGameplayCheckpoint');
+    const payload = callNative(() =>
+      this.#addon.saveRuntimeProjectGameplayCheckpoint(handle, JSON.stringify(request)),
+    );
+    return parseGeneratedOperationOutput<RuntimeProjectGameplayCheckpointSaveReceipt>(
+      'save_runtime_project_gameplay_checkpoint',
+      'projectBundle.RuntimeProjectGameplayCheckpointSaveReceipt',
+      payload,
+    );
+  }
+
+  restoreRuntimeProjectGameplayCheckpoint(
+    request: RuntimeProjectGameplayCheckpointRestoreRequest,
+  ): RuntimeProjectGameplayCheckpointRestoreReceipt {
+    const handle = this.#requireHandle('restoreRuntimeProjectGameplayCheckpoint');
+    const payload = callNative(() =>
+      this.#addon.restoreRuntimeProjectGameplayCheckpoint(handle, JSON.stringify(request)),
+    );
+    return parseGeneratedOperationOutput<RuntimeProjectGameplayCheckpointRestoreReceipt>(
+      'restore_runtime_project_gameplay_checkpoint',
+      'projectBundle.RuntimeProjectGameplayCheckpointRestoreReceipt',
       payload,
     );
   }

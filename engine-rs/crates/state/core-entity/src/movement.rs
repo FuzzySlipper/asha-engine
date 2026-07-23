@@ -526,12 +526,9 @@ impl EntityStore {
             if id == mover || !core.lifecycle.is_alive() {
                 continue;
             }
-            let Some(collision) = self.active_collision(id) else {
+            let Some(_collision) = self.active_collision(id) else {
                 continue; // rendered-but-non-colliding entities are not obstacles
             };
-            if !collision.static_collider {
-                continue; // dynamic actors are movers/targets, not level geometry
-            }
             let Some(bounds) = self.bounds(id) else {
                 continue; // a collider with no bounds occupies no space here
             };

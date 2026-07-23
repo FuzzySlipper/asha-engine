@@ -301,6 +301,49 @@ export interface RuntimeProjectCloseReceipt {
   readonly diagnostics: readonly RuntimeProjectDiagnostic[];
 }
 
+export const RUNTIME_PROJECT_GAMEPLAY_CHECKPOINT_SCHEMA_VERSION = 1;
+
+export type RuntimeProjectCheckpointTimeMode = 'paused' | 'running';
+
+// Portable authoritative gameplay state for one exact admitted project. Stored project sources remain separate and must be reopened normally before this checkpoint can be restored.
+export interface RuntimeProjectGameplayCheckpoint {
+  readonly schemaVersion: number;
+  readonly projectId: number;
+  readonly manifestHash: string;
+  readonly admissionHash: string;
+  readonly contentSetHash: string;
+  readonly compositionHash: string;
+  readonly authorityTick: number;
+  readonly timeMode: RuntimeProjectCheckpointTimeMode;
+  readonly speedMultiplier: number;
+  readonly timeRevision: number;
+  readonly gameplaySnapshot: string;
+  readonly checkpointHash: string;
+}
+
+export interface RuntimeProjectGameplayCheckpointSaveRequest {
+  readonly expectedLifecycle: RuntimeProjectLifecycleVersion;
+}
+
+export interface RuntimeProjectGameplayCheckpointSaveReceipt {
+  readonly accepted: boolean;
+  readonly checkpoint: RuntimeProjectGameplayCheckpoint | null;
+  readonly lifecycle: RuntimeProjectLifecycleVersion;
+  readonly diagnostics: readonly RuntimeProjectDiagnostic[];
+}
+
+export interface RuntimeProjectGameplayCheckpointRestoreRequest {
+  readonly expectedLifecycle: RuntimeProjectLifecycleVersion;
+  readonly checkpoint: RuntimeProjectGameplayCheckpoint;
+}
+
+export interface RuntimeProjectGameplayCheckpointRestoreReceipt {
+  readonly accepted: boolean;
+  readonly activeProject: ActiveRuntimeProjectIdentity | null;
+  readonly lifecycle: RuntimeProjectLifecycleVersion;
+  readonly diagnostics: readonly RuntimeProjectDiagnostic[];
+}
+
 // Exact stored state used on both sides of the host transaction handshake.
 export interface ProjectStoreIdentity {
   readonly revision: number;

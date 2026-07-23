@@ -95,6 +95,8 @@ const GENERATED_NATIVE_ADDON_EXPORT_NAMES = [
   'loadRuntimeProject',
   'readActiveRuntimeProjectContent',
   'closeRuntimeProject',
+  'saveRuntimeProjectGameplayCheckpoint',
+  'restoreRuntimeProjectGameplayCheckpoint',
 ] as const;
 
 export type GeneratedNativeAddonExport = (typeof GENERATED_NATIVE_ADDON_EXPORT_NAMES)[number];

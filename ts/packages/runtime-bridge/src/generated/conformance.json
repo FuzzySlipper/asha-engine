@@ -204,7 +204,9 @@
         "admit_runtime_project_source_batch",
         "load_runtime_project",
         "read_active_runtime_project_content",
-        "close_runtime_project"
+        "close_runtime_project",
+        "save_runtime_project_gameplay_checkpoint",
+        "restore_runtime_project_gameplay_checkpoint"
       ]
     },
     {
@@ -2403,6 +2405,54 @@
       "outputWire": {
         "owner": "generated",
         "name": "projectBundle.RuntimeProjectCloseReceipt",
+        "repeated": false
+      },
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "save_runtime_project_gameplay_checkpoint",
+      "facadeMethod": "saveRuntimeProjectGameplayCheckpoint",
+      "capability": "runtime_project_lifecycle",
+      "surface": "stable",
+      "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
+      "input": "protocol_project_bundle::RuntimeProjectGameplayCheckpointSaveRequest",
+      "output": "protocol_project_bundle::RuntimeProjectGameplayCheckpointSaveReceipt",
+      "facadeInput": null,
+      "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "projectBundle.RuntimeProjectGameplayCheckpointSaveRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "projectBundle.RuntimeProjectGameplayCheckpointSaveReceipt",
+        "repeated": false
+      },
+      "errors": "RuntimeBridgeError"
+    },
+    {
+      "manifestName": "restore_runtime_project_gameplay_checkpoint",
+      "facadeMethod": "restoreRuntimeProjectGameplayCheckpoint",
+      "capability": "runtime_project_lifecycle",
+      "surface": "stable",
+      "nativeWired": true,
+      "maxInputBytes": 8388608,
+      "maxOutputBytes": 8388608,
+      "input": "protocol_project_bundle::RuntimeProjectGameplayCheckpointRestoreRequest",
+      "output": "protocol_project_bundle::RuntimeProjectGameplayCheckpointRestoreReceipt",
+      "facadeInput": null,
+      "facadeOutput": null,
+      "inputWire": {
+        "owner": "generated",
+        "name": "projectBundle.RuntimeProjectGameplayCheckpointRestoreRequest",
+        "repeated": false
+      },
+      "outputWire": {
+        "owner": "generated",
+        "name": "projectBundle.RuntimeProjectGameplayCheckpointRestoreReceipt",
         "repeated": false
       },
       "errors": "RuntimeBridgeError"

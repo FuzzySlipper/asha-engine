@@ -104,6 +104,7 @@ pub use project_content::{
 pub use project_source::{
     admit_runtime_project_source_batch, begin_runtime_project_source_resources,
     close_runtime_project, load_runtime_project, read_active_runtime_project_content,
+    restore_runtime_project_gameplay_checkpoint, save_runtime_project_gameplay_checkpoint,
     stage_runtime_project_source_resource, NativeProjectResourceTransaction,
     NativeStagedProjectResource,
 };

@@ -1,4 +1,7 @@
 import type {
+  RuntimeProjectGameplayCheckpoint,
+  RuntimeProjectGameplayCheckpointRestoreReceipt,
+  RuntimeProjectGameplayCheckpointSaveReceipt,
   RuntimeProjectCloseReceipt,
   RuntimeProjectLoadReceipt,
 } from '@asha/contracts';
@@ -21,3 +24,6 @@ export interface RuntimeSessionProjectLoadInput {
 
 export type RuntimeSessionProjectLoadReceipt = RuntimeProjectLoadReceipt;
 export type RuntimeSessionProjectCloseReceipt = RuntimeProjectCloseReceipt;
+export type RuntimeSessionGameplayCheckpoint = RuntimeProjectGameplayCheckpoint;
+export type RuntimeSessionGameplayCheckpointSaveReceipt = RuntimeProjectGameplayCheckpointSaveReceipt;
+export type RuntimeSessionGameplayCheckpointRestoreReceipt = RuntimeProjectGameplayCheckpointRestoreReceipt;

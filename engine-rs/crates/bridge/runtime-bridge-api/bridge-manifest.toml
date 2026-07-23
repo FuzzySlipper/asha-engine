@@ -131,7 +131,7 @@ initialization = "createsEngine"
 runtime_project = "ownsProjectLifecycle"
 snapshot_hash = "activeProjectContent"
 resource_lifetime = "session"
-operations = ["initialize_engine", "begin_runtime_project_source_resources", "stage_runtime_project_source_resource", "admit_runtime_project_source_batch", "load_runtime_project", "read_active_runtime_project_content", "close_runtime_project"]
+operations = ["initialize_engine", "begin_runtime_project_source_resources", "stage_runtime_project_source_resource", "admit_runtime_project_source_batch", "load_runtime_project", "read_active_runtime_project_content", "close_runtime_project", "save_runtime_project_gameplay_checkpoint", "restore_runtime_project_gameplay_checkpoint"]
 
 [[capability]]
 id = "replay_evidence"
@@ -922,6 +922,22 @@ input = "protocol_project_bundle::RuntimeProjectCloseRequest"
 output = "protocol_project_bundle::RuntimeProjectCloseReceipt"
 errors = "RuntimeBridgeError"
 summary = "Close exactly the lifecycle-bound active runtime project without inferring replacement or accepting stale authority."
+
+[[operation]]
+name = "save_runtime_project_gameplay_checkpoint"
+surface = "stable"
+input = "protocol_project_bundle::RuntimeProjectGameplayCheckpointSaveRequest"
+output = "protocol_project_bundle::RuntimeProjectGameplayCheckpointSaveReceipt"
+errors = "RuntimeBridgeError"
+summary = "Save Rust-authoritative gameplay and time state bound to the exact active project; stored sources remain separate."
+
+[[operation]]
+name = "restore_runtime_project_gameplay_checkpoint"
+surface = "stable"
+input = "protocol_project_bundle::RuntimeProjectGameplayCheckpointRestoreRequest"
+output = "protocol_project_bundle::RuntimeProjectGameplayCheckpointRestoreReceipt"
+errors = "RuntimeBridgeError"
+summary = "Rebuild the normally opened matching project from a validated Rust gameplay checkpoint."
 
 
 # ── Replay surface (quarantined: tests/devtools/CI only) ─────────────────────

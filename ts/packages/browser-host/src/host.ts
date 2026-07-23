@@ -472,7 +472,10 @@ async function handleRuntimeBridgeInvocation(
       : await readInvocationBody(request);
     const method = bridge[methodName] as (...args: readonly unknown[]) => unknown;
     const result = Reflect.apply(method, bridge, invocation.args ?? []);
-    if (methodName === 'loadRuntimeProject') {
+    if (
+      methodName === 'loadRuntimeProject'
+      || methodName === 'restoreRuntimeProjectGameplayCheckpoint'
+    ) {
       const acceptedLifecycle = acceptedRuntimeProjectLifecycle(result);
       if (acceptedLifecycle !== null) {
         entry.runtimeProjectLifecycle = acceptedLifecycle;

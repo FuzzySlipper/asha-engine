@@ -1411,8 +1411,8 @@ fn map_project_diagnostic(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::GameplayRuntimeHost;
-    use core_ids::{ProjectId, SceneId, SceneNodeId};
+    use crate::{GameplayRuntimeHost, GameplayRuntimePrefabInteractionIntent};
+    use core_ids::{PrefabId, PrefabPartId, ProjectId, SceneId, SceneNodeId};
     use core_scene::{
         FlatSceneDocument, NodeMetadata, SceneEntityInstance, SceneEntityReference, SceneMetadata,
         SceneNodeKind, SceneNodeRecord, SceneTransform,
@@ -1423,7 +1423,8 @@ mod tests {
         EntityDefinitionSourceTrace,
     };
     use protocol_project_bundle::{
-        GameplayTriggerDefinition, GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION,
+        PrefabDefinition, PrefabPart, PrefabPartRoleBinding, PrefabPartSource, PrefabRegistry,
+        PrefabTransform, PREFAB_DEFINITION_SCHEMA_VERSION, PREFAB_REGISTRY_SCHEMA_VERSION,
     };
     use protocol_project_content::{
         AuthoredBehaviorArgumentDto, AuthoredBehaviorConditionDto, AuthoredBehaviorDefinitionDto,
@@ -1431,11 +1432,11 @@ mod tests {
         AuthoredBehaviorSemanticRefDto, AuthoredBehaviorSignalDto, AuthoredBehaviorStateDto,
         AuthoredBehaviorStateMachineDto, AuthoredBehaviorStepDto, AuthoredBehaviorTransitionDto,
         AuthoredBehaviorValueDto, ProjectContentDecodeRequestDto, ProjectContentDocumentKind,
-        ProjectContentSourceDto, ProjectGameplayConfigurationDocumentDto,
-        AUTHORED_BEHAVIOR_PACKAGE_SCHEMA_VERSION, AUTHORED_BEHAVIOR_VOCABULARY_HASH,
-        AUTHORED_BEHAVIOR_VOCABULARY_VERSION, AUTHORED_PREDICATE_STATE_IS,
-        AUTHORED_SIGNAL_TRIGGER_ENTERED, AUTHORED_VERB_SET_CAPABILITY_ACTIVE,
-        AUTHORED_VERB_SET_RELATIVE_TRANSLATION, AUTHORED_VERB_TRANSITION_STATE,
+        ProjectContentSourceDto, AUTHORED_BEHAVIOR_PACKAGE_SCHEMA_VERSION,
+        AUTHORED_BEHAVIOR_VOCABULARY_HASH, AUTHORED_BEHAVIOR_VOCABULARY_VERSION,
+        AUTHORED_PREDICATE_STATE_IS, AUTHORED_SIGNAL_PREFAB_PART_INTERACTED,
+        AUTHORED_VERB_SET_CAPABILITY_ACTIVE, AUTHORED_VERB_SET_RELATIVE_TRANSLATION,
+        AUTHORED_VERB_TRANSITION_STATE,
     };
     use rule_gameplay_fabric::StandardGameplayEventKind;
     use svc_project_content::{decode_project_content, EmptyProjectContentGameplayAdmission};
@@ -1503,12 +1504,25 @@ mod tests {
             };
         scene.nodes = vec![
             instance(1, "fixture.door.instance", "fixture.door", [0.0, 0.0, 5.0]),
-            instance(
-                2,
-                "fixture.trigger.instance",
-                "fixture.trigger",
-                [10.0, 0.0, 0.0],
-            ),
+            SceneNodeRecord {
+                id: SceneNodeId::new(2),
+                parent: None,
+                child_order: 2,
+                transform: SceneTransform {
+                    translation: core_math::Vec3::new(2.0, 0.0, 0.0),
+                    ..SceneTransform::IDENTITY
+                },
+                kind: SceneNodeKind::EntityInstance(SceneEntityInstance {
+                    instance_id: "fixture.switch.instance".to_owned(),
+                    reference: SceneEntityReference::Prefab {
+                        prefab_id: 70,
+                        variant_id: None,
+                        instantiation_seed: 6088,
+                    },
+                    spawn_marker_id: None,
+                }),
+                metadata: NodeMetadata::default(),
+            },
             instance(
                 3,
                 "fixture.actor.instance",
@@ -1610,20 +1624,35 @@ mod tests {
         };
         vec![
             spatial_entity_document("fixture.door"),
-            spatial_entity_document("fixture.trigger"),
+            spatial_entity_document("fixture.switch"),
             spatial_entity_document("fixture.actor"),
-            ProjectContentDocumentDto::GameplayConfiguration {
-                document_id: "gameplay/triggers.json".to_owned(),
-                document: ProjectGameplayConfigurationDocumentDto {
-                    schema_version: 1,
-                    configurations: Vec::new(),
-                    bindings: Vec::new(),
-                    overrides: Vec::new(),
-                    triggers: vec![GameplayTriggerDefinition {
-                        schema_version: GAMEPLAY_TRIGGER_DEFINITION_SCHEMA_VERSION,
-                        scene_instance_id: "fixture.trigger.instance".to_owned(),
-                        scope: "fixture.door-switch".to_owned(),
-                        tags: vec!["door-switch".to_owned()],
+            ProjectContentDocumentDto::PrefabRegistry {
+                document_id: "prefabs/switch.json".to_owned(),
+                registry: PrefabRegistry {
+                    schema_version: PREFAB_REGISTRY_SCHEMA_VERSION,
+                    definitions: vec![PrefabDefinition {
+                        id: PrefabId::new(70),
+                        schema_version: PREFAB_DEFINITION_SCHEMA_VERSION,
+                        display_name: "Fixture switch".to_owned(),
+                        parts: vec![PrefabPart {
+                            id: PrefabPartId::new(1),
+                            namespace: "switch".to_owned(),
+                            display_name: "Switch".to_owned(),
+                            parent: None,
+                            transform: PrefabTransform {
+                                translation: [0.0, 0.0, 0.0],
+                                rotation: [0.0, 0.0, 0.0, 1.0],
+                                scale: [1.0, 1.0, 1.0],
+                            },
+                            source: PrefabPartSource::EntityDefinition {
+                                stable_id: "fixture.switch".to_owned(),
+                            },
+                        }],
+                        part_roles: vec![PrefabPartRoleBinding {
+                            role: "interaction/switch".to_owned(),
+                            part: PrefabPartId::new(1),
+                        }],
+                        variant: None,
                     }],
                 },
             },
@@ -1666,13 +1695,14 @@ mod tests {
                         ],
                     }],
                     behaviors: vec![AuthoredBehaviorDefinitionDto {
-                        behavior_id: "trigger-opens-door".to_owned(),
+                        behavior_id: "switch-opens-door".to_owned(),
                         signal: AuthoredBehaviorSignalDto {
-                            signal: semantic(AUTHORED_SIGNAL_TRIGGER_ENTERED),
+                            signal: semantic(AUTHORED_SIGNAL_PREFAB_PART_INTERACTED),
                             arguments: vec![argument(
-                                "trigger",
-                                AuthoredBehaviorValueDto::SceneEntity {
-                                    scene_instance_id: "fixture.trigger.instance".to_owned(),
+                                "part",
+                                AuthoredBehaviorValueDto::PrefabPart {
+                                    scene_instance_id: "fixture.switch.instance".to_owned(),
+                                    role: "interaction/switch".to_owned(),
                                 },
                             )],
                         },
@@ -2295,43 +2325,34 @@ mod tests {
 
         let mut host = GameplayRuntimeHost::activate_validated_project(admission)
             .expect("validated behavior project activation");
+        let interaction = GameplayRuntimePrefabInteractionIntent {
+            actor,
+            role: "interaction/switch".to_owned(),
+            max_distance_millimeters: 3_000,
+            tick: 1,
+        };
+        assert!(host
+            .resolve_prefab_part_interaction_target(&interaction)
+            .expect("closed door interaction query")
+            .is_some());
         let receipt = host
-            .set_actor_translation_and_reconcile(actor, [10.0, 0.0, 0.0], 1)
-            .expect("entering the authored trigger executes the package");
-        assert!(receipt
-            .gameplay_events
-            .iter()
-            .any(|event| event.event == StandardGameplayEventKind::TriggerEntered.contract()));
-        assert!(
-            receipt
-                .reactions
-                .iter()
-                .all(|reaction| reaction.observe.accepted()),
-            "{:?}",
-            receipt
-                .reactions
-                .iter()
-                .flat_map(|reaction| reaction.observe.diagnostics.iter())
-                .collect::<Vec<_>>()
+            .interact_with_prefab_part(interaction.clone())
+            .expect("eligible authored switch interaction executes the package");
+        assert_eq!(
+            receipt.event.event,
+            StandardGameplayEventKind::PrefabPartInteracted.contract()
         );
-        assert!(
-            receipt
-                .reactions
-                .iter()
-                .flat_map(|reaction| reaction.observe.routing.iter())
-                .all(|routing| routing.accepted),
-            "invocations={:?} routing={:?}",
-            receipt
-                .reactions
-                .iter()
-                .flat_map(|reaction| reaction.observe.invocations.iter())
-                .collect::<Vec<_>>(),
-            receipt
-                .reactions
-                .iter()
-                .flat_map(|reaction| reaction.observe.routing.iter())
-                .collect::<Vec<_>>()
-        );
+        assert!(host
+            .resolve_prefab_part_interaction_target(&interaction)
+            .expect("open door interaction query")
+            .is_none());
+        let open_hash = host.readout().runtime_host_hash;
+        assert!(host
+            .interact_with_prefab_part(interaction.clone())
+            .expect_err("open-state predicate must reject a repeat interaction")
+            .to_string()
+            .contains("no eligible authored prefab role"));
+        assert_eq!(host.readout().runtime_host_hash, open_hash);
         assert_eq!(
             host.authored_program
                 .as_ref()
@@ -2392,6 +2413,21 @@ mod tests {
             1,
             "an occupied door must retain its Rust-owned continuation"
         );
+        let triggered_snapshot = restored
+            .compose_snapshot()
+            .expect("snapshot with triggered authored continuation");
+        let triggered_restore_composition = authored_behavior_composition();
+        let triggered_restore_admission = compile_runtime_project_admission(
+            authored_behavior_batch(&scene, &triggered_restore_composition),
+            triggered_restore_composition,
+        )
+        .expect("fresh admission for triggered continuation");
+        let mut restored = GameplayRuntimeHost::restore_validated_project(
+            triggered_restore_admission,
+            &triggered_snapshot.text,
+        )
+        .expect("fresh-process restore retains a triggered authored continuation");
+        assert_eq!(restored.scheduler_readout().outstanding_dispatch_count, 1);
         let occupied_entities = restored
             .take_entity_authority()
             .expect("occupied authority");

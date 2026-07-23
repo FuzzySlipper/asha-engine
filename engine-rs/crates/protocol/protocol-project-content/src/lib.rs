@@ -24,8 +24,6 @@ pub const AUTHORED_BEHAVIOR_VOCABULARY_VERSION: u32 = 1;
 pub const AUTHORED_BEHAVIOR_VOCABULARY_HASH: &str =
     "asha.authored-behavior.v1:typed-semantic-refs;symbolic-state;direct-owner-verbs";
 pub const AUTHORED_SIGNAL_PREFAB_PART_INTERACTED: &str = "asha.signal.prefab-part-interacted";
-pub const AUTHORED_SIGNAL_TRIGGER_ENTERED: &str = "asha.signal.trigger-entered";
-pub const AUTHORED_SIGNAL_COMBAT_ENTITY_DEFEATED: &str = "asha.signal.combat-entity-defeated";
 pub const AUTHORED_PREDICATE_STATE_IS: &str = "asha.predicate.state-is";
 pub const AUTHORED_VERB_TRANSITION_STATE: &str = "asha.verb.transition-state";
 pub const AUTHORED_VERB_SET_RELATIVE_TRANSLATION: &str = "asha.verb.set-relative-translation";

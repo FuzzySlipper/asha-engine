@@ -183,17 +183,6 @@ fn validate_authored_behaviors(
             );
         }
 
-        let trigger_instances = documents
-            .iter()
-            .filter_map(|content| match content {
-                ProjectContentDocumentDto::GameplayConfiguration { document, .. } => {
-                    Some(document.triggers.iter())
-                }
-                _ => None,
-            })
-            .flatten()
-            .map(|trigger| trigger.scene_instance_id.as_str())
-            .collect::<BTreeSet<_>>();
         let mut behavior_ids = BTreeSet::new();
         for (behavior_index, behavior) in package.behaviors.iter().enumerate() {
             let path = format!("package.behaviors[{behavior_index}]");
@@ -218,7 +207,6 @@ fn validate_authored_behaviors(
                 &behavior.signal,
                 index,
                 entry_scene_id,
-                &trigger_instances,
                 diagnostics,
             );
             validate_authored_sequence(
@@ -348,7 +336,6 @@ fn validate_authored_signal(
     signal: &AuthoredBehaviorSignalDto,
     index: &ReferenceIndex<'_>,
     entry_scene_id: Option<SceneId>,
-    trigger_instances: &BTreeSet<&str>,
     diagnostics: &mut Vec<ProjectContentDiagnosticDto>,
 ) {
     if signal.arguments.len()
@@ -365,98 +352,95 @@ fn validate_authored_signal(
         );
         return;
     }
-    match signal.signal.semantic_id.as_str() {
-        AUTHORED_SIGNAL_PREFAB_PART_INTERACTED => {
-            let Some(AuthoredBehaviorValueDto::PrefabPart {
-                scene_instance_id,
-                role,
-            }) = authored_argument(&signal.arguments, "part")
-            else {
-                push(
-                    diagnostics,
-                    ProjectContentDiagnosticCode::InvalidField,
-                    Some(document_id),
-                    &format!("{path}.signal.arguments"),
-                    "prefab-part-interacted requires one typed `part` argument",
-                );
-                return;
-            };
-            if signal.arguments.len() != 1
-                || !matches!(
-                    index.scene_instances.get(scene_instance_id),
-                    Some(SceneInstanceReference::Prefab {
-                        scene_id,
-                        prefab_id,
-                    }) if Some(*scene_id) == entry_scene_id
-                        && index
-                            .prefabs
-                            .get(prefab_id)
-                            .is_some_and(|roles| roles.contains(role))
-                )
-            {
-                push(
-                    diagnostics,
-                    ProjectContentDiagnosticCode::UnknownReference,
-                    Some(document_id),
-                    &format!("{path}.signal"),
-                    "prefab interaction signal must resolve an instantiated prefab part role",
-                );
-            }
-        }
-        AUTHORED_SIGNAL_TRIGGER_ENTERED => {
-            let Some(AuthoredBehaviorValueDto::SceneEntity { scene_instance_id }) =
-                authored_argument(&signal.arguments, "trigger")
-            else {
-                push(
-                    diagnostics,
-                    ProjectContentDiagnosticCode::InvalidField,
-                    Some(document_id),
-                    &format!("{path}.signal.arguments"),
-                    "trigger-entered requires one typed `trigger` argument",
-                );
-                return;
-            };
-            let in_entry_scene = matches!(
-                index.scene_instances.get(scene_instance_id),
-                Some(SceneInstanceReference::EntityDefinition { scene_id, .. })
-                    if Some(*scene_id) == entry_scene_id
-            );
-            if signal.arguments.len() != 1
-                || !in_entry_scene
-                || !trigger_instances.contains(scene_instance_id.as_str())
-            {
-                push(
-                    diagnostics,
-                    ProjectContentDiagnosticCode::UnknownReference,
-                    Some(document_id),
-                    &format!("{path}.signal"),
-                    "trigger-entered signal must reference an admitted entry-scene trigger definition",
-                );
-            }
-        }
-        AUTHORED_SIGNAL_COMBAT_ENTITY_DEFEATED => {
-            let valid = matches!(
-                authored_argument(&signal.arguments, "target"),
-                Some(AuthoredBehaviorValueDto::SceneEntity { scene_instance_id })
-                    if entry_scene_entity(index, scene_instance_id, entry_scene_id)
-            );
-            if signal.arguments.len() != 1 || !valid {
-                push(
-                    diagnostics,
-                    ProjectContentDiagnosticCode::UnknownReference,
-                    Some(document_id),
-                    &format!("{path}.signal"),
-                    "combat-entity-defeated requires one entry-scene entity `target`",
-                );
-            }
-        }
-        _ => push(
+    let Some(descriptor) = authored_signal_descriptors().iter().find(|descriptor| {
+        descriptor.semantic_id == signal.signal.semantic_id
+            && descriptor.version == signal.signal.version
+    }) else {
+        push(
             diagnostics,
             ProjectContentDiagnosticCode::UnknownReference,
             Some(document_id),
             &format!("{path}.signal.signal.semanticId"),
             "signal semantic id is not published by the Rust authored-program catalog",
-        ),
+        );
+        return;
+    };
+    (descriptor.validate)(
+        document_id,
+        path,
+        signal,
+        index,
+        entry_scene_id,
+        diagnostics,
+    );
+}
+
+type AuthoredSignalValidator = fn(
+    &str,
+    &str,
+    &AuthoredBehaviorSignalDto,
+    &ReferenceIndex<'_>,
+    Option<SceneId>,
+    &mut Vec<ProjectContentDiagnosticDto>,
+);
+
+struct AuthoredSignalDescriptor {
+    semantic_id: &'static str,
+    version: u32,
+    validate: AuthoredSignalValidator,
+}
+
+fn authored_signal_descriptors() -> &'static [AuthoredSignalDescriptor] {
+    static DESCRIPTORS: [AuthoredSignalDescriptor; 1] = [AuthoredSignalDescriptor {
+        semantic_id: AUTHORED_SIGNAL_PREFAB_PART_INTERACTED,
+        version: AUTHORED_BEHAVIOR_VOCABULARY_VERSION,
+        validate: validate_prefab_part_interacted_signal,
+    }];
+    &DESCRIPTORS
+}
+
+fn validate_prefab_part_interacted_signal(
+    document_id: &str,
+    path: &str,
+    signal: &AuthoredBehaviorSignalDto,
+    index: &ReferenceIndex<'_>,
+    entry_scene_id: Option<SceneId>,
+    diagnostics: &mut Vec<ProjectContentDiagnosticDto>,
+) {
+    let Some(AuthoredBehaviorValueDto::PrefabPart {
+        scene_instance_id,
+        role,
+    }) = authored_argument(&signal.arguments, "part")
+    else {
+        push(
+            diagnostics,
+            ProjectContentDiagnosticCode::InvalidField,
+            Some(document_id),
+            &format!("{path}.signal.arguments"),
+            "prefab-part-interacted requires one typed `part` argument",
+        );
+        return;
+    };
+    if signal.arguments.len() != 1
+        || !matches!(
+            index.scene_instances.get(scene_instance_id),
+            Some(SceneInstanceReference::Prefab {
+                scene_id,
+                prefab_id,
+            }) if Some(*scene_id) == entry_scene_id
+                && index
+                    .prefabs
+                    .get(prefab_id)
+                    .is_some_and(|roles| roles.contains(role))
+        )
+    {
+        push(
+            diagnostics,
+            ProjectContentDiagnosticCode::UnknownReference,
+            Some(document_id),
+            &format!("{path}.signal"),
+            "prefab interaction signal must resolve an instantiated prefab part role",
+        );
     }
 }
 

@@ -577,6 +577,12 @@ pub(crate) fn validate_replayed_scheduler_codecs(
                     })?;
             }
             GameplaySchedulerFact::Triggered { dispatch, .. } => {
+                if allow_authored_program
+                    && dispatch.proposal.proposal
+                        == crate::authored_behavior::authored_program_step_contract()
+                {
+                    continue;
+                }
                 registry
                     .admit_proposal(&dispatch.proposal)
                     .map_err(|error| {

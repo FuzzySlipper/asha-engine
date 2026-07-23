@@ -448,4 +448,14 @@ pub trait RuntimeBridge {
         &mut self,
         request: RuntimeProjectCloseRequest,
     ) -> BridgeResult<RuntimeProjectCloseReceipt>;
+    /// Save authoritative gameplay/time state separately from project source.
+    fn save_runtime_project_gameplay_checkpoint(
+        &mut self,
+        request: RuntimeProjectGameplayCheckpointSaveRequest,
+    ) -> BridgeResult<RuntimeProjectGameplayCheckpointSaveReceipt>;
+    /// Rebuild the currently opened matching project from one Rust checkpoint.
+    fn restore_runtime_project_gameplay_checkpoint(
+        &mut self,
+        request: RuntimeProjectGameplayCheckpointRestoreRequest,
+    ) -> BridgeResult<RuntimeProjectGameplayCheckpointRestoreReceipt>;
 }

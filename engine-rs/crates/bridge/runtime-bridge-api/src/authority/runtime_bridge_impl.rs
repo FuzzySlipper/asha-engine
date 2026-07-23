@@ -1786,4 +1786,18 @@ impl RuntimeBridge for EngineBridge {
     ) -> BridgeResult<RuntimeProjectCloseReceipt> {
         Ok(self.close_runtime_project_authority(request))
     }
+
+    fn save_runtime_project_gameplay_checkpoint(
+        &mut self,
+        request: RuntimeProjectGameplayCheckpointSaveRequest,
+    ) -> BridgeResult<RuntimeProjectGameplayCheckpointSaveReceipt> {
+        Ok(self.save_runtime_project_gameplay_checkpoint_authority(request))
+    }
+
+    fn restore_runtime_project_gameplay_checkpoint(
+        &mut self,
+        request: RuntimeProjectGameplayCheckpointRestoreRequest,
+    ) -> BridgeResult<RuntimeProjectGameplayCheckpointRestoreReceipt> {
+        Ok(self.restore_runtime_project_gameplay_checkpoint_authority(request))
+    }
 }

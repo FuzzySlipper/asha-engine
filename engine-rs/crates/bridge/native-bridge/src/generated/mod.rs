@@ -480,6 +480,18 @@ pub(crate) const REQUIRED_NATIVE_EXPORTS: &[(&str, &str, usize, usize)] = &[
         8388608,
         8388608,
     ),
+    (
+        "save_runtime_project_gameplay_checkpoint",
+        "saveRuntimeProjectGameplayCheckpoint",
+        8388608,
+        8388608,
+    ),
+    (
+        "restore_runtime_project_gameplay_checkpoint",
+        "restoreRuntimeProjectGameplayCheckpoint",
+        8388608,
+        8388608,
+    ),
 ];
 
 pub(crate) fn native_wire_limits(operation: &str) -> Option<(usize, usize)> {

@@ -56,6 +56,10 @@ import type {
   ProjectSourceBatchValidationReceipt,
   RuntimeProjectCloseReceipt,
   RuntimeProjectCloseRequest,
+  RuntimeProjectGameplayCheckpointRestoreReceipt,
+  RuntimeProjectGameplayCheckpointRestoreRequest,
+  RuntimeProjectGameplayCheckpointSaveReceipt,
+  RuntimeProjectGameplayCheckpointSaveRequest,
   RuntimeProjectLoadReceipt,
   RuntimeProjectLoadRequest,
   RuntimeProjectSourceBatch,
@@ -1638,6 +1642,30 @@ export class MockRuntimeBridge implements RuntimeBridge, WorkspaceAuthoringOpenA
       throw new RuntimeBridgeError('not_initialized', 'closeRuntimeProject before initializeEngine');
     }
     return this.#runtimeProjects.close(request);
+  }
+
+  saveRuntimeProjectGameplayCheckpoint(
+    request: RuntimeProjectGameplayCheckpointSaveRequest,
+  ): RuntimeProjectGameplayCheckpointSaveReceipt {
+    if (this.#engine === null) {
+      throw new RuntimeBridgeError(
+        'not_initialized',
+        'saveRuntimeProjectGameplayCheckpoint before initializeEngine',
+      );
+    }
+    return this.#runtimeProjects.saveCheckpoint(request);
+  }
+
+  restoreRuntimeProjectGameplayCheckpoint(
+    request: RuntimeProjectGameplayCheckpointRestoreRequest,
+  ): RuntimeProjectGameplayCheckpointRestoreReceipt {
+    if (this.#engine === null) {
+      throw new RuntimeBridgeError(
+        'not_initialized',
+        'restoreRuntimeProjectGameplayCheckpoint before initializeEngine',
+      );
+    }
+    return this.#runtimeProjects.restoreCheckpoint(request);
   }
 
   loadReplayFixture(fixture: ReplayFixture): ReplaySessionHandle {

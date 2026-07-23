@@ -677,6 +677,66 @@ pub struct RuntimeProjectCloseReceipt {
     pub diagnostics: Vec<RuntimeProjectDiagnostic>,
 }
 
+pub const RUNTIME_PROJECT_GAMEPLAY_CHECKPOINT_SCHEMA_VERSION: u32 = 1;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RuntimeProjectCheckpointTimeMode {
+    Paused,
+    Running,
+}
+
+/// Portable authoritative gameplay state for one exact admitted project.
+/// Stored project sources remain separate and must be reopened normally before
+/// this checkpoint can be restored.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RuntimeProjectGameplayCheckpoint {
+    pub schema_version: u32,
+    pub project_id: u64,
+    pub manifest_hash: String,
+    pub admission_hash: String,
+    pub content_set_hash: String,
+    pub composition_hash: String,
+    pub authority_tick: u64,
+    pub time_mode: RuntimeProjectCheckpointTimeMode,
+    pub speed_multiplier: u8,
+    pub time_revision: u64,
+    pub gameplay_snapshot: String,
+    pub checkpoint_hash: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RuntimeProjectGameplayCheckpointSaveRequest {
+    pub expected_lifecycle: RuntimeProjectLifecycleVersion,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RuntimeProjectGameplayCheckpointSaveReceipt {
+    pub accepted: bool,
+    pub checkpoint: Option<RuntimeProjectGameplayCheckpoint>,
+    pub lifecycle: RuntimeProjectLifecycleVersion,
+    pub diagnostics: Vec<RuntimeProjectDiagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RuntimeProjectGameplayCheckpointRestoreRequest {
+    pub expected_lifecycle: RuntimeProjectLifecycleVersion,
+    pub checkpoint: RuntimeProjectGameplayCheckpoint,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RuntimeProjectGameplayCheckpointRestoreReceipt {
+    pub accepted: bool,
+    pub active_project: Option<ActiveRuntimeProjectIdentity>,
+    pub lifecycle: RuntimeProjectLifecycleVersion,
+    pub diagnostics: Vec<RuntimeProjectDiagnostic>,
+}
+
 // ── Canonical project write candidate ──────────────────────────────────────
 
 /// Exact stored state used on both sides of the host transaction handshake.
